@@ -44,6 +44,7 @@ UN = "prelude/SATS/unsafe.sats"
 
 (* ****** ****** *)
 
+#staload "./../SATS/stamp0.sats"
 #staload "./../SATS/label0.sats"
 #staload "./../SATS/symbol.sats"
 
@@ -1213,13 +1214,46 @@ end // end of [local]
 
 (* ****** ****** *)
 
+local
+
+fun
+tyrec_kind
+(t2p1: t2ype): int =
+(
+case+
+t2p1.node() of
+|
+T2Ptyrec
+(tknd, _, _) =>
+(
+case+ tknd of
+| TYRECbox0() => 1
+| TYRECbox1() => 1
+//
+| TYRECflt0() => 0
+(*
+| TYRECflt1(_) => 0
+*)
+| TYRECflt2(_) => 0
+)
+| _ (*non-T2Ptyrec*) => 1(*boxed*)
+) (* end of [tyrec_kind] *)
+
+in(*in-of-local*)
+
 implement
 d33exp_proj_up
 ( loc0
 , d3e1, lab2) =
 let
 //
-val t2p1 = d3e1.type()
+val t2p1 =
+d3e1.type()
+val t2p1 =
+hnfize(t2p1)
+//
+val knd1 =
+tyrec_kind(t2p1)
 val opt2 =
 t2ype_projize(t2p1, lab2)
 //
@@ -1227,6 +1261,12 @@ t2ype_projize(t2p1, lab2)
 val () =
 println!
 ("d33exp_proj_up: d3e1 = ", d3e1)
+val () =
+println!
+("d33exp_proj_up: t2p1 = ", t2p1)
+val () =
+println!
+("d33exp_proj_up: knd1 = ", knd1)
 val () =
 println!
 ("d33exp_proj_up: lab2 = ", lab2)
@@ -1237,21 +1277,56 @@ in
 case+ opt2 of
 |
 ~None_vt() =>
+(
+if
+t2ype_isdat(t2p1)
+then
+(
+let
+  val t2p2 = t2ype_new(loc0)
+in
+  d33exp_make_node
+  (loc0, t2p2, D3Epcon(d3e1, lab2))
+end
+)
+else
 let
   val t2p2 = t2ype_new(loc0)
 in
   d33exp_make_node
   (loc0, t2p2, D3Elcast(d3e1, lab2))
 end
+)
 |
 ~Some_vt(it2p2) =>
 let
   val (i0, t2p2) = it2p2
 in
 //
+if
+(knd1 > 0)
+then
+(
+// HX: boxed
+  d33exp_make_node
+  (loc0, t2p2, D3Eproj(d3e1, lab2, i0))
+)
+else
+(
+// HX: unboxed
 case+
 d3e1.node() of
+//
 | D3Eflat(d3el) =>
+  let
+    val tprj = t2ype_lft(t2p2)
+  in
+    d33exp_make_node
+    (loc0, tprj, D3Eproj(d3el, lab2, i0))
+  end
+//
+// HX: deref
+| D3Eeval(1, d3el) =>
   let
     val tprj = t2ype_lft(t2p2)
   in
@@ -1264,10 +1339,11 @@ d3e1.node() of
     d33exp_make_node
     (loc0, t2p2, D3Eproj(d3e1, lab2, i0))
   )
+) (* end of [else] *)
 //
 end
 //
-end // end of [d33exp_proj_up]
+end (* d33exp_proj_up *) end // end of [local]
 
 (* ****** ****** *)
 
@@ -1296,6 +1372,353 @@ in
   (loc0, t2p0, D3Eassgn(d3e1, d3e2))
 end
 end // end of [d33exp_assgn_up]
+
+(* ****** ****** *)
+
+implement
+ti3env_reset(ti3e) =
+let
+val+
+TI3ENV(_, xtvs, _) = ti3e
+in (* in-of-let *)
+(
+list_foreach<t2xtv>(xtvs)
+) where
+{
+implement
+(env)(*tmp*)
+list_foreach$fwork<t2xtv><env>
+  (xtv, env) = xtv.type(the_t2ype_none0)
+}
+end // end of [ti3env_reset]
+
+(* ****** ****** *)
+
+implement
+ti3env_get_s2vs
+( ti3e ) =
+( s2vs ) where
+{
+val+
+TI3ENV(s2vs, _, _) = ti3e
+} (* end of [ti3env_get_s2vs] *)
+
+implement
+ti3env_get_targ
+( ti3e ) =
+( targ ) where
+{
+val+
+TI3ENV(_, _, targ) = ti3e
+} (* end of [ti3env_get_targ] *)
+
+implement
+ti3env_get_tsub
+( ti3e ) =
+let
+val+
+TI3ENV(_, xtvs, _) = ti3e
+in
+list_vt2t
+(
+list_map<t2xtv><t2ype>(xtvs)
+) where
+{
+implement
+list_map$fopr<t2xtv><t2ype>(xtv) = xtv.type()
+}
+end (* end of [ti3env_get_tsub] *)
+
+(* ****** ****** *)
+
+local
+//
+#staload
+T12 =
+"./../SATS/trans12.sats"
+//
+in
+implement
+fmodenv_get_t3imptbl(menv) =
+$UN.cast($T12.fmodenv_get_t3imptbl(menv))
+end // end of [local]
+
+(* ****** ****** *)
+
+local
+//
+#staload
+"libats/SATS/hashfun.sats"
+#staload
+"libats/SATS/hashtbl_chain.sats"
+//
+#staload _(*anon*) = "libats/DATS/qlist.dats"
+//
+#staload _(*anon*) = "libats/DATS/hashfun.dats"
+#staload _(*anon*) = "libats/DATS/linmap_list.dats"
+#staload _(*anon*) = "libats/DATS/hashtbl_chain.dats"
+//
+typedef key = uint
+typedef itm = implist
+//
+vtypedef hashtbl = hashtbl(key, itm)
+//
+in (* in of local *)
+
+(* ****** ****** *)
+//
+implement
+hash_key<key>(key) =
+$UN.cast
+(inthash_jenkins($UN.cast(key)))
+//
+implement
+gequal_val_val<key>(x, y) = (x = y)
+//
+(* ****** ****** *)
+
+implement
+t3imptbl_find_implist
+  (tbl, d2c) = let
+//
+val key =
+stamp2uint(d2c.stamp())
+//
+val tbl =
+$UN.castvwtp0{hashtbl}(tbl)
+val opt =
+hashtbl_search_opt(tbl, key)
+prval () = $UN.cast2void(tbl)
+//
+in
+//
+case+ opt of
+| ~Some_vt(imps) => imps
+| ~None_vt((*void*)) => implist_nil()
+//
+end // end of [t3imptbl_find_implist]
+
+(* ****** ****** *)
+//
+implement
+t3imptbl_make_d3eclist
+  (d3cs) =
+let
+//
+fun
+auxdcl
+( htbl
+: !hashtbl
+, d3cl: d3ecl): void =
+let
+val-
+D3Cimpdecl3
+( tok0, mopt
+, sqas, tqas
+, id2c, ti3a, ti2s
+, f3as, res1, body) = d3cl.node()
+in
+//
+if
+iseqz(ti2s)
+then
+((*function*))
+else
+(
+// template
+case+ id2c of
+|
+IMPLD2CST1
+(dqid, d2cs) =>
+let
+val-
+list_cons
+(d2c1, d2cs) = d2cs
+in
+  auxins(htbl, d2c1, d3cl)
+end
+|
+IMPLD2CST2
+(dqid, d2cs, opt3) =>
+(
+case+ opt3 of
+| None() => ()
+| Some(d2c1) => auxins(htbl, d2c1, d3cl)
+)
+)
+end // end of [auxdcl]
+//
+and
+auxins
+( htbl
+: !hashtbl
+, d2c1: d2cst
+, d3cl: d3ecl): void =
+let
+//
+val
+loc0 = d3cl.loc()
+//
+val-
+D3Cimpdecl3
+( tok0, mopt
+, sqas, tqas
+, id2c, ti3a, ti2s
+, f3as, res1, body) = d3cl.node()
+//
+(*
+val () =
+println!("auxins: d2c1 = ", d2c1)
+val () =
+println!("auxins: d3cl = ", d3cl)
+*)
+//
+val t2ps =
+(
+case- ti3a of 
+|
+TI3ARGsome(t2ps) => t2ps
+) : t2ypelst // end-of-val
+//
+val s2vs =
+(
+  auxs2vs_make(sqas, tqas)
+)
+val xtvs =
+list_vt2t
+(
+  list_map<s2var><t2xtv>(s2vs)
+) where
+{
+implement
+list_map$fopr<
+  s2var><t2xtv>(s2v) = t2xtv_new(loc0)
+} (* end of [val xtvs] *)
+val tsub =
+(
+  auxtsub_make(s2vs, xtvs)
+)
+//
+val t2ps =
+let
+val tsub = $UN.list_vt2t(tsub)
+in
+t2ypelst_subst_svarlst(t2ps, s2vs, tsub)
+end // end of [val]
+//
+val
+((*freed*)) = list_vt_free(tsub)
+//
+val ti3e = TI3ENV(s2vs, xtvs, t2ps)
+//
+val key =
+  stamp2uint(d2c1.stamp())
+val opt =
+  hashtbl_search_opt<key,itm>(htbl, key)
+//
+in
+//
+case+ opt of
+|
+~None_vt() =>
+let
+val itm0 =
+implist_cons
+(d3cl, ti3e, implist_nil())
+in   
+hashtbl_insert_any<key,itm>(htbl, key, itm0)
+end
+|
+~Some_vt(itm0) =>
+let
+val itm1 =
+implist_cons(d3cl, ti3e, itm0)
+in   
+hashtbl_insert_any<key,itm>(htbl, key, itm1)
+end
+//
+end // end of [auxins]
+//
+and
+auxtsub_make
+( s2vs
+: s2varlst
+, xtvs
+: t2xtvlst): t2ypelst_vt =
+(
+case+ s2vs of
+| list_nil() =>
+  list_vt_nil()
+| list_cons(s2v0, s2vs) =>
+  let
+  val-
+  list_cons(xtv0, xtvs) = xtvs
+  val s2t0 = s2v0.sort()
+  val t2p0 =
+  t2ype_srt_xtv(s2t0, xtv0)
+  in
+    list_vt_cons
+    (t2p0, auxtsub_make(s2vs, xtvs))
+  end
+) (* end of [auxtsub_make] *)
+and
+auxs2vs_make
+( sqas
+: sq2arglst
+, tqas
+: tq2arglst): s2varlst =
+let
+  val s2vs = sqas.s2vs()
+in
+  case s2vs of
+  | list_nil _ => tqas.s2vs()
+  | list_cons _ => s2vs + tqas.s2vs()
+end // end of [auxs2vs_make]
+//
+fun
+auxlst1
+( htbl: !hashtbl
+, d3cs: d3eclist): void =
+(
+case+ d3cs of
+| list_nil() => ()
+| list_cons
+  (d3c0, d3cs) => 
+  auxlst2(htbl, d3c0, d3cs)
+)
+and
+auxlst2
+( htbl
+: !hashtbl
+, d3cl: d3ecl
+, d3cs: d3eclist): void =
+(
+case+
+d3cl.node() of
+| D3Cimpdecl3 _ =>
+  let
+  val () =
+  auxdcl(htbl, d3cl) in auxlst1(htbl, d3cs)
+  end
+| _(*non-D3Cimpdecl3*) => auxlst1(htbl, d3cs)
+)
+//
+val
+mycap = i2sz(1*1024)
+val
+mytbl = 
+hashtbl_make_nil<key,itm>(mycap)
+//
+in
+let
+val () =
+auxlst1(mytbl, d3cs) in $UN.castvwtp0{t3imptbl}(mytbl)
+end
+end // end of [t3imptbl_make_d3eclist]
+
+(* ****** ****** *)
+
+end // end of [local]
 
 (* ****** ****** *)
 

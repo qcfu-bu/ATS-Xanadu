@@ -78,6 +78,10 @@ typedef d3gualst = $D3E.d3gualst
 typedef d3claulst = $D3E.d3claulst
 //
 (* ****** ****** *)
+
+#staload T33 = "./trans33.sats"
+
+(* ****** ****** *)
 //
 absvtype implenv_vtype = ptr
 vtypedef implenv = implenv_vtype
@@ -130,20 +134,31 @@ fun
 implenv_push_tsub
 ( env0
 : !implenv
-, s2vs: s2varlst, tsub: t2ypelst): void
+, s2vs: s2varlst
+, tsub: t2ypelst): void
 //
 (* ****** ****** *)
 //
-datatype
-ti3env =
-| TI3ENV of
-  (s2varlst, t2xtvlst, t2ypelst)
+fun
+t2ype_subst_implenv
+(t2ype, env0: !implenv): t2ype
+fun
+t2ypelst_subst_implenv
+(t2ypelst, env0: !implenv): t2ypelst
+//
+(* ****** ****** *)
 //
 fun
-implenv_add_d3ecl
+implenv_add_staload
 ( env0
 : !implenv
-, d3cl: d3ecl, ti3e: ti3env): void
+, d3cl: d3ecl): void
+fun
+implenv_add_impdecl3
+( env0
+: !implenv
+, d3cl: d3ecl
+, ti3e: $T33.ti3env): void
 //
 (* ****** ****** *)
 //
@@ -207,17 +222,33 @@ trans3t_declist
 (* ****** ****** *)
 //
 fun
+trans3t_fundecl
+( env0
+: !implenv, d3cl: d3ecl): d3ecl
+//
+(* ****** ****** *)
+//
+fun
 trans3t_timp
 ( env0
 : !implenv, d3cl: d3ecl): d3ecl
 //
+fun
+staload_find_timp
+( d3cl
+: d3ecl
+, d2c0
+: d2cst
+, targ
+: t2ypelst)
+: Option_vt@(d3ecl, s2varlst, t2ypelst)
 fun
 implenv_find_timp
 ( env0
 : !implenv
 , d2c0
 : d2cst
-, t2ps
+, targ
 : t2ypelst)
 : Option_vt@(d3ecl, s2varlst, t2ypelst)
 //

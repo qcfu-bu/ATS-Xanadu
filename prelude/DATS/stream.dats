@@ -9,7 +9,6 @@
 "./../SATS/stream.sats"
 *)
 
-
 (* ****** ****** *)
 //
 impltmp
@@ -23,6 +22,17 @@ stream_cons
 (
 $lazy(strmcon_cons(x0, xs))
 )
+//
+impltmp
+{a:type}
+gseq_nil
+<a,stream(a)>
+((*void*)) = stream_nil<a>()
+impltmp
+{a:type}
+gseq_cons
+<a,stream(a)>
+ (x0, xs) = stream_cons<a>(x0, xs)
 //
 (* ****** ****** *)
 //
@@ -107,6 +117,144 @@ case+ $eval(xs) of
   strmcon_vt_cons(map$fopr(x0), auxmain(xs))
 )
 } (* end of [stream_map_vt] *)
+
+(* ****** ****** *)
+
+impltmp
+<x0>(*tmp*)
+stream_filter
+  (xs) =
+(
+  auxmain(xs)
+) where
+{
+fnx
+auxmain(xs) =
+$lazy
+(auxloop($eval(xs)))
+and
+auxloop
+( xs
+: strmcon(x0)
+)
+: strmcon(x0) =
+(
+case+ xs of
+| strmcon_nil() =>
+  strmcon_nil()
+| strmcon_cons(x0, xs) =>
+  if
+  filter$test<x0>(x0)
+  then
+  strmcon_cons(x0, auxmain(xs)) else auxloop($eval(xs))
+)
+} (* end of [stream_filter] *)
+
+(* ****** ****** *)
+
+impltmp
+<x0>(*tmp*)
+stream_filter_vt
+  (xs) =
+(
+  auxmain(xs)
+) where
+{
+fnx
+auxmain(xs) =
+$llazy
+(auxloop($eval(xs)))
+and
+auxloop
+( xs
+: strmcon(x0)
+)
+: strmcon_vt(x0) =
+(
+case+ xs of
+| strmcon_nil() =>
+  strmcon_vt_nil()
+| strmcon_cons(x0, xs) =>
+  if
+  filter$test<x0>(x0)
+  then
+  strmcon_vt_cons(x0, auxmain(xs)) else auxloop($eval(xs))
+)
+} (* end of [stream_filter_vt] *)
+
+(* ****** ****** *)
+
+impltmp
+<x0><y0>
+stream_mapopt
+  (xs) =
+(
+  auxmain(xs)
+) where
+{
+fnx
+auxmain(xs) =
+$lazy
+(auxloop($eval(xs)))
+and
+auxloop(xs) =
+(
+case+ xs of
+| strmcon_nil() =>
+  strmcon_nil()
+| strmcon_cons(x0, xs) =>
+  let
+    val
+    opt =
+    mapopt$fopr<x0><y0>(x0)
+  in
+    case+ opt of
+    |
+    ~optn_vt_nil() =>
+     auxloop($eval(xs)) // tail-call
+    |
+    ~optn_vt_cons(y0) =>
+     strmcon_cons(y0, auxmain(xs))
+  end // end of [strmcon_cons]
+)
+} (* end of [stream_mapopt] *)
+
+(* ****** ****** *)
+
+impltmp
+<x0><y0>
+stream_mapopt_vt
+  (xs) =
+(
+  auxmain(xs)
+) where
+{
+fnx
+auxmain(xs) =
+$llazy
+(auxloop($eval(xs)))
+and
+auxloop(xs) =
+(
+case+ xs of
+| strmcon_nil() =>
+  strmcon_vt_nil()
+| strmcon_cons(x0, xs) =>
+  let
+    val
+    opt =
+    mapopt$fopr<x0><y0>(x0)
+  in
+    case+ opt of
+    |
+    ~optn_vt_nil() =>
+     auxloop($eval(xs)) // tail-call
+    |
+    ~optn_vt_cons(y0) =>
+     strmcon_vt_cons(y0, auxmain(xs))
+  end // end of [strmcon_cons]
+)
+} (* end of [stream_mapopt_vt] *)
 
 (* ****** ****** *)
 

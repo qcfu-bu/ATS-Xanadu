@@ -52,9 +52,16 @@ UN = "prelude/SATS/unsafe.sats"
 
 (* ****** ****** *)
 
+#staload "./../SATS/trans12.sats"
+
+(* ****** ****** *)
+
 #staload "./../SATS/staexp2.sats"
 #staload "./../SATS/statyp2.sats"
 #staload "./../SATS/dynexp2.sats"
+
+(* ****** ****** *)
+
 #staload "./../SATS/dynexp3.sats"
 
 (* ****** ****** *)
@@ -72,6 +79,125 @@ fprint_val<ti2arg> = fprint_ti2arg
 (* ****** ****** *)
 
 local
+//
+fun
+auxd3p1
+( d3p1
+: d3pat): void =
+(
+case+
+d3p1.node() of
+|
+D3Pvar(d2v1) =>
+let
+  val
+  t2p1 = d2v1.type()
+in
+  d2v1.type(t2ype_lft(t2p1))
+end
+|
+_(*non-D3Pvar*) => ((*void*))
+)
+and
+auxd3ps
+( npf1
+: int
+, d3ps
+: d3patlst): void =
+(
+case+ d3ps of
+|
+list_nil() => ()
+|
+list_cons(d3p1, d3ps) =>
+(
+  if
+  (npf1 > 0)
+  then
+  auxd3ps(npf1-1, d3ps)
+  else
+  (
+  auxd3ps(npf1-1, d3ps)
+  ) where
+  {
+    val () = auxd3p1(d3p1)
+  }
+) (* end of [list_cons] *)
+)
+//
+in
+//
+fun
+d3pat_leftize
+(d3p0: d3pat): void =
+(
+case+
+d3p0.node() of
+|
+D3Pdapp
+( d3f0
+, npf1, d3ps) =>
+let
+  val () = 
+  d3pat_leftize(d3f0)
+in
+  auxd3ps(npf1, d3ps)
+end // end of [D3Pdapp]
+|
+D3Panno(d3p1, _) =>
+(
+  d3pat_leftize(d3p1)
+)
+|
+_(* rest-of-d3pat *) => ()
+)
+//
+end (* end of [d3pat_leftize] *)
+
+(* ****** ****** *)
+
+local
+
+fun
+auxflat
+( d3p0
+: d3pat): d3pat = let
+//
+val
+loc0 = d3p0.loc()
+val-
+D3Pflat(d3p1) = d3p0.node()
+//
+val
+d3p1 = trans33_dpat(d3p1)
+//
+val () = d3pat_leftize(d3p1)
+//
+in
+  d3pat_make_node
+  (loc0, d3p1.type(), D3Pflat(d3p1))
+end // end of [auxflat]
+
+(* ****** ****** *)
+
+fun
+auxfree
+( d3p0
+: d3pat): d3pat = let
+//
+val
+loc0 = d3p0.loc()
+val-
+D3Pfree(d3p1) = d3p0.node()
+//
+val d3p1 = trans33_dpat(d3p1)
+//
+in
+  d3pat_make_node
+  (loc0, d3p1.type(), D3Pfree(d3p1))
+end // end of [auxfree]
+
+(* ****** ****** *)
 
 fun
 auxsym0
@@ -188,6 +314,9 @@ d3p0.node() of
 | D3Pany _ => d3p0
 //
 | D3Pvar _ => d3p0
+//
+| D3Pflat _ => auxflat(d3p0)
+| D3Pfree _ => auxfree(d3p0)
 //
 | D3Psym0 _ => auxsym0(d3p0)
 //
@@ -952,6 +1081,32 @@ end // end of [aux_fix]
 
 (* ****** ****** *)
 
+fun
+aux_try
+( d3e0
+: d3exp): d3exp = let
+//
+val
+loc0 = d3e0.loc()
+val-
+D3Etry
+( tok0
+, d3e1, dcls) = d3e0.node()
+//
+val d3e1 =
+  trans33_dexp(d3e1)
+//
+val tres = d3e1.type()
+val dcls =
+  trans33_dclaulst_dn(dcls, tres)
+//
+in
+d33exp_make_node
+(loc0, tres, D3Etry(tok0, d3e1, dcls))
+end (* end of [aux_try] *)
+
+(* ****** ****** *)
+
 (*
 fun
 aux_flat
@@ -1085,6 +1240,26 @@ end // end of [aux_fold]
 (* ****** ****** *)
 
 fun
+aux_raise
+( d3e0
+: d3exp): d3exp = let
+//
+val
+loc0 = d3e0.loc()
+val-
+D3Eraise(d3e1) = d3e0.node()
+//
+val t2p0 = t2ype_new(loc0)
+//
+val d3e1 = trans33_dexp(d3e1)
+//
+in
+d33exp_make_node(loc0, t2p0, D3Eraise(d3e1))
+end // end of [aux_raise]
+
+(* ****** ****** *)
+
+fun
 aux_lazy
 ( d3e0
 : d3exp): d3exp = let
@@ -1168,9 +1343,9 @@ implement
 trans33_dexp
   (d3e0) = let
 //
-(*
 val loc0 = d3e0.loc()
-*)
+val t2p0 = d3e0.type()
+//
 (*
 val ((*void*)) =
 println!
@@ -1233,12 +1408,19 @@ d3e0.node() of
   (_, _, _, _, _, _) => aux_fix(d3e0)
   // D3Efix
 //
+| D3Etry
+  (tok0, d3e1, dcls) => aux_try(d3e0)
+//
 (*
 | D3Eflat(d3e1) => aux_flat(d3e0)
 *)
 | D3Eaddr(d3e1) => aux_addr(d3e0)
 | D3Eeval(_, _) => aux_eval(d3e0)
 | D3Efold(d3e1) => aux_fold(d3e0)
+//
+| D3Eraise
+    (d3e1) => aux_raise(d3e0)
+  // end of [D3Eraise]
 //
 | D3Elazy
     (d3e1) => aux_lazy(d3e0)
@@ -1251,8 +1433,30 @@ d3e0.node() of
     (d3e1, s2e2) => aux_anno(d3e0)
   // type-annotation ascription
 //
-| D3Enone0 _ => d3e0
-| D3Enone1 _ => d3e0
+| D3Elcast(d3e1, lab2) =>
+  let
+    val d3e1 =
+    trans33_dexp(d3e1)
+  in
+    d3exp_make_node
+    (loc0, t2p0, D3Elcast(d3e1, lab2))
+  end  
+(*
+| D3Elcast(d3e1, lab2) => d3e0 (* HX: lab2: missing label *)
+*)
+| D3Etcast(d3e1, t2p2) =>
+  let
+    val d3e1 =
+    trans33_dexp(d3e1)
+  in
+    d3exp_make_node
+    (loc0, t2p0, D3Etcast(d3e1, t2p2))
+  end  
+(*
+| D3Etcast(d3e1, t2p2) => d3e0 (* HX: t2p2: expected type *)
+*)
+//
+| D3Enone0 _ => d3e0 | D3Enone1 _ => d3e0
 //
 | _ (* rest-of-d3exp *) => d3e0
 //
@@ -1491,6 +1695,57 @@ d3ecl_make_node
 , D3Cinclude(tok, src, knd, fopt, dopt))
 //
 end // end of [aux_include]
+
+(* ****** ****** *)
+
+fun
+aux_staload
+( d3cl
+: d3ecl): d3ecl = let
+//
+val
+loc0 = d3cl.loc()
+val-
+D3Cstaload
+( tok, src
+, knd, flag
+, fopt, mopt) = d3cl.node()
+//
+val () =
+(
+case+ mopt of
+|
+None() => ()
+|
+Some(menv) =>
+let
+val dopt =
+fmodenv_get_d3eclist(menv)
+in
+case- dopt of
+|
+Some(d3cs) =>
+let
+val
+d3cs = $UN.cast(d3cs)
+val
+d3cs = trans33_declist(d3cs)
+val
+htbl = t3imptbl_make_d3eclist(d3cs)
+in
+fmodenv_set_d3eclist(menv, $UN.cast(d3cs));
+fmodenv_set_t3imptbl(menv, $UN.cast(htbl));
+end
+end // end of [Some]
+)
+//
+in
+//
+d3ecl_make_node
+( loc0
+, D3Cstaload(tok, src, knd, flag, fopt, mopt))
+//
+end // end of [aux_staload]
 
 (* ****** ****** *)
 
@@ -1947,7 +2202,7 @@ case+ s2vs of
   case+ ti3a of
   | TI3ARGnone() => tfun
   | TI3ARGsome(t2ps) =>
-    t2ype_substs(tfun, s2vs, t2ps)
+    t2ype_subst_svarlst(tfun, s2vs, t2ps)
   )
 end
 ) : t2ype // end-of-val
@@ -2019,6 +2274,7 @@ d3cl.node() of
   }
 //
 | D3Cinclude _ => aux_include(d3cl)
+| D3Cstaload _ => aux_staload(d3cl)
 //
 | D3Clocal
   (d3cs1, d3cs2) => let

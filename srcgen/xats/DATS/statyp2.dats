@@ -51,6 +51,21 @@ UN="prelude/SATS/unsafe.sats"
 #staload "./../SATS/statyp2.sats"
 //
 (* ****** ****** *)
+//
+implement
+t2ype_isdat
+  (t2p0) =
+(
+case+
+t2p0.node() of
+| T2Pcst(s2c0) =>
+  s2cst_isdat(s2c0)
+| T2Papp(t2pf, _) =>
+  t2ype_isdat(t2pf)
+| _ (*rest-of-t2ype*) => false
+)
+//
+(* ****** ****** *)
 
 local
 
@@ -144,6 +159,9 @@ XATS_LAZY_T = symbol("xats_lazy_t")
 val
 XATS_LLAZY_VT = symbol("xats_llazy_vt")
 //
+val
+XATS_EXCPTN_VT = symbol("xats_excptn_vt")
+//
 end // end of [local]
 
 (* ****** ****** *)
@@ -224,6 +242,13 @@ val s2ts = list_sing(the_sort2_vtflt)
 val s2t0 = S2Tfun(s2ts, the_sort2_vtbox)
 }
 
+(* ****** ****** *)
+//
+implement
+the_t2ype_excptn =
+t2ype_make_name
+(the_sort2_vtbox, XATS_EXCPTN_VT)
+//
 (* ****** ****** *)
 
 implement
@@ -429,6 +454,9 @@ ifcase
 | sym=XATS_LLAZY_VT =>
   the_llazy_ctype.type((*void*))
 //
+| sym=XATS_EXCPTN_VT =>
+  the_excptn_ctype.type((*void*))
+//
 | _(*unrecognized base type*) => t2p0
 //
 end // end of [t2bas_eval]
@@ -443,6 +471,16 @@ t2p0.node() of
   (
     t2bas_eval(t2p0)
   )
+//
+| T2Pcst(s2c) => let
+    val
+    t2p1 = s2c.type()
+  in
+    case+ t2p1.node() of
+    | T2Pnone0() => t2p0
+    | _ (*else*) => t2ype_eval(t2p1)
+  end
+//
 | T2Pxtv(xtv) => let
     val
     t2p1 = xtv.type()

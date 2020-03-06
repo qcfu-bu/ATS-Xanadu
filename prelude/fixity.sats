@@ -108,9 +108,9 @@ app of 70 // app_prcdv
 (* ****** ****** *)
 //
 #infixr @ of 40 (*flat*)
-#prefix @ of 71 (*uflat*)
+#prefix @ of 69 (*uflat*)
 //
-#infixr :: of 40 (*cons*)
+#infixr :: of 40 (* cons *)
 //
 (* ****** ****** *)
 //
@@ -154,6 +154,10 @@ app of 70 // app_prcdv
 #infix0 :+= :-= :*= :/= // x:=x+a, x:=x-a, ...
 #infix0 :=+ :=- :=* :=/ // x:=a+x, x:=a-x, ...
 *)
+
+(* ****** ****** *)
+
+#prefix $raise of 0 // raising an excetion
 
 (* ****** ****** *)
 

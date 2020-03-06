@@ -204,6 +204,11 @@ case- x0.node() of
   fprint!
   (out, "D3Pcon2(", d2cs, ")")
 //
+| D3Pflat(d3p1) =>
+  fprint!(out, "D3Pflat(", d3p1, ")")
+| D3Pfree(d3p1) =>
+  fprint!(out, "D3Pfree(", d3p1, ")")
+//
 | D3Psym0(sym0, d2pis) =>
   (
   fprint!
@@ -351,7 +356,8 @@ x0.node() of
   fprint!
   ( out
   , "D3Etimp("
-  , d2e1, "; ", tsub1, "; ", d2c2, "; ", tsub2, ")")
+  , d2e1, "; "
+  , tsub1, "; ", d2c2, "; ", tsub2, ")")
 //
 | D3Esap0
   (d3e1, s2es) =>
@@ -376,6 +382,11 @@ x0.node() of
   ( out, "D3Edapp("
   , d3e1, "; ", npf2, "; ", d3es, ")")
 //
+| D3Epcon
+  (d3e1, lab2) =>
+  fprint!
+  ( out
+  , "D3Epcon(", d3e1, "; ", lab2, ")")
 | D3Eproj
   (d3e1, lab2, idx2) =>
   fprint!
@@ -458,6 +469,12 @@ x0.node() of
   , fid, "; ", f3as, "; "
   , tres, "; ", arrw, "; ", body, ")")
 //
+| D3Etry
+  (tok0, d3e1, dcls) =>
+  fprint!
+  ( out, "D3Etry("
+  , tok0, "; ", d3e1, "; ", dcls, ")")
+//
 | D3Eaddr(d3e1) =>
   (
    fprint!(out, "D3Eaddr(", d3e1, ")")
@@ -465,6 +482,11 @@ x0.node() of
 | D3Efold(d3e1) =>
   (
    fprint!(out, "D3Efold(", d3e1, ")")
+  )
+//
+| D3Eraise(d3e1) =>
+  (
+  fprint!(out, "D3Eraise(", d3e1, ")")
   )
 //
 | D3Elazy(d3e1) =>
@@ -669,6 +691,26 @@ x0.node() of
     case+ body of
     | None _ => "None()"
     | Some _ => "Some(<d3cls>)"): string
+  }
+//
+| D3Cstaload
+  ( tok
+  , src, knd
+  , fopt, flag, body) =>
+  (
+  fprint!
+  ( out
+  , "D3Cstaload("
+  , "src= ", src, "; "
+  , "knd= ", knd, "; "
+  , fopt, "; ", flag, "; ", body, ")")
+  ) where
+  {
+    val body =
+    (
+    case+ body of
+    | None _ => "None()"
+    | Some _ => "Some(<fmodenv>)"): string
   }
 //
 | D3Clocal(head, body) =>

@@ -1,7 +1,23 @@
 (* ****** ****** *)
 (*
-** for g-sequences
+** For gseq-operations
 *)
+(* ****** ****** *)
+//
+(*
+//
+// HX-2020-02-26:
+// this idea is abandoned!!!
+//
+absprop
+gseq_prop
+(x0: tflt, xs: tflt)
+propdef
+gseq
+( x0: tflt
+, xs: tflt) = gseq_prop(x0, xs)
+*)
+//
 (* ****** ****** *)
 
 fun
@@ -14,7 +30,7 @@ fun
 gseq_cons(x0, xs): xs
 
 (* ****** ****** *)
-
+//
 fun
 <x0:tflt
 ,xs:tflt>
@@ -23,73 +39,68 @@ fun
 <x0:tflt
 ,xs:tflt>
 gseq_cons?(xs): bool
-
+//
+(*
+fun
+<x0:tflt
+,xs:tflt>
+gseq_is_nil(xs): bool
+fun
+<x0:tflt
+,xs:tflt>
+gseq_is_cons(xs): bool
+*)
+//
+(* ****** ****** *)
+//
+fun
+<x0:tflt
+,xs:tflt>
+gseq_head_exn(xs): x0
+fun
+<x0:tflt
+,xs:tflt>
+gseq_tail_exn(xs): xs
+//
+fun
+<x0:tflt
+,xs:tflt>
+gseq_head_opt(xs): optn_vt(x0)
+fun
+<x0:tflt
+,xs:tflt>
+gseq_tail_opt(xs): optn_vt(xs)
+//
+(* ****** ****** *)
+//
+fun
+<x0:tflt
+,xs:tflt>
+gseq_last_exn(xs): x0
+fun
+<x0:tflt
+,xs:tflt>
+gseq_last_opt(xs): optn_vt(x0)
+//
+(* ****** ****** *)
+//
+fun
+<x0:tflt
+,xs:tflt>
+gseq_uncons_exn
+  (xs: &xs >> xs): x0
+fun
+<x0:tflt
+,xs:tflt>
+gseq_uncons_opt
+  (xs: &xs >> xs): optn_vt(x0)
+//
 (* ****** ****** *)
 
 fun
 <x0:tflt
 ,xs:tflt>
 gseq_length(xs): nint
-
-(* ****** ****** *)
-
-fun
-<x0:tflt
-,xs:tflt>
-gseq_forall(xs): bool
-#symload
-forall with gseq_forall
-
-(* ****** ****** *)
-
-fun
-<x0:tflt
-,xs:tflt>
-gseq_foreach(xs): void
-#symload
-foreach with gseq_foreach
-
-(* ****** ****** *)
-//
-fun
-<x0:tflt
-,xs:tflt>
-gseq_listize
-  (xs: xs): list_vt(x0)
-#symload
-listize with gseq_listize
-//
-fun
-<x0:tflt
-,xs:tflt>
-gseq_streamize
-  (xs: xs): stream_vt(x0)
-#symload
-streamize with gseq_streamize
-//
-(* ****** ****** *)
-//
-(*
-gseq_map: map$fopr
-gseq_maprev: map$fopr
-*)
-//
-fun
-<x0:tflt
-,xs:tflt>
-<y0:vtflt>
-gseq_map_list
-  (xs: xs): list_vt(y0)
-#symload
-map_list with gseq_map_list
-fun
-<x0:tflt
-,xs:tflt>
-<y0:vtflt>
-gseq_maprev_list
-  (xs: xs): list_vt(y0)
-#symload
-maprev_list with gseq_maprev_list
 
 (* ****** ****** *)
 //
@@ -109,15 +120,175 @@ fun
 <r0:vtflt>
 gseq_foldr(xs, r0): r0
 //
-#symload foldl with gseq_foldl
-#symload foldr with gseq_foldr
+(* ****** ****** *)
+
+fun
+<x0:tflt
+,xs:tflt>
+gseq_forall(xs): bool
+fun
+<x0:tflt
+,xs:tflt>
+gseq_foreach(xs): void
+
+(* ****** ****** *)
+//
+fun
+<x0:tflt
+,xs:tflt>
+gseq_listize(xs): list_vt(x0)
+//
+fun
+<x0:tflt
+,xs:tflt>
+gseq_streamize(xs): stream_vt(x0)
+//
+(* ****** ****** *)
+//
+(*
+gseq_map: map$fopr
+*)
+//
+fun
+<x0:tflt
+,xs:tflt>
+<y0:vtflt>
+gseq_map_list(xs): list_vt(y0)
+fun
+<x0:tflt
+,xs:tflt>
+<y0:vtflt>
+gseq_map_rlist(xs): list_vt(y0)
+//
+(* ****** ****** *)
+
+fun
+<x0:tflt
+,xs:tflt>
+gseq_copy_list(xs): list_vt(x0)
+fun
+<x0:tflt
+,xs:tflt>
+gseq_copy_rlist(xs): list_vt(x0)
+
+(* ****** ****** *)
+
+fun
+<x0:tflt
+,xs:tflt>
+gseq_filter_list(xs): list_vt(x0)
+fun
+<x0:tflt
+,xs:tflt>
+gseq_filter_rlist(xs): list_vt(x0)
+
+(* ****** ****** *)
+//
+fun
+<x0:tflt
+,xs:tflt>gseq_add(xs): x0
+fun
+<x0:tflt
+,xs:tflt>gseq_mul(xs): x0
+//
+fun
+<x0:tflt
+,xs:tflt>gseq_max2(xs, x0): x0
+fun
+<x0:tflt
+,xs:tflt>gseq_min2(xs, x0): x0
 //
 (* ****** ****** *)
 //
 fun
-<x0:tflt,xs:tflt>gseq_add(xs): x0
+<x0:tflt
+,xs:tflt>
+gseq_rforall(xs): bool
 fun
-<x0:tflt,xs:tflt>gseq_mul(xs): x0
+<x0:tflt
+,xs:tflt>
+gseq_rforeach(xs): void
+//
+(* ****** ****** *)
+//
+fun
+<x0:tflt
+,xs:tflt>
+gseq_rlistize(xs): list_vt(x0)
+//
+(* ****** ****** *)
+//
+fun
+<x0:tflt
+,xs:tflt>
+gseq_append(xs1: xs, xs2: xs): xs
+//
+fun
+<x0:tflt
+,xs:tflt>
+gseq_reverse(xs: xs): xs
+fun
+<x0:tflt
+,xs:tflt>
+gseq_rappend(xs1: xs, xs2: xs): xs
+//
+(* ****** ****** *)
+//
+// For gseq2-operations
+//
+(* ****** ****** *)
+//
+fun
+<x0:tflt
+,xs:tflt>
+<y0:tflt
+,ys:tflt>
+<r0:vtflt>
+gseq_z2foldl
+  ( xs: xs
+  , ys: ys, r0: r0): r0
+fun
+<x0:tflt
+,xs:tflt>
+<y0:tflt
+,ys:tflt>
+<r0:vtflt>
+gseq_z2foldr
+  ( xs: xs
+  , ys: ys, r0: r0): r0
+//
+fun
+<x0:tflt
+,xs:tflt>
+<y0:tflt
+,ys:tflt>
+gseq_z2forall
+  (xs: xs, ys: ys): bool
+fun
+<x0:tflt
+,xs:tflt>
+<y0:tflt
+,ys:tflt>
+gseq_z2foreach
+  (xs: xs, ys: ys): void
+//
+(* ****** ****** *)
+//
+fun
+<x0:tflt
+,xs:tflt>
+<y0:tflt
+,ys:tflt>
+gseq_z2map_list
+  (xs: xs, ys: ys): list_vt(r0)
+fun
+<x0:tflt
+,xs:tflt>
+<y0:tflt
+,ys:tflt>
+<r0:vtflt>
+gseq_z2map_rlist
+  (xs: xs, ys: ys): list_vt(r0)
 //
 (* ****** ****** *)
 

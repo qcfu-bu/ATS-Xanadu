@@ -1819,8 +1819,10 @@ case+ tnd of
     val topt =
     ( if
       (k0 <= 1)
-      then None()
-      else Some(p_LPAREN(buf, err))
+      then
+      None((*void*))
+      else
+      Some(p_LPAREN(buf, err))
     ) : tokenopt // end of [val]
     val s0es =
       p_s0expseq_COMMA(buf, err)
@@ -2439,12 +2441,6 @@ end // end of [p_effs0expopt]
 d0atcon::
 | s0uniseq d0eid [s0exp] [OF sort0]
 *)
-extern
-fun
-p_d0atcon: parser(d0atcon)
-extern
-fun
-p_d0atconseq_BAR: parser(d0atconlst)
 //
 implement
 p_d0atcon
@@ -2574,7 +2570,7 @@ case+ d0cs of
     val d0c =
     list_last(d0cs) in sid.loc() + d0c.loc()
   end // end of [list_cons]
-) : loc_t // end of [val]
+) : loc_t // end of [val loc_res]
 //
 in
 //

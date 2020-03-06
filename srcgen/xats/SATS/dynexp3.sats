@@ -107,6 +107,9 @@ d3pat_node =
 | D3Pcon1 of (d2con)
 | D3Pcon2 of (d2conlst)
 //
+| D3Pflat of (d3pat) // @
+| D3Pfree of (d3pat) // ~
+//
 | D3Psym0 of
   (d1pat(*sym*), d2pitmlst)
 //
@@ -314,9 +317,11 @@ d3exp_node =
 | D3Edapp of
   (d3exp, int(*npf*), d3explst)
 //
+| D3Epcon of
+  (d3exp(*con*), label(*proj*))
 | D3Eproj of
-  ( d3exp(*rcd*)
-  , label(*proj*), int(*index*))
+  (d3exp(*rcd*),
+   label(*proj*), int(*index*))
 //
 | D3Elet of
   (d3eclist, d3exp(*sequence*))
@@ -353,8 +358,14 @@ d3exp_node =
   , f3arglst(*arg*)
   , effs2expopt, f1unarrow, d3exp(*body*))
 //
+| D3Etry of
+    (token(*TRY*), d3exp(*val*), d3claulst)
+  // D3Etry
+//
 | D3Eaddr of d3exp(*l-value*)
 | D3Efold of d3exp(*open-con*)
+//
+| D3Eraise of d3exp(*lin-exn*)
 //
 // HX: for lazy-evaluation
 | D3Elazy of
@@ -687,6 +698,13 @@ d3ecl_node =
   , int(*knd*) // sta/dyn: 0/1
   , filpathopt
   , d3eclistopt) // file inclusion
+//
+| D3Cstaload of
+  ( token
+  , d1exp // src
+  , int(*knd*) // sta/dyn: 0/1
+  , filpathopt
+  , int(*shared*), fmodenvopt)
 //
 | D3Clocal of
   (d3eclist(*head*), d3eclist(*body*))

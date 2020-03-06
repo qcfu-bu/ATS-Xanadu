@@ -1,3 +1,43 @@
+var x: int = 0
+val p1 = $addr(x)
+val p2 = $addr($eval(p1))
+////
+val xs =
+list_cons
+(1, list_nil())
+val x0 = $addr(xs.1)
+////
+val x0 = $addr(xs.list_cons$1)
+
+////
+
+var x0 = 0
+val p0 = &(x0)
+
+////
+
+val xs =
+list_cons
+(1, list_nil())
+val x0 = xs.list_cons$1
+
+////
+
+#symload nil with list_nil
+#symload cons with list_cons
+#symload nil_vt with list_vt_nil
+#symload cons_vt with list_vt_cons
+
+val
+xs =
+cons_vt(0, nil_vt())
+val
+~cons_vt(x0, ys) = xs
+val
+@cons_vt(x0, ys) = xs
+
+////
+
 #symload
 nil with list_nil
 #symload
@@ -292,3 +332,7 @@ implement map$fopr(cs) = permute(xs)
 {
 implement filter$test(cs) = word?(cs)
 }
+
+(* ****** ****** *)
+
+(* end of [test02.dats] *)

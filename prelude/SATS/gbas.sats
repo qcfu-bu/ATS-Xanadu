@@ -63,24 +63,51 @@ g_nequal(!a, !a): void
 
 fun
 <x0:t0><y0:vt>
-map$fopr(x0: x0): y0
+map$fopr(x0: x0): (y0)
 fun
 <x0:vt><y0:vt>
-map0$fopr(x0: x0): y0
+map0$fopr(x0: x0): (y0)
 fun
 <x0:vt><y0:vt>
-map1$fopr(x0: !x0): y0
+map1$fopr(x0: !x0): (y0)
 
+(* ****** ****** *)
+
+fun
+<x0:t0>
+filter$test(x0: x0): bool
+fun
+<x0:vt>
+filter0$test(x0: x0): bool
+fun
+<x0:vt>
+filter1$test(x0: !x0): bool
+
+(* ****** ****** *)
+//
+// HX-2020-03-05:
+// Using filter + map together
+//
+fun
+<x0:t0><y0:vt>
+mapopt$fopr(x0): optn_vt(y0)
+fun
+<x0:vt><y0:vt>
+mapopt0$fopr(x0): optn_vt(y0)
+fun
+<x0:vt><y0:vt>
+mapopt1$fopr(x0: !x0): optn_vt(y0)
+//
 (* ****** ****** *)
 
 fun
 <x0:t0>
 forall$test(x0: x0): bool
 fun
-<x0:t0>
+<x0:vt>
 forall0$test(x0: x0): bool
 fun
-<x0:t0>
+<x0:vt>
 forall1$test(x0: !x0): bool
 
 (* ****** ****** *)
@@ -89,10 +116,10 @@ fun
 <x0:t0>
 foreach$work(x0: x0): void
 fun
-<x0:t0>
+<x0:vt>
 foreach0$work(x0: x0): void
 fun
-<x0:t0>
+<x0:vt>
 foreach1$work(x0: !x0): void
 
 (* ****** ****** *)
@@ -112,6 +139,96 @@ fun
 <a:vt>
 <n:i0>
 tabulate$fopr(i0: nintlt(n)): (a)
+//
+(* ****** ****** *)
+
+fun
+<x0:t0>
+rforall$test(x0: x0): bool
+fun
+<x0:vt>
+rforall0$test(x0: x0): bool
+fun
+<x0:vt>
+rforall1$test(x0: !x0): bool
+
+(* ****** ****** *)
+
+fun
+<x0:t0>
+rforeach$work(x0: x0): void
+fun
+<x0:vt>
+rforeach0$work(x0: x0): void
+fun
+<x0:vt>
+rforeach1$work(x0: !x0): void
+
+(* ****** ****** *)
+//
+// For 2-gseq-operations
+//
+(* ****** ****** *)
+//
+fun
+<x0:t0
+,y0:t0>
+<r0:vt>
+x2foldl$fopr(r0, x0, y0): r0
+fun
+<x0:t0
+,y0:t0>
+<r0:vt>
+x2foldr$fopr(x0, y0, r0): r0
+//
+fun
+<x0:t0
+,y0:t0>
+x2forall$test(x0, y0): bool
+fun
+<x0:t0
+,y0:t0>
+x2foreach$work(x0, y0): void
+//
+#symload
+xfoldl$fopr with x2foldl$fopr
+#symload
+xfoldr$fopr with x2foldr$fopr
+#symload
+xforall$test with x2forall$test
+#symload
+xforeach$work with x2foreach$work
+//
+(* ****** ****** *)
+//
+fun
+<x0:t0
+,y0:t0>
+<r0:vt>
+z2foldl$fopr(r0, x0, y0): r0
+fun
+<x0:t0
+,y0:t0>
+<r0:vt>
+z2foldr$fopr(x0, y0, r0): r0
+//
+fun
+<x0:t0
+,y0:t0>
+z2forall$test(x0, y0): bool
+fun
+<x0:t0
+,y0:t0>
+z2foreach$work(x0, y0): void
+//
+#symload
+zfoldl$fopr with z2foldl$fopr
+#symload
+zfoldr$fopr with z2foldr$fopr
+#symload
+zforall$test with z2forall$test
+#symload
+zforeach$work with z2foreach$work
 //
 (* ****** ****** *)
 

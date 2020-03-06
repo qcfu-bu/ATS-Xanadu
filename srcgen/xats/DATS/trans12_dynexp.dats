@@ -306,8 +306,60 @@ D1Papp1
 ( d1p1
 , d1p2) = d1p0.node()
 //
+fun
+isFLAT
+(d1p: d1pat): bool =
+(
+case+
+d1p.node() of
+| D1Pid(tok) =>
+  (
+  case+
+  tok.node() of
+  | T_IDENT_sym(x) => (x = "@")
+  | _(* non-T_IDENT_sym *) => false
+  )
+| _(* non-D1Pid *) => false
+)
+fun
+isFREE
+(d1p: d1pat): bool =
+(
+case+
+d1p.node() of
+| D1Pid(tok) =>
+  (
+  case+
+  tok.node() of
+  | T_IDENT_sym(x) => (x = "~")
+  | _(* non-T_IDENT_sym *) => false
+  )
+| _(* non-D1Pid *) => false
+)
+//
 in
 //
+ifcase
+//
+| isFLAT(d1p1) =>
+  let
+    val d2p2 =
+    trans12_dpat(d1p2)
+  in
+    d2pat_make_node
+    (d1p0.loc(), D2Pflat(d2p2))
+  end
+| isFREE(d1p1) =>
+  let
+    val d2p2 =
+    trans12_dpat(d1p2)
+  in
+    d2pat_make_node
+    (d1p0.loc(), D2Pfree(d2p2))
+  end
+//
+| _ (* else *) =>
+(
 case+
 d1p2.node() of
 //
@@ -322,6 +374,7 @@ d1p2.node() of
   end // end of [D1Psqarg]
 //
 | _(*rest-of-d1pat*) => auxapp1_0_(d1p0)
+)
 //
 end // end of [auxapp1]
 
@@ -1072,6 +1125,44 @@ D1Eapp1
 ( d1e1
 , d1e2) = d1e0.node()
 //
+fun
+isAMP
+(d1e: d1exp): bool =
+(
+case+
+d1e.node() of
+| D1Eid(tok) =>
+(
+case+
+tok.node() of
+|
+T_IDENT_sym(x) => (x = "&")
+|
+_(*non-T_IDENT_sym*) => false
+)
+|
+_(* non-D1Eid-d1exp *) => false
+)
+fun
+isBANG
+(d1e: d1exp): bool =
+(
+case+
+d1e.node() of
+|
+D1Eid(tok) =>
+(
+case+
+tok.node() of
+|
+T_IDENT_sym(x) => (x = "!")
+|
+_(* non-T_IDENT_sym *) => (false)
+)
+|
+_(* non-D1Eid-d1exp *) => (false)
+)
+//
 (*
 fun
 isFLAT
@@ -1080,13 +1171,16 @@ isFLAT
 case+
 d1e.node() of
 | D1Eid(tok) =>
-  (
-  case+
-  tok.node() of
-  | T_IDENT_sym(x) => (x = "@")
-  | _(* non-T_IDENT_sym *) => false
-  )
-| _(* non-D1Eid *) => false
+(
+case+
+tok.node() of
+|
+T_IDENT_sym(x) => (x = "@")
+|
+_(*non-T_IDENT_sym*) => false
+)
+|
+_(* non-D1Eid-d1exp *) => false
 )
 *)
 //
@@ -1096,29 +1190,18 @@ isADDR
 (
 case+
 d1e.node() of
-| D1Eid(tok) =>
-  (
-  case+
-  tok.node() of
-  | T_IDENT_dlr(x) => (x = "$addr")
-  | _(* non-T_IDENT_dlr *) => false
-  )
-| _(* non-D1Eid *) => false
-)
-fun
-isFOLD
-(d1e: d1exp): bool =
+|
+D1Eid(tok) =>
 (
 case+
-d1e.node() of
-| D1Eid(tok) =>
-  (
-  case+
-  tok.node() of
-  | T_IDENT_dlr(x) => (x = "$fold")
-  | _(* non-T_IDENT_dlr *) => false
-  )
-| _(* non-D1Eid *) => false
+tok.node() of
+|
+T_IDENT_dlr(x) => (x = "$addr")
+|
+_(* non-T_IDENT_dlr *) => (false)
+)
+|
+_(* non-D1Eid-d1exp *) => (false)
 )
 fun
 isEVAL
@@ -1126,14 +1209,38 @@ isEVAL
 (
 case+
 d1e.node() of
-| D1Eid(tok) =>
-  (
-  case+
-  tok.node() of
-  | T_IDENT_dlr(x) => (x = "$eval")
-  | _(* non-T_IDENT_dlr *) => false
-  )
-| _(* non-D1Eid *) => false
+|
+D1Eid(tok) =>
+(
+case+
+tok.node() of
+|
+T_IDENT_dlr(x) => (x = "$eval")
+|
+_(* non-T_IDENT_dlr *) => (false)
+)
+|
+_(* non-D1Eid-d1exp *) => (false)
+)
+//
+fun
+isFOLD
+(d1e: d1exp): bool =
+(
+case+
+d1e.node() of
+|
+D1Eid(tok) =>
+(
+case+
+tok.node() of
+|
+T_IDENT_dlr(x) => (x = "$fold")
+|
+_(* non-T_IDENT_dlr *) => (false)
+)
+|
+_(* non-D1Eid-d1exp *) => (false)
 )
 //
 fun
@@ -1142,14 +1249,18 @@ isLAZY
 (
 case+
 d1e.node() of
-| D1Eid(tok) =>
-  (
-  case+
-  tok.node() of
-  | T_IDENT_dlr(x) => (x = "$lazy")
-  | _(* non-T_IDENT_dlr *) => false
-  )
-| _(* non-D1Eid *) => false
+|
+D1Eid(tok) =>
+(
+case+
+tok.node() of
+|
+T_IDENT_dlr(x) => (x = "$lazy")
+|
+_(* non-T_IDENT_dlr *) => (false)
+)
+|
+_(* non-D1Eid-d1exp *) => (false)
 )
 fun
 isLLAZY
@@ -1157,19 +1268,60 @@ isLLAZY
 (
 case+
 d1e.node() of
-| D1Eid(tok) =>
-  (
-  case+
-  tok.node() of
-  | T_IDENT_dlr(x) => (x = "$llazy")
-  | _(* non-T_IDENT_dlr *) => false
-  )
-| _(* non-D1Eid *) => false
+|
+D1Eid(tok) =>
+(
+case+
+tok.node() of
+|
+T_IDENT_dlr(x) => (x = "$llazy")
+|
+_(* non-T_IDENT_dlr *) => (false)
+)
+|
+_(* non-D1Eid-d1exp *) => (false)
+)
+//
+fun
+isRAISE
+(d1e: d1exp): bool =
+(
+case+
+d1e.node() of
+|
+D1Eid(tok) =>
+(
+case+
+tok.node() of
+|
+T_IDENT_dlr(x) => (x = "$raise")
+|
+_(* non-T_IDENT_dlr *) => (false)
+)
+|
+_(* non-D1Eid-d1exp *) => (false)
 )
 //
 in
 //
 ifcase
+//
+| isAMP(d1e1) =>
+  let
+    val d2e2 =
+    trans12_dexp(d1e2)
+  in
+    d2exp_make_node
+    (d1e0.loc(), D2Eaddr(d2e2))
+  end
+| isBANG(d1e1) =>
+  let
+    val d2e2 =
+    trans12_dexp(d1e2)
+  in
+    d2exp_make_node
+    (d1e0.loc(), D2Eeval(d2e2))
+  end
 //
 (*
 | isFLAT(d1e1) =>
@@ -1223,6 +1375,15 @@ ifcase
   in
     d2exp_make_node
     (d1e0.loc(), D2Ellazy(d2e2, opt3))
+  end
+//
+| isRAISE(d1e1) =>
+  let
+    val d2e2 =
+    trans12_dexp(d1e2)
+  in
+    d2exp_make_node
+    (d1e0.loc(), D2Eraise(d2e2))
   end
 //
 | _ (* else *) =>
@@ -1921,6 +2082,18 @@ d1e0.node() of
       (knd, d2v, f2as, tres, arrw, body))
   end
 //
+| D1Etry
+  (tok, d1e1, d1cls) =>
+  (
+    d2exp_make_node
+    ( loc0
+    , D2Etry(tok, d2e1, d2cls))
+  ) where
+  {
+    val d2e1 = trans12_dexp(d1e1)
+    val d2cls = trans12_dclaulst(d1cls)
+  } (* end of [D1Etry] *)
+//
 | D1Eanno
   (d1e1, s1e2) =>
   (
@@ -2544,6 +2717,22 @@ auxck2
 ( s2tf: sort2
 , s2t1: sort2): s2exp =
 (
+let
+//
+(*
+val () =
+println!
+("\
+aux_sexpdef: \
+auxck2: s2tf = ", s2tf)
+val () =
+println!
+("\
+aux_sexpdef: \
+auxck2: s2t1 = ", s2t1)
+*)
+//
+in
 case+ s2tf of
 //
 | S2Tfun
@@ -2573,9 +2762,10 @@ case+ s2tf of
       | _ (* non-S2Tfun *) => s2tf
     )
   }
-) (* auxck2 *)
+end // end-of-let
+) (* end of auxck2 *)
 //
-} (* end of [val] *)
+} (* end of [where] *) // end of [val]
 //
 //
 val
@@ -3636,12 +3826,14 @@ auxsvs
 , svs1: s2varlst): void =
 (
 let
+(*
 val () =
 println!
 ("auxsvs: svs0 = ", svs0)
 val () =
 println!
 ("auxsvs: svs1 = ", svs1)
+*)
 in
 case+ svs0 of
 | list_nil() => ()
@@ -3698,12 +3890,14 @@ auxsexp_f1as
 , f1as: f1arglst): f2arglst =
 (
 let
+(*
 val () =
 println!
 ("auxsexp_f1as: s2e0 = ", s2e0)
 val () =
 println!
 ("auxsexp_f1as: f1as = ", f1as)
+*)
 in
 case+ f1as of
 | list_nil() =>
@@ -4088,8 +4282,8 @@ case+ s1cs of
 //
 in
 let
-  val+
-  D1TSORT(tok, s1cs) = d1t0.node() in loop(s1cs)
+val+
+D1TSORT(tok, s1cs) = d1t0.node() in loop(s1cs)
 end
 end // end of [auxd1t]
 and
@@ -4105,14 +4299,42 @@ case+ d1ts of
     val-
     list_cons
     (s2t0, s2ts) = s2ts
-    val () = auxd1t(d1t0, s2t0) in auxd1ts(d1ts, s2ts)
+    val () =
+    auxd1t(d1t0, s2t0) in auxd1ts(d1ts, s2ts)
   end // end of [auxd1ts]
 ) (* end of [auxd1ts] *)
 }
 //
 in
-  d2ecl_make_node(loc0, D2Cdatasort(d1cl))
+  d2ecl_make_node(loc0, D2Cdatasort(d1cl, s2ts))
 end // end of [aux_datasort]
+
+(* ****** ****** *)
+
+fun
+aux_excptcon
+( d1cl
+: d1ecl): d2ecl = let
+//
+val
+loc0 = d1cl.loc()
+val-
+D1Cexcptcon
+(knd, d1cs) = d1cl.node()
+//
+val s2c0 =
+the_excptn_ctype.scst()
+val svss = list_nil(*void*)
+val d2cs =
+trans12_datconlst(s2c0, svss, d1cs)
+//
+in
+let val () =
+the_dexpenv_add_conlst(d2cs)
+in
+  d2ecl_make_node(loc0, D2Cexcptcon(d1cl, d2cs))
+end
+end // end of [aux_excptcon]
 
 (* ****** ****** *)
 
@@ -4142,7 +4364,7 @@ val () =
 aux2_datypelst(s2cs, d1ts)
 //
 in
-  d2ecl_make_node(loc0, D2Cdatatype(d1cl))
+  d2ecl_make_node(loc0, D2Cdatatype(d1cl, s2cs))
 end // end of [aux_datatype]
 
 and
@@ -4188,6 +4410,9 @@ in
 //
 the_dexpenv_add_conlst(d2cs) where
 {
+//
+val () = s2cst_set_dconlst(s2c0, d2cs)
+//
 (*
 val () =
 println!
@@ -4313,7 +4538,7 @@ end // end of [local]
 //
 val
 d2cs =
-aux_dcstdeclist(tqas, d1cs)
+aux_dcstdeclist(knd, tqas, d1cs)
 //
 val ((*void*)) =
 the_sexpenv_popfree(pf0|(*void*))
@@ -4323,19 +4548,20 @@ val
 the_dexpenv_add_cstlst(d2cs)
 //
 in
-  d2ecl_make_node
-  (loc0, D2Cdynconst(knd, tqas, d2cs))
+d2ecl_make_node
+(loc0, D2Cdynconst(knd, tqas, d2cs))
 end // end of [aux_dynconst]
 
 and
 aux_dcstdecl
-( tqas
+( knd
+: token
+, tqas
 : tq2arglst
 , d1cl
 : d1cstdecl): d2cst = let
 //
 val+D1CSTDECL(rcd) = d1cl
-//
 //
 val (pf0|()) =
 the_sexpenv_pushnil((*void*))
@@ -4346,8 +4572,12 @@ auxarg1
 (d1cl, 0, rcd.arg, rcd.res)
 val ((*void*)) =
 //
-the_sexpenv_popfree(pf0|(*void*))
+the_sexpenv_popfree( pf0 | (*void*) )
 //
+(*
+val () =
+println!
+("aux_dcstdecl: knd = ", knd)
 val () =
 println!
 ("aux_dcstdecl: d1cl = ", d1cl)
@@ -4357,9 +4587,15 @@ println!
 val () =
 println!
 ("aux_dcstdecl: s2e0 = ", s2e0)
+*)
 //
 in
-  d2cst_make_idtp(rcd.nam, tqas, s2e0)
+let
+val nam = rcd.nam
+val knd = knd.node()
+in
+d2cst_make_idtp(nam, knd, tqas, s2e0)
+end
 end // end of [aux_dcstdecl]
 
 and
@@ -4372,11 +4608,8 @@ val sid =
 sexpid_sym(tok0)
 val s1e0 =
 s1exp_make_node
-(
-tok0.loc(), S1Eid(sid)
-)
-in
-  trans12_sexp_ci(s1e0)
+( tok0.loc()
+, S1Eid(sid)) in trans12_sexp_ci(s1e0)
 end // end of [auxsid]
 
 and
@@ -4577,7 +4810,9 @@ end
 
 and
 aux_dcstdeclist
-( tqas
+( knd
+: token
+, tqas
 : tq2arglst
 , d1cs
 : d1cstdeclist): d2cstlst =
@@ -4587,7 +4822,7 @@ list_map<d1cstdecl><d2cst>(d1cs)
 ) where
 {
 implement
-list_map$fopr<d1cstdecl><d2cst>(d1c) = aux_dcstdecl(tqas, d1c)
+list_map$fopr<d1cstdecl><d2cst>(d1c) = aux_dcstdecl(knd, tqas, d1c)
 } (* end of [aux_dcstdeclist] *)
 
 (* ****** ****** *)
@@ -4601,19 +4836,19 @@ trans12_decl
 val
 loc0 = d1cl.loc()
 //
-// (*
+(*
 val () =
 println!
 ("trans12_decl: d1cl = ", d1cl)
-// *)
+*)
 //
 in (* in-of-let *)
 //
 case-
 d1cl.node() of
 //
-| D1Cnone() => d2ecl_none1(d1cl)
-| D1Cnone(_) => d2ecl_none1(d1cl)
+| D1Cnone0() => d2ecl_none1(d1cl)
+| D1Cnone1(_) => d2ecl_none1(d1cl)
 //
 | D1Cstatic
   (tok, d1c) =>
@@ -4658,6 +4893,7 @@ d1cl.node() of
 //
 | D1Cdatasort _ => aux_datasort(d1cl)
 //
+| D1Cexcptcon _ => aux_excptcon(d1cl)
 | D1Cdatatype _ => aux_datatype(d1cl)
 //
 | D1Cdynconst _ => aux_dynconst(d1cl)

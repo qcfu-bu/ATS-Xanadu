@@ -55,6 +55,7 @@ UN = "prelude/SATS/unsafe.sats"
 
 (* ****** ****** *)
 
+#staload "./../SATS/trans33.sats"
 #staload "./../SATS/trans3t.sats"
 
 (* ****** ****** *)
@@ -67,7 +68,7 @@ fprint_val<t2ype> = fprint_t2ype
 (* ****** ****** *)
 //
 fn
-t2ype_substs
+t2ype_subst_svarlst
 ( t2p0: t2ype
 , s2vs: s2varlst
 , tsub: t2ypelst): t2ype =
@@ -75,10 +76,10 @@ t2ype_substs
 case+ s2vs of
 | list_nil _ => t2p0
 | list_cons _ =>
-  t2ype_substs(t2p0, s2vs, tsub)
+  t2ype_subst_svarlst(t2p0, s2vs, tsub)
 )
 fn
-t2ypelst_substs
+t2ypelst_subst_svarlst
 ( t2ps: t2ypelst
 , s2vs: s2varlst
 , tsub: t2ypelst): t2ypelst =
@@ -86,7 +87,7 @@ t2ypelst_substs
 case+ s2vs of
 | list_nil _ => t2ps
 | list_cons _ =>
-  t2ypelst_substs(t2ps, s2vs, tsub)
+  t2ypelst_subst_svarlst(t2ps, s2vs, tsub)
 )
 //
 (* ****** ****** *)
@@ -96,9 +97,11 @@ trans3t_program
   (d3cls) =
   (d3cls) where
 {
+//
 val
 env0 =
 implenv_make_nil()
+//
 val () =
 implenv_push_tsub
 ( env0
@@ -109,7 +112,9 @@ d3cls =
 trans3t_declist(env0, d3cls)
 //
 val () =
+(
   implenv_pop0_tsub(env0)
+)
 //
 val () = implenv_free_nil(env0)
 //
@@ -137,52 +142,35 @@ D3Etcst
 , ti3a
 , ti2s) = d3e0.node()
 //
-(*
+// (*
 val () =
 println!
 ("auxtcst: d2c0 = ", d2c0)
-*)
+// *)
 //
 val-
 TI3ARGsome(targ) = ti3a
 //
-(*
+// (*
 val () =
 println!
 ("auxtcst: ti3a = ", ti3a)
 val () =
 println!
 ("auxtcst: targ = ", targ)
-*)
-//
-local
-//
-val s2vs = env0.s2vs()
-val t2ps = env0.t2ps()
-//
-(*
-val () =
-println!
-("auxtcst: s2vs = ", s2vs)
-val () =
-println!
-("auxtcst: t2ps = ", t2ps)
-*)
-//
-in
+// *)
 val
 t2p0 =
-t2ype_substs(t2p0, s2vs, t2ps)
+t2ype_subst_implenv(t2p0, env0)
 val
 targ =
-t2ypelst_substs(targ, s2vs, t2ps)
-end
+t2ypelst_subst_implenv(targ, env0)
 //
-(*
+// (*
 val () =
 println!
 ("auxtcst: targ(1) = ", targ)
-*)
+// *)
 //
 val d3e0 =
 d3exp_make_node
@@ -207,10 +195,11 @@ let
 val () =
 implenv_push_tsub
 (env0, s2vs, tsub)
-val d3cl =
-trans3t_timp(env0, d3cl)
-val () =
-implenv_pop0_tsub(env0)
+//
+val
+d3cl = trans3t_timp(env0, d3cl)
+//
+val () = implenv_pop0_tsub(env0)
 //
 in
   d3exp_make_node
@@ -230,14 +219,14 @@ trans3t_dexp
 val loc0 = d3e0.loc()
 val t2p0 = d3e0.type()
 //
-(*
+// (*
 val () =
 println!
 ("trans3t_dexp: d3e0 = ", d3e0)
 val () =
 println!
 ("trans3t_dexp: t2p0 = ", t2p0)
-*)
+// *)
 //
 in
 //
@@ -250,6 +239,8 @@ d3e0.node() of
 | D3Eflt _ => d3e0
 | D3Estr _ => d3e0
 //
+| D3Etop _ => d3e0
+//
 | D3Evar _ => d3e0
 //
 | D3Econ1 _ => d3e0
@@ -259,6 +250,16 @@ d3e0.node() of
 | D3Etcst _ =>
   auxtcst(env0, d3e0)
 | D3Etimp _ => (d3e0)
+//
+| D3Esap1(d3e1, s2es) =>
+  let
+  val d3e1 =
+  trans3t_dexp(env0, d3e1)
+  in
+  d3exp_make_node
+  ( loc0
+  , t2p0, D3Esap1(d3e1, s2es))
+  end // end of [D3Esap1]
 //
 | D3Edapp
   (d3f0, npf1, d3es) =>
@@ -273,6 +274,16 @@ d3e0.node() of
   , D3Edapp(d3f0, npf1, d3es))
   end // end of [D3Edapp]
 //
+| D3Epcon
+  (d3e1, lab2) =>
+  let
+  val d3e1 =
+  trans3t_dexp(env0, d3e1)
+  in
+  d3exp_make_node
+  ( loc0
+  , t2p0, D3Epcon(d3e1, lab2))
+  end
 | D3Eproj
   (d3e1, lab2, idx2) =>
   let
@@ -401,6 +412,18 @@ d3e0.node() of
     , D3Efix(knd0, d2v0, arg1, res2, arrw, body))
   end // D3Efix
 //
+| D3Etry
+  (tok0, d3e1, d3cls) =>
+  let
+    val d3e1 =
+    trans3t_dexp(env0, d3e1)
+    val dcls =
+    trans3t_dclaulst(env0, d3cls)
+  in
+    d3exp_make_node
+    (loc0, t2p0, D3Etry(tok0, d3e1, d3cls))
+  end
+//
 | D3Eflat(d3e1) =>
   let
     val d3e1 =
@@ -440,6 +463,14 @@ d3e0.node() of
     d3exp_make_node(loc0, t2p0, D3Eeval(knd0, d3e1))
   end // end of [D3Eaddr]
 //
+| D3Eraise(d3e1) =>
+  let
+    val d3e1 =
+    trans3t_dexp(env0, d3e1)
+  in
+    d3exp_make_node(loc0, t2p0, D3Eraise(d3e1))
+  end // end of [D3Eraise]
+//
 | D3Elazy(d3e1) =>
   let
     val d3e1 =
@@ -464,6 +495,29 @@ d3e0.node() of
   in
     d3exp_make_node(loc0, t2p0, D3Eanno(d3e1, s2e2))
   end  
+//
+| D3Elcast(d3e1, lab2) =>
+  let
+    val d3e1 =
+    trans3t_dexp(env0, d3e1)
+  in
+    d3exp_make_node(loc0, t2p0, D3Elcast(d3e1, lab2))
+  end  
+(*
+| D3Elcast(d3e1, lab2) => d3e0 (* HX: lab2: missing label *)
+*)
+| D3Etcast(d3e1, t2p2) =>
+  let
+    val d3e1 =
+    trans3t_dexp(env0, d3e1)
+  in
+    d3exp_make_node(loc0, t2p0, D3Etcast(d3e1, t2p2))
+  end  
+(*
+| D3Etcast(d3e1, t2p2) => d3e0 (* HX: t2p2: expected type *)
+*)
+//
+| D3Enone0() => d3e0 | D3Enone1(d2e2) => d3e0 | D3Enone2(d3e2) => d3e0
 //
 end // end of [trans3t_dexp]
 
@@ -721,6 +775,18 @@ end // end of [aux_include]
 (* ****** ****** *)
 
 fun
+aux_staload
+( env0
+: !implenv
+, d3cl: d3ecl): d3ecl =
+let
+val () =
+implenv_add_staload(env0, d3cl) in d3cl
+end // end of [aux_staload]
+
+(* ****** ****** *)
+
+fun
 aux_valdecl
 ( env0
 : !implenv
@@ -795,22 +861,6 @@ aux_vardecl
 
 (* ****** ****** *)
 
-local
-
-fun
-auxd3cl
-( env0
-: !implenv
-, d3cl: d3ecl): d3ecl =
-(
-  d3cl
-) where
-{
- // HX: yet-to-be-done
-}
-
-in(*in-of-local*)
-
 fun
 aux_fundecl
 ( env0
@@ -820,7 +870,6 @@ let
 //
 val
 loc0 = d3cl.loc()
-//
 val-
 D3Cfundecl
 ( knd
@@ -833,7 +882,7 @@ case+ tqas of
 |
 list_nil _ =>
 (
-  auxd3cl(env0, d3cl)
+  trans3t_fundecl(env0, d3cl)
 )
 |
 list_cons _ =>
@@ -859,13 +908,11 @@ val ti3e = TI3ENV(s2vs, xtvs, t2ps)
 in
 let
 val () =
-implenv_add_d3ecl(env0, d3cl, ti3e) in d3cl
+implenv_add_impdecl3(env0, d3cl, ti3e) in d3cl
 end
 end // end of [list_cons]
 //
 end // end of [aux_fundecl]
-
-end // end of [local]
 
 (* ****** ****** *)
 //
@@ -950,10 +997,8 @@ val t2ps =
 case- ti3a of 
 |
 TI3ARGsome(t2ps) =>
-t2ypelst_substs
-( t2ps
-, env0.s2vs()
-, env0.t2ps())): t2ypelst
+t2ypelst_subst_implenv(t2ps, env0)
+) : t2ypelst // end-of-val
 //
 val s2vs =
 (
@@ -966,7 +1011,7 @@ list_vt2t
 ) where
 {
 implement
-list_map$fopr<s2var><t2xtv>(s2v) = t2xtv_new(loc0)
+list_map$fopr<s2var><t2xtv>(_) = t2xtv_new(loc0)
 } (* end of [val xtvs] *)
 val tsub =
 (
@@ -974,21 +1019,22 @@ val tsub =
 )
 //
 val t2ps =
-(
-t2ypelst_substs(t2ps, s2vs, tsub)
-) where
-{
-  val tsub = $UN.list_vt2t(tsub)
-}
-val ((*freed*)) = list_vt_free(tsub)
+let
+val tsub = $UN.list_vt2t(tsub)
+in
+t2ypelst_subst_svarlst(t2ps, s2vs, tsub)
+end // end of [val]
+//
+val
+((*freed*)) = list_vt_free(tsub)
 //
 val ti3e = TI3ENV(s2vs, xtvs, t2ps)
 //
 in
 //
 let
-val () =
-implenv_add_d3ecl(env0, d3cl, ti3e) in d3cl
+  val () =
+  implenv_add_impdecl3(env0, d3cl, ti3e) in d3cl
 end
 //
 end // end of [aux_impdecl3_tmp]
@@ -1036,6 +1082,11 @@ d3cl.node() of
     val d3cl =
     aux_include(env0, d3cl) in d3cl
   end // end of [D3Cinclude]
+| D3Cstaload _ =>
+  let
+    val d3cl =
+    aux_staload(env0, d3cl) in d3cl
+  end // end of [D3Cstaload]
 //
 | D3Clocal
   (d3cs1, d3cs2) =>
@@ -1100,14 +1151,9 @@ end // end of [trans3t_declist]
 
 (* ****** ****** *)
 
-local
-
-fun
-aux_fundecl
-( env0
-: !implenv
-, d3cl: d3ecl): d3ecl =
-let
+implement
+trans3t_fundecl
+  (env0, d3cl) = let
 //
 val-
 D3Cfundecl
@@ -1138,6 +1184,10 @@ val def = rcd.def
 val wtp = rcd.wtp
 val ctp = rcd.ctp
 //
+val ( ) =
+println!
+("trans3t_fundecl: d2c = ", d2c)
+//
 val def =
 (
 case+ def of
@@ -1146,7 +1196,6 @@ case+ def of
 | Some(d3e0) =>
   Some(trans3t_dexp(env0, d3e0))
 ) : d3expopt // end-of-val
-//
 //
 in
 F3UNDECL(
@@ -1189,7 +1238,20 @@ d3ecl_make_node
 ( d3cl.loc()
 , D3Cfundecl(tok0, mopt, tqas, f3ds)
 )
-end // end of [aux_fundecl]
+end // end of [trans3t__fundecl]
+
+(* ****** ****** *)
+
+local
+
+fun
+aux_fundecl
+( env0
+: !implenv
+, d3cl: d3ecl): d3ecl =
+(
+trans3t_fundecl(env0, d3cl)
+) (* end of [aux_fundecl] *)
 
 (* ****** ****** *)
 

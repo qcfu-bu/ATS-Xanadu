@@ -49,9 +49,9 @@ abssort true
 (*
 abssort int
 // [int] is built-in
-abssort bool
+abssort bool//tt,ff
 // [bool] is built-in
-abssort char
+abssort char//[0,256)
 // [char] is built-in
 *)
 //
@@ -276,7 +276,7 @@ p1tr_tbox
 (l:addr) <= p1tr_k
 abstype
 p2tr_tbox
-(l:addr, a:vtype) <= p2tr_k
+(x:vtype, l:addr) <= p2tr_k
 //
 typedef
 p1tr0 = [l:a0] p1tr_tbox(l)
@@ -284,19 +284,21 @@ typedef
 p1tr1(l: a0) = p1tr_tbox(l)
 //
 typedef
-p2tr0(a: vt) = [l:a0] p2tr_tbox(l, a)
+p2tr0(x: vt) = [l:a0] p2tr_tbox(x, l)
 typedef
-p2tr1(a: vt, l: a0) = p2tr_tbox(l, a)
+p2tr1(x: vt, l: a0) = p2tr_tbox(x, l)
 //
 typedef p1tr = p1tr0
 typedef p1tr(l:a0) = p1tr1(l)
-typedef p2tr(a:vt) = p2tr0(a)
-typedef p2tr(l:a0, a:vt) = p2tr1(l, a)
+typedef p2tr(x:vt) = p2tr0(x)
+typedef p2tr(x:vt, l:a0) = p2tr1(x, l)
 //
 (* ****** ****** *)
 
 typedef
 bool_k = $extype("xats_bool_t")
+typedef
+char_k = $extype("xats_char_t")
 
 typedef
 sint_k = $extype("xats_sint_t")
@@ -337,6 +339,19 @@ fbool = bool1(ff) // singleton
 //
 typedef bool = bool0
 typedef bool(b:bool) = bool1(b)
+//
+(* ****** ****** *)
+//
+abstype
+char_type(char) <= char_k
+//
+typedef
+char0 = [c:c0] char_type(c)
+typedef
+char1(c:char) = char_type(c)
+//
+typedef char = char0
+typedef char(c:char) = char1(c)
 //
 (* ****** ****** *)
 //
@@ -607,6 +622,9 @@ $extype("xats_sfloat_t")
 typedef
 dfloat_k =
 $extype("xats_dfloat_t")
+typedef
+dfloat_k =
+$extype("xats_ldfloat_t")
 //
 abstype
 gfloat_type(a:type) <= a
@@ -615,11 +633,15 @@ typedef
 sfloat = gfloat_type(sfloat_k)
 typedef
 dfloat = gfloat_type(dfloat_k)
+typedef
+ldfloat = gfloat_type(ldfloat_k)
 //
 typedef
 float = sfloat // single precision
 typedef
 double = dfloat // double precision
+typedef
+ldouble = ldfloat // double precision
 //
 (* ****** ****** *)
 //
@@ -671,14 +693,21 @@ vtypedef stropt_vt(n:int) = stropt1_vt(n)
 //
 (* ****** ****** *)
 //
+// HX:
+// For exceptions:
+//
+absvtype excptn_vt <= ptr
+//
+(* ****** ****** *)
+//
 abstype
 lazy_t0_x0(a: type+) <= ptr
 typedef
 lazy(a:type) = lazy_t0_x0(a)
 //
-abstype
+absvtype
 lazy_vt_vx(a: vtype+) <= ptr
-typedef
+vtypedef
 lazy_vt(a:vtype) = lazy_vt_vx(a)
 //
 (* ****** ****** *)
@@ -725,7 +754,7 @@ fun
 <a1:v0>
 <a2:v0>
 pfexch
-(pf1: !a0 >> a1, pf2: !a2 >> a1): void
+(pf1: !a0>>a1, pf2: !a2>>a1): void
 *)
 //
 (* ****** ****** *)
