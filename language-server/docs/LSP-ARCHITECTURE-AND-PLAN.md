@@ -278,12 +278,33 @@ checker team and the server team build against this contract in parallel.
       "typeDefUri":   "file:///.../prelude/...",   // optional: head type-constant location
       "typeDefRange": { "start": {...}, "end": {...} }   // optional
     }
+  ],
+  "symbols": [                           // WS-5 outline: one per TOP-LEVEL decl name
+    {
+      "name": "add",
+      "kind": 12,                        // LSP SymbolKind (12=Function,14=Constant,10=Enum,
+                                         //   11=Interface,5=Class,26=TypeParameter,22=EnumMember)
+      "range":          { "start": {...}, "end": {...} },   // the name span
+      "selectionRange": { "start": {...}, "end": {...} },   // == range in v1
+      "container": ""                    // "" for top-level; else nests under that parent
+    }
+  ],
+  "inlays": [                            // WS-5 inferred-type hints on val-bindings
+    {
+      "position": { "line": 1, "character": 5 },  // end of the bound name
+      "label": ": int",                  // ": <pretty-printed inferred type>"
+      "kind": 1                          // LSP InlayHintKind (1=Type)
+    }
   ]
 }
 ```
 
 **Phasing of the contract:** Phase 1 ships only `diagnostics` (others may be `[]`). Phase 2 adds
-`hovers`. Phase 3 adds `definitions`. The schema is stable; later phases only populate more arrays.
+`hovers`. Phase 3 adds `definitions`. **Phase 5 (WS-5)** adds `symbols` + `inlays`. The schema is
+stable; later phases only populate more arrays. **references / documentHighlight carry NO new
+array** — the server derives them from `definitions` by inverting the `(defUri, defRange)` key
+(every use already records its binding site). **workspace/symbol** is answered from a separate
+*textual* project-wide index (server-side), not from this per-file bundle.
 
 ### 4.1 Error `code` vocabulary (extend as encountered)
 Start with a small stable set the server maps to messages/telemetry:
@@ -303,6 +324,7 @@ message is authored alongside.
 | **P2 — Hover** | Hovering an expression shows its type. Checker adds `hovers` (needs the `s2typ` pretty-printer + position index); server answers `textDocument/hover` from cache. | P1 |
 | **P3 — Navigation** | Go-to-definition (and type-definition; implementation where feasible). Checker adds `definitions`; server answers `textDocument/definition` etc. | P1 (parallel to P2) |
 | **P4 — Hardening** | UTF-16 columns, perf (cold-start budget, cancellation of superseded checks), config (toolchain path), packaging (`.vsix`), tests. | P1–P3 |
+| **P5 — Rich features (Tier 1)** | Outline (`documentSymbol`), find-all-references + occurrence highlight (`references`/`documentHighlight`), inferred-type **inlay hints** (`inlayHint`), project-wide fuzzy **workspace symbols** (`workspace/symbol`). Mostly new harvest *sinks* + server handlers — no new compiler traversal. | P1–P3 |
 
 ---
 
@@ -373,6 +395,30 @@ the primer's facts; the architect decides fit. Keep WS deliverables small and co
 - UTF-16 column conversion; supersede/cancel stale checks; configurable toolchain path
   (`XATSHOME`, compiler JS location); `.vsix` packaging; a small fixture test-suite (sample
   `.dats` → expected JSON bundle) runnable in CI.
+- **Status:** UTF-16 columns **done in the resident** (real per-line byte→UTF-16 converter
+  `LSP_cur_b2u`/`LSP_other_b2u`, used by every push sink incl. WS-5's). The batch CLI checker
+  (`xats_lsp_check.cats`) is uniformly byte-column by design (a test/CLI tool, not the editor path).
+
+### WS-5 — Rich features, Tier 1  *(P5, DELIVERED)*
+The four highest-ROI features that reuse the existing shared harvest + project scan:
+- **Document symbols (outline).** New `symbol_push` sink; a TOP-LEVEL-ONLY decl pass in
+  `xats_lsp_harvest.hats` (descends static/extern/local/include groupings, never into expression
+  bodies) emits `(name, SymbolKind, name-range, container)` for functions, vals, datatypes,
+  typedefs, abstract types, exception constructors. Resident answers `textDocument/documentSymbol`.
+- **References + document highlight.** **No harvest change** — the server inverts the cached
+  `definitions` by `(defUri, defRange)`: the cursor resolves to a def-group (via a use site, or the
+  binding site in-file), and every use with the same key is returned. `references` is file-local +
+  the declaration; `documentHighlight` adds the in-file binding as `Write`. (Project-wide references
+  = aggregate the per-file def-harvest across the project index — a follow-up.)
+- **Inlay hints (inferred types).** New `inlay_push` sink; emitted inside the main walk at each
+  un-annotated `val`-binding `D3Pvar` (annotated bindings — `D3Pannot` on the spine — are
+  suppressed), rendering the variable's `styp()` via the shared pretty-printer (`": <type>"`).
+  Resident answers `textDocument/inlayHint` over a range.
+- **Workspace symbols.** A **textual** top-level-decl index built during the same one-pass project
+  scan that builds the staload graph (cheap, resilient to non-compiling files); resident answers
+  `workspace/symbol` with case-insensitive subsequence fuzzy matching.
+- **Tests:** `resident/scripts/smoke-ws5.js` (all four, over the LSP protocol). Existing smokes
+  (semantic tokens / hover-def / cfail / include-leak) still pass — the shared harvest is intact.
 
 ### Reviewers
 - **R-build/FFI** verifies WS-0a, WS-1a, WS-1b actually build & run on this machine and match the

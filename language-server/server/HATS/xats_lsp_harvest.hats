@@ -429,6 +429,97 @@ emit_dcon_enum_tokens
 //
 (* ****** ****** *)
 (* ====================================================================== *)
+(*       DOCUMENT SYMBOLS + INLAY HINTS: emission helpers (WS-5)            *)
+(* ====================================================================== *)
+//
+// LSP SymbolKind indices (subset we map ATS decls onto). KEEP IN SYNC with the
+// kinds the .cats serializers pass through unchanged:
+//   Class=5 Constructor=9 Enum=10 Interface=11 Function=12 Variable=13
+//   Constant=14 EnumMember=22 TypeParameter=26
+//
+#define SK_CLASS         5
+#define SK_CONSTRUCTOR   9
+#define SK_ENUM          10
+#define SK_INTERFACE     11
+#define SK_FUNCTION      12
+#define SK_VARIABLE      13
+#define SK_CONSTANT      14
+#define SK_ENUMMEMBER    22
+#define SK_TYPEPARAM     26
+//
+// LSP InlayHintKind: Type=1, Parameter=2. We emit Type hints on inferred
+// val-bindings (": <type>" after the bound name).
+//
+#define IH_TYPE          1
+//
+// emit ONE document symbol (gated on the top file, like diagnostics). The range
+// IS the name's loctn — selectionRange == range in v1 (a name span trivially
+// contains itself; the LSP spec only requires selectionRange ⊆ range).
+//
+fun
+emit_symbol
+(loc: loctn, name: string, kind: int, container: string): void =
+if loc_realq(loc) then
+if loc_in_topfile(loc) then let
+  val pb = loc.pbeg()
+  val pe = loc.pend()
+in
+  if strn_nilq(name) then () else
+  symbol_push(pb.nrow(), pb.ncol(), pe.nrow(), pe.ncol(), name, kind, container)
+end
+//
+// emit an inlay hint ": <type>" at the END of a bound variable's name loctn,
+// rendering the variable's inferred type via the shared s2typ pretty-printer
+// (the same renderer hover uses). Gated on the top file.
+//
+fun
+emit_inlay_for_var
+(loc: loctn, v: d2var): void =
+if loc_realq(loc) then
+if loc_in_topfile(loc) then let
+  val pe = loc.pend()
+  val ts = typ_pretty(d2var_get_styp(v))
+in
+  if strn_nilq(ts) then () else
+  inlay_push(pe.nrow(), pe.ncol(), strn_append(": ", ts), IH_TYPE)
+end
+//
+// INLAY pattern walk: for a val-binding pattern, emit a type hint at each bare
+// (un-annotated) variable. An explicitly-annotated binding (D3Pannot anywhere on
+// the spine) suppresses the hint for that sub-pattern — the type is already
+// written. Tuple / record sub-patterns recurse. Used INSIDE the main walk
+// (walk_d3valdclist), so a val at any depth (top-level or nested let) gets hints.
+//
+fun
+emit_inlays_for_valpat
+(d3p: d3pat): void =
+(
+case+ d3p.node() of
+| D3Pvar(v) => emit_inlay_for_var(d3p.lctn(), v)
+| D3Pannot(_, _, _) => ((*explicit type: no hint*))
+| D3Ptup0(_, ps) => emit_inlays_for_valpatlst(ps)
+| D3Ptup1(_, _, ps) => emit_inlays_for_valpatlst(ps)
+| D3Prcd2(_, _, lps) => emit_inlays_for_l3patlst(lps)
+| D3Pt2pck(p, _) => emit_inlays_for_valpat(p)
+| _ => ((*non-binding leaf*))
+)
+and
+emit_inlays_for_valpatlst
+(ps: d3patlst): void =
+( case+ ps of
+  | list_nil() => ()
+  | list_cons(p, ps) =>
+    (emit_inlays_for_valpat(p); emit_inlays_for_valpatlst(ps)) )
+and
+emit_inlays_for_l3patlst
+(lps: l3d3plst): void =
+( case+ lps of
+  | list_nil() => ()
+  | list_cons(D3LAB(_, p), lps) =>
+    (emit_inlays_for_valpat(p); emit_inlays_for_l3patlst(lps)) )
+//
+(* ****** ****** *)
+(* ====================================================================== *)
 (*       THE TRAVERSAL (find all errck; emit hover/def/token)              *)
 (* ====================================================================== *)
 //
@@ -747,7 +838,8 @@ walk_d3valdclist (dvs: d3valdclist): void =
 ( case+ dvs of
   | list_nil() => ()
   | list_cons(dv, dvs) =>
-    ( walk_d3pat(d3valdcl_get_dpat(dv))
+    ( emit_inlays_for_valpat(d3valdcl_get_dpat(dv))
+    ; walk_d3pat(d3valdcl_get_dpat(dv))
     ; walk_teqd3exp(d3valdcl_get_tdxp(dv))
     ; walk_d3valdclist(dvs) ) )
 and
@@ -815,6 +907,144 @@ walk_d2fundclist (dfs: d2fundclist): void =
 //
 (* ****** ****** *)
 (* ====================================================================== *)
+(*   DOCUMENT SYMBOLS: a TOP-LEVEL-ONLY decl pass (outline)                *)
+(* ====================================================================== *)
+//
+// Separate from the main walk: it descends ONLY structural decl groupings
+// (static/extern/local/include/dclst) — never into expression bodies — so the
+// outline lists top-level (and local-block) declarations, not let-bound locals
+// inside function bodies. Each emitter is gated on the top file (emit_symbol).
+//
+fun
+emit_symbol_scst1
+(s2c: s2cst, kind: int): void =
+  emit_symbol(s2cst_get_lctn(s2c), symbl_get_name(s2cst_get_name(s2c)), kind, "")
+//
+fun
+emit_symbol_funs
+(cs: d2cstlst): void =
+( case+ cs of
+  | list_nil() => ()
+  | list_cons(c, rest) =>
+    ( emit_symbol(d2cst_get_lctn(c),
+                  symbl_get_name(d2cst_get_name(c)), SK_FUNCTION, "")
+    ; emit_symbol_funs(rest) ) )
+//
+fun
+emit_symbol_dcons
+(d2cs: d2conlst, kind: int, container: string): void =
+( case+ d2cs of
+  | list_nil() => ()
+  | list_cons(c, rest) =>
+    ( emit_symbol(d2con_get_lctn(c),
+                  symbl_get_name(d2con_get_name(c)), kind, container)
+    ; emit_symbol_dcons(rest, kind, container) ) )
+//
+fun
+emit_symbol_scsts
+(s2cs: s2cstlst, kind: int): void =
+( case+ s2cs of
+  | list_nil() => ()
+  | list_cons(s2c, rest) =>
+    (emit_symbol_scst1(s2c, kind); emit_symbol_scsts(rest, kind)) )
+//
+// a val-binding pattern -> a Constant symbol per bound variable.
+//
+fun
+emit_symbols_for_valpat
+(d3p: d3pat): void =
+(
+case+ d3p.node() of
+| D3Pvar(v) =>
+  emit_symbol(d3p.lctn(), symbl_get_name(d2var_get_name(v)), SK_CONSTANT, "")
+| D3Pannot(p, _, _) => emit_symbols_for_valpat(p)
+| D3Ptup0(_, ps) => emit_symbols_for_valpatlst(ps)
+| D3Ptup1(_, _, ps) => emit_symbols_for_valpatlst(ps)
+| D3Prcd2(_, _, lps) => emit_symbols_for_l3patlst(lps)
+| D3Pt2pck(p, _) => emit_symbols_for_valpat(p)
+| _ => ()
+)
+and
+emit_symbols_for_valpatlst
+(ps: d3patlst): void =
+( case+ ps of
+  | list_nil() => ()
+  | list_cons(p, ps) =>
+    (emit_symbols_for_valpat(p); emit_symbols_for_valpatlst(ps)) )
+and
+emit_symbols_for_l3patlst
+(lps: l3d3plst): void =
+( case+ lps of
+  | list_nil() => ()
+  | list_cons(D3LAB(_, p), lps) =>
+    (emit_symbols_for_valpat(p); emit_symbols_for_l3patlst(lps)) )
+//
+fun
+emit_symbols_d3valdclist
+(dvs: d3valdclist): void =
+( case+ dvs of
+  | list_nil() => ()
+  | list_cons(dv, dvs) =>
+    ( emit_symbols_for_valpat(d3valdcl_get_dpat(dv))
+    ; emit_symbols_d3valdclist(dvs) ) )
+//
+fun
+emit_symbols_d3ecl
+(dcl0: d3ecl): void =
+(
+case+ dcl0.node() of
+| D3Cerrck(_, dcl1) => emit_symbols_d3ecl(dcl1)
+| D3Cfundclst(_, _, dcsts, _) => emit_symbol_funs(dcsts)
+| D3Cvaldclst(_, dvs) => emit_symbols_d3valdclist(dvs)
+| D3Cstatic(_, dcl1) => emit_symbols_d3ecl(dcl1)
+| D3Cextern(_, dcl1) => emit_symbols_d3ecl(dcl1)
+| D3Ctmpsub(_, dcl1) => emit_symbols_d3ecl(dcl1)
+| D3Cdclst0(dcls) => emit_symbols_d3eclist(dcls)
+| D3Clocal0(da, db) => (emit_symbols_d3eclist(da); emit_symbols_d3eclist(db))
+| D3Cinclude(_, _, _, _, dopt) => emit_symbols_d3eclistopt(dopt)
+| D3Cd2ecl(d2cl) => emit_symbols_d2ecl(d2cl)
+| D3Cnone1(d2cl) => emit_symbols_d2ecl(d2cl)
+| D3Cnone2(d3cl) => emit_symbols_d3ecl(d3cl)
+| _ => ()
+)
+and
+emit_symbols_d3eclist
+(xs: d3eclist): void =
+( case+ xs of
+  | list_nil() => ()
+  | list_cons(x, xs) => (emit_symbols_d3ecl(x); emit_symbols_d3eclist(xs)) )
+and
+emit_symbols_d3eclistopt
+(xo: d3eclistopt): void =
+( case+ xo of optn_nil() => () | optn_cons(xs) => emit_symbols_d3eclist(xs) )
+and
+emit_symbols_d2ecl
+(dcl0: d2ecl): void =
+(
+case+ dcl0.node() of
+| D2Cerrck(_, dcl1) => emit_symbols_d2ecl(dcl1)
+| D2Cstatic(_, dcl1) => emit_symbols_d2ecl(dcl1)
+| D2Cextern(_, dcl1) => emit_symbols_d2ecl(dcl1)
+| D2Clocal0(da, db) => (emit_symbols_d2eclist(da); emit_symbols_d2eclist(db))
+// static-type declarations -> type-flavored symbols.
+| D2Cdatatype(_, s2cs) => emit_symbol_scsts(s2cs, SK_ENUM)
+| D2Csexpdef(s2c, _) => emit_symbol_scst1(s2c, SK_INTERFACE)
+| D2Cstacst0(s2c, _) => emit_symbol_scst1(s2c, SK_TYPEPARAM)
+| D2Cabstype(s2c, _) => emit_symbol_scst1(s2c, SK_CLASS)
+// exception constructors -> EnumMember symbols.
+| D2Cexcptcon(_, d2cs) => emit_symbol_dcons(d2cs, SK_ENUMMEMBER, "")
+| D2Cnone2(d2cl) => emit_symbols_d2ecl(d2cl)
+| _ => ()
+)
+and
+emit_symbols_d2eclist
+(xs: d2eclist): void =
+( case+ xs of
+  | list_nil() => ()
+  | list_cons(x, xs) => (emit_symbols_d2ecl(x); emit_symbols_d2eclist(xs)) )
+//
+(* ****** ****** *)
+(* ====================================================================== *)
 (*   harvest_d3parsed: set top-path; walk; reset  (the shared payload)     *)
 (* ====================================================================== *)
 //
@@ -832,7 +1062,12 @@ fun
 harvest_d3parsed
 (dpar: d3parsed): void = let
   val () = the_top_path[] := lcsrc_fpath(d3parsed_get_source(dpar))
-  val () = walk_d3eclistopt(d3parsed_get_parsed(dpar))
+  val parsed = d3parsed_get_parsed(dpar)
+  // the main walk: diagnostics (errck), hover, definitions, semantic tokens,
+  // and inlay hints (val-binding type hints, emitted at every depth).
+  val () = walk_d3eclistopt(parsed)
+  // the top-level-only outline pass (document symbols).
+  val () = emit_symbols_d3eclistopt(parsed)
   // clear the top-path filter (defensive: keep no stale source between checks).
   val () = the_top_path[] := ""
 in (*nothing*) end

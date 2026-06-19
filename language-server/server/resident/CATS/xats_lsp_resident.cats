@@ -345,6 +345,86 @@ function LSP_parse_staloads(filePath, text) {
   }
   return out;
 }
+//
+////////////////////////////////////////////////////////////////////////.
+// ---- WS-5 workspace symbols: a TEXTUAL project symbol index --------- //
+//
+// workspace/symbol must answer over the WHOLE project, including files never
+// opened/type-checked. Rather than type-check everything (expensive), we extract
+// TOP-LEVEL declaration names TEXTUALLY during the same one-pass project scan
+// that builds the staload graph — cheap, resilient to non-compiling files, and
+// decoupled from the typecheck pipeline. (Opened files still get AST-accurate
+// document symbols; this index is the coarse project-wide name map for Cmd-T.)
+//
+// normPath -> [{ name, kind, line, char, endChar }]  (0-based, UTF-16 columns —
+// computed directly off the JS string, so already LSP-correct).
+const LSP_ws_symbols_by_file = new Map();
+// top-level decl matcher: optional leading #/extern, a decl keyword, then a name.
+const LSP_WS_SYM_RE =
+  /(?:^|\n)[ \t]*(?:#?extern[ \t]+)?(#?(?:fun|fnx|fn|prfn|prfun|praxi|castfn|macdef|val[-+]?|prval|var|datatype|datavtype|dataprop|datasort|typedef|sexpdef|sortdef|abstype|abst@ype|abst0ype|absvtype|absprop|abstbox|abstflat|stacst))[ \t]+([A-Za-z_][A-Za-z0-9_$']*)/g;
+function LSP_ws_kind(kw) {
+  const k = kw.replace(/^#/, '');
+  if (/^(fun|fnx|fn|prfn|prfun|praxi|castfn|macdef)$/.test(k)) return 12;  // Function
+  if (/^(val[-+]?|prval)$/.test(k)) return 14;                             // Constant
+  if (k === 'var') return 13;                                             // Variable
+  if (/^(datatype|datavtype|dataprop|datasort)$/.test(k)) return 10;       // Enum
+  if (/^(typedef|sexpdef|sortdef)$/.test(k)) return 11;                    // Interface
+  if (/^(abstype|abst@ype|abst0ype|absvtype|absprop|abstbox|abstflat)$/.test(k)) return 5; // Class
+  if (k === 'stacst') return 26;                                          // TypeParameter
+  return 13;
+}
+function LSP_line_starts(text) {
+  const starts = [0];
+  for (let i = 0; i < text.length; i++) if (text.charCodeAt(i) === 10) starts.push(i + 1);
+  return starts;
+}
+function LSP_off_to_pos(starts, off) {
+  let lo = 0, hi = starts.length - 1, ans = 0;
+  while (lo <= hi) { const mid = (lo + hi) >> 1; if (starts[mid] <= off) { ans = mid; lo = mid + 1; } else hi = mid - 1; }
+  return { line: ans, character: off - starts[ans] };
+}
+function LSP_extract_ws_symbols(text) {
+  const out = [];
+  const starts = LSP_line_starts(text);
+  LSP_WS_SYM_RE.lastIndex = 0;
+  let m;
+  while ((m = LSP_WS_SYM_RE.exec(text)) !== null) {
+    const name = m[2];
+    if (!name) continue;
+    const nameStart = m.index + m[0].length - name.length;   // m[0] ends at the name
+    const p = LSP_off_to_pos(starts, nameStart);
+    out.push({ name: name, kind: LSP_ws_kind(m[1]),
+               line: p.line, char: p.character, endChar: p.character + name.length });
+  }
+  return out;
+}
+// case-insensitive subsequence ("fuzzy") match, the conventional Cmd-T behavior.
+function LSP_ws_fuzzy(q, name) {
+  if (!q) return true;
+  q = q.toLowerCase(); name = name.toLowerCase();
+  let i = 0;
+  for (let j = 0; j < name.length && i < q.length; j++) if (name[j] === q[i]) i++;
+  return i === q.length;
+}
+function LSP_build_workspace_symbols(query) {
+  const out = [];
+  const CAP = 1000;                                  // bound a broad query
+  for (const [n, syms] of LSP_ws_symbols_by_file) {
+    const uri = LSP_path2uri(n);
+    if (uri === "") continue;
+    for (const s of syms) {
+      if (!LSP_ws_fuzzy(query, s.name)) continue;
+      out.push({
+        name: s.name, kind: s.kind | 0,
+        location: { uri: uri, range: LSP_jsrange(s.line, s.char, s.line, s.endChar) },
+        containerName: ""
+      });
+      if (out.length >= CAP) return out;
+    }
+  }
+  return out;
+}
+//
 // remove all edges that originate at `from` (used before re-indexing a file so a
 // removed #staload drops its stale edge).
 function LSP_proj_unlink(from) {
@@ -380,6 +460,10 @@ function LSP_proj_index_file(filePath, text) {
     }
     LSP_proj_fwd.set(n, fset);
   }
+  // WS-5: (re)build this file's top-level symbol list for workspace/symbol.
+  const syms = LSP_extract_ws_symbols(text);
+  if (syms.length > 0) LSP_ws_symbols_by_file.set(n, syms);
+  else LSP_ws_symbols_by_file.delete(n);
   LSP_proj_indexed.add(n);
   return n;
 }
@@ -389,6 +473,7 @@ function LSP_proj_remove_file(filePath) {
   const n = LSP_norm(filePath);
   if (n === "") return;
   LSP_proj_unlink(n);
+  LSP_ws_symbols_by_file.delete(n);              // WS-5: drop its symbols too
   LSP_proj_indexed.delete(n);
 }
 // TRANSITIVE reverse closure of `path` over the PROJECT graph: every file that
@@ -675,10 +760,12 @@ function LSP_other_b2u(path, line, byteCol) {
 // validation finishes, vscode_initialize's textValidator snapshots them into
 // LSP_index[uri] (deduped + LSP-shaped) for onHover/onDefinition to read.
 //
-let LSP_cur_diags  = [];
-let LSP_cur_hovers = [];
-let LSP_cur_defs   = [];
-let LSP_cur_tokens = [];
+let LSP_cur_diags   = [];
+let LSP_cur_hovers  = [];
+let LSP_cur_defs    = [];
+let LSP_cur_tokens  = [];
+let LSP_cur_symbols = [];   // WS-5 document symbols (outline)
+let LSP_cur_inlays  = [];   // WS-5 inlay hints (inferred val types)
 // uri -> { hovers:[{range,type,kind}], definitions:[{useRange,defUri,defRange,
 //          entity,[typeDefUri,typeDefRange]}] }
 const LSP_index = new Map();
@@ -771,6 +858,30 @@ function LSP_token_push(l0, c0, l1, c1, ttype, tmods, defpath) {
   let mods = tmods|0;
   if (defpath && JS_path_is_prelude(String(defpath))) mods |= LSP_TOKEN_MOD_DEFAULTLIB;
   LSP_cur_tokens.push({ line: l0|0, char: cu0|0, len: len|0, type: ttype|0, mods: mods });
+}
+//
+// WS-5 DOCUMENT SYMBOL push. The name range is ALWAYS in the file being checked
+// -> current-file UTF-16 converter. (l0,c0..l1,c1) byte coords; kind is an LSP
+// SymbolKind index; container is "" for a top-level symbol.
+function LSP_symbol_push(l0, c0, l1, c1, name, kind, container) {
+  if (l0 < 0 || c0 < 0) return;
+  const nm = String(name);
+  if (nm === "") return;
+  LSP_cur_symbols.push({
+    l0: l0|0, c0: LSP_cur_b2u(l0, c0), l1: l1|0, c1: LSP_cur_b2u(l1, c1),
+    name: nm, kind: kind|0, container: String(container || "")
+  });
+}
+//
+// WS-5 INLAY HINT push. The position is the END of an inferred binding's name,
+// always in the file being checked -> current-file UTF-16 converter.
+function LSP_inlay_push(line, col, label, kind) {
+  if (line < 0 || col < 0) return;
+  const lbl = String(label);
+  if (lbl === "") return;
+  LSP_cur_inlays.push({
+    line: line|0, char: LSP_cur_b2u(line, col), label: lbl, kind: kind|0
+  });
 }
 //
 // dedup + sort + LSP delta-encode the accumulated tokens into the flat int
@@ -979,6 +1090,132 @@ function LSP_build_semantic_tokens(uri) {
 }
 //
 ////////////////////////////////////////////////////////////////////////.
+// ---- WS-5: document symbols / references / highlight / inlays -------- //
+//
+function LSP_dedup_symbols(ss) {
+  const seen = new Set(); const out = [];
+  for (const s of ss) {
+    if (s.l0 < 0 || s.c0 < 0) continue;
+    const key = s.l0+":"+s.c0+":"+s.l1+":"+s.c1+":"+s.kind+":"+s.name+":"+s.container;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+  }
+  return out.sort((a, b) => (a.l0 - b.l0) || (a.c0 - b.c0));
+}
+function LSP_dedup_inlays(hs) {
+  const seen = new Set(); const out = [];
+  for (const h of hs) {
+    if (h.line < 0 || h.char < 0) continue;
+    const key = h.line+":"+h.char+":"+h.label+":"+h.kind;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(h);
+  }
+  return out.sort((a, b) => (a.line - b.line) || (a.char - b.char));
+}
+//
+// textDocument/documentSymbol -> a hierarchical DocumentSymbol[]. v1 containers
+// are mostly "" (flat); a non-empty container nests the symbol under the
+// same-named parent. range == selectionRange (the name span).
+function LSP_build_document_symbols(uri) {
+  const idx = LSP_index.get(uri);
+  if (!idx) return null;
+  const syms = idx.symbols || [];
+  const made = syms.map(s => ({
+    name: s.name, kind: s.kind | 0,
+    range:          LSP_jsrange(s.l0, s.c0, s.l1, s.c1),
+    selectionRange: LSP_jsrange(s.l0, s.c0, s.l1, s.c1),
+    children: []
+  }));
+  const byName = new Map();
+  for (let i = 0; i < syms.length; i++) {
+    if (!syms[i].container) byName.set(syms[i].name, made[i]);
+  }
+  const roots = [];
+  for (let i = 0; i < syms.length; i++) {
+    const c = syms[i].container;
+    if (c && byName.has(c) && byName.get(c) !== made[i]) byName.get(c).children.push(made[i]);
+    else roots.push(made[i]);
+  }
+  return roots;
+}
+//
+// references / documentHighlight share a target: the def-group (defUri+defRange)
+// the cursor resolves to — either via a use site under the cursor, or the
+// binding site itself (when the binding lives in THIS file). All USE sites are
+// harvested from the file being checked, so references are file-local (+ the
+// declaration); project-wide aggregation is a follow-up.
+function LSP_defkey(uri, r) {
+  return uri + "@" + r.start.line + ":" + r.start.character + ":" +
+         r.end.line + ":" + r.end.character;
+}
+function LSP_find_ref_target(uri, line, char) {
+  const idx = LSP_index.get(uri);
+  if (!idx) return null;
+  const ds = idx.definitions || [];
+  const pos = { line: line | 0, character: char | 0 };
+  // (a) cursor on a use site -> that record's def group.
+  const i = LSP_innermost(ds, d => d.useRange, pos);
+  if (i >= 0) return { defUri: ds[i].defUri, defRange: ds[i].defRange };
+  // (b) cursor on the binding site in THIS file -> its own def group.
+  for (const d of ds) {
+    if (d.defUri === uri && LSP_range_contains(d.defRange, pos))
+      return { defUri: d.defUri, defRange: d.defRange };
+  }
+  return null;
+}
+function LSP_group_use_ranges(uri, target) {
+  const idx = LSP_index.get(uri);
+  const ds = (idx && idx.definitions) || [];
+  const key = LSP_defkey(target.defUri, target.defRange);
+  const out = []; const seen = new Set();
+  for (const d of ds) {
+    if (LSP_defkey(d.defUri, d.defRange) !== key) continue;
+    const r = d.useRange;
+    const k = r.start.line+":"+r.start.character+":"+r.end.line+":"+r.end.character;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(r);
+  }
+  return out;
+}
+function LSP_build_references(uri, line, char, includeDecl) {
+  const t = LSP_find_ref_target(uri, line, char);
+  if (!t) return null;
+  const locs = LSP_group_use_ranges(uri, t).map(r => ({ uri: uri, range: r }));
+  if (includeDecl && t.defUri && t.defRange) locs.push({ uri: t.defUri, range: t.defRange });
+  return locs;
+}
+// DocumentHighlightKind: Text=1, Read=2, Write=3.
+function LSP_build_highlights(uri, line, char) {
+  const t = LSP_find_ref_target(uri, line, char);
+  if (!t) return null;
+  const hl = LSP_group_use_ranges(uri, t).map(r => ({ range: r, kind: 2 }));
+  if (t.defUri === uri && t.defRange) hl.push({ range: t.defRange, kind: 3 });
+  return hl;
+}
+// textDocument/inlayHint over a range -> InlayHint[] (label + position + kind).
+function LSP_build_inlays(uri, range) {
+  const idx = LSP_index.get(uri);
+  if (!idx) return [];
+  const ins = idx.inlays || [];
+  const out = [];
+  for (const h of ins) {
+    if (range && range.start && range.end) {
+      const p = { line: h.line, character: h.char };
+      if (!(LSP_pos_ge(p, range.start) && LSP_pos_le(p, range.end))) continue;
+    }
+    out.push({
+      position: { line: h.line, character: h.char },
+      label: h.label, kind: h.kind | 0,
+      paddingLeft: false, paddingRight: false
+    });
+  }
+  return out;
+}
+//
+////////////////////////////////////////////////////////////////////////.
 // ---- the connection loop (ported from reference vscode_initialize) --- //
 //
 const LSP_connection = LSP_ls.createConnection(LSP_ls.ProposedFeatures.all);
@@ -1003,6 +1240,7 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
     const t0 = Date.now();
     // reset the per-check accumulators + remap context.
     LSP_cur_diags = []; LSP_cur_hovers = []; LSP_cur_defs = []; LSP_cur_tokens = [];
+    LSP_cur_symbols = []; LSP_cur_inlays = [];
     LSP_cur_uri = uri;
     LSP_cur_path = vscode_url_to_path(uri);
     LSP_cur_path_norm = LSP_norm(LSP_cur_path);
@@ -1036,7 +1274,9 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
     LSP_index.set(uri, {
       hovers: LSP_dedup_hovers(LSP_cur_hovers),
       definitions: LSP_dedup_defs(LSP_cur_defs),
-      semanticTokens: LSP_encode_tokens(LSP_cur_tokens)
+      semanticTokens: LSP_encode_tokens(LSP_cur_tokens),
+      symbols: LSP_dedup_symbols(LSP_cur_symbols),
+      inlays: LSP_dedup_inlays(LSP_cur_inlays)
     });
     const lspDiags = validatorError
       ? [ vscode_diagnostic_make(
@@ -1231,6 +1471,13 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
         hoverProvider: true,
         definitionProvider: true,
         typeDefinitionProvider: true,
+        // WS-5: outline, find-all-references, occurrence highlight, inferred
+        // type inlays. All served from the per-uri harvest index / def records.
+        documentSymbolProvider: true,
+        referencesProvider: true,
+        documentHighlightProvider: true,
+        inlayHintProvider: true,
+        workspaceSymbolProvider: true,
         // AST-based semantic tokens (full-document). The legend names the
         // tokenTypes/tokenModifiers the harvested indices/bits map to.
         semanticTokensProvider: {
@@ -1332,6 +1579,60 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
       } catch (e) { LSP_log('onTypeDefinition threw: ' + e); return null; }
     });
   }
+
+  // WS-5: references + document highlight (derived from the cached def index).
+  function referencesHandler(params) {
+    try {
+      const incl = !!(params.context && params.context.includeDeclaration);
+      return LSP_build_references(params.textDocument.uri,
+        params.position.line, params.position.character, incl);
+    } catch (e) { LSP_log('onReferences threw: ' + e); return null; }
+  }
+  if (typeof LSP_connection.onReferences === 'function')
+    LSP_connection.onReferences(referencesHandler);
+  else LSP_connection.onRequest('textDocument/references', referencesHandler);
+
+  function documentHighlightHandler(params) {
+    try {
+      return LSP_build_highlights(params.textDocument.uri,
+        params.position.line, params.position.character);
+    } catch (e) { LSP_log('onDocumentHighlight threw: ' + e); return null; }
+  }
+  if (typeof LSP_connection.onDocumentHighlight === 'function')
+    LSP_connection.onDocumentHighlight(documentHighlightHandler);
+  else LSP_connection.onRequest('textDocument/documentHighlight', documentHighlightHandler);
+
+  // WS-5: document symbols (outline).
+  function documentSymbolHandler(params) {
+    try {
+      return LSP_build_document_symbols(params.textDocument.uri);
+    } catch (e) { LSP_log('onDocumentSymbol threw: ' + e); return null; }
+  }
+  if (typeof LSP_connection.onDocumentSymbol === 'function')
+    LSP_connection.onDocumentSymbol(documentSymbolHandler);
+  else LSP_connection.onRequest('textDocument/documentSymbol', documentSymbolHandler);
+
+  // WS-5: inlay hints (inferred val types). Prefer the typed languages helper.
+  function inlayHintHandler(params) {
+    try {
+      return LSP_build_inlays(params.textDocument.uri, params.range);
+    } catch (e) { LSP_log('onInlayHint threw: ' + e); return []; }
+  }
+  if (LSP_connection.languages && LSP_connection.languages.inlayHint &&
+      typeof LSP_connection.languages.inlayHint.on === 'function') {
+    LSP_connection.languages.inlayHint.on(inlayHintHandler);
+  } else {
+    LSP_connection.onRequest('textDocument/inlayHint', inlayHintHandler);
+  }
+
+  // WS-5: workspace/symbol (fuzzy project-wide name search over the textual index).
+  function workspaceSymbolHandler(params) {
+    try { return LSP_build_workspace_symbols((params && params.query) || ""); }
+    catch (e) { LSP_log('onWorkspaceSymbol threw: ' + e); return []; }
+  }
+  if (typeof LSP_connection.onWorkspaceSymbol === 'function')
+    LSP_connection.onWorkspaceSymbol(workspaceSymbolHandler);
+  else LSP_connection.onRequest('workspace/symbol', workspaceSymbolHandler);
 
   // textDocument/semanticTokens/full. Prefer the typed helper
   // (connection.languages.semanticTokens.on); fall back to the raw onRequest

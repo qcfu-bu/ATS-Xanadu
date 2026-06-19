@@ -46,9 +46,11 @@ function TYPRINT_stamp2str(s) { return String(s); }
 // ---- diagnostics accumulator + dedup + JSON ------------------------- //
 //
 // One global accumulator (the checker is one-shot, one file per process).
-let LSPCHK_diags = [];
-let LSPCHK_hovers = [];
-let LSPCHK_defs   = [];
+let LSPCHK_diags   = [];
+let LSPCHK_hovers  = [];
+let LSPCHK_defs    = [];
+let LSPCHK_symbols = [];   // WS-5 document symbols (outline)
+let LSPCHK_inlays  = [];   // WS-5 inlay hints (inferred val types)
 //
 // Friendly-name map for the few internal type-constant head names that show
 // up in type-mismatch messages, so "expected `gint_type`" reads as
@@ -205,6 +207,47 @@ function LSPCHK_def_push(ul0, uc0, ul1, uc1,
   LSPCHK_defs.push(d);
 }
 //
+////////////////////////////////////////////////////////////////////////.
+// ---- WS-5 document symbols + inlay hints ---------------------------- //
+//
+// One symbol per top-level declaration name: 0-based name range + SymbolKind +
+// container ("" for top-level; non-empty would nest it as a child).
+function LSPCHK_symbol_push(l0, c0, l1, c1, name, kind, container) {
+  if ((l0|0) < 0 || (c0|0) < 0) return;
+  const nm = String(name);
+  if (nm === "") return;
+  LSPCHK_symbols.push({
+    l0: l0|0, c0: c0|0, l1: l1|0, c1: c1|0,
+    name: nm, kind: kind|0, container: String(container || "")
+  });
+}
+// One inlay per inferred val-binding: position (end of the bound name) + label
+// (": <type>") + InlayHintKind (1 = Type).
+function LSPCHK_inlay_push(line, col, label, kind) {
+  if ((line|0) < 0 || (col|0) < 0) return;
+  const lbl = String(label);
+  if (lbl === "") return;
+  LSPCHK_inlays.push({ line: line|0, char: col|0, label: lbl, kind: kind|0 });
+}
+function LSPCHK_dedup_symbols(ss) {
+  const seen = new Set(); const out = [];
+  for (const s of ss) {
+    const key = s.l0+":"+s.c0+":"+s.l1+":"+s.c1+":"+s.kind+":"+s.name+":"+s.container;
+    if (seen.has(key)) continue;
+    seen.add(key); out.push(s);
+  }
+  return out.sort((a, b) => (a.l0 - b.l0) || (a.c0 - b.c0));
+}
+function LSPCHK_dedup_inlays(hs) {
+  const seen = new Set(); const out = [];
+  for (const h of hs) {
+    const key = h.line+":"+h.char+":"+h.label+":"+h.kind;
+    if (seen.has(key)) continue;
+    seen.add(key); out.push(h);
+  }
+  return out.sort((a, b) => (a.line - b.line) || (a.char - b.char));
+}
+//
 // Decision D6 dedup: the same root error surfaces multiple times — as an
 // inner expr/pat error AND an enclosing decl wrapper (D?Cerrck), and again
 // across levels L2/L3. We keep the INNERMOST (smallest-range) node, and drop
@@ -350,6 +393,22 @@ function LSPCHK_json_finish(uri, nerror, jsonout) {
     }
     return out;
   });
+  const symbols = LSPCHK_dedup_symbols(LSPCHK_symbols).map(function (s) {
+    return {
+      name: s.name,
+      kind: s.kind,
+      range:          LSPCHK_jsrange(s.l0, s.c0, s.l1, s.c1),
+      selectionRange: LSPCHK_jsrange(s.l0, s.c0, s.l1, s.c1),
+      container: s.container
+    };
+  });
+  const inlays = LSPCHK_dedup_inlays(LSPCHK_inlays).map(function (h) {
+    return {
+      position: { line: h.line, character: h.char },
+      label: h.label,
+      kind: h.kind
+    };
+  });
   const bundle = {
     schema: 1,
     uri: String(uri),
@@ -357,7 +416,9 @@ function LSPCHK_json_finish(uri, nerror, jsonout) {
     nerror: nerror|0,
     diagnostics: diagnostics,
     hovers: hovers,
-    definitions: definitions
+    definitions: definitions,
+    symbols: symbols,
+    inlays: inlays
   };
   try {
     LSPCHK_fs.writeFileSync(jsonout, JSON.stringify(bundle, null, 2));
@@ -366,7 +427,7 @@ function LSPCHK_json_finish(uri, nerror, jsonout) {
     try {
       LSPCHK_fs.writeFileSync(jsonout, JSON.stringify(
         { schema: 1, uri: String(uri), ok: false, nerror: 0,
-          diagnostics: [], hovers: [], definitions: [],
+          diagnostics: [], hovers: [], definitions: [], symbols: [], inlays: [],
           error: String(e) }, null, 2));
     } catch (e2) { /* give up */ }
   }

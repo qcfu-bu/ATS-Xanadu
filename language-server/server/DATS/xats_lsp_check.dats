@@ -103,6 +103,17 @@ LSPCHK_def_push
 , tdpath: strn
 , tl0: sint, tc0: sint, tl1: sint, tc1: sint): void = $extnam()
 //
+// WS-5 document symbol: name + SymbolKind + name-range + container ("" if top).
+#extern fun
+LSPCHK_symbol_push
+( l0: sint, c0: sint, l1: sint, c1: sint
+, name: strn, kind: sint, container: strn): void = $extnam()
+//
+// WS-5 inlay hint: position (end of bound name) + label (": T") + kind.
+#extern fun
+LSPCHK_inlay_push
+(line: sint, col: sint, label: strn, kind: sint): void = $extnam()
+//
 // dedup + serialize §4 bundle + write to jsonout
 #extern fun
 LSPCHK_json_finish
@@ -228,6 +239,18 @@ def_push
   ( ul0, uc0, ul1, uc1, defpath
   , dl0, dc0, dl1, dc1, entity, hastdef, tdpath
   , tl0, tc0, tl1, tc1 )
+//
+// WS-5: document symbols + inlay hints -> the checker's LSPCHK_* accumulators.
+fun
+symbol_push
+( l0: int, c0: int, l1: int, c1: int
+, name: string, kind: int, container: string): void =
+  LSPCHK_symbol_push(l0, c0, l1, c1, name, kind, container)
+//
+fun
+inlay_push
+(line: int, col: int, label: string, kind: int): void =
+  LSPCHK_inlay_push(line, col, label, kind)
 //
 // NO-OP token sink: the checker emits no semantic tokens (its bundle is
 // diagnostics+hovers+defs only). The shared walk still calls token_push at

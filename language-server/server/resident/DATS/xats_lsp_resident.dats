@@ -250,6 +250,19 @@ end
     ( l0: int, c0: int, l1: int, c1: int
     , ttype: int, tmods: int, defpath: string): void = $extnam() }
 //
+#implfun symbol_push(l0, c0, l1, c1, name, kind, container) =
+  LSP_symbol_push(l0, c0, l1, c1, name, kind, container)
+  where { #extern fun
+    LSP_symbol_push
+    ( l0: int, c0: int, l1: int, c1: int
+    , name: string, kind: int, container: string): void = $extnam() }
+//
+#implfun inlay_push(line, col, label, kind) =
+  LSP_inlay_push(line, col, label, kind)
+  where { #extern fun
+    LSP_inlay_push
+    ( line: int, col: int, label: string, kind: int): void = $extnam() }
+//
 #implfun initialize(f, lv, g, h, e) =
   vscode_initialize(f, lv, g, h, e)
   where { #extern fun

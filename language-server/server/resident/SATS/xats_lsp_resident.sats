@@ -178,6 +178,22 @@ fun token_push
   ( l0: int, c0: int, l1: int, c1: int
   , ttype: int, tmods: int, defpath: string) : void
 //
+// WS-5 DOCUMENT SYMBOL push: one row per top-level declaration name — the name's
+// 0-based byte range, the LSP SymbolKind index, and a container name ("" for a
+// top-level symbol). The .cats accumulates + shapes these for
+// textDocument/documentSymbol.
+//
+fun symbol_push
+  ( l0: int, c0: int, l1: int, c1: int
+  , name: string, kind: int, container: string) : void
+//
+// WS-5 INLAY HINT push: one row per inferred val-binding — the 0-based byte
+// position (end of the bound name), the label ("\: <type>"), and the
+// InlayHintKind (1 = Type). Served from textDocument/inlayHint.
+//
+fun inlay_push
+  ( line: int, col: int, label: string, kind: int) : void
+//
 (* ****** ****** *)
 //
 // the resident bootstrap entry: register the in-process validator + pruner
