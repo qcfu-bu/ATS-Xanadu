@@ -54,8 +54,13 @@ the present `unify00_s2typ`, *not* anything specific to the LSP build — the st
 > experiment**. C1 touched only `xglobal.{dats,sats}` and the static-singleton
 > initializers; `unify00_s2typ` lives in `srcgen2/DATS/statyp2_tmplib.dats`
 > (with helpers in `trans2a_utils0.dats` / `trans23_utils0.dats`) and is
-> untouched. The stock `_ats3_` compiler — which has no C1 changes — aborts
-> identically.
+> untouched. Two independent confirmations:
+> 1. The stock `_ats3_` compiler artifact (committed 2026-02-06, four months
+>    before C1, containing zero `xglobal_reset` symbols) aborts identically.
+> 2. Reverting all six C1 files to their pre-C1 state and rebuilding
+>    `lib2xatsopt.js` from that source produces a checker that **still aborts
+>    identically** (`XATS000_cfail` at `unify00_s2typ`, same stack). C1 cannot
+>    introduce a bug that a pre-C1 compiler already has.
 
 ## Abort site (readable build, `xats-lsp-check.js`)
 
