@@ -181,9 +181,15 @@ context (after `.`) returns empty (Stage-3 placeholder).
    over the live env is non-destructive (verified: file checks still resolve the
    prelude after enumeration). Yields ~3300 names — *more* complete than the regex's
    1934, since it is the actual loaded/resolved set.
-4. **The same principle applies to WS-5 `workspace/symbol`**, which still uses the
-   textual `LSP_extract_ws_symbols`. Same canonical fix; tracked as the
-   regex-retirement follow-up.
+4. **`workspace/symbol` migrated off regex (done).** It (and completion's project
+   tier) now answer from the **AST-accurate** per-uri document symbols
+   (`LSP_index[uri].symbols`) the harvest already produces — the textual
+   `LSP_extract_ws_symbols` is removed. Trade-off: coverage = files the server has
+   **checked** (opened/edited), not the whole project; correct-but-narrower beats
+   broad-but-wrong. A **background project indexer** (check files off the event
+   loop to widen `LSP_index`) is the follow-up for broad coverage. (The one
+   remaining regex, `LSP_STALOAD_RE`, parses `#staload` directives for the cache
+   invalidation graph — not user-facing symbols — and stays.)
 4. **Project-scale candidate iteration** — Stage 1 prefix-filters during
    iteration and caps; if a very large workspace makes this slow, flatten into a
    single pre-sorted index (optimization, not correctness).

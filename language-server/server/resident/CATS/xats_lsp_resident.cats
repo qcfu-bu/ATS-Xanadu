@@ -347,60 +347,17 @@ function LSP_parse_staloads(filePath, text) {
 }
 //
 ////////////////////////////////////////////////////////////////////////.
-// ---- WS-5 workspace symbols: a TEXTUAL project symbol index --------- //
+// ---- workspace symbols: AST-accurate, from the per-uri symbol index -- //
 //
-// workspace/symbol must answer over the WHOLE project, including files never
-// opened/type-checked. Rather than type-check everything (expensive), we extract
-// TOP-LEVEL declaration names TEXTUALLY during the same one-pass project scan
-// that builds the staload graph — cheap, resilient to non-compiling files, and
-// decoupled from the typecheck pipeline. (Opened files still get AST-accurate
-// document symbols; this index is the coarse project-wide name map for Cmd-T.)
+// workspace/symbol answers from the SAME AST-accurate document symbols the
+// harvest already produces per checked file (LSP_index[uri].symbols) — NO regex.
+// A textual scan can misread ATS3 surface syntax (and is blind to a second
+// frontend), surfacing WRONG symbols; we never do that. Coverage is therefore
+// the set of files the server has CHECKED (opened/edited). Unopened files
+// contribute nothing until checked — by design: correct-but-narrower beats
+// broad-but-wrong. (A background project indexer that checks files to widen
+// coverage is a possible follow-up; it would feed this same LSP_index.)
 //
-// normPath -> [{ name, kind, line, char, endChar }]  (0-based, UTF-16 columns —
-// computed directly off the JS string, so already LSP-correct).
-const LSP_ws_symbols_by_file = new Map();
-// top-level decl matcher: optional leading #/extern, a decl keyword, an OPTIONAL
-// template-arg block (`<a:vt>`), then the name. The keyword→name gap may span
-// NEWLINES — ATS3's prelude style puts `fun` / `<a:vt>` / name on separate lines
-// (so a same-line-only matcher would miss almost the entire prelude).
-const LSP_WS_SYM_RE =
-  /(?:^|\n)[ \t]*(?:#?extern[ \t]+)?(#?(?:fun|fnx|fn|prfn|prfun|praxi|castfn|macdef|val[-+]?|prval|var|datatype|datavtype|dataprop|datasort|typedef|sexpdef|sortdef|abstype|abst@ype|abst0ype|absvtype|absprop|abstbox|abstflat|stacst))\b[ \t\r\n]*(?:<[^>]*>[ \t\r\n]*)?([A-Za-z_][A-Za-z0-9_$']*)/g;
-function LSP_ws_kind(kw) {
-  const k = kw.replace(/^#/, '');
-  if (/^(fun|fnx|fn|prfn|prfun|praxi|castfn|macdef)$/.test(k)) return 12;  // Function
-  if (/^(val[-+]?|prval)$/.test(k)) return 14;                             // Constant
-  if (k === 'var') return 13;                                             // Variable
-  if (/^(datatype|datavtype|dataprop|datasort)$/.test(k)) return 10;       // Enum
-  if (/^(typedef|sexpdef|sortdef)$/.test(k)) return 11;                    // Interface
-  if (/^(abstype|abst@ype|abst0ype|absvtype|absprop|abstbox|abstflat)$/.test(k)) return 5; // Class
-  if (k === 'stacst') return 26;                                          // TypeParameter
-  return 13;
-}
-function LSP_line_starts(text) {
-  const starts = [0];
-  for (let i = 0; i < text.length; i++) if (text.charCodeAt(i) === 10) starts.push(i + 1);
-  return starts;
-}
-function LSP_off_to_pos(starts, off) {
-  let lo = 0, hi = starts.length - 1, ans = 0;
-  while (lo <= hi) { const mid = (lo + hi) >> 1; if (starts[mid] <= off) { ans = mid; lo = mid + 1; } else hi = mid - 1; }
-  return { line: ans, character: off - starts[ans] };
-}
-function LSP_extract_ws_symbols(text) {
-  const out = [];
-  const starts = LSP_line_starts(text);
-  LSP_WS_SYM_RE.lastIndex = 0;
-  let m;
-  while ((m = LSP_WS_SYM_RE.exec(text)) !== null) {
-    const name = m[2];
-    if (!name) continue;
-    const nameStart = m.index + m[0].length - name.length;   // m[0] ends at the name
-    const p = LSP_off_to_pos(starts, nameStart);
-    out.push({ name: name, kind: LSP_ws_kind(m[1]),
-               line: p.line, char: p.character, endChar: p.character + name.length });
-  }
-  return out;
-}
 // case-insensitive subsequence ("fuzzy") match, the conventional Cmd-T behavior.
 function LSP_ws_fuzzy(q, name) {
   if (!q) return true;
@@ -412,15 +369,14 @@ function LSP_ws_fuzzy(q, name) {
 function LSP_build_workspace_symbols(query) {
   const out = [];
   const CAP = 1000;                                  // bound a broad query
-  for (const [n, syms] of LSP_ws_symbols_by_file) {
-    const uri = LSP_path2uri(n);
-    if (uri === "") continue;
+  for (const [uri, idx] of LSP_index) {
+    const syms = (idx && idx.symbols) || [];
     for (const s of syms) {
       if (!LSP_ws_fuzzy(query, s.name)) continue;
       out.push({
         name: s.name, kind: s.kind | 0,
-        location: { uri: uri, range: LSP_jsrange(s.line, s.char, s.line, s.endChar) },
-        containerName: ""
+        location: { uri: uri, range: LSP_jsrange(s.l0, s.c0, s.l1, s.c1) },
+        containerName: s.container || ""
       });
       if (out.length >= CAP) return out;
     }
@@ -520,10 +476,9 @@ function LSP_proj_index_file(filePath, text) {
     }
     LSP_proj_fwd.set(n, fset);
   }
-  // WS-5: (re)build this file's top-level symbol list for workspace/symbol.
-  const syms = LSP_extract_ws_symbols(text);
-  if (syms.length > 0) LSP_ws_symbols_by_file.set(n, syms);
-  else LSP_ws_symbols_by_file.delete(n);
+  // (workspace/symbol no longer keeps a textual symbol index here — it answers
+  // from the AST-accurate per-uri LSP_index. The scan still builds the staload
+  // dependency graph above, used for cache invalidation.)
   LSP_proj_indexed.add(n);
   return n;
 }
@@ -533,7 +488,6 @@ function LSP_proj_remove_file(filePath) {
   const n = LSP_norm(filePath);
   if (n === "") return;
   LSP_proj_unlink(n);
-  LSP_ws_symbols_by_file.delete(n);              // WS-5: drop its symbols too
   LSP_proj_indexed.delete(n);
 }
 // TRANSITIVE reverse closure of `path` over the PROJECT graph: every file that
@@ -1332,8 +1286,10 @@ function LSP_build_completion(uri, position) {
     add(s.name, s.kind, '0', 'this file');
     if (items.length >= CAP) break;
   }
-  // 1: project symbols (textual index)
-  if (items.length < CAP) for (const [, syms] of LSP_ws_symbols_by_file) {
+  // 1: project symbols — AST-accurate document symbols of OTHER checked files
+  if (items.length < CAP) for (const [u2, idx2] of LSP_index) {
+    if (u2 === uri) continue;                       // current file is tier 0
+    const syms = (idx2 && idx2.symbols) || [];
     for (const s of syms) { add(s.name, s.kind, '1', 'project'); if (items.length >= CAP) break; }
     if (items.length >= CAP) break;
   }
