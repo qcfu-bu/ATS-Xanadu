@@ -129,6 +129,22 @@ fun the_XATSHOME(): strn
 //
 (* ****** ****** *)
 (* ****** ****** *)
+//
+(*
+HX-C1-2026: return the compiler's global mutable state to a clean
+post-startup baseline so a single process can re-check files cleanly
+and reload the prelude. Clears the accumulating global envs, the
+per-file caches and the d2cstmap, re-arms the the_ntime prelude-load
+gates, and invalidates the staexp2/statyp2 lazy memo caches. The caller
+then re-runs the_fxtyenv_pvsl00d()/the_tr12env_pvsl00d() to reload the
+prelude. (Stamp counters and symbol-intern tables are NOT reset; see
+COMPILER-RESET-API-PROPOSAL.md.)
+*)
+fun
+xglobal_reset((*void*)): void
+//
+(* ****** ****** *)
+(* ****** ****** *)
 fun
 the_xatsopt_include
   ( (*void*) ): list(strn)

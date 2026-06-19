@@ -66,6 +66,19 @@ ATS_PACKNAME
 #symload atdf with s2cst_get_atdf
 #symload d2cs with s2cst_get_d2cs
 (* ****** ****** *)
+(*
+HX-C1-2026: file-local per-block invalidators for the sentinel-gated
+lazy s2cst memo caches. Each clears its block's a0ref back to optn_nil
+so the next call re-queries the (reloaded) the_sexpenv.
+*)
+#extern fun the_s2cst_p1tr0$reset((*0*)): void
+#extern fun the_s2cst_p2tr0$reset((*0*)): void
+#extern fun the_s2cst_p2at0$reset((*0*)): void
+#extern fun the_s2cst_l0azy0$reset((*0*)): void
+#extern fun the_s2cst_l1azy0$reset((*0*)): void
+#extern fun the_s2cst_elazy0$reset((*0*)): void
+#extern fun the_s2cst_excptn$reset((*0*)): void
+(* ****** ****** *)
 
 local
 //
@@ -211,6 +224,8 @@ end (*let*) // end of [optn_nil()]
 //
 ) (*case+*) // end of [the_s2cst_p1tr0]
 //
+#implfun the_s2cst_p1tr0$reset() = (s2cr[] := optn_nil())
+//
 end(*local*)//end-of-[local(the_s2cst_p1tr0)]
 
 (* ****** ****** *)
@@ -270,6 +285,8 @@ end (*let*) // end of [optn_nil()]
 //
 ) (*case+*) // end of [the_s2cst_p2tr0]
 //
+#implfun the_s2cst_p2tr0$reset() = (s2cr[] := optn_nil())
+//
 end(*local*)//end-of-[local(the_s2cst_p2tr0)]
 
 (* ****** ****** *)
@@ -328,6 +345,8 @@ end (*let*) // end of [optn_nil()]
 | optn_cons(  s2c1  ) => (  s2c1  )
 //
 ) (*case+*) // end of [the_s2cst_p2at0]
+//
+#implfun the_s2cst_p2at0$reset() = (s2cr[] := optn_nil())
 //
 end(*local*)//end-of-[local(the_s2cst_p2at0)]
 
@@ -390,6 +409,8 @@ end (*let*) // end of [optn_nil()]
 |optn_cons(s2c1) => (     s2c1     )
 //
 )(*case+*)//end-of-[the_s2cst_l0azy0()]
+//
+#implfun the_s2cst_l0azy0$reset() = (s2cr[] := optn_nil())
 //
 end(*local*)//end-of-[local(the_s2cst_l0azy0)]
 
@@ -454,6 +475,8 @@ end (*let*) // end of [optn_nil()]
 //
 )(*case+*)//end-of-[the_s2cst_l1azy0()]
 //
+#implfun the_s2cst_l1azy0$reset() = (s2cr[] := optn_nil())
+//
 end(*local*)//end-of-[local(the_s2cst_l1azy0)]
 
 (* ****** ****** *)
@@ -516,6 +539,8 @@ end (*let*) // end of [optn_nil()]
 //
 )(*case+*)//end-of-[the_s2cst_elazy0()]
 //
+#implfun the_s2cst_elazy0$reset() = (s2cr[] := optn_nil())
+//
 end(*local*)//end-of-[local(the_s2cst_elazy0)]
 
 (* ****** ****** *)
@@ -562,6 +587,10 @@ in//let
 (s2cr[] := optn_cons(s2c1); s2c1)
 end (*let*) // end of [optn_nil()]
 ) (*case+*) // end of [the_s2cst_excptn]
+//
+(* ****** ****** *)
+//
+#implfun the_s2cst_excptn$reset() = (s2cr[] := optn_nil())
 //
 (* ****** ****** *)
 //
@@ -661,6 +690,27 @@ tmpmap_insert$any(mymap, s2c0.stmp(), d2cs)
 //
 end (*local*) // end of [local(the_s2cst_d2conlst)]
 
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
+HX-C1-2026: invalidate every sentinel-gated lazy s2cst memo. The three
+stamp-keyed tmpmaps above (s2cst->s2exp/atdf/d2cs) are intentionally NOT
+cleared: stamps are never reset, so the reloaded prelude's fresh s2cst
+get fresh stamps that cannot alias the stale entries (only memory grows).
+*)
+#implfun
+staexp2_inits0_reset() =
+let
+val () = the_s2cst_p1tr0$reset()
+val () = the_s2cst_p2tr0$reset()
+val () = the_s2cst_p2at0$reset()
+val () = the_s2cst_l0azy0$reset()
+val () = the_s2cst_l1azy0$reset()
+val () = the_s2cst_elazy0$reset()
+val () = the_s2cst_excptn$reset()
+in (*nothing*) end
+//
 (* ****** ****** *)
 (* ****** ****** *)
 //

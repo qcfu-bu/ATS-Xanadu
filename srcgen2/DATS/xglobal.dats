@@ -99,6 +99,17 @@ for the main purpose of debugging!
 (* ****** ****** *)
 #staload _ = "./xsymmap_topmap.dats"
 (* ****** ****** *)
+(*
+HX-C1-2026: file-local per-block invalidators used by xglobal_reset().
+Each clears the (now a0ref-wrapped) global env owned by its local block
+back to empty, and re-arms the per-block the_ntime prelude-load gate.
+*)
+#extern fun the_fxtyenv$reset((*0*)): void
+#extern fun the_tsdenv$reset((*0*)): void
+#extern fun the_tr12env$reset((*0*)): void
+#extern fun the_d2cstmap$reset((*0*)): void
+#extern fun the_dxparenv$reset((*0*)): void
+(* ****** ****** *)
 (* ****** ****** *)
 //
 local
@@ -301,6 +312,16 @@ $XT0.the_fxtyenv_pvsl00d$topmap$set<>(e0) = (the_fxtyenv[] := e0)
 (* ****** ****** *)
 (* ****** ****** *)
 //
+#implfun
+the_fxtyenv$reset() =
+let
+val () = (the_ntime[] := 0)
+val () = (the_fxtyenv[] := $UN.cast10{fxtyenv}(0))
+in (*nothing*) end
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
 endloc//end-of-[the_fxtyenv_pvs(load|find)]
 //
 (* ****** ****** *)
@@ -308,32 +329,43 @@ endloc//end-of-[the_fxtyenv_pvs(load|find)]
 local
 //
 (* ****** ****** *)
-//
+// HX-C1-2026: a0ref-wrapped so xglobal_reset() can swap in fresh empties.
 val
-the_gmacenv = topmap_make_nil()
+the_gmacenv = a0ref_make_1val(topmap_make_nil{g1mac}())
 //
 (* ****** ****** *)
 //
 val
-the_sortenv = topmap_make_nil()
+the_sortenv = a0ref_make_1val(topmap_make_nil{s2tex}())
 val
-the_sexpenv = topmap_make_nil()
+the_sexpenv = a0ref_make_1val(topmap_make_nil{s2itm}())
 val
-the_dexpenv = topmap_make_nil()
+the_dexpenv = a0ref_make_1val(topmap_make_nil{d2itm}())
 //
 (* ****** ****** *)
 in//local
 (* ****** ****** *)
 //
 #implfun
-the_gmacenv_pvstmap() = (the_gmacenv)
+the_gmacenv_pvstmap() = (the_gmacenv[])
 //
 #implfun
-the_sortenv_pvstmap() = (the_sortenv)
+the_sortenv_pvstmap() = (the_sortenv[])
 #implfun
-the_sexpenv_pvstmap() = (the_sexpenv)
+the_sexpenv_pvstmap() = (the_sexpenv[])
 #implfun
-the_dexpenv_pvstmap() = (the_dexpenv)
+the_dexpenv_pvstmap() = (the_dexpenv[])
+//
+(* ****** ****** *)
+//
+#implfun
+the_tsdenv$reset() =
+let
+val () = the_gmacenv[] := topmap_make_nil{g1mac}()
+val () = the_sortenv[] := topmap_make_nil{s2tex}()
+val () = the_sexpenv[] := topmap_make_nil{s2itm}()
+val () = the_dexpenv[] := topmap_make_nil{d2itm}()
+in (*nothing*) end
 //
 end(*loc*)//end of [local(the_(tsd)env_pvs)]
 
@@ -1113,6 +1145,12 @@ end (*let*) // end of [the_tr12env_pvsl01d(...)]
 (* ****** ****** *)
 (* ****** ****** *)
 //
+#implfun
+the_tr12env$reset() = (the_ntime[] := 0)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
 end (*loc*) // end-of-[the_tr12env_pvs(load|find)]
 //
 (* ****** ****** *)
@@ -1120,28 +1158,35 @@ end (*loc*) // end-of-[the_tr12env_pvs(load|find)]
 
 local
 //
+// HX-C1-2026: a0ref-wrapped so xglobal_reset() can swap in a fresh empty.
 val
 the_d2cstmap =
-tmpmap_make_nil((*void*))
+a0ref_make_1val(tmpmap_make_nil{x2nam}())
 //
 in(*local*)
 //
 (* ****** ****** *)
 //
 #implfun
-the_d2cstmap_xnm() = (the_d2cstmap)
+the_d2cstmap_xnm() = (the_d2cstmap[])
 //
 (* ****** ****** *)
 //
 #implfun
 the_d2cstmap_xnmfind(key) =
-tmpmap_search$opt(the_d2cstmap, key)
+tmpmap_search$opt(the_d2cstmap[], key)
 //
 (* ****** ****** *)
 //
 #implfun
 the_d2cstmap_xnmadd0(key, itm) =
-tmpmap_insert$any(the_d2cstmap, key, itm)
+tmpmap_insert$any(the_d2cstmap[], key, itm)
+//
+(* ****** ****** *)
+//
+#implfun
+the_d2cstmap$reset() =
+(the_d2cstmap[] := tmpmap_make_nil{x2nam}())
 //
 (* ****** ****** *)
 //
@@ -1154,18 +1199,19 @@ local
 //
 (* ****** ****** *)
 //
+// HX-C1-2026: a0ref-wrapped per-file caches; xglobal_reset() swaps fresh.
 val
 the_d1parenv =
-topmap_make_nil((*void*))
+a0ref_make_1val(topmap_make_nil{d1parsed}())
 val
 the_d2parenv =
-topmap_make_nil((*void*))
+a0ref_make_1val(topmap_make_nil{d2parsed}())
 val
 the_d3parenv =
-topmap_make_nil((*void*))
+a0ref_make_1val(topmap_make_nil{d3parsed}())
 val
 the_d3tmpenv =
-topmap_make_nil((*void*))
+a0ref_make_1val(topmap_make_nil{d3parsed}())
 //
 (* ****** ****** *)
 //
@@ -1175,46 +1221,57 @@ in(*local*)
 //
 #implfun
 the_d1parenv_pvstmap
-  ( (*void*) ) = (the_d1parenv)
+  ( (*void*) ) = (the_d1parenv[])
 #implfun
 the_d2parenv_pvstmap
-  ( (*void*) ) = (the_d2parenv)
+  ( (*void*) ) = (the_d2parenv[])
 #implfun
 the_d3parenv_pvstmap
-  ( (*void*) ) = (the_d3parenv)
+  ( (*void*) ) = (the_d3parenv[])
 #implfun
 the_d3tmpenv_pvstmap
-  ( (*void*) ) = (the_d3tmpenv)
+  ( (*void*) ) = (the_d3tmpenv[])
 //
 (* ****** ****** *)
 //
 #implfun
 the_d1parenv_pvsfind(key) =
-topmap_search$opt(the_d1parenv, key)
+topmap_search$opt(the_d1parenv[], key)
 #implfun
 the_d2parenv_pvsfind(key) =
-topmap_search$opt(the_d2parenv, key)
+topmap_search$opt(the_d2parenv[], key)
 #implfun
 the_d3parenv_pvsfind(key) =
-topmap_search$opt(the_d3parenv, key)
+topmap_search$opt(the_d3parenv[], key)
 #implfun
 the_d3tmpenv_pvsfind(key) =
-topmap_search$opt(the_d3tmpenv, key)
+topmap_search$opt(the_d3tmpenv[], key)
 //
 (* ****** ****** *)
 //
 #implfun
 the_d1parenv_pvsadd0(key, itm) =
-topmap_insert$any(the_d1parenv, key, itm)
+topmap_insert$any(the_d1parenv[], key, itm)
 #implfun
 the_d2parenv_pvsadd0(key, itm) =
-topmap_insert$any(the_d2parenv, key, itm)
+topmap_insert$any(the_d2parenv[], key, itm)
 #implfun
 the_d3parenv_pvsadd0(key, itm) =
-topmap_insert$any(the_d3parenv, key, itm)
+topmap_insert$any(the_d3parenv[], key, itm)
 #implfun
 the_d3tmpenv_pvsadd0(key, itm) =
-topmap_insert$any(the_d3tmpenv, key, itm)
+topmap_insert$any(the_d3tmpenv[], key, itm)
+//
+(* ****** ****** *)
+//
+#implfun
+the_dxparenv$reset() =
+let
+val () = the_d1parenv[] := topmap_make_nil{d1parsed}()
+val () = the_d2parenv[] := topmap_make_nil{d2parsed}()
+val () = the_d3parenv[] := topmap_make_nil{d3parsed}()
+val () = the_d3tmpenv[] := topmap_make_nil{d3parsed}()
+in (*nothing*) end
 //
 (* ****** ****** *)
 //
@@ -1501,6 +1558,27 @@ val () = printsln
 )(*case+*)//end-of-[auxloop(kxs)]
 }(*where*)//end-of-[auxloop(kxs)]
 end(*let*)//end-of-[the_dexpenv_allist_fprint(...)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
+HX-C1-2026: full post-startup reset (see xglobal.sats). Order does not
+matter: each helper independently restores its block to the pristine
+(pre-prelude) value. The two inits0 invalidations MUST run (the lazy
+memos cache pointers into the_sexpenv, which we just cleared).
+*)
+#implfun
+xglobal_reset() =
+let
+val () = the_fxtyenv$reset()
+val () = the_tsdenv$reset()
+val () = the_tr12env$reset()
+val () = the_d2cstmap$reset()
+val () = the_dxparenv$reset()
+val () = staexp2_inits0_reset()
+val () = statyp2_inits0_reset()
+in (*nothing*) end
 //
 (* ****** ****** *)
 (* ****** ****** *)
