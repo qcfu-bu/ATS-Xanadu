@@ -110,16 +110,22 @@ export function activate(context: ExtensionContext): void {
   // Pass `--stdio` explicitly: vscode-languageserver selects its transport from
   // this flag. (The client's TransportKind.stdio already implies it, but being
   // explicit keeps the server's bare-launch path and the client path identical.)
+  // The resident server bundles the deeply-recursive ATS3 compiler and loads
+  // the prelude at startup, so node needs a large V8 stack or it overflows
+  // before it can respond to `initialize` (the headless smokes pass this flag,
+  // which is why they didn't catch it). Harmless for the stub/spawn fallbacks.
+  // Must precede the script path to be parsed as a node flag.
+  const nodeArgs = ["--stack-size=8801"];
   const serverOptions: ServerOptions = {
     run: {
       command: nodePath,
-      args: [serverModule, "--stdio"],
+      args: [...nodeArgs, serverModule, "--stdio"],
       transport: TransportKind.stdio,
       options: { env: serverEnv },
     },
     debug: {
       command: nodePath,
-      args: ["--nolazy", serverModule, "--stdio"],
+      args: ["--nolazy", ...nodeArgs, serverModule, "--stdio"],
       transport: TransportKind.stdio,
       options: { env: serverEnv },
     },
