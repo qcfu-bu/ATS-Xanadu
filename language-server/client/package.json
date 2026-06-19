@@ -43,6 +43,18 @@
         "configuration": "./language-configuration.json"
       }
     ],
+    "grammars": [
+      {
+        "language": "ats",
+        "scopeName": "source.ats",
+        "path": "./syntaxes/ats3.tmLanguage.json"
+      },
+      {
+        "language": "ats3",
+        "scopeName": "source.ats",
+        "path": "./syntaxes/ats3.tmLanguage.json"
+      }
+    ],
     "configuration": {
       "type": "object",
       "title": "ATS3 Language Server",
@@ -81,6 +93,7 @@
     "watch": "tsc -watch -p ./",
     "bundle": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
     "copy-server": "node scripts/copy-server.js",
+    "test:grammar": "node fixtures/tokenize-test.js",
     "package": "npm run bundle && npm run copy-server && vsce package --out ats3-lsp-client.vsix"
   },
   "dependencies": {
@@ -91,6 +104,8 @@
     "@types/vscode": "1.82.0",
     "@vscode/vsce": "3.6.0",
     "esbuild": "0.25.10",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.3.2"
   }
 }

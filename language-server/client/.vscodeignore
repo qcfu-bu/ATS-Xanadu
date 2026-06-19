@@ -3,6 +3,7 @@
 .gitignore
 src/**
 scripts/**
+fixtures/**
 out/**
 **/*.ts
 **/*.map

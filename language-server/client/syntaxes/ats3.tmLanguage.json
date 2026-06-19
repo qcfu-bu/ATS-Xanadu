@@ -1,0 +1,278 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "ATS3",
+  "scopeName": "source.ats",
+  "uuid": "7b1f0a2e-3c4d-4e5f-9a8b-1d2c3e4f5a6b",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#preprocessor" },
+    { "include": "#builtins" },
+    { "include": "#strings" },
+    { "include": "#characters" },
+    { "include": "#numbers" },
+    { "include": "#booleans" },
+    { "include": "#function-definition" },
+    { "include": "#type-definition" },
+    { "include": "#keywords-control" },
+    { "include": "#keywords-declaration" },
+    { "include": "#keywords-other" },
+    { "include": "#storage-sorts" },
+    { "include": "#type-annotation" },
+    { "include": "#operators" },
+    { "include": "#identifiers" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        { "include": "#comment-rest" },
+        { "include": "#comment-block-ml" },
+        { "include": "#comment-block-c" },
+        { "include": "#comment-line" }
+      ]
+    },
+    "comment-line": {
+      "name": "comment.line.double-slash.ats",
+      "begin": "//",
+      "end": "$",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.comment.ats" }
+      }
+    },
+    "comment-rest": {
+      "name": "comment.block.documentation.ats",
+      "comment": "//// comments out the rest of the file (T_CMNT2_rest in the lexer). The end pattern '\\b\\B' is a deliberate contradiction (word-boundary AND non-word-boundary) so it never matches: the comment runs to end of file.",
+      "begin": "////",
+      "end": "\\b\\B",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.comment.ats" }
+      }
+    },
+    "comment-block-c": {
+      "name": "comment.block.ats",
+      "comment": "C-style /* ... */ block comments. These nest in ATS (T_CMNT3_ccbl carries a nesting level).",
+      "begin": "/\\*",
+      "end": "\\*/",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.comment.begin.ats" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.comment.end.ats" }
+      },
+      "patterns": [
+        { "include": "#comment-block-c" }
+      ]
+    },
+    "comment-block-ml": {
+      "name": "comment.block.ats",
+      "comment": "ML-style (* ... *) block comments. These nest in ATS (T_CMNT4_mlbl carries a nesting level).",
+      "begin": "\\(\\*",
+      "end": "\\*\\)",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.comment.begin.ats" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.comment.end.ats" }
+      },
+      "patterns": [
+        { "include": "#comment-block-ml" }
+      ]
+    },
+    "preprocessor": {
+      "patterns": [
+        {
+          "name": "meta.preprocessor.conditional.ats",
+          "comment": "#-directives controlling conditional compilation.",
+          "match": "#(?:if|ifdef|ifexp|then|then0|else|else1|elif|elsif|endif)\\b",
+          "captures": {
+            "0": { "name": "keyword.control.directive.conditional.ats" }
+          }
+        },
+        {
+          "name": "meta.preprocessor.include.ats",
+          "comment": "#staload / #include / #dynload-style loading directives.",
+          "match": "#(?:staload|include|symload|dynload|dyninit|static|extern|extval|staval)\\b",
+          "captures": {
+            "0": { "name": "keyword.control.import.ats" }
+          }
+        },
+        {
+          "name": "meta.preprocessor.definition.ats",
+          "comment": "#define / #macdef and the various #-prefixed declaration directives.",
+          "match": "#(?:define|macdef|stacst0|abssort|sortdef|sexpdef|propdef|viewdef|tboxdef|typedef|vwtpdef|abstype|absprop|absview|abstbox|abstflt|absvtbx|absvtft|absvwtp|absimpl|absopen|implmnt|implprf|implval|implfun|impltmpr|impltmp|infix0|infixl|infixr|prefix|pstfix|nonfix|extcode)\\b",
+          "captures": {
+            "0": { "name": "keyword.other.directive.ats" }
+          }
+        },
+        {
+          "name": "meta.preprocessor.ats",
+          "comment": "Any other #-prefixed token, scoped generically so unknown directives still highlight.",
+          "match": "#[A-Za-z][A-Za-z0-9_]*\\b",
+          "captures": {
+            "0": { "name": "keyword.other.directive.ats" }
+          }
+        }
+      ]
+    },
+    "builtins": {
+      "patterns": [
+        {
+          "name": "meta.builtin.tuple-record.ats",
+          "comment": "$-prefixed tuple/record builtins from the lexer keyword table.",
+          "match": "\\$(?:tup_t0|tup_vt|tup_rf|tuptx|tupvx|tuprf|tup|tpltx|tplvx|tplrf|tpl|rec_t0|rec_vt|rec_rf|rectx|recvx|recrf|rec|rcdtx|rcdvx|rcdrf|rcd)\\b",
+          "captures": {
+            "0": { "name": "support.function.builtin.ats" }
+          }
+        },
+        {
+          "name": "meta.builtin.special.ats",
+          "comment": "Other $-prefixed builtins recognized by the lexer / symbol table.",
+          "match": "\\$(?:extnam|extval|extbox|extype|exists|synext|raise|lamenv|llamenv0|llamenv1|llazy|elazy|lazy|eval|fold|free|addr|view|UNSAFE|showtype|effmask_all|effmask_wrt|effmask_ref|effmask_exn|effmask_ntm|d2c|lst|list|arrpsz|arrayptr|tup|rec)\\b",
+          "captures": {
+            "0": { "name": "support.function.builtin.ats" }
+          }
+        },
+        {
+          "name": "meta.builtin.dollar.ats",
+          "comment": "Any other $-prefixed token, scoped generically.",
+          "match": "\\$[A-Za-z][A-Za-z0-9_]*\\b",
+          "captures": {
+            "0": { "name": "support.function.builtin.ats" }
+          }
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.ats",
+      "begin": "\"",
+      "end": "\"",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.string.begin.ats" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.string.end.ats" }
+      },
+      "patterns": [
+        { "include": "#string-escape" }
+      ]
+    },
+    "string-escape": {
+      "name": "constant.character.escape.ats",
+      "match": "\\\\(?:\\\\|[abefnprtv'\"?]|[0-3][0-7]{0,2}|[4-7][0-7]?|x[a-fA-F0-9]{1,2}|u[a-fA-F0-9]{1,4}|U[a-fA-F0-9]{1,8})"
+    },
+    "characters": {
+      "name": "string.quoted.single.ats",
+      "comment": "Char literal: a single char or an escape sequence between single quotes.",
+      "match": "'(?:\\\\(?:\\\\|[abefnprtv'\"?]|[0-3][0-7]{0,2}|[4-7][0-7]?|x[a-fA-F0-9]{1,2}|u[a-fA-F0-9]{1,4}|U[a-fA-F0-9]{1,8})|[^\\\\'])'"
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.hexadecimal.ats",
+          "comment": "Hex float: 0x... with a '.' fraction and/or p/P binary exponent.",
+          "match": "\\b0[xX][0-9a-fA-F]*(?:\\.[0-9a-fA-F]*)?(?:[pP][-+]?[0-9]+)[A-Za-z]*\\b|\\b0[xX][0-9a-fA-F]*\\.[0-9a-fA-F]*[A-Za-z]*"
+        },
+        {
+          "name": "constant.numeric.integer.hexadecimal.ats",
+          "comment": "Hex integer: 0x... optionally followed by an alpha suffix.",
+          "match": "\\b0[xX][0-9a-fA-F]+[A-Za-z]*\\b"
+        },
+        {
+          "name": "constant.numeric.float.decimal.ats",
+          "comment": "Decimal float: fraction and/or e/E exponent, optional alpha suffix.",
+          "match": "\\b[0-9]+(?:\\.[0-9]*)?[eE][-+]?[0-9]+[A-Za-z]*\\b|\\b[0-9]+\\.[0-9]*[A-Za-z]*"
+        },
+        {
+          "name": "constant.numeric.integer.decimal.ats",
+          "comment": "Decimal/octal integer (leading 0 = octal in the lexer), optional alpha suffix.",
+          "match": "\\b[0-9]+[A-Za-z]*\\b"
+        }
+      ]
+    },
+    "booleans": {
+      "name": "constant.language.boolean.ats",
+      "match": "\\b(?:true|false)\\b"
+    },
+    "function-definition": {
+      "comment": "Highlight the name bound right after a function/value binder.",
+      "begin": "\\b(castfn|fcast|praxi|prfun|prfn0|prfn1|prval|fnx|fn0|fn1|fun|fn|val[-+]?|vlr|var|pax|pfx|pvx)",
+      "beginCaptures": {
+        "1": { "name": "keyword.other.fun.ats" }
+      },
+      "end": "(?=[^A-Za-z0-9_'])|$",
+      "patterns": [
+        {
+          "match": "\\b[a-zA-Z][a-zA-Z0-9_']*\\b",
+          "name": "entity.name.function.ats"
+        },
+        { "include": "#comments" }
+      ]
+    },
+    "type-definition": {
+      "comment": "Highlight the name bound right after a datatype/type binder.",
+      "begin": "\\b(datatype|dataprop|dataview|datavwtp|datasort|excptcon)\\b",
+      "beginCaptures": {
+        "1": { "name": "storage.type.ats" }
+      },
+      "end": "(?=[^A-Za-z0-9_'])|$",
+      "patterns": [
+        {
+          "match": "\\b[a-zA-Z][a-zA-Z0-9_']*\\b",
+          "name": "entity.name.type.ats"
+        },
+        { "include": "#comments" }
+      ]
+    },
+    "keywords-control": {
+      "patterns": [
+        {
+          "name": "keyword.control.ats",
+          "comment": "case/scas may carry a trailing +/- (case+, case-) in idiomatic ATS3.",
+          "match": "\\b(?:case1|case0|case|scas)[-+]?"
+        },
+        {
+          "name": "keyword.control.ats",
+          "match": "\\b(?:endlocal|endwhere|endcas|endlam|endlet|endloc|endtry|endwhr|endst|endif|begin|local|where|when|then|else|let|sif|try|lam|fix|end|if|in|of)\\b"
+        }
+      ]
+    },
+    "keywords-declaration": {
+      "name": "storage.type.ats",
+      "comment": "Declaration / binding keywords that introduce definitions.",
+      "match": "\\b(?:withvwtp|withprop|withview|withtype|datavwtp|datasort|dataprop|dataview|datatype|excptcon|praxi|prfun|prfn0|prfn1|prval|castfn|fcast|fnx|fn0|fn1|fun|fn|val|vlr|var|pax|pfx|pvx|with)\\b"
+    },
+    "keywords-other": {
+      "name": "keyword.other.ats",
+      "comment": "Remaining alphabetic keywords (modifiers, operators-as-words).",
+      "match": "\\b(?:and|as|op)\\b"
+    },
+    "storage-sorts": {
+      "name": "storage.type.sort.ats",
+      "comment": "Sorts / static-level type classifiers (from the symbol table).",
+      "match": "\\b(?:viewtype|vtype|prop|view|type|t0ype|t@ype|vtbx|vtft|vwtp|tbox|tflt|prf|addr|bool|int0|char|strn)\\b"
+    },
+    "type-annotation": {
+      "comment": "Type after a ':' annotation gets a support.type tint.",
+      "match": "(:)\\s*([A-Za-z][A-Za-z0-9_']*)",
+      "captures": {
+        "1": { "name": "keyword.operator.annotation.ats" },
+        "2": { "name": "support.type.ats" }
+      }
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.arrow.ats",
+          "match": "=>|-<|->|=<|>\\.|><|<>|>>|<<|:="
+        },
+        {
+          "name": "keyword.operator.ats",
+          "match": "!=|==|>=|<=|&&|\\|\\||\\+|-|\\*|/|%|=|<|>|@|!|~|\\?|&|\\||\\^|\\$|#|\\.|:"
+        }
+      ]
+    },
+    "identifiers": {
+      "name": "variable.other.ats",
+      "match": "\\b[a-zA-Z_][a-zA-Z0-9_']*\\b"
+    }
+  }
+}
