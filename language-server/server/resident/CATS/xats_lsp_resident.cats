@@ -359,9 +359,12 @@ function LSP_parse_staloads(filePath, text) {
 // normPath -> [{ name, kind, line, char, endChar }]  (0-based, UTF-16 columns —
 // computed directly off the JS string, so already LSP-correct).
 const LSP_ws_symbols_by_file = new Map();
-// top-level decl matcher: optional leading #/extern, a decl keyword, then a name.
+// top-level decl matcher: optional leading #/extern, a decl keyword, an OPTIONAL
+// template-arg block (`<a:vt>`), then the name. The keyword→name gap may span
+// NEWLINES — ATS3's prelude style puts `fun` / `<a:vt>` / name on separate lines
+// (so a same-line-only matcher would miss almost the entire prelude).
 const LSP_WS_SYM_RE =
-  /(?:^|\n)[ \t]*(?:#?extern[ \t]+)?(#?(?:fun|fnx|fn|prfn|prfun|praxi|castfn|macdef|val[-+]?|prval|var|datatype|datavtype|dataprop|datasort|typedef|sexpdef|sortdef|abstype|abst@ype|abst0ype|absvtype|absprop|abstbox|abstflat|stacst))[ \t]+([A-Za-z_][A-Za-z0-9_$']*)/g;
+  /(?:^|\n)[ \t]*(?:#?extern[ \t]+)?(#?(?:fun|fnx|fn|prfn|prfun|praxi|castfn|macdef|val[-+]?|prval|var|datatype|datavtype|dataprop|datasort|typedef|sexpdef|sortdef|abstype|abst@ype|abst0ype|absvtype|absprop|abstbox|abstflat|stacst))\b[ \t\r\n]*(?:<[^>]*>[ \t\r\n]*)?([A-Za-z_][A-Za-z0-9_$']*)/g;
 function LSP_ws_kind(kw) {
   const k = kw.replace(/^#/, '');
   if (/^(fun|fnx|fn|prfn|prfun|praxi|castfn|macdef)$/.test(k)) return 12;  // Function
@@ -423,6 +426,89 @@ function LSP_build_workspace_symbols(query) {
     }
   }
   return out;
+}
+//
+////////////////////////////////////////////////////////////////////////.
+// ---- WS-6 (completion): prelude index + keywords + kind map ---------- //
+//
+// The project scan deliberately SKIPS $XATSHOME, but completion wants the
+// prelude/global names (print, list0, +, …). So we textually scan the prelude
+// tree ONCE at startup into a flat {name, kind} list (deduped). Immutable — never
+// invalidated. Same extractor as workspace symbols (now multi-line-aware).
+let LSP_prelude_symbols = [];          // [{ name, kind }]
+let LSP_prelude_scanned = false;
+const LSP_PRELUDE_SCAN_CAP =
+  parseInt(process.env.ATS3_PRELUDE_SCAN_CAP || '2000', 10);
+function LSP_scan_prelude_dir(root, seenName, out, budget) {
+  const stack = [root];
+  while (stack.length > 0) {
+    if (out.length >= LSP_PRELUDE_SCAN_CAP || budget.files <= 0) break;
+    const dir = stack.pop();
+    let ents;
+    try { ents = LSP_fs.readdirSync(dir, { withFileTypes: true }); }
+    catch (e) { continue; }
+    for (const ent of ents) {
+      if (ent.name.startsWith('.') || ent.name === 'node_modules') continue;
+      const full = LSP_path.join(dir, ent.name);
+      if (ent.isDirectory()) { stack.push(full); continue; }
+      if (!ent.isFile() || !LSP_PROJ_SRC_RE.test(ent.name)) continue;
+      if (budget.files <= 0) break;
+      budget.files--;
+      let text;
+      try { text = LSP_fs.readFileSync(full, 'utf8'); } catch (e) { continue; }
+      for (const s of LSP_extract_ws_symbols(text)) {
+        if (seenName.has(s.name)) continue;     // first decl of a name wins
+        seenName.add(s.name);
+        out.push({ name: s.name, kind: s.kind });
+        if (out.length >= LSP_PRELUDE_SCAN_CAP) return;
+      }
+    }
+  }
+}
+function LSP_scan_prelude_symbols() {
+  if (LSP_prelude_scanned) return;
+  LSP_prelude_scanned = true;
+  const home = LSP_norm(process.env.XATSHOME || "");
+  if (home === "") return;
+  const out = [], seenName = new Set();
+  const budget = { files: 600 };               // bound total files scanned
+  for (const sub of ['prelude', LSP_path.join('srcgen2', 'prelude')]) {
+    const root = LSP_path.join(home, sub);
+    try { if (LSP_fs.existsSync(root)) LSP_scan_prelude_dir(root, seenName, out, budget); }
+    catch (e) {}
+  }
+  LSP_prelude_symbols = out;
+  try {
+    process.stderr.write('[xats-lsp-resident] prelude-index: ' +
+      out.length + ' name(s)\n');
+  } catch (e) {}
+}
+//
+// static ATS3 keyword candidates (offered in the general context).
+const LSP_KEYWORDS = [
+  'val', 'valpar', 'val-', 'var', 'fun', 'fn', 'fnx', 'prval', 'prfun', 'prfn',
+  'praxi', 'castfn', 'let', 'in', 'end', 'local', 'where', 'begin',
+  'case', 'case+', 'case-', 'of', 'if', 'then', 'else', 'sif', 'scase',
+  'while', 'for', 'lam', 'llam', 'fix', 'when', 'and', 'rec',
+  'datatype', 'datavtype', 'dataprop', 'typedef', 'abstype', 'abstbox',
+  'stacst', 'sortdef', 'sexpdef', 'exception', 'implement', 'extern',
+  'staload', 'include', 'dynload', 'addr', 'view', 'true', 'false'
+];
+//
+// our SymbolKind -> LSP CompletionItemKind.
+function LSP_sk_to_cik(k) {
+  switch (k | 0) {
+    case 12: return 3;    // Function   -> Function
+    case 14: return 21;   // Constant   -> Constant
+    case 13: return 6;    // Variable   -> Variable
+    case 10: return 13;   // Enum       -> Enum
+    case 11: return 8;    // Interface  -> Interface
+    case 5:  return 7;    // Class      -> Class
+    case 26: return 25;   // TypeParam  -> TypeParameter
+    case 22: return 20;   // EnumMember -> EnumMember
+    case 9:  return 4;    // Constructor-> Constructor
+    default: return 6;    // -> Variable
+  }
 }
 //
 // remove all edges that originate at `from` (used before re-indexing a file so a
@@ -1216,6 +1302,79 @@ function LSP_build_inlays(uri, range) {
 }
 //
 ////////////////////////////////////////////////////////////////////////.
+// ---- WS-6 completion (Stage 1: lexical core) ------------------------ //
+//
+const LSP_IDENT_CH = /[A-Za-z0-9_$']/;
+// walk back from `offset` over identifier chars -> the partial word being typed,
+// its start offset, and whether it is a MEMBER access (preceded by '.').
+function LSP_completion_partial(text, offset) {
+  let i = offset | 0;
+  while (i > 0 && LSP_IDENT_CH.test(text[i - 1])) i--;
+  const word = text.slice(i, offset);
+  // skip whitespace between the word-start and any '.' (e.g. `foo .bar`).
+  let j = i - 1;
+  while (j >= 0 && (text[j] === ' ' || text[j] === '\t')) j--;
+  const member = (j >= 0 && text[j] === '.');
+  return { word: word, start: i, member: member };
+}
+// case-insensitive PREFIX test (Stage-1 filter; fuzzy is a Stage-4 polish).
+function LSP_starts_with_ci(name, pre) {
+  if (!pre) return true;
+  return name.toLowerCase().startsWith(pre.toLowerCase());
+}
+// textDocument/completion (Stage 1). Answers from the cached indices + prelude +
+// keywords with NO re-parse. Member context (after '.') is deferred to Stage 3.
+function LSP_build_completion(uri, position) {
+  const doc = LSP_documents.get(uri);
+  if (!doc) return { isIncomplete: false, items: [] };
+  const text = doc.getText();
+  const offset = doc.offsetAt(position);
+  const { word, start, member } = LSP_completion_partial(text, offset);
+  // Stage 1: no member/dot completion yet (Stage 3) -> empty but re-queryable.
+  if (member) return { isIncomplete: true, items: [] };
+
+  const replaceStart = doc.positionAt(start);
+  const range = { start: replaceStart, end: position };
+  const seen = new Set();      // dedup by name (first/highest-priority wins)
+  const items = [];
+  const CAP = 200;
+  // src rank prefixes the sortText so better sources sort first.
+  function add(name, symKind, src, detail) {
+    if (!name || seen.has(name)) return;
+    if (!LSP_starts_with_ci(name, word)) return;
+    seen.add(name);
+    items.push({
+      label: name,
+      kind: (src === 'kw') ? 14 : LSP_sk_to_cik(symKind),   // 14 = Keyword
+      detail: detail,
+      sortText: src + name,
+      textEdit: { range: range, newText: name },
+      data: { src: src }
+    });
+  }
+  // 0: current-file top-level symbols (highest priority)
+  const idx = LSP_index.get(uri);
+  if (idx && idx.symbols) for (const s of idx.symbols) {
+    add(s.name, s.kind, '0', 'this file');
+    if (items.length >= CAP) break;
+  }
+  // 1: project symbols (textual index)
+  if (items.length < CAP) for (const [, syms] of LSP_ws_symbols_by_file) {
+    for (const s of syms) { add(s.name, s.kind, '1', 'project'); if (items.length >= CAP) break; }
+    if (items.length >= CAP) break;
+  }
+  // 2: prelude / global names
+  if (items.length < CAP) for (const s of LSP_prelude_symbols) {
+    add(s.name, s.kind, '2', 'prelude'); if (items.length >= CAP) break;
+  }
+  // 3: keywords
+  if (items.length < CAP) for (const kw of LSP_KEYWORDS) {
+    add(kw, 0, 'kw', 'keyword'); if (items.length >= CAP) break;
+  }
+  return { isIncomplete: true, items: items };
+}
+//
+////////////////////////////////////////////////////////////////////////.
 // ---- the connection loop (ported from reference vscode_initialize) --- //
 //
 const LSP_connection = LSP_ls.createConnection(LSP_ls.ProposedFeatures.all);
@@ -1478,6 +1637,9 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
         documentHighlightProvider: true,
         inlayHintProvider: true,
         workspaceSymbolProvider: true,
+        // WS-6 completion (Stage 1). '.' is a trigger char (member completion is
+        // Stage 3; Stage 1 returns empty there). No resolve provider yet.
+        completionProvider: { triggerCharacters: ['.'], resolveProvider: false },
         // AST-based semantic tokens (full-document). The legend names the
         // tokenTypes/tokenModifiers the harvested indices/bits map to.
         semanticTokensProvider: {
@@ -1504,6 +1666,11 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
         catch (e) { LSP_log('project scan threw: ' + (e && e.stack ? e.stack : e)); }
       });
     }
+    // WS-6: build the prelude/global completion index once, off the event loop.
+    setImmediate(() => {
+      try { LSP_scan_prelude_symbols(); }
+      catch (e) { LSP_log('prelude scan threw: ' + (e && e.stack ? e.stack : e)); }
+    });
   });
 
   LSP_documents.onDidOpen(change => { textValidator(change.document); });
@@ -1633,6 +1800,15 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
   if (typeof LSP_connection.onWorkspaceSymbol === 'function')
     LSP_connection.onWorkspaceSymbol(workspaceSymbolHandler);
   else LSP_connection.onRequest('workspace/symbol', workspaceSymbolHandler);
+
+  // WS-6: completion (Stage 1 lexical core — index-backed, no re-parse).
+  function completionHandler(params) {
+    try { return LSP_build_completion(params.textDocument.uri, params.position); }
+    catch (e) { LSP_log('onCompletion threw: ' + e); return { isIncomplete: false, items: [] }; }
+  }
+  if (typeof LSP_connection.onCompletion === 'function')
+    LSP_connection.onCompletion(completionHandler);
+  else LSP_connection.onRequest('textDocument/completion', completionHandler);
 
   // textDocument/semanticTokens/full. Prefer the typed helper
   // (connection.languages.semanticTokens.on); fall back to the raw onRequest

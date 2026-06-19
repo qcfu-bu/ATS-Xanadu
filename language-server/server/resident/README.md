@@ -33,6 +33,10 @@ Mirrors the project author's own LSP (`github.com/qcfu-bu/ats-lsp`).
   - `inlayHint` — inferred `: <type>` on un-annotated `val`-bindings.
   - `workspace/symbol` — fuzzy match over a textual top-level-decl index built
     during the project scan.
+  - `completion` (WS-6 Stage 1) — index-backed identifier + keyword completion
+    (current-file / project / prelude / keywords), prefix-filtered, **no
+    re-parse**. Member completion (after `.`) is deferred to Stage 3. See
+    `../../docs/COMPLETION-PLAN.md`.
 
 ## Files
 
@@ -55,6 +59,8 @@ Mirrors the project author's own LSP (`github.com/qcfu-bu/ats-lsp`).
 - `scripts/smoke-depgraph.js` — cross-file invalidation (edit A → B re-checks).
 - `scripts/smoke-ws5.js` — WS-5: documentSymbol, references, documentHighlight,
   inlayHint, workspace/symbol (all over the LSP protocol).
+- `scripts/smoke-completion.js` — WS-6 Stage 1: completion candidates
+  (current-file / prelude / keyword), textEdit range, member-context deferral.
 
 ## Build & run
 
