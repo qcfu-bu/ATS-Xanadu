@@ -12,7 +12,7 @@
   "categories": [
     "Programming Languages"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "activationEvents": [
     "onLanguage:ats",
     "onLanguage:ats3"
@@ -50,7 +50,7 @@
         "ats3.server.module": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Absolute path to the LSP server entrypoint (a node script run over stdio). When empty, the client auto-resolves the ATS3-built `server/lsp-server/xats-lsp-server.js`, falling back to the WS-0b stub (`server/stub/server.js`) if it has not been built."
+          "markdownDescription": "Absolute path to the LSP server entrypoint (a node script run over stdio). When empty, the client auto-resolves the server: first the copy packaged inside the extension (`server-dist/xats-lsp-resident.opt1.js`, used by an installed `.vsix`), then the repo-relative resident/spawn/stub builds (used when running the extension from source via F5)."
         },
         "ats3.server.nodePath": {
           "type": "string",
@@ -60,7 +60,7 @@
         "ats3.xatshome": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Path to the ATS3/Xanadu repo root (`XATSHOME`), needed by the checker to locate the prelude. When empty, defaults to two directories above the extension (the repo root in the in-tree layout)."
+          "markdownDescription": "Path to the ATS3/Xanadu repo root (`XATSHOME`), needed by the checker to locate the prelude. **Required when the extension is installed from a `.vsix`** — an installed extension has no repo next to it, so it cannot guess this and the server will not start until it is set (or the `XATSHOME` env var is exported for the editor). When running the extension from source (F5 in the repo), it defaults to two directories above the extension (the repo root in the in-tree layout)."
         },
         "ats3.trace.server": {
           "type": "string",
@@ -76,9 +76,12 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run bundle",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "bundle": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
+    "copy-server": "node scripts/copy-server.js",
+    "package": "npm run bundle && npm run copy-server && vsce package --out ats3-lsp-client.vsix"
   },
   "dependencies": {
     "vscode-languageclient": "9.0.1"
@@ -86,6 +89,8 @@
   "devDependencies": {
     "@types/node": "20.x",
     "@types/vscode": "1.82.0",
+    "@vscode/vsce": "3.6.0",
+    "esbuild": "0.25.10",
     "typescript": "5.9.3"
   }
 }

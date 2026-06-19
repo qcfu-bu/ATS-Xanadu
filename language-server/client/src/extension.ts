@@ -34,11 +34,11 @@ let client: LanguageClient | undefined;
  *
  * Priority:
  *   1. the `ats3.server.module` setting, if set (absolute path expected);
- *   2. the bundled stub server shipped next to this extension.
- *
- * The stub lives at `<extensionRoot>/../server/stub/server.js` in the repo
- * layout. We also tolerate the packaged layout where it may be copied under the
- * extension root.
+ *   2. the PACKAGED server shipped inside the extension at
+ *      `<extensionPath>/server-dist/xats-lsp-resident.opt1.js` (this is what
+ *      an installed `.vsix` uses; its runtime `node_modules` sit next to it);
+ *   3. the repo-relative dev paths (resident, then spawn-based, then the stub),
+ *      so running the unpackaged extension via F5 still works.
  */
 function resolveServerModule(context: ExtensionContext): string {
   const configured = workspace
@@ -49,11 +49,16 @@ function resolveServerModule(context: ExtensionContext): string {
     return configured;
   }
 
-  // Repo layout: language-server/client  ->  language-server/server/...
+  // Packaged-first: when installed from a .vsix, the resident server and its
+  // runtime node_modules are copied into <extensionPath>/server-dist at package
+  // time (see package.json `package` script / scripts/copy-server.js). Prefer it
+  // so installed users do not depend on any repo-relative layout.
+  // Repo layout fallback: language-server/client -> language-server/server/...
   // Prefer the fast RESIDENT in-process server (R1); then the spawn-based
   // server; then the WS-0b stub, so the extension still does something if the
   // newer artifacts have not been built yet.
   const candidates = [
+    path.join(context.extensionPath, "server-dist", "xats-lsp-resident.opt1.js"),
     path.join(context.extensionPath, "..", "server", "resident", "BUILD", "xats-lsp-resident.opt1.js"),
     path.join(context.extensionPath, "server", "resident", "BUILD", "xats-lsp-resident.opt1.js"),
     path.join(context.extensionPath, "..", "server", "lsp-server", "xats-lsp-server.js"),
@@ -70,6 +75,52 @@ function resolveServerModule(context: ExtensionContext): string {
   return candidates[0];
 }
 
+/**
+ * True when this extension is running from a packaged install (a `.vsix`)
+ * rather than the in-repo dev checkout. We detect this by the presence of the
+ * packaged server payload at `<extensionPath>/server-dist`, which only the
+ * `package` step produces. In the packaged case we cannot infer XATSHOME from
+ * the extension's location (the repo is not next to it), so it MUST come from
+ * the `ats3.xatshome` setting (or the XATSHOME env var).
+ */
+function isPackaged(context: ExtensionContext): boolean {
+  return fs.existsSync(path.join(context.extensionPath, "server-dist"));
+}
+
+/**
+ * Resolve XATSHOME (the ATS3/Xanadu repo root, needed by the checker to find
+ * the prelude). Returns `undefined` when it cannot be determined.
+ *
+ * Priority:
+ *   1. the `ats3.xatshome` setting, if set;
+ *   2. the `XATSHOME` env var of the host process;
+ *   3. (dev/in-repo only) two directories up from the extension, i.e. the repo
+ *      root in the `language-server/client` layout. NOT used when packaged.
+ */
+function resolveXatshome(context: ExtensionContext): string | undefined {
+  const xatshomeCfg = workspace
+    .getConfiguration("ats3")
+    .get<string>("xatshome", "")
+    .trim();
+  if (xatshomeCfg.length > 0) {
+    return xatshomeCfg;
+  }
+
+  const envHome = (process.env.XATSHOME ?? "").trim();
+  if (envHome.length > 0) {
+    return envHome;
+  }
+
+  if (isPackaged(context)) {
+    // No safe default for an installed extension: the repo is not adjacent to
+    // the installed extension dir. The caller surfaces an actionable error.
+    return undefined;
+  }
+
+  // Dev / in-repo layout: language-server/client -> repo root (two levels up).
+  return path.resolve(context.extensionPath, "..", "..");
+}
+
 export function activate(context: ExtensionContext): void {
   const channel: OutputChannel = window.createOutputChannel("ATS3 Language Server");
   context.subscriptions.push(channel);
@@ -82,25 +133,41 @@ export function activate(context: ExtensionContext): void {
   if (!fs.existsSync(serverModule)) {
     window.showErrorMessage(
       `ATS3 LSP: server module not found at "${serverModule}". ` +
-        `Set "ats3.server.module" to the server entrypoint.`,
+        `Set "ats3.server.module" to the server entrypoint, or reinstall the ` +
+        `extension (the packaged server should live at ` +
+        `<extension>/server-dist/xats-lsp-resident.opt1.js).`,
     );
     channel.appendLine(`[ats3] server module not found: ${serverModule}`);
     return;
   }
 
-  // The real ATS3 server spawns the compiler-linking checker, which reads
-  // XATSHOME to locate the prelude. Default to the repo root (two levels up
-  // from the client dir: language-server/client -> repo root), overridable via
-  // the `ats3.xatshome` setting. Propagated into the server's process env and
-  // inherited by the checker the server spawns.
-  const xatshomeCfg = workspace
-    .getConfiguration("ats3")
-    .get<string>("xatshome", "")
-    .trim();
-  const xatshome =
-    xatshomeCfg.length > 0
-      ? xatshomeCfg
-      : path.resolve(context.extensionPath, "..", "..");
+  // The real ATS3 server checks in-process and reads XATSHOME to locate the
+  // prelude. In the dev/in-repo layout we can default it to the repo root, but
+  // an installed extension has no repo next to it, so it MUST be configured via
+  // the `ats3.xatshome` setting (or the XATSHOME env var). Propagated into the
+  // server's process env.
+  const xatshome = resolveXatshome(context);
+  if (xatshome === undefined) {
+    window.showErrorMessage(
+      `ATS3 LSP: XATSHOME is not set. Set the "ats3.xatshome" setting to the ` +
+        `path of your ATS3/Xanadu repo root (it holds the prelude the checker ` +
+        `needs), then reload the window.`,
+    );
+    channel.appendLine(
+      `[ats3] XATSHOME unresolved (packaged install without ats3.xatshome / XATSHOME env)`,
+    );
+    return;
+  }
+  // Validate the configured/derived XATSHOME so a typo surfaces clearly rather
+  // than as an opaque prelude-load crash inside the server.
+  if (!fs.existsSync(xatshome)) {
+    window.showErrorMessage(
+      `ATS3 LSP: XATSHOME path does not exist: "${xatshome}". ` +
+        `Fix the "ats3.xatshome" setting to point at your ATS3/Xanadu repo root.`,
+    );
+    channel.appendLine(`[ats3] XATSHOME does not exist: ${xatshome}`);
+    return;
+  }
   const serverEnv = { ...process.env, XATSHOME: xatshome };
 
   channel.appendLine(`[ats3] launching server: ${nodePath} ${serverModule}`);
