@@ -1,16 +1,29 @@
 #!/usr/bin/env node
 /*
- * CFAIL (compiler-abort) smoke for the RESIDENT in-process ATS3 LSP server
- * (BUILD/xats-lsp-resident.opt1.js).  Bug 2 regression guard.
+ * "Formerly-CFAIL" smoke for the RESIDENT in-process ATS3 LSP server
+ * (BUILD/xats-lsp-resident.opt1.js).  FIX-INTEGRATED regression guard.
  *
- * Some compiler-internal files make the front-end *abort* with XATS000_cfail — a
- * fatal compiler limit (NOT poison: subsequent files check fine). The .cats
- * `runValidation` catches it, logs calmly, and publishes ONE `Information`
- * diagnostic ("could not analyze this file ...") instead of crashing or going
- * silent with a scary stack trace. This smoke proves:
+ * HISTORY: server/DATS/xats_lsp_check.dats used to make the front-end *abort*
+ * with XATS000_cfail — a non-exhaustive case in `unify00_s2typ` reached when an
+ * under-applied type constructor (here `argv`, via the `#if defq(_XATS2JS_)`
+ * guard) is used in a called position. The .cats `runValidation` CATCHES such an
+ * abort, logs calmly, and publishes one `Information` "could not analyze this
+ * file ..." diagnostic so one bad file never takes down the session. That
+ * defensive catch still exists for any genuine future abort (e.g. OOM on
+ * pathological inputs).
  *
- *   (A) opening server/DATS/xats_lsp_check.dats (which aborts) yields EXACTLY ONE
- *       diagnostic, of severity Information (3), with the expected message.
+ * Hongwei fixed the compiler (master b362d545f / 813611246, merged into this
+ * branch): trans12 now routes a function's result type through
+ * `trans12_s1exp_impr`, and `tread12_staexp`'s `f0_impr`/`f0_prgm` always flag an
+ * improper static expression as an ordinary `errck` error — so the file is now
+ * ANALYZED GRACEFULLY instead of aborting. This smoke proves the fix is
+ * integrated end-to-end through the rebuilt lib2xatsopt.js + resident server:
+ *
+ *   (A) opening server/DATS/xats_lsp_check.dats now yields ORDINARY diagnostics
+ *       (genuine front-end errors — it is a link-only driver file, so standalone
+ *       it has unresolved refs), with NO "could not analyze" abort-sentinel and
+ *       NO calm-abort log line. If the lib ever reverts to a pre-fix build, the
+ *       abort returns and these assertions fail — catching the regression.
  *   (B) the server stays HEALTHY: a follow-up check of an ORDINARY .dats still
  *       works (0 diagnostics for a clean file; the resident is not poisoned).
  *
@@ -142,32 +155,35 @@ function main() {
     await request('initialize', { processId: process.pid, rootUri: 'file://' + WS, capabilities: {} });
     notify('initialized', {});
 
-    // (A) open the aborting compiler-internal file.
+    // (A) open the formerly-aborting compiler-internal file.
     const dWaitCfail = waitDiagnostics(CFAIL_URI);
     openDoc(CFAIL_URI, fs.readFileSync(CFAIL_FILE, 'utf8'));
     const diags = await dWaitCfail;
-    console.log(`\n[cfail] published ${diags.length} diagnostic(s) for the aborting file:`);
+    console.log(`\n[cfail] published ${diags.length} diagnostic(s) for the formerly-aborting file:`);
     for (const d of diags) console.log(`  sev=${d.severity}  "${(d.message || '').slice(0, 80)}..."`);
 
-    // exactly ONE diagnostic.
-    (diags.length === 1)
-      ? pass('exactly ONE diagnostic published for the aborting file')
-      : fail(`expected exactly 1 diagnostic, got ${diags.length}`);
+    // it is now ANALYZED: at least one ordinary diagnostic (a link-only driver
+    // file has unresolved refs standalone — that's expected; the point is no abort).
+    (diags.length >= 1)
+      ? pass(`file analyzed gracefully: ${diags.length} ordinary diagnostic(s), no abort`)
+      : fail(`expected >=1 ordinary diagnostic, got ${diags.length}`);
 
-    // it is severity Information (3).
-    (diags.length >= 1 && diags[0].severity === SEV_INFORMATION)
-      ? pass(`the diagnostic is severity Information (${SEV_INFORMATION})`)
-      : fail(`diagnostic severity is ${diags.length ? diags[0].severity : 'n/a'}, expected ${SEV_INFORMATION}`);
+    // NONE is the abort-sentinel (Information severity + "could not analyze").
+    const sentinel = diags.find(d =>
+      d.severity === SEV_INFORMATION && /could not analyze this file/i.test(d.message || ''));
+    (!sentinel)
+      ? pass('no "could not analyze" abort-sentinel — the cfail is gone (fix integrated)')
+      : fail(`abort-sentinel still present: "${sentinel.message}" — pre-fix lib? fix NOT integrated`);
 
-    // it carries the explanatory "could not analyze" message.
-    (diags.length >= 1 && /could not analyze this file/i.test(diags[0].message || ''))
-      ? pass('the diagnostic explains the abort ("could not analyze this file ...")')
-      : fail(`diagnostic message missing the expected text (got "${diags.length ? diags[0].message : ''}")`);
+    // every diagnostic is a genuine front-end Error (severity 1), not a degraded note.
+    (diags.length >= 1 && diags.every(d => d.severity === 1))
+      ? pass('all diagnostics are severity Error (genuine front-end analysis output)')
+      : fail(`some diagnostics are not severity Error: ${JSON.stringify(diags.map(d => d.severity))}`);
 
-    // the server logged the abort CALMLY (no crash, an informative line).
-    sawCalmLog
-      ? pass('server logged the abort calmly on stderr')
-      : console.log('[cfail] NOTE: did not observe the calm-log line on stderr (non-fatal)');
+    // the server did NOT take the calm-abort log path (no XATS000_cfail caught).
+    (!sawCalmLog)
+      ? pass('server did NOT log a compiler abort (no XATS000_cfail)')
+      : fail('server logged "could not analyze" — the file still aborts (pre-fix lib?)');
 
     // (B) HEALTH: a follow-up ordinary file still checks fine (0 diagnostics).
     const dWaitOk = waitDiagnostics(OK_URI);

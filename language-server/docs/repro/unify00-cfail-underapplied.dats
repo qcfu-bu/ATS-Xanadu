@@ -1,5 +1,10 @@
 (* ********************************************************************** *)
 (*
+   STATUS: ✅ FIXED upstream (githwxi/ATS-Xanadu b362d545f + 813611246,
+   2026-06-19) — now type-checks gracefully (exit 0, 2 recoverable
+   diagnostics; no abort). Kept as a REGRESSION artifact. See
+   ../COMPILER-BUG-unify00-underapplied.md#resolution.
+
    MINIMAL REPRO — `unify00_s2typ` aborts with XATS000_cfail on an
    UNDER-APPLIED type constructor used as a called function's result type.
 

@@ -1,10 +1,60 @@
 # Compiler bug: `unify00_s2typ` aborts (`XATS000_cfail`) on an under-applied type constructor
 
-**Status:** minimal repro in hand; reproducible with **stock** current-generation
-tooling (no LSP, no local compiler patches involved). Fix is compiler-side and
-belongs to Hongwei.
+**Status: ✅ RESOLVED** — fixed upstream by Hongwei (`githwxi/ATS-Xanadu`
+commits `b362d545f` + `813611246`, 2026-06-19), merged into this branch, and
+**verified integrated** through our rebuilt `lib2xatsopt.js` + both LSP
+consumers. See **[Resolution](#resolution)** below. (Original investigation
+preserved underneath for the record.)
 
 ---
+
+## Resolution
+
+**Fix (upstream, fix-direction #1 + #2 from this report).** The under-applied
+constructor is now rejected as an ordinary error during **trans12**, before it
+can reach `unify00_s2typ`:
+
+- `srcgen2/DATS/trans12_dynexp.dats` — a function's declared **result type**
+  (`S1RESsome`) is now translated with `trans12_s1exp_impr` (instead of plain
+  `trans12_s1exp`), so an under-applied result type like `list0` is wrapped as an
+  "improper" static expression (`s2exp_impr`).
+- `srcgen2/DATS/tread12_staexp.dats` — the `f0_impr` / `f0_prgm` re-read passes
+  now **always** `err := err + 1` and wrap the node in `s2exp_impr_errck`, so an
+  improper static expression always surfaces as a recoverable `errck`
+  (under-application) error rather than falling through to the non-exhaustive
+  case that threw `XATS000_cfail`.
+
+Hongwei's regression test (`srcgen2/TEST/testxx_mydebug.dats`) is **this report's
+own minimal repro** (`#extern fun g(): gt0 = $extnam()` with `gt0 = list0`
+under-applied, then `val x = g()`).
+
+**Integration + verification on the LSP side (this branch).**
+
+1. Merged `origin/master` (the two fix commits) into `LSP` — no conflicts; the
+   fix files do not overlap the local C1 (`xglobal_reset`) experiment.
+2. Rebuilt `srcgen2/lib/lib2xatsopt.js` from the merged source (parallel build,
+   C1 intact), then rebuilt both the one-shot checker (`xats-lsp-check.js`) and
+   the resident server (`xats-lsp-resident.js`).
+3. **Minimal repro** (`repro/unify00-cfail-underapplied.dats`): was
+   `XATS000_cfail` abort → now **exit 0, `ok:true`**, 2 ordinary recoverable
+   diagnostics.
+4. **The LSP's own driver file** `server/DATS/xats_lsp_check.dats` (the real
+   motivating case): was abort → now analyzed gracefully (checker: 11 ordinary
+   diagnostics; resident: 6, project-filtered), **no `XATS000_cfail`**, session
+   stays healthy.
+5. The resident `scripts/smoke-cfail.js` was **repurposed** from an abort-guard
+   into a *fix-integrated* guard (asserts the formerly-aborting file now yields
+   ordinary `Error` diagnostics with no "could not analyze" sentinel) — it would
+   re-fail if the lib ever reverted to a pre-fix build. **All pass.**
+
+The defensive `runValidation` catch (publish one `Information` "could not
+analyze this file …" diagnostic on a compiler abort) is **kept** for any genuine
+future abort (e.g. OOM on pathological inputs); it is simply no longer triggered
+by the under-application case.
+
+---
+
+## Original investigation (historical)
 
 ## One-line summary
 
