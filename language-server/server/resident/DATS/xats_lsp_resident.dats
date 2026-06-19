@@ -154,6 +154,20 @@ pretty-print), §8 (def loc), §9 (traversal), §10.5 (compiler-linking build).
   where { #extern fun
     JS_map_reset{syn:tx}(env: topmap(syn), key: stamp): void = $extnam() }
 //
+// R2b: evict by raw stamp (JS hands us a bare uint; no sym_t to call .stmp() on).
+// Deref the three live topmaps FRESH (xglobal_reset swaps them on a prelude
+// reload) and delete env[stamp] from each. No-op when the stamp is absent.
+// Reuses the SAME JS body (JS_map_reset) as env_reset — `delete env[stamp]`.
+//
+#implfun evict_stamp(stmp) = let
+  #extern fun
+  JS_map_reset{syn:tx}(env: topmap(syn), key: stamp): void = $extnam()
+in
+  JS_map_reset(the_d1parenv_pvstmap(), stmp);
+  JS_map_reset(the_d2parenv_pvstmap(), stmp);
+  JS_map_reset(the_d3parenv_pvstmap(), stmp)
+end
+//
 (* ---- R2a: prelude snapshot + workspace-file signature map ---- *)
 //
 // snapshot the keys already present in a topmap (called per topmap right after
@@ -229,12 +243,12 @@ pretty-print), §8 (def loc), §9 (traversal), §10.5 (compiler-linking build).
     , tdpath: string
     , tl0: int, tc0: int, tl1: int, tc1: int): void = $extnam() }
 //
-#implfun initialize(f, g, h) =
-  vscode_initialize(f, g, h)
+#implfun initialize(f, g, h, e) =
+  vscode_initialize(f, g, h, e)
   where { #extern fun
     vscode_initialize
     ( f: text_validator_t, g: cache_pruner_t
-    , h: reload_prelude_t): void = $extnam() }
+    , h: reload_prelude_t, e: evict_stamp_t): void = $extnam() }
 //
 (* ****** ****** *)
 (* ====================================================================== *)
@@ -1065,7 +1079,7 @@ val () = prelude_pvsload()
 //
 val () = prelude_take_snapshot()
 //
-val () = initialize(text_validator, cache_pruner, reload_prelude)
+val () = initialize(text_validator, cache_pruner, reload_prelude, evict_stamp)
 //
 (* ****** ****** *)
 (*

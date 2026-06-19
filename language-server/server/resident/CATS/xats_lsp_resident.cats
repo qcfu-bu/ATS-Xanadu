@@ -138,9 +138,28 @@ function LSP_norm(p) {
   // resolve to an absolute, symlink-free path for a stable prefix compare.
   let s = String(p || "");
   if (s === "") return "";
-  try { s = LSP_fs.realpathSync(s); }
-  catch (e) { try { s = LSP_path.resolve(s); } catch (e2) {} }
-  return s;
+  try { return LSP_fs.realpathSync(s); }
+  catch (e) { /* file may not exist (deleted / not-yet-created) -> fall through */ }
+  // STABLE fallback for a non-existent file: realpath the longest EXISTING
+  // ancestor directory (symlink-canonical), then rejoin the trailing segments.
+  // Without this, a path normalizes differently before vs after deletion (e.g.
+  // /var/... realpaths to /private/var/... while it exists but resolve() yields
+  // /var/... once it's gone), which would break the path-keyed project index on
+  // watched DELETE events.
+  try {
+    let abs = LSP_path.resolve(s);
+    const tail = [];
+    let dir = abs;
+    for (;;) {
+      try { const real = LSP_fs.realpathSync(dir); return tail.length ? LSP_path.join(real, ...tail) : real; }
+      catch (e2) {
+        const parent = LSP_path.dirname(dir);
+        if (parent === dir) return abs;            // reached root; nothing exists
+        tail.unshift(LSP_path.basename(dir));
+        dir = parent;
+      }
+    }
+  } catch (e3) { return s; }
 }
 // $XATSHOME (prelude/compiler tree root), normalized once. Trailing sep so a
 // sibling like "<home>x/..." does not match "<home>/...".
@@ -183,6 +202,19 @@ function JS_is_prelude(stamp) { return LSP_prelude_stamps.has(String(stamp)); }
 // files never enter this map (gated in JS_sig_record), so they are never
 // re-statted and never reported as changed.
 const LSP_signatures = new Map();
+//
+// R2b PATH -> STAMP index. The signature map is stamp -> {path,...}; the watched-
+// files cascade needs the reverse (it discovers AFFECTED files by PATH, via the
+// project index, then must evict each by its compiler STAMP). We fill it for free
+// here: every time a workspace file is validated/cached, sig_record knows both its
+// stamp and its absolute path. Keyed by the normalized absolute path. A file that
+// has never been checked has no entry -> evicting it is a correct no-op (it was
+// never cached). Cleared together with LSP_signatures on a prelude reload.
+const LSP_path2stamp = new Map();
+function JS_path2stamp_lookup(path) {     // -> stamp string | undefined
+  const n = LSP_norm(path);
+  return (n === "") ? undefined : LSP_path2stamp.get(n);
+}
 // metric: how many statSync calls the last pre-check made (kept tiny: only the
 // target's small workspace closure, never the ~100 prelude files).
 let LSP_stat_count = 0;
@@ -210,6 +242,9 @@ function JS_sig_record(stamp, path) {
   const sig = LSP_stat_sig(path);
   if (sig === null) return;
   LSP_signatures.set(key, { path: path, mtimeMs: sig.mtimeMs, size: sig.size });
+  // R2b: maintain the reverse path->stamp index (normalized absolute path).
+  const n = LSP_norm(path);
+  if (n !== "") LSP_path2stamp.set(n, key);
 }
 function JS_sig_refresh(stamp) {
   const rec = LSP_signatures.get(String(stamp));
@@ -228,6 +263,195 @@ function JS_sig_changed(stamp) {
   const sig = LSP_stat_sig(rec.path);
   if (sig === null) return 1;                           // vanished/unreadable -> evict
   return (sig.mtimeMs !== rec.mtimeMs || sig.size !== rec.size) ? 1 : 0;
+}
+//
+////////////////////////////////////////////////////////////////////////.
+// ---- R2c: whole-project staload index (complete cascade) ------------- //
+//
+// The checked-files depgraph (LSP_dependencies / LSP_fwd) only covers files the
+// server actually TYPE-CHECKED, so a dependent that has never been opened is
+// invisible to its cascade. R2c builds a SEPARATE, whole-project dependency graph
+// by cheaply scanning every workspace *.{sats,hats,dats} and parsing ONLY its
+// `#staload`/`#include`/`#staload _ =`/`#dynload` directives (regex — NOT a
+// type-check). Edges are keyed by NORMALIZED ABSOLUTE PATH (not stamp), because
+// an unopened file has no compiler stamp yet. The reverse graph then gives the
+// COMPLETE set of dependents for the R2b cascade: editing A invalidates every
+// transitive dependent of A, opened or not.
+//
+//   LSP_proj_fwd : path -> Set(paths it staloads)        (forward edges)
+//   LSP_proj_rev : path -> Set(paths that staload it)    (reverse edges)
+//
+const LSP_proj_fwd = new Map();
+const LSP_proj_rev = new Map();
+// indexed files (avoid re-scanning) + a cap so a huge workspace cannot block
+// startup. SCAN_CAP bounds how many files the initial scan visits; if hit we log
+// and stop (incremental watch events still index any file they touch on demand).
+let LSP_proj_indexed = new Set();
+const LSP_PROJ_SCAN_CAP =
+  parseInt(process.env.ATS3_PROJ_SCAN_CAP || '4000', 10);
+const LSP_PROJ_SRC_RE = /\.(sats|hats|dats)$/i;
+// directive matcher: #staload "P" | #staload _ = "P" | #include "P" | #dynload "P".
+// We grab the first quoted string after the directive keyword; that is the path.
+const LSP_STALOAD_RE =
+  /#(?:staload|include|dynload)\b[^"\n]*"([^"]+)"/g;
+//
+// parse a file's directive targets -> array of normalized absolute paths it
+// references (resolved relative to the file's own directory). Skips $XATSHOME
+// targets (immutable prelude/compiler tree) — they are never invalidatable.
+function LSP_parse_staloads(filePath, text) {
+  const out = [];
+  const dir = LSP_path.dirname(filePath);
+  let m;
+  LSP_STALOAD_RE.lastIndex = 0;
+  while ((m = LSP_STALOAD_RE.exec(text)) !== null) {
+    let ref = m[1];
+    if (!ref) continue;
+    let abs;
+    try { abs = LSP_path.isAbsolute(ref) ? ref : LSP_path.resolve(dir, ref); }
+    catch (e) { continue; }
+    const n = LSP_norm(abs);
+    if (n === "") continue;
+    if (JS_path_is_prelude(n)) continue;        // prelude target: not tracked
+    out.push(n);
+  }
+  return out;
+}
+// remove all edges that originate at `from` (used before re-indexing a file so a
+// removed #staload drops its stale edge).
+function LSP_proj_unlink(from) {
+  const olds = LSP_proj_fwd.get(from);
+  if (olds) {
+    for (const to of olds) {
+      const back = LSP_proj_rev.get(to);
+      if (back) { back.delete(from); if (back.size === 0) LSP_proj_rev.delete(to); }
+    }
+  }
+  LSP_proj_fwd.delete(from);
+}
+// index ONE file: (re)read its directives and (re)build its forward+reverse edges.
+// `text` optional (else read from disk). Returns the normalized path indexed, or
+// "" on failure. Idempotent: safe to call repeatedly on watch events.
+function LSP_proj_index_file(filePath, text) {
+  const n = LSP_norm(filePath);
+  if (n === "") return "";
+  if (JS_path_is_prelude(n)) return "";          // never index the prelude tree
+  if (text === undefined || text === null) {
+    try { text = LSP_fs.readFileSync(n, 'utf8'); }
+    catch (e) { return ""; }
+  }
+  LSP_proj_unlink(n);                            // drop stale edges first
+  const targets = LSP_parse_staloads(n, text);
+  if (targets.length > 0) {
+    const fset = new Set();
+    for (const to of targets) {
+      fset.add(to);
+      let back = LSP_proj_rev.get(to);
+      if (!back) { back = new Set(); LSP_proj_rev.set(to, back); }
+      back.add(n);
+    }
+    LSP_proj_fwd.set(n, fset);
+  }
+  LSP_proj_indexed.add(n);
+  return n;
+}
+// a file was DELETED: drop its forward edges (its reverse edges — who staloads it
+// — stay, harmlessly pointing at a now-missing file; they re-resolve if recreated).
+function LSP_proj_remove_file(filePath) {
+  const n = LSP_norm(filePath);
+  if (n === "") return;
+  LSP_proj_unlink(n);
+  LSP_proj_indexed.delete(n);
+}
+// TRANSITIVE reverse closure of `path` over the PROJECT graph: every file that
+// staloads it, directly or transitively (the complete dependent set, opened or
+// not). Excludes `path` itself. Bounded (visited set).
+function LSP_proj_rev_closure(path) {
+  const start = LSP_norm(path);
+  const out = new Set();
+  if (start === "") return out;
+  const stack = [start];
+  const seen = new Set([start]);
+  while (stack.length > 0) {
+    const cur = stack.pop();
+    const deps = LSP_proj_rev.get(cur);
+    if (!deps) continue;
+    for (const d of deps) {
+      if (seen.has(d)) continue;
+      seen.add(d); out.add(d); stack.push(d);
+    }
+  }
+  return out;
+}
+// scan a directory tree for *.{sats,hats,dats} and index each. Bounded by
+// LSP_PROJ_SCAN_CAP; skips the $XATSHOME subtree and dot-dirs / node_modules.
+// Synchronous but cheap (one readFileSync + a regex per source file); the cap
+// keeps a pathological workspace from blocking startup. Returns #files indexed.
+function LSP_proj_scan_dir(root) {
+  let count = 0, capped = false;
+  const stack = [LSP_norm(root)];
+  while (stack.length > 0) {
+    if (count >= LSP_PROJ_SCAN_CAP) { capped = true; break; }
+    const dir = stack.pop();
+    if (dir === "" || JS_path_is_prelude(dir)) continue;
+    let ents;
+    try { ents = LSP_fs.readdirSync(dir, { withFileTypes: true }); }
+    catch (e) { continue; }
+    for (const ent of ents) {
+      const name = ent.name;
+      if (name.startsWith('.')) continue;          // .git, dotfiles
+      if (name === 'node_modules') continue;
+      const full = LSP_path.join(dir, name);
+      if (ent.isDirectory()) {
+        if (!JS_path_is_prelude(full)) stack.push(full);
+      } else if (ent.isFile() && LSP_PROJ_SRC_RE.test(name)) {
+        if (count >= LSP_PROJ_SCAN_CAP) { capped = true; break; }
+        if (LSP_proj_index_file(full) !== "") count++;
+      }
+    }
+  }
+  return { count: count, capped: capped };
+}
+// scan a list of workspace folder fs-paths (from initialize params). Logs a
+// summary (and a warning if the cap was hit).
+function LSP_proj_scan_workspace(roots) {
+  let total = 0, capped = false;
+  for (const r of roots) {
+    if (!r) continue;
+    const res = LSP_proj_scan_dir(r);
+    total += res.count; capped = capped || res.capped;
+  }
+  LSP_log('project index: scanned ' + total + ' source file(s), ' +
+          LSP_proj_fwd.size + ' with staload edge(s), ' +
+          LSP_proj_rev.size + ' staloaded target(s)' +
+          (capped ? ' [CAPPED at ' + LSP_PROJ_SCAN_CAP + ' — large workspace; ' +
+                    'unscanned files index lazily on watch events]' : ''));
+  try {
+    process.stderr.write('[xats-lsp-resident] project-index: files=' + total +
+      ' fwd=' + LSP_proj_fwd.size + ' rev=' + LSP_proj_rev.size +
+      (capped ? ' capped=1' : '') + '\n');
+  } catch (e) {}
+}
+// extract workspace-folder fs-paths from initialize params (workspaceFolders or
+// the single rootUri / rootPath fallback).
+function LSP_workspace_roots(params) {
+  const roots = [];
+  const seen = new Set();
+  function addUri(u) {
+    if (!u) return;
+    const p = LSP_norm(vscode_url_to_path(u));
+    if (p !== "" && !seen.has(p)) { seen.add(p); roots.push(p); }
+  }
+  if (params && Array.isArray(params.workspaceFolders)) {
+    for (const wf of params.workspaceFolders) { if (wf && wf.uri) addUri(wf.uri); }
+  }
+  if (roots.length === 0 && params) {
+    if (params.rootUri) addUri(params.rootUri);
+    else if (params.rootPath) {
+      const p = LSP_norm(params.rootPath);
+      if (p !== "" && !seen.has(p)) { seen.add(p); roots.push(p); }
+    }
+  }
+  return roots;
 }
 //
 ////////////////////////////////////////////////////////////////////////.
@@ -516,12 +740,14 @@ const LSP_documents  = new LSP_ls.TextDocuments(LSP_text.TextDocument);
 let LSP_hasConfigurationCapability = false;
 let LSP_hasWorkspaceFolderCapability = false;
 let LSP_dependencies = new Map();
+// R2c: workspace roots captured at onInitialize, scanned at onInitialized.
+let LSP_pending_roots = [];
 //
 function LSP_log(msg) {
   try { LSP_connection.console.log('[xats-lsp-resident] ' + String(msg)); } catch (e) {}
 }
 //
-function vscode_initialize(validator, pruner, reloadPreludeFn) {
+function vscode_initialize(validator, pruner, reloadPreludeFn, evictStampFn) {
   // run one in-process validation for a document, snapshot the index, publish.
   function textValidator(textDocument) {
     const uri = textDocument.uri;
@@ -530,6 +756,10 @@ function vscode_initialize(validator, pruner, reloadPreludeFn) {
     LSP_cur_diags = []; LSP_cur_hovers = []; LSP_cur_defs = [];
     LSP_cur_uri = uri;
     LSP_cur_path = vscode_url_to_path(uri);
+    // R2c: index this doc's own directives into the project graph (covers a file
+    // opened before/outside the workspace scan, and refreshes its edges from the
+    // live buffer). Cheap; keeps the project reverse graph complete + current.
+    try { LSP_proj_index_file(LSP_cur_path, textDocument.getText()); } catch (e) {}
     const diagnostics = [];   // the `ds` handle handed to the ATS3 validator
     try {
       validator(LSP_dependencies, diagnostics, uri);
@@ -582,15 +812,104 @@ function vscode_initialize(validator, pruner, reloadPreludeFn) {
       LSP_log('reload_prelude threw: ' + (e && e.stack ? e.stack : e));
       return;
     }
-    // (2) clear server-side caches built against the OLD prelude.
+    // (2) clear server-side caches built against the OLD prelude. The freshly
+    //     reloaded prelude files get NEW stamps, so the old stamp-keyed maps
+    //     (signatures, path->stamp) are stale and must be dropped. The PROJECT
+    //     index is path-keyed (stamp-independent) and stays valid across a
+    //     reload, so we keep it — only the stamp bindings reset.
     LSP_index.clear();
     LSP_dependencies.clear();
     LSP_fwd.clear();
     LSP_signatures.clear();
+    LSP_path2stamp.clear();
     // (3) re-validate every open document against the reloaded prelude.
     const docs = LSP_documents.all();
     LSP_log('reload_prelude: re-validating ' + docs.length + ' open doc(s)');
     for (const doc of docs) { textValidator(doc); }
+  }
+
+  // ---- R2b: workspace/didChangeWatchedFiles (eager eviction + cascade) -----
+  //
+  // The client already declares file watchers (clientOptions.synchronize.
+  // fileEvents for **/*.{sats,hats,dats}), so it sends this notification on every
+  // in-workspace external edit / create / delete WITHOUT server registration.
+  // This is the eager trigger that complements R2a's lazy mtime pre-check: it
+  // evicts NOW, the moment the change lands, rather than waiting for the next
+  // check to stat the closure.
+  //
+  // FileChangeType: 1=Created, 2=Changed, 3=Deleted.
+  function handleWatchedFileChange(uri, changeType) {
+    const fpath = vscode_url_to_path(uri);
+    const npath = LSP_norm(fpath);
+    if (npath === "") return;
+    // skip the prelude / $XATSHOME tree: those files are immutable for the
+    // session (the reloadPrelude path handles compiler-dev edits to them).
+    if (JS_path_is_prelude(npath)) return;
+
+    // (1) keep the PROJECT index current for the changed file's own edges, so
+    //     the cascade below reflects the new directive set.
+    if (changeType === 3 /*Deleted*/) {
+      LSP_proj_remove_file(npath);
+    } else {
+      LSP_proj_index_file(npath);                 // Created or Changed: re-parse
+    }
+
+    // (2) compute the COMPLETE set of affected files: the changed file itself
+    //     plus its transitive PROJECT-reverse closure (every dependent, opened
+    //     or not). The project index is what makes this complete vs the
+    //     checked-files depgraph.
+    const affected = LSP_proj_rev_closure(npath);
+    affected.add(npath);
+
+    // (3) eagerly EVICT each affected file from the compiler caches by its stamp
+    //     (path->stamp index). Also drop the changed file's R2a signature so the
+    //     next check re-stats it fresh. Never-checked files have no stamp -> the
+    //     eviction is a harmless no-op (they were never cached).
+    let evicted = 0;
+    for (const p of affected) {
+      const st = LSP_path2stamp.get(p);
+      if (st !== undefined) {
+        try { evictStampFn(parseInt(st, 10) >>> 0); evicted++; } catch (e) {}
+      }
+    }
+    // drop the changed file's own signature + path->stamp so a later check
+    // re-stats it (and, if deleted, does not think a stale cache is current).
+    {
+      const st = LSP_path2stamp.get(npath);
+      if (st !== undefined) { LSP_signatures.delete(st); }
+      if (changeType === 3) { LSP_path2stamp.delete(npath); }
+    }
+
+    // (4) re-validate every AFFECTED OPEN document so its diagnostics refresh
+    //     immediately (no need to wait for the user to touch it). An open doc is
+    //     affected iff it is in `affected` (the changed file or a dependent).
+    let revalidated = 0;
+    for (const doc of LSP_documents.all()) {
+      const dp = LSP_norm(vscode_url_to_path(doc.uri));
+      if (dp !== "" && affected.has(dp)) { textValidator(doc); revalidated++; }
+    }
+    try {
+      process.stderr.write('[xats-lsp-resident] watched ' +
+        (changeType === 1 ? 'create' : changeType === 3 ? 'delete' : 'change') +
+        ' ' + npath + ' -> affected=' + affected.size +
+        ' evicted=' + evicted + ' revalidated=' + revalidated + '\n');
+    } catch (e) {}
+  }
+
+  // Prefer the typed helper; fall back to the raw notification name. Both deliver
+  // { changes: [{uri, type}, ...] }.
+  function onWatchedFiles(change) {
+    try {
+      const changes = (change && change.changes) || [];
+      for (const c of changes) { handleWatchedFileChange(c.uri, c.type); }
+    } catch (e) {
+      LSP_log('didChangeWatchedFiles threw: ' + (e && e.stack ? e.stack : e));
+    }
+  }
+  if (typeof LSP_connection.onDidChangeWatchedFiles === 'function') {
+    LSP_connection.onDidChangeWatchedFiles(onWatchedFiles);
+  } else {
+    LSP_connection.onNotification('workspace/didChangeWatchedFiles', onWatchedFiles);
   }
 
   LSP_connection.onInitialize((params) => {
@@ -599,6 +918,9 @@ function vscode_initialize(validator, pruner, reloadPreludeFn) {
       capabilities.workspace && !!capabilities.workspace.configuration);
     LSP_hasWorkspaceFolderCapability = !!(
       capabilities.workspace && !!capabilities.workspace.workspaceFolders);
+    // R2c: stash the workspace roots; scan AFTER we reply (onInitialized) so a
+    // big workspace's scan does not delay the initialize handshake.
+    LSP_pending_roots = LSP_workspace_roots(params);
     return {
       capabilities: {
         // Object form (not a bare sync-kind) so the client also sends
@@ -620,6 +942,16 @@ function vscode_initialize(validator, pruner, reloadPreludeFn) {
   LSP_connection.onInitialized(() => {
     if (LSP_hasConfigurationCapability) {
       LSP_connection.client.register(LSP_ls.DidChangeConfigurationNotification.type, undefined);
+    }
+    // R2c: build the whole-project staload index now (after the handshake).
+    // Deferred via setImmediate so it never blocks the connection from going
+    // live; a capped, bounded synchronous scan then runs off the event loop.
+    if (LSP_pending_roots && LSP_pending_roots.length > 0) {
+      const roots = LSP_pending_roots; LSP_pending_roots = [];
+      setImmediate(() => {
+        try { LSP_proj_scan_workspace(roots); }
+        catch (e) { LSP_log('project scan threw: ' + (e && e.stack ? e.stack : e)); }
+      });
     }
   });
 

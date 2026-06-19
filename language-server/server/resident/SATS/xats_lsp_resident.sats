@@ -105,6 +105,17 @@ fun fwd_graph(): depgraph
 //
 fun env_reset{syn:tx}(topmap(syn), sym_t): void
 //
+// R2b — evict a file from all three per-file caches BY ITS STAMP (a bare uint).
+// Used by the workspace/didChangeWatchedFiles cascade, which is driven from JS
+// over the PROJECT index (keyed by path); JS maps each affected path -> stamp
+// (the path->stamp index built alongside the signature map) and calls this to do
+// the actual eviction. Kept on the ATS side because it must deref the live
+// the_d{1,2,3}parenv_pvstmap() topmaps FRESH each time (xglobal_reset swaps in
+// new topmap objects on a prelude reload — a cached JS object handle would go
+// stale). A stamp with no cached entry is a harmless no-op (never-checked file).
+//
+fun evict_stamp(stamp): void
+//
 (* ****** ****** *)
 //
 // R2a — content-validated cache (out-of-band-edit invalidation).
@@ -167,8 +178,12 @@ fun def_push
 // reload_prelude_t: the in-process prelude reload, registered alongside the
 // validator/pruner. The .cats calls it on didSave of a $XATSHOME file.
 #typedef reload_prelude_t = () -> void
+// evict_stamp_t (R2b): evict ONE file (by its bare-uint stamp) from the three
+// per-file caches. The .cats's workspace/didChangeWatchedFiles handler calls it
+// for every file in the changed file's transitive project-reverse closure.
+#typedef evict_stamp_t = (stamp) -> void
 fun initialize
-  (text_validator_t, cache_pruner_t, reload_prelude_t) : void
+  (text_validator_t, cache_pruner_t, reload_prelude_t, evict_stamp_t) : void
 //
 // the two resident callbacks themselves (declared here, #implfun'd in the DATS,
 // then passed to initialize). The reference declares these in server.sats.
