@@ -243,11 +243,11 @@ end
     , tdpath: string
     , tl0: int, tc0: int, tl1: int, tc1: int): void = $extnam() }
 //
-#implfun initialize(f, g, h, e) =
-  vscode_initialize(f, g, h, e)
+#implfun initialize(f, lv, g, h, e) =
+  vscode_initialize(f, lv, g, h, e)
   where { #extern fun
     vscode_initialize
-    ( f: text_validator_t, g: cache_pruner_t
+    ( f: text_validator_t, lv: live_validator_t, g: cache_pruner_t
     , h: reload_prelude_t, e: evict_stamp_t): void = $extnam() }
 //
 (* ****** ****** *)
@@ -327,6 +327,50 @@ fun
 fpath_is_dats(fp: string): bool = let
   val re = regex_make(".*[.]dats$")
 in regex_test(re, fp)
+end
+//
+(* ****** ****** *)
+//
+// IN-MEMORY (unsaved-buffer) PARSE — the live-on-change path.
+//
+// d0parsed_from_atext (parsing.sats) parses in-memory text but stamps EVERY
+// loctn with LCSRCnone0() (no source path), so harvested diagnostics/defs would
+// not map back to the real uri, and relative #staloads would not resolve (the
+// drpth stack is pushed from the source's lcsrc, see trans01.dats:84). We need
+// the in-memory parse to behave exactly like a file parse for an identity given
+// EXTERNALLY (the document's real on-disk path), without reading the stale disk
+// file. So we replicate atext_tokenize / trans00_from_atext (lexing0.dats:131,
+// parsing.dats:69) but lctnize with LCSRCsome1(path) instead of LCSRCnone0():
+//   * every token's loctn carries LCSRCsome1(realPath) -> loc_fpath != "" ->
+//     diagnostics/defs map back to the real uri;
+//   * the d0parsed's source field is LCSRCsome1(realPath) -> d1parsed_of_trans01
+//     pushes fpath_dpart(realPath) onto the drpth stack -> relative #staloads
+//     resolve from the file's own directory (same as a real file parse).
+// Then d3parsed_of_trans03(d0parsed_of_pread00(...)) runs the full front-end on
+// the BUFFER (the warm compiler reuses the cached prelude + unchanged deps).
+//
+fun
+atext_tokenize_named
+(text: strn, path: strn): list_vt(token) = let
+  val buf = lxbf1_make_strn(text)
+  val lcs = LCSRCsome1(path)
+in
+  lexing_preping_all
+  ( lexing_lctnize_all
+    (lcs, lxbf1_lexing_tnodelst(buf)) )
+end
+//
+fun
+d0parsed_from_atext_named
+(stadyn: sint, text: strn, path: strn): d0parsed = let
+  val tks = atext_tokenize_named(text, path)
+  val buf = tokbuf_make_llist(tks)
+  var err: sint = 0
+  val res = optn_cons(fp_d0eclsq1(stadyn, buf, err))
+  val () = tokbuf_free(buf)
+in
+  // nerror=-1 (unknown), source=LCSRCsome1(path): identity is the REAL file.
+  d0parsed_make_args(stadyn, (-1), LCSRCsome1(path), res)
 end
 //
 (* ****** ****** *)
@@ -977,6 +1021,25 @@ precheck(dp: depgraph, fwd: depgraph, key0: sym_t): void = let
 // diagnostics + hover/def index from the SAME d3parsed. No subprocess, no temp
 // JSON.
 //
+// harvest_d3parsed: the SHARED post-check work, factored out so the disk path
+// (text_validator) and the in-memory path (live_validator) run an identical
+// dependency-extraction + signature-stamping + harvest from a checked d3parsed.
+//
+fun
+harvest_d3parsed
+(dp: depgraph, fwd: depgraph, key: sym_t, path: strn, dpar: d3parsed): void = let
+    val parsed = d3parsed_get_parsed(dpar)
+    // record "this file depends on each staloaded file" (reverse edge, for the
+    // pruner) + "this file staloads each" (forward edge, for the precheck) + each
+    // workspace dep's {mtimeMs,size} signature. One pass, both graphs.
+    val () = dependency_d3eclistopt(dp, fwd, parsed, key)
+    // also stamp THIS file's own signature so a later check of a dependent can
+    // detect an out-of-band edit to it (the dependency pass only stamps deps).
+    val () = sig_record(key, path)
+    // harvest: diagnostics (errck) + hovers (typed nodes) + defs (use sites).
+    val () = walk_d3eclistopt(parsed)
+  in (*nothing*) end
+//
 #implfun text_validator(dp, ds, uri) = let
     val path = url_to_path(uri)
     val key = path.fpath().fnm2()
@@ -988,20 +1051,37 @@ precheck(dp: depgraph, fwd: depgraph, key0: sym_t): void = let
       if fpath_is_dats(path)
       then d3parsed_of_fildats(path)
       else d3parsed_of_filsats(path)
-    val parsed = d3parsed_get_parsed(dpar)
-    // record "this file depends on each staloaded file" (reverse edge, for the
-    // pruner) + "this file staloads each" (forward edge, for the precheck) + each
-    // workspace dep's {mtimeMs,size} signature. One pass, both graphs.
-    val () = dependency_d3eclistopt(dp, fwd, parsed, key)
-    // also stamp THIS file's own signature so a later check of a dependent can
-    // detect an out-of-band edit to it (the dependency pass only stamps deps).
-    val () = sig_record(key, path)
-    // harvest: diagnostics (errck) + hovers (typed nodes) + defs (use sites).
-    val () = walk_d3eclistopt(parsed)
+    val () = harvest_d3parsed(dp, fwd, key, path, dpar)
   in
     // `ds` is unused as a sink here (the .cats holds the per-uri index that the
     // diag_push calls populated); kept in the signature for parity with the
     // reference's validator shape. Touch it to avoid an unused warning.
+    let val _ = ds in () end
+  end
+//
+// live_validator: invoked on didChange (debounced ~300 ms in the .cats). Checks
+// the UNSAVED in-memory buffer `text` for `uri`, NOT the stale disk file. We
+// parse `text` in-memory with the source identity = the document's REAL path
+// (d0parsed_from_atext_named) so diagnostics/loctns map to the real uri and
+// relative #staloads resolve from the file's directory, then run the full
+// front-end on the buffer (d3parsed_of_trans03) and harvest exactly as the disk
+// path does. The didChange pruner has already evicted this file (+ dependents),
+// so the cache won't serve a stale parse of THIS file; d3parsed_of_trans03 takes
+// the freshly-parsed d0parsed directly (the top buffer is never cache-served),
+// while its staloaded deps still resolve from the cache/disk (the warm path).
+//
+#implfun live_validator(dp, ds, uri, text) = let
+    val path = url_to_path(uri)
+    val key = path.fpath().fnm2()
+    val fwd = fwd_graph()
+    // R2a: validate the closure's on-disk drift (the buffer's DEPS still come from
+    // disk; the target buffer itself is the in-memory `text`, never disk).
+    val () = precheck(dp, fwd, key)
+    val stadyn = if fpath_is_dats(path) then 1(*dyn*) else 0(*sta*)
+    val dpar0 = d0parsed_from_atext_named(stadyn, text, path)
+    val dpar = d3parsed_of_trans03(d0parsed_of_pread00(dpar0))
+    val () = harvest_d3parsed(dp, fwd, key, path, dpar)
+  in
     let val _ = ds in () end
   end
 //
@@ -1079,7 +1159,7 @@ val () = prelude_pvsload()
 //
 val () = prelude_take_snapshot()
 //
-val () = initialize(text_validator, cache_pruner, reload_prelude, evict_stamp)
+val () = initialize(text_validator, live_validator, cache_pruner, reload_prelude, evict_stamp)
 //
 (* ****** ****** *)
 (*

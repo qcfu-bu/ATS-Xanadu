@@ -171,9 +171,17 @@ fun def_push
 // the resident bootstrap entry: register the in-process validator + pruner
 // callbacks with the vscode-languageserver connection loop, then listen.
 //   validator(deps, diags, uri): check `uri` in-process -> push diags + index.
+//   liveval(deps, diags, uri, text): check the in-memory `text` (the unsaved
+//      editor buffer) for `uri` in-process -> push diags + index (live-on-change).
 //   pruner(deps, uri)          : evict `uri` + dependents from the caches.
 //
 #typedef text_validator_t = (depgraph, diagnostics, url) -> void
+// live_validator_t (P4 live-on-change): validate the UNSAVED in-memory buffer.
+// Same shape as text_validator_t but with the editor's current text passed in
+// (the .cats hands us textDocument.getText()); we parse THAT text in-memory with
+// the source identity set to the document's real path, so diagnostics/loctns map
+// back to the real uri and relative #staloads resolve from the file's directory.
+#typedef live_validator_t = (depgraph, diagnostics, url, string) -> void
 #typedef cache_pruner_t = (depgraph, url) -> void
 // reload_prelude_t: the in-process prelude reload, registered alongside the
 // validator/pruner. The .cats calls it on didSave of a $XATSHOME file.
@@ -183,12 +191,15 @@ fun def_push
 // for every file in the changed file's transitive project-reverse closure.
 #typedef evict_stamp_t = (stamp) -> void
 fun initialize
-  (text_validator_t, cache_pruner_t, reload_prelude_t, evict_stamp_t) : void
+  ( text_validator_t, live_validator_t
+  , cache_pruner_t, reload_prelude_t, evict_stamp_t) : void
 //
-// the two resident callbacks themselves (declared here, #implfun'd in the DATS,
+// the resident callbacks themselves (declared here, #implfun'd in the DATS,
 // then passed to initialize). The reference declares these in server.sats.
 //
 fun text_validator(depgraph, diagnostics, url): void
+// live_validator: the in-memory (unsaved-buffer) validate path.
+fun live_validator(depgraph, diagnostics, url, string): void
 fun cache_pruner(depgraph, url): void
 //
 (* ****** ****** *)

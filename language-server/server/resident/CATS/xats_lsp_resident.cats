@@ -507,6 +507,138 @@ function LSP_typestr(s) {
 }
 //
 ////////////////////////////////////////////////////////////////////////.
+// ---- UTF-16 column conversion (non-ASCII correctness) ---------------- //
+//
+// The harvest emits `character` = the BYTE column (ncol; primer §5: ncol counts
+// UTF-8 bytes). LSP wants the UTF-16 code-unit column for the line. They are
+// EQUAL only when the line's prefix is pure ASCII. For a line with a multi-byte
+// UTF-8 glyph (é = 2 bytes / 1 unit, 😀 = 4 bytes / 2 units) the byte column is
+// larger than the UTF-16 column, so ranges drift right of the real token. We
+// convert per emitted (line, byteCol): take the source line's bytes [0,byteCol),
+// decode as UTF-8, count UTF-16 code units (a codepoint >= U+10000 = 2 units).
+//
+// Efficiency: we never re-decode the whole file per position. We build a per-LINE
+// byte->utf16 PREFIX (a Uint32Array, lazily, only for lines that contain a
+// non-ASCII byte) and cache it, keyed by the source text identity; a pure-ASCII
+// line takes the fast path (byteCol === utf16Col, no array built).
+//
+// Source of the lines: the text of the file currently being CHECKED (set in
+// LSP_cur_text by the validator — the saved file's text or the unsaved buffer).
+// Def TARGET ranges in OTHER files are converted best-effort by lazily reading
+// that file's bytes from disk (cached); if unreadable, the byte column is left
+// as-is (noted in the report).
+//
+const LSP_u16_dec = new TextDecoder('utf-8', { fatal: false });
+//
+// A converter over one source text: splits the BYTES into lines (on \n, keeping
+// CR out of the count by treating it as an ordinary byte — the column model
+// counts every byte incl. CR, matching the lexer which advances ncol per byte),
+// and converts (line, byteCol) -> utf16Col. Lazily builds a per-line prefix only
+// for non-ASCII lines; ASCII lines are byteCol-identical.
+function LSP_u16_make(text) {
+  // byte view of the whole text, then per-line byte slices (Buffer/Uint8Array).
+  const bytes = Buffer.from(String(text == null ? "" : text), 'utf8');
+  // line start byte offsets. A line ends at '\n' (0x0a); the lexer increments
+  // nrow on '\n' and resets ncol to 0, so byte columns are RELATIVE to the byte
+  // right after the previous '\n'. We therefore index lines by those starts.
+  const starts = [0];
+  for (let i = 0; i < bytes.length; i++) {
+    if (bytes[i] === 0x0a) starts.push(i + 1);
+  }
+  // per-line cache: index -> { ascii:true } | { ascii:false, pref:Uint32Array }
+  //   pref[k] = number of UTF-16 code units in this line's bytes [0,k).
+  const cache = new Map();
+  function lineInfo(line) {
+    let info = cache.get(line);
+    if (info !== undefined) return info;
+    const s = starts[line];
+    if (s === undefined) { info = { ascii: true, len: 0 }; cache.set(line, info); return info; }
+    const e = (line + 1 < starts.length) ? (starts[line + 1] - 1 /*drop the \n*/) : bytes.length;
+    let nonAscii = false;
+    for (let i = s; i < e; i++) { if (bytes[i] >= 0x80) { nonAscii = true; break; } }
+    if (!nonAscii) { info = { ascii: true, len: e - s }; cache.set(line, info); return info; }
+    // build the byte->utf16 prefix for this (non-ASCII) line.
+    const n = e - s;
+    const pref = new Uint32Array(n + 1);
+    let units = 0, i = s, k = 0;
+    while (i < e) {
+      const b = bytes[i];
+      let seq = 1, cp = 0;
+      if (b < 0x80)        { seq = 1; cp = b; }
+      else if (b < 0xE0)   { seq = 2; cp = b & 0x1f; }
+      else if (b < 0xF0)   { seq = 3; cp = b & 0x0f; }
+      else                 { seq = 4; cp = b & 0x07; }
+      // assemble the codepoint (defensively clamp on truncated/invalid seq).
+      let valid = (i + seq <= e);
+      if (valid) {
+        for (let j = 1; j < seq; j++) {
+          const cb = bytes[i + j];
+          if ((cb & 0xc0) !== 0x80) { valid = false; break; }
+          cp = (cp << 6) | (cb & 0x3f);
+        }
+      }
+      if (!valid) { seq = 1; cp = b; }   // treat a bad byte as 1 unit (replacement)
+      const u = (cp >= 0x10000) ? 2 : 1; // astral plane -> surrogate pair
+      // fill the prefix for the bytes this codepoint spans: each leading-byte
+      // position maps to the units-so-far; continuation bytes share the start.
+      for (let j = 0; j < seq && (k + j) <= n; j++) pref[k + j] = units;
+      units += u;
+      k += seq; i += seq;
+    }
+    pref[Math.min(k, n)] = units;
+    // any trailing slots (shouldn't happen) get the final unit count.
+    for (let j = k + 1; j <= n; j++) pref[j] = units;
+    info = { ascii: false, len: n, pref: pref };
+    cache.set(line, info);
+    return info;
+  }
+  return {
+    // byteCol -> utf16Col on `line`. ASCII fast path; else prefix lookup.
+    conv: function (line, byteCol) {
+      const c = byteCol | 0;
+      if (c <= 0) return 0;
+      const info = lineInfo(line | 0);
+      if (info.ascii) return c;                 // pure ASCII: identical
+      const pref = info.pref;
+      if (c >= pref.length) return pref[pref.length - 1];
+      return pref[c];
+    }
+  };
+}
+//
+// escape hatch: ATS3_LSP_UTF16=0 disables conversion (emit raw byte columns).
+// On by default; used for diagnosis + as a kill-switch if a workspace is known
+// to be pure ASCII and wants to skip even the (cheap) line-start scan.
+const LSP_u16_enabled = (process.env.ATS3_LSP_UTF16 !== '0');
+//
+// the converter for the file CURRENTLY being checked (its whole source text).
+// Rebuilt per check (text changes); cheap (one pass to find line starts; per-line
+// prefix only for non-ASCII lines, built lazily on first use of that line).
+let LSP_cur_u16 = null;
+function LSP_cur_b2u(line, byteCol) {
+  return (LSP_u16_enabled && LSP_cur_u16) ? LSP_cur_u16.conv(line, byteCol) : (byteCol | 0);
+}
+//
+// best-effort converter for OTHER files (def targets). Keyed by normalized path;
+// lazily reads the file's bytes once and caches a converter. On any failure we
+// return the byte column unchanged (best-effort, noted in the report).
+const LSP_other_u16 = new Map();
+function LSP_other_b2u(path, line, byteCol) {
+  const c = byteCol | 0;
+  if (!LSP_u16_enabled) return c;
+  if (c <= 0) return 0;
+  const n = LSP_norm(path);
+  if (n === "") return c;
+  let conv = LSP_other_u16.get(n);
+  if (conv === undefined) {
+    try { conv = LSP_u16_make(LSP_fs.readFileSync(n, 'utf8')); }
+    catch (e) { conv = null; }            // unreadable -> leave byte col as-is
+    LSP_other_u16.set(n, conv);
+  }
+  return conv ? conv.conv(line, byteCol) : c;
+}
+//
+////////////////////////////////////////////////////////////////////////.
 // ---- HARVEST accumulators -> a per-uri in-memory index --------------- //
 //
 // During one in-process validation, the ATS3 traversal calls diag_push /
@@ -528,9 +660,19 @@ const LSP_index = new Map();
 let LSP_cur_path = null;
 let LSP_cur_uri  = null;
 //
+// the (already-normalized) path of the file being checked, for the per-range
+// "is this range in the current file?" test used to pick the right converter.
+let LSP_cur_path_norm = null;
+function LSP_def_in_current(defUri) {
+  // a def whose uri is the document's own uri (LSP_path2uri remapped it) is in
+  // the file being checked -> convert with LSP_cur_u16. Otherwise it lives in
+  // another file -> best-effort convert from that file's bytes.
+  return (LSP_cur_uri && defUri === LSP_cur_uri);
+}
 function LSP_diag_push(l0, c0, l1, c1, code, message) {
+  // diagnostics are always in the file being checked -> current-file converter.
   LSP_cur_diags.push({
-    l0: l0|0, c0: c0|0, l1: l1|0, c1: c1|0,
+    l0: l0|0, c0: LSP_cur_b2u(l0, c0), l1: l1|0, c1: LSP_cur_b2u(l1, c1),
     code: String(code), message: LSP_friendly(message)
   });
 }
@@ -539,8 +681,10 @@ function LSP_hover_push(l0, c0, l1, c1, typ, kind) {
   // it through verbatim (no head-name remap, which would only corrupt it).
   const t = String(typ);
   if (t === "") return;
+  // hovers are always in the file being checked -> current-file converter.
   LSP_cur_hovers.push({
-    l0: l0|0, c0: c0|0, l1: l1|0, c1: c1|0, type: t, kind: String(kind)
+    l0: l0|0, c0: LSP_cur_b2u(l0, c0), l1: l1|0, c1: LSP_cur_b2u(l1, c1),
+    type: t, kind: String(kind)
   });
 }
 function LSP_def_push(ul0, uc0, ul1, uc1, defpath,
@@ -548,17 +692,33 @@ function LSP_def_push(ul0, uc0, ul1, uc1, defpath,
                       tl0, tc0, tl1, tc1) {
   const defUri = LSP_path2uri(defpath);
   if (defUri === "") return;
+  // useRange is ALWAYS in the file being checked -> current-file converter.
+  // defRange may be in the current file (remapped uri) or another file: convert
+  // with the current converter if in-current, else best-effort from defpath.
+  let dc0u, dc1u;
+  if (LSP_def_in_current(defUri)) {
+    dc0u = LSP_cur_b2u(dl0, dc0); dc1u = LSP_cur_b2u(dl1, dc1);
+  } else {
+    dc0u = LSP_other_b2u(defpath, dl0, dc0); dc1u = LSP_other_b2u(defpath, dl1, dc1);
+  }
   const d = {
-    ul0: ul0|0, uc0: uc0|0, ul1: ul1|0, uc1: uc1|0,
+    ul0: ul0|0, uc0: LSP_cur_b2u(ul0, uc0), ul1: ul1|0, uc1: LSP_cur_b2u(ul1, uc1),
     defUri: defUri,
-    dl0: dl0|0, dc0: dc0|0, dl1: dl1|0, dc1: dc1|0,
+    dl0: dl0|0, dc0: dc0u, dl1: dl1|0, dc1: dc1u,
     entity: String(entity)
   };
   if ((hastdef|0) === 1) {
     const tdUri = LSP_path2uri(tdpath);
     if (tdUri !== "") {
       d.typeDefUri = tdUri;
-      d.tl0 = tl0|0; d.tc0 = tc0|0; d.tl1 = tl1|0; d.tc1 = tc1|0;
+      // type-def target is in another file (a type-constant's declaration site);
+      // best-effort convert from that file's bytes (or current if it remapped).
+      d.tl0 = tl0|0; d.tl1 = tl1|0;
+      if (LSP_def_in_current(tdUri)) {
+        d.tc0 = LSP_cur_b2u(tl0, tc0); d.tc1 = LSP_cur_b2u(tl1, tc1);
+      } else {
+        d.tc0 = LSP_other_b2u(tdpath, tl0, tc0); d.tc1 = LSP_other_b2u(tdpath, tl1, tc1);
+      }
     }
   }
   LSP_cur_defs.push(d);
@@ -747,22 +907,30 @@ function LSP_log(msg) {
   try { LSP_connection.console.log('[xats-lsp-resident] ' + String(msg)); } catch (e) {}
 }
 //
-function vscode_initialize(validator, pruner, reloadPreludeFn, evictStampFn) {
-  // run one in-process validation for a document, snapshot the index, publish.
-  function textValidator(textDocument) {
-    const uri = textDocument.uri;
+function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, evictStampFn) {
+  // shared driver: set up the per-check context (accumulators + the UTF-16
+  // converter over `sourceText`), run `runCheck` (which invokes the ATS3 side
+  // and populates the accumulators via diag/hover/def_push), then snapshot the
+  // index + publish. `mode` is just a label for the metric line.
+  function runValidation(uri, sourceText, mode, runCheck) {
     const t0 = Date.now();
     // reset the per-check accumulators + remap context.
     LSP_cur_diags = []; LSP_cur_hovers = []; LSP_cur_defs = [];
     LSP_cur_uri = uri;
     LSP_cur_path = vscode_url_to_path(uri);
+    LSP_cur_path_norm = LSP_norm(LSP_cur_path);
+    // UTF-16 conversion: build a byte->utf16 converter over the SAME source text
+    // we are checking (the saved file's text or the unsaved buffer), so emitted
+    // byte columns convert to UTF-16 columns on the correct line. Other-file def
+    // targets are converted lazily from their own bytes (LSP_other_b2u).
+    LSP_cur_u16 = LSP_u16_make(sourceText);
+    LSP_other_u16.clear();   // fresh per check (files may have changed on disk)
     // R2c: index this doc's own directives into the project graph (covers a file
     // opened before/outside the workspace scan, and refreshes its edges from the
     // live buffer). Cheap; keeps the project reverse graph complete + current.
-    try { LSP_proj_index_file(LSP_cur_path, textDocument.getText()); } catch (e) {}
-    const diagnostics = [];   // the `ds` handle handed to the ATS3 validator
+    try { LSP_proj_index_file(LSP_cur_path, sourceText); } catch (e) {}
     try {
-      validator(LSP_dependencies, diagnostics, uri);
+      runCheck();
     } catch (e) {
       LSP_log('validator threw: ' + (e && e.stack ? e.stack : e));
     }
@@ -778,12 +946,33 @@ function vscode_initialize(validator, pruner, reloadPreludeFn, evictStampFn) {
     // structured stderr line the smoke harness parses for latency.
     try {
       process.stderr.write('[xats-lsp-metric] check uri=' + uri +
-        ' ms=' + dt + ' diags=' + lspDiags.length +
+        ' mode=' + mode + ' ms=' + dt + ' diags=' + lspDiags.length +
         ' hovers=' + (LSP_index.get(uri).hovers.length) +
         ' defs=' + (LSP_index.get(uri).definitions.length) +
         ' stats=' + nstat + '\n');
     } catch (e) {}
-    LSP_cur_uri = null; LSP_cur_path = null;
+    LSP_cur_uri = null; LSP_cur_path = null; LSP_cur_path_norm = null; LSP_cur_u16 = null;
+  }
+
+  // DISK path (didOpen / didSave): the ATS3 validator reads the saved file. The
+  // source text for UTF-16 conversion is the document's current text (the saved
+  // file's contents are reflected in the open doc's buffer at save time).
+  function textValidator(textDocument) {
+    const uri = textDocument.uri;
+    const diagnostics = [];   // the `ds` handle handed to the ATS3 validator
+    runValidation(uri, textDocument.getText(), 'disk', function () {
+      validator(LSP_dependencies, diagnostics, uri);
+    });
+  }
+
+  // LIVE path (didChange, debounced): the ATS3 live validator parses the UNSAVED
+  // in-memory `text` (NOT the disk file). The same `text` is the source for the
+  // UTF-16 converter, so byte columns from the buffer map to its UTF-16 columns.
+  function liveValidate(uri, text) {
+    const diagnostics = [];
+    runValidation(uri, text, 'live', function () {
+      liveValidator(LSP_dependencies, diagnostics, uri, text);
+    });
   }
 
   // ---- prelude reload orchestration (the "workspace IS the prelude" case) ---
@@ -963,13 +1152,50 @@ function vscode_initialize(validator, pruner, reloadPreludeFn, evictStampFn) {
   // still catch that save to trigger the in-process prelude reload. The raw
   // handler dispatches: $XATSHOME -> reload prelude; otherwise -> validate the
   // (opened) doc exactly as before.
-  // didChange: prune only (evict the file + dependents). Cheap; the warm
-  // recheck happens on the next save/open.
+  // didChange: LIVE-ON-CHANGE (debounced). Warm checks are ~1-8 ms, so we now
+  // validate as the user types — against the UNSAVED in-memory buffer — instead
+  // of only on save. Steps per change:
+  //   (1) prune immediately (evict the file + dependents from the caches) so the
+  //       depgraph stays correct and the debounced live check re-translates the
+  //       file's staload closure fresh — exactly the R1 didChange semantics;
+  //   (2) (re)arm a per-uri ~300 ms debounce timer; when it fires, run
+  //       liveValidate(uri, currentBufferText). The buffer text is taken from the
+  //       TextDocuments store AT FIRE TIME (the latest edit), NOT from disk.
+  // Rapid keystrokes coalesce: each change resets the timer, so only the final
+  // (settled) buffer is checked. A doc closed/saved before the timer fires has
+  // its pending check cancelled (close clears it; save runs its own validate).
+  const LSP_debounce_ms =
+    parseInt(process.env.ATS3_LSP_DEBOUNCE_MS || '300', 10);
+  const LSP_change_timers = new Map();   // uri -> Timeout
+  function LSP_cancel_change_timer(uri) {
+    const t = LSP_change_timers.get(uri);
+    if (t !== undefined) { clearTimeout(t); LSP_change_timers.delete(uri); }
+  }
+  function LSP_schedule_live(uri) {
+    LSP_cancel_change_timer(uri);
+    const timer = setTimeout(() => {
+      LSP_change_timers.delete(uri);
+      const doc = LSP_documents.get(uri);
+      if (doc === undefined) return;          // closed before the timer fired
+      // a $XATSHOME prelude file is handled by the save/reload path, not here.
+      try { if (JS_path_is_prelude(vscode_url_to_path(uri))) return; } catch (e) {}
+      try { liveValidate(uri, doc.getText()); }
+      catch (e) { LSP_log('liveValidate threw: ' + (e && e.stack ? e.stack : e)); }
+    }, LSP_debounce_ms);
+    // do not keep the event loop alive solely for a pending debounce.
+    if (typeof timer.unref === 'function') timer.unref();
+    LSP_change_timers.set(uri, timer);
+  }
   LSP_documents.onDidChangeContent(change => {
-    try { pruner(LSP_dependencies, change.document.uri); }
+    const uri = change.document.uri;
+    // (1) prune now (cheap): keep the cache + depgraph correct.
+    try { pruner(LSP_dependencies, uri); }
     catch (e) { LSP_log('pruner threw: ' + (e && e.stack ? e.stack : e)); }
+    // (2) schedule a debounced live check of the unsaved buffer.
+    LSP_schedule_live(uri);
   });
   LSP_documents.onDidClose(change => {
+    LSP_cancel_change_timer(change.document.uri);
     LSP_index.delete(change.document.uri);
     LSP_connection.sendDiagnostics({ uri: change.document.uri, diagnostics: [] });
   });
@@ -1005,6 +1231,8 @@ function vscode_initialize(validator, pruner, reloadPreludeFn, evictStampFn) {
   LSP_connection.onDidSaveTextDocument(params => {
     try {
       const uri = params.textDocument.uri;
+      // a save supersedes any pending debounced live check for this doc.
+      LSP_cancel_change_timer(uri);
       const fpath = vscode_url_to_path(uri);
       if (JS_path_is_prelude(fpath)) {
         reloadPreludeAndRevalidate(uri);
