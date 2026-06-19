@@ -457,19 +457,51 @@ in
   if (pe.ntot() <= pb.ntot()) then false else true
 end
 //
+// extract the on-disk path carried by an lcsrc (the source identity stamped on
+// every loctn). Shared by loc_fpath (per-node) and the top-file path capture in
+// harvest_d3parsed (which reads d3parsed_get_source — the SAME lcsrc kind).
+//
 fun
-loc_fpath
-(loc: loctn): string =
+lcsrc_fpath
+(src: lcsrc): string =
 (
-case+ loc.lsrc() of
+case+ src of
 | LCSRCfpath(fp) => fpath_get_fnm1(fp)
 | LCSRCsome1(s) => s
 | _ => ""
 )
 //
 fun
+loc_fpath
+(loc: loctn): string = lcsrc_fpath(loc.lsrc())
+//
+(* ---- SOURCE FILTER: only emit for nodes from the file being checked ---- *)
+//
+// The harvest walks the WHOLE typed AST of the top file, which inlines the
+// nodes of every #include'd / #staload'd source (the compiler stamps each such
+// node with ITS OWN source lcsrc + line/col). Emitting a diagnostic / hover /
+// semantic-token / definition-use-site for an included-file node and attributing
+// it to the CURRENT uri (with the OTHER file's coords) produces phantom rows far
+// past EOF. Gate the four per-file emit sites on "this node's source == the top
+// file's source". The top path is captured ONCE at the start of harvest_d3parsed
+// from d3parsed_get_source (the exact lcsrc the compiler stamped on top nodes),
+// so the comparison is an identity match, not a re-normalized path compare.
+//
+val the_top_path: a0ref(string) = a0ref_make_1val("")
+//
+fun
+loc_in_topfile
+(loc: loctn): bool = let
+  val top = the_top_path[]
+in
+  // empty top path: filter disabled (be permissive rather than drop everything).
+  if strn_nilq(top) then true else strn_eq(loc_fpath(loc), top)
+end
+//
+fun
 push_diag
-(loc: loctn, code: string, msg: string): void = let
+(loc: loctn, code: string, msg: string): void =
+if loc_in_topfile(loc) then let
   val pb = loc.pbeg()
   val pe = loc.pend()
 in
@@ -558,7 +590,8 @@ classify_d2ecl
 fun
 emit_hover
 (loc: loctn, t2p: s2typ, kind: string): void =
-if loc_realq(loc) then let
+if loc_realq(loc) then
+if loc_in_topfile(loc) then let
   val pb = loc.pbeg()
   val pe = loc.pend()
   val ts = typ_pretty(t2p)
@@ -570,7 +603,10 @@ end
 fun
 emit_def
 (uloc: loctn, dloc: loctn, entity: string, t2p: s2typ): void =
+// gate on the USE site only — the def TARGET (dloc) may legitimately live in
+// another file (that is go-to-definition); leave dloc unfiltered.
 if loc_realq(uloc) then
+if loc_in_topfile(uloc) then
 ( if loc_realq(dloc) then let
     val upb = uloc.pbeg() and upe = uloc.pend()
     val dpb = dloc.pbeg() and dpe = dloc.pend()
@@ -646,7 +682,8 @@ case+ s2typ_get_node(t2p) of
 fun
 emit_token
 (loc: loctn, ttype: int, tmods: int, defpath: string): void =
-if loc_realq(loc) then let
+if loc_realq(loc) then
+if loc_in_topfile(loc) then let
   val pb = loc.pbeg()
   val pe = loc.pend()
 in
@@ -1178,6 +1215,12 @@ precheck(dp: depgraph, fwd: depgraph, key0: sym_t): void = let
 fun
 harvest_d3parsed
 (dp: depgraph, fwd: depgraph, key: sym_t, path: strn, dpar: d3parsed): void = let
+    // SOURCE FILTER: capture the top file's source path from the SAME lcsrc the
+    // compiler stamped on its own nodes (d3parsed_get_source), so the per-node
+    // loc_in_topfile guard is an identity match. This drops phantom emissions
+    // attributed to included/staloaded sources (Bug 1). Reset after the walk so
+    // a stale path never leaks into a later, unguarded call.
+    val () = the_top_path[] := lcsrc_fpath(d3parsed_get_source(dpar))
     val parsed = d3parsed_get_parsed(dpar)
     // record "this file depends on each staloaded file" (reverse edge, for the
     // pruner) + "this file staloads each" (forward edge, for the precheck) + each
@@ -1188,6 +1231,8 @@ harvest_d3parsed
     val () = sig_record(key, path)
     // harvest: diagnostics (errck) + hovers (typed nodes) + defs (use sites).
     val () = walk_d3eclistopt(parsed)
+    // clear the top-path filter (defensive: keep no stale source between checks).
+    val () = the_top_path[] := ""
   in (*nothing*) end
 //
 #implfun text_validator(dp, ds, uri) = let

@@ -1016,10 +1016,19 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
     // opened before/outside the workspace scan, and refreshes its edges from the
     // live buffer). Cheap; keeps the project reverse graph complete + current.
     try { LSP_proj_index_file(LSP_cur_path, sourceText); } catch (e) {}
+    let validatorError = null;
     try {
       runCheck();
     } catch (e) {
-      LSP_log('validator threw: ' + (e && e.stack ? e.stack : e));
+      // A fatal compiler abort (e.g. XATS000_cfail) on a file the front-end
+      // cannot analyze -- typically a compiler-internal file that staloads the
+      // ATS3 compiler itself (our own driver files, or srcgen2/ sources). The
+      // resident process is NOT poisoned (subsequent files check fine); we
+      // surface one Information diagnostic so the missing analysis is explained
+      // rather than silent + a scary stack trace in the log.
+      validatorError = e;
+      LSP_log('could not analyze ' + LSP_cur_path + ' (compiler aborted: ' +
+        String((e && e.message) ? e.message : e) + '); other files unaffected');
     }
     // snapshot harvested hover/def/token index for onHover/onDefinition/
     // semanticTokens. Tokens are delta-encoded once here (the request handler
@@ -1029,7 +1038,15 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
       definitions: LSP_dedup_defs(LSP_cur_defs),
       semanticTokens: LSP_encode_tokens(LSP_cur_tokens)
     });
-    const lspDiags = LSP_current_lsp_diagnostics();
+    const lspDiags = validatorError
+      ? [ vscode_diagnostic_make(
+            LSP_ls.DiagnosticSeverity.Information,
+            vscode_range_make(vscode_position_make(0, 0), vscode_position_make(0, 1)),
+            'ats3: could not analyze this file (the compiler aborted: ' +
+              String((validatorError && validatorError.message) ? validatorError.message : validatorError) +
+              '). This usually means the file staloads the ATS3 compiler itself; ordinary ATS3 files are unaffected.',
+            'ats3') ]
+      : LSP_current_lsp_diagnostics();
     LSP_connection.sendDiagnostics({ uri: uri, diagnostics: lspDiags });
     const dt = Date.now() - t0;
     const nstat = LSP_stat_count_reset();
@@ -1330,6 +1347,43 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
   } else {
     LSP_connection.onRequest('textDocument/semanticTokens/full', semanticTokensFull);
   }
+
+  // TEST-ONLY introspection: report the per-uri index sizes + the MAX line that
+  // any harvested hover / definition / semantic-token lands on. Used by the
+  // include/source-filter smoke to assert no emitted row escapes the checked
+  // file's own line range (Bug 1). Pure read-over of the cached index; no effect
+  // on normal request handling.
+  LSP_connection.onRequest('xats/indexStats', params => {
+    try {
+      const uri = (params && params.uri) || (params && params.textDocument && params.textDocument.uri);
+      const idx = LSP_index.get(uri);
+      if (!idx) return { found: false };
+      const hs = idx.hovers || [];
+      const ds = idx.definitions || [];
+      const tk = idx.semanticTokens || [];   // flat delta-encoded 5-tuples
+      let maxHoverLine = -1;
+      for (const h of hs) {
+        const e = h.range && h.range.end ? h.range.end.line : -1;
+        if (e > maxHoverLine) maxHoverLine = e;
+      }
+      let maxDefUseLine = -1;
+      for (const d of ds) {
+        const e = d.useRange && d.useRange.end ? d.useRange.end.line : -1;
+        if (e > maxDefUseLine) maxDefUseLine = e;
+      }
+      // decode the delta-encoded token lines to find the absolute max.
+      let line = 0, maxTokenLine = -1;
+      for (let i = 0; i + 4 < tk.length; i += 5) {
+        line += tk[i];            // dLine is absolute-relative; tokens sorted
+        if (line > maxTokenLine) maxTokenLine = line;
+      }
+      return {
+        found: true,
+        hovers: hs.length, defs: ds.length, tokens: (tk.length / 5) | 0,
+        maxHoverLine: maxHoverLine, maxDefUseLine: maxDefUseLine, maxTokenLine: maxTokenLine
+      };
+    } catch (e) { LSP_log('xats/indexStats threw: ' + e); return { found: false, error: String(e) }; }
+  });
 
   LSP_documents.listen(LSP_connection);
 
