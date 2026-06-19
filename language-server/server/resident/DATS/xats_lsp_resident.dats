@@ -348,94 +348,27 @@ end
 //
 (* ---- source-syntax s2typ pretty-printer (hover) ---- *)
 //
+// FAITHFUL printer lives in the SHARED include (single source of truth, reused
+// by the one-shot checker and the round-trip harness). It needs three FFI/leaf
+// helpers (int label / xtv stamp / sort -> string), implemented here + .cats.
+//
+#extern fun
+TYPRINT_int2str(n: int): string = $extnam()
+#extern fun
+TYPRINT_stamp2str(s: stamp): string = $extnam()
+//
+// surface sort name via the strbuf + sort2_fprint (used by the Exact mode of
+// the shared printer; on the hover path it never fires, but keep it sound).
 fun
-prim_head_nameq
-(nm: string): bool =
-  if strn_eq(nm, "gint_type") then true else
-  if strn_eq(nm, "gflt_type") then true else
-  if strn_eq(nm, "bool_type") then true else
-  if strn_eq(nm, "char_type") then true else
-  if strn_eq(nm, "void_type") then true else
-  if strn_eq(nm, "string_type") then true else
-  if strn_eq(nm, "string_i0_tx") then true else false
+TYPRINT_sort2str
+(srt: sort2): string = let
+  val fb = LSP_strbuf_new()
+  val () = sort2_fprint(srt, fb)
+in
+  LSP_strbuf_get(fb)
+end
 //
-fun
-prim_app_headq
-(t2p: s2typ): bool =
-(
-case+ s2typ_get_node(t2p) of
-| T2Pcst(s2c) => prim_head_nameq(symbl_get_name(s2cst_get_name(s2c)))
-| _ => false
-)
-//
-fun
-typ_pretty
-(t2p: s2typ): string = typ_p(t2p, 8)
-//
-and
-typ_p
-(t2p: s2typ, fuel: int): string =
-if (fuel <= 0) then typ_to_strn(t2p) else
-(
-case+ s2typ_get_node(t2p) of
-| T2Pcst(s2c) => symbl_get_name(s2cst_get_name(s2c))
-| T2Pvar(s2v) => symbl_get_name(s2var_get_name(s2v))
-| T2Pxtv(xv) => typ_p(x2t2p_get_styp(xv), fuel-1)
-| T2Papps(head, args) =>
-  let
-    val hs = typ_p(head, fuel-1)
-  in
-    if prim_app_headq(head)
-    then hs
-    else strn_append(hs,
-           strn_append("(", strn_append(typlst_p(args, fuel-1), ")")))
-  end
-| T2Pfun1(_f2cl, _npf, args, res) =>
-  strn_append("(",
-    strn_append(typlst_p(args, fuel-1),
-      strn_append(") -> ", typ_p(res, fuel-1))))
-| T2Ptext(nm, args) =>
-  ( if list_nilq(args) then nm else
-    strn_append(nm, strn_append("(",
-      strn_append(typlst_p(args, fuel-1), ")"))) )
-| T2Ptrcd(_knd, _npf, lts) =>
-  strn_append("(", strn_append(l2t2plst_p(lts, fuel-1), ")"))
-| T2Pexi0(_vs, body) => typ_p(body, fuel-1)
-| T2Puni0(_vs, body) => typ_p(body, fuel-1)
-| T2Plft(inner) => typ_p(inner, fuel-1)
-| T2Ptop0(inner) => typ_p(inner, fuel-1)
-| T2Ptop1(inner) => typ_p(inner, fuel-1)
-| T2Parg1(_knd, inner) => typ_p(inner, fuel-1)
-| T2Patx2(_bef, aft) => typ_p(aft, fuel-1)
-| T2Pnone1(inner) => typ_p(inner, fuel-1)
-| T2Plam1(_vs, body) => typ_p(body, fuel-1)
-| T2Perrck(_lvl, inner) => typ_p(inner, fuel-1)
-| T2Pnone0() => "_"
-| T2Pf2cl(_) => "<cloref>"
-| _ => typ_to_strn(t2p)
-)
-//
-and
-typlst_p
-(ts: s2typlst, fuel: int): string =
-(
-case+ ts of
-| list_nil() => ""
-| list_cons(t, list_nil()) => typ_p(t, fuel)
-| list_cons(t, rest) =>
-  strn_append(typ_p(t, fuel), strn_append(", ", typlst_p(rest, fuel)))
-)
-//
-and
-l2t2plst_p
-(lts: l2t2plst, fuel: int): string =
-(
-case+ lts of
-| list_nil() => ""
-| list_cons(S2LAB(_, t), list_nil()) => typ_p(t, fuel)
-| list_cons(S2LAB(_, t), rest) =>
-  strn_append(typ_p(t, fuel), strn_append(", ", l2t2plst_p(rest, fuel)))
-)
+#include "./../../HATS/xats_lsp_typrint.hats"
 //
 (* ---- loctn helpers: real-location guard + path ---- *)
 //

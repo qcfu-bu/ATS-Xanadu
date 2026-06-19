@@ -38,6 +38,10 @@ function LSPCHK_strbuf_new() {
 }
 function LSPCHK_strbuf_get(fb) { return fb.buf; }
 //
+// int label / xtv stamp -> string (faithful s2typ printer helpers).
+function TYPRINT_int2str(n)   { return String(n|0); }
+function TYPRINT_stamp2str(s) { return String(s); }
+//
 ////////////////////////////////////////////////////////////////////////.
 // ---- diagnostics accumulator + dedup + JSON ------------------------- //
 //
@@ -50,33 +54,55 @@ let LSPCHK_defs   = [];
 // up in type-mismatch messages, so "expected `gint_type`" reads as
 // "expected `int`". Unknown names pass through unchanged (still informative).
 // (A proper source-syntax type printer in WS-2 supersedes this heuristic.)
+// Grounded in prelude/basics0.sats head names. Used ONLY for the leaf head-name
+// renderer in type-MISMATCH messages — the faithful s2typ printer resolves int
+// widths / surface names on the ATS side, so hover strings pass through unchanged.
 const LSPCHK_TYPENAME = {
   "gint_type":        "int",
   "bool_type":        "bool",
   "char_type":        "char",
+  "gflt_type":        "double",
+  "xats_void_t":      "void",
+  "string_i0_tx":     "string",
   "the_s2exp_strn0":  "string",
   "the_s2exp_sint0":  "int",
+  "the_s2exp_uint0":  "uint",
+  "the_s2exp_slint0": "lint",
+  "the_s2exp_ulint0": "ulint",
+  "the_s2exp_sllint0": "llint",
+  "the_s2exp_ullint0": "ullint",
+  "the_s2exp_sflt0":  "float",
+  "the_s2exp_dflt0":  "double",
+  "the_s2exp_list0":  "list",
+  "the_s2exp_optn0":  "optn",
+  "the_s2exp_lazy0":  "lazy",
+  "the_s2exp_p1":     "ptr",
+  "the_s2exp_p2":     "p2tr",
   "the_s2exp_bool0":  "bool",
   "the_s2exp_char0":  "char",
-  "the_s2exp_void0":  "void",
+  "the_s2exp_void":   "void",
   "strn":             "string",
-  "gflt_type":        "float",
+  // per-width integer rep tags (basics0.sats:589-606)
   "xats_sint_t":      "int",
+  "xats_uint_t":      "uint",
+  "xats_slint_t":     "lint",
+  "xats_ulint_t":     "ulint",
+  "xats_ssize_t":     "ssize",
+  "xats_usize_t":     "usize",
+  "xats_sllint_t":    "llint",
+  "xats_ullint_t":    "ullint",
   "xats_strn_t":      "string",
   "xats_bool_t":      "bool",
-  // common internal type-constant names that surface in hover (pretty-printer
-  // emits the bare constant name; we render them as their surface spelling).
-  "void_type":        "void",
-  "string_type":      "string",
-  "string_i0_tx":     "string",
-  "xats_void_t":      "void",
   "xats_char_t":      "char",
-  "xats_dflt_t":      "float",
+  "xats_dflt_t":      "double",
+  // pointer / container heads
+  "p1tr_tbox":        "ptr",
+  "p2tr_tbox":        "p2tr",
   "list_t0_i0_tx":    "list",
   "list_vt_i0_vx":    "list_vt",
   "optn_t0_i0_tx":    "optn",
   "optn_vt_i0_vx":    "optn_vt",
-  "lazy_t0_vx":       "lazy",
+  "lazy_t0_tx":       "lazy",
   "lazy_vt_vx":       "lazy_vt"
 };
 function LSPCHK_friendly(msg) {
@@ -132,7 +158,9 @@ function LSPCHK_path2uri(p) {
 // the 0-based range + kind. Dedup of exact (range,type) duplicates happens at
 // serialization time (the server picks the innermost on hover).
 function LSPCHK_hover_push(l0, c0, l1, c1, typ, kind) {
-  let t = LSPCHK_typestr(String(typ));
+  // The ATS-side faithful printer already emits resolved surface syntax; pass it
+  // through verbatim (the head-name remap would only corrupt it).
+  let t = String(typ);
   if (t === "") return;
   LSPCHK_hovers.push({
     l0: l0|0, c0: c0|0, l1: l1|0, c1: c1|0,

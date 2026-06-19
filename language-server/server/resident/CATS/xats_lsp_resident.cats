@@ -231,20 +231,38 @@ function LSP_strbuf_new() {
 }
 function LSP_strbuf_get(fb) { return fb.buf; }
 //
-////////////////////////////////////////////////////////////////////////.
-// ---- friendly type-name map (reused from xats_lsp_check.cats) -------- //
+// integer-label / xtv-stamp -> string (for the faithful s2typ printer).
+function TYPRINT_int2str(n)   { return String(n|0); }
+function TYPRINT_stamp2str(s) { return String(s); }
 //
+////////////////////////////////////////////////////////////////////////.
+// ---- friendly type-name map (grounded in prelude/basics0.sats heads) - //
+//
+// Used ONLY for the leaf head-name renderer in type-MISMATCH messages (the
+// faithful s2typ printer resolves int widths etc. on the ATS side already, so
+// hover strings pass through unchanged). Keys are real head names.
 const LSP_TYPENAME = {
   "gint_type": "int", "bool_type": "bool", "char_type": "char",
+  "gflt_type": "double", "xats_void_t": "void", "string_i0_tx": "string",
   "the_s2exp_strn0": "string", "the_s2exp_sint0": "int",
+  "the_s2exp_uint0": "uint", "the_s2exp_slint0": "lint",
+  "the_s2exp_ulint0": "ulint", "the_s2exp_sllint0": "llint",
+  "the_s2exp_ullint0": "ullint", "the_s2exp_sflt0": "float",
+  "the_s2exp_dflt0": "double", "the_s2exp_list0": "list",
+  "the_s2exp_optn0": "optn", "the_s2exp_lazy0": "lazy",
+  "the_s2exp_p1": "ptr", "the_s2exp_p2": "p2tr",
   "the_s2exp_bool0": "bool", "the_s2exp_char0": "char",
-  "the_s2exp_void0": "void", "strn": "string", "gflt_type": "float",
-  "xats_sint_t": "int", "xats_strn_t": "string", "xats_bool_t": "bool",
-  "void_type": "void", "string_type": "string", "string_i0_tx": "string",
-  "xats_void_t": "void", "xats_char_t": "char", "xats_dflt_t": "float",
+  "the_s2exp_void": "void", "strn": "string",
+  "xats_sint_t": "int", "xats_uint_t": "uint",
+  "xats_slint_t": "lint", "xats_ulint_t": "ulint",
+  "xats_ssize_t": "ssize", "xats_usize_t": "usize",
+  "xats_sllint_t": "llint", "xats_ullint_t": "ullint",
+  "xats_strn_t": "string", "xats_bool_t": "bool",
+  "xats_char_t": "char", "xats_dflt_t": "double",
+  "p1tr_tbox": "ptr", "p2tr_tbox": "p2tr",
   "list_t0_i0_tx": "list", "list_vt_i0_vx": "list_vt",
   "optn_t0_i0_tx": "optn", "optn_vt_i0_vx": "optn_vt",
-  "lazy_t0_vx": "lazy", "lazy_vt_vx": "lazy_vt"
+  "lazy_t0_tx": "lazy", "lazy_vt_vx": "lazy_vt"
 };
 function LSP_friendly(msg) {
   return String(msg).replace(/`([A-Za-z_][A-Za-z0-9_$]*)`/g, function (m, nm) {
@@ -286,7 +304,9 @@ function LSP_diag_push(l0, c0, l1, c1, code, message) {
   });
 }
 function LSP_hover_push(l0, c0, l1, c1, typ, kind) {
-  const t = LSP_typestr(typ);
+  // The ATS-side faithful printer already emits resolved surface syntax; pass
+  // it through verbatim (no head-name remap, which would only corrupt it).
+  const t = String(typ);
   if (t === "") return;
   LSP_cur_hovers.push({
     l0: l0|0, c0: c0|0, l1: l1|0, c1: c1|0, type: t, kind: String(kind)

@@ -177,141 +177,27 @@ end
 //
 // =============== SOURCE-SYNTAX s2typ PRETTY-PRINTER (hover) =============
 //
-// A real source-form renderer over s2typ_node (primer §7). The only stock
-// printer (s2typ_fprint) is DEBUG-form ("T2Papps(f; args)"), unreadable for
-// hover, so we render proper surface syntax here:
-//   T2Pcst(s2c)            -> constant name (friendly-mapped: gint_type->int…)
-//   T2Pvar(s2v)            -> the type-variable's name
-//   T2Pxtv(xv)             -> resolve to the unification var's styp (fuel-guarded)
-//   T2Papps(f, args)       -> "f(a, b)"
-//   T2Pfun1(_,_,args,res)  -> "(a, b) -> r"
-//   T2Ptext(name, args)    -> "name(a, b)" (or bare "name" when nullary)
-//   T2Ptrcd(knd,npf,lts)   -> "(a, b)" tuple / "@{l=a, m=b}" record (heuristic)
-//   T2Pexi0/uni0(vs,body)  -> render the body (quantifiers are noise for hover)
-//   T2Plft/top0/top1/arg1  -> render the wrapped inner type (markers, transparent)
-//   T2Patx2(bef,aft)       -> render `aft` (the post-state type)
-//   T2Ps2exp/none1/errck   -> recurse / fall back to the debug printer
+// The FAITHFUL printer is the SHARED include xats_lsp_typrint.hats (single
+// source of truth; the inverse of p1_s0exp). It needs three leaf/FFI helpers:
+//   TYPRINT_int2str / TYPRINT_stamp2str  (.cats) — int label / xtv stamp
+//   TYPRINT_sort2str                     (here)  — sort -> surface name (Exact)
+// Hover uses TPMhover (friendly, readable); round-trip uses TPMexact.
 //
-// All recursion is bounded by `fuel`; on exhaustion we fall back to the leaf
-// head-name renderer so we can never loop on a self-referential xtv chain.
-//
-// A type-constant head whose application args are internal representation
-// noise (kind/rep parameters) rather than user-visible type arguments — these
-// display as just their bare name (e.g. `int`, not `int(xats_sint_t, ...)`).
-// We test the head name against this set; the JS friendly-map then renames it.
-fun
-prim_head_nameq
-(nm: strn): bool =
-  if strn_eq(nm, "gint_type") then true else
-  if strn_eq(nm, "gflt_type") then true else
-  if strn_eq(nm, "bool_type") then true else
-  if strn_eq(nm, "char_type") then true else
-  if strn_eq(nm, "void_type") then true else
-  if strn_eq(nm, "string_type") then true else
-  if strn_eq(nm, "string_i0_tx") then true else false
-//
-// is this s2typ a primitive type-constant head (T2Pcst with a prim name)?
-fun
-prim_app_headq
-(t2p: s2typ): bool =
-(
-case+ s2typ_get_node(t2p) of
-| T2Pcst(s2c) => prim_head_nameq(symbl_get_name(s2cst_get_name(s2c)))
-| _ => false
-)
+#extern fun
+TYPRINT_int2str(n: sint): strn = $extnam()
+#extern fun
+TYPRINT_stamp2str(s: stamp): strn = $extnam()
 //
 fun
-typ_pretty
-(t2p: s2typ): strn = typ_p(t2p, 8)
+TYPRINT_sort2str
+(srt: sort2): strn = let
+  val fb = LSPCHK_strbuf_new()
+  val () = sort2_fprint(srt, fb)
+in
+  LSPCHK_strbuf_get(fb)
+end
 //
-and
-typ_p
-(t2p: s2typ, fuel: sint): strn =
-if (fuel <= 0) then typ_to_strn(t2p) else
-(
-case+ s2typ_get_node(t2p) of
-//
-| T2Pcst(s2c) => symbl_get_name(s2cst_get_name(s2c))
-| T2Pvar(s2v) => symbl_get_name(s2var_get_name(s2v))
-//
-| T2Pxtv(xv) => typ_p(x2t2p_get_styp(xv), fuel-1)
-//
-// application  F(a, b).  When the head is a primitive type constant, its
-// app-args are internal representation params -> show just the head name.
-| T2Papps(head, args) =>
-  let
-    val hs = typ_p(head, fuel-1)
-  in
-    if prim_app_headq(head)
-    then hs
-    else strn_append(hs,
-           strn_append("(", strn_append(typlst_p(args, fuel-1), ")")))
-  end
-//
-// function type  (a, b) -> r   (npf proof args are dropped for readability)
-| T2Pfun1(_f2cl, _npf, args, res) =>
-  strn_append("(",
-    strn_append(typlst_p(args, fuel-1),
-      strn_append(") -> ", typ_p(res, fuel-1))))
-//
-// external/text type: name or name(args)
-| T2Ptext(nm, args) =>
-  ( if list_nilq(args) then nm else
-    strn_append(nm, strn_append("(",
-      strn_append(typlst_p(args, fuel-1), ")"))) )
-//
-// tuple / record (we approximate: render the field types as a tuple)
-| T2Ptrcd(_knd, _npf, lts) =>
-  strn_append("(", strn_append(l2t2plst_p(lts, fuel-1), ")"))
-//
-// quantifiers are noise for a hover tooltip: show the body
-| T2Pexi0(_vs, body) => typ_p(body, fuel-1)
-| T2Puni0(_vs, body) => typ_p(body, fuel-1)
-//
-// transparent markers: render the inner type
-| T2Plft(inner) => typ_p(inner, fuel-1)
-| T2Ptop0(inner) => typ_p(inner, fuel-1)
-| T2Ptop1(inner) => typ_p(inner, fuel-1)
-| T2Parg1(_knd, inner) => typ_p(inner, fuel-1)
-| T2Patx2(_bef, aft) => typ_p(aft, fuel-1)
-| T2Pnone1(inner) => typ_p(inner, fuel-1)
-//
-| T2Plam1(_vs, body) => typ_p(body, fuel-1)
-//
-// inner-type marker we still want to peek through
-| T2Perrck(_lvl, inner) => typ_p(inner, fuel-1)
-//
-// placeholder / no-type marker: render as `_` (used as a rep-arg slot)
-| T2Pnone0() => "_"
-//
-// f2cl (closure-kind marker): show its inner if any; else a stable tag
-| T2Pf2cl(_) => "<cloref>"
-//
-// lifted static exprs / anything else: debug-form leaf (still informative)
-| _ => typ_to_strn(t2p)
-)
-//
-and
-typlst_p
-(ts: s2typlst, fuel: sint): strn =
-(
-case+ ts of
-| list_nil() => ""
-| list_cons(t, list_nil()) => typ_p(t, fuel)
-| list_cons(t, rest) =>
-  strn_append(typ_p(t, fuel), strn_append(", ", typlst_p(rest, fuel)))
-)
-//
-and
-l2t2plst_p
-(lts: l2t2plst, fuel: sint): strn =
-(
-case+ lts of
-| list_nil() => ""
-| list_cons(S2LAB(_, t), list_nil()) => typ_p(t, fuel)
-| list_cons(S2LAB(_, t), rest) =>
-  strn_append(typ_p(t, fuel), strn_append(", ", l2t2plst_p(rest, fuel)))
-)
+#include "./../HATS/xats_lsp_typrint.hats"
 //
 (* ****** ****** *)
 //
