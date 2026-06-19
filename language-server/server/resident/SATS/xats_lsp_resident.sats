@@ -117,6 +117,8 @@ fun env_reset{syn:tx}(topmap(syn), sym_t): void
 //
 fun prelude_snapshot{syn:tx}(topmap(syn)): void
 fun prelude_freeze(): void
+// clear the snapshot Set before re-snapshotting after a prelude reload.
+fun prelude_snapshot_reset(): void
 //
 // SIGNATURE MAP: stamp -> {path, mtimeMs, size} for each cached WORKSPACE file.
 //   sig_record(key, path): stat `path` now and record its signature under `key`
@@ -162,13 +164,28 @@ fun def_push
 //
 #typedef text_validator_t = (depgraph, diagnostics, url) -> void
 #typedef cache_pruner_t = (depgraph, url) -> void
-fun initialize(text_validator_t, cache_pruner_t) : void
+// reload_prelude_t: the in-process prelude reload, registered alongside the
+// validator/pruner. The .cats calls it on didSave of a $XATSHOME file.
+#typedef reload_prelude_t = () -> void
+fun initialize
+  (text_validator_t, cache_pruner_t, reload_prelude_t) : void
 //
 // the two resident callbacks themselves (declared here, #implfun'd in the DATS,
 // then passed to initialize). The reference declares these in server.sats.
 //
 fun text_validator(depgraph, diagnostics, url): void
 fun cache_pruner(depgraph, url): void
+//
+(* ****** ****** *)
+//
+// reload_prelude: the in-process prelude reload for the "workspace IS the
+// prelude / $XATSHOME" edge case. Calls the compiler's xglobal_reset() (clears
+// the global envs + per-file caches + d2cstmap, re-arms the the_ntime gates) and
+// then replays the startup prelude-load + flag sequence so the EDITED prelude is
+// reloaded fresh from disk. The .cats invokes this on didSave of a file resolving
+// under $XATSHOME, then clears its own caches and re-validates every open doc.
+//
+fun reload_prelude(): void
 //
 (* ****** ****** *)
 (*

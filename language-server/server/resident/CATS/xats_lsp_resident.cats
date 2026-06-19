@@ -161,6 +161,13 @@ let LSP_prelude_frozen = false;
 function JS_prelude_snapshot(env) {
   for (const k of Object.keys(env)) { LSP_prelude_stamps.add(String(k)); }
 }
+// clear the snapshot Set before re-snapshotting after an in-process prelude
+// reload: the freshly reloaded prelude files get NEW stamps, so the old snapshot
+// is stale. Also un-freeze so JS_prelude_freeze can re-seal + re-log.
+function JS_prelude_snapshot_reset() {
+  LSP_prelude_stamps = new Set();
+  LSP_prelude_frozen = false;
+}
 function JS_prelude_freeze() {
   LSP_prelude_frozen = true;
   try {
@@ -514,7 +521,7 @@ function LSP_log(msg) {
   try { LSP_connection.console.log('[xats-lsp-resident] ' + String(msg)); } catch (e) {}
 }
 //
-function vscode_initialize(validator, pruner) {
+function vscode_initialize(validator, pruner, reloadPreludeFn) {
   // run one in-process validation for a document, snapshot the index, publish.
   function textValidator(textDocument) {
     const uri = textDocument.uri;
@@ -549,6 +556,43 @@ function vscode_initialize(validator, pruner) {
     LSP_cur_uri = null; LSP_cur_path = null;
   }
 
+  // ---- prelude reload orchestration (the "workspace IS the prelude" case) ---
+  //
+  // On didSave of a file resolving UNDER $XATSHOME (reusing the R2a path-prefix
+  // detection JS_path_is_prelude), the normal validate/prune is WRONG: that file
+  // is in the global prelude envs (load-once), and env_reset cannot evict it. The
+  // only correct refresh is to reload the prelude IN-PROCESS:
+  //   (1) reloadPreludeFn() -> xglobal_reset() + replay the startup prelude-load +
+  //       flag sequence + re-take the prelude snapshot (all on the ATS side), so
+  //       the EDITED prelude is reloaded fresh from disk;
+  //   (2) clear the server-side caches built against the OLD prelude — the per-uri
+  //       hover/def index, the reverse + forward depgraphs, and the workspace
+  //       signature map — so nothing stale survives the reload;
+  //   (3) re-validate EVERY open document, republishing fresh diagnostics and
+  //       rebuilding their indices against the reloaded prelude.
+  // Triggered on didSave (not didChange) because the loaders read from DISK.
+  function reloadPreludeAndRevalidate(savedUri) {
+    LSP_log('reload_prelude: $XATSHOME file saved (' + savedUri +
+            ') -> reloading prelude in-process + re-validating all open docs');
+    try { process.stderr.write('[xats-lsp-resident] reload_prelude: ' + savedUri + '\n'); } catch (e) {}
+    // (1) reset + reload the prelude (ATS side).
+    try {
+      reloadPreludeFn();
+    } catch (e) {
+      LSP_log('reload_prelude threw: ' + (e && e.stack ? e.stack : e));
+      return;
+    }
+    // (2) clear server-side caches built against the OLD prelude.
+    LSP_index.clear();
+    LSP_dependencies.clear();
+    LSP_fwd.clear();
+    LSP_signatures.clear();
+    // (3) re-validate every open document against the reloaded prelude.
+    const docs = LSP_documents.all();
+    LSP_log('reload_prelude: re-validating ' + docs.length + ' open doc(s)');
+    for (const doc of docs) { textValidator(doc); }
+  }
+
   LSP_connection.onInitialize((params) => {
     const capabilities = params.capabilities;
     LSP_hasConfigurationCapability = !!(
@@ -580,7 +624,13 @@ function vscode_initialize(validator, pruner) {
   });
 
   LSP_documents.onDidOpen(change => { textValidator(change.document); });
-  LSP_documents.onDidSave(change => { textValidator(change.document); });
+  // NOTE: didSave is handled by a RAW connection.onDidSaveTextDocument handler
+  // registered AFTER LSP_documents.listen (below), NOT by LSP_documents.onDidSave.
+  // Reason: TextDocuments.onDidSave only fires for OPENED docs, but a $XATSHOME
+  // prelude file is typically saved WITHOUT being open in the editor; we must
+  // still catch that save to trigger the in-process prelude reload. The raw
+  // handler dispatches: $XATSHOME -> reload prelude; otherwise -> validate the
+  // (opened) doc exactly as before.
   // didChange: prune only (evict the file + dependents). Cheap; the warm
   // recheck happens on the next save/open.
   LSP_documents.onDidChangeContent(change => {
@@ -611,6 +661,31 @@ function vscode_initialize(validator, pruner) {
   }
 
   LSP_documents.listen(LSP_connection);
+
+  // RAW didSave handler — registered AFTER LSP_documents.listen so it REPLACES
+  // the TextDocuments-internal onDidSaveTextDocument (vscode-jsonrpc keeps one
+  // handler per notification method). This is deliberate: TextDocuments only
+  // dispatches saves for OPENED docs, but a $XATSHOME prelude file is usually
+  // saved while NOT open in the editor, and we must still catch it. The handler
+  // dispatches:
+  //   * path under $XATSHOME  -> reloadPreludeAndRevalidate (in-process reload);
+  //   * otherwise             -> validate the opened doc (the normal R1 path).
+  LSP_connection.onDidSaveTextDocument(params => {
+    try {
+      const uri = params.textDocument.uri;
+      const fpath = vscode_url_to_path(uri);
+      if (JS_path_is_prelude(fpath)) {
+        reloadPreludeAndRevalidate(uri);
+        return;
+      }
+      // normal save: re-validate the opened doc (R1 + R2a), as before.
+      const doc = LSP_documents.get(uri);
+      if (doc !== undefined) { textValidator(doc); }
+    } catch (e) {
+      LSP_log('onDidSaveTextDocument threw: ' + (e && e.stack ? e.stack : e));
+    }
+  });
+
   LSP_connection.listen();
   try { process.stderr.write('[xats-lsp-resident] listening on stdio (resident, in-process)\n'); } catch (e) {}
 }

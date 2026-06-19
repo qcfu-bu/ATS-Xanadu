@@ -168,6 +168,13 @@ pretty-print), §8 (def loc), §9 (traversal), §10.5 (compiler-linking build).
   JS_prelude_freeze()
   where { #extern fun JS_prelude_freeze(): void = $extnam() }
 //
+// clear the snapshot Set before re-snapshotting on a prelude reload (the freshly
+// reloaded prelude gets new file stamps; the old snapshot is stale).
+//
+#implfun prelude_snapshot_reset() =
+  JS_prelude_snapshot_reset()
+  where { #extern fun JS_prelude_snapshot_reset(): void = $extnam() }
+//
 // signature map keyed by the file's stamp (same key the topmaps use). path is
 // the absolute on-disk filename (fnm1) used to stat it.
 //
@@ -222,10 +229,12 @@ pretty-print), §8 (def loc), §9 (traversal), §10.5 (compiler-linking build).
     , tdpath: string
     , tl0: int, tc0: int, tl1: int, tc1: int): void = $extnam() }
 //
-#implfun initialize(f, g) =
-  vscode_initialize(f, g)
+#implfun initialize(f, g, h) =
+  vscode_initialize(f, g, h)
   where { #extern fun
-    vscode_initialize(f: text_validator_t, g: cache_pruner_t): void = $extnam() }
+    vscode_initialize
+    ( f: text_validator_t, g: cache_pruner_t
+    , h: reload_prelude_t): void = $extnam() }
 //
 (* ****** ****** *)
 (* ====================================================================== *)
@@ -995,13 +1004,56 @@ precheck(dp: depgraph, fwd: depgraph, key0: sym_t): void = let
 //
 (* ****** ****** *)
 //
+// prelude_pvsload: the EXACT prelude-load + flag sequence the resident server
+// runs at startup. Factored out so reload_prelude (below) replays it BYTE-FOR-
+// BYTE after an xglobal_reset() — i.e. the fresh process and the in-process
+// reload load the prelude identically. the_ntime gates each loader: at startup
+// the gate is 0 -> loads; xglobal_reset() re-arms it to 0 -> loads AGAIN.
+//
+fun
+prelude_pvsload((*void*)): void = let
+  val _ = the_fxtyenv_pvsload()
+  val _ = the_tr12env_pvsl00d()
+  val () = xatsopt_flag$pvsadd0("--_XATSOPT_")
+  val () = xatsopt_flag$pvsadd0("--_SRCGEN2_XATSOPT_")
+in (*nothing*) end
+//
+// prelude_take_snapshot: record the prelude / $XATSHOME file stamps now cached in
+// the three topmaps (the R2a secondary guard). Shared by startup and reload: on a
+// reload the Set is cleared first because the freshly reloaded prelude has new
+// stamps. Re-freezes after.
+//
+fun
+prelude_take_snapshot((*void*)): void = let
+  val () = prelude_snapshot_reset()
+  val () = prelude_snapshot(the_d1parenv_pvstmap())
+  val () = prelude_snapshot(the_d2parenv_pvstmap())
+  val () = prelude_snapshot(the_d3parenv_pvstmap())
+in prelude_freeze()
+end
+//
+// reload_prelude: the in-process prelude reload (replaces the restart of the
+// resident model's prelude edge-case). xglobal_reset() (compiler API, in scope
+// via xglobal.sats / libxatsopt.hats — the server already calls the_*_pvsl* from
+// the same header) clears the accumulating global envs (the_fxtyenv / the_sexpenv
+// / the_dexpenv / the_d2cstmap), the per-file caches (the_d{1,2,3}parenv) and
+// re-arms the the_ntime prelude-load gates. We then replay the SAME prelude-load
+// + flag sequence as startup so the EDITED prelude is reloaded fresh from disk.
+// (The loaders read from DISK, hence the .cats triggers this on didSave — the
+// change must be saved before reload_prelude runs.)
+//
+#implfun reload_prelude((*void*)) = let
+  val () = xglobal_reset()
+  val () = prelude_pvsload()
+in prelude_take_snapshot()
+end
+//
+(* ****** ****** *)
+//
 // initialize the xatsopt environment ONCE (loads the prelude), set the flags,
 // then bootstrap the vscode-languageserver connection loop. These run on load.
 //
-val _ = the_fxtyenv_pvsload()
-val _ = the_tr12env_pvsl00d()
-val () = xatsopt_flag$pvsadd0("--_XATSOPT_")
-val () = xatsopt_flag$pvsadd0("--_SRCGEN2_XATSOPT_")
+val () = prelude_pvsload()
 //
 // R2a PRELUDE SNAPSHOT: right after the prelude loads (above) and BEFORE any user
 // file is checked, record the set of file stamps already cached in each of the
@@ -1011,12 +1063,9 @@ val () = xatsopt_flag$pvsadd0("--_SRCGEN2_XATSOPT_")
 // to mtime validation. This also correctly excludes a workspace rooted at the
 // ATS-Xanadu repo: its prelude files are already in the snapshot.
 //
-val () = prelude_snapshot(the_d1parenv_pvstmap())
-val () = prelude_snapshot(the_d2parenv_pvstmap())
-val () = prelude_snapshot(the_d3parenv_pvstmap())
-val () = prelude_freeze()
+val () = prelude_take_snapshot()
 //
-val () = initialize(text_validator, cache_pruner)
+val () = initialize(text_validator, cache_pruner, reload_prelude)
 //
 (* ****** ****** *)
 (*
