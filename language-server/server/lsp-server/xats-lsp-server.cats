@@ -73,8 +73,12 @@ function XLSP_pick_checker () {
   const env = process.env.ATS3_LSP_CHECKER;
   if (env) { return env; }
   const candidates = [
-    XLSP_path.join(__dirname, 'xats-lsp-check.js'),               // shipped beside server
-    XLSP_path.join(__dirname, '..', 'BUILD', 'xats-lsp-check.js'),// WS-1a build dir
+    // Prefer the Closure-minified checker (~43x smaller, faster cold start,
+    // ~4.5x less RSS). Fall back to the raw bundle if it was not minified.
+    XLSP_path.join(__dirname, 'xats-lsp-check.opt1.js'),              // shipped beside server
+    XLSP_path.join(__dirname, '..', 'BUILD', 'xats-lsp-check.opt1.js'),// build dir (minified)
+    XLSP_path.join(__dirname, 'xats-lsp-check.js'),                   // shipped beside server
+    XLSP_path.join(__dirname, '..', 'BUILD', 'xats-lsp-check.js'),    // build dir (raw)
   ];
   for (const c of candidates) {
     try { if (XLSP_fs.existsSync(c)) { return c; } } catch (_) {}

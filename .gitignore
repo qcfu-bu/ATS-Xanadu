@@ -5,6 +5,7 @@
 \#*
 .\#*
 *.exe
+.DS_Store
 *_?ats.o
 *_?ats.c
 *_?ats.js

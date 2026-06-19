@@ -49,11 +49,17 @@ language-server/
 | P1 | WS-1b server (spawn/cache/publish diagnostics) | ✅ verified (real checker, true end-to-end) |
 | P2 | WS-2 hover | ✅ verified (real checker, true end-to-end) |
 | P3 | WS-3 navigation (definition + type-definition) | ✅ verified (incl. cross-file into prelude) |
-| P4 | WS-4 hardening (UTF-16 cols, perf, async checks, packaging, tests) | ⏳ planned |
+| R1 | Resident in-process server (warm ~1–8 ms checks; cache eviction + depgraph) | ✅ verified — **now the client default** (`server/resident/`) |
+| R2 | Robust invalidation (content-validated cache + watched-files + project index) | ⏳ planned (unblocked) |
+| C1 | Compiler `xglobal` reset/reload API (re-entrancy) | ⛔ gated on Hongwei's approval — proposal in `docs/COMPILER-RESET-API-PROPOSAL.md` |
+| P4 | WS-4 hardening (UTF-16 cols, live-on-change, packaging, tests) | ⏳ planned |
 
 All three feature goals work against the **real** type-checker end-to-end (machine-verified via
-smoke tests); the client now defaults to the real ATS3 server. Remaining is the editor GUI try
-(F5, below) and P4 hardening.
+smoke tests). The architecture moved to a **resident in-process** server (R1): the prelude loads
+once (~390 ms), then edits re-check in **~1–8 ms** via surgical cache eviction — ~50–370× faster
+than the original process-per-check. The client defaults to the resident server; the spawn-based
+server and `ats-check.sh` CLI remain for batch use. Remaining: the editor GUI try (F5), R2
+invalidation, and P4 hardening.
 
 ## Build everything, then F5
 ```sh
@@ -69,8 +75,8 @@ cd ../client && npm install && npm run compile
 ```sh
 # diagnostics + hover/def round-trips against the REAL checker:
 cd language-server/server/lsp-server
-ATS3_LSP_CHECKER=$PWD/../BUILD/xats-lsp-check.js SMOKE_TIMEOUT_MS=120000 node scripts/smoke.js
-ATS3_LSP_CHECKER=$PWD/../BUILD/xats-lsp-check.js SMOKE_TIMEOUT_MS=120000 node scripts/smoke-nav.js
+ATS3_LSP_CHECKER=$PWD/../BUILD/xats-lsp-check.opt1.js SMOKE_TIMEOUT_MS=120000 node scripts/smoke.js
+ATS3_LSP_CHECKER=$PWD/../BUILD/xats-lsp-check.opt1.js SMOKE_TIMEOUT_MS=120000 node scripts/smoke-nav.js
 ```
 **See it in the editor (F5):** open the **`client/` folder** in VSCode, press **F5** ("Run ATS3
 Extension") → in the Extension Development Host open any `.dats`/`.sats` → type errors appear as

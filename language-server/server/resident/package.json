@@ -1,0 +1,16 @@
+{
+  "name": "ats3-lsp-resident",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Resident in-process ATS3 LSP server (workstream R1). ONE artifact: bundles the ATS3 compiler front-end with the vscode-languageserver loop; the prelude loads once at startup; each check reuses the warm compiler; didChange evicts the edited file + dependents from the compiler's per-file caches (env_reset over the_d{1,2,3}parenv).",
+  "license": "MIT",
+  "main": "BUILD/xats-lsp-resident.opt1.js",
+  "scripts": {
+    "build": "bash build.sh",
+    "smoke": "node scripts/smoke-resident.js"
+  },
+  "dependencies": {
+    "vscode-languageserver": "9.0.1",
+    "vscode-languageserver-textdocument": "1.0.12"
+  }
+}

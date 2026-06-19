@@ -10,6 +10,130 @@ Goals, in priority order (from the project brief):
 2. **Hover** (type at cursor)
 3. **Go-to definition / type / implementation**
 
+---
+
+## ⚡ ARCHITECTURE REVISION R1 — resident in-process checking (supersedes D1/D2)
+
+> Decided 2026-06-18 after benchmarking against the author's own LSP
+> (`github.com/qcfu-bu/ats-lsp`). The original process-per-check design (§2–§4 below)
+> works and isolates state, but pays ~0.33 s per check (fresh node + reparse the bundle +
+> reload the prelude). The resident model below is **~10–30× faster per keystroke** and is
+> what we are moving to. Sections §2–§4 are kept for history; R1 is now binding.
+
+**Model (mirrors qcfu-bu/ats-lsp — credit to that design):** ONE resident artifact that
+bundles the compiler in-process with the LSP server. Prelude loaded **once** at startup; each
+check reuses the warm compiler. No subprocess, no temp-file JSON contract.
+
+**How the one-shot-state problem (primer §4) is solved — surgical cache eviction, not reset.**
+The compiler caches each translated file in `the_d{1,2,3}parenv` (xglobal.sats:256/284/298),
+which are **plain JS objects keyed by canonical filename (`fpath.fnm2()`)**. To re-check an
+edited file you don't reset the whole compiler — you just **evict that file's key**:
+`env_reset(topmap, key) ≈ delete env[key]`. The prelude and unchanged deps stay cached (fast);
+only the edited file (and its dependents) re-translate. A **dependency graph** records "B
+staloads A" so editing A evicts A **and** B.
+
+**Request flow (matching the reference):**
+- startup: `the_fxtyenv_pvsload()`, `the_tr12env_pvsl00d()`, set `--_XATSOPT_` /
+  `--_SRCGEN2_XATSOPT_` flags; `connection.listen()`.
+- `onDidChangeContent` → **prune only** (evict the file + dependents from the caches). Cheap.
+- `onDidOpen` / `onDidSave` → **validate**: `d3parsed_of_fil{dats,sats}(realPath)` in-process →
+  harvest diagnostics + build the hover/def index from the same `d3parsed` → `sendDiagnostics`
+  + cache the index per uri. (v1 reads the saved file on disk, like the reference — clean cache
+  keying and correct relative-staload resolution. **Live-on-change is a follow-up**, now cheap
+  because checks are warm.)
+- hover / definition: answered from the cached index (unchanged from our current design — and a
+  feature the reference may not fully ship, so we keep our lead there).
+
+**Build:** ONE artifact (no separate checker). Link: runtime + `lib2xatsopt` + our harvest DATS
++ server FFI `.cats` (vscode-languageserver bindings) → Closure SIMPLE. Reuse `srcgen2/lib/
+lib2xatsopt.js` (or the prebuilt minified `lib2xatsopt2js_ats3_opt1.js` if present in XATSHOME).
+
+**What we reuse from our existing code:** the harvest traversals + `s2typ` pretty-printer
+(`server/DATS/xats_lsp_check.dats`, `CATS/xats_lsp_check.cats`) and the vscode-languageserver
+FFI (`server/lsp-server/xats-lsp-server.{dats,cats}`). The checker subprocess + the JSON
+contract become internal/optional (still useful for the CLI `ats-check.sh`).
+
+**New mechanisms to port from the reference:** `env_reset` (JS `delete env[key]` over
+`the_d?parenv_pvstmap()`), the `depset`/`depgraph` (JS `Set`/`Map`), and the dependency-extract
+pass that populates the graph from a checked `d3parsed`.
+
+---
+
+## R2 — robust invalidation: content-validated cache + project index (queued after R1)
+
+> Closes a real gap in the event-driven model (R1 / the reference): **out-of-band edits** (other
+> editors, `git pull`/`checkout`/`rebase`, codegen, formatters run outside the editor) fire no
+> `onDidChange`/`onDidSave`, so `the_d?parenv` keeps a stale entry → wrong diagnostics for that
+> file and its dependents. This is where ours improves on the reference. Builds on R1's resident
+> model + `env_reset`; do R1 first.
+
+**Layer A — content-validated cache (the robust core; not event-dependent).** Stamp each cached
+**workspace** file with a signature `{mtimeMs, size}` (or a content hash) when it is validated.
+**Before every check, pre-walk the target file's staload closure and `stat` each entry; evict
+(env_reset) any whose on-disk signature changed, then cascade to dependents via the graph.** This
+makes correctness independent of *how* a file changed — editor event or not. `stat` is ~µs, the
+closure is bounded, so the cost is negligible against a warm check.
+- **Scope to the workspace; never stat/evict the prelude or XATSHOME libs** — they're assumed
+  stable for the session (that's the whole point of loading the prelude once). Offer an explicit
+  `ats3.reloadPrelude` command for the compiler-dev case instead.
+
+**Layer B — eager file monitoring (promptness, so stale state doesn't linger until next check).**
+- Register LSP **`workspace/didChangeWatchedFiles`** for `**/*.{sats,dats,hats}` (client-side
+  native watcher; catches in-workspace external edits, creates, deletes). On an event → update the
+  index + `env_reset` the file + cascade. This is the idiomatic, efficient trigger.
+- Layer A remains the backstop for anything the watcher misses (network FS, races, edits outside
+  the workspace root). Belt **and** suspenders.
+
+**Layer C — project index (complete cascade + future features).** On `initialize` (workspace
+folders) and incrementally on watch events, scan `*.{sats,dats,hats}` and parse only their
+`#staload`/`#include` directives (cheap regex/lex — NOT a type-check) to build the **whole-project
+dependency graph** (forward + reverse). The reference's graph is built only from *checked* files,
+so a dependent that hasn't been opened yet is invisible; a project index gives complete reverse
+edges, so editing `A` correctly invalidates *every* dependent of `A`, opened or not. Also the
+foundation for later workspace-wide features (find-references, workspace symbols, rename).
+
+**Eviction stays the same primitive** (R1's `env_reset` over `the_d{1,2,3}parenv` keyed by
+`fnm2`); R2 only improves *what triggers it and how completely it cascades*.
+
+### Edge case: the workspace IS the prelude / compiler tree (`$XATSHOME`)
+This breaks the resident model's load-the-prelude-once assumption, and **`env_reset` is not
+enough to fix it**. Two distinct stores hold prelude state:
+1. **Per-file caches** `the_d{1,2,3}parenv` — keyed by `fnm2`, *evictable* via `env_reset`.
+2. **Global, load-once envs** — `the_fxtyenv`, `the_sexpenv`/`the_dexpenv`, `the_d2cstmap`, etc.,
+   populated by `the_fxtyenv_pvsload`/`the_tr12env_pvsl00d` and **gated by `the_ntime`** (load
+   once, never re-run). The prelude's *definitions* live here, **not keyed by file**, so there is
+   no surgical way to evict them — and the compiler ships **no reset API** (primer §4).
+
+Consequences if a prelude file is edited in-session:
+- Evicting its `the_d?parenv` entry re-translates that one file, but the **stale definitions
+  remain in the global envs** → the edit is not truly reflected.
+- Because **every** file staloads the prelude, a stale prelude **poisons all checks**, not just
+  the edited file. Correctness for the whole workspace depends on the prelude being current.
+
+**Behavior we implement (graceful, correct):**
+- **Detect** when a changed/saved file resolves under `$XATSHOME` (prelude/compiler tree).
+- On such an edit, the only correct refresh is to **reload the prelude**, which — absent an
+  in-process reset — means **restarting the resident server** (debounced; the client re-launches
+  it and the new process loads the edited prelude fresh). Also exposed as the
+  **`ats3.reloadPrelude`** command. Cost: one prelude reload (~0.3 s) per prelude edit-batch —
+  fine for compiler-dev.
+- **Surface it in the UI/log** ("prelude-tree edit → reloading prelude") so the slower,
+  reload-based mode is not mysterious.
+- We do **not** silently `env_reset` prelude files and pretend it worked — that would give wrong
+  diagnostics (the trap above).
+
+**The real fix (available to you as the compiler author):** add a `reset`/`reload` API to
+`xglobal` that clears the global envs (`the_fxtyenv`/`the_sexpenv`/`the_d2cstmap`/`the_d?parenv`)
+and resets the `the_ntime` gates. Then in-process prelude reload becomes possible and R2 can treat
+prelude files like any other invalidatable file — no restart. This is the principled long-term
+answer to the compiler's one-shot-state limitation (primer §4, §12).
+
+**Sequencing:** R1 (resident + event eviction) → **R2a** content-validated cache (biggest
+robustness win, smallest surface) → **R2b** watched-files + project index. R2a alone already fixes
+the user's external-edit scenario; R2b adds promptness and completeness.
+
+---
+
 Constraint from the brief: **the LSP server is written in ATS3** (compiled to JS, run on
 node) and uses existing node JSON-RPC / LSP libraries via FFI. The **VSCode client** is a
 standard TypeScript extension (the VSCode extension API is JS/TS — unavoidable).

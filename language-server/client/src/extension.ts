@@ -50,9 +50,12 @@ function resolveServerModule(context: ExtensionContext): string {
   }
 
   // Repo layout: language-server/client  ->  language-server/server/...
-  // Prefer the real ATS3-built server; fall back to the WS-0b stub if it
-  // has not been built yet, so the extension still does something useful.
+  // Prefer the fast RESIDENT in-process server (R1); then the spawn-based
+  // server; then the WS-0b stub, so the extension still does something if the
+  // newer artifacts have not been built yet.
   const candidates = [
+    path.join(context.extensionPath, "..", "server", "resident", "BUILD", "xats-lsp-resident.opt1.js"),
+    path.join(context.extensionPath, "server", "resident", "BUILD", "xats-lsp-resident.opt1.js"),
     path.join(context.extensionPath, "..", "server", "lsp-server", "xats-lsp-server.js"),
     path.join(context.extensionPath, "server", "lsp-server", "xats-lsp-server.js"),
     path.join(context.extensionPath, "..", "server", "stub", "server.js"),

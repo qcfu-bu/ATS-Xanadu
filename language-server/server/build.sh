@@ -45,6 +45,14 @@ OUTJS="${3:-$HERE/BUILD/xats-lsp-check.js}"
 JSEMIT="$XATSHOME/xassets/JS/xats2js/xats2js_jsemit00_ats2_opt1.js"
 LIB2="$SRCGEN2/lib/lib2xatsopt.js"
 
+# Minified (Closure SIMPLE) checker — the server PREFERS this artifact. Measured:
+# ~43x smaller (173MB->4MB), ~38% faster cold start, ~4.5x less RSS, and no
+# --max-old-space-size needed. SIMPLE only (ADVANCED would rename FFI/$extnam
+# names and break require()). Default ON; set MINIFY=0 to skip the ~25s closure
+# pass for fast dev iteration (server then falls back to the raw bundle).
+MINIFY="${MINIFY:-1}"
+OPTJS="${OUTJS%.js}.opt1.js"
+
 # compiler-linking runtime list (srcgen2/UTIL/Makefile_xjsemit:34-47)
 S2R="$SRCGEN2/xats2js/srcgenx/xshared/runtime"
 S1R="$SRCGEN1/xats2js/srcgenx/xshared/runtime"
@@ -63,7 +71,7 @@ if [ ! -f "$LIB2" ]; then
   exit 1
 fi
 
-echo ">> [1/3] transpile driver: $SRC_DATS"
+echo ">> [1/4] transpile driver: $SRC_DATS"
 TRANS="$HERE/BUILD/$(basename "${SRC_DATS%.dats}")_dats.js"
 node --stack-size=8801 "$JSEMIT" "$SRC_DATS" > "$TRANS" 2>"$HERE/BUILD/transpile.err"
 echo "   -> $TRANS ($(wc -l < "$TRANS") lines)"
@@ -76,7 +84,7 @@ if [ "$(wc -l < "$TRANS")" -lt 5 ]; then
   exit 1
 fi
 
-echo ">> [2/3] link runtime + compiler(lib2xatsopt) + glue + driver -> $OUTJS"
+echo ">> [2/4] link runtime + compiler(lib2xatsopt) + glue + driver -> $OUTJS"
 cat "${RUNTIME[@]}" > "$OUTJS"
 # link-time namespacing of the compiler library (Makefile_xjsemit UTIL:45)
 sed -E 's/jsx(...)tnm/js1\1tnm/g' "$LIB2" >> "$OUTJS"
@@ -86,9 +94,21 @@ if [ -f "$GLUE" ]; then cat "$GLUE" >> "$OUTJS"; fi
 cat "$TRANS" >> "$OUTJS"
 echo "   linked $(wc -l < "$OUTJS") lines into $OUTJS"
 
-echo ">> [3/3] done."
-echo "   node --stack-size=8801 --max-old-space-size=8192 \\"
-echo "        $OUTJS <src> --uri <uri> --json-out <path.json>"
-echo "   (--max-old-space-size raises the V8 heap; the linked compiler is"
-echo "    memory-heavy on large staload closures. Normal files run fine at the"
-echo "    default ~4GB; the flag adds headroom for the heaviest inputs.)"
+if [ "$MINIFY" = "1" ]; then
+  echo ">> [3/4] minify (Closure SIMPLE): $OUTJS -> $OPTJS"
+  if npx --yes google-closure-compiler -W QUIET --compilation_level SIMPLE \
+       --js="$OUTJS" --js_output_file="$OPTJS" 2>"$HERE/BUILD/closure.err"; then
+    echo "   -> $OPTJS ($(du -h "$OPTJS" | awk '{print $1}'), was $(du -h "$OUTJS" | awk '{print $1}'))"
+  else
+    echo "!! closure minify failed (see BUILD/closure.err); the raw $OUTJS still works" >&2
+    tail -8 "$HERE/BUILD/closure.err" >&2
+  fi
+else
+  echo ">> [3/4] minify skipped (MINIFY=0); server falls back to the raw $OUTJS"
+fi
+
+echo ">> [4/4] done."
+echo "   # minified (preferred — no heap flag needed):"
+echo "   node --stack-size=8801 $OPTJS <src> --uri <uri> --json-out <path.json>"
+echo "   # raw fallback (heavier; wants a big heap on pathological inputs):"
+echo "   node --stack-size=8801 --max-old-space-size=8192 $OUTJS <src> ..."

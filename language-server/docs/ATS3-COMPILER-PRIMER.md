@@ -449,8 +449,16 @@ The §10.3 recipe builds a *standalone* program. The **checker** is different: i
   checker → diagnostics at exact contract coordinates, ~1.9 s for a 2-file handshake.
 - **ATS3 syntax gotchas (WS-1a):** mutual recursion must be top-level `fun … and …` (not
   `extern fun`+`implement` in `where`); `D2Eflat`/`D2Cimplmnt0` differ in arity from their L3
-  counterparts. **OOM on pathological files** is a *shared compiler limit* (the stock compiler
-  OOMs too); minifying the lib (closure-compiler, like the stock `*_opt1`) is a follow-up.
+  counterparts.
+- ✅ **Minification (Closure SIMPLE) — DONE and default.** `build.sh` runs
+  `npx google-closure-compiler --compilation_level SIMPLE` on the linked checker (mirrors the
+  repo's own `*_opt1` rule, e.g. `srcgen2/UTIL/Makefile_xjsemit:70`). **Measured: 173 MB → 4.0 MB
+  (~43×), cold start 0.63 s → 0.39 s, max RSS ~1032 MB → ~230 MB, and `--max-old-space-size` is no
+  longer needed** (so the earlier OOM-on-pathological-files caveat is moot for the minified
+  build). Output is `BUILD/xats-lsp-check.opt1.js`; **the server prefers it** (`XLSP_pick_checker`
+  probes `.opt1.js` before the raw `.js`). Set `MINIFY=0` to skip the ~25 s closure pass during
+  fast dev iteration (the server then falls back to the raw bundle). **Use SIMPLE only** —
+  ADVANCED would rename `$extnam`/`require` FFI names and break the build.
 
 ## 11. Quick file index (grep anchors)
 
