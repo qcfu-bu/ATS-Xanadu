@@ -31,6 +31,35 @@ const LSP_url  = require('url');
 const LSP_path = require('node:path');
 //
 ////////////////////////////////////////////////////////////////////////.
+// ---- SEMANTIC TOKENS legend (advertised in onInitialize) ------------- //
+//
+// AST-based token classification the regex TextMate grammar cannot do: a name
+// is resolved (by the typed AST) to a variable / function / data-constructor /
+// type. The ATS3 harvest emits a token-TYPE INDEX into LSP_TOKEN_TYPES and a
+// MODIFIER bitset into LSP_TOKEN_MODS; the indices/bit positions below MUST stay
+// in sync with the #define'd TT_*/TM_* constants in the DATS.
+//
+//   types: namespace=0 type=1 typeParameter=2 parameter=3 variable=4
+//          property=5 function=6 enumMember=7 keyword=8 string=9 number=10
+//          operator=11 comment=12
+//   mods : declaration=1<<0 definition=1<<1 readonly=1<<2 static=1<<3
+//          defaultLibrary=1<<4
+//
+const LSP_TOKEN_TYPES = [
+  'namespace', 'type', 'typeParameter', 'parameter', 'variable', 'property',
+  'function', 'enumMember', 'keyword', 'string', 'number', 'operator', 'comment'
+];
+const LSP_TOKEN_MODS = [
+  'declaration', 'definition', 'readonly', 'static', 'defaultLibrary'
+];
+// defaultLibrary bit: ORed in (in JS) when the entity's def-path is under
+// $XATSHOME (a prelude / compiler-tree const). KEEP = index of 'defaultLibrary'.
+const LSP_TOKEN_MOD_DEFAULTLIB = (1 << LSP_TOKEN_MODS.indexOf('defaultLibrary'));
+function LSP_semantic_tokens_legend() {
+  return { tokenTypes: LSP_TOKEN_TYPES, tokenModifiers: LSP_TOKEN_MODS };
+}
+//
+////////////////////////////////////////////////////////////////////////.
 // ---- url <-> path, severity, position, range, diagnostic (reference) -- //
 //
 function vscode_url_to_path(uri) {
@@ -649,6 +678,7 @@ function LSP_other_b2u(path, line, byteCol) {
 let LSP_cur_diags  = [];
 let LSP_cur_hovers = [];
 let LSP_cur_defs   = [];
+let LSP_cur_tokens = [];
 // uri -> { hovers:[{range,type,kind}], definitions:[{useRange,defUri,defRange,
 //          entity,[typeDefUri,typeDefRange]}] }
 const LSP_index = new Map();
@@ -722,6 +752,55 @@ function LSP_def_push(ul0, uc0, ul1, uc1, defpath,
     }
   }
   LSP_cur_defs.push(d);
+}
+//
+// SEMANTIC TOKENS push. Called by the harvest traversal for each identifier-
+// bearing node: its USE-/binding-site span (byte coords; converted to UTF-16
+// columns here — semantic tokens are ALWAYS in the file being checked), the
+// resolved token-type INDEX, the static modifier bitset, and the entity's
+// def-path. If the def-path resolves under $XATSHOME we OR in `defaultLibrary`.
+// Drops dummy / out-of-range spans defensively (the encoder requires l>=0,
+// c>=0, and a non-empty single-line span).
+function LSP_token_push(l0, c0, l1, c1, ttype, tmods, defpath) {
+  if (l0 < 0 || c0 < 0) return;
+  if ((l0|0) !== (l1|0)) return;          // tokens are single-line by construction
+  const cu0 = LSP_cur_b2u(l0, c0);
+  const cu1 = LSP_cur_b2u(l1, c1);
+  const len = (cu1|0) - (cu0|0);
+  if (len <= 0) return;                    // empty / inverted span -> skip
+  let mods = tmods|0;
+  if (defpath && JS_path_is_prelude(String(defpath))) mods |= LSP_TOKEN_MOD_DEFAULTLIB;
+  LSP_cur_tokens.push({ line: l0|0, char: cu0|0, len: len|0, type: ttype|0, mods: mods });
+}
+//
+// dedup + sort + LSP delta-encode the accumulated tokens into the flat int
+// array of 5-tuples [deltaLine, deltaStartChar, length, tokenType, tokenMods]
+// (each tuple relative to the PREVIOUS token), per the LSP semantic-tokens spec.
+// Sort by (line, startChar); on an exact (line,char,type,mods,len) duplicate keep
+// one (the typed AST can revisit the same use site via overlapping wrapper
+// nodes). On two tokens at the SAME (line,char) keep the SHORTER (innermost
+// identifier) — never emit two tokens starting at the same position (the client
+// would render overlapping ranges).
+function LSP_encode_tokens(toks) {
+  // dedup exact + collapse same-start (keep shortest).
+  const byStart = new Map();               // "line:char" -> token (shortest len)
+  for (const t of toks) {
+    if (t.line < 0 || t.char < 0 || t.len <= 0) continue;
+    const key = t.line + ':' + t.char;
+    const cur = byStart.get(key);
+    if (cur === undefined || t.len < cur.len) byStart.set(key, t);
+  }
+  const xs = Array.from(byStart.values());
+  xs.sort((a, b) => (a.line - b.line) || (a.char - b.char));
+  const data = [];
+  let pLine = 0, pChar = 0;
+  for (const t of xs) {
+    const dLine = t.line - pLine;
+    const dChar = (dLine === 0) ? (t.char - pChar) : t.char;
+    data.push(dLine, dChar, t.len, t.type, t.mods);
+    pLine = t.line; pChar = t.char;
+  }
+  return data;
 }
 //
 // path -> file:// uri (reused from xats_lsp_check.cats). When the def path is
@@ -890,6 +969,14 @@ function LSP_build_type_definition(uri, line, char) {
   if (!d.typeDefUri || !d.typeDefRange) return null;
   return { uri: d.typeDefUri, range: d.typeDefRange };
 }
+// textDocument/semanticTokens/full -> the cached flat int array for `uri`.
+// Returns { data } (empty array when the doc has not been checked / has no
+// classifiable identifiers) — never null, so the client clears stale tokens.
+function LSP_build_semantic_tokens(uri) {
+  const idx = LSP_index.get(uri);
+  const data = (idx && idx.semanticTokens) ? idx.semanticTokens : [];
+  return { data: data };
+}
 //
 ////////////////////////////////////////////////////////////////////////.
 // ---- the connection loop (ported from reference vscode_initialize) --- //
@@ -915,7 +1002,7 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
   function runValidation(uri, sourceText, mode, runCheck) {
     const t0 = Date.now();
     // reset the per-check accumulators + remap context.
-    LSP_cur_diags = []; LSP_cur_hovers = []; LSP_cur_defs = [];
+    LSP_cur_diags = []; LSP_cur_hovers = []; LSP_cur_defs = []; LSP_cur_tokens = [];
     LSP_cur_uri = uri;
     LSP_cur_path = vscode_url_to_path(uri);
     LSP_cur_path_norm = LSP_norm(LSP_cur_path);
@@ -934,10 +1021,13 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
     } catch (e) {
       LSP_log('validator threw: ' + (e && e.stack ? e.stack : e));
     }
-    // snapshot harvested hover/def index for onHover/onDefinition.
+    // snapshot harvested hover/def/token index for onHover/onDefinition/
+    // semanticTokens. Tokens are delta-encoded once here (the request handler
+    // just returns the cached { data }).
     LSP_index.set(uri, {
       hovers: LSP_dedup_hovers(LSP_cur_hovers),
-      definitions: LSP_dedup_defs(LSP_cur_defs)
+      definitions: LSP_dedup_defs(LSP_cur_defs),
+      semanticTokens: LSP_encode_tokens(LSP_cur_tokens)
     });
     const lspDiags = LSP_current_lsp_diagnostics();
     LSP_connection.sendDiagnostics({ uri: uri, diagnostics: lspDiags });
@@ -949,6 +1039,7 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
         ' mode=' + mode + ' ms=' + dt + ' diags=' + lspDiags.length +
         ' hovers=' + (LSP_index.get(uri).hovers.length) +
         ' defs=' + (LSP_index.get(uri).definitions.length) +
+        ' tokens=' + ((LSP_index.get(uri).semanticTokens.length / 5) | 0) +
         ' stats=' + nstat + '\n');
     } catch (e) {}
     LSP_cur_uri = null; LSP_cur_path = null; LSP_cur_path_norm = null; LSP_cur_u16 = null;
@@ -1123,6 +1214,13 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
         hoverProvider: true,
         definitionProvider: true,
         typeDefinitionProvider: true,
+        // AST-based semantic tokens (full-document). The legend names the
+        // tokenTypes/tokenModifiers the harvested indices/bits map to.
+        semanticTokensProvider: {
+          legend: LSP_semantic_tokens_legend(),
+          full: true,
+          range: false,
+        },
       },
       serverInfo: { name: 'xats-lsp-resident', version: '0.1.0' }
     };
@@ -1216,6 +1314,21 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
         return LSP_build_type_definition(params.textDocument.uri, params.position.line, params.position.character);
       } catch (e) { LSP_log('onTypeDefinition threw: ' + e); return null; }
     });
+  }
+
+  // textDocument/semanticTokens/full. Prefer the typed helper
+  // (connection.languages.semanticTokens.on); fall back to the raw onRequest
+  // for runtimes/builds without the languages feature. Both return { data }.
+  function semanticTokensFull(params) {
+    try {
+      return LSP_build_semantic_tokens(params.textDocument.uri);
+    } catch (e) { LSP_log('semanticTokens/full threw: ' + e); return { data: [] }; }
+  }
+  if (LSP_connection.languages && LSP_connection.languages.semanticTokens &&
+      typeof LSP_connection.languages.semanticTokens.on === 'function') {
+    LSP_connection.languages.semanticTokens.on(semanticTokensFull);
+  } else {
+    LSP_connection.onRequest('textDocument/semanticTokens/full', semanticTokensFull);
   }
 
   LSP_documents.listen(LSP_connection);

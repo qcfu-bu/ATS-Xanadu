@@ -166,6 +166,18 @@ fun def_push
   , tdpath: string
   , tl0: int, tc0: int, tl1: int, tc1: int) : void
 //
+// SEMANTIC TOKENS push primitive. The harvest traversal emits one row per
+// identifier-bearing node: the node's USE-SITE loctn (l0,c0..l1,c1 in 0-based
+// byte coords — JS converts to UTF-16), the resolved token TYPE INDEX into the
+// legend, the static MODIFIER bitset, and the entity's DEF-PATH string (so JS
+// can OR in `defaultLibrary` when the def resolves under $XATSHOME). The .cats
+// accumulates these, sorts + delta-encodes them into the LSP flat int array,
+// and serves them from textDocument/semanticTokens/full.
+//
+fun token_push
+  ( l0: int, c0: int, l1: int, c1: int
+  , ttype: int, tmods: int, defpath: string) : void
+//
 (* ****** ****** *)
 //
 // the resident bootstrap entry: register the in-process validator + pruner

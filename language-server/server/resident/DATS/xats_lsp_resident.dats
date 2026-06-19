@@ -243,6 +243,13 @@ end
     , tdpath: string
     , tl0: int, tc0: int, tl1: int, tc1: int): void = $extnam() }
 //
+#implfun token_push(l0, c0, l1, c1, ttype, tmods, defpath) =
+  LSP_token_push(l0, c0, l1, c1, ttype, tmods, defpath)
+  where { #extern fun
+    LSP_token_push
+    ( l0: int, c0: int, l1: int, c1: int
+    , ttype: int, tmods: int, defpath: string): void = $extnam() }
+//
 #implfun initialize(f, lv, g, h, e) =
   vscode_initialize(f, lv, g, h, e)
   where { #extern fun
@@ -610,6 +617,128 @@ case+ s2typ_get_node(t2p) of
 | _ => (0, "", loctn_dummy())
 )
 //
+(* ---- SEMANTIC TOKENS: classification + emission ---- *)
+//
+// token-type indices into the legend advertised in onInitialize. KEEP IN SYNC
+// with LSP_TOKEN_TYPES in the .cats:
+//   namespace=0 type=1 typeParameter=2 parameter=3 variable=4 property=5
+//   function=6 enumMember=7 keyword=8 string=9 number=10 operator=11 comment=12
+//
+#define TT_TYPE          1
+#define TT_TYPEPARAM     2
+#define TT_VARIABLE      4
+#define TT_PROPERTY      5
+#define TT_FUNCTION      6
+#define TT_ENUMMEMBER    7
+//
+// token-modifier bits (a bitset). KEEP IN SYNC with LSP_TOKEN_MODS in the .cats:
+//   declaration=1 definition=2 readonly=4 static=8 defaultLibrary=16
+// `defaultLibrary` is added IN JS (from the def-path's $XATSHOME prefix), so the
+// ATS side never sets bit 16 — it passes the def-path and JS ORs it in.
+//
+#define TM_NONE          0
+#define TM_DECLARATION   1
+#define TM_DEFINITION    2
+//
+// emit ONE semantic token for a use-/binding-site node. Guarded on a real
+// loctn (skips synthetic/dummy nodes). `defpath` lets JS decide defaultLibrary.
+//
+fun
+emit_token
+(loc: loctn, ttype: int, tmods: int, defpath: string): void =
+if loc_realq(loc) then let
+  val pb = loc.pbeg()
+  val pe = loc.pend()
+in
+  // only single-line identifier spans are well-formed semantic tokens; the LSP
+  // delta encoding is per-line, and an identifier never spans lines. Skip any
+  // multi-line span defensively (keeps the encoder's invariants intact).
+  if (pb.nrow() = pe.nrow())
+  then token_push(pb.nrow(), pb.ncol(), pe.nrow(), pe.ncol(), ttype, tmods, defpath)
+  else ()
+end
+//
+// a d2cst is a FUNCTION iff its resolved type is a function type (T2Pfun1,
+// peeking transparent wrappers via typr_funq from the shared typrint HATS).
+// Otherwise it is a plain constant -> variable (we use `variable` rather than
+// `property` for a bare value const; `property` is reserved for record fields).
+//
+fun
+cst_ttype
+(c: d2cst): int =
+  if typr_funq(d2cst_get_styp(c)) then TT_FUNCTION else TT_VARIABLE
+//
+// emit a token for a dynamic-expression use site (D3Evar/D3Econ/D3Ecst). The
+// def-path is the entity's binding-site file, so JS can mark prelude consts
+// defaultLibrary. A d2var whose resolved type is a function type is classified
+// `function` (a fundcl is given BOTH a d2cst and a same-named d2var for its
+// recursive calls — dynexp2.sats — so recursive/forward uses resolve to a var
+// that is really a function; keep them `function`).
+//
+fun
+emit_var_token
+(loc: loctn, v: d2var, tmods: int): void = let
+  val ttype =
+    if typr_funq(d2var_get_styp(v)) then TT_FUNCTION else TT_VARIABLE
+in
+  emit_token(loc, ttype, tmods, loc_fpath(d2var_get_lctn(v)))
+end
+//
+fun
+emit_con_token
+(loc: loctn, c: d2con): void =
+  emit_token(loc, TT_ENUMMEMBER, TM_NONE, loc_fpath(d2con_get_lctn(c)))
+//
+fun
+emit_cst_token
+(loc: loctn, c: d2cst): void =
+  emit_token(loc, cst_ttype(c), TM_NONE, loc_fpath(d2cst_get_lctn(c)))
+//
+// emit a DECLARATION token at each fundcl's d2cst decl site (its own loctn),
+// classified function/variable by its type. +declaration modifier.
+//
+fun
+emit_cst_fun_decl_tokens
+(cs: d2cstlst): void =
+( case+ cs of
+  | list_nil() => ()
+  | list_cons(c, rest) =>
+    ( emit_token(d2cst_get_lctn(c), cst_ttype(c), TM_DECLARATION,
+                 loc_fpath(d2cst_get_lctn(c)))
+    ; emit_cst_fun_decl_tokens(rest) ) )
+//
+// emit a `type` token at a static-constant's declaration site (datatype name,
+// typedef name, stacst, abstype). s2cst carries its own loctn (its decl name);
+// def-path = that same file (prelude type names -> defaultLibrary).
+//
+fun
+emit_scst_type_token
+(s2c: s2cst): void = let
+  val loc = s2cst_get_lctn(s2c)
+in
+  emit_token(loc, TT_TYPE, TM_DECLARATION, loc_fpath(loc))
+end
+//
+fun
+emit_scst_type_tokens
+(s2cs: s2cstlst): void =
+( case+ s2cs of
+  | list_nil() => ()
+  | list_cons(s2c, rest) =>
+    (emit_scst_type_token(s2c); emit_scst_type_tokens(rest)) )
+//
+// emit `enumMember` tokens at an exception-constructor declaration site.
+//
+fun
+emit_dcon_enum_tokens
+(d2cs: d2conlst): void =
+( case+ d2cs of
+  | list_nil() => ()
+  | list_cons(c, rest) =>
+    ( emit_token(d2con_get_lctn(c), TT_ENUMMEMBER, TM_DECLARATION,
+                 loc_fpath(d2con_get_lctn(c)))
+    ; emit_dcon_enum_tokens(rest) ) )
+//
 (* ---- the traversal (find all errck; emit hover/def) ---- *)
 //
 fun
@@ -621,9 +750,15 @@ case+ d3e0.node() of
 | D3Eerrck(lvl, d3e1) =>
   ( walk_d3exp(d3e1)
   ; if (lvl < 3) then classify_d3exp(d3e0.lctn(), d3e1) )
-| D3Evar(v) => emit_def(d3e0.lctn(), d2var_get_lctn(v), "var", d3e0.styp())
-| D3Econ(c) => emit_def(d3e0.lctn(), d2con_get_lctn(c), "con", d3e0.styp())
-| D3Ecst(c) => emit_def(d3e0.lctn(), d2cst_get_lctn(c), "cst", d3e0.styp())
+| D3Evar(v) =>
+  ( emit_def(d3e0.lctn(), d2var_get_lctn(v), "var", d3e0.styp())
+  ; emit_var_token(d3e0.lctn(), v, TM_NONE) )
+| D3Econ(c) =>
+  ( emit_def(d3e0.lctn(), d2con_get_lctn(c), "con", d3e0.styp())
+  ; emit_con_token(d3e0.lctn(), c) )
+| D3Ecst(c) =>
+  ( emit_def(d3e0.lctn(), d2cst_get_lctn(c), "cst", d3e0.styp())
+  ; emit_cst_token(d3e0.lctn(), c) )
 | D3Et2pck(d3e1, _) => walk_d3exp(d3e1)
 | D3Et2ped(d3e1, _) => walk_d3exp(d3e1)
 | D3Elabck(d3e1, _) => walk_d3exp(d3e1)
@@ -685,6 +820,10 @@ case+ d3p0.node() of
 | D3Perrck(lvl, d3p1) =>
   ( walk_d3pat(d3p1)
   ; if (lvl < 3) then classify_d3pat(d3p0.lctn(), d3p1) )
+// pattern variable: a BINDING site -> variable + declaration.
+| D3Pvar(v) => emit_var_token(d3p0.lctn(), v, TM_DECLARATION)
+// constructor pattern (nullary): a USE of the data constructor -> enumMember.
+| D3Pcon(c) => emit_con_token(d3p0.lctn(), c)
 | D3Pbang(p) => walk_d3pat(p)
 | D3Pflat(p) => walk_d3pat(p)
 | D3Pfree(p) => walk_d3pat(p)
@@ -712,6 +851,9 @@ case+ dcl0.node() of
 | D3Cerrck(lvl, dcl1) =>
   ( walk_d3ecl(dcl1)
   ; if (lvl < 3) then classify_d3ecl(dcl0.lctn(), dcl1) )
+// L2-only decls (datatypes, typedefs, stacst, abstype, exception cons) are
+// wrapped here; descend so their static-constant names get `type` tokens.
+| D3Cd2ecl(d2cl) => walk_d2ecl(d2cl)
 | D3Cstatic(_, dcl1) => walk_d3ecl(dcl1)
 | D3Cextern(_, dcl1) => walk_d3ecl(dcl1)
 | D3Ctmpsub(_, dcl1) => walk_d3ecl(dcl1)
@@ -720,7 +862,8 @@ case+ dcl0.node() of
 | D3Cinclude(_, _, _, _, dopt) => walk_d3eclistopt(dopt)
 | D3Cvaldclst(_, dvs) => walk_d3valdclist(dvs)
 | D3Cvardclst(_, dvs) => walk_d3vardclist(dvs)
-| D3Cfundclst(_, _, _, dfs) => walk_d3fundclist(dfs)
+| D3Cfundclst(_, _, dcsts, dfs) =>
+  (emit_cst_fun_decl_tokens(dcsts); walk_d3fundclist(dfs))
 | D3Cimplmnt0(_, _, _, _, _, _, _, _, dexp) => walk_d3exp(dexp)
 | D3Cnone1(d2cl) => walk_d2ecl(d2cl)
 | D3Cnone2(d3cl) => walk_d3ecl(d3cl)
@@ -801,6 +944,13 @@ case+ dcl0.node() of
 | D2Cvardclst(_, dvs) => walk_d2vardclist(dvs)
 | D2Cfundclst(_, _, _, dfs) => walk_d2fundclist(dfs)
 | D2Cimplmnt0(_, _, _, _, _, _, _, dexp) => walk_d2exp(dexp)
+// static-constant DECLARATION sites -> a `type` token at the s2cst loctn.
+| D2Cdatatype(_, s2cs) => emit_scst_type_tokens(s2cs)
+| D2Csexpdef(s2c, _) => emit_scst_type_token(s2c)
+| D2Cstacst0(s2c, _) => emit_scst_type_token(s2c)
+| D2Cabstype(s2c, _) => emit_scst_type_token(s2c)
+// exception constructors -> enumMember tokens at each d2con's decl loctn.
+| D2Cexcptcon(_, d2cs) => emit_dcon_enum_tokens(d2cs)
 | D2Cnone2(d2cl) => walk_d2ecl(d2cl)
 | _ => ((*leaf*))
 )
