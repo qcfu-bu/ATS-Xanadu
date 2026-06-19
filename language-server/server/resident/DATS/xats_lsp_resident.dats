@@ -106,6 +106,10 @@ pretty-print), §8 (def loc), §9 (traversal), §10.5 (compiler-linking build).
   JS_depset_is_empty(dp)
   where { #extern fun JS_depset_is_empty(dp: depset): bool = $extnam() }
 //
+#implfun depset_has(dp, key) =
+  JS_depset_has(dp, key)
+  where { #extern fun JS_depset_has(dp: depset, key: sym_t): bool = $extnam() }
+//
 #implfun depset_union(dp1, dp2) =
   JS_depset_union(dp1, dp2)
   where { #extern fun
@@ -135,6 +139,10 @@ pretty-print), §8 (def loc), §9 (traversal), §10.5 (compiler-linking build).
   where { #extern fun
     JS_depgraph_find(dp: depgraph, k: stamp): depset = $extnam() }
 //
+#implfun fwd_graph() =
+  JS_fwd_graph()
+  where { #extern fun JS_fwd_graph(): depgraph = $extnam() }
+//
 (* ---- THE cache-eviction primitive: delete env[key.stmp()] ---- *)
 //
 // topmap_insert (xsymmap_topmap.dats) stores each file under g0u2s(uint(
@@ -145,6 +153,35 @@ pretty-print), §8 (def loc), §9 (traversal), §10.5 (compiler-linking build).
   JS_map_reset{syn}(env, key.stmp())
   where { #extern fun
     JS_map_reset{syn:tx}(env: topmap(syn), key: stamp): void = $extnam() }
+//
+(* ---- R2a: prelude snapshot + workspace-file signature map ---- *)
+//
+// snapshot the keys already present in a topmap (called per topmap right after
+// the prelude loads): those stamps = the prelude / $XATSHOME files (immutable).
+//
+#implfun prelude_snapshot{syn}(env) =
+  JS_prelude_snapshot{syn}(env)
+  where { #extern fun
+    JS_prelude_snapshot{syn:tx}(env: topmap(syn)): void = $extnam() }
+//
+#implfun prelude_freeze() =
+  JS_prelude_freeze()
+  where { #extern fun JS_prelude_freeze(): void = $extnam() }
+//
+// signature map keyed by the file's stamp (same key the topmaps use). path is
+// the absolute on-disk filename (fnm1) used to stat it.
+//
+#implfun sig_record(key, path) =
+  JS_sig_record(key.stmp(), path)
+  where { #extern fun JS_sig_record(key: stamp, path: string): void = $extnam() }
+//
+#implfun sig_refresh(key) =
+  JS_sig_refresh(key.stmp())
+  where { #extern fun JS_sig_refresh(key: stamp): void = $extnam() }
+//
+#implfun sig_changed(key) =
+  JS_sig_changed(key.stmp())
+  where { #extern fun JS_sig_changed(key: stamp): bool = $extnam() }
 //
 (* ---- string-buffer FILR (capture a printed type; externs, like our checker) ---- *)
 //
@@ -199,6 +236,12 @@ pretty-print), §8 (def loc), §9 (traversal), §10.5 (compiler-linking build).
 // on the staloaded file key1" by depgraph_add(dp, key1, key0). Editing key1
 // later (didChange) then evicts key1 AND every key0 that staloaded it.
 //
+// R2a additions, in the SAME pass (no extra AST walk):
+//   * FORWARD edge depgraph_add(fwd, key0, key1) — "key0 staloads key1" — so a
+//     later check can walk key0's staload CLOSURE forward and stat each member.
+//   * sig_record(key1, fnm1) — stamp the staloaded WORKSPACE file with its
+//     {mtimeMs,size} signature (no-op for prelude files; they stay immutable).
+//
 // We descend into D3Cstaload's embedded sub-parse so transitive deps are
 // captured: if A staloads B and B staloads C, the graph gets C->B and B->A,
 // and evicting C unions in B then A. `depgraph_has` guards against re-walking
@@ -206,20 +249,23 @@ pretty-print), §8 (def loc), §9 (traversal), §10.5 (compiler-linking build).
 //
 fun
 dependency_d3ecl
-(dp: depgraph, d3cl: d3ecl, key0: sym_t): void =
+(dp: depgraph, fwd: depgraph, d3cl: d3ecl, key0: sym_t): void =
   case+ d3cl.node() of
   | D3Clocal0(dcls1, dcls2) => let
-      val () = dependency_d3eclist(dp, dcls1, key0)
-      val () = dependency_d3eclist(dp, dcls2, key0)
+      val () = dependency_d3eclist(dp, fwd, dcls1, key0)
+      val () = dependency_d3eclist(dp, fwd, dcls2, key0)
     in end
-  | D3Cinclude(_, _, _, _, dopt) => dependency_d3eclistopt(dp, dopt, key0)
+  | D3Cinclude(_, _, _, _, dopt) => dependency_d3eclistopt(dp, fwd, dopt, key0)
   | D3Cstaload(_stadyn, _tok, _src, fopt, s3opt) =>
     ( case+ fopt of
       | optn_cons(fpath) => let
           val key1 = fpath.fnm2()
+          // forward edge (key0 staloads key1) + workspace-file signature.
+          val () = depgraph_add(fwd, key0, key1)
+          val () = sig_record(key1, fpath.fnm1())
           val () =
             if depgraph_has(dp, key1) then ()
-            else dependency_s3taloadopt(dp, s3opt, key1)
+            else dependency_s3taloadopt(dp, fwd, s3opt, key1)
           val () = depgraph_add(dp, key1, key0)
         in end
       | optn_nil() => () )
@@ -227,24 +273,25 @@ dependency_d3ecl
 //
 and
 dependency_d3eclist
-(dp: depgraph, dcls: d3eclist, key0: sym_t): void =
+(dp: depgraph, fwd: depgraph, dcls: d3eclist, key0: sym_t): void =
   case+ dcls of
   | list_nil() => ()
-  | list_cons(d, ds) => (dependency_d3ecl(dp, d, key0); dependency_d3eclist(dp, ds, key0))
+  | list_cons(d, ds) =>
+    (dependency_d3ecl(dp, fwd, d, key0); dependency_d3eclist(dp, fwd, ds, key0))
 //
 and
 dependency_d3eclistopt
-(dp: depgraph, dopt: d3eclistopt, key0: sym_t): void =
+(dp: depgraph, fwd: depgraph, dopt: d3eclistopt, key0: sym_t): void =
   case+ dopt of
   | optn_nil() => ()
-  | optn_cons(dcls) => dependency_d3eclist(dp, dcls, key0)
+  | optn_cons(dcls) => dependency_d3eclist(dp, fwd, dcls, key0)
 //
 and
 dependency_s3taloadopt
-(dp: depgraph, s3opt: s3taloadopt, key0: sym_t): void =
+(dp: depgraph, fwd: depgraph, s3opt: s3taloadopt, key0: sym_t): void =
   case+ s3opt of
   | S3TALOADdpar(_stadyn, dpar) =>
-      dependency_d3eclistopt(dp, d3parsed_get_parsed(dpar), key0)
+      dependency_d3eclistopt(dp, fwd, d3parsed_get_parsed(dpar), key0)
   | S3TALOADnone(_s2opt) => ()
 //
 (* ****** ****** *)
@@ -902,23 +949,97 @@ walk_d2fundclist (dfs: d2fundclist): void =
 (*            VALIDATOR + PRUNER + STARTUP  (the resident core)            *)
 (* ====================================================================== *)
 //
+// evict_cascade: the shared eviction worklist (used by both the didChange pruner
+// and the R2a precheck). Seeded with a depset of files to evict; for each popped
+// file, env_reset it out of all three topmaps, pull its dependents from the
+// (reverse) depgraph, union them in, and delete its graph entry — so editing a
+// file evicts it AND every file that staloaded it. The prelude + untouched files
+// stay cached -> the recheck is warm. Bounded: each file is processed once
+// (depgraph_delete drops the visited entry, and depgraph_find of a leaf is empty).
+//
+fun
+evict_cascade(dp: depgraph, seed: depset): void = let
+    fun loop(work: depset): void =
+      if ~depset_is_empty(work) then let
+        val key = depset_pop(work)
+        val () = env_reset(the_d1parenv_pvstmap(), key)
+        val () = env_reset(the_d2parenv_pvstmap(), key)
+        val () = env_reset(the_d3parenv_pvstmap(), key)
+        val deps1 = depgraph_find(dp, key)
+        val deps2 = depset_union(work, deps1)
+        val () = depgraph_delete(dp, key)
+      in loop(deps2)
+      end
+  in loop(seed)
+  end
+//
+// R2a PRECHECK (the content-validated cache core). BEFORE each validate, walk the
+// target's transitive-staload closure (forward graph) and re-stat each WORKSPACE
+// member; any whose on-disk {mtimeMs,size} drifted (an out-of-band edit — another
+// editor, git pull/checkout, codegen, formatter) is evicted via evict_cascade,
+// which also cascades to its dependents. Prelude/$XATSHOME files are NEVER statted
+// here: sig_changed returns false for them because sig_record never admitted them
+// to the signature map (gated by the $XATSHOME path-prefix exclusion). Cost:
+// O(|closure|) statSync (~µs each); the closure is small (the target's deps), so
+// this is negligible against a warm check. (R2 Layer A.)
+//
+fun
+precheck(dp: depgraph, fwd: depgraph, key0: sym_t): void = let
+    val seen  = depset_make()   // forward-closure files already visited
+    val dirty = depset_make()   // changed files to evict (+ cascade)
+    // BFS the forward closure: key0 (the target itself — d3parsed_of_fil would
+    // otherwise serve key0's STALE cached parse if it was edited out-of-band, so
+    // the headline single-file case needs key0 statted too) plus its transitive
+    // staloads.
+    fun walk(work: depset): void =
+      if ~depset_is_empty(work) then let
+        val k = depset_pop(work)
+      in
+        if depset_has(seen, k) then walk(work)
+        else let
+          val () = depset_add(seen, k)
+          // changed on disk? (no-op/false for prelude + unknown files)
+          val () = if sig_changed(k) then depset_add(dirty, k)
+          // descend into k's own forward staloads (transitive closure).
+          val nbrs = depgraph_find(fwd, k)
+          val work1 = depset_union(work, nbrs)
+        in walk(work1) end
+      end
+    val work0 = depset_make()
+    val () = depset_add(work0, key0)
+  in
+    let val () = walk(work0) in
+      if ~depset_is_empty(dirty) then evict_cascade(dp, dirty)
+    end
+  end
+//
 // text_validator: invoked on didOpen/didSave. Resolve the file path from the
-// uri, run the front-end IN-PROCESS (d3parsed_of_fil{dats,sats}; the warm
-// compiler reuses the cached prelude + unchanged deps), record dependency
-// edges from the checked parse, and harvest diagnostics + hover/def index from
-// the SAME d3parsed. No subprocess, no temp JSON.
+// uri, PRECHECK its staload closure for out-of-band drift (R2a), run the
+// front-end IN-PROCESS (d3parsed_of_fil{dats,sats}; the warm compiler reuses the
+// cached prelude + unchanged deps), record dependency edges (both directions)
+// from the checked parse + stamp each workspace dep's signature, and harvest
+// diagnostics + hover/def index from the SAME d3parsed. No subprocess, no temp
+// JSON.
 //
 #implfun text_validator(dp, ds, uri) = let
     val path = url_to_path(uri)
     val key = path.fpath().fnm2()
+    val fwd = fwd_graph()
+    // R2a: catch on-disk drift in this file's staload closure BEFORE serving from
+    // cache; evict any stale dep (+ cascade) so the check below re-translates it.
+    val () = precheck(dp, fwd, key)
     val dpar =
       if fpath_is_dats(path)
       then d3parsed_of_fildats(path)
       else d3parsed_of_filsats(path)
     val parsed = d3parsed_get_parsed(dpar)
-    // record "this file depends on each staloaded file" so future edits to a
-    // dependency evict this file too (cross-file incrementality, depgraph).
-    val () = dependency_d3eclistopt(dp, parsed, key)
+    // record "this file depends on each staloaded file" (reverse edge, for the
+    // pruner) + "this file staloads each" (forward edge, for the precheck) + each
+    // workspace dep's {mtimeMs,size} signature. One pass, both graphs.
+    val () = dependency_d3eclistopt(dp, fwd, parsed, key)
+    // also stamp THIS file's own signature so a later check of a dependent can
+    // detect an out-of-band edit to it (the dependency pass only stamps deps).
+    val () = sig_record(key, path)
     // harvest: diagnostics (errck) + hovers (typed nodes) + defs (use sites).
     val () = walk_d3eclistopt(parsed)
   in
@@ -930,28 +1051,13 @@ walk_d2fundclist (dfs: d2fundclist): void =
 //
 // cache_pruner: invoked on didChange. Evict the edited file AND its transitive
 // dependents from the_d{1,2,3}parenv so the next validate re-translates them.
-// Worklist (depset): start with the edited file; for each popped file, env_reset
-// it out of all three topmaps, pull its dependents from the depgraph, union them
-// into the worklist, and delete its graph entry. The prelude + untouched files
-// stay cached -> the recheck is warm.
 //
 #implfun cache_pruner(dp, uri) = let
     val path = url_to_path(uri)
     val key = path.fpath().fnm2()
     val deps0 = depset_make()
     val () = depset_add(deps0, key)
-    fun loop(deps0: depset): void =
-      if ~depset_is_empty(deps0) then let
-        val key = depset_pop(deps0)
-        val () = env_reset(the_d1parenv_pvstmap(), key)
-        val () = env_reset(the_d2parenv_pvstmap(), key)
-        val () = env_reset(the_d3parenv_pvstmap(), key)
-        val deps1 = depgraph_find(dp, key)
-        val deps2 = depset_union(deps0, deps1)
-        val () = depgraph_delete(dp, key)
-      in loop(deps2)
-      end
-  in loop(deps0)
+  in evict_cascade(dp, deps0)
   end
 //
 (* ****** ****** *)
@@ -963,6 +1069,19 @@ val _ = the_fxtyenv_pvsload()
 val _ = the_tr12env_pvsl00d()
 val () = xatsopt_flag$pvsadd0("--_XATSOPT_")
 val () = xatsopt_flag$pvsadd0("--_SRCGEN2_XATSOPT_")
+//
+// R2a PRELUDE SNAPSHOT: right after the prelude loads (above) and BEFORE any user
+// file is checked, record the set of file stamps already cached in each of the
+// three topmaps. That set = the prelude / $XATSHOME files; they are IMMUTABLE for
+// the session — never statted, never evicted (the C1/restart path is out of scope
+// here). freeze() seals the set. Any file NOT in it is a workspace file subject
+// to mtime validation. This also correctly excludes a workspace rooted at the
+// ATS-Xanadu repo: its prelude files are already in the snapshot.
+//
+val () = prelude_snapshot(the_d1parenv_pvstmap())
+val () = prelude_snapshot(the_d2parenv_pvstmap())
+val () = prelude_snapshot(the_d3parenv_pvstmap())
+val () = prelude_freeze()
 //
 val () = initialize(text_validator, cache_pruner)
 //

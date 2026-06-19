@@ -78,6 +78,7 @@ fun depset_make(): depset
 fun depset_add(depset, sym_t): void
 fun depset_pop(depset): sym_t
 fun depset_is_empty(depset): bool
+fun depset_has(depset, sym_t): bool
 fun depset_union(depset, depset): depset
 //
 #abstype depgraph <= p0tr
@@ -85,6 +86,12 @@ fun depgraph_add(depgraph, sym_t, sym_t): void
 fun depgraph_delete(depgraph, sym_t): void
 fun depgraph_has(depgraph, sym_t): bool
 fun depgraph_find(depgraph, sym_t): depset
+//
+// the FORWARD staload graph ("key0 staloads key1"); the reverse of the
+// dependents graph handed to the validator/pruner. Held in the .cats (like
+// LSP_dependencies) and fetched here so the precheck can walk a target's
+// transitive-staload closure. Same depgraph type; populated in the same pass.
+fun fwd_graph(): depgraph
 //
 (* ****** ****** *)
 //
@@ -97,6 +104,30 @@ fun depgraph_find(depgraph, sym_t): depset
 // cached -> warm + fast).
 //
 fun env_reset{syn:tx}(topmap(syn), sym_t): void
+//
+(* ****** ****** *)
+//
+// R2a — content-validated cache (out-of-band-edit invalidation).
+//
+// PRELUDE SNAPSHOT: right after the prelude loads (before any user file is
+// checked) we record the set of file stamps already cached in the_d{1,2,3}parenv.
+// That set = the prelude / $XATSHOME files; they are IMMUTABLE for the session
+// (never stat, never evict). prelude_snapshot(env) records one topmap's keys;
+// prelude_freeze() seals the set (called once after the snapshot is complete).
+//
+fun prelude_snapshot{syn:tx}(topmap(syn)): void
+fun prelude_freeze(): void
+//
+// SIGNATURE MAP: stamp -> {path, mtimeMs, size} for each cached WORKSPACE file.
+//   sig_record(key, path): stat `path` now and record its signature under `key`
+//                          (no-op for prelude files — they stay immutable).
+//   sig_refresh(key)     : re-stat and update the recorded signature.
+//   sig_changed(key)     : true iff `key` is a known workspace file whose on-disk
+//                          signature drifted (out-of-band edit). Re-stats; cheap.
+//
+fun sig_record(sym_t, string): void
+fun sig_refresh(sym_t): void
+fun sig_changed(sym_t): bool
 //
 (* ****** ****** *)
 //

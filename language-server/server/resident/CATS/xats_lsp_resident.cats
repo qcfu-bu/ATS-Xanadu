@@ -62,6 +62,7 @@ function JS_depset_pop(dp) {
   return elem;
 }
 function JS_depset_is_empty(dp) { return (dp.size <= 0); }
+function JS_depset_has(dp, k) { return dp.has(k); }
 function JS_depset_union(dp1, dp2) {
   // Set.prototype.union landed in node 22; fall back for older runtimes.
   if (typeof dp1.union === 'function') { return dp1.union(dp2); }
@@ -84,6 +85,15 @@ function JS_depgraph_find(dp, k) {
   return (edges === undefined) ? new Set() : edges[1];
 }
 //
+// R2a FORWARD graph: "key0 staloads key1" edges (the reverse of LSP_dependencies).
+// Same Map<stamp,[sym_t,Set<sym_t>]> shape; populated in the SAME dependency pass.
+// The precheck walks a target's forward closure (its transitive staloads) and
+// re-stats each WORKSPACE member, so it only ever touches the small dep set —
+// never the ~100 prelude files (those aren't in any workspace closure edge here,
+// and even if walked, sig_changed skips prelude stamps).
+const LSP_fwd = new Map();
+function JS_fwd_graph() { return LSP_fwd; }
+//
 ////////////////////////////////////////////////////////////////////////.
 // ---- THE cache-eviction primitive: delete env[key] ------------------- //
 //
@@ -93,6 +103,124 @@ function JS_depgraph_find(dp, k) {
 // exactly that file. This is the make-or-break primitive (primer §4).
 function JS_map_reset(env, key) {
   if (env[key] !== undefined) { delete env[key]; }
+}
+//
+////////////////////////////////////////////////////////////////////////.
+// ---- R2a: content-validated cache (out-of-band-edit invalidation) ---- //
+//
+// The R1 cache evicts on editor events (didChange) only. Out-of-band edits
+// (another editor, git pull/checkout, codegen, formatters) fire NO event, so
+// the_d?parenv keeps a STALE entry -> wrong diagnostics. R2a closes this by
+// stamping every cached WORKSPACE file with a {mtimeMs,size} signature and, on
+// every check, re-statting the target's staload closure to catch on-disk drift
+// BEFORE serving from cache. (LSP-ARCHITECTURE-AND-PLAN.md, R2 Layer A.)
+//
+const LSP_fs = require('node:fs');
+//
+// (1) PRELUDE / $XATSHOME EXCLUSION. The prelude + compiler tree under $XATSHOME
+// are loaded once at startup and treated as IMMUTABLE for the session — never
+// stat, never evict (that's the C1/restart path + ats3.reloadPrelude, out of
+// scope here). A file is "immutable" iff its resolved path lives under $XATSHOME;
+// any other file is a WORKSPACE file subject to mtime validation.
+//
+// Why a PATH prefix and not a topmap snapshot: the prelude is bootstrapped via
+// the global-env loaders (the_fxtyenv_pvsload / the_tr12env_pvsl00d), which merge
+// definitions into the_sexpenv/the_dexpenv but do NOT populate the per-file
+// the_d{1,2,3}parenv caches — those fill in lazily the first time a USER file
+// staloads a prelude file. So a startup topmap snapshot is empty and useless as a
+// discriminator; the $XATSHOME path prefix is the reliable, eager test. (This is
+// exactly the "resolves under $XATSHOME" detection the architecture doc's
+// prelude edge-case section calls for.) The topmap snapshot is retained below as
+// a belt-and-suspenders SECONDARY guard (it captures any prelude file already in
+// the caches), but the path prefix is the primary mechanism.
+//
+function LSP_norm(p) {
+  // resolve to an absolute, symlink-free path for a stable prefix compare.
+  let s = String(p || "");
+  if (s === "") return "";
+  try { s = LSP_fs.realpathSync(s); }
+  catch (e) { try { s = LSP_path.resolve(s); } catch (e2) {} }
+  return s;
+}
+// $XATSHOME (prelude/compiler tree root), normalized once. Trailing sep so a
+// sibling like "<home>x/..." does not match "<home>/...".
+const LSP_xatshome = (function () {
+  const h = LSP_norm(process.env.XATSHOME || "");
+  return h === "" ? "" : (h.endsWith(LSP_path.sep) ? h : (h + LSP_path.sep));
+})();
+function JS_path_is_prelude(path) {
+  if (LSP_xatshome === "") return false;       // no XATSHOME -> nothing excluded
+  const s = LSP_norm(path);
+  return s !== "" && (s + LSP_path.sep).startsWith(LSP_xatshome);
+}
+//
+// secondary guard: file STAMPS already cached at startup (usually empty; see note
+// above). prelude_snapshot(topmap) unions one topmap's keys; prelude_freeze seals.
+let LSP_prelude_stamps = new Set();
+let LSP_prelude_frozen = false;
+function JS_prelude_snapshot(env) {
+  for (const k of Object.keys(env)) { LSP_prelude_stamps.add(String(k)); }
+}
+function JS_prelude_freeze() {
+  LSP_prelude_frozen = true;
+  try {
+    process.stderr.write('[xats-lsp-resident] prelude immutable: XATSHOME=' +
+      (LSP_xatshome || '(unset)') + ' + ' + LSP_prelude_stamps.size +
+      ' snapshot stamp(s)\n');
+  } catch (e) {}
+}
+function JS_is_prelude(stamp) { return LSP_prelude_stamps.has(String(stamp)); }
+//
+// (2) SIGNATURE MAP: stamp -> {path, mtimeMs, size} for every cached WORKSPACE
+// file. Recorded when a workspace file is validated/cached. Prelude/$XATSHOME
+// files never enter this map (gated in JS_sig_record), so they are never
+// re-statted and never reported as changed.
+const LSP_signatures = new Map();
+// metric: how many statSync calls the last pre-check made (kept tiny: only the
+// target's small workspace closure, never the ~100 prelude files).
+let LSP_stat_count = 0;
+function LSP_stat_count_reset() { const n = LSP_stat_count; LSP_stat_count = 0; return n; }
+//
+function LSP_stat_sig(path) {
+  // {mtimeMs,size}, or null if the file is gone / unreadable. ~µs.
+  try {
+    LSP_stat_count++;
+    const st = LSP_fs.statSync(path);
+    return { mtimeMs: st.mtimeMs, size: st.size };
+  } catch (e) { return null; }
+}
+// is this cached file immutable (prelude/$XATSHOME or a startup-snapshot stamp)?
+function LSP_immutable(stamp, path) {
+  if (LSP_prelude_stamps.has(String(stamp))) return true;
+  return JS_path_is_prelude(path);
+}
+// record/refresh the signature for a workspace file. Prelude files are skipped
+// (immutable): they never enter the signature map, so they are never re-statted.
+function JS_sig_record(stamp, path) {
+  const key = String(stamp);
+  if (!path) return;
+  if (LSP_immutable(key, path)) return;                 // prelude/$XATSHOME: skip
+  const sig = LSP_stat_sig(path);
+  if (sig === null) return;
+  LSP_signatures.set(key, { path: path, mtimeMs: sig.mtimeMs, size: sig.size });
+}
+function JS_sig_refresh(stamp) {
+  const rec = LSP_signatures.get(String(stamp));
+  if (rec === undefined) return;
+  const sig = LSP_stat_sig(rec.path);
+  if (sig === null) return;
+  rec.mtimeMs = sig.mtimeMs; rec.size = sig.size;
+}
+// 1 iff this stamp is a known workspace file whose ON-DISK signature now differs
+// from the recorded one (out-of-band edit). 0 for prelude/unknown/unchanged.
+// Re-stats the file (the whole point of R2a); cheap because the closure is small.
+function JS_sig_changed(stamp) {
+  const key = String(stamp);
+  const rec = LSP_signatures.get(key);
+  if (rec === undefined) return 0;                      // prelude or not-yet-cached
+  const sig = LSP_stat_sig(rec.path);
+  if (sig === null) return 1;                           // vanished/unreadable -> evict
+  return (sig.mtimeMs !== rec.mtimeMs || sig.size !== rec.size) ? 1 : 0;
 }
 //
 ////////////////////////////////////////////////////////////////////////.
@@ -389,12 +517,14 @@ function vscode_initialize(validator, pruner) {
     const lspDiags = LSP_current_lsp_diagnostics();
     LSP_connection.sendDiagnostics({ uri: uri, diagnostics: lspDiags });
     const dt = Date.now() - t0;
+    const nstat = LSP_stat_count_reset();
     // structured stderr line the smoke harness parses for latency.
     try {
       process.stderr.write('[xats-lsp-metric] check uri=' + uri +
         ' ms=' + dt + ' diags=' + lspDiags.length +
         ' hovers=' + (LSP_index.get(uri).hovers.length) +
-        ' defs=' + (LSP_index.get(uri).definitions.length) + '\n');
+        ' defs=' + (LSP_index.get(uri).definitions.length) +
+        ' stats=' + nstat + '\n');
     } catch (e) {}
     LSP_cur_uri = null; LSP_cur_path = null;
   }
