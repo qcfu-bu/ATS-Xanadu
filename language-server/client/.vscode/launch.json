@@ -1,0 +1,21 @@
+{
+  // Press F5 with this `client/` folder open in VSCode to launch the
+  // Extension Development Host running the ATS3 LSP client.
+  // See README.md for the full walk-through.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run ATS3 Extension",
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/out/**/*.js"
+      ],
+      "preLaunchTask": "npm: compile"
+    }
+  ]
+}

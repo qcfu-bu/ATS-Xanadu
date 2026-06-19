@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ats-lang.org/lsp/bundle.schema.json",
+  "title": "ATS3 LSP checker→server JSON bundle (contract v1)",
+  "description": "Frozen interface emitted by xats-lsp-check.js to --json-out. See LSP-ARCHITECTURE-AND-PLAN.md §4. All positions are 0-based; line=nrow, character=ncol (byte column, ASCII-correct in v1).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "uri", "ok", "nerror", "diagnostics", "hovers", "definitions"],
+  "properties": {
+    "schema": { "const": 1 },
+    "uri": { "type": "string", "pattern": "^file://" },
+    "ok": { "type": "boolean", "description": "false only if the checker itself crashed" },
+    "nerror": { "type": "integer", "minimum": 0 },
+    "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } },
+    "hovers": { "type": "array", "items": { "$ref": "#/$defs/hover" } },
+    "definitions": { "type": "array", "items": { "$ref": "#/$defs/definition" } }
+  },
+  "$defs": {
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["line", "character"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 0 },
+        "character": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "$ref": "#/$defs/position" },
+        "end": { "$ref": "#/$defs/position" }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["range", "severity", "code", "message", "source"],
+      "properties": {
+        "range": { "$ref": "#/$defs/range" },
+        "severity": { "type": "integer", "enum": [1, 2, 3, 4], "description": "LSP DiagnosticSeverity; v1 always 1=Error" },
+        "code": {
+          "type": "string",
+          "enum": ["type-mismatch", "unbound-identifier", "unresolved-template", "pattern-error", "decl-error", "unknown"]
+        },
+        "message": { "type": "string" },
+        "source": { "const": "ats3" }
+      }
+    },
+    "hover": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["range", "type", "kind"],
+      "properties": {
+        "range": { "$ref": "#/$defs/range" },
+        "type": { "type": "string" },
+        "kind": { "type": "string", "enum": ["expr", "pat"] }
+      }
+    },
+    "definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["useRange", "defUri", "defRange", "entity"],
+      "properties": {
+        "useRange": { "$ref": "#/$defs/range" },
+        "defUri": { "type": "string", "pattern": "^file://" },
+        "defRange": { "$ref": "#/$defs/range" },
+        "entity": { "type": "string", "enum": ["var", "cst", "con"] },
+        "typeDefUri": { "type": "string", "pattern": "^file://" },
+        "typeDefRange": { "$ref": "#/$defs/range" }
+      }
+    }
+  }
+}

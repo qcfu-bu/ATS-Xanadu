@@ -1,0 +1,5 @@
+# generated build artifacts (reproducible via build.sh / build-lib2xatsopt.sh)
+BUILD/
+# the compiled compiler library this checker links against lives at
+# ../../srcgen2/lib/lib2xatsopt.js (171 MB) — built by build-lib2xatsopt.sh,
+# NOT committed. Regenerate with:  bash build-lib2xatsopt.sh

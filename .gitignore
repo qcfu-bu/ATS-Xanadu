@@ -17,6 +17,10 @@ srcgen2/BUILD/JS
 srcgen2/xats2js/srcgen1/BUILD/JS
 srcgen2/xats2py/srcgen1/BUILD/JS
 
+# ATS3 LSP: generated compiler-as-library artifact (built by language-server/server)
+# -- a ~171MB transpiled bundle; keep the dir's .keeper but never commit the .js
+srcgen2/lib/*.js
+
 result
 
 ###### end of [.gitignore] ######

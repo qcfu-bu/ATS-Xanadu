@@ -1,0 +1,15 @@
+{
+  "name": "ats3-lsp-stub-server",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Throwaway stub LSP server for ATS3 (WS-0b). Publishes one hard-coded diagnostic to prove the editor<->server round-trip. Will be replaced by the ATS3-built xats-lsp-server.js.",
+  "license": "MIT",
+  "main": "server.js",
+  "scripts": {
+    "smoke": "node ../../scripts/smoke.js"
+  },
+  "dependencies": {
+    "vscode-languageserver": "9.0.1",
+    "vscode-languageserver-textdocument": "1.0.12"
+  }
+}

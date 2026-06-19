@@ -1,0 +1,23 @@
+{
+  // Tasks used by launch.json (preLaunchTask) and for the watch loop.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "compile",
+      "group": "build",
+      "problemMatcher": "$tsc",
+      "label": "npm: compile",
+      "detail": "tsc -p ./"
+    },
+    {
+      "type": "npm",
+      "script": "watch",
+      "isBackground": true,
+      "group": "build",
+      "problemMatcher": "$tsc-watch",
+      "label": "npm: watch",
+      "detail": "tsc -watch -p ./"
+    }
+  ]
+}

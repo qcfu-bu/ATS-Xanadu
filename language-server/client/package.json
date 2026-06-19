@@ -1,0 +1,91 @@
+{
+  "name": "ats3-lsp-client",
+  "displayName": "ATS3 Language Support (LSP client)",
+  "description": "VSCode client for the ATS3 language server (diagnostics, hover, go-to-definition).",
+  "version": "0.0.1",
+  "publisher": "ats3",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "vscode": "^1.82.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:ats",
+    "onLanguage:ats3"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "ats",
+        "aliases": [
+          "ATS (static/header)",
+          "ats"
+        ],
+        "extensions": [
+          ".sats",
+          ".hats"
+        ],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "ats3",
+        "aliases": [
+          "ATS3 (dynamic)",
+          "ats3"
+        ],
+        "extensions": [
+          ".dats"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "ATS3 Language Server",
+      "properties": {
+        "ats3.server.module": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Absolute path to the LSP server entrypoint (a node script run over stdio). When empty, the client auto-resolves the ATS3-built `server/lsp-server/xats-lsp-server.js`, falling back to the WS-0b stub (`server/stub/server.js`) if it has not been built."
+        },
+        "ats3.server.nodePath": {
+          "type": "string",
+          "default": "node",
+          "description": "Path to the node executable used to launch the server."
+        },
+        "ats3.xatshome": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to the ATS3/Xanadu repo root (`XATSHOME`), needed by the checker to locate the prelude. When empty, defaults to two directories above the extension (the repo root in the in-tree layout)."
+        },
+        "ats3.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VSCode and the ATS3 language server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "dependencies": {
+    "vscode-languageclient": "9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.x",
+    "@types/vscode": "1.82.0",
+    "typescript": "5.9.3"
+  }
+}
