@@ -35,6 +35,10 @@ pretty-print), §8 (def loc), §9 (traversal), §10.5 (compiler-linking build).
 //
 #staload "./../SATS/xats_lsp_resident.sats"
 //
+// WS-6: topmap_strmize (enumerate the pervasive name topmaps) is not in the
+// bundled headers; staload it directly (same SATS the compiler's *_myenv0 use).
+#staload "srcgen2/SATS/xsymmap.sats"
+//
 (* ****** ****** *)
 (* ====================================================================== *)
 (*                    FFI bindings (impl in the .cats)                     *)
@@ -249,6 +253,12 @@ end
     LSP_token_push
     ( l0: int, c0: int, l1: int, c1: int
     , ttype: int, tmods: int, defpath: string): void = $extnam() }
+//
+// WS-6: the prelude/global completion cache is filled by harvest_prelude_globals
+// (below) directly from the loaded pervasive name topmaps — these are its sinks.
+#extern fun LSP_prelude_sym_reset((*void*)): void = $extnam()
+#extern fun LSP_prelude_sym_push(name: string, kind: int): void = $extnam()
+#extern fun LSP_prelude_sym_done((*void*)): void = $extnam()
 //
 #implfun symbol_push(l0, c0, l1, c1, name, kind, container) =
   LSP_symbol_push(l0, c0, l1, c1, name, kind, container)
@@ -628,12 +638,93 @@ harvest_with_deps
 // reload load the prelude identically. the_ntime gates each loader: at startup
 // the gate is 0 -> loads; xglobal_reset() re-arms it to 0 -> loads AGAIN.
 //
+// WS-6: PRELUDE/GLOBAL symbol index, sourced from the LOADED pervasive NAME envs.
+// f0_pvsload (xglobal.dats) parses each prelude file ONCE, merges the declared
+// names into the_dexpenv/the_sexpenv (pvsmrgw -> their topmaps), then discards the
+// AST. So the names ARE retained — in the_dexpenv_pvstmap() : topmap(d2itm) and
+// the_sexpenv_pvstmap() : topmap(s2itm) — which we enumerate via topmap_strmize.
+// REUSES the parse the loader already did (no second parse), NO regex, NO compiler
+// change. the_dexpenv holds only pervasive names (user decls go to per-file
+// scopes), so it is prelude-only — no pollution. Runs at startup AND on each
+// reload (both call prelude_pvsload).
+//
+#typedef dkxs_t = @(sint, list(d2itm))
+#typedef skxs_t = @(sint, list(s2itm))
+//
+fun
+prelude_push_d2itm(itm: d2itm): void =
+(
+case+ itm of
+| D2ITMcst(cs) =>
+  ( case+ cs of
+    | list_cons(c, _) =>
+      LSP_prelude_sym_push(symbl_get_name(d2cst_get_name(c)),
+        (if typr_funq(d2cst_get_styp(c)) then 12(*Function*) else 14(*Constant*)))
+    | list_nil() => () )
+| D2ITMcon(cs) =>
+  ( case+ cs of
+    | list_cons(c, _) =>
+      LSP_prelude_sym_push(symbl_get_name(d2con_get_name(c)), 22(*EnumMember*))
+    | list_nil() => () )
+| D2ITMvar(v) =>
+  LSP_prelude_sym_push(symbl_get_name(d2var_get_name(v)), 13(*Variable*))
+| D2ITMsym(sym, _) =>
+  LSP_prelude_sym_push(symbl_get_name(sym), 12(*Function: overload set*))
+)
+//
+fun
+prelude_push_s2itm(itm: s2itm): void =
+(
+case+ itm of
+| S2ITMcst(cs) =>
+  ( case+ cs of
+    | list_cons(c, _) =>
+      LSP_prelude_sym_push(symbl_get_name(s2cst_get_name(c)), 11(*Interface*))
+    | list_nil() => () )
+| S2ITMvar(_) => ()
+| S2ITMenv(_) => ()
+)
+//
+fun
+prelude_push_d2itms(xs: list(d2itm)): void =
+( case+ xs of
+  | list_nil() => ()
+  | list_cons(x, xs) => (prelude_push_d2itm(x); prelude_push_d2itms(xs)) )
+fun
+prelude_push_s2itms(xs: list(s2itm)): void =
+( case+ xs of
+  | list_nil() => ()
+  | list_cons(x, xs) => (prelude_push_s2itm(x); prelude_push_s2itms(xs)) )
+//
+fun
+prelude_strm_dexp(kxss: strm_vt(dkxs_t)): void =
+( case+ !kxss of
+  | ~strmcon_vt_nil() => ()
+  | ~strmcon_vt_cons(kxs1, kxss) =>
+    (prelude_push_d2itms(kxs1.1); prelude_strm_dexp(kxss)) )
+fun
+prelude_strm_sexp(kxss: strm_vt(skxs_t)): void =
+( case+ !kxss of
+  | ~strmcon_vt_nil() => ()
+  | ~strmcon_vt_cons(kxs1, kxss) =>
+    (prelude_push_s2itms(kxs1.1); prelude_strm_sexp(kxss)) )
+//
+fun
+harvest_prelude_globals((*void*)): void = let
+  val () = LSP_prelude_sym_reset()
+  val () = prelude_strm_dexp(topmap_strmize(the_dexpenv_pvstmap()))
+  val () = prelude_strm_sexp(topmap_strmize(the_sexpenv_pvstmap()))
+in LSP_prelude_sym_done()
+end
+//
 fun
 prelude_pvsload((*void*)): void = let
   val _ = the_fxtyenv_pvsload()
   val _ = the_tr12env_pvsl00d()
   val () = xatsopt_flag$pvsadd0("--_XATSOPT_")
   val () = xatsopt_flag$pvsadd0("--_SRCGEN2_XATSOPT_")
+  // WS-6: (re)build the prelude/global completion index from the loaded env.
+  val () = harvest_prelude_globals()
 in (*nothing*) end
 //
 // prelude_take_snapshot: record the prelude / $XATSHOME file stamps now cached in

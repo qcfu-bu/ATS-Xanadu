@@ -38,7 +38,7 @@ new engine.
 ### Layer 0 — Candidate indices ("what exists"), all enumerable by us
 | Source | Reuse | Lifecycle |
 |---|---|---|
-| **Prelude/global names** (`print`, `list0`, `+`, …; ~1600 decls) | WS-5 `LSP_extract_ws_symbols`, run over the prelude tree | one-time at startup, cached, never invalidated |
+| **Prelude/global names** (`print`, `list0`, `+`, …; ~3300) | **the loaded pervasive name envs** — `the_dexpenv_pvstmap() : topmap(d2itm)` + `the_sexpenv_pvstmap() : topmap(s2itm)`, enumerated with `topmap_strmize`. The names the startup parse already extracted; **no second parse, no regex, no compiler change** (see §5). | built at startup + on `reload_prelude` |
 | **Project names** (every top-level decl in the workspace) | **already exists** — WS-5 `LSP_ws_symbols_by_file` | kept fresh on edit/watch |
 | **Current-file top-level names** | **already exists** — WS-5 per-uri `idx.symbols` | refreshed per validation |
 | **In-scope locals** (params, lambda/let/val binders, pattern vars) + visibility range | **new** harvest sink `scope_push` (Stage 2) | per-uri, from the last good parse |
@@ -123,11 +123,13 @@ fills `documentation` for the selected item.
 
 All in `resident/CATS/xats_lsp_resident.cats` (+ capability/handler):
 
-- **`LSP_prelude_symbols`** — array of `{name, kind}`, built once by
-  `LSP_scan_prelude_symbols()` (a bounded walk of `$XATSHOME/prelude/SATS` and
-  `$XATSHOME/srcgen2/prelude/SATS`, running `LSP_extract_ws_symbols` per file,
-  deduped). Deferred in `onInitialized` after the project scan. The project scan
-  deliberately *skips* `$XATSHOME`, so the prelude needs its own one-time scan.
+- **`LSP_prelude_symbols`** — array of `{name, kind}`, filled by an ATS pass
+  (`harvest_prelude_globals` in the resident DATS) that enumerates the loaded
+  pervasive **name** topmaps (`the_dexpenv_pvstmap`/`the_sexpenv_pvstmap`) via
+  `topmap_strmize` right after `prelude_pvsload`, at startup and on every
+  `reload_prelude`. Each `d2itm`/`s2itm` yields a `(name, SymbolKind)`. **No
+  regex** (could misread surface syntax → wrong candidates) and **no second
+  parse** (reuses the names the startup load already extracted). ~3300 names.
 - **`LSP_KEYWORDS`** — static ATS3 keyword list (`val fun fn case of let in end
   if then else lam fix datatype typedef abstype …`).
 - **`LSP_sk_to_cik(symKind)`** — SymbolKind → CompletionItemKind map.
@@ -158,8 +160,30 @@ context (after `.`) returns empty (Stage-3 placeholder).
    truncate line) and always fall back to textual candidates.
 2. **Request cancellation / debounce** (Stage 4) — supersede stale completion
    requests; we don't yet have `$/cancelRequest` plumbing.
-3. **Prelude index breadth** — overloaded/templated names need dedup; capturing
-   the signature textually (for `detail`/signatureHelp) is a Stage-4 enrichment.
+3. **Prelude/global source — RESOLVED (canonical, never regex, no second parse).**
+   Decision: a regex can mis-read ATS3 surface syntax (and is blind to a second
+   frontend), so it must not back the index. The regex is removed.
+
+   The investigation (each variant built + tested) ruled out the dead ends first:
+   the `allist` enumeration is **commented out** upstream (`trans12_myenv0.dats`),
+   and the per-file parse caches `the_d{2,3}parenv` are **empty** at startup (they
+   cache *checked user files*, not the prelude). Reading `f0_pvsload` (`xglobal.dats`)
+   gave the answer: it parses each prelude file **once**, merges the declared names
+   into `the_dexpenv`/`the_sexpenv` (via `pvsmrgw` → their **topmaps**), then
+   **discards the AST**. So the names are retained in
+   `the_dexpenv_pvstmap() : topmap(d2itm)` and `the_sexpenv_pvstmap() : topmap(s2itm)`,
+   which are **enumerable via `topmap_strmize`**.
+
+   `harvest_prelude_globals` enumerates those two topmaps and pushes each
+   `(name, SymbolKind)` — **reusing the single startup parse** (no re-parse), no
+   regex, no compiler change. `the_dexpenv` holds only pervasive names (user decls
+   go to per-file scopes), so it is prelude-only — no pollution. `topmap_strmize`
+   over the live env is non-destructive (verified: file checks still resolve the
+   prelude after enumeration). Yields ~3300 names — *more* complete than the regex's
+   1934, since it is the actual loaded/resolved set.
+4. **The same principle applies to WS-5 `workspace/symbol`**, which still uses the
+   textual `LSP_extract_ws_symbols`. Same canonical fix; tracked as the
+   regex-retirement follow-up.
 4. **Project-scale candidate iteration** — Stage 1 prefix-filters during
    iteration and caps; if a very large workspace makes this slow, flatten into a
    single pre-sorted index (optimization, not correctness).

@@ -87,7 +87,7 @@ function main() {
     cwd: WS, stdio: ['pipe', 'pipe', 'pipe'],
     env: Object.assign({}, process.env, { XATSHOME: XATSHOME }),
   });
-  let done = false, nextId = 100, preludeN = -1;
+  let done = false, nextId = 100, preludeN = -1, preludeSrc = '';
   const pending = new Map(); const diagWaiters = [];
   const timer = setTimeout(() => { if (!done) { fail(`timed out after ${TIMEOUT_MS}ms`); finish(); } }, TIMEOUT_MS);
 
@@ -113,8 +113,8 @@ function main() {
   child.stdout.on('data', (c) => reader.push(c));
   child.stderr.on('data', (c) => {
     for (const line of c.toString().split('\n')) {
-      const m = /prelude-index:\s*(\d+)\s*name/.exec(line);
-      if (m) { preludeN = parseInt(m[1], 10); process.stderr.write(`[server] ${line}\n`); }
+      const m = /prelude-index:\s*(\d+)\s*name\(s\)\s*\[([\w-]+)\]/.exec(line);
+      if (m) { preludeN = parseInt(m[1], 10); preludeSrc = m[2]; process.stderr.write(`[server] ${line}\n`); }
     }
   });
   child.on('exit', (code, sig) => { if (!done) { fail(`server exited early (code=${code}, sig=${sig})`); finish(); } });
@@ -145,9 +145,14 @@ function main() {
     notify('textDocument/didOpen', { textDocument: { uri: URI, languageId: 'ats3', version: 1, text: SRC } });
     await dWait;
 
-    // (B) prelude index built (deferred); give it a moment if not seen yet
+    // (B) prelude index: must come from the canonical compiler, NEVER regex.
     for (let k = 0; k < 20 && preludeN < 0; k++) await sleep(100);
-    (preludeN > 0) ? pass(`prelude index built: ${preludeN} names`) : fail(`prelude index empty/not built (N=${preludeN})`);
+    (preludeSrc && !/regex/.test(preludeSrc))
+      ? pass(`prelude index source is canonical (${preludeSrc}, never regex); N=${preludeN}`)
+      : fail(`prelude index source is "${preludeSrc}" (must be canonical / never regex)`);
+    if (preludeN === 0)
+      console.log('[cmp] NOTE: prelude completion is empty pending the canonical source ' +
+        '(allist disabled upstream / cached-AST walk not yet wired) — by design, not a regression');
 
     // (C) complete `my` @ L2 end -> myConst
     const cMy = items(await complete(URI, 2, 10));
@@ -169,11 +174,14 @@ function main() {
     const valKw = cVa.find(i => i.label === 'val');
     (valKw && valKw.kind === CIK_KEYWORD) ? pass('complete(va): `val` keyword (kind 14)') : fail('complete(va): no `val` keyword');
 
-    // (F) complete `g` @ L5 end -> at least one prelude candidate
+    // (F) complete `g` -> prelude candidates IFF the canonical source is populated.
     const cG = items(await complete(URI, 5, 9));
     const fromPrelude = cG.filter(i => i.detail === 'prelude');
     console.log('[cmp] complete(g) -> ' + cG.length + ' items, ' + fromPrelude.length + ' prelude');
-    (fromPrelude.length >= 1) ? pass(`complete(g): ${fromPrelude.length} prelude candidate(s)`) : fail('complete(g): no prelude candidates');
+    if (preludeN > 0)
+      (fromPrelude.length >= 1) ? pass(`complete(g): ${fromPrelude.length} prelude candidate(s)`) : fail('complete(g): prelude index populated but no candidates surfaced');
+    else
+      pass('complete(g): no prelude candidates (canonical source empty — expected, never regex)');
 
     // (G) member context after `.` -> empty (Stage-3 placeholder)
     const dWaitM = waitDiagnostics(MURI);

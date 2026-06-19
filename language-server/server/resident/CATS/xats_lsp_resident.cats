@@ -431,56 +431,30 @@ function LSP_build_workspace_symbols(query) {
 ////////////////////////////////////////////////////////////////////////.
 // ---- WS-6 (completion): prelude index + keywords + kind map ---------- //
 //
-// The project scan deliberately SKIPS $XATSHOME, but completion wants the
-// prelude/global names (print, list0, +, …). So we textually scan the prelude
-// tree ONCE at startup into a flat {name, kind} list (deduped). Immutable — never
-// invalidated. Same extractor as workspace symbols (now multi-line-aware).
-let LSP_prelude_symbols = [];          // [{ name, kind }]
-let LSP_prelude_scanned = false;
-const LSP_PRELUDE_SCAN_CAP =
-  parseInt(process.env.ATS3_PRELUDE_SCAN_CAP || '2000', 10);
-function LSP_scan_prelude_dir(root, seenName, out, budget) {
-  const stack = [root];
-  while (stack.length > 0) {
-    if (out.length >= LSP_PRELUDE_SCAN_CAP || budget.files <= 0) break;
-    const dir = stack.pop();
-    let ents;
-    try { ents = LSP_fs.readdirSync(dir, { withFileTypes: true }); }
-    catch (e) { continue; }
-    for (const ent of ents) {
-      if (ent.name.startsWith('.') || ent.name === 'node_modules') continue;
-      const full = LSP_path.join(dir, ent.name);
-      if (ent.isDirectory()) { stack.push(full); continue; }
-      if (!ent.isFile() || !LSP_PROJ_SRC_RE.test(ent.name)) continue;
-      if (budget.files <= 0) break;
-      budget.files--;
-      let text;
-      try { text = LSP_fs.readFileSync(full, 'utf8'); } catch (e) { continue; }
-      for (const s of LSP_extract_ws_symbols(text)) {
-        if (seenName.has(s.name)) continue;     // first decl of a name wins
-        seenName.add(s.name);
-        out.push({ name: s.name, kind: s.kind });
-        if (out.length >= LSP_PRELUDE_SCAN_CAP) return;
-      }
-    }
-  }
+// The prelude/global names (print, list0, +, …) come from the LOADED pervasive
+// env — the authoritative symbol table the ATS side enumerates via
+// the_dexpenv_allist()/the_sexpenv_allist() (xglobal.sats) right after pvsload,
+// at startup AND on each in-process prelude reload. The ATS pass pushes each
+// (name, SymbolKind) here. This is exact (no regex), frontend-agnostic (level-2
+// entities), parse-free, and invalidated exactly when the prelude reloads —
+// rare for non-compiler-developers, so the cost is amortized away.
+let LSP_prelude_symbols = [];          // [{ name, kind }]  (filled by the ATS pass)
+let LSP_prelude_seen = new Set();
+function LSP_prelude_sym_reset() {     // ATS: start of a (re)build
+  LSP_prelude_symbols = []; LSP_prelude_seen = new Set();
 }
-function LSP_scan_prelude_symbols() {
-  if (LSP_prelude_scanned) return;
-  LSP_prelude_scanned = true;
-  const home = LSP_norm(process.env.XATSHOME || "");
-  if (home === "") return;
-  const out = [], seenName = new Set();
-  const budget = { files: 600 };               // bound total files scanned
-  for (const sub of ['prelude', LSP_path.join('srcgen2', 'prelude')]) {
-    const root = LSP_path.join(home, sub);
-    try { if (LSP_fs.existsSync(root)) LSP_scan_prelude_dir(root, seenName, out, budget); }
-    catch (e) {}
-  }
-  LSP_prelude_symbols = out;
+function LSP_prelude_sym_push(name, kind) {
+  const nm = String(name);
+  if (nm === "" || LSP_prelude_seen.has(nm)) return;   // first binding of a name wins
+  LSP_prelude_seen.add(nm);
+  LSP_prelude_symbols.push({ name: nm, kind: kind | 0 });
+}
+function LSP_prelude_sym_done() {       // ATS: end of a (re)build
+  // NO regex: sourced from the loaded pervasive name envs (the_dexpenv/sexpenv) —
+  // the names the loader already extracted from the parsed prelude.
   try {
     process.stderr.write('[xats-lsp-resident] prelude-index: ' +
-      out.length + ' name(s)\n');
+      LSP_prelude_symbols.length + ' name(s) [env]\n');
   } catch (e) {}
 }
 //
@@ -1666,11 +1640,9 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
         catch (e) { LSP_log('project scan threw: ' + (e && e.stack ? e.stack : e)); }
       });
     }
-    // WS-6: build the prelude/global completion index once, off the event loop.
-    setImmediate(() => {
-      try { LSP_scan_prelude_symbols(); }
-      catch (e) { LSP_log('prelude scan threw: ' + (e && e.stack ? e.stack : e)); }
-    });
+    // WS-6: the prelude/global completion index is built by the ATS side from the
+    // loaded pervasive env (the_dexpenv/sexpenv allist) inside prelude_pvsload —
+    // at startup and on each reload — so there is nothing to scan here.
   });
 
   LSP_documents.onDidOpen(change => { textValidator(change.document); });
