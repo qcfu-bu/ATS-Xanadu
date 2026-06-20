@@ -257,15 +257,15 @@ end
 // WS-6: the prelude/global completion cache is filled by harvest_prelude_globals
 // (below) directly from the loaded pervasive name topmaps — these are its sinks.
 #extern fun LSP_prelude_sym_reset((*void*)): void = $extnam()
-#extern fun LSP_prelude_sym_push(name: string, kind: int): void = $extnam()
+#extern fun LSP_prelude_sym_push(name: string, kind: int, typ: string): void = $extnam()
 #extern fun LSP_prelude_sym_done((*void*)): void = $extnam()
 //
-#implfun symbol_push(l0, c0, l1, c1, name, kind, container) =
-  LSP_symbol_push(l0, c0, l1, c1, name, kind, container)
+#implfun symbol_push(l0, c0, l1, c1, name, kind, container, typ) =
+  LSP_symbol_push(l0, c0, l1, c1, name, kind, container, typ)
   where { #extern fun
     LSP_symbol_push
     ( l0: int, c0: int, l1: int, c1: int
-    , name: string, kind: int, container: string): void = $extnam() }
+    , name: string, kind: int, container: string, typ: string): void = $extnam() }
 //
 #implfun inlay_push(line, col, label, kind) =
   LSP_inlay_push(line, col, label, kind)
@@ -673,17 +673,20 @@ case+ itm of
   ( case+ cs of
     | list_cons(c, _) =>
       LSP_prelude_sym_push(symbl_get_name(d2cst_get_name(c)),
-        (if typr_funq(d2cst_get_styp(c)) then 12(*Function*) else 14(*Constant*)))
+        (if typr_funq(d2cst_get_styp(c)) then 12(*Function*) else 14(*Constant*)),
+        typ_pretty(d2cst_get_styp(c)))
     | list_nil() => () )
 | D2ITMcon(cs) =>
   ( case+ cs of
     | list_cons(c, _) =>
-      LSP_prelude_sym_push(symbl_get_name(d2con_get_name(c)), 22(*EnumMember*))
+      LSP_prelude_sym_push(symbl_get_name(d2con_get_name(c)), 22(*EnumMember*),
+        typ_pretty(d2con_get_styp(c)))
     | list_nil() => () )
 | D2ITMvar(v) =>
-  LSP_prelude_sym_push(symbl_get_name(d2var_get_name(v)), 13(*Variable*))
+  LSP_prelude_sym_push(symbl_get_name(d2var_get_name(v)), 13(*Variable*),
+    typ_pretty(d2var_get_styp(v)))
 | D2ITMsym(sym, _) =>
-  LSP_prelude_sym_push(symbl_get_name(sym), 12(*Function: overload set*))
+  LSP_prelude_sym_push(symbl_get_name(sym), 12(*Function: overload set*), "")
 )
 //
 fun
@@ -693,7 +696,7 @@ case+ itm of
 | S2ITMcst(cs) =>
   ( case+ cs of
     | list_cons(c, _) =>
-      LSP_prelude_sym_push(symbl_get_name(s2cst_get_name(c)), 11(*Interface*))
+      LSP_prelude_sym_push(symbl_get_name(s2cst_get_name(c)), 11(*Interface*), "")
     | list_nil() => () )
 | S2ITMvar(_) => ()
 | S2ITMenv(_) => ()

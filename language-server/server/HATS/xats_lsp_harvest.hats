@@ -458,14 +458,14 @@ emit_dcon_enum_tokens
 //
 fun
 emit_symbol
-(loc: loctn, name: string, kind: int, container: string): void =
+(loc: loctn, name: string, kind: int, container: string, typ: string): void =
 if loc_realq(loc) then
 if loc_in_topfile(loc) then let
   val pb = loc.pbeg()
   val pe = loc.pend()
 in
   if strn_nilq(name) then () else
-  symbol_push(pb.nrow(), pb.ncol(), pe.nrow(), pe.ncol(), name, kind, container)
+  symbol_push(pb.nrow(), pb.ncol(), pe.nrow(), pe.ncol(), name, kind, container, typ)
 end
 //
 // emit an inlay hint ": <type>" at the END of a bound variable's name loctn,
@@ -1102,7 +1102,8 @@ walk_d2fundclist (dfs: d2fundclist): void =
 fun
 emit_symbol_scst1
 (s2c: s2cst, kind: int): void =
-  emit_symbol(s2cst_get_lctn(s2c), symbl_get_name(s2cst_get_name(s2c)), kind, "")
+  // a static-type constant (datatype/typedef/abstype): no value-type to show.
+  emit_symbol(s2cst_get_lctn(s2c), symbl_get_name(s2cst_get_name(s2c)), kind, "", "")
 //
 fun
 emit_symbol_funs
@@ -1111,7 +1112,8 @@ emit_symbol_funs
   | list_nil() => ()
   | list_cons(c, rest) =>
     ( emit_symbol(d2cst_get_lctn(c),
-                  symbl_get_name(d2cst_get_name(c)), SK_FUNCTION, "")
+                  symbl_get_name(d2cst_get_name(c)), SK_FUNCTION, "",
+                  typ_pretty(d2cst_get_styp(c)))
     ; emit_symbol_funs(rest) ) )
 //
 fun
@@ -1121,7 +1123,8 @@ emit_symbol_dcons
   | list_nil() => ()
   | list_cons(c, rest) =>
     ( emit_symbol(d2con_get_lctn(c),
-                  symbl_get_name(d2con_get_name(c)), kind, container)
+                  symbl_get_name(d2con_get_name(c)), kind, container,
+                  typ_pretty(d2con_get_styp(c)))
     ; emit_symbol_dcons(rest, kind, container) ) )
 //
 fun
@@ -1140,7 +1143,8 @@ emit_symbols_for_valpat
 (
 case+ d3p.node() of
 | D3Pvar(v) =>
-  emit_symbol(d3p.lctn(), symbl_get_name(d2var_get_name(v)), SK_CONSTANT, "")
+  emit_symbol(d3p.lctn(), symbl_get_name(d2var_get_name(v)), SK_CONSTANT, "",
+              typ_pretty(d2var_get_styp(v)))
 | D3Pannot(p, _, _) => emit_symbols_for_valpat(p)
 | D3Ptup0(_, ps) => emit_symbols_for_valpatlst(ps)
 | D3Ptup1(_, _, ps) => emit_symbols_for_valpatlst(ps)

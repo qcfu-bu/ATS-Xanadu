@@ -171,6 +171,7 @@ function main() {
     const cAdd = items(await complete(URI, 3, 12));
     const addN = cAdd.find(i => i.label === 'addNumbers');
     (addN && addN.kind === CIK_FUNCTION) ? pass('complete(addN): addNumbers (Function)') : fail('complete(addN): no addNumbers/Function');
+    (addN && /->/.test(addN.detail || '')) ? pass(`complete(addN): detail shows the type (${addN.detail})`) : fail(`complete(addN): detail not a type (${addN && addN.detail})`);
     (addN && addN.textEdit && addN.textEdit.range &&
        addN.textEdit.range.start.line === 3 && addN.textEdit.range.start.character === 8 &&
        addN.textEdit.range.end.character === 12)
@@ -183,12 +184,16 @@ function main() {
 
     // (F) complete `g` -> prelude candidates IFF the canonical source is populated.
     const cG = items(await complete(URI, 5, 9));
-    const fromPrelude = cG.filter(i => i.detail === 'prelude');
+    const fromPrelude = cG.filter(i => (i.sortText || '').charAt(0) === '3');   // tier 3 = prelude
     console.log('[cmp] complete(g) -> ' + cG.length + ' items, ' + fromPrelude.length + ' prelude');
     if (preludeN > 0)
       (fromPrelude.length >= 1) ? pass(`complete(g): ${fromPrelude.length} prelude candidate(s)`) : fail('complete(g): prelude index populated but no candidates surfaced');
     else
       pass('complete(g): no prelude candidates (canonical source empty — expected, never regex)');
+    // prelude functions carry their type in the detail box too
+    const pTyped = fromPrelude.filter(i => i.detail && i.detail !== 'prelude' && /[-:>(]/.test(i.detail));
+    if (preludeN > 0)
+      (pTyped.length >= 1) ? pass(`prelude completions show types (e.g. ${pTyped[0].label}: ${pTyped[0].detail})`) : fail('no prelude completion shows a type');
 
     // (G) member context after `.` -> empty (Stage-3 placeholder)
     const dWaitM = waitDiagnostics(MURI);

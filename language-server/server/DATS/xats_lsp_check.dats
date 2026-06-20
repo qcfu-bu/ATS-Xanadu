@@ -107,7 +107,7 @@ LSPCHK_def_push
 #extern fun
 LSPCHK_symbol_push
 ( l0: sint, c0: sint, l1: sint, c1: sint
-, name: strn, kind: sint, container: strn): void = $extnam()
+, name: strn, kind: sint, container: strn, typ: strn): void = $extnam()
 //
 // WS-5 inlay hint: position (end of bound name) + label (": T") + kind.
 #extern fun
@@ -250,8 +250,8 @@ def_push
 fun
 symbol_push
 ( l0: int, c0: int, l1: int, c1: int
-, name: string, kind: int, container: string): void =
-  LSPCHK_symbol_push(l0, c0, l1, c1, name, kind, container)
+, name: string, kind: int, container: string, typ: string): void =
+  LSPCHK_symbol_push(l0, c0, l1, c1, name, kind, container, typ)
 //
 fun
 inlay_push

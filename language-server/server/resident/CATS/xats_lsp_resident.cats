@@ -414,11 +414,11 @@ let LSP_prelude_seen = new Set();
 function LSP_prelude_sym_reset() {     // ATS: start of a (re)build
   LSP_prelude_symbols = []; LSP_prelude_seen = new Set();
 }
-function LSP_prelude_sym_push(name, kind) {
+function LSP_prelude_sym_push(name, kind, typ) {
   const nm = String(name);
   if (nm === "" || LSP_prelude_seen.has(nm)) return;   // first binding of a name wins
   LSP_prelude_seen.add(nm);
-  LSP_prelude_symbols.push({ name: nm, kind: kind | 0 });
+  LSP_prelude_symbols.push({ name: nm, kind: kind | 0, typ: String(typ || "") });
 }
 function LSP_prelude_sym_done() {       // ATS: end of a (re)build
   // NO regex: sourced from the loaded pervasive name envs (the_dexpenv/sexpenv) —
@@ -894,13 +894,13 @@ function LSP_token_push(l0, c0, l1, c1, ttype, tmods, defpath) {
 // WS-5 DOCUMENT SYMBOL push. The name range is ALWAYS in the file being checked
 // -> current-file UTF-16 converter. (l0,c0..l1,c1) byte coords; kind is an LSP
 // SymbolKind index; container is "" for a top-level symbol.
-function LSP_symbol_push(l0, c0, l1, c1, name, kind, container) {
+function LSP_symbol_push(l0, c0, l1, c1, name, kind, container, typ) {
   if (l0 < 0 || c0 < 0) return;
   const nm = String(name);
   if (nm === "") return;
   LSP_cur_symbols.push({
     l0: l0|0, c0: LSP_cur_b2u(l0, c0), l1: l1|0, c1: LSP_cur_b2u(l1, c1),
-    name: nm, kind: kind|0, container: String(container || "")
+    name: nm, kind: kind|0, container: String(container || ""), typ: String(typ || "")
   });
 }
 //
@@ -1200,6 +1200,7 @@ function LSP_build_document_symbols(uri) {
   const syms = idx.symbols || [];
   const made = syms.map(s => ({
     name: s.name, kind: s.kind | 0,
+    detail: s.typ || "",                 // the signature, shown in the outline
     range:          LSP_jsrange(s.l0, s.c0, s.l1, s.c1),
     selectionRange: LSP_jsrange(s.l0, s.c0, s.l1, s.c1),
     children: []
@@ -1374,9 +1375,9 @@ function LSP_build_completion(uri, position) {
     add(s.name, 13 /*Variable*/, '0', s.typ ? s.typ : 'local');
     if (items.length >= CAP) break;
   }
-  // 1: current-file top-level symbols
+  // 1: current-file top-level symbols (detail = the inferred type/signature)
   if (idx && idx.symbols) for (const s of idx.symbols) {
-    add(s.name, s.kind, '1', 'this file');
+    add(s.name, s.kind, '1', s.typ || 'this file');
     if (items.length >= CAP) break;
   }
   // 2: project symbols — AST-accurate document symbols of OTHER files: open
@@ -1384,17 +1385,17 @@ function LSP_build_completion(uri, position) {
   if (items.length < CAP) for (const [u2, idx2] of LSP_index) {
     if (u2 === uri) continue;                        // current file is tier 1
     const syms = (idx2 && idx2.symbols) || [];
-    for (const s of syms) { add(s.name, s.kind, '2', 'project'); if (items.length >= CAP) break; }
+    for (const s of syms) { add(s.name, s.kind, '2', s.typ || 'project'); if (items.length >= CAP) break; }
     if (items.length >= CAP) break;
   }
   if (items.length < CAP) for (const [, rec] of LSP_proj_symbols) {
     if (!rec || rec.uri === uri || LSP_index.has(rec.uri)) continue;  // open buffer wins
-    for (const s of rec.symbols || []) { add(s.name, s.kind, '2', 'project'); if (items.length >= CAP) break; }
+    for (const s of rec.symbols || []) { add(s.name, s.kind, '2', s.typ || 'project'); if (items.length >= CAP) break; }
     if (items.length >= CAP) break;
   }
-  // 3: prelude / global names
+  // 3: prelude / global names (detail = the type/signature)
   if (items.length < CAP) for (const s of LSP_prelude_symbols) {
-    add(s.name, s.kind, '3', 'prelude'); if (items.length >= CAP) break;
+    add(s.name, s.kind, '3', s.typ || 'prelude'); if (items.length >= CAP) break;
   }
   // 4: keywords
   if (items.length < CAP) for (const kw of LSP_KEYWORDS) {

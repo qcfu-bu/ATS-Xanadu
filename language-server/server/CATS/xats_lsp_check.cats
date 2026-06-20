@@ -213,13 +213,13 @@ function LSPCHK_def_push(ul0, uc0, ul1, uc1,
 //
 // One symbol per top-level declaration name: 0-based name range + SymbolKind +
 // container ("" for top-level; non-empty would nest it as a child).
-function LSPCHK_symbol_push(l0, c0, l1, c1, name, kind, container) {
+function LSPCHK_symbol_push(l0, c0, l1, c1, name, kind, container, typ) {
   if ((l0|0) < 0 || (c0|0) < 0) return;
   const nm = String(name);
   if (nm === "") return;
   LSPCHK_symbols.push({
     l0: l0|0, c0: c0|0, l1: l1|0, c1: c1|0,
-    name: nm, kind: kind|0, container: String(container || "")
+    name: nm, kind: kind|0, container: String(container || ""), typ: String(typ || "")
   });
 }
 // One inlay per inferred val-binding: position (end of the bound name) + label
@@ -415,7 +415,8 @@ function LSPCHK_json_finish(uri, nerror, jsonout) {
       kind: s.kind,
       range:          LSPCHK_jsrange(s.l0, s.c0, s.l1, s.c1),
       selectionRange: LSPCHK_jsrange(s.l0, s.c0, s.l1, s.c1),
-      container: s.container
+      container: s.container,
+      type: s.typ
     };
   });
   const inlays = LSPCHK_dedup_inlays(LSPCHK_inlays).map(function (h) {

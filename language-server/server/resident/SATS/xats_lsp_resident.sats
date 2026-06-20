@@ -185,7 +185,7 @@ fun token_push
 //
 fun symbol_push
   ( l0: int, c0: int, l1: int, c1: int
-  , name: string, kind: int, container: string) : void
+  , name: string, kind: int, container: string, typ: string) : void
 //
 // WS-5 INLAY HINT push: one row per inferred val-binding — the 0-based byte
 // position (end of the bound name), the label ("\: <type>"), and the
