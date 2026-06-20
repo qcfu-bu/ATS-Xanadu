@@ -57,30 +57,85 @@
 // derives the name via dconid_sym, which accepts only T_IDALP/T_IDSYM. ctag = list index `i`
 // (assigned for CODEGEN; harmless for typecheck).
 //
+// `tqas` is the con's universal quantifier (M5b.3b): list_nil() for a MONOMORPHIC enum, or
+// list_sing(t2qag(loc, s2vs)) for a PARAMETRIC enum (the params are quantified PER-con, in the
+// d2con's `tqas` field — NOT inside the con sexp). `self` is the con's result type: the bare
+// s2exp_cst(s2c) (monomorphic) or s2exp_apps(s2exp_cst(s2c), [params]) (parametric). The con
+// ARG types lower via pylower_typlst either way — a bare param `A` resolves to its in-scope
+// s2var through resolve_typ's S2ITMvar arm (no special-casing here).
+//
 fun
-lower_datacon(env: !tr12env, self: s2exp, i: int, dc: pcdatacon): d2con =
+lower_datacon(env: !tr12env, self: s2exp, tqas: t2qaglst, i: int, dc: pcdatacon): d2con =
 (
 case+ dc of
 | PCDataCon(cloc, cname, argtyps) => let
-    val argSexps = pylower_typlst(env, argtyps)  // aliases Int -> the_s2exp_sint0, etc.
+    val argSexps = pylower_typlst(env, argtyps)  // aliases Int -> the_s2exp_sint0, params -> s2var
     val conSexp = s2exp_fun1_nil0((-1)(*npf*), argSexps, self)
     val tok = token_make_node(cloc, T_IDALP(cname))
-    val con = d2con_make_idtp(tok, list_nil()(*tqas*), conSexp)
+    val con = d2con_make_idtp(tok, tqas, conSexp)
     val () = d2con_set_ctag(con, i)
   in
     con
   end
 )
 //
-// lower the whole con list, threading the 0-based index.
+// lower the whole con list, threading the 0-based index. `tqas` is shared by all cons.
 fun
-lower_dataconlst(env: !tr12env, self: s2exp, i: int, dcs: list(pcdatacon)): list(d2con) =
+lower_dataconlst(env: !tr12env, self: s2exp, tqas: t2qaglst, i: int, dcs: list(pcdatacon)): list(d2con) =
 (
 case+ dcs of
 | list_nil() => list_nil()
 | list_cons(dc, rest) =>
-    let val con = lower_datacon(env, self, i, dc)
-    in list_cons(con, lower_dataconlst(env, self, i + 1, rest)) end
+    let val con = lower_datacon(env, self, tqas, i, dc)
+    in list_cons(con, lower_dataconlst(env, self, tqas, i + 1, rest)) end
+)
+//
+// ---- M5b.3b parametric-generics helpers (SPIKE-PROVEN, LOWERING-MAP §3.3c) ------------------
+//
+// create one s2var (of sort `type`) per surface type-param name, in order. These are BOTH the
+// params bound into scope (so a con arg type / record field `A` resolves to s2exp_var) AND the
+// vars the result type is applied to + the con/alias is quantified over.
+//
+fun
+mk_param_s2vars(tvs: list(strn)): s2varlst =
+(
+case+ tvs of
+| list_nil() => list_nil()
+| list_cons(tv, rest) =>
+    let val s2v = s2var_make_idst(symbl_make_name(tv), the_sort2_type)
+    in list_cons(s2v, mk_param_s2vars(rest)) end
+)
+//
+// push the param s2vars into the current lam-scope so they resolve while we elaborate con arg
+// types / record fields (mirrors trans12's f1_s2vs). Caller brackets with pshlam0/poplam0.
+//
+fun
+bind_param_s2vars(env: !tr12env, s2vs: s2varlst): void =
+(
+case+ s2vs of
+| list_nil() => ()
+| list_cons(s2v, rest) =>
+    let val () = tr12env_add0_s2var(env, s2v) in bind_param_s2vars(env, rest) end
+)
+//
+// one `the_sort2_type` per param (the arg-sort list for the type's FUNCTION sort S2Tfun1).
+//
+fun
+mk_type_sorts(tvs: list(strn)): sort2lst =
+(
+case+ tvs of
+| list_nil() => list_nil()
+| list_cons(_, rest) => list_cons(the_sort2_type, mk_type_sorts(rest))
+)
+//
+// the list of s2exp_var(s2v) (the type-constructor's params, for s2exp_apps on the result type).
+//
+fun
+param_s2exps(s2vs: s2varlst): s2explst =
+(
+case+ s2vs of
+| list_nil() => list_nil()
+| list_cons(s2v, rest) => list_cons(s2exp_var(s2v), param_s2exps(rest))
 )
 //
 (* ****** ****** *)
@@ -140,16 +195,39 @@ case+ d of
 // (3) the type's own s2exp. (4) build the cons (con-function types, ctags = list index).
 // (5) wire the cons onto the s2cst + register them in the env. (6) the D2Cdatatype decl — its
 // FIRST field is a level-1 d1ecl, VESTIGIAL for typecheck, so d1ecl_none0(loc) is safe.
-| PCCdata(loc, name, tvs, dcs) => let
+| PCCdata(loc, name, tvs, dcs) =>
+  if list_nilq(tvs) then let
+    // ---- MONOMORPHIC enum (tvs empty): the M5b.3 path, BYTE-IDENTICAL behavior. ------------
     val s2c = s2cst_make_idst(loc, symbl_make_name(name), the_sort2_tbox)
     val () = tr12env_add1_s2cst(env, s2c)               // register the TYPE first (recursion)
     val s2e_self = s2exp_cst(s2c)                        // the datatype's own s2exp
-    // NOTE: monomorphic only — a non-empty `tvs` (parametric enum) is NOT bound here; making
-    // `Tree[A]` typecheck needs s2var-bound params during con elaboration (M5b.3b). We still
-    // build the type (no crash), but the cons reference `s2e_self` un-applied.
     // NB: do NOT name this `cons` — that collides with the prelude list-constructor overload
     // symbol and the args resolve to it instead of the local.
-    val d2cs = lower_dataconlst(env, s2e_self, 0, dcs)
+    val d2cs = lower_dataconlst(env, s2e_self, list_nil()(*tqas*), 0, dcs)
+    val () = s2cst_set_d2cs(s2c, d2cs)                  // wire cons onto the type
+    val () = tr12env_add1_d2conlst(env, d2cs)           // register the cons in the env
+  in
+    d2ecl_make_node(loc, D2Cdatatype(d1ecl_none0(loc), list_sing(s2c)))
+  end
+  else let
+    // ---- PARAMETRIC enum (tvs non-empty): M5b.3b, SPIKE-PROVEN (LOWERING-MAP §3.3c). -------
+    // (1) one s2var per param; the type's sort is a FUNCTION sort (type)->...->tbox (arity N).
+    val s2vs   = mk_param_s2vars(tvs)
+    val s2t    = S2Tfun1(mk_type_sorts(tvs), the_sort2_tbox)
+    val s2c    = s2cst_make_idst(loc, symbl_make_name(name), s2t)
+    val () = tr12env_add1_s2cst(env, s2c)               // register the TYPE first (recursion)
+    // (2) push a param lam-scope + bind the s2vars BEFORE building the cons (so an arg type `A`
+    //     — and a self-recursive arg `Tree[A]` — resolves to its s2var / the registered s2cst).
+    val () = tr12env_pshlam0(env)
+    val () = bind_param_s2vars(env, s2vs)
+    // (3) the con RESULT type is the s2cst APPLIED to the params: `Name(A, B, ...)`.
+    val s2e_self = s2exp_apps(loc, s2exp_cst(s2c), param_s2exps(s2vs))
+    // (5) the universal quantifier {A,B,...} lives in the d2con's `tqas` field (per-con), shared.
+    val tqas = list_sing(t2qag(loc, s2vs)) : t2qaglst
+    // (4) con ARG types lower normally (a bare param resolves via resolve_typ's S2ITMvar arm).
+    val d2cs = lower_dataconlst(env, s2e_self, tqas, 0, dcs)
+    // pop the param scope now that the cons are fully elaborated (mirrors the spike's ordering).
+    val () = tr12env_poplam0(env)
     val () = s2cst_set_d2cs(s2c, d2cs)                  // wire cons onto the type
     val () = tr12env_add1_d2conlst(env, d2cs)           // register the cons in the env
   in
@@ -163,8 +241,24 @@ case+ d of
 // M5c parametric aliases — it does NOT crash; we just build the alias without binding params).
 // Decl-ordering works: the module driver threads `env` left-to-right, so an alias declared
 // before its use registers first.
-| PCCalias(loc, name, _tvs, typ) => let
+| PCCalias(loc, name, tvs, typ) =>
+  if list_nilq(tvs) then let
+    // ---- MONOMORPHIC alias/struct (tvs empty): the M5b.4/.5 path, BYTE-IDENTICAL behavior. --
     val rhs = pylower_typ(env, typ)
+  in
+    build_sexpdef(env, loc, name, rhs)
+  end
+  else let
+    // ---- PARAMETRIC alias (tvs non-empty): M5b.3b, SPIKE-PROVEN (LOWERING-MAP §3.3c, P2). ---
+    // Build the params as s2vars in a lam-scope, lower the RHS referencing them (a bare param
+    // `A` / a field `A` resolves via resolve_typ's S2ITMvar arm), wrap once in s2exp_lam1(s2vs,
+    // body). build_sexpdef's rhs.sort() then auto-derives the (type)->...->tbox arrow sort.
+    val s2vs = mk_param_s2vars(tvs)
+    val () = tr12env_pshlam0(env)
+    val () = bind_param_s2vars(env, s2vs)
+    val body = pylower_typ(env, typ)
+    val () = tr12env_poplam0(env)
+    val rhs = s2exp_lam1(s2vs, body)
   in
     build_sexpdef(env, loc, name, rhs)
   end
