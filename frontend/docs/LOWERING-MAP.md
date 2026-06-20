@@ -197,21 +197,60 @@ For the Pythonic skin, a non-generic `def f` binds `f` as a `d2var` (mirroring
 `trans12`); only generic `def f[a]…` produces a `d2cst` registered with
 `tr12env_add1_d2cst`.
 
-### 3.3 `d2con` + datatype types
+### 3.3 `d2con` + datatype types (SPIKE-PROVEN, M5b 2026-06-20)
 
-A datatype decl creates the type constant and its constructors:
+The M5b gating spike (`frontend/build-m5b-spike.sh`) hand-built `enum Opt { Nothing,
+Just(Int) }` + a `match` over it directly at L2 and typechecked it to `nerror=0`. The
+**verified** recipe `pylower` must mirror:
 
 ```
-val s2c   = s2cst_make_idst(loc, symbl_make_name "Foo", the_sort2_type)   // the type
-val d2con = d2con_make_idtp(conTok, tqas, conSexp)                        // each constructor
-val ()    = d2con_set_ctag(d2con, tag)                                    // tag like trans12
-val ()    = tr12env_add1_d2con(env, d2con)                               // register so uses resolve
+// --- the type constructor (sort: tbox boxed | vtbx linear-viewtype; §5.7.1) ---
+val s2c = s2cst_make_idst(loc, symbl_make_name "Opt", the_sort2_tbox)
+val ()  = tr12env_add1_s2cst(env, s2c)            // register the TYPE FIRST (recursion)
+// --- each data constructor ---
+val opt   = s2exp_cst(s2c)                         // the datatype's own s2exp
+val int_  = (* resolve "the_s2exp_sint0" via tr12env_find_s2itm — the M5a Int alias *)
+// con sexp is ALWAYS a con-FUNCTION type (args -> result), even nullary:
+val nothing = d2con_make_idtp(T_IDALP "Nothing", list_nil(), s2exp_fun1_nil0((-1), list_nil(),   opt))  // () -> Opt
+val just    = d2con_make_idtp(T_IDALP "Just",    list_nil(), s2exp_fun1_nil0((-1), list_sing int_, opt)) // (Int) -> Opt
+val () = d2con_set_ctag(nothing, 0)               // list index; CODEGEN only, not typecheck
+val () = d2con_set_ctag(just, 1)
+val () = s2cst_set_d2cs(s2c, list_cons(nothing, list_sing just))   // wire cons onto the type
+val () = tr12env_add1_d2conlst(env, list_cons(nothing, list_sing just))   // register cons
+val decl = d2ecl(loc, D2Cdatatype(d1ecl_none0(loc), list_sing s2c))       // d1ecl = DUMMY
 ```
 
-Mirror `trans12_decl00.dats` datatype handling for the ordering: make the type
-`s2cst`(s) first, then process the constructor body (which creates the `d2con`s),
-then finalize. Constructor patterns/uses then resolve via `tr12env_find_d2itm` →
-`D2ITMcon`.
+Load-bearing facts (each cost the spike a debugging cycle):
+- **`D2Cdatatype`'s `d1ecl` field is VESTIGIAL for typecheck.** trans23 `f0_datatype`
+  (`trans23_decl00.dats:802`) destructures `D2Cdatatype(d1cl, s2cs)` but reads **neither**
+  field — it wraps the whole decl in `D3Cd2ecl`. So `d1ecl_none0(loc)` is a safe dummy.
+  (Needs `#staload` of `dynexp1.sats` for `d1ecl_none0`, which `libxatsopt.hats` omits.)
+- **Con sexp shape:** `s2exp_fun1_nil0(npf, farg, result)` (`staexp2.sats:764`) — a
+  con-function type. Nullary ⇒ `farg = nil` (`() -> T`); n-ary ⇒ `farg = [argtypes]`. Same
+  maker for both. The datatype's own type is `s2exp_cst(s2c)`.
+- **Con-name token MUST be `T_IDALP`** (not `T_IDENT`/`T_DEISYM`) — `d2con_make_idtp` derives
+  the name via `dconid_sym`, which only accepts `T_IDALP`/`T_IDSYM` (`dynexp2.dats:522`).
+- **ctags** (`d2con_set_ctag`, = list index) are assigned at trans12 time for CODEGEN; not
+  needed for typecheck, but M5b must set them so later codegen works.
+- Registration ORDER (recursion-safe): create+register the type `s2cst` BEFORE elaborating
+  constructor arg types, then build+register the `d2con`s, then `s2cst_set_d2cs`. Mirrors
+  `trans12_decl00.dats:3122-3173` (`f0_datatype`).
+
+**Constructor PATTERN gotcha (the pl_pat fix M5b REQUIRES — see open bug):** a **nullary**
+con pattern must be wrapped in `D2Pdap0`, NOT a bare `d2pat_con`:
+```
+nullary  Nothing      →  d2pat_dap0(loc, d2pat_con(loc, con))           // D2Pdap0(con)
+n-ary    Just(x)      →  d2pat_make_node(loc, D2Pdapp(d2pat_con(loc,con), (-1), [argpats]))
+```
+A bare `d2pat_con` for a nullary con is typed as the raw `() -> T` con-FUNCTION type and
+fails to unify with the scrutinee `T`. trans2a's `f0_dap0` (`trans2a_dynexp.dats:920`)
+rewrites `D2Pdap0(con)` → `dapp(con, -1, [])`, applying the con-function to zero args to
+yield the **result** type `T`. The stock `my_d2pat_con` (`trans12_dynexp.dats:232`) ALWAYS
+wraps in `dap0` — mirror that. `frontend/DATS/pylower_dynexp.dats:316` (`pl_pat` `PCPcon`
+nullary arm) currently returns a bare `d2pat_con` — a latent bug, dormant only because no
+nullary con pattern has ever been *typechecked* (M16 for-loops take the list_foldleft fast
+path, never `iter_done`; M4 match tests use no datatype ctors). M5b's first `enum` match
+hits it. Constructor patterns/uses resolve via `tr12env_find_d2itm` → `D2ITMcon`.
 
 ### 3.4 Operators & precedence
 

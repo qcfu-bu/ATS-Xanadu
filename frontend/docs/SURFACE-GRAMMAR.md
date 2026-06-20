@@ -360,14 +360,45 @@ SORT       ::= UIDENT                                 (* Type, VType, Prop, View
 - **Type parameters are UPPERCASE** (`[A]`, `[A: VType @unboxed]`) — Rust-style,
   resolved as a parameter vs a type constructor by scope (§5 convention).
 - **Decorators** apply both as a **prefix** to a whole declaration (its representation
-  kind) and **inline** on a type parameter (that parameter's sort/representation). The
-  surface accepts an **open vocabulary** of `@name` decorators and `Sort` names; the
-  exact set and their mapping to ATS sorts / datatype flavors (`datavtype`,
-  unboxed/flat, `prop`, …) is pinned in **M5** (LOWERING-MAP §1.4). Default (no
-  decorator) = boxed, unrestricted.
+  kind) and **inline** on a type parameter (that parameter's sort/representation).
+  Default (no decorator) = boxed, unrestricted.
 - `case` is reused (as in `match`) for constructor lines — unambiguous by context
   (inside an `enum:` suite it introduces a constructor; inside a `match:` suite it
   introduces a pattern arm).
+
+#### 5.7.1 Confirmed L2 mapping (M5b — pinned 2026-06-20, grounded in srcgen2 recon)
+
+The decorator/sort vocabulary maps onto the **real** ATS3-Xanadu L2 constructs (cited
+from `srcgen2/`; see the M5b recon in LOWERING-MAP §1.4). This **closes** the earlier
+"open vocabulary, pinned at M5" note.
+
+| Surface | L2 target | sort / kind |
+|---|---|---|
+| `enum E` | `D2Cdatatype` + `s2cst_make_idst` + `d2con_make_idtp` per `case` | `the_sort2_tbox` (boxed) |
+| `@viewtype enum E` | same, linear datatype flavor | `the_sort2_vtbx` (boxed linear) |
+| `@boxed enum E` | same as bare `enum` (explicit default) | `the_sort2_tbox` |
+| `@unboxed enum E` | **accepted, lowered as boxed** — decorator NOT honored for enums in v1 (no stock unboxed-datatype primitive); intentional, documented limitation | `the_sort2_tbox` |
+| `struct S` | `D2Csexpdef` binding `S` → `S2Etrcd(TRCDbox0, …)` (record-type alias) | boxed record |
+| `@viewtype struct S` | `S2Etrcd(TRCDbox1, …)` | boxed linear record |
+| `@unboxed struct S` | `S2Etrcd(TRCDflt0, …)` | flat record |
+| `type T = …` | `D2Csexpdef(s2cst, s2exp)` | (sort of the RHS) |
+| sort `Type` | `the_sort2_type` / `the_sort2_tbox` | boxed type |
+| sort `VType` | `the_sort2_vwtp` | linear (box-or-flat) |
+| sort `Prop` | `the_sort2_prop` | proof |
+| param `@unboxed` on a `Type` param | `the_sort2_tflt` | flat type |
+| param `@unboxed` on a `VType` param | `the_sort2_vtft` | flat linear |
+| un-annotated param (`[A]`) | default sort | `the_sort2_type` (boxed) |
+
+Notes: (1) the user's canonical example `@viewtype enum Tree[A: VType @unboxed]` is fully
+supported — `@viewtype`→`vtbx`, `A: VType @unboxed`→`vtft`. (2) `@unboxed enum` is the
+**only** decorator that is accepted-but-not-honored in v1 (lowered boxed); when the
+compiler gains an unboxed-datatype primitive it wires through with no surface change.
+(3) `struct` = a **record-type alias** (not a single-constructor datatype): construction
+is a record literal, field access is projection — no synthesized constructor name.
+(4) **M5b implementation gate:** `D2Cdatatype`'s first field is a level-1 `d1ecl`, which
+the direct-L2 frontend does not produce — resolved by the M5b spike (synthesize a minimal
+`d1ecl`, or confirm the field is vestigial for typecheck/codegen). `struct`/`type` via
+`D2Csexpdef` carry no `d1ecl` and are lower-risk.
 
 **Examples.**
 ```
