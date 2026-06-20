@@ -28,10 +28,60 @@
 #staload "./../../srcgen2/SATS/locinfo.sats"
 #staload "./../../srcgen2/SATS/lexing0.sats"
 //
+// d1ecl_none0 (the VESTIGIAL first field of D2Cdatatype — trans23's f0_datatype binds but
+// never reads it; M5b-spike proven) lives in dynexp1.sats, which libxatsopt.hats does NOT
+// pull in (it staloads only staexp2/dynexp2). Staload it here for the datatype lowering.
+#staload "./../../srcgen2/SATS/dynexp1.sats"
+//
 #staload "./../SATS/pylexing.sats"
 #staload "./../SATS/pyparsing.sats"
 #staload "./../SATS/pycore.sats"
 #staload "./../SATS/pylower.sats"
+//
+(* ****** ****** *)
+//
+// ---- datatype (enum) lowering: PCCdata -> D2Cdatatype (M5b.3; SPIKE-PROVEN recipe,
+//      LOWERING-MAP §3.3). Mirrors trans12_d1tsc/trans12_d1tcn: register the TYPE first
+//      (so a con's own arg types + the matching function resolve it), then build each con
+//      as a con-FUNCTION type `(args) -> Self`, wire the cons onto the s2cst + the env.
+//
+// SCOPE: MONOMORPHIC enums only (the spike's scope) — `tvs` is EMPTY. A parametric enum
+// (`enum Tree[A]`, tvs non-empty) needs s2var-bound params during con elaboration; that is
+// a clean follow-up (M5b.3b). For THIS slice the monomorphic path is correct and a
+// parametric `tvs` does NOT crash (we just build the type without binding the params — it is
+// not required to typecheck). See M5b.3b.
+//
+// lower one data constructor at list index `i`. The con's sexp is ALWAYS a con-function type
+// `s2exp_fun1_nil0(npf, argSexps, self)` (nullary -> argSexps = nil -> `() -> Self`; n-ary ->
+// the lowered arg types -> `(Args) -> Self`). The name token MUST be T_IDALP — d2con_make_idtp
+// derives the name via dconid_sym, which accepts only T_IDALP/T_IDSYM. ctag = list index `i`
+// (assigned for CODEGEN; harmless for typecheck).
+//
+fun
+lower_datacon(env: !tr12env, self: s2exp, i: int, dc: pcdatacon): d2con =
+(
+case+ dc of
+| PCDataCon(cloc, cname, argtyps) => let
+    val argSexps = pylower_typlst(env, argtyps)  // aliases Int -> the_s2exp_sint0, etc.
+    val conSexp = s2exp_fun1_nil0((-1)(*npf*), argSexps, self)
+    val tok = token_make_node(cloc, T_IDALP(cname))
+    val con = d2con_make_idtp(tok, list_nil()(*tqas*), conSexp)
+    val () = d2con_set_ctag(con, i)
+  in
+    con
+  end
+)
+//
+// lower the whole con list, threading the 0-based index.
+fun
+lower_dataconlst(env: !tr12env, self: s2exp, i: int, dcs: list(pcdatacon)): list(d2con) =
+(
+case+ dcs of
+| list_nil() => list_nil()
+| list_cons(dc, rest) =>
+    let val con = lower_datacon(env, self, i, dc)
+    in list_cons(con, lower_dataconlst(env, self, i + 1, rest)) end
+)
 //
 (* ****** ****** *)
 //
@@ -61,8 +111,27 @@ case+ d of
 // pyrt staload (for flow/iterator names) is wired with the loop lowering in M4/M5.
 | PCCstaload(loc, _) => d2ecl_make_node(loc, D2Cnone0())
 //
-// a datatype -> deferred (M4/M5; constructor types need the dropped type layer too).
-| PCCdata(loc, _, _, _) => d2ecl_make_node(loc, D2Cnone0())
+// a datatype (enum) -> a real D2Cdatatype (M5b.3; SPIKE-PROVEN, see lower_datacon above).
+// (1) create the type s2cst (boxed datatype — the §5.7 default; decorators/sorts are a later
+// slice). (2) register the TYPE FIRST so a con's own arg types + the matcher resolve it.
+// (3) the type's own s2exp. (4) build the cons (con-function types, ctags = list index).
+// (5) wire the cons onto the s2cst + register them in the env. (6) the D2Cdatatype decl — its
+// FIRST field is a level-1 d1ecl, VESTIGIAL for typecheck, so d1ecl_none0(loc) is safe.
+| PCCdata(loc, name, tvs, dcs) => let
+    val s2c = s2cst_make_idst(loc, symbl_make_name(name), the_sort2_tbox)
+    val () = tr12env_add1_s2cst(env, s2c)               // register the TYPE first (recursion)
+    val s2e_self = s2exp_cst(s2c)                        // the datatype's own s2exp
+    // NOTE: monomorphic only — a non-empty `tvs` (parametric enum) is NOT bound here; making
+    // `Tree[A]` typecheck needs s2var-bound params during con elaboration (M5b.3b). We still
+    // build the type (no crash), but the cons reference `s2e_self` un-applied.
+    // NB: do NOT name this `cons` — that collides with the prelude list-constructor overload
+    // symbol and the args resolve to it instead of the local.
+    val d2cs = lower_dataconlst(env, s2e_self, 0, dcs)
+    val () = s2cst_set_d2cs(s2c, d2cs)                  // wire cons onto the type
+    val () = tr12env_add1_d2conlst(env, d2cs)           // register the cons in the env
+  in
+    d2ecl_make_node(loc, D2Cdatatype(d1ecl_none0(loc), list_sing(s2c)))
+  end
 //
 // an elaboration poison node -> a benign no-op (the diagnostic was already reported by the
 // elaborator; M3 surfaces it via the harness's diagnostics dump, never crashes).

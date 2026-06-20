@@ -313,7 +313,13 @@ case+ p of
       )
   in
     case+ args of
-    | list_nil() => phd
+    // NULLARY con pattern (e.g. `Nothing`, `Red`): MUST be wrapped in D2Pdap0 (#21, M5b-spike
+    // proven). A bare d2pat_con is typed as the raw `() -> T` con-FUNCTION type and fails to
+    // unify with the scrutinee `T`; trans2a's f0_dap0 rewrites D2Pdap0(con) -> dapp(con,-1,[]),
+    // applying the con-function to ZERO args to yield the RESULT type `T`. (Dormant until now —
+    // no nullary con pattern had ever been typechecked.) When `phd` is an unresolved D2Pnone0,
+    // the dap0 wrapper is benign (the node is already a poison placeholder).
+    | list_nil() => d2pat_make_node(loc, D2Pdap0(phd))
     | list_cons(_, _) =>
         let val dps = pl_patlst(env, args) in d2pat_make_node(loc, D2Pdapp(phd, (-1), dps)) end
   end
