@@ -518,6 +518,121 @@ emit_inlays_for_l3patlst
   | list_cons(D3LAB(_, p), lps) =>
     (emit_inlays_for_valpat(p); emit_inlays_for_l3patlst(lps)) )
 //
+(* ====================================================================== *)
+(*   SCOPE-AWARE LOCALS (WS-6 Stage 2): emit each local binder with the     *)
+(*   range over which it is VISIBLE (its enclosing body), so completion can *)
+(*   offer in-scope locals (ranked above globals). scope_push carries the   *)
+(*   visibility range + the binder name + its inferred type.                *)
+(* ====================================================================== *)
+//
+// emit one binder: visibility range (the enclosing body's loctn) + name + type.
+fun
+emit_scope_var
+(v: d2var, visloc: loctn): void =
+if loc_realq(visloc) then
+if loc_in_topfile(visloc) then let
+  val pb = visloc.pbeg()
+  val pe = visloc.pend()
+  val nm = symbl_get_name(d2var_get_name(v))
+in
+  if strn_nilq(nm) then () else
+  scope_push(pb.nrow(), pb.ncol(), pe.nrow(), pe.ncol(),
+             nm, typ_pretty(d2var_get_styp(v)))
+end
+//
+// walk a binding pattern, emitting each bound variable with the visibility range.
+fun
+emit_scope_pat
+(d3p: d3pat, visloc: loctn): void =
+(
+case+ d3p.node() of
+| D3Pvar(v) => emit_scope_var(v, visloc)
+| D3Pannot(p, _, _) => emit_scope_pat(p, visloc)
+| D3Ptup0(_, ps) => emit_scope_patlst(ps, visloc)
+| D3Ptup1(_, _, ps) => emit_scope_patlst(ps, visloc)
+| D3Prcd2(_, _, lps) => emit_scope_l3patlst(lps, visloc)
+| D3Pt2pck(p, _) => emit_scope_pat(p, visloc)
+| _ => ()
+)
+and
+emit_scope_patlst
+(ps: d3patlst, visloc: loctn): void =
+( case+ ps of
+  | list_nil() => ()
+  | list_cons(p, ps) => (emit_scope_pat(p, visloc); emit_scope_patlst(ps, visloc)) )
+and
+emit_scope_l3patlst
+(lps: l3d3plst, visloc: loctn): void =
+( case+ lps of
+  | list_nil() => ()
+  | list_cons(D3LAB(_, p), lps) =>
+    (emit_scope_pat(p, visloc); emit_scope_l3patlst(lps, visloc)) )
+//
+// lambda / fix PARAMS are visible in the body: emit each f3arg's patterns.
+fun
+emit_scope_farg
+(farg: f3arglst, visloc: loctn): void =
+( case+ farg of
+  | list_nil() => ()
+  | list_cons(a, farg) =>
+    ( ( case+ a.node() of
+        | F3ARGdapp(_, ps) => emit_scope_patlst(ps, visloc)
+        | _ => ((*static / metric args*)) )
+    ; emit_scope_farg(farg, visloc) ) )
+//
+// LET val-binders are visible in the body: emit each valdcl pattern's binders.
+fun
+emit_scope_dcls
+(dcls: d3eclist, visloc: loctn): void =
+( case+ dcls of
+  | list_nil() => ()
+  | list_cons(d, dcls) =>
+    ( ( case+ d.node() of
+        | D3Cvaldclst(_, dvs) => emit_scope_valdcls(dvs, visloc)
+        | _ => () )
+    ; emit_scope_dcls(dcls, visloc) ) )
+and
+emit_scope_valdcls
+(dvs: d3valdclist, visloc: loctn): void =
+( case+ dvs of
+  | list_nil() => ()
+  | list_cons(dv, dvs) =>
+    (emit_scope_pat(d3valdcl_get_dpat(dv), visloc); emit_scope_valdcls(dvs, visloc)) )
+//
+// D2-LEVEL params: when a function body is a half-typed/unbound partial (the real
+// live-completion case), trans23 drops the fundcl from the d3 tree but it survives
+// at d2 (reached via D3Cnone1 -> walk_d2ecl -> D2Cfundclst). So we also emit a
+// `fun`'s params from the d2 fundcl, with the fundcl's loctn as the visibility.
+fun
+emit_scope_d2pat
+(d2p: d2pat, visloc: loctn): void =
+(
+case+ d2p.node() of
+| D2Pvar(v) => emit_scope_var(v, visloc)
+| D2Pannot(p, _, _) => emit_scope_d2pat(p, visloc)
+| D2Ptup0(_, ps) => emit_scope_d2patlst(ps, visloc)
+| D2Ptup1(_, _, ps) => emit_scope_d2patlst(ps, visloc)
+| D2Pt2pck(p, _) => emit_scope_d2pat(p, visloc)
+| _ => ()
+)
+and
+emit_scope_d2patlst
+(ps: d2patlst, visloc: loctn): void =
+( case+ ps of
+  | list_nil() => ()
+  | list_cons(p, ps) => (emit_scope_d2pat(p, visloc); emit_scope_d2patlst(ps, visloc)) )
+//
+fun
+emit_scope_f2arg
+(farg: f2arglst, visloc: loctn): void =
+( case+ farg of
+  | list_nil() => ()
+  | list_cons(a, farg) =>
+    ( ( case+ a.node() of
+        | F2ARGdapp(_, ps) => emit_scope_d2patlst(ps, visloc)
+        | _ => ((*static / metric args*)) )
+    ; emit_scope_f2arg(farg, visloc) ) )
+//
 (* ****** ****** *)
 (* ====================================================================== *)
 (*       THE TRAVERSAL (find all errck; emit hover/def/token)              *)
@@ -573,7 +688,9 @@ case+ d3e0.node() of
 | D3Epcon(_, _, d3e1) => walk_d3exp(d3e1)
 | D3Eproj(_, _, d3e1) => walk_d3exp(d3e1)
 //
-| D3Elet0(dcls, d3e1) => (walk_d3eclist(dcls); walk_d3exp(d3e1))
+| D3Elet0(dcls, d3e1) =>
+  ( emit_scope_dcls(dcls, d3e1.lctn())   // let-binders visible in the body
+  ; walk_d3eclist(dcls); walk_d3exp(d3e1) )
 | D3Eift0(d3e1, dthn, dels) =>
   (walk_d3exp(d3e1); walk_d3expopt(dthn); walk_d3expopt(dels))
 | D3Ecas0(_, d3e1, dcls) => (walk_d3exp(d3e1); walk_d3clslst(dcls))
@@ -584,9 +701,11 @@ case+ d3e0.node() of
 | D3Ercd2(_, _, ld3es) => walk_l3d3elst(ld3es)
 //
 | D3Elam0(_, farg, _, _, d3e1) =>
-  (walk_f3arglst(farg); walk_d3exp(d3e1))
+  ( emit_scope_farg(farg, d3e1.lctn())   // lambda params visible in the body
+  ; walk_f3arglst(farg); walk_d3exp(d3e1) )
 | D3Efix0(_, _, farg, _, _, d3e1) =>
-  (walk_f3arglst(farg); walk_d3exp(d3e1))
+  ( emit_scope_farg(farg, d3e1.lctn())   // fix params visible in the body
+  ; walk_f3arglst(farg); walk_d3exp(d3e1) )
 | D3Etry0(_, d3e1, dcls) => (walk_d3exp(d3e1); walk_d3clslst(dcls))
 //
 | D3Eaddr(d3e1) => walk_d3exp(d3e1)
@@ -854,7 +973,13 @@ walk_d3fundclist (dfs: d3fundclist): void =
 ( case+ dfs of
   | list_nil() => ()
   | list_cons(df, dfs) =>
-    ( walk_teqd3exp(d3fundcl_get_tdxp(df))
+    ( // SCOPE: a `fun`'s params live on the fundcl (NOT a lambda in the body).
+      // Use the fundcl's OWN loctn as the visibility range: it spans the whole
+      // declaration (params + body), so params are still offered while the body is
+      // a half-typed/unbound partial — the real live-completion case (the body's
+      // own loctn is unreliable once the body errors).
+      emit_scope_farg(d3fundcl_get_farg(df), d3fundcl_get_lctn(df))
+    ; walk_teqd3exp(d3fundcl_get_tdxp(df))
     ; walk_d3fundclist(dfs) ) )
 and
 walk_d2explst (xs: d2explst): void =
@@ -902,7 +1027,8 @@ walk_d2fundclist (dfs: d2fundclist): void =
 ( case+ dfs of
   | list_nil() => ()
   | list_cons(df, dfs) =>
-    ( walk_teqd2exp(d2fundcl_get_tdxp(df))
+    ( emit_scope_f2arg(d2fundcl_get_farg(df), d2fundcl_get_lctn(df))  // d2 params
+    ; walk_teqd2exp(d2fundcl_get_tdxp(df))
     ; walk_d2fundclist(dfs) ) )
 //
 (* ****** ****** *)

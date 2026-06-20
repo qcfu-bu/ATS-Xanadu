@@ -273,6 +273,13 @@ end
     LSP_inlay_push
     ( line: int, col: int, label: string, kind: int): void = $extnam() }
 //
+#implfun scope_push(l0, c0, l1, c1, name, typ) =
+  LSP_scope_push(l0, c0, l1, c1, name, typ)
+  where { #extern fun
+    LSP_scope_push
+    ( l0: int, c0: int, l1: int, c1: int
+    , name: string, typ: string): void = $extnam() }
+//
 #implfun initialize(f, lv, g, h, e) =
   vscode_initialize(f, lv, g, h, e)
   where { #extern fun

@@ -113,7 +113,7 @@ fills `documentation` for the selected item.
 | Stage | Delivers | New code | Risk |
 |---|---|---|---|
 | **1 — Lexical core** *(implemented)* | identifier + keyword completion from prelude/project/current-file indices; context detection; `onCompletion` + capability | prelude scan, context detector, candidate assembler, handler (all `.cats`) | low — WS-5 reuse, **no re-parse** |
-| **2 — Scope-aware locals** | locals ranked above globals; binders the textual index misses | `scope_push` harvest sink + per-uri scope index | low-med — mirrors the WS-5 sink pattern |
+| **2 — Scope-aware locals** *(implemented)* | in-scope locals (params, let-binders) ranked above all globals; a local shadows a same-named global | `scope_push` harvest sink (binder + visibility range) emitted at fun/lambda/let scope-entry, at BOTH d3 and d2 (the d2 path keeps params available while the body is a half-typed/unbound partial — the real live-completion case) | done |
 | **3 — Semantic member/dot** | `record.field`, constructors-in-`case` via real receiver types | member context + hover-index/`s2cst_get_d2cs`/`T2Ptrcd` enumeration; munge fallback | low-med — **API confirmed**, read-only |
 | **4 — Polish** | `completionItem/resolve` lazy docs; snippets; signature `detail`; fuzzy ranking; trigger-char tuning; request cancellation | resolve handler, snippet templates | low |
 

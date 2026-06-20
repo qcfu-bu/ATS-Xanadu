@@ -780,6 +780,7 @@ let LSP_cur_defs    = [];
 let LSP_cur_tokens  = [];
 let LSP_cur_symbols = [];   // WS-5 document symbols (outline)
 let LSP_cur_inlays  = [];   // WS-5 inlay hints (inferred val types)
+let LSP_cur_scopes  = [];   // WS-6 Stage 2 scope-aware locals (binder + visibility)
 // uri -> { hovers:[{range,type,kind}], definitions:[{useRange,defUri,defRange,
 //          entity,[typeDefUri,typeDefRange]}] }
 const LSP_index = new Map();
@@ -895,6 +896,18 @@ function LSP_inlay_push(line, col, label, kind) {
   if (lbl === "") return;
   LSP_cur_inlays.push({
     line: line|0, char: LSP_cur_b2u(line, col), label: lbl, kind: kind|0
+  });
+}
+//
+// WS-6 Stage 2 SCOPE push. (l0,c0..l1,c1) is the binder's VISIBILITY range (its
+// enclosing body), always in the file being checked -> current-file converter.
+function LSP_scope_push(l0, c0, l1, c1, name, typ) {
+  if (l0 < 0 || c0 < 0) return;
+  const nm = String(name);
+  if (nm === "") return;
+  LSP_cur_scopes.push({
+    l0: l0|0, c0: LSP_cur_b2u(l0, c0), l1: l1|0, c1: LSP_cur_b2u(l1, c1),
+    name: nm, typ: String(typ || "")
   });
 }
 //
@@ -1128,6 +1141,17 @@ function LSP_dedup_inlays(hs) {
   }
   return out.sort((a, b) => (a.line - b.line) || (a.char - b.char));
 }
+function LSP_dedup_scopes(ss) {
+  const seen = new Set(); const out = [];
+  for (const s of ss) {
+    if (s.l0 < 0 || s.c0 < 0) continue;
+    const key = s.l0+":"+s.c0+":"+s.l1+":"+s.c1+":"+s.name+":"+s.typ;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(s);
+  }
+  return out;
+}
 //
 // textDocument/documentSymbol -> a hierarchical DocumentSymbol[]. v1 containers
 // are mostly "" (flat); a non-empty container nests the symbol under the
@@ -1268,38 +1292,47 @@ function LSP_build_completion(uri, position) {
   const CAP = 200;
   // src rank prefixes the sortText so better sources sort first.
   function add(name, symKind, src, detail) {
-    if (!name || seen.has(name)) return;
+    if (!name || seen.has(name)) return;             // first (highest tier) wins
     if (!LSP_starts_with_ci(name, word)) return;
     seen.add(name);
     items.push({
       label: name,
-      kind: (src === 'kw') ? 14 : LSP_sk_to_cik(symKind),   // 14 = Keyword
+      kind: (src === '4') ? 14 : LSP_sk_to_cik(symKind),   // 14 = Keyword
       detail: detail,
-      sortText: src + name,
+      sortText: src + name,                          // tier digit -> ranking
       textEdit: { range: range, newText: name },
       data: { src: src }
     });
   }
-  // 0: current-file top-level symbols (highest priority)
+  // 0: in-scope LOCALS (params, let-binders) whose visibility covers the cursor —
+  // highest priority; a local shadows a same-named global (seen-set dedup).
   const idx = LSP_index.get(uri);
+  if (idx && idx.scopes) for (const s of idx.scopes) {
+    if (!LSP_range_contains(
+          { start: { line: s.l0, character: s.c0 }, end: { line: s.l1, character: s.c1 } },
+          position)) continue;
+    add(s.name, 13 /*Variable*/, '0', s.typ ? s.typ : 'local');
+    if (items.length >= CAP) break;
+  }
+  // 1: current-file top-level symbols
   if (idx && idx.symbols) for (const s of idx.symbols) {
-    add(s.name, s.kind, '0', 'this file');
+    add(s.name, s.kind, '1', 'this file');
     if (items.length >= CAP) break;
   }
-  // 1: project symbols — AST-accurate document symbols of OTHER checked files
+  // 2: project symbols — AST-accurate document symbols of OTHER checked files
   if (items.length < CAP) for (const [u2, idx2] of LSP_index) {
-    if (u2 === uri) continue;                       // current file is tier 0
+    if (u2 === uri) continue;                        // current file is tier 1
     const syms = (idx2 && idx2.symbols) || [];
-    for (const s of syms) { add(s.name, s.kind, '1', 'project'); if (items.length >= CAP) break; }
+    for (const s of syms) { add(s.name, s.kind, '2', 'project'); if (items.length >= CAP) break; }
     if (items.length >= CAP) break;
   }
-  // 2: prelude / global names
+  // 3: prelude / global names
   if (items.length < CAP) for (const s of LSP_prelude_symbols) {
-    add(s.name, s.kind, '2', 'prelude'); if (items.length >= CAP) break;
+    add(s.name, s.kind, '3', 'prelude'); if (items.length >= CAP) break;
   }
-  // 3: keywords
+  // 4: keywords
   if (items.length < CAP) for (const kw of LSP_KEYWORDS) {
-    add(kw, 0, 'kw', 'keyword'); if (items.length >= CAP) break;
+    add(kw, 0, '4', 'keyword'); if (items.length >= CAP) break;
   }
   return { isIncomplete: true, items: items };
 }
@@ -1329,7 +1362,7 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
     const t0 = Date.now();
     // reset the per-check accumulators + remap context.
     LSP_cur_diags = []; LSP_cur_hovers = []; LSP_cur_defs = []; LSP_cur_tokens = [];
-    LSP_cur_symbols = []; LSP_cur_inlays = [];
+    LSP_cur_symbols = []; LSP_cur_inlays = []; LSP_cur_scopes = [];
     LSP_cur_uri = uri;
     LSP_cur_path = vscode_url_to_path(uri);
     LSP_cur_path_norm = LSP_norm(LSP_cur_path);
@@ -1365,7 +1398,8 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
       definitions: LSP_dedup_defs(LSP_cur_defs),
       semanticTokens: LSP_encode_tokens(LSP_cur_tokens),
       symbols: LSP_dedup_symbols(LSP_cur_symbols),
-      inlays: LSP_dedup_inlays(LSP_cur_inlays)
+      inlays: LSP_dedup_inlays(LSP_cur_inlays),
+      scopes: LSP_dedup_scopes(LSP_cur_scopes)
     });
     const lspDiags = validatorError
       ? [ vscode_diagnostic_make(

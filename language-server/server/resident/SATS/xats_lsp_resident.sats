@@ -194,6 +194,14 @@ fun symbol_push
 fun inlay_push
   ( line: int, col: int, label: string, kind: int) : void
 //
+// WS-6 Stage 2 SCOPE push: one row per local binder (fun/lambda param, let-val) —
+// the 0-based byte VISIBILITY range (its enclosing body), the binder name, and its
+// inferred type. Feeds scope-aware completion (locals ranked above globals).
+//
+fun scope_push
+  ( l0: int, c0: int, l1: int, c1: int
+  , name: string, typ: string) : void
+//
 (* ****** ****** *)
 //
 // the resident bootstrap entry: register the in-process validator + pruner

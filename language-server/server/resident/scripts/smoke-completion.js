@@ -46,6 +46,9 @@ const SRC = [
 ].join('\n');
 // member-context doc (after `.` -> Stage-1 returns empty).
 const MEMBER_SRC = 'val z = abc.fl\n';
+// Stage-2 locals doc: a fun param completed mid-typing inside its body — the body
+// is an UNBOUND partial (`valu`), the real live-completion scenario.
+const LOCALS_SRC = 'fun twice (value: int): int = valu\n';
 
 function encode(msg) {
   const payload = Buffer.from(JSON.stringify(msg), 'utf8');
@@ -76,11 +79,12 @@ function pass(m) { console.log(`[cmp] PASS: ${m}`); }
 const WS = fs.mkdtempSync(path.join(os.tmpdir(), 'ats3-cmp-'));
 const FILE = path.join(WS, 'cmp.dats'); const URI = 'file://' + FILE;
 const MFILE = path.join(WS, 'member.dats'); const MURI = 'file://' + MFILE;
+const LFILE = path.join(WS, 'locals.dats'); const LURI = 'file://' + LFILE;
 
 function items(res) { const r = res && res.result; return Array.isArray(r) ? r : (r && r.items) || []; }
 
 function main() {
-  fs.writeFileSync(FILE, SRC); fs.writeFileSync(MFILE, MEMBER_SRC);
+  fs.writeFileSync(FILE, SRC); fs.writeFileSync(MFILE, MEMBER_SRC); fs.writeFileSync(LFILE, LOCALS_SRC);
   if (!fs.existsSync(SERVER)) { fail(`server missing: ${SERVER}`); process.exit(1); }
 
   const child = spawn(process.execPath, [...NODE_ARGS, SERVER, '--stdio'], {
@@ -189,6 +193,21 @@ function main() {
     await dWaitM;
     const cMem = items(await complete(MURI, 0, 14));   // `val z = abc.fl` | cursor after `fl`
     (cMem.length === 0) ? pass('member context (after `.`) returns empty (Stage-3 deferred)') : fail(`member context returned ${cMem.length} items (expected 0)`);
+
+    // (H) Stage-2 in-scope LOCALS: a fun param completes inside its body.
+    const dWaitL = waitDiagnostics(LURI);
+    notify('textDocument/didOpen', { textDocument: { uri: LURI, languageId: 'ats3', version: 1, text: LOCALS_SRC } });
+    await dWaitL;
+    const bodyAt = LOCALS_SRC.indexOf('= ') + 2;       // start of the first `value`
+    const cLoc = items(await complete(LURI, 0, bodyAt + 4));   // cursor after `valu`
+    console.log('[cmp] complete(valu in body) -> ' + JSON.stringify(cLoc.slice(0, 6).map(i => i.label + ':' + i.kind + '/' + i.sortText)));
+    const valloc = cLoc.find(i => i.label === 'value');
+    (valloc && valloc.kind === 6)                      // 6 = Variable
+      ? pass('locals: `value` (param) offered in-scope as Variable')
+      : fail('locals: `value` not offered as in-scope Variable');
+    (valloc && /^0/.test(valloc.sortText || ''))       // tier 0 = locals (ranked first)
+      ? pass('locals: `value` ranked in the locals tier (sortText 0…)')
+      : fail('locals: `value` not ranked first (sortText=' + (valloc && valloc.sortText) + ')');
 
     finish();
   })().catch((e) => { fail('harness threw: ' + (e && e.stack ? e.stack : e)); finish(); });

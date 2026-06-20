@@ -260,6 +260,13 @@ token_push
 ( l0: int, c0: int, l1: int, c1: int
 , ttype: int, tmods: int, defpath: string): void = ()
 //
+// NO-OP scope sink: scope-aware locals (WS-6 Stage 2) are a completion-only
+// feature; the CLI checker drops them.
+fun
+scope_push
+( l0: int, c0: int, l1: int, c1: int
+, name: string, typ: string): void = ()
+//
 (* ****** ****** *)
 //
 // the SHARED harvest: source-filter (loc_fpath/lcsrc_fpath/loc_in_topfile/
