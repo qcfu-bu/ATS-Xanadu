@@ -146,7 +146,14 @@ pl_var(env: !tr12env, loc: loctn, sym: sym_t): d2exp = let
   val dopt = tr12env_find_d2itm(env, sym)
 in
   case+ dopt of
-  | ~optn_vt_nil() => d2exp_none0(loc)
+  // UNBOUND-NAME RECOVERY (#13a): emit the SAME node the stock trans12 emits — d2exp_none1(d1e0),
+  // where d1e0 = D1Eid0(sym) carries the unresolved id (trans12_dynexp.dats:2003 f0_id0_d1sym's
+  // else-branch). This is NOT a bare d2exp_none0: trans2a/trans23 have no D2Enone1 arm, so the node
+  // falls through to their `_(*otherwise*)` recovery (-> D2Enone2 -> D3Enone1), and tread3a's
+  // `_(*otherwise*)` COUNTS it (err+1) on the id's .py span (deliverable 4b). The old d2exp_none0
+  // got `void`-stamped by trans2a + the binder's fresh tyvar then unified the errck AWAY (the
+  // M4-recovery HARD LESSON); d2exp_none1 is immune to that because trans2a never rewrites it.
+  | ~optn_vt_nil() => d2exp_none1(d1exp_make_node(loc, D1Eid0(sym)))
   | ~optn_vt_cons(d2i) =>
     (
       case+ d2i of

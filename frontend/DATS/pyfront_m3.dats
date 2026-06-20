@@ -83,13 +83,36 @@ in
   d2parsed_make_args(stadyn, 0(*nerror*), src, t1penv, t2penv, optn_cons(d2cs))
 end
 //
-// M3-verified pipeline: d3parsed_of_trans23 IS the L2->L3 check; it internally drives the
-// overload/symbol resolution stage for the directly-constructed L2 nodes (same as the M0b /
-// spike drivers, which call it directly). The unbound-name recovery node (d2exp_none0 from
-// pl_var's nil arm) flows through to a D3Et2pck errck that tread3a counts (deliverable 4b).
+// #13a SPIKE: run the THREE L2 post-passes (overload resolution + symbol resolution + the L2
+// read/check) on our hand-built d2parsed BEFORE d3parsed_of_trans23 — mirroring the stock
+// file-path driver trans03_from_fpath (srcgen2/DATS/trans23.dats:87-92). d3parsed_of_trans23
+// itself does NOT run these (verified trans23.dats:104-137), so without them an operator
+// (`+ - * / == < ...`, which resolves to a D2ITMsym overload symbol) is NEVER resolved to a
+// concrete d2cst -> tread3a errcks -> operators FAIL typecheck. These passes do the resolution:
+//   d2parsed_of_trans2a  : OVERLOAD resolution (D2ITMsym -> concrete d2cst) + literal-type +
+//                          fresh-tyvar binders (trans12.sats:366; trans2a.dats)
+//   d2parsed_by_trsym2b  : symbol resolution, in place (trans12.sats:369; trsym2b.dats)
+//   d2parsed_of_t2read0  : the L2 read/check (t2read0.sats:162)
+// All three are already staloaded via libxatsopt.hats (trans12.sats + t2read0.sats) — no new
+// staload needed.
+//
+// 4b RECONCILIATION (the wrinkle): the STOCK trans12 emits `d2exp_none1(d1e0)` (D2Enone1) for an
+// unbound name (trans12_dynexp.dats:2003 f0_id0_d1sym), NOT a bare d2exp_none0. trans2a has NO
+// D2Enone1 arm -> it falls to `_(*otherwise*)` -> d2exp_none2 (trans2a_dynexp.dats:1352); trans23
+// likewise -> d3exp_none1 (trans23_dynexp.dats:1237); tread3a has no D3Enone1 arm -> its
+// `_(*otherwise*)` COUNTS it (err+1; tread3a_dynexp.dats:2077-2083). So the unbound-name errck
+// survives trans2a verbatim. Our pl_var was changed to emit d2exp_none1 too (was d2exp_none0,
+// which trans2a's f0_none0 stamps `void` + the fresh-tyvar binder then UNIFIES away the errck —
+// the M4-recovery HARD LESSON, now obsolete). See M13a-REPORT.
 #implfun
-pyfront_d3parsed_of_fpath(stadyn, src, text) =
-  d3parsed_of_trans23(pyfront_d2parsed_of_fpath(stadyn, src, text))
+pyfront_d3parsed_of_fpath(stadyn, src, text) = let
+  val dpar = pyfront_d2parsed_of_fpath(stadyn, src, text)
+  val dpar = d2parsed_of_trans2a(dpar)   // overload resolution (L2)  — trans03_from_fpath:89
+  val ( ) = d2parsed_by_trsym2b(dpar)    // symbol resolution (L2)    — trans03_from_fpath:90
+  val dpar = d2parsed_of_t2read0(dpar)   // L2 read/check             — trans03_from_fpath:92
+in
+  d3parsed_of_trans23(dpar)
+end
 //
 (* ****** ****** *)
 //
