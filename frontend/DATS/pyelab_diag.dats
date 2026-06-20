@@ -106,6 +106,7 @@ case+ d of
 | PCCval(_, _, e) => harv_exp(e, acc)
 | PCCdata(_, _, _, _) => acc
 | PCCstaload(_, _) => acc
+| PCCalias(_, _, _, _) => acc  // a type/struct alias carries only a surface type — no poison nodes.
 )
 //
 fun

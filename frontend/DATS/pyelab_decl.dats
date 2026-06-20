@@ -82,6 +82,20 @@ case+ dcs of
     list_cons(PCDataCon(loc, nm, ts), elab_datacons(rest))
 )
 //
+// M5b.4: a `struct` field `name: T` (pyfield) becomes a record-type field `name: T`
+// (pytfield), so a `struct` desugars to an alias to a record type `PyTrec([...])`.
+fun
+field_to_tfield(f: pyfield): pytfield =
+( case+ f of PyField(floc, fname, ftyp) => PyTField(floc, fname, ftyp) )
+//
+fun
+fields_to_tfields(fs: list(pyfield)): list(pytfield) =
+(
+case+ fs of
+| list_nil() => list_nil()
+| list_cons(f, rest) => list_cons(field_to_tfield(f), fields_to_tfields(rest))
+)
+//
 (* ****** ****** *)
 //
 // elaborate one surface decl into zero-or-one PyCore decls (a statement decl may produce a
@@ -105,13 +119,17 @@ case+ d of
     // §5.7 enum → a PyCore datatype. Decorators/sorts are IGNORED for now (boxed default);
     // M5b.6 wires the memory/representation modes through. tvs are the bare param names.
     list_sing(PCCdata(loc, nm, typaram_names(tps), elab_datacons(dcs)))
-| PyCstruct(loc, _decos, nm, _tps, _fields) =>
-    // STUB: M5b.4 adds the PyCore struct node + record-alias lowering. No regression test
-    // uses `struct`, and 2b's struct test is a PARSER golden (pre-elaboration), so emitting
-    // nothing here is correct for now.
-    list_nil()
-| PyCtype(loc, _decos, nm, _tps, _alias) =>
-    list_nil()   // type ALIAS: M3/lowering handles; no PyCore datatype node (same as old PyTDalias).
+| PyCstruct(loc, _decos, nm, tps, fields) =>
+    // §5.7.1 — a `struct` IS a record-type alias: desugar the field suite to a record type
+    // `PyTrec([name: T, ...])` and emit a PCCalias to it (M5b.4). Decorators IGNORED for now
+    // (boxed default; M5b.6 wires the memory/representation modes). tvs are the bare names.
+    let val tflds = fields_to_tfields(fields) in
+      list_sing(PCCalias(loc, nm, typaram_names(tps), PyTrec(loc, tflds)))
+    end
+| PyCtype(loc, _decos, nm, tps, aliasTyp) =>
+    // §5.7 — a `type X = T` alias -> a PCCalias (M5b.5). M3 lowers `T` via pylower_typ and
+    // builds the D2Csexpdef. tvs are monomorphic for now (a non-empty list is M5c).
+    list_sing(PCCalias(loc, nm, typaram_names(tps), aliasTyp))
 | PyCimport(loc, _) => list_nil()      // imports resolved by M3 staloads (v1).
 | PyCstmt(loc, s) => elab_module_stmt(s)
 | PyCerror(loc, msg) => list_sing(PCCerror(loc, msg))

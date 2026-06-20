@@ -119,6 +119,27 @@ end
 //
 (* ****** ****** *)
 //
+// M5b.4 — lower a record-type field suite `{ name: T, ... }` to an `l2s2elst` of label/s2exp
+// pairs (S2LAB(LABsym(name), <lowered T>)). The field type goes through the EXISTING
+// pylower_typ, so a primitive field (`x: Int`) inherits the M5a `resolve_typ` mitigation
+// (direct T2Pcst `the_s2exp_*0`, NOT the prelude sexpdef — the load-bearing hazard fix).
+//
+fun
+pylower_tfields(env: !tr12env, fs: list(pytfield)): l2s2elst =
+(
+case+ fs of
+| list_nil() => list_nil()
+| list_cons(PyTField(floc, fname, ftyp), rest) =>
+    let
+      val lab = LABsym(symbl_make_name(fname))
+      val s2e = pylower_typ(env, ftyp)
+    in
+      list_cons(S2LAB(lab, s2e), pylower_tfields(env, rest))
+    end
+)
+//
+(* ****** ****** *)
+//
 #implfun
 pylower_typ(env, t) =
 (
@@ -134,7 +155,10 @@ case+ t of
 | PyTidx(loc, _)    => s2exp_none0()  // dependent index — deferred (M4/M5)
 | PyTfun(loc, _, _) => s2exp_none0()  // function type — deferred (M4/M5)
 | PyTtup(loc, _)    => s2exp_none0()  // tuple type — deferred (M4/M5)
-| PyTrec(loc, _)    => s2exp_none0()  // record type — deferred (M4/M5)
+| PyTrec(loc, flds) =>                // M5b.4: a boxed (default) record type — S2Etrcd.
+    let val l2flds = pylower_tfields(env, flds) in
+      s2exp_make_node(the_sort2_tbox, S2Etrcd(TRCDbox0, (-1)(*npf*), l2flds))
+    end
 | PyTerror(loc, _)  => s2exp_none0()
 )
 //

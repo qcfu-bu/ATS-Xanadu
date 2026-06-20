@@ -249,6 +249,12 @@ pcfundcl =
 //              `PCCstaload("pyrt")` at the head of any module whose elaboration referenced
 //              the `flow`/iterator/fold machinery, so the desugared output `staload`s the
 //              prelude it depends on (LOOP-DESUGARING §9). M3 turns it into the L2 staload.
+//   PCCalias : a `type`/`struct` alias -> a D2Csexpdef (struct = record-type alias, §5.7.1).
+//              Carries the alias NAME, its type-param names (monomorphic for now — a non-empty
+//              list is M5c), and the aliased SURFACE type (`pytyp`). A surface `type X = T`
+//              keeps `T` directly; a `struct S: f: T ...` desugars to an alias to a record type
+//              `PyTrec([f: T, ...])`. M3 lowers the surface type via `pylower_typ` (inheriting
+//              the M5a primitive mitigation) and builds the `D2Csexpdef`.
 //   PCCerror : an elaboration-error placeholder at decl level (recovery).
 // ==================================================================
 //
@@ -258,6 +264,7 @@ pcdecl =
 | PCCfun     of (loctn, list(pcfundcl))
 | PCCval     of (loctn, pcpat, pcexp)
 | PCCstaload of (loctn, strn)
+| PCCalias   of (loctn, strn, list(strn), pytyp)
 | PCCerror   of (loctn, strn)
 //
 // a data constructor in a PyCore datatype: UIDENT + arg types (surface `pytyp`).

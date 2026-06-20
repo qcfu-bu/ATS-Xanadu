@@ -322,6 +322,10 @@ case+ d of
     pp_pat(out, p); ps(out, " = "); pp_exp(out, e, ind + 1); ps(out, ")") )
 | PCCstaload(loc, nm) =>
   (ps(out, "(staload "); ps(out, nm); print_span(out, loc); ps(out, ")"))
+| PCCalias(loc, nm, tvs, typ) =>
+  ( ps(out, "(alias "); ps(out, nm); print_span(out, loc);
+    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_strlst(out, tvs); ps(out, ")")) );
+    ps(out, " "); pp_typ(out, typ); ps(out, ")") )
 | PCCerror(loc, msg) =>
   (ps(out, "(Cerror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )

@@ -85,6 +85,29 @@ case+ dcs of
 //
 (* ****** ****** *)
 //
+// ---- type alias / struct lowering: PCCalias -> D2Csexpdef (M5b.4/.5; SPIKE-PROVEN,
+//      LOWERING-MAP §3.3b). A `type X = T` and a `struct S { f: T ... }` (= a record-type
+//      alias, §5.7.1) both collapse to ONE mechanism: a static type-definition `s2cst`.
+//
+// build a `D2Csexpdef` aliasing `name` to the already-lowered RHS s2exp `rhs`, register the
+// s2cst in the env (so later USES of the alias resolve + unfold to `rhs`), and return the
+// decl. Mirrors f0_sexpdef @ trans12_decl00.dats: the alias inherits the RHS's sort, its
+// `sexp` is the RHS, its `styp` the stpize'd (erased) form. `s2exp_stpize` comes from
+// statyp2.sats, which libxatsopt.hats already staloads.
+fun
+build_sexpdef(env: !tr12env, loc: loctn, name: strn, rhs: s2exp): d2ecl = let
+  val s2t  = rhs.sort()                 // the alias inherits the RHS's sort
+  val tdef = s2exp_stpize(rhs)          // the erased styp form (f0_sexpdef tdef)
+  val s2c  = s2cst_make_idst(loc, symbl_make_name(name), s2t)
+  val () = s2cst_set_sexp(s2c, rhs)
+  val () = s2cst_set_styp(s2c, tdef)
+  val () = tr12env_add1_s2cst(env, s2c)
+in
+  d2ecl_make_node(loc, D2Csexpdef(s2c, rhs))
+end
+//
+(* ****** ****** *)
+//
 #implfun
 pylower_decl(env, d) =
 (
@@ -131,6 +154,19 @@ case+ d of
     val () = tr12env_add1_d2conlst(env, d2cs)           // register the cons in the env
   in
     d2ecl_make_node(loc, D2Cdatatype(d1ecl_none0(loc), list_sing(s2c)))
+  end
+//
+// a `type`/`struct` alias -> a D2Csexpdef (M5b.4/.5; SPIKE-PROVEN, see build_sexpdef above).
+// Lower the surface RHS via pylower_typ (a primitive RHS/field inherits the M5a `resolve_typ`
+// mitigation — direct T2Pcst, NOT the prelude sexpdef — so the alias does not crash unify when
+// used), then build the sexpdef. MONOMORPHIC scope: `tvs` is ignored here (a non-empty list is
+// M5c parametric aliases — it does NOT crash; we just build the alias without binding params).
+// Decl-ordering works: the module driver threads `env` left-to-right, so an alias declared
+// before its use registers first.
+| PCCalias(loc, name, _tvs, typ) => let
+    val rhs = pylower_typ(env, typ)
+  in
+    build_sexpdef(env, loc, name, rhs)
   end
 //
 // an elaboration poison node -> a benign no-op (the diagnostic was already reported by the
