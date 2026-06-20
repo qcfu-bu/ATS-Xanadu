@@ -267,25 +267,55 @@ in
   PCEletfun(loc, list_sing(loopdcl), out_dispatch(loc, callinit, els, muts, mts, accs))
 end
 //
-// the fast-path value `while` (§10.1): no flow, no case.
+// the value `while` (value position: result tuple bound, then `kont` continues).
+//
+// TASK #18 FIX: route on the BODY's control-flow flags, NOT unconditionally through elab_pure.
+// A value-position `while` is reached ONLY when the enclosing function body has NO `return`
+// anywhere (el_func_body: any-return => flow mode), so `return` cannot occur in this body — but
+// `break`/`continue` (consumed by the loop itself) CAN. The old code ALWAYS used elab_pure, which
+// poisons a `break` to "break outside a loop" (elab_pure cannot express a break). The fix mirrors
+// the task-#14 for_value routing: a CONTROL-BEARING body (break/continue present) goes through
+// wh_flow + the outer flow dispatch; a CONTROL-PURE body keeps the §10.1 fast path (no flow, no
+// case) so the §10.1 invariant (m25_while_pure builds NO flow ctors) still holds.
 and
 wh_value(loc: loctn, cond: pyexp, body: list(pystmt), els: pystmtlstopt, muts: nameset, mts: muttypes, kont: pcexp): pcexp =
 let
   val assigned = nameset_union(assigned_stmts(body), assigned_else_w(els))
   val accs = nameset_inter(muts, assigned)
-  val selfcall = loop_call(loc, accs)
-  val body_threaded = elab_pure(body, muts, mts, selfcall)
-  val loop_body = PCEif(loc, elab_exp(cond), body_threaded, accs_tuple_exp(loc, accs))
-  // M5a: the loop accumulator params carry their `let mut x : T` annotations (typed loop).
-  val loopdcl = PCFundcl(el_dloc(), LOOPNAME, accs, accs_types(accs, mts), PyTypNone(), loop_body, true)
-  val callinit = PCEapp(loc, PCEvar(el_dloc(), LOOPNAME), list_sing(accs_tuple_exp(loc, accs)))
-  val after =
-    (case+ els of
-     | PyElseNone() => kont
-     | PyElseSome(ebody) => PCEseq(loc, elab_else(loc, ebody, muts, mts), kont))
+  val control_pure = ~control_any(flags_stmts(body))   // no break/continue/return in the body
 in
-  PCEletfun(loc, list_sing(loopdcl),
-    PCElet(loc, accs_tuple_pat(loc, accs), PyTypNone(), callinit, after))
+  if control_pure
+    then
+      // §10.1 fast path: no flow, no case — `if cond then <body;loop(TAIL)> else <accs>`.
+      let
+        val selfcall = loop_call(loc, accs)
+        val body_threaded = elab_pure(body, muts, mts, selfcall)
+        val loop_body = PCEif(loc, elab_exp(cond), body_threaded, accs_tuple_exp(loc, accs))
+        // M5a: the loop accumulator params carry their `let mut x : T` annotations (typed loop).
+        val loopdcl = PCFundcl(el_dloc(), LOOPNAME, accs, accs_types(accs, mts), PyTypNone(), loop_body, true)
+        val callinit = PCEapp(loc, PCEvar(el_dloc(), LOOPNAME), list_sing(accs_tuple_exp(loc, accs)))
+        val after =
+          (case+ els of
+           | PyElseNone() => kont
+           | PyElseSome(ebody) => PCEseq(loc, elab_else(loc, ebody, muts, mts), kont))
+      in
+        PCEletfun(loc, list_sing(loopdcl),
+          PCElet(loc, accs_tuple_pat(loc, accs), PyTypNone(), callinit, after))
+      end
+  else
+    // control-bearing: route through wh_flow (which, via out_dispatch, already runs the `else`
+    // correctly — once, on cond-false exit, skipped on break), then dispatch on the flow ctors.
+    // Every flow ctor maps to `kont`: the outer dispatch must NOT re-run elab_else. The break and
+    // return arms are dead in value position but required for the match — mirror out_dispatch's
+    // 3-arm shape (next/break/return); flow_cont is consumed inside the loop and never escapes.
+    let
+      val loopexp = wh_flow(loc, cond, body, els, muts, mts)
+      val a_next  = mk_arm_con("flow_next", accs, kont)
+      val a_break = mk_arm_con("flow_break", accs, kont)
+      val a_ret   = mk_arm_ret(kont)
+    in
+      PCEcase(loc, loopexp, list_cons(a_next, list_cons(a_break, list_sing(a_ret))))
+    end
 end
 //
 (* ****** ****** *)
@@ -390,13 +420,15 @@ in
         PCElet(loc, PCPvar(loc, accname), PyTypNone(), foldcall, kont)
       end
   else
+    // TASK #19 FIX: for_iter_loop (via out_dispatch) already runs the `else` exactly once on the
+    // no-break path; the OUTER dispatch must NOT run it again. The previous code used a `next_after`
+    // that re-ran elab_else on the flow_next arm, so a control-bearing for/while-`else` body
+    // executed TWICE on normal completion. Map every flow ctor to `kont` (no re-run of elab_else).
+    // The break/return arms are dead in value position but required for the match — mirror
+    // out_dispatch's 3-arm shape (next/break/return); flow_cont is consumed inside the loop.
     let
       val loopexp = for_iter_loop(loc, pat, iter, body, els, muts, mts, accs)
-      val next_after =
-        (case+ els of
-         | PyElseNone() => kont
-         | PyElseSome(ebody) => PCEseq(loc, elab_else(loc, ebody, muts, mts), kont))
-      val a_next  = mk_arm_con("flow_next", accs, next_after)
+      val a_next  = mk_arm_con("flow_next", accs, kont)
       val a_break = mk_arm_con("flow_break", accs, kont)
       val a_ret   = mk_arm_ret(kont)
     in
