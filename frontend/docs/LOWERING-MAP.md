@@ -280,6 +280,36 @@ in @(s2c, d2ecl_make_node(loc, D2Csexpdef(s2c, rhs))) end
   Lowering field/RHS types through the existing `resolve_typ` inherits the fix for free
   (probes A/B′/C3/C4 = `nerror=0`).
 
+### 3.3c Parametric generics — `Opt[A]`, `Tree[A]`, `Pair[A,B]` (SPIKE-PROVEN, M5b.3b)
+
+`frontend/build-m5b3b-spike.sh` proved parametric datatypes (P1) + aliases/records (P2)
+construct at L2 and typecheck instantiated (`Opt[Int]`, `Pair[Int,Int]`), with a negative
+control (`nerror=3` on wrong arity). Parametric is a SMALL, mechanical delta on the
+monomorphic recipes — allocate one `s2var` per type param, push them into scope while
+elaborating the con arg types / record fields, and quantify.
+
+**Datatype delta (vs §3.3) — 5 changes** (`tvs` = the param names):
+1. sort: `S2Tfun1(list of N `the_sort2_type`, the_sort2_tbox)` instead of bare `the_sort2_tbox`
+   (N = arity). `S2Tfun1` is a direct `sort2` ctor (no `_make_node`).
+2. one `s2var_make_idst(symbl_make_name tv, the_sort2_type)` per param; bracket the cons-build
+   in `tr12env_pshlam0` … `tr12env_add0_s2var(env, s2v)` … `tr12env_poplam0`.
+3. con RESULT type: `s2exp_apps(loc, s2exp_cst(s2c), [s2exp_var(s2v)…])` (was bare `s2exp_cst`).
+4. con ARG types: reference params via `s2exp_var(s2v)` — automatic, since `pylower_typ`'s
+   `resolve_typ` finds the in-scope s2var (`S2ITMvar`) for a bare `A`. Con sexp shape is
+   UNCHANGED (`s2exp_fun1_nil0(npf, args, result)`).
+5. the quantifier lives in the d2con's **`tqas`** field, NOT the sexp:
+   `tqas = list_sing(t2qag(loc, s2vs))` (`s2qag_make_s2vs`) passed to `d2con_make_idtp`. (Was
+   `list_nil()`.) Everything else (ctags, `s2cst_set_d2cs`, `tr12env_add1_d2conlst`,
+   `D2Cdatatype`, the `D2Pdap0` nullary-pattern wrap) is identical.
+
+**Alias/record delta (vs §3.3b) — 1 change:** build the params as s2vars in a `pshlam0` scope,
+build the body referencing them, then wrap once per param group in `s2exp_lam1(s2vs, body)`
+BEFORE `build_sexpdef` (its `rhs.sort()` then auto-derives the `(type)->…->tbox` arrow sort, and
+`s2exp_stpize` the styp). Instantiate at use via the existing `s2exp_apps` (`PyTcon` path).
+
+(Cited mechanics: `trans12_decl00.dats` `f0_tmas`:3580 sort, `f1_s2vs`:3603 params,
+`f1_sres`:3933 result, `f1_tqas`:4672 quantifier, `auxslam`/`s2exp_lam1`:1399 alias.)
+
 ### 3.4 Operators & precedence
 
 The Python parser **owns precedence** (Pratt) and emits *already-grouped*
