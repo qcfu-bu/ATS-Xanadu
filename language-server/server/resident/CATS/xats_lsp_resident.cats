@@ -1411,6 +1411,20 @@ const LSP_documents  = new LSP_ls.TextDocuments(LSP_text.TextDocument);
 //
 let LSP_hasConfigurationCapability = false;
 let LSP_hasWorkspaceFolderCapability = false;
+let LSP_hasSemanticRefresh = false;   // client supports workspace/semanticTokens/refresh
+// Ask the client to re-pull semantic tokens (its cache is stale after an async/
+// debounced check). No-op if the client did not advertise refresh support.
+function LSP_request_semantic_refresh() {
+  if (!LSP_hasSemanticRefresh) return;
+  try {
+    if (LSP_connection.languages && LSP_connection.languages.semanticTokens &&
+        typeof LSP_connection.languages.semanticTokens.refresh === 'function') {
+      LSP_connection.languages.semanticTokens.refresh();
+    } else {
+      LSP_connection.sendRequest('workspace/semanticTokens/refresh');
+    }
+  } catch (e) {}
+}
 let LSP_dependencies = new Map();
 // R2c: workspace roots captured at onInitialize, scanned at onInitialized.
 let LSP_pending_roots = [];
@@ -1480,6 +1494,11 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
             'ats3') ]
       : LSP_current_lsp_diagnostics();
     LSP_connection.sendDiagnostics({ uri: uri, diagnostics: lspDiags });
+    // SEMANTIC TOKENS were just (re)computed into the cache. The check is async /
+    // debounced, so a token request the client made during the debounce window got
+    // STALE tokens and would never re-fetch -> "highlighting doesn't update on
+    // edits". Tell the client to re-request now that the cache is fresh.
+    LSP_request_semantic_refresh();
     const dt = Date.now() - t0;
     const nstat = LSP_stat_count_reset();
     // structured stderr line the smoke harness parses for latency.
@@ -1693,6 +1712,9 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
       capabilities.workspace && !!capabilities.workspace.configuration);
     LSP_hasWorkspaceFolderCapability = !!(
       capabilities.workspace && !!capabilities.workspace.workspaceFolders);
+    LSP_hasSemanticRefresh = !!(
+      capabilities.workspace && capabilities.workspace.semanticTokens &&
+      capabilities.workspace.semanticTokens.refreshSupport);
     // R2c: stash the workspace roots; scan AFTER we reply (onInitialized) so a
     // big workspace's scan does not delay the initialize handshake.
     LSP_pending_roots = LSP_workspace_roots(params);
