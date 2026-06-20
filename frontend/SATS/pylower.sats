@@ -88,6 +88,13 @@ fun pylower_patlst(env: !tr12env, ps: list(pcpat)): d2patlst
 // Shared by template D (lambda) and template F (fun member). Param types are inferred (v1).
 fun params_to_f2arglst(env: !tr12env, loc: loctn, params: list(strn)): f2arglst
 //
+// VAL-BINDER STYP (M4): set a `val/let p = rhs` binder's styp so a CONCRETE-typed RHS unifies
+// against the untyped binder (trans23_d2valdcl checks RHS vs dpat.styp). A `D2Pvar` binder gets
+// a FRESH existential tyvar EXCEPT when the RHS is the bare `D2Enone0` recovery node (an unbound
+// name) — there it is left `none` so the unbound-name errck survives (4b). Shared by PCElet
+// (pylower_dynexp) and PCCval (pylower_decl00). Mirrors trans2a's f0_var binder typing.
+fun bind_let_styp(d2p: d2pat, d2rhs: d2exp): void
+//
 // lower one recursive `fun` group (the PCEletfun/PCCfun member list) to a D2Cfundclst d2ecl
 // (template F). The group's names are bound into `env` BEFORE the bodies (a Python def group
 // is recursive), so self/mutual calls resolve to the same d2var. Shared by the let-form

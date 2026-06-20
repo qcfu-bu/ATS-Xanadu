@@ -49,6 +49,7 @@ case+ d of
     val tknd = token_make_node(loc, T_VAL(VLKval))
     val d2p = pylower_pat(env, p)
     val d2rhs = pylower_exp(env, rhs)
+    val () = bind_let_styp(d2p, d2rhs)   // M4: fresh tyvar binder (unless RHS is none0); see SATS
     val () = tr12env_add0_d2pat(env, d2p)
     val dval = d2valdcl_make_args(loc, d2p, TEQD2EXPsome(tknd, d2rhs), WTHS2EXPnone())
   in

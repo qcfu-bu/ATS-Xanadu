@@ -49,14 +49,70 @@ fun tok_val(loc: loctn): token = token_make_node(loc, T_VAL(VLKval))
 fun tok_lam(loc: loctn): token = token_make_node(loc, T_LAM(0(*lam0*)))
 fun tok_fun(loc: loctn): token = token_make_node(loc, T_FUN(FNKfn2(*tailrec*)))
 // the `case` kind-token for D2Ecas0: CSKcas0 = warning-only on non-exhaustiveness (suits the
-// desugared-loop flow dispatch, which is not exhaustive over all flow ctors). The record kind
-// token for D2Ercd2 is the `{` the stock parser emits for a record literal (T_LBRACE).
+// desugared-loop flow dispatch, which is not exhaustive over all flow ctors).
 fun tok_case(loc: loctn): token = token_make_node(loc, T_CASE(CSKcas0))
-fun tok_rec(loc: loctn): token = token_make_node(loc, T_LBRACE())
+// the record kind-token for D2Ercd2/D2Prcd2: trans23 f0_rcd2 does a PARTIAL `case-` over
+// T_TRCD20(n) ONLY (trans23_dynexp.dats:2230-2242 / 240) — a T_LBRACE token CRASHES it
+// (inexhaustive match). T_TRCD20(0) selects TRCDflt0, the FLAT (unboxed) record `@{...}` the
+// Pythonic `{l=e,...}` lowers to. (Verified: T_LBRACE -> hard crash in trans23_d2valdcl.)
+fun tok_rec(loc: loctn): token = token_make_node(loc, T_TRCD20(0))
 //
 (* ****** ****** *)
 //
 // ---- literals -> token-based L2 leaves (LOWERING-MAP §2.1) ------------------
+//
+// STYP-STAMPING (M4): the directly-constructed L2 leaf carries its own `styp` field; trans23's
+// `_tpck` (e.g. a `case`-guard checked against `bool`, or a literal in any checked position)
+// unifies that field with the expected type. The from-FILE pipeline fills this field in the
+// trans2a literal-type pass (trans2a_dynexp.dats f0_int/f0_btf/...), but `d3parsed_of_trans23`
+// does NOT run trans2a (those passes live in trans03_from_fpath, NOT in d3parsed_of_trans23 —
+// verified trans23.dats:89-90 vs :104-137; M3-REPORT §5.3's "internally runs trans2a" is wrong).
+// So we MUST stamp it here — mirroring f0_*'s exact types — WITHOUT running the full trans2a
+// pass (which would mutate the d2exp_none0 recovery nodes and silently kill the 4b unbound-name
+// errck; the M4-recovery HARD LESSON). This is the minimal, targeted stamp: literals only.
+//
+fun
+d2e_styp(d2e: d2exp, t2p: s2typ): d2exp = let val () = d2exp_set_styp(d2e, t2p) in d2e end
+//
+// VAL-BINDER STYP (M4): trans23_d2valdcl (trans23_decl00.dats:883) checks the val RHS against
+// `dpat.styp()` (= the binder d2var's styp). The from-FILE pipeline gives every binder a fresh
+// existential tyvar in trans2a (f0_var, 546-574) so the RHS type flows in; but
+// `d3parsed_of_trans23` does NOT run trans2a, so our binder keeps styp T2Pnone0. With `none`, a
+// CONCRETE-typed RHS (a tuple synthesizing `trcd`, an annotated value, ...) fails to unify
+// `trcd-vs-none` -> a spurious errck (observed: `let p = (1,2,3)`).
+//
+// BUT a blanket fresh-tyvar binder REGRESSES the 4b unbound-name test: an unbound name lowers to
+// `d2exp_none0` whose styp is `void`; with a `none` binder, `unify(void, none)` FAILS -> the
+// errck that 4b counts; with a fresh tyvar, `void` unifies (xtv solves to void) -> the errck
+// VANISHES (M4-recovery HARD LESSON: unbound-name detection is coupled to the `none` binder).
+//
+// So the fix is SELECTIVE: give the binder a fresh tyvar EXCEPT when the lowered RHS is the bare
+// recovery node `D2Enone0` (an unbound name) — there we keep `none` so the errck survives. This
+// preserves 4b verbatim while letting concrete-typed values bind to an untyped `let`/`val`.
+//
+fun
+is_d2enone0(d2e: d2exp): bool =
+  (case+ d2e.node() of D2Enone0() => true | _ => false)
+//
+#implfun
+bind_let_styp(d2p, d2rhs) =
+(
+case+ d2p.node() of
+| D2Pvar(d2v) =>
+    if is_d2enone0(d2rhs) then ()  // unbound-name recovery: keep `none` so trans23 errcks (4b)
+    else d2var_set_styp(d2v, s2typ_xtv(x2t2p_make_lctn(d2p.lctn())))
+| _ => ()  // non-var patterns (tup/rec/con) carry their own structural styp already
+)
+//
+// STYP NOTE (M4): only the BOOLEAN literal is styp-stamped. trans23 checks a `case`-guard
+// expression against `bool` (trans23_dynexp.dats:3189 the_s2typ_bool) via `_tpck`, which
+// unifies the node's OWN styp with `bool`; an unstamped D2Ebtf carries T2Pnone0 and fails to
+// unify. Int/float/string/char literals are left UNSTAMPED on purpose: they flow in synthesis
+// position (an untyped `let a = 7`, or a literal pattern unified against the scrutinee's
+// inferred type), where a precise stamped type (e.g. the singleton `sint(7)` from
+// intrep_s2typ_xint) would OVER-CONSTRAIN and spuriously fail unify23 against the inferred
+// `none` slot — regressing m3_run's `let a = 7` (observed: sint0 vs none errck). Bool is the
+// only literal trans23 checks against a fixed concrete type with no inference the other way.
 //
 fun
 pl_lit(loc: loctn, lit: pclit): d2exp =
@@ -72,8 +128,8 @@ case+ lit of
 | PCLchr(_, s) =>
     d2exp_make_node(loc, D2Echr(token_make_node(loc, T_CHAR2_char(s))))
 | PCLbool(_, b) =>
-    // true/false are boolean-literal nodes (D2Ebtf sym), NOT data constructors.
-    d2exp_make_node(loc, D2Ebtf(symbl_make_name(if b then "true" else "false")))
+    // true/false are boolean-literal nodes (D2Ebtf sym), NOT data constructors. STAMPED bool.
+    d2e_styp(d2exp_make_node(loc, D2Ebtf(symbl_make_name(if b then "true" else "false"))), the_s2typ_bool())
 )
 //
 (* ****** ****** *)
@@ -173,6 +229,11 @@ case+ p of
     // { f = p, g = q } -> D2Prcd2(REC-tok, -1, [D2LAB(LABsym f, p), ...]). NAME labels.
     let val ldps = pl_pfieldlst(env, fs) in d2pat_make_node(loc, D2Prcd2(tok_rec(loc), (-1), ldps)) end
 | PCPlit(loc, lit) =>
+    // Literal patterns are checked against the scrutinee type (trans23_d2pat_tpck pushes the
+    // scrutinee's styp DOWN), so they need no own stamp — leaving them UNSTAMPED avoids the
+    // same over-constraint the expression literals would hit. (Matches m4_probe1: `case 0:` on
+    // an int scrutinee typechecks nerror=0 with no stamp.) Bool pattern kept symmetric with the
+    // bool-expr stamp for robustness when a bool literal pattern is checked in synthesis.
     (
       case+ lit of
       | PCLint(_, s) => d2pat_make_node(loc, D2Pint(token_make_node(loc, T_INT01(s))))
@@ -243,6 +304,7 @@ case+ e of
     val () = tr12env_pshlet0(env)
     val d2p = pl_pat(env, p)
     val d2rhs = pl_exp(env, rhs)
+    val () = bind_let_styp(d2p, d2rhs)           // M4: fresh tyvar binder (unless RHS is none0)
     val () = tr12env_add0_d2pat(env, d2p)        // non-rec: bind after RHS
     val dval = d2valdcl_make_args(loc, d2p, TEQD2EXPsome(tok_val(loc), d2rhs), WTHS2EXPnone())
     val decl = d2ecl_make_node(loc, D2Cvaldclst(tok_val(loc), list_sing(dval)))

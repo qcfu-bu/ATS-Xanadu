@@ -114,8 +114,15 @@ independent, characterized reasons (M3-REPORT §6.1, build-spike.sh):
 
 Both are limits of the **from-source backend build + direct-L2 construction** not replicating
 what the stock source→JS pipeline does (template fill, funset instantiation) — NOT frontend
-bugs. The **LSP/diagnostics path does not need them** (it ends at the typechecked `d3parsed`
-+ `f3perr0`, which works on real `.pdats` — M3-4b).
+bugs. **CORRECTION (M4):** blocker (1) is NOT codegen-only. `trans23` does **not** run overload
+resolution — `trans2a` lives in `trans03_from_fpath`, not `trans23` — so a directly-built
+operator node (`D2Esym0`) never resolves its `$`-template; `tread3a` emits an **errck**, so
+**operators/comparisons fail TYPECHECK** (`nerror>0`), which the LSP would surface as a **false
+diagnostic on `x + 1`**. So (1) is **LSP-relevant** — tracked as **#13a** (overload/template
+resolution: needed for clean typecheck → usable LSP, and for arithmetic codegen). Only (2)
+(funset `fun`-codegen, **#13b**) is genuinely LSP-parkable. M4 verified that the *operator-free*
+subset (match/if/tuples/records) typechecks clean (`nerror=0`); anything with an operator, a
+loop, a list literal, or a user-datatype constructor pattern is blocked on #13a.
 
 ### 4.2 Error detection in a direct-L2 driver: run `tread3a` FIRST
 `d3parsed_of_trans23` records type errors as **errck NODES**, not in the `d2parsed` `nerror`
