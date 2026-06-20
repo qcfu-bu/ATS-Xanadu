@@ -153,6 +153,8 @@ kw_of_lident(s: strn): ptnode =
   else if s = "import" then PT_KW_IMPORT()
   else if s = "from" then PT_KW_FROM()
   else if s = "type" then PT_KW_TYPE()
+  else if s = "enum" then PT_KW_ENUM()
+  else if s = "struct" then PT_KW_STRUCT()
   else if s = "as" then PT_KW_AS()
   else if s = "and" then PT_KW_AND()
   else if s = "or" then PT_KW_OR()
@@ -331,6 +333,7 @@ else if (b0 = 61) then emit(PT_EQ(), 1)                // =
 else if (b0 = 60) then emit(PT_LT(), 1)                // <
 else if (b0 = 62) then emit(PT_GT(), 1)                // >
 else if (b0 = 58) then emit(PT_COLON(), 1)             // :
+else if (b0 = 64) then emit(PT_AT(), 1)               // @  (decorator marker; standalone)
 else if (b0 = 124) then emit(PT_BAR(), 1)              // |  (sum-type separator)
 else if (b0 = 44) then emit(PT_COMMA(), 1)             // ,
 else if (b0 = 46) then emit(PT_DOT(), 1)               // .

@@ -109,6 +109,8 @@ ptnode =
 | PT_KW_IMPORT  of ()   // import
 | PT_KW_FROM    of ()   // from
 | PT_KW_TYPE    of ()   // type
+| PT_KW_ENUM    of ()   // enum   (type declaration; SURFACE-GRAMMAR §5.7)
+| PT_KW_STRUCT  of ()   // struct (type declaration; SURFACE-GRAMMAR §5.7)
 | PT_KW_AS      of ()   // as  (pattern alias; SURFACE-GRAMMAR §5.5)
 | PT_KW_AND     of ()   // and (keyword operator, §5.6 lvl 2)
 | PT_KW_OR      of ()   // or  (keyword operator, §5.6 lvl 1)
@@ -148,6 +150,7 @@ ptnode =
 | PT_FATARROW of () // =>   (lambda arrow)
 | PT_ARROW   of ()  // ->   (type / return arrow)
 | PT_COLON   of ()  // :    (annotation / block-header)
+| PT_AT      of ()  // @    (decorator marker; '@' LIDENT, SURFACE-GRAMMAR §5.7)
 | PT_BAR     of ()  // |    (sum-type / data-constructor separator; SURFACE-GRAMMAR
                     //       §5.2 `datacon { '|' datacon }`. NOTE: `|` is used in the
                     //       grammar but is MISSING from the §5.1 lexical list and the
