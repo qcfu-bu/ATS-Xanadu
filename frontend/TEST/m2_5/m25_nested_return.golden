@@ -2,7 +2,7 @@
 (pycore
 (staload pyrt@(-1:-1--1:-1))
 (fungroup@(0:0-0:3)
-  (fun find@(0:0-0:3) (params grid target) = (Ecase@(0:0-0:3) (Elet@(1:4-1:17) (Pvar i@(1:12-1:13)) = (Elit@(1:16-1:17) (int 0@(1:16-1:17)))
+  (fun find@(0:0-0:3) (params grid:(Tcon Grid@(0:15-0:19)) target:(Tcon Int@(0:29-0:32))) -> (Tcon Pair@(0:37-0:41)) = (Ecase@(0:0-0:3) (Elet@(1:4-1:17) (Pvar i@(1:12-1:13)) = (Elit@(1:16-1:17) (int 0@(1:16-1:17)))
       in (Ecase@(2:4-2:7) (Eletfun@(2:4-2:7)
         (loop loop@(-1:-1--1:-1) (params it i) = (Ecase@(2:4-2:7) (Eapp@(2:4-2:7) (Evar iter_step@(2:4-2:7)) (args (Evar it@(-1:-1--1:-1))))
             (arm@(-1:-1--1:-1) (Pcon iter_done@(-1:-1--1:-1)) => (Eapp@(-1:-1--1:-1) (Econ flow_next@(-1:-1--1:-1)) (args (Evar i@(-1:-1--1:-1)))))

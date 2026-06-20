@@ -2,7 +2,7 @@
 (pycore
 (staload pyrt@(-1:-1--1:-1))
 (fungroup@(0:0-0:3)
-  (fun classify@(0:0-0:3) (params n) = (Ecase@(1:4-1:9) (Evar n@(1:10-1:11))
+  (fun classify@(0:0-0:3) (params n:(Tcon Int@(0:16-0:19))) -> (Tcon Int@(0:24-0:27)) = (Ecase@(1:4-1:9) (Evar n@(1:10-1:11))
       (arm@(2:8-2:12) (Pvar x@(2:13-2:14)) if (Eapp@(2:18-2:23) (Evar <@(2:18-2:23)) (args (Evar x@(2:18-2:19)) (Elit@(2:22-2:23) (int 0@(2:22-2:23))))) => (Ecase@(2:8-2:12) (Eapp@(3:12-3:20) (Econ flow_return@(3:12-3:20)) (args (Elit@(3:19-3:20) (int 0@(3:19-3:20)))))
           (arm@(-1:-1--1:-1) (Pcon flow_return@(-1:-1--1:-1) (Pvar r@(-1:-1--1:-1))) => (Evar r@(-1:-1--1:-1)))
           (arm@(-1:-1--1:-1) (Pcon flow_next@(-1:-1--1:-1) (Pwild@(-1:-1--1:-1))) => (Eunit@(3:12-3:20)))))

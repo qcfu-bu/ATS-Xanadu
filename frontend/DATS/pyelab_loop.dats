@@ -107,6 +107,24 @@ case+ ps0 of
 | list_cons(PyParam(_, nm, _), rest) => list_cons(nm, param_names_l(rest))
 )
 //
+// M5a: the parallel param-type list for a nested `def` (PySdecl), mirroring el_param_types.
+fun
+param_types_l(ps0: list(pyparam)): list(pytypopt) =
+(
+case+ ps0 of
+| list_nil() => list_nil()
+| list_cons(PyParam(_, _, topt), rest) => list_cons(topt, param_types_l(rest))
+)
+//
+// M5a: a parallel `list(pytypopt)` of all-`PyTypNone()`, one per name (untyped loop params).
+fun
+none_types(xs: nameset): list(pytypopt) =
+(
+case+ xs of
+| list_nil() => list_nil()
+| list_cons(_, rest) => list_cons(PyTypNone(), none_types(rest))
+)
+//
 fun
 assigned_else_w(els: pystmtlstopt): nameset =
   (case+ els of PyElseNone() => list_nil() | PyElseSome(b) => assigned_stmts(b))
@@ -116,7 +134,7 @@ assigned_else_w(els: pystmtlstopt): nameset =
 // ---- flow-mode suite elaboration (mutually recursive worker group) ----------
 //
 fun
-fl_suite(ss: list(pystmt), accs: nameset, muts: nameset): pcexp =
+fl_suite(ss: list(pystmt), accs: nameset, muts: nameset, mts: muttypes): pcexp =
 (
 case+ ss of
 | list_nil() => flow_app(el_dloc(), "flow_next", accs_tuple_exp(el_dloc(), accs))
@@ -128,42 +146,52 @@ case+ ss of
       in flow_app(loc, "flow_return", rexp) end
   | PySbreak(loc) => flow_app(loc, "flow_break", accs_tuple_exp(loc, accs))
   | PyScontinue(loc) => flow_app(loc, "flow_cont", accs_tuple_exp(loc, accs))
-  | PyDlet(loc, ismut, p, _, rhs) =>
-      let val newmuts = (if ismut then add_pat_names(muts, p) else muts) in
-        PCElet(loc, elab_pat(p), elab_exp(rhs), fl_suite(rest, accs, newmuts))
+  | PyDlet(loc, ismut, p, ann, rhs) =>
+      // M5a: thread the binding annotation onto PCElet; a `let mut x : T` also records it in mts.
+      let
+        val newmuts = (if ismut then add_pat_names(muts, p) else muts)
+        val newmts = (if ismut then mt_add(mts, p, ann) else mts)
+      in
+        PCElet(loc, elab_pat(p), ann, elab_exp(rhs), fl_suite(rest, accs, newmuts, newmts))
       end
   | PySreassign(loc, lv, rhs) =>
       let val nm = lvalue_name(lv) in
         if strn_eq(nm, "")
           then PCEseq(loc, PCEapp(loc, PCEvar(loc, "set!"),
                                   list_cons(elab_exp(lv), list_sing(elab_exp(rhs)))),
-                      fl_suite(rest, accs, muts))
+                      fl_suite(rest, accs, muts, mts))
         else if nameset_mem(muts, nm)
-          then PCElet(loc, PCPvar(loc, nm), elab_exp(rhs), fl_suite(rest, accs, muts))
+          then PCElet(loc, PCPvar(loc, nm), PyTypNone(), elab_exp(rhs), fl_suite(rest, accs, muts, mts))
         else PCEseq(loc, PCEerror(loc, strn_append("reassignment to non-mut binding: ", nm)),
-                    fl_suite(rest, accs, muts))
+                    fl_suite(rest, accs, muts, mts))
       end
-  | PySexpr(loc, e) => PCEseq(loc, elab_exp(e), fl_suite(rest, accs, muts))
+  | PySexpr(loc, e) => PCEseq(loc, elab_exp(e), fl_suite(rest, accs, muts, mts))
   | PySif(loc, gs, els) =>
-      let val iff = fl_if(loc, gs, els, accs, muts)
-      in fl_bind(loc, iff, accs, fl_suite(rest, accs, muts)) end
+      let val iff = fl_if(loc, gs, els, accs, muts, mts)
+      in fl_bind(loc, iff, accs, fl_suite(rest, accs, muts, mts)) end
   | PySwhile(loc, cond, body, wels) =>
-      let val w = wh_flow(loc, cond, body, wels, muts)
-      in fl_bind(loc, w, accs, fl_suite(rest, accs, muts)) end
+      let val w = wh_flow(loc, cond, body, wels, muts, mts)
+      in fl_bind(loc, w, accs, fl_suite(rest, accs, muts, mts)) end
   | PySfor(loc, pat, iter, body, fels) =>
-      let val fr = for_flow(loc, pat, iter, body, fels, muts)
-      in fl_bind(loc, fr, accs, fl_suite(rest, accs, muts)) end
-  | PySblock(loc, body) => fl_suite(list_append(body, rest), accs, muts)
+      let val fr = for_flow(loc, pat, iter, body, fels, muts, mts)
+      in fl_bind(loc, fr, accs, fl_suite(rest, accs, muts, mts)) end
+  | PySblock(loc, body) => fl_suite(list_append(body, rest), accs, muts, mts)
   | PySdecl(loc, d) =>
       (case+ d of
-       | PyCfun(floc, nm, _, params, _, fbody) =>
+       | PyCfun(floc, nm, _, params, ret, fbody) =>
            PCEletfun(loc,
-             list_sing(PCFundcl(floc, nm, param_names_l(params), elab_func_body(floc, fbody), false)),
-             fl_suite(rest, accs, muts))
-       | _ => fl_suite(rest, accs, muts))
-  | PySerror(loc, msg) => PCEseq(loc, PCEerror(loc, msg), fl_suite(rest, accs, muts))
+             list_sing(PCFundcl(floc, nm, param_names_l(params), param_types_l(params),
+                                ret, elab_func_body(floc, fbody), false)),
+             fl_suite(rest, accs, muts, mts))
+       | _ => fl_suite(rest, accs, muts, mts))
+  | PySerror(loc, msg) => PCEseq(loc, PCEerror(loc, msg), fl_suite(rest, accs, muts, mts))
   )
 )
+//
+// M5a: register a `let mut p : T` annotation into the mut-type map (only a simple var binder).
+and
+mt_add(mts: muttypes, p: pypat, ann: pytypopt): muttypes =
+( case+ p of PyPvar(_, nm) => muttypes_add(mts, nm, ann) | _ => mts )
 //
 // the §3 bind, inlined as a `case`: only flow_next runs `kont`; the rest short-circuit.
 and
@@ -178,15 +206,15 @@ in
 end
 //
 and
-fl_if(loc: loctn, gs: list(pyguard), els: pystmtlstopt, accs: nameset, muts: nameset): pcexp =
+fl_if(loc: loctn, gs: list(pyguard), els: pystmtlstopt, accs: nameset, muts: nameset, mts: muttypes): pcexp =
 (
 case+ gs of
 | list_nil() =>
     (case+ els of
      | PyElseNone() => flow_app(loc, "flow_next", accs_tuple_exp(loc, accs))
-     | PyElseSome(body) => fl_suite(body, accs, muts))
+     | PyElseSome(body) => fl_suite(body, accs, muts, mts))
 | list_cons(PyGuard(gloc, c, body), grest) =>
-    PCEif(gloc, elab_exp(c), fl_suite(body, accs, muts), fl_if(loc, grest, els, accs, muts))
+    PCEif(gloc, elab_exp(c), fl_suite(body, accs, muts, mts), fl_if(loc, grest, els, accs, muts, mts))
 )
 //
 (* ****** ****** *)
@@ -195,9 +223,9 @@ case+ gs of
 //
 // the inner `case <body-flow> of next/cont => loop(TAIL) | break => flow_break | ret`.
 and
-wh_body_dispatch(loc: loctn, body: list(pystmt), muts: nameset, accs: nameset): pcexp =
+wh_body_dispatch(loc: loctn, body: list(pystmt), muts: nameset, mts: muttypes, accs: nameset): pcexp =
 let
-  val bodyflow = fl_suite(body, accs, muts)
+  val bodyflow = fl_suite(body, accs, muts, mts)
   val a_next  = mk_arm_con("flow_next", accs, loop_call(loc, accs))
   val a_cont  = mk_arm_con("flow_cont", accs, loop_call(loc, accs))
   val a_break = mk_arm_con("flow_break", accs, flow_app(el_dloc(), "flow_break", accs_tuple_exp(el_dloc(), accs)))
@@ -208,13 +236,13 @@ end
 //
 // the outer `case loop(accs0) of next => <else?>;flow_next | break => flow_next | ret`.
 and
-out_dispatch(loc: loctn, callinit: pcexp, els: pystmtlstopt, muts: nameset, accs: nameset): pcexp =
+out_dispatch(loc: loctn, callinit: pcexp, els: pystmtlstopt, muts: nameset, mts: muttypes, accs: nameset): pcexp =
 let
   val next_body =
     (case+ els of
      | PyElseNone() => flow_app(loc, "flow_next", accs_tuple_exp(loc, accs))
      | PyElseSome(ebody) =>
-         PCEseq(loc, elab_else(loc, ebody, muts),
+         PCEseq(loc, elab_else(loc, ebody, muts, mts),
                 flow_app(loc, "flow_next", accs_tuple_exp(loc, accs))))
   val a_next  = mk_arm_con("flow_next", accs, next_body)
   val a_break = mk_arm_con("flow_break", accs, flow_app(loc, "flow_next", accs_tuple_exp(loc, accs)))
@@ -225,37 +253,39 @@ end
 //
 // the flow `while`.
 and
-wh_flow(loc: loctn, cond: pyexp, body: list(pystmt), els: pystmtlstopt, muts: nameset): pcexp =
+wh_flow(loc: loctn, cond: pyexp, body: list(pystmt), els: pystmtlstopt, muts: nameset, mts: muttypes): pcexp =
 let
   val assigned = nameset_union(assigned_stmts(body), assigned_else_w(els))
   val accs = nameset_inter(muts, assigned)
   val inner = PCEif(loc, elab_exp(cond),
-                    wh_body_dispatch(loc, body, muts, accs),
+                    wh_body_dispatch(loc, body, muts, mts, accs),
                     flow_app(loc, "flow_next", accs_tuple_exp(loc, accs)))
-  val loopdcl = PCFundcl(el_dloc(), LOOPNAME, accs, inner, true)
+  // M5a: the loop accumulator params carry their `let mut x : T` annotations (typed loop).
+  val loopdcl = PCFundcl(el_dloc(), LOOPNAME, accs, accs_types(accs, mts), PyTypNone(), inner, true)
   val callinit = PCEapp(loc, PCEvar(el_dloc(), LOOPNAME), list_sing(accs_tuple_exp(loc, accs)))
 in
-  PCEletfun(loc, list_sing(loopdcl), out_dispatch(loc, callinit, els, muts, accs))
+  PCEletfun(loc, list_sing(loopdcl), out_dispatch(loc, callinit, els, muts, mts, accs))
 end
 //
 // the fast-path value `while` (§10.1): no flow, no case.
 and
-wh_value(loc: loctn, cond: pyexp, body: list(pystmt), els: pystmtlstopt, muts: nameset, kont: pcexp): pcexp =
+wh_value(loc: loctn, cond: pyexp, body: list(pystmt), els: pystmtlstopt, muts: nameset, mts: muttypes, kont: pcexp): pcexp =
 let
   val assigned = nameset_union(assigned_stmts(body), assigned_else_w(els))
   val accs = nameset_inter(muts, assigned)
   val selfcall = loop_call(loc, accs)
-  val body_threaded = elab_pure(body, muts, selfcall)
+  val body_threaded = elab_pure(body, muts, mts, selfcall)
   val loop_body = PCEif(loc, elab_exp(cond), body_threaded, accs_tuple_exp(loc, accs))
-  val loopdcl = PCFundcl(el_dloc(), LOOPNAME, accs, loop_body, true)
+  // M5a: the loop accumulator params carry their `let mut x : T` annotations (typed loop).
+  val loopdcl = PCFundcl(el_dloc(), LOOPNAME, accs, accs_types(accs, mts), PyTypNone(), loop_body, true)
   val callinit = PCEapp(loc, PCEvar(el_dloc(), LOOPNAME), list_sing(accs_tuple_exp(loc, accs)))
   val after =
     (case+ els of
      | PyElseNone() => kont
-     | PyElseSome(ebody) => PCEseq(loc, elab_else(loc, ebody, muts), kont))
+     | PyElseSome(ebody) => PCEseq(loc, elab_else(loc, ebody, muts, mts), kont))
 in
   PCEletfun(loc, list_sing(loopdcl),
-    PCElet(loc, accs_tuple_pat(loc, accs), callinit, after))
+    PCElet(loc, accs_tuple_pat(loc, accs), PyTypNone(), callinit, after))
 end
 //
 (* ****** ****** *)
@@ -266,9 +296,9 @@ end
 // thread `it'` into the self-call; break/return carry the user accumulators only (the
 // iterator state never escapes the loop's flow result).
 and
-for_body_dispatch(loc: loctn, body: list(pystmt), muts: nameset, accs: nameset): pcexp =
+for_body_dispatch(loc: loctn, body: list(pystmt), muts: nameset, mts: muttypes, accs: nameset): pcexp =
 let
-  val bodyflow = fl_suite(body, accs, muts)
+  val bodyflow = fl_suite(body, accs, muts, mts)
   val a_next  = mk_arm_con("flow_next", accs, loop_call_it(loc, accs))   // TAIL, threads it'
   val a_cont  = mk_arm_con("flow_cont", accs, loop_call_it(loc, accs))   // TAIL, threads it'
   val a_break = mk_arm_con("flow_break", accs, flow_app(el_dloc(), "flow_break", accs_tuple_exp(el_dloc(), accs)))
@@ -290,34 +320,36 @@ end
 and
 for_iter_loop
 (loc: loctn, pat: pypat, iter: pyexp, body: list(pystmt), els: pystmtlstopt,
- muts: nameset, accs: nameset): pcexp =
+ muts: nameset, mts: muttypes, accs: nameset): pcexp =
 let
   val xname = (case+ pat of PyPvar(_, nm) => nm | _ => "_x")
   val itparams = it_params(accs)   // loop parameter nameset = it :: accs
+  // M5a: the `it` slot is untyped (its type is inferred from iter_open); the accs carry theirs.
+  val itptypes = list_cons(PyTypNone(), accs_types(accs, mts))
   val stepcall = PCEapp(loc, PCEvar(loc, "iter_step"), list_sing(PCEvar(el_dloc(), ITNAME)))
   val a_done = PCArm(el_dloc(), PCPcon(el_dloc(), "iter_done", list_nil()), PCEGNone(),
                      flow_app(el_dloc(), "flow_next", accs_tuple_exp(el_dloc(), accs)))
-  val bodydisp = for_body_dispatch(loc, body, muts, accs)
+  val bodydisp = for_body_dispatch(loc, body, muts, mts, accs)
   // iter_more(x, it1): bind the element `x` AND the advanced iterator `it1` (threaded).
   val more_pat =
     PCPcon(el_dloc(), "iter_more",
            list_cons(PCPvar(el_dloc(), xname), list_sing(PCPvar(el_dloc(), ITNEXT))))
   val a_more = PCArm(el_dloc(), more_pat, PCEGNone(), bodydisp)
   val step_case = PCEcase(loc, stepcall, list_cons(a_done, list_sing(a_more)))
-  val loopdcl = PCFundcl(el_dloc(), LOOPNAME, itparams, step_case, true)
+  val loopdcl = PCFundcl(el_dloc(), LOOPNAME, itparams, itptypes, PyTypNone(), step_case, true)
   val openit = PCEapp(loc, PCEvar(loc, "iter_open"), list_sing(elab_exp(iter)))
   val callinit = loop_call_init(loc, openit, accs)   // loop((iter_open(iter), accs0))
 in
-  PCEletfun(loc, list_sing(loopdcl), out_dispatch(loc, callinit, els, muts, accs))
+  PCEletfun(loc, list_sing(loopdcl), out_dispatch(loc, callinit, els, muts, mts, accs))
 end
 //
 and
-for_flow(loc: loctn, pat: pypat, iter: pyexp, body: list(pystmt), els: pystmtlstopt, muts: nameset): pcexp =
+for_flow(loc: loctn, pat: pypat, iter: pyexp, body: list(pystmt), els: pystmtlstopt, muts: nameset, mts: muttypes): pcexp =
 let
   val assigned = nameset_union(assigned_stmts(body), assigned_else_w(els))
   val accs = nameset_inter(muts, assigned)
 in
-  for_iter_loop(loc, pat, iter, body, els, muts, accs)
+  for_iter_loop(loc, pat, iter, body, els, muts, mts, accs)
 end
 //
 // the fast-path value `for`: control-PURE single-acc no-else -> list_foldleft; else the
@@ -332,7 +364,7 @@ end
 // control-bearing case correctly (it routes through for_iter_loop and dispatches on the flow
 // ctors, so a single-accumulator `for ... break` now works).
 and
-for_value(loc: loctn, pat: pypat, iter: pyexp, body: list(pystmt), els: pystmtlstopt, muts: nameset, kont: pcexp): pcexp =
+for_value(loc: loctn, pat: pypat, iter: pyexp, body: list(pystmt), els: pystmtlstopt, muts: nameset, mts: muttypes, kont: pcexp): pcexp =
 let
   val assigned = nameset_union(assigned_stmts(body), assigned_else_w(els))
   val accs = nameset_inter(muts, assigned)
@@ -345,21 +377,25 @@ in
       let
         val accname = (case+ accs of list_cons(nm, _) => nm | _ => "_acc")
         val xname = (case+ pat of PyPvar(_, nm) => nm | _ => "_x")
-        val step_body = elab_pure(body, muts, PCEvar(loc, accname))
-        val folder = PCElam(loc, list_cons(accname, list_sing(xname)), step_body)
+        val step_body = elab_pure(body, muts, mts, PCEvar(loc, accname))
+        // M5a: the fold's accumulator param carries its `let mut acc : T` annotation; the
+        // element param `x` stays untyped (its type flows from the iterable's element type).
+        val folder = PCElam(loc, list_cons(accname, list_sing(xname)),
+                            list_cons(muttypes_find(mts, accname), list_sing(PyTypNone())),
+                            step_body)
         val foldcall =
           PCEapp(loc, PCEvar(loc, "list_foldleft"),
                  list_cons(elab_exp(iter), list_cons(PCEvar(loc, accname), list_sing(folder))))
       in
-        PCElet(loc, PCPvar(loc, accname), foldcall, kont)
+        PCElet(loc, PCPvar(loc, accname), PyTypNone(), foldcall, kont)
       end
   else
     let
-      val loopexp = for_iter_loop(loc, pat, iter, body, els, muts, accs)
+      val loopexp = for_iter_loop(loc, pat, iter, body, els, muts, mts, accs)
       val next_after =
         (case+ els of
          | PyElseNone() => kont
-         | PyElseSome(ebody) => PCEseq(loc, elab_else(loc, ebody, muts), kont))
+         | PyElseSome(ebody) => PCEseq(loc, elab_else(loc, ebody, muts, mts), kont))
       val a_next  = mk_arm_con("flow_next", accs, next_after)
       val a_break = mk_arm_con("flow_break", accs, kont)
       val a_ret   = mk_arm_ret(kont)
@@ -372,11 +408,11 @@ end
 //
 // ---- thin #implfun wrappers for the SATS entries ---------------------------
 //
-#implfun elab_flow(ss, accs, muts) = fl_suite(ss, accs, muts)
-#implfun elab_while_flow(loc, cond, body, els, muts, _accs) = wh_flow(loc, cond, body, els, muts)
-#implfun elab_for_flow(loc, pat, iter, body, els, muts, _accs) = for_flow(loc, pat, iter, body, els, muts)
-#implfun elab_while_value(loc, cond, body, els, muts, kont) = wh_value(loc, cond, body, els, muts, kont)
-#implfun elab_for_value(loc, pat, iter, body, els, muts, kont) = for_value(loc, pat, iter, body, els, muts, kont)
+#implfun elab_flow(ss, accs, muts, mts) = fl_suite(ss, accs, muts, mts)
+#implfun elab_while_flow(loc, cond, body, els, muts, mts, _accs) = wh_flow(loc, cond, body, els, muts, mts)
+#implfun elab_for_flow(loc, pat, iter, body, els, muts, mts, _accs) = for_flow(loc, pat, iter, body, els, muts, mts)
+#implfun elab_while_value(loc, cond, body, els, muts, mts, kont) = wh_value(loc, cond, body, els, muts, mts, kont)
+#implfun elab_for_value(loc, pat, iter, body, els, muts, mts, kont) = for_value(loc, pat, iter, body, els, muts, mts, kont)
 //
 (* ****** ****** *)
 (*

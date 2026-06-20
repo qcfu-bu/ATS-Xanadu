@@ -89,6 +89,52 @@ case+ ts of
 //
 (* ****** ****** *)
 //
+// M5a: print a param list with each param's OPTIONAL type annotation (the two lists are
+// parallel; the type list may be SHORTER/empty, in which case remaining params are untyped).
+// An unannotated param prints as just its name (identical to pp_strlst, so untyped goldens
+// are unchanged); a typed one as `name:T`, PROVING the carried annotation in the golden.
+//
+fun
+pp_one_pann(out: FILR, x: strn, topt: pytypopt): void =
+(
+case+ topt of
+| PyTypNone() => (ps(out, " "); ps(out, x))
+| PyTypSome(t) => (ps(out, " "); ps(out, x); ps(out, ":"); pp_typ(out, t))
+)
+//
+fun
+pp_params_typed(out: FILR, xs: list(strn), ts: list(pytypopt)): void =
+(
+case+ xs of
+| list_nil() => ()
+| list_cons(x, xrest) =>
+  (
+  case+ ts of
+  | list_cons(topt, trest) => (pp_one_pann(out, x, topt); pp_params_typed(out, xrest, trest))
+  | list_nil() => (ps(out, " "); ps(out, x); pp_params_typed(out, xrest, list_nil()))
+  )
+)
+//
+// M5a: print an OPTIONAL return type as ` -> T` (nothing when absent).
+fun
+pp_retopt(out: FILR, ret: pytypopt): void =
+(
+case+ ret of
+| PyTypNone() => ()
+| PyTypSome(t) => (ps(out, " -> "); pp_typ(out, t))
+)
+//
+// M5a: print an OPTIONAL binding annotation as `:T` (nothing when absent).
+fun
+pp_anncolon(out: FILR, ann: pytypopt): void =
+(
+case+ ann of
+| PyTypNone() => ()
+| PyTypSome(t) => (ps(out, ":"); pp_typ(out, t))
+)
+//
+(* ****** ****** *)
+//
 // ---- PATTERN printers ------------------------------------------------------
 //
 fun
@@ -146,12 +192,12 @@ case+ e of
 | PCEapp(loc, hd, args) =>
   ( ps(out, "(Eapp"); print_span(out, loc); ps(out, " ");
     pp_exp(out, hd, ind); ps(out, " (args"); pp_explst(out, args, ind); ps(out, "))") )
-| PCElam(loc, ps0, body) =>
-  ( ps(out, "(Elam"); print_span(out, loc); ps(out, " (params"); pp_strlst(out, ps0);
+| PCElam(loc, ps0, ptypes, body) =>
+  ( ps(out, "(Elam"); print_span(out, loc); ps(out, " (params"); pp_params_typed(out, ps0, ptypes);
     ps(out, ") "); pp_exp(out, body, ind); ps(out, ")") )
-| PCElet(loc, p, rhs, body) =>
+| PCElet(loc, p, ann, rhs, body) =>
   ( ps(out, "(Elet"); print_span(out, loc); ps(out, " ");
-    pp_pat(out, p); ps(out, " = "); pp_exp(out, rhs, ind);
+    pp_pat(out, p); pp_anncolon(out, ann); ps(out, " = "); pp_exp(out, rhs, ind);
     nl(out); print_indent(out, ind + 1); ps(out, "in ");
     pp_exp(out, body, ind + 1); ps(out, ")") )
 | PCEletfun(loc, fs, body) =>
@@ -229,11 +275,12 @@ pp_fundclst(out: FILR, fs: list(pcfundcl), ind: sint): void =
 (
 case+ fs of
 | list_nil() => ()
-| list_cons(PCFundcl(loc, nm, params, body, isloop), rest) =>
+| list_cons(PCFundcl(loc, nm, params, ptypes, ret, body, isloop), rest) =>
   ( nl(out); print_indent(out, ind);
     ps(out, (if isloop then "(loop " else "(fun "));
     ps(out, nm); print_span(out, loc);
-    ps(out, " (params"); pp_strlst(out, params); ps(out, ") = ");
+    ps(out, " (params"); pp_params_typed(out, params, ptypes); ps(out, ")");
+    pp_retopt(out, ret); ps(out, " = ");
     pp_exp(out, body, ind + 1); ps(out, ")");
     pp_fundclst(out, rest, ind) )
 )

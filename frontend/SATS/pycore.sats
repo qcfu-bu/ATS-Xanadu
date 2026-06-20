@@ -132,9 +132,15 @@ pcpfield =
 //              `PCEapp(PCEcon ..., args)`; a `flow_break(accs)` is exactly this shape.
 //   PCElam   : lambda — params + an EXPRESSION body (NOT a stmt suite; §2). Used for the
 //              §5.3 `for` fast-path fold's `lam(a,x) => body_state` and any surface lambda.
+//              M5a: a PARALLEL `list(pytypopt)` carries each param's OPTIONAL surface type
+//              annotation (`PyTypNone()` for an unannotated param). It is the SAME length as
+//              the param-name list; M3 lowers a `PyTypSome(T)` param to an annotated f2arg
+//              pattern (`D2Pannot`), an unannotated one to a bare binder (types inferred).
 //   PCElet   : immutable let-sequencing `let val p = rhs in body`. This is the workhorse:
 //              straight-line state threads as a chain of these (SSA rebind), and a
 //              reassignment `x = e` becomes one whose `p` re-binds the same name (§5.1).
+//              M5a: carries the binding's OPTIONAL surface type annotation (`let p : T = e`);
+//              `PyTypNone()` for an unannotated `let`. M3 wraps an annotated RHS in `D2Eannot`.
 //   PCEletfun: a RECURSIVE `fun` group + a body: `let fun f(args)=... and g(args)=... in body`.
 //              The generated loop `let fun loop(accs) = ... in <rest>` is exactly this; the
 //              loop name is bound BEFORE its body so the self-call resolves to the same
@@ -166,8 +172,8 @@ pcexp =
 | PCEvar    of (loctn, strn)
 | PCEcon    of (loctn, strn)
 | PCEapp    of (loctn, pcexp, list(pcexp))
-| PCElam    of (loctn, list(strn), pcexp)
-| PCElet    of (loctn, pcpat, pcexp, pcexp)
+| PCElam    of (loctn, list(strn), list(pytypopt), pcexp)
+| PCElet    of (loctn, pcpat, pytypopt, pcexp, pcexp)
 | PCEletfun of (loctn, list(pcfundcl), pcexp)
 | PCEif     of (loctn, pcexp, pcexp, pcexp)
 | PCEcase   of (loctn, pcexp, list(pcarm))
@@ -207,9 +213,22 @@ pcexpopt =
 // PyCore expression (the function-epilogue expression, §5.4). `isloop` flags a
 // generated loop member so the §6 tail-lint + M3 can recognize it. The name's `loctn`
 // is `loctn_dummy()` for a synthesized loop (§9), a real span for a surface def.
+//
+// M5a (type-annotation carrying): two OPTIONAL type fields, additive to the original
+// shape, are threaded so a typed `def` typechecks with its annotations:
+//   * `ptypes` : a PARALLEL `list(pytypopt)`, SAME length as `params` — each entry is the
+//                param's surface type annotation (`PyTypSome(T)`) or `PyTypNone()`. M3 lowers
+//                a typed param to an annotated f2arg pattern (`D2Pannot`), an untyped one to a
+//                bare binder. For a SYNTHESIZED loop the elaborator fills these from the
+//                `let mut x : T` accumulator annotations so the loop function is typed
+//                (the M16 untyped-loop-var deferral fix).
+//   * `ret`    : the function's OPTIONAL return type (`def f(...) -> T`). M3 lowers a
+//                `PyTypSome(T)` to `S2RESsome`, a `PyTypNone()` to `S2RESnone()`.
+// Both are OPTIONAL end-to-end — an unannotated def carries `PyTypNone()` everywhere and
+// lowers exactly as before (types inferred). The printer renders them only when present.
 and
 pcfundcl =
-| PCFundcl of (loctn, strn, list(strn), pcexp, bool)
+| PCFundcl of (loctn, strn, list(strn), list(pytypopt), pytypopt, pcexp, bool)
 //
 (* ****** ****** *)
 //

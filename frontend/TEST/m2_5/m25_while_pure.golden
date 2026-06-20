@@ -1,7 +1,7 @@
 ==== /Users/qcfu/Projects/ATS-Xanadu/frontend/TEST/m2_5/m25_while_pure.py ====
 (pycore
 (fungroup@(0:0-0:3)
-  (fun count@(0:0-0:3) (params n) = (Elet@(1:4-1:17) (Pvar i@(1:12-1:13)) = (Elit@(1:16-1:17) (int 0@(1:16-1:17)))
+  (fun count@(0:0-0:3) (params n:(Tcon Int@(0:13-0:16))) -> (Tcon Int@(0:21-0:24)) = (Elet@(1:4-1:17) (Pvar i@(1:12-1:13)) = (Elit@(1:16-1:17) (int 0@(1:16-1:17)))
       in (Elet@(2:4-2:19) (Pvar acc@(2:12-2:15)) = (Elit@(2:18-2:19) (int 0@(2:18-2:19)))
         in (Eletfun@(3:4-3:9)
           (loop loop@(-1:-1--1:-1) (params i acc) = (Eif@(3:4-3:9) (Eapp@(3:10-3:15) (Evar <@(3:10-3:15)) (args (Evar i@(3:10-3:11)) (Evar n@(3:14-3:15))))

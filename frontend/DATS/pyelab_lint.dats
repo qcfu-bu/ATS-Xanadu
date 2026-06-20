@@ -52,7 +52,7 @@ binds_loop(fs: list(pcfundcl)): bool =
 (
 case+ fs of
 | list_nil() => false
-| list_cons(PCFundcl(_, nm, _, _, _), rest) =>
+| list_cons(PCFundcl(_, nm, _, _, _, _, _), rest) =>
     if strn_eq(nm, LOOPNAME) then true else binds_loop(rest)
 )
 //
@@ -85,7 +85,7 @@ case+ e of
         val a2 = lint_exp(t, tail, a1)
     in lint_exp(f, tail, a2) end
 | PCEcase(_, scrut, arms) => lint_arms(arms, tail, lint_exp(scrut, false, acc))
-| PCElet(_, _, rhs, body) => lint_exp(body, tail, lint_exp(rhs, false, acc))
+| PCElet(_, _, _, rhs, body) => lint_exp(body, tail, lint_exp(rhs, false, acc))
 // a nested `Eletfun` that REBINDS the name `loop` (every generated loop is named
 // "loop") opens a fresh `loop` scope: inside BOTH its members AND its body, `loop`
 // refers to the INNER loop, governed by its OWN tail-lint (driven from
@@ -99,7 +99,7 @@ case+ e of
       then acc
       else lint_exp(body, tail, acc)
 | PCEseq(_, e1, e2) => lint_exp(e2, tail, lint_exp(e1, false, acc))
-| PCElam(_, _, body) => lint_exp(body, false, acc)
+| PCElam(_, _, _, body) => lint_exp(body, false, acc)
 | PCEtup(_, es) => lint_explst_nt(es, acc)
 | PCErec(_, fs) => lint_efields_nt(fs, acc)
 | PCElist(_, es) => lint_explst_nt(es, acc)
@@ -152,8 +152,8 @@ lint_loops_exp(e: pcexp, acc: list(pcdiag)): list(pcdiag) =
 case+ e of
 | PCEletfun(_, fs, body) => lint_loops_exp(body, lint_loops_fundcls(fs, acc))
 | PCEapp(_, hd, args) => lint_loops_explst(args, lint_loops_exp(hd, acc))
-| PCElam(_, _, body) => lint_loops_exp(body, acc)
-| PCElet(_, _, rhs, body) => lint_loops_exp(body, lint_loops_exp(rhs, acc))
+| PCElam(_, _, _, body) => lint_loops_exp(body, acc)
+| PCElet(_, _, _, rhs, body) => lint_loops_exp(body, lint_loops_exp(rhs, acc))
 | PCEif(_, c, t, f) => lint_loops_exp(f, lint_loops_exp(t, lint_loops_exp(c, acc)))
 | PCEcase(_, scrut, arms) => lint_loops_arms(arms, lint_loops_exp(scrut, acc))
 | PCEtup(_, es) => lint_loops_explst(es, acc)
@@ -169,7 +169,7 @@ lint_loops_fundcls(fs: list(pcfundcl), acc: list(pcdiag)): list(pcdiag) =
 (
 case+ fs of
 | list_nil() => acc
-| list_cons(PCFundcl(_, _, _, body, isloop), rest) =>
+| list_cons(PCFundcl(_, _, _, _, _, body, isloop), rest) =>
     let
       val acc1 = if isloop then lint_exp(body, true, acc) else acc
       val acc2 = lint_loops_exp(body, acc1)

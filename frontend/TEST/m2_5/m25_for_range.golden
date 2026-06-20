@@ -2,7 +2,7 @@
 (pycore
 (staload pyrt@(-1:-1--1:-1))
 (fungroup@(0:0-0:3)
-  (fun sum_count@(0:0-0:3) (params n) = (Elet@(1:4-1:19) (Pvar acc@(1:12-1:15)) = (Elit@(1:18-1:19) (int 0@(1:18-1:19)))
+  (fun sum_count@(0:0-0:3) (params n:(Tcon Int@(0:17-0:20))) -> (Tcon Int@(0:25-0:28)) = (Elet@(1:4-1:19) (Pvar acc@(1:12-1:15)) = (Elit@(1:18-1:19) (int 0@(1:18-1:19)))
       in (Elet@(2:4-2:19) (Pvar cnt@(2:12-2:15)) = (Elit@(2:18-2:19) (int 0@(2:18-2:19)))
         in (Ecase@(3:4-3:7) (Eletfun@(3:4-3:7)
           (loop loop@(-1:-1--1:-1) (params it acc cnt) = (Ecase@(3:4-3:7) (Eapp@(3:4-3:7) (Evar iter_step@(3:4-3:7)) (args (Evar it@(-1:-1--1:-1))))

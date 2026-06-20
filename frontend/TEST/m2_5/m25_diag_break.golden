@@ -1,7 +1,7 @@
 ==== /Users/qcfu/Projects/ATS-Xanadu/frontend/TEST/m2_5/m25_diag_break.py ====
 (pycore
 (fungroup@(0:0-0:3)
-  (fun bad2@(0:0-0:3) (params) = (Elet@(1:4-1:17) (Pvar x@(1:12-1:13)) = (Elit@(1:16-1:17) (int 0@(1:16-1:17)))
+  (fun bad2@(0:0-0:3) (params) -> (Tcon Int@(0:14-0:17)) = (Elet@(1:4-1:17) (Pvar x@(1:12-1:13)) = (Elit@(1:16-1:17) (int 0@(1:16-1:17)))
       in (Eerror "break outside a loop"@(2:4-2:9)))))
 )
 ==== diagnostics ====

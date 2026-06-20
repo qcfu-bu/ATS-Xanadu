@@ -50,8 +50,8 @@ case+ e of
 | PCEcon(_, _) => acc
 | PCEunit(_) => acc
 | PCEapp(_, hd, args) => harv_explst(args, harv_exp(hd, acc))
-| PCElam(_, _, body) => harv_exp(body, acc)
-| PCElet(_, _, rhs, body) => harv_exp(body, harv_exp(rhs, acc))
+| PCElam(_, _, _, body) => harv_exp(body, acc)
+| PCElet(_, _, _, rhs, body) => harv_exp(body, harv_exp(rhs, acc))
 | PCEletfun(_, fs, body) => harv_exp(body, harv_fundcls(fs, acc))
 | PCEif(_, c, t, f) => harv_exp(f, harv_exp(t, harv_exp(c, acc)))
 | PCEcase(_, scrut, arms) => harv_arms(arms, harv_exp(scrut, acc))
@@ -94,7 +94,7 @@ harv_fundcls(fs: list(pcfundcl), acc: list(pcdiag)): list(pcdiag) =
 (
 case+ fs of
 | list_nil() => acc
-| list_cons(PCFundcl(_, _, _, body, _), rest) => harv_fundcls(rest, harv_exp(body, acc))
+| list_cons(PCFundcl(_, _, _, _, _, body, _), rest) => harv_fundcls(rest, harv_exp(body, acc))
 )
 //
 fun
@@ -143,8 +143,8 @@ case+ e of
 | PCEunit(_) => false
 | PCEerror(_, _) => false
 | PCEapp(_, hd, args) => b_or(uses_exp(hd), uses_explst(args))
-| PCElam(_, _, body) => uses_exp(body)
-| PCElet(_, _, rhs, body) => b_or(uses_exp(rhs), uses_exp(body))
+| PCElam(_, _, _, body) => uses_exp(body)
+| PCElet(_, _, _, rhs, body) => b_or(uses_exp(rhs), uses_exp(body))
 | PCEletfun(_, fs, body) => b_or(uses_fundcls(fs), uses_exp(body))
 | PCEif(_, c, t, f) => b_or(uses_exp(c), b_or(uses_exp(t), uses_exp(f)))
 | PCEcase(_, scrut, arms) => b_or(uses_exp(scrut), uses_arms(arms))
@@ -204,7 +204,7 @@ uses_fundcls(fs: list(pcfundcl)): bool =
 (
 case+ fs of
 | list_nil() => false
-| list_cons(PCFundcl(_, _, _, body, _), rest) => b_or(uses_exp(body), uses_fundcls(rest))
+| list_cons(PCFundcl(_, _, _, _, _, body, _), rest) => b_or(uses_exp(body), uses_fundcls(rest))
 )
 //
 fun

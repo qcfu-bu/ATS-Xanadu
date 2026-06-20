@@ -268,7 +268,8 @@ case+ e of
 | PyEfield(loc, e1, nm) => PCEfield(loc, el_exp(e1), nm)
 | PyEindex(loc, e1, ix) =>
     PCEapp(loc, PCEvar(loc, "[]"), list_cons(el_exp(e1), list_sing(el_exp(ix))))
-| PyElam(loc, params, body) => PCElam(loc, el_param_names(params), el_func_body(loc, body))
+| PyElam(loc, params, body) =>
+    PCElam(loc, el_param_names(params), el_param_types(params), el_func_body(loc, body))
 | PyEann(_, e1, _) => el_exp(e1)
 | PyEerror(loc, msg) => PCEerror(loc, msg)
 )
@@ -296,6 +297,16 @@ el_param_names(ps0: list(pyparam)): list(strn) =
 case+ ps0 of
 | list_nil() => list_nil()
 | list_cons(PyParam(_, nm, _), rest) => list_cons(nm, el_param_names(rest))
+)
+//
+// M5a: the PARALLEL list of each param's OPTIONAL surface type annotation (same length as
+// el_param_names). An unannotated `def f(x)` param carries PyTypNone(); `def f(x: Int)` -> Some.
+and
+el_param_types(ps0: list(pyparam)): list(pytypopt) =
+(
+case+ ps0 of
+| list_nil() => list_nil()
+| list_cons(PyParam(_, _, topt), rest) => list_cons(topt, el_param_types(rest))
 )
 //
 and
@@ -352,10 +363,10 @@ let
   val fl = el_flags_stmts(body)
 in
   if ~(fl.0)  // no return: control-pure body — fast path with the tail value.
-    then el_pure(body, list_nil(), el_suite_tail(loc, body))
+    then el_pure(body, list_nil(), list_nil(), el_suite_tail(loc, body))
   else // may return: flow mode (no accumulators) + the §5.4 epilogue match.
     let
-      val flowexp = elab_flow(body, list_nil(), list_nil())
+      val flowexp = elab_flow(body, list_nil(), list_nil(), list_nil())
       val a_ret =
         PCArm(el_dloc0(), PCPcon(el_dloc0(), "flow_return", list_sing(PCPvar(el_dloc0(), "r"))),
               PCEGNone(), PCEvar(el_dloc0(), "r"))
@@ -382,27 +393,33 @@ case+ body of
 // ---- §5.1 control-pure fast path --------------------------------------------
 //
 and
-el_pure(ss: list(pystmt), muts: nameset, tail: pcexp): pcexp =
+el_pure(ss: list(pystmt), muts: nameset, mts: muttypes, tail: pcexp): pcexp =
 (
 case+ ss of
 | list_nil() => tail
 | list_cons(s, rest) =>
   (
   case+ s of
-  | PyDlet(loc, ismut, p, _, rhs) =>
-      let val newmuts = (if ismut then el_add_pat_names(muts, p) else muts) in
-        PCElet(loc, el_pat(p), el_exp(rhs), el_pure(rest, newmuts, tail))
+  | PyDlet(loc, ismut, p, ann, rhs) =>
+      // M5a: an annotated `let p : T = e` carries its annotation onto the binding (PCElet).
+      // A `let mut x : T` ALSO records the annotation in `mts` so a synthesized loop that
+      // accumulates `x` is typed (the M16 untyped-loop-var fix).
+      let
+        val newmuts = (if ismut then el_add_pat_names(muts, p) else muts)
+        val newmts = (if ismut then el_add_mut_types(mts, p, ann) else mts)
+      in
+        PCElet(loc, el_pat(p), ann, el_exp(rhs), el_pure(rest, newmuts, newmts, tail))
       end
   | PySreassign(loc, lv, rhs) =>
       let val nm = lv_name(lv) in
         if strn_eq(nm, "")
           then PCEseq(loc, PCEapp(loc, PCEvar(loc, "set!"),
                                   list_cons(el_exp(lv), list_sing(el_exp(rhs)))),
-                      el_pure(rest, muts, tail))
+                      el_pure(rest, muts, mts, tail))
         else if nameset_mem(muts, nm)
-          then PCElet(loc, PCPvar(pyexp_loctn(lv), nm), el_exp(rhs), el_pure(rest, muts, tail))
+          then PCElet(loc, PCPvar(pyexp_loctn(lv), nm), PyTypNone(), el_exp(rhs), el_pure(rest, muts, mts, tail))
         else PCEseq(loc, PCEerror(loc, strn_append("reassignment to non-mut binding: ", nm)),
-                    el_pure(rest, muts, tail))
+                    el_pure(rest, muts, mts, tail))
       end
   | PySexpr(loc, e) =>
       // M4 FIX: the LAST expression-statement of a suite IS the suite's tail value (el_suite_tail
@@ -413,46 +430,58 @@ case+ ss of
       // effect-then-continue, so keep the seq. (Mirrors trans12: a tail expression is not seq'd.)
       (case+ rest of
        | list_nil() => tail
-       | list_cons(_, _) => PCEseq(loc, el_exp(e), el_pure(rest, muts, tail)))
-  | PySif(loc, gs, els) => el_pure_if(loc, gs, els, muts, rest, tail)
+       | list_cons(_, _) => PCEseq(loc, el_exp(e), el_pure(rest, muts, mts, tail)))
+  | PySif(loc, gs, els) => el_pure_if(loc, gs, els, muts, mts, rest, tail)
   | PySwhile(loc, cond, body, wels) =>
-      elab_while_value(loc, cond, body, wels, muts, el_pure(rest, muts, tail))
+      elab_while_value(loc, cond, body, wels, muts, mts, el_pure(rest, muts, mts, tail))
   | PySfor(loc, pat, iter, body, fels) =>
-      elab_for_value(loc, pat, iter, body, fels, muts, el_pure(rest, muts, tail))
-  | PySblock(loc, body) => el_pure(body, muts, el_pure(rest, muts, tail))
-  | PySdecl(loc, d) => el_local_decl(loc, d, el_pure(rest, muts, tail))
+      elab_for_value(loc, pat, iter, body, fels, muts, mts, el_pure(rest, muts, mts, tail))
+  | PySblock(loc, body) => el_pure(body, muts, mts, el_pure(rest, muts, mts, tail))
+  | PySdecl(loc, d) => el_local_decl(loc, d, el_pure(rest, muts, mts, tail))
   | PySreturn(loc, _) => PCEerror(loc, "return outside a function")
   | PySbreak(loc) => PCEerror(loc, "break outside a loop")
   | PyScontinue(loc) => PCEerror(loc, "continue outside a loop")
-  | PySerror(loc, msg) => PCEseq(loc, PCEerror(loc, msg), el_pure(rest, muts, tail))
+  | PySerror(loc, msg) => PCEseq(loc, PCEerror(loc, msg), el_pure(rest, muts, mts, tail))
   )
 )
 //
 and
 el_pure_if
-(loc: loctn, gs: list(pyguard), els: pystmtlstopt, muts: nameset,
+(loc: loctn, gs: list(pyguard), els: pystmtlstopt, muts: nameset, mts: muttypes,
  rest: list(pystmt), tail: pcexp): pcexp =
 (
 case+ gs of
 | list_nil() =>
     (case+ els of
-     | PyElseNone() => el_pure(rest, muts, tail)
-     | PyElseSome(body) => el_pure(body, muts, el_pure(rest, muts, tail)))
+     | PyElseNone() => el_pure(rest, muts, mts, tail)
+     | PyElseSome(body) => el_pure(body, muts, mts, el_pure(rest, muts, mts, tail)))
 | list_cons(PyGuard(gloc, c, body), grest) =>
     PCEif(gloc, el_exp(c),
-          el_pure(body, muts, el_pure(rest, muts, tail)),
-          el_pure_if(loc, grest, els, muts, rest, tail))
+          el_pure(body, muts, mts, el_pure(rest, muts, mts, tail)),
+          el_pure_if(loc, grest, els, muts, mts, rest, tail))
 )
 //
 and
 el_local_decl(loc: loctn, d: pydecl, kont: pcexp): pcexp =
 (
 case+ d of
-| PyCfun(floc, nm, _, params, _, body) =>
+| PyCfun(floc, nm, _, params, ret, body) =>
     PCEletfun(loc,
-      list_sing(PCFundcl(floc, nm, el_param_names(params), el_func_body(floc, body), false)),
+      list_sing(PCFundcl(floc, nm, el_param_names(params), el_param_types(params),
+                         ret, el_func_body(floc, body), false)),
       kont)
 | _ => kont
+)
+//
+// M5a: register a `let mut p : T` pattern's annotation into the mut-type map. Only a simple
+// `PyPvar` mut binder with an annotation is recorded (the loop accumulators are always plain
+// var names; tuple/other mut patterns carry no single annotation and stay untyped).
+and
+el_add_mut_types(mts: muttypes, p: pypat, ann: pytypopt): muttypes =
+(
+case+ p of
+| PyPvar(_, nm) => muttypes_add(mts, nm, ann)
+| _ => mts
 )
 //
 (* ****** ****** *)
@@ -460,7 +489,7 @@ case+ d of
 // ---- thin #implfun wrappers for the SATS entries ---------------------------
 //
 #implfun
-elab_else(loc, body, muts) = el_pure(body, muts, PCEunit(loc))
+elab_else(loc, body, muts, mts) = el_pure(body, muts, mts, PCEunit(loc))
 //
 #implfun el_dloc() = el_dloc0()
 #implfun assigned_stmts(ss) = el_assigned_stmts(ss)
@@ -468,7 +497,7 @@ elab_else(loc, body, muts) = el_pure(body, muts, PCEunit(loc))
 #implfun elab_exp(e) = el_exp(e)
 #implfun elab_pat(p) = el_pat(p)
 #implfun elab_func_body(loc, body) = el_func_body(loc, body)
-#implfun elab_pure(ss, muts, tail) = el_pure(ss, muts, tail)
+#implfun elab_pure(ss, muts, mts, tail) = el_pure(ss, muts, mts, tail)
 #implfun accs_tuple_exp(loc, accs) = el_accs_exp(loc, accs)
 #implfun accs_tuple_pat(loc, accs) = el_accs_pat(loc, accs)
 #implfun lvalue_name(e) = lv_name(e)

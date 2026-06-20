@@ -72,14 +72,26 @@ op_remap_unary(name) =
 //
 // ---- type-name aliasing: surface (capitalized) -> prelude (lowercase) -------
 //
+// M5a (the load-bearing fix): the capitalized built-ins alias to the prelude's INTERNAL
+// `the_s2exp_*0` type names (prelude/INIT/srcgen2_xsetup0.sats), NOT to the surface `int`/`bool`.
+//
+// WHY: an int literal's TYPE is `the_s2typ_sint() = T2Pcst(<the_s2exp_sint0 s2cst>)`
+// (statyp2_inits0.dats). The surface `int` is `#typedef int = sint0 = gint0(sint_k) =
+// [i:i0] gint_type(sint_k,i)` — an EXISTENTIAL. A direct-L2 annotation built from `int`
+// stpizes to `T2Ps2exp(int)` and never HNFs symmetrically with the literal's already-built
+// `T2Pcst`; unify then compares the literal's HNF (reaching the abstract `gint_type`, a
+// `T2Pbas`) against the raw annotation, and `unify00_s2typ` has NO `T2Pbas` arm -> a hard
+// `XATS000_cfail` (verified: `def f() -> Int: 1` crashed). Aliasing to `the_s2exp_sint0`
+// makes the annotation the SAME `T2Pcst(the_s2exp_sint0)` the literal carries, so unify
+// short-circuits on stamp equality (`s2c1 = s2c2`) with NO deep HNF -> no crash, types match.
 fun
 typ_alias(name: strn): strn =
 (
-  if strn_eq(name, "Int") then "int"
-  else if strn_eq(name, "Bool") then "bool"
-  else if strn_eq(name, "String") then "strn"
-  else if strn_eq(name, "Char") then "char"
-  else if strn_eq(name, "Float") then "double"
+  if strn_eq(name, "Int") then "the_s2exp_sint0"
+  else if strn_eq(name, "Bool") then "the_s2exp_bool0"
+  else if strn_eq(name, "String") then "the_s2exp_strn0"
+  else if strn_eq(name, "Char") then "the_s2exp_char0"
+  else if strn_eq(name, "Float") then "the_s2exp_dflt0"
   else name
 )
 //

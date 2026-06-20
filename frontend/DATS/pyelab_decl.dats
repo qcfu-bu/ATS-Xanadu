@@ -49,6 +49,15 @@ case+ ps0 of
 | list_cons(PyParam(_, nm, _), rest) => list_cons(nm, param_names_d(rest))
 )
 //
+// M5a: the parallel param-type list for a top-level `def` (each param's optional annotation).
+fun
+param_types_d(ps0: list(pyparam)): list(pytypopt) =
+(
+case+ ps0 of
+| list_nil() => list_nil()
+| list_cons(PyParam(_, _, topt), rest) => list_cons(topt, param_types_d(rest))
+)
+//
 fun
 tvars_of(ts: list(strn)): list(strn) = ts
 //
@@ -71,9 +80,11 @@ fun
 elab_decl(d: pydecl): list(pcdecl) =
 (
 case+ d of
-| PyCfun(loc, nm, tvs, params, _ret, body) =>
+| PyCfun(loc, nm, tvs, params, ret, body) =>
     let
-      val fundcl = PCFundcl(loc, nm, param_names_d(params), elab_func_body(loc, body), false)
+      // M5a: thread the param types + the return annotation into the PCFundcl (typed def).
+      val fundcl = PCFundcl(loc, nm, param_names_d(params), param_types_d(params),
+                            ret, elab_func_body(loc, body), false)
     in
       list_sing(PCCfun(loc, list_sing(fundcl)))
     end

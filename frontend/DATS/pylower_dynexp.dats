@@ -34,6 +34,10 @@
 // libxatsopt.hats staloads dynexp2 but NOT dynexp1; we need d1exp_make_node / D1Eid0 for the
 // operator-overload (D2ITMsym) arm of template A (d2exp_sym0's d1exp proxy).
 #staload "./../../srcgen2/SATS/dynexp1.sats"
+// M5a: type-annotation carrying. D2Pannot/D2Eannot carry a `s1exp` "given" part; libxatsopt
+// staloads neither staexp1 (s1exp) — we need s1exp_none0 as the benign given-part placeholder
+// (trans2a/trans23 type FROM the s2exp, never the s1exp; verified trans2a_dynexp f0_annot).
+#staload "./../../srcgen2/SATS/staexp1.sats"
 //
 #staload "./../SATS/pylexing.sats"
 #staload "./../SATS/pyparsing.sats"
@@ -191,6 +195,89 @@ in
   list_sing(f2arg_make_node(loc, F2ARGdapp(0(*npf*), dps)))
 end
 //
+// M5a: typed params -> a single f2arglst whose patterns are ANNOTATED for the params that
+// carry a surface type. A `PyTypSome(T)` param becomes `D2Pannot(D2Pvar, s1exp_none0, <s2 T>)`
+// (trans2a's f0_annot reads the s2exp -> the binder's styp, so `x + x` over a typed `x`
+// resolves — LOWERING-MAP §1.3). A `PyTypNone()` param stays a bare binder (inferred). The
+// two lists are parallel; a shorter/empty type list leaves the remaining params untyped.
+//
+fun
+pl_one_param(env: !tr12env, loc: loctn, nm: strn, topt: pytypopt): d2pat = let
+  val d2v = d2var_new2_name(loc, symbl_make_name(nm))
+  val d2p = d2pat_var(loc, d2v)
+in
+  case+ topt of
+  | PyTypNone() => d2p
+  | PyTypSome(t) =>
+      let val s2e = pylower_typ(env, t) in
+        d2pat_make_node(loc, D2Pannot(d2p, s1exp_none0(loc), s2e))
+      end
+end
+//
+fun
+pl_params_typed
+(env: !tr12env, loc: loctn, params: list(strn), ptypes: list(pytypopt)): f2arglst = let
+  fun
+  loop(ps: list(strn), ts: list(pytypopt)): d2patlst =
+    case+ ps of
+    | list_nil() => list_nil()
+    | list_cons(nm, prest) =>
+      (
+      case+ ts of
+      | list_cons(topt, trest) => list_cons(pl_one_param(env, loc, nm, topt), loop(prest, trest))
+      | list_nil() => list_cons(pl_one_param(env, loc, nm, PyTypNone()), loop(prest, list_nil()))
+      )
+  val dps = loop(params, ptypes)
+in
+  list_sing(f2arg_make_node(loc, F2ARGdapp(0(*npf*), dps)))
+end
+//
+// M5a: a surface return annotation -> the d2fundcl/lambda's s2res (S2RESsome). PyTypNone -> none.
+fun
+pl_sres(env: !tr12env, ret: pytypopt): s2res =
+( case+ ret of PyTypNone() => S2RESnone() | PyTypSome(t) => pylower_sres(env, t) )
+//
+// M5a: build a list of (possibly typed) param patterns, parallel to a name + type list.
+fun
+pl_param_pats
+(env: !tr12env, loc: loctn, params: list(strn), ptypes: list(pytypopt)): d2patlst =
+(
+case+ params of
+| list_nil() => list_nil()
+| list_cons(nm, prest) =>
+  (
+  case+ ptypes of
+  | list_cons(topt, trest) => list_cons(pl_one_param(env, loc, nm, topt), pl_param_pats(env, loc, prest, trest))
+  | list_nil() => list_cons(pl_one_param(env, loc, nm, PyTypNone()), pl_param_pats(env, loc, prest, list_nil()))
+  )
+)
+//
+// M5a (the N-accumulator loop calling-convention fix): a generated `loop` is CALLED with a
+// SINGLE argument that is the accumulator TUPLE (accs_tuple_exp: a bare var for one acc, an
+// N-tuple for N>1), and its result is destructured by accs_tuple_pat. So a loop with 2+
+// accumulators must take ONE tuple PARAMETER `(acc, i)`, not N flat params — otherwise the
+// single tuple arg is checked against the first param only (a pre-existing arity mismatch that
+// kept untyped 2-acc loops failing; M16 deferral). For ONE acc the param is the bare binder
+// (1 arg = 1 param, already correct). The per-element annotations ride on the tuple's binders.
+fun
+pl_loop_params
+(env: !tr12env, loc: loctn, params: list(strn), ptypes: list(pytypopt)): f2arglst =
+(
+case+ params of
+// 0 or 1 accumulator: the same flat shape the call uses (unit / bare var) — unchanged.
+| list_nil() => list_sing(f2arg_make_node(loc, F2ARGdapp(0(*npf*), list_nil())))
+| list_cons(_, list_nil()) =>
+    list_sing(f2arg_make_node(loc, F2ARGdapp(0(*npf*), pl_param_pats(env, loc, params, ptypes))))
+// 2+ accumulators: a SINGLE tuple parameter `(a, b, ...)` matching the tuple call argument.
+| list_cons(_, list_cons(_, _)) =>
+    let
+      val elems = pl_param_pats(env, loc, params, ptypes)
+      val tup = d2pat_make_node(loc, D2Ptup0((-1), elems))
+    in
+      list_sing(f2arg_make_node(loc, F2ARGdapp(0(*npf*), list_sing(tup))))
+    end
+)
+//
 (* ****** ****** *)
 //
 // ---- the mutually-recursive lowering group ---------------------------------
@@ -294,10 +381,12 @@ case+ e of
 | PCEapp(loc, hd, args) => pl_app(env, loc, hd, args)
 //
 // template D : lambda `lam(params) => body`. Push a lam scope, bind the params, lower the
-// body, pop. No param/return type annotations on a bare lambda (inferred).
-| PCElam(loc, params, body) => let
+// body, pop. M5a: a param carrying a surface type annotation lowers to an ANNOTATED binder
+// (D2Pannot) so its type is respected (e.g. the for-fold's typed accumulator param). The
+// type list is built BEFORE the param scope is pushed (it resolves type names in the env).
+| PCElam(loc, params, ptypes, body) => let
+    val f2as = pl_params_typed(env, loc, params, ptypes)
     val () = tr12env_pshlam0(env)
-    val f2as = pl_params(loc, params)
     val () = tr12env_add0_f2arglst(env, f2as)
     val d2body = pl_exp(env, body)
     val () = tr12env_poplam0(env)
@@ -307,10 +396,22 @@ case+ e of
 //
 // template C/E : `let val p = rhs in body`. A single immutable binding (SSA rebind), local
 // to `body`. Non-recursive => bind the pattern AFTER its RHS (template C binding order).
-| PCElet(loc, p, rhs, body) => let
+// M5a: an annotated `let p : T = e` wraps the RHS in `D2Eannot` so the binding is typed
+// (trans2a's f0_annot reads the s2exp -> the RHS is checked against T, and the binder's styp
+// flows from it). An unannotated `let` keeps the M4 fresh-tyvar binder path (types inferred).
+| PCElet(loc, p, ann, rhs, body) => let
     val () = tr12env_pshlet0(env)
     val d2p = pl_pat(env, p)
-    val d2rhs = pl_exp(env, rhs)
+    val d2rhs0 = pl_exp(env, rhs)
+    val d2rhs =
+      (
+      case+ ann of
+      | PyTypNone() => d2rhs0
+      | PyTypSome(t) =>
+          let val s2e = pylower_typ(env, t) in
+            d2exp_make_node(loc, D2Eannot(d2rhs0, s1exp_none0(loc), s2e))
+          end
+      ): d2exp
     val () = bind_let_styp(d2p, d2rhs)           // M4: fresh tyvar binder (unless RHS is none0)
     val () = tr12env_add0_d2pat(env, d2p)        // non-rec: bind after RHS
     val dval = d2valdcl_make_args(loc, d2p, TEQD2EXPsome(tok_val(loc), d2rhs), WTHS2EXPnone())
@@ -549,7 +650,7 @@ pl_fungroup(env: !tr12env, loc: loctn, fdcls: list(pcfundcl)): d2ecl = let
   names_d2vs(fs: list(pcfundcl)): list(d2var) =
     case+ fs of
     | list_nil() => list_nil()
-    | list_cons(PCFundcl(floc, nm, _, _, _), rest) =>
+    | list_cons(PCFundcl(floc, nm, _, _, _, _, _), rest) =>
         list_cons(d2var_new2_name(floc, symbl_make_name(nm)), names_d2vs(rest))
   //
   val d2vs = names_d2vs(fdcls)
@@ -568,21 +669,30 @@ in
   d2ecl_make_node(loc, D2Cfundclst(tok_fun(loc), list_nil()(*tqas*), list_nil()(*d2cs*), d2fs))
 end
 //
-// lower one member: push a lam scope, build params (fresh d2vars), register them, lower the
-// body, pop. Mirrors trans12_decl00.dats trans12_d1fundcl (4232-4279). `d2v` is the member's
-// already-bound name. Return type inferred (PyCore drops the annotation; M3-REPORT).
+// lower one member: build the (possibly typed) params, push a lam scope, register them, lower
+// the body, pop. Mirrors trans12_decl00.dats trans12_d1fundcl (4232-4279). `d2v` is the member's
+// already-bound name. M5a: a typed param lowers to an annotated f2arg binder (D2Pannot) and a
+// `-> T` return annotation to the d2fundcl's s2res (S2RESsome) — so a typed `def double(x:Int)`
+// typechecks with its annotations (its `x + x` resolves because `x` is now typed). An
+// unannotated def lowers exactly as before (params/return inferred).
 //
 and
 pl_one_fundcl(env: !tr12env, d2v: d2var, fdcl: pcfundcl): d2fundcl = let
-  val+ PCFundcl(loc, _, params, body, _) = fdcl
+  val+ PCFundcl(loc, _, params, ptypes, ret, body, isloop) = fdcl
+  // M5a: a generated `loop` (isloop) is called with a SINGLE accumulator-tuple argument, so
+  // for 2+ accs it takes ONE tuple parameter (pl_loop_params). A surface `def` takes its
+  // params flat (pl_params_typed). Both honor per-param type annotations (D2Pannot).
+  val f2as =
+    (if isloop then pl_loop_params(env, loc, params, ptypes)
+     else pl_params_typed(env, loc, params, ptypes)): f2arglst
+  val sres = pl_sres(env, ret)
   val () = tr12env_pshlam0(env)
-  val f2as = pl_params(loc, params)
   val () = tr12env_add0_f2arglst(env, f2as)
   val d2body = pl_exp(env, body)
   val () = tr12env_poplam0(env)
 in
   d2fundcl_make_args
-    (loc, d2v, f2as, S2RESnone(), TEQD2EXPsome(tok_val(loc), d2body), WTHS2EXPnone())
+    (loc, d2v, f2as, sres, TEQD2EXPsome(tok_val(loc), d2body), WTHS2EXPnone())
 end
 //
 (* ****** ****** *)

@@ -32,7 +32,7 @@ pcexp_loctn(e) =
 case+ e of
 | PCElit(loc, _) => loc       | PCEvar(loc, _) => loc
 | PCEcon(loc, _) => loc       | PCEapp(loc, _, _) => loc
-| PCElam(loc, _, _) => loc    | PCElet(loc, _, _, _) => loc
+| PCElam(loc, _, _, _) => loc | PCElet(loc, _, _, _, _) => loc
 | PCEletfun(loc, _, _) => loc | PCEif(loc, _, _, _) => loc
 | PCEcase(loc, _, _) => loc   | PCEtup(loc, _) => loc
 | PCErec(loc, _) => loc       | PCElist(loc, _) => loc
@@ -97,6 +97,47 @@ case+ xs of
   if nameset_mem(ys, x)
     then list_cons(x, nameset_inter(rest, ys))
     else nameset_inter(rest, ys)
+)
+//
+(* ****** ****** *)
+//
+// ---- M5a: the `mut`-accumulator TYPE map helpers ----------------------------
+//
+// (local) does `mts` already map `nm`?
+fun mt_has(mts: list(@(strn, pytyp)), nm: strn): bool =
+(
+case+ mts of
+| list_nil() => false
+| list_cons(kt, rest) => if strn_eq(kt.0, nm) then true else mt_has(rest, nm)
+)
+//
+// register `let mut nm : T` — only an ANNOTATED, not-yet-mapped name is recorded (first wins,
+// so a re-`let mut` of the same name does not clobber). An unannotated `let mut` is a no-op.
+#implfun
+muttypes_add(mts, nm, topt) =
+(
+case+ topt of
+| PyTypNone() => mts
+| PyTypSome(t) =>
+    if mt_has(mts, nm) then mts else list_append(mts, list_sing(@(nm, t)))
+)
+//
+// the recorded annotation for `nm` (PyTypNone() if absent).
+#implfun
+muttypes_find(mts, nm) =
+(
+case+ mts of
+| list_nil() => PyTypNone()
+| list_cons(kt, rest) => if strn_eq(kt.0, nm) then PyTypSome(kt.1) else muttypes_find(rest, nm)
+)
+//
+// the PARALLEL list(pytypopt) for an accumulator nameset (one entry per acc, same order).
+#implfun
+accs_types(accs, mts) =
+(
+case+ accs of
+| list_nil() => list_nil()
+| list_cons(nm, rest) => list_cons(muttypes_find(mts, nm), accs_types(rest, mts))
 )
 //
 (* ****** ****** *)

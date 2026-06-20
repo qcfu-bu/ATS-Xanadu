@@ -2,7 +2,7 @@
 (pycore
 (staload pyrt@(-1:-1--1:-1))
 (fungroup@(0:0-0:3)
-  (fun read_total@(0:0-0:3) (params) = (Ecase@(0:0-0:3) (Elet@(1:4-1:21) (Pvar total@(1:12-1:17)) = (Elit@(1:20-1:21) (int 0@(1:20-1:21)))
+  (fun read_total@(0:0-0:3) (params) -> (Tcon Int@(0:20-0:23)) = (Ecase@(0:0-0:3) (Elet@(1:4-1:21) (Pvar total@(1:12-1:17)) = (Elit@(1:20-1:21) (int 0@(1:20-1:21)))
       in (Ecase@(2:4-2:9) (Eletfun@(2:4-2:9)
         (loop loop@(-1:-1--1:-1) (params total) = (Eif@(2:4-2:9) (Elit@(2:10-2:14) (bool true@(2:10-2:14)))
             then (Ecase@(2:4-2:9) (Elet@(3:8-3:30) (Pvar line@(3:12-3:16)) = (Eapp@(3:19-3:30) (Evar read_line@(3:19-3:28)) (args))
