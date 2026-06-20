@@ -61,6 +61,17 @@ case+ ps0 of
 fun
 tvars_of(ts: list(strn)): list(strn) = ts
 //
+// extract the bare names of the §5.7 type params (the PyCore datatype layer keeps tvs as
+// a plain list(strn); sorts/decorators are recorded in the surface AST and consumed later
+// by lowering — M5b.6 wires the memory/representation modes).
+fun
+typaram_names(tps: list(pytyparam)): list(strn) =
+(
+case+ tps of
+| list_nil() => list_nil()
+| list_cons(PyTyParam(_, nm, _, _), rest) => list_cons(nm, typaram_names(rest))
+)
+//
 // elaborate a surface datatype RHS to PyCore data constructors.
 fun
 elab_datacons(dcs: list(pydatacon)): list(pcdatacon) =
@@ -80,18 +91,27 @@ fun
 elab_decl(d: pydecl): list(pcdecl) =
 (
 case+ d of
-| PyCfun(loc, nm, tvs, params, ret, body) =>
+| PyCfun(loc, nm, _tps, params, ret, body) =>
     let
       // M5a: thread the param types + the return annotation into the PCFundcl (typed def).
+      // (typarams `_tps` are still ignored at this layer — unchanged behavior; the field
+      //  type changed to list(pytyparam) in §5.7 but the value flow is identical.)
       val fundcl = PCFundcl(loc, nm, param_names_d(params), param_types_d(params),
                             ret, elab_func_body(loc, body), false)
     in
       list_sing(PCCfun(loc, list_sing(fundcl)))
     end
-| PyCtype(loc, nm, tvs, tdef) =>
-    (case+ tdef of
-     | PyTDdata(_, dcs) => list_sing(PCCdata(loc, nm, tvs, elab_datacons(dcs)))
-     | PyTDalias(_, _) => list_nil())  // type alias: M3 handles; no PyCore datatype node (v1).
+| PyCenum(loc, _decos, nm, tps, dcs) =>
+    // §5.7 enum → a PyCore datatype. Decorators/sorts are IGNORED for now (boxed default);
+    // M5b.6 wires the memory/representation modes through. tvs are the bare param names.
+    list_sing(PCCdata(loc, nm, typaram_names(tps), elab_datacons(dcs)))
+| PyCstruct(loc, _decos, nm, _tps, _fields) =>
+    // STUB: M5b.4 adds the PyCore struct node + record-alias lowering. No regression test
+    // uses `struct`, and 2b's struct test is a PARSER golden (pre-elaboration), so emitting
+    // nothing here is correct for now.
+    list_nil()
+| PyCtype(loc, _decos, nm, _tps, _alias) =>
+    list_nil()   // type ALIAS: M3/lowering handles; no PyCore datatype node (same as old PyTDalias).
 | PyCimport(loc, _) => list_nil()      // imports resolved by M3 staloads (v1).
 | PyCstmt(loc, s) => elab_module_stmt(s)
 | PyCerror(loc, msg) => list_sing(PCCerror(loc, msg))

@@ -276,6 +276,15 @@ and
 pyparam =
 | PyParam of (loctn, strn, pytypopt)
 //
+// a decorator: @name  (§5.7) — e.g. @viewtype, @unboxed, @boxed
+and pydecorator = PyDecor of (loctn, strn)
+// the optional sort annotation on a type param (Type/VType/Prop/… — OPEN vocab, kept as strn)
+and pysortopt   = PySortNone of () | PySortSome of (loctn, strn)
+// a type parameter:  UIDENT [ ':' SORT ] { DECORATOR }   (§5.7)
+and pytyparam    = PyTyParam of (loctn, strn, pysortopt, list(pydecorator))
+// a struct field:  LIDENT ':' type   (§5.7)
+and pyfield      = PyField of (loctn, strn, pytyp)
+//
 (* ****** ****** *)
 //
 // ==================================================================
@@ -327,12 +336,15 @@ pystmt =
 // ==================================================================
 //
 //   PyCfun  : `def name [typarams] (params) [-> Ret]: <suite>`. Carries the name
-//             (LIDENT), optional type params (LIDENT list), value params, optional
-//             return type, and the body suite. Recursion grouping (adjacent defs =
-//             one mutually-recursive group, §5.2) is M3's concern; M2 emits one PyCfun
+//             (LIDENT), optional type params (rich pytyparam list — §5.7), value params,
+//             optional return type, and the body suite. Recursion grouping (adjacent defs
+//             = one mutually-recursive group, §5.2) is M3's concern; M2 emits one PyCfun
 //             per def and preserves adjacency via order in the module decl list.
-//   PyCtype : `type Name [typarams] = <typedef>`. The body is either a type alias or a
-//             datatype sum (a `pytydef`).
+//   PyCenum : `[decorators] enum Name [typarams]: <case suite>` — a datatype/ADT (§5.7).
+//             Each `case` line is a pydatacon. Decorators select the memory/repr mode.
+//   PyCstruct : `[decorators] struct Name [typarams]: <field suite>` — a record (§5.7).
+//   PyCtype : `[decorators] type Name [typarams] = <type>` — a type ALIAS only (§5.7);
+//             the `enum`/`struct` keywords carry the datatype/record roles.
 //   PyCimport : `import modpath` or `from modpath import (*|names)`.
 //   PyCstmt : a statement appearing at module top level (module init may contain
 //             statements — §5.2 decl includes stmt). Wraps a pystmt.
@@ -340,24 +352,15 @@ pystmt =
 //
 and
 pydecl =
-| PyCfun    of ( loctn
-              , strn
-              , list(strn)
-              , list(pyparam)
-              , pytypopt
-              , list(pystmt) )
-| PyCtype   of (loctn, strn, list(strn), pytydef)
+| PyCfun    of (loctn, strn, list(pytyparam), list(pyparam), pytypopt, list(pystmt))
+| PyCenum   of (loctn, list(pydecorator), strn, list(pytyparam), list(pydatacon))   // enum: case suite
+| PyCstruct of (loctn, list(pydecorator), strn, list(pytyparam), list(pyfield))     // struct: field suite
+| PyCtype   of (loctn, list(pydecorator), strn, list(pytyparam), pytyp)             // type: ALIAS ONLY
 | PyCimport of (loctn, pyimport)
 | PyCstmt   of (loctn, pystmt)
 | PyCerror  of (loctn, strn)
 //
-// the RHS of a `type` decl: an alias OR a datatype sum (§5.2 typedef).
-and
-pytydef =
-| PyTDalias of (loctn, pytyp)                  // type Id = <type>
-| PyTDdata  of (loctn, list(pydatacon))        // type Tree[a] = Leaf | Node(...)
-//
-// a data constructor in a datatype sum: UIDENT [ '(' arg-types ')' ] (§5.2 datacon).
+// a data constructor in a datatype sum (an `enum` `case`): UIDENT [ '(' arg-types ')' ] (§5.7).
 and
 pydatacon =
 | PyDataCon of (loctn, strn, list(pytyp))

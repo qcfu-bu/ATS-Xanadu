@@ -2,15 +2,18 @@
 (*
 ** M2 — Python-surface frontend: DECLARATION + MODULE parser + public entries (DATS).
 **
-** Recursive-descent over the §5.2 grammar:
+** Recursive-descent over the §5.2 / §5.7 grammar:
 **
 **   decl      ::= binding | funcdef | typedecl | import | stmt
 **   funcdef   ::= 'def' LIDENT [ typarams ] '(' [ params ] ')' [ '->' type ] ':' suite
-**   typarams  ::= '[' LIDENT { ',' LIDENT } ']'
-**   typedecl  ::= 'type' UIDENT [ typarams ] '=' typedef NEWLINE
-**   typedef   ::= type                                     (alias)
-**               | datacon { '|' datacon }                  (sum)
-**   datacon   ::= UIDENT [ '(' type { ',' type } ')' ]
+**   typarams  ::= '[' typaram { ',' typaram } ']'                  (§5.7)
+**   typaram   ::= UIDENT [ ':' SORT ] { '@' LIDENT }               (§5.7 — sort + inline decos)
+**   typedecl  ::= { '@' LIDENT NEWLINE } ( enumdecl | structdecl | aliasdecl )  (§5.7)
+**   enumdecl  ::= 'enum'   UIDENT [ typarams ] ':' NEWLINE INDENT { casedecl } DEDENT
+**   casedecl  ::= 'case' UIDENT [ '(' type { ',' type } ')' ] NEWLINE
+**   structdecl::= 'struct' UIDENT [ typarams ] ':' NEWLINE INDENT { fielddecl } DEDENT
+**   fielddecl ::= LIDENT ':' type NEWLINE
+**   aliasdecl ::= 'type' UIDENT [ typarams ] '=' type NEWLINE      (alias ONLY)
 **   import    ::= 'import' modpath NEWLINE
 **               | 'from' modpath 'import' ( '*' | LIDENT { ',' LIDENT } ) NEWLINE
 **   modpath   ::= LIDENT { '.' LIDENT } | STRING
@@ -54,32 +57,112 @@ expect_newline_d(st: pstate): pstate =
 //
 (* ****** ****** *)
 //
-// ---- typarams: '[' LIDENT { ',' LIDENT } ']' → a list(strn). Empty if absent. ----
+// ---- typarams: '[' typaram { ',' typaram } ']' → a list(pytyparam). Empty if absent. ----
+//   typaram ::= UIDENT [ ':' SORT(UIDENT) ] { '@' LIDENT }   (§5.7)
+// The optional sort is `: UIDENT`; inline decorators are `@ LIDENT` with NO newline between
+// (these are layout-suppressed inside the open '[' bracket, unlike the prefix decorators).
 //
 fun
-p_typarams(st: pstate): @(list(strn), pstate) =
+p_typarams(st: pstate): @(list(pytyparam), pstate) =
 ( case+ ps_peek(st) of
   | PT_LBRACK() => p_tyvar_seq(ps_advance(st))
   | _ => @(list_nil(), st) )
 //
 and
-p_tyvar_seq(st: pstate): @(list(strn), pstate) =
+p_tyvar_seq(st: pstate): @(list(pytyparam), pstate) =
 ( case+ ps_peek(st) of
   | PT_RBRACK() => @(list_nil(), ps_advance(st))
-  | PT_LIDENT(nm) =>
-    let val st1 = ps_advance(st) in
+  | PT_UIDENT(_) =>
+    let val @(tp, st1) = p_typaram(st) in
       case+ ps_peek(st1) of
       | PT_COMMA() =>
         let val @(rest, st2) = p_tyvar_seq(ps_advance(st1)) in
-          @(list_cons(nm, rest), st2) end
-      | PT_RBRACK() => @(list_cons(nm, list_nil()), ps_advance(st1))
+          @(list_cons(tp, rest), st2) end
+      | PT_RBRACK() => @(list_cons(tp, list_nil()), ps_advance(st1))
       | _ =>
         let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected ',' or ']' in type params") in
-          @(list_cons(nm, list_nil()), st2) end
+          @(list_cons(tp, list_nil()), st2) end
     end
   | _ =>
-    let val st1 = ps_diag(st, ps_peek_loctn(st), "expected a type variable") in
+    let val st1 = ps_diag(st, ps_peek_loctn(st), "expected a type parameter (uppercase)") in
       @(list_nil(), st1) end )
+//
+// one type parameter: UIDENT [ ':' SORT ] { '@' LIDENT }.
+and
+p_typaram(st: pstate): @(pytyparam, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val @(nm, st1) =
+    ( case+ ps_peek(st) of
+      | PT_UIDENT(s) => @(s, ps_advance(st))
+      | _ => @("?", ps_diag(st, loc, "expected a type parameter (uppercase)")) )
+  // optional sort annotation: ':' UIDENT
+  val @(sopt, st2) =
+    ( case+ ps_peek(st1) of
+      | PT_COLON() =>
+        let val locS = ps_peek_loctn(ps_advance(st1)) in
+          case+ ps_peek(ps_advance(st1)) of
+          | PT_UIDENT(srt) => @(PySortSome(locS, srt), ps_advance(ps_advance(st1)))
+          | _ =>
+            let val stE = ps_diag(ps_advance(st1), locS, "expected a sort (uppercase) after ':'") in
+              @(PySortNone(), stE) end
+        end
+      | _ => @(PySortNone(), st1) )
+  // zero or more inline decorators: '@' LIDENT
+  val @(decos, st3) = p_inline_decorators(st2)
+in
+  @(PyTyParam(loc, nm, sopt, decos), st3)
+end
+//
+// inline decorators on a type param: { '@' LIDENT } with no NEWLINE between (open bracket).
+and
+p_inline_decorators(st: pstate): @(list(pydecorator), pstate) =
+( case+ ps_peek(st) of
+  | PT_AT() =>
+    let
+      val locA = ps_peek_loctn(st)
+      val st1 = ps_advance(st)
+    in
+      case+ ps_peek(st1) of
+      | PT_LIDENT(nm) =>
+        let val @(rest, st2) = p_inline_decorators(ps_advance(st1)) in
+          @(list_cons(PyDecor(locA, nm), rest), st2) end
+      | _ =>
+        let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected a decorator name after '@'") in
+          @(list_nil(), st2) end
+    end
+  | _ => @(list_nil(), st) )
+//
+(* ****** ****** *)
+//
+// ---- prefix decorators: { '@' LIDENT NEWLINE } → a list(pydecorator) in source order. ----
+//   Each prefix decorator sits on its own line (§5.7), so a NEWLINE follows.
+//
+fun
+p_decorators(st: pstate): @(list(pydecorator), pstate) =
+( case+ ps_peek(st) of
+  | PT_AT() =>
+    let
+      val locA = ps_peek_loctn(st)
+      val st1 = ps_advance(st)
+    in
+      case+ ps_peek(st1) of
+      | PT_LIDENT(nm) =>
+        let
+          val st2 = ps_advance(st1)
+          // consume the trailing NEWLINE (prefix decorators are line-terminated).
+          val st3 =
+            ( case+ ps_peek(st2) of
+              | PT_NEWLINE() => ps_advance(st2)
+              | _ => st2 )
+          val @(rest, st4) = p_decorators(st3)
+        in
+          @(list_cons(PyDecor(locA, nm), rest), st4)
+        end
+      | _ =>
+        let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected a decorator name after '@'") in
+          @(list_nil(), st2) end
+    end
+  | _ => @(list_nil(), st) )
 //
 (* ****** ****** *)
 //
@@ -150,19 +233,16 @@ p_def_params(st: pstate): @(list(pyparam), pstate) =
 //
 (* ****** ****** *)
 //
-// ---- type decl: 'type' UIDENT [typarams] '=' typedef NEWLINE ----
+// ---- type declarations (§5.7): the decorators are parsed by the caller (parse_decl)
+//      and threaded in. Three distinct keywords (no alias-vs-datatype heuristic):
+//        enum   Name [typarams] ':' <case suite>     → a datatype/ADT  (PyCenum)
+//        struct Name [typarams] ':' <field suite>    → a record        (PyCstruct)
+//        type   Name [typarams] '=' type NEWLINE     → an alias ONLY   (PyCtype)
 //
-// typedef is a datatype sum iff the first token after '=' is a UIDENT AND (it is
-// nullary-then-'|' or applied) — but distinguishing `type T = Foo` (alias to con Foo)
-// from `type T = Foo | Bar` (sum) needs lookahead past the first datacon. We decide:
-// parse the first datacon greedily; if a '|' follows, it is a SUM; otherwise it was a
-// single alias to a type. To stay faithful and simple: if the RHS begins with a UIDENT
-// we treat it as a (possibly single-constructor) DATATYPE SUM; a non-UIDENT RHS (tvar,
-// '(', '{', INT) is an ALIAS. A single `type T = Cons` is thus a one-constructor sum —
-// which is the conventional datatype reading. (Flagged in M2-REPORT.)
+// alias-only `type` decl: 'type' UIDENT [typarams] '=' type NEWLINE.
 //
 fun
-p_type_decl(st: pstate): @(pydecl, pstate) = let
+p_typedecl(st: pstate, decos: list(pydecorator)): @(pydecl, pstate) = let
   val loc = ps_peek_loctn(st)
   val st1 = ps_advance(st)               // past 'type'
   val @(nm, st2) =
@@ -173,31 +253,60 @@ p_type_decl(st: pstate): @(pydecl, pstate) = let
   val st4 =
     ( case+ ps_peek(st3) of
       | PT_EQ() => ps_advance(st3)
-      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected '=' in type declaration") )
-  val locrhs = ps_peek_loctn(st4)
-  val @(tdef, st5) =
-    ( case+ ps_peek(st4) of
-      | PT_UIDENT(_) =>
-        let val @(dcons, st5) = p_dataconsl(st4) in
-          @(PyTDdata(locrhs, dcons), st5) end
-      | _ =>
-        let val @(t, st5) = parse_type(st4) in
-          @(PyTDalias(locrhs, t), st5) end )
+      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected '=' in type alias declaration") )
+  val @(t, st5) = parse_type(st4)
 in
-  @(PyCtype(loc, nm, tvs, tdef), st5)
+  @(PyCtype(loc, decos, nm, tvs, t), st5)
 end
 //
-// datacon { '|' datacon }
-and
-p_dataconsl(st: pstate): @(list(pydatacon), pstate) = let
-  val @(c, st1) = p_datacon(st)
+(* ****** ****** *)
+//
+// ---- enum decl: 'enum' UIDENT [typarams] ':' NEWLINE INDENT { casedecl } DEDENT ----
+//      casedecl ::= 'case' UIDENT [ '(' type {',' type} ')' ] NEWLINE
+//
+fun
+p_enumdecl(st: pstate, decos: list(pydecorator)): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'enum'
+  val @(nm, st2) =
+    ( case+ ps_peek(st1) of
+      | PT_UIDENT(s) => @(s, ps_advance(st1))
+      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected an enum name (uppercase)")) )
+  val @(tvs, st3) = p_typarams(st2)
+  val st4 =
+    ( case+ ps_peek(st3) of
+      | PT_COLON() => ps_advance(st3)
+      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected ':' before the enum body") )
+  // open the suite: NEWLINE INDENT ... DEDENT
+  val st5 = ( case+ ps_peek(st4) of PT_NEWLINE() => ps_advance(st4) | _ => st4 )
+  val st6 =
+    ( case+ ps_peek(st5) of
+      | PT_INDENT() => ps_advance(st5)
+      | _ => ps_diag(st5, ps_peek_loctn(st5), "expected an indented enum body") )
+  val @(cases, st7) = p_casedecls(st6)
+  val st8 = ( case+ ps_peek(st7) of PT_DEDENT() => ps_advance(st7) | _ => st7 )
 in
-  case+ ps_peek(st1) of
-  | PT_BAR() =>
-    let val @(cs, st2) = p_dataconsl(ps_advance(st1)) in
-      @(list_cons(c, cs), st2) end
-  | _ => @(list_cons(c, list_nil()), st1)
+  @(PyCenum(loc, decos, nm, tvs, cases), st8)
 end
+//
+// { casedecl } until DEDENT/EOF.  casedecl ::= 'case' datacon NEWLINE
+and
+p_casedecls(st: pstate): @(list(pydatacon), pstate) =
+( case+ ps_peek(st) of
+  | PT_DEDENT() => @(list_nil(), st)
+  | PT_EOF()    => @(list_nil(), st)
+  | PT_KW_CASE() =>
+    let
+      val @(c, st1) = p_datacon(ps_advance(st))
+      val st2 = ( case+ ps_peek(st1) of PT_NEWLINE() => ps_advance(st1) | _ => st1 )
+      val @(cs, st3) = p_casedecls(st2)
+    in
+      @(list_cons(c, cs), st3)
+    end
+  | _ =>
+    // recover: skip a token, diagnose, keep going to find the DEDENT.
+    let val st1 = ps_resync(ps_diag(st, ps_peek_loctn(st), "expected a 'case' in enum body")) in
+      p_casedecls(st1) end )
 //
 // datacon ::= UIDENT [ '(' type { ',' type } ')' ]
 and
@@ -239,6 +348,59 @@ p_datacon_types(st: pstate): @(pytyplst, pstate) =
           @(list_cons(t, ts), st2) end
       | _ => @(list_cons(t, list_nil()), st1)
     end )
+//
+(* ****** ****** *)
+//
+// ---- struct decl: 'struct' UIDENT [typarams] ':' NEWLINE INDENT { fielddecl } DEDENT ----
+//      fielddecl ::= LIDENT ':' type NEWLINE
+//
+fun
+p_structdecl(st: pstate, decos: list(pydecorator)): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'struct'
+  val @(nm, st2) =
+    ( case+ ps_peek(st1) of
+      | PT_UIDENT(s) => @(s, ps_advance(st1))
+      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a struct name (uppercase)")) )
+  val @(tvs, st3) = p_typarams(st2)
+  val st4 =
+    ( case+ ps_peek(st3) of
+      | PT_COLON() => ps_advance(st3)
+      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected ':' before the struct body") )
+  val st5 = ( case+ ps_peek(st4) of PT_NEWLINE() => ps_advance(st4) | _ => st4 )
+  val st6 =
+    ( case+ ps_peek(st5) of
+      | PT_INDENT() => ps_advance(st5)
+      | _ => ps_diag(st5, ps_peek_loctn(st5), "expected an indented struct body") )
+  val @(fields, st7) = p_fielddecls(st6)
+  val st8 = ( case+ ps_peek(st7) of PT_DEDENT() => ps_advance(st7) | _ => st7 )
+in
+  @(PyCstruct(loc, decos, nm, tvs, fields), st8)
+end
+//
+// { fielddecl } until DEDENT/EOF.  fielddecl ::= LIDENT ':' type NEWLINE
+and
+p_fielddecls(st: pstate): @(list(pyfield), pstate) =
+( case+ ps_peek(st) of
+  | PT_DEDENT() => @(list_nil(), st)
+  | PT_EOF()    => @(list_nil(), st)
+  | PT_LIDENT(nm) =>
+    let
+      val loc = ps_peek_loctn(st)
+      val st1 = ps_advance(st)
+      val st2 =
+        ( case+ ps_peek(st1) of
+          | PT_COLON() => ps_advance(st1)
+          | _ => ps_diag(st1, ps_peek_loctn(st1), "expected ':' after a struct field name") )
+      val @(t, st3) = parse_type(st2)
+      val st4 = ( case+ ps_peek(st3) of PT_NEWLINE() => ps_advance(st3) | _ => st3 )
+      val @(rest, st5) = p_fielddecls(st4)
+    in
+      @(list_cons(PyField(loc, nm, t), rest), st5)
+    end
+  | _ =>
+    let val st1 = ps_resync(ps_diag(st, ps_peek_loctn(st), "expected a struct field (name ':' type)")) in
+      p_fielddecls(st1) end )
 //
 (* ****** ****** *)
 //
@@ -313,23 +475,39 @@ p_import_names(st: pstate): @(list(strn), pstate) =
 //
 (* ****** ****** *)
 //
-// ---- the SATS `parse_decl` entry: dispatch on the leading keyword ----
+// ---- the SATS `parse_decl` entry: a type decl may be prefixed by decorators (§5.7), so
+//      FIRST parse zero-or-more prefix decorators, THEN dispatch on the next keyword. The
+//      decorators are threaded into the enum/struct/type node. A `def` takes NO decorators
+//      in v1 — if any precede a `def` we REJECT with a clear PyCerror (the def body is still
+//      consumed for recovery so the module loop makes progress).
 //
 #implfun
 parse_decl(st) = let
-  val nod = ps_peek(st)
+  val locD = ps_peek_loctn(st)
+  val @(decos, st0) = p_decorators(st)
+  val nod = ps_peek(st0)
 in
   case+ nod of
-  | PT_KW_DEF()    => p_def(st)
-  | PT_KW_TYPE()   => p_type_decl(st)
-  | PT_KW_IMPORT() => p_import(st)
-  | PT_KW_FROM()   => p_import(st)
+  | PT_KW_DEF()    =>
+    ( case+ decos of
+      | list_nil() => p_def(st0)
+      | _ =>
+        // decorators on a `def` are not supported in v1: reject, but still parse the def
+        // for recovery and discard it, returning a PyCerror at the decorator span.
+        let val @(_, st1) = p_def(st0) in
+          @(PyCerror(locD, "decorators are not allowed on a 'def' (§5.7)"),
+            ps_diag(st1, locD, "decorators are not allowed on a 'def'")) end )
+  | PT_KW_ENUM()   => p_enumdecl(st0, decos)
+  | PT_KW_STRUCT() => p_structdecl(st0, decos)
+  | PT_KW_TYPE()   => p_typedecl(st0, decos)
+  | PT_KW_IMPORT() => p_import(st0)
+  | PT_KW_FROM()   => p_import(st0)
   | _ =>
     // not a structural decl — should be reached only via the module loop's fallback;
     // produce an error decl (the loop already handles stmt-position decls separately).
     let
-      val loc = ps_peek_loctn(st)
-      val st1 = ps_diag(st, loc, "expected a declaration")
+      val loc = ps_peek_loctn(st0)
+      val st1 = ps_diag(st0, loc, "expected a declaration")
     in
       @(PyCerror(loc, "expected a declaration"), st1)
     end
@@ -353,6 +531,12 @@ p_top_item(st: pstate): @(pydecl, pstate) = let
 in
   case+ nod of
   | PT_KW_DEF()    => parse_decl(st)
+  | PT_KW_ENUM()   => parse_decl(st)     // block-bodied: consumes its own DEDENT (no trailing NEWLINE)
+  | PT_KW_STRUCT() => parse_decl(st)     // block-bodied: consumes its own DEDENT
+  | PT_AT()        =>
+    // a decorator-prefixed type decl (enum/struct = block; type = alias). expect_newline_d
+    // is a no-op after a block (DEDENT consumed), and consumes the NEWLINE after an alias.
+    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_TYPE()   =>
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_IMPORT() =>

@@ -1,7 +1,7 @@
 ==== /Users/qcfu/Projects/ATS-Xanadu/frontend/TEST/m2/m2_records.py ====
 (module
 (import@(0:0-0:4) (from@(0:0-0:4) (path "prelude") *))
-(type Point@(2:0-2:4) (alias@(2:13-2:14) (Trec@(2:13-2:31) (x: (Tcon Int@(2:18-2:21))) (y: (Tcon Int@(2:26-2:29))))))
+(type Point@(2:0-2:4) (alias (Trec@(2:13-2:31) (x: (Tcon Int@(2:18-2:21))) (y: (Tcon Int@(2:26-2:29))))))
 (def manhattan@(4:0-4:3) (params (p: (Tcon Point@(4:17-4:22))) (q: (Tcon Point@(4:27-4:32)))) (ret (Tcon Int@(4:37-4:40)))
   (expr@(5:4-5:35) (Ebin +@(5:4-5:35) (Eapp@(5:4-5:18) (Evar abs@(5:4-5:7)) (args (Ebin -@(5:8-5:17) (Efield x@(5:8-5:11) (Evar p@(5:8-5:9))) (Efield x@(5:14-5:17) (Evar q@(5:14-5:15)))))) (Eapp@(5:21-5:35) (Evar abs@(5:21-5:24)) (args (Ebin -@(5:25-5:34) (Efield y@(5:25-5:28) (Evar p@(5:25-5:26))) (Efield y@(5:31-5:34) (Evar q@(5:31-5:32)))))))))
 (cstmt@(7:0-7:29)

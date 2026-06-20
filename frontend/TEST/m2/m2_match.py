@@ -1,4 +1,6 @@
-type Tree[a] = Leaf | Node(Tree[a], a, Tree[a])
+enum Tree[A]:
+    case Leaf
+    case Node(Tree[A], A, Tree[A])
 
 def sum_tree(t: Tree[Int]) -> Int:
     match t:

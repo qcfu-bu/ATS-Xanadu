@@ -81,7 +81,8 @@ case+ s of
 pydecl_loctn(d) =
 (
 case+ d of
-| PyCfun(loc, _, _, _, _, _) => loc | PyCtype(loc, _, _, _) => loc
+| PyCfun(loc, _, _, _, _, _) => loc | PyCtype(loc, _, _, _, _) => loc
+| PyCenum(loc, _, _, _, _) => loc   | PyCstruct(loc, _, _, _, _) => loc
 | PyCimport(loc, _) => loc          | PyCstmt(loc, _) => loc
 | PyCerror(loc, _) => loc
 )

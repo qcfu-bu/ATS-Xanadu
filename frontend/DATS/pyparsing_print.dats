@@ -390,16 +390,27 @@ nl(out); print_indent(out, ind);
 case+ d of
 | PyCfun(loc, nm, tvs, params, ropt, body) =>
   ( ps(out, "(def "); ps(out, nm); print_span(out, loc);
-    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_strlst(out, tvs); ps(out, ")")) );
+    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
     ps(out, " (params"); pp_paramlst(out, params); ps(out, ")");
     ( case+ ropt of
       | PyTypNone() => ()
       | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
     pp_stmtlst(out, body, ind + 1); ps(out, ")") )
-| PyCtype(loc, nm, tvs, tdef) =>
+| PyCenum(loc, decos, nm, tvs, dcons) =>
+  ( ps(out, "(enum "); ps(out, nm); print_span(out, loc);
+    pp_decolst(out, decos);
+    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
+    pp_dataconlst(out, dcons, ind + 1); ps(out, ")") )
+| PyCstruct(loc, decos, nm, tvs, fields) =>
+  ( ps(out, "(struct "); ps(out, nm); print_span(out, loc);
+    pp_decolst(out, decos);
+    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
+    pp_fieldlst(out, fields, ind + 1); ps(out, ")") )
+| PyCtype(loc, decos, nm, tvs, t) =>
   ( ps(out, "(type "); ps(out, nm); print_span(out, loc);
-    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_strlst(out, tvs); ps(out, ")")) );
-    ps(out, " "); pp_tydef(out, tdef, ind + 1); ps(out, ")") )
+    pp_decolst(out, decos);
+    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
+    ps(out, " (alias "); pp_typ(out, t); ps(out, ")"); ps(out, ")") )
 | PyCimport(loc, imp) =>
   (ps(out, "(import"); print_span(out, loc); ps(out, " "); pp_import(out, imp); ps(out, ")"))
 | PyCstmt(loc, s) =>
@@ -408,14 +419,49 @@ case+ d of
   (ps(out, "(Cerror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )
 //
+// a list of prefix/inline decorators: " (deco @viewtype@(..) @unboxed@(..))" (omit if none).
 and
-pp_tydef(out: FILR, tdef: pytydef, ind: sint): void =
+pp_decolst(out: FILR, decos: list(pydecorator)): void =
 (
-case+ tdef of
-| PyTDalias(loc, t) =>
-  (ps(out, "(alias"); print_span(out, loc); ps(out, " "); pp_typ(out, t); ps(out, ")"))
-| PyTDdata(loc, dcons) =>
-  (ps(out, "(data"); print_span(out, loc); pp_dataconlst(out, dcons, ind + 1); ps(out, ")"))
+case+ decos of
+| list_nil() => ()
+| _ => (ps(out, " (deco"); pp_decolst_aux(out, decos); ps(out, ")"))
+)
+and
+pp_decolst_aux(out: FILR, decos: list(pydecorator)): void =
+(
+case+ decos of
+| list_nil() => ()
+| list_cons(PyDecor(loc, nm), rest) =>
+  (ps(out, " @"); ps(out, nm); print_span(out, loc); pp_decolst_aux(out, rest))
+)
+//
+// a type-param list: " (tyvar A@(..)) (tyvar A@(..) : VType (deco @unboxed@(..)))".
+and
+pp_typaramlst(out: FILR, tps: list(pytyparam)): void =
+(
+case+ tps of
+| list_nil() => ()
+| list_cons(PyTyParam(loc, nm, sopt, decos), rest) =>
+  ( ps(out, " (tyvar "); ps(out, nm); print_span(out, loc);
+    ( case+ sopt of
+      | PySortNone() => ()
+      | PySortSome(locS, srt) => (ps(out, " : "); ps(out, srt); print_span(out, locS)) );
+    pp_decolst(out, decos);
+    ps(out, ")");
+    pp_typaramlst(out, rest) )
+)
+//
+// a struct-field list: each field on its own indented line "(field x@(..) <type>)".
+and
+pp_fieldlst(out: FILR, fields: list(pyfield), ind: sint): void =
+(
+case+ fields of
+| list_nil() => ()
+| list_cons(PyField(loc, nm, t), rest) =>
+  ( nl(out); print_indent(out, ind); ps(out, "(field "); ps(out, nm); print_span(out, loc);
+    ps(out, " "); pp_typ(out, t); ps(out, ")");
+    pp_fieldlst(out, rest, ind) )
 )
 //
 and
@@ -424,7 +470,7 @@ pp_dataconlst(out: FILR, dcons: list(pydatacon), ind: sint): void =
 case+ dcons of
 | list_nil() => ()
 | list_cons(PyDataCon(loc, nm, ts), rest) =>
-  ( nl(out); print_indent(out, ind); ps(out, "(con "); ps(out, nm); print_span(out, loc);
+  ( nl(out); print_indent(out, ind); ps(out, "(case "); ps(out, nm); print_span(out, loc);
     pp_typlst(out, ts); ps(out, ")");
     pp_dataconlst(out, rest, ind) )
 )
