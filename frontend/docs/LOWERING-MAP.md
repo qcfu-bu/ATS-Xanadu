@@ -252,6 +252,34 @@ nullary con pattern has ever been *typechecked* (M16 for-loops take the list_fol
 path, never `iter_done`; M4 match tests use no datatype ctors). M5b's first `enum` match
 hits it. Constructor patterns/uses resolve via `tr12env_find_d2itm` → `D2ITMcon`.
 
+### 3.3b Type aliases (`type`) + records (`struct`) — D2Csexpdef (SPIKE-PROVEN, M5b.4/5)
+
+`frontend/build-m5b45-spike.sh` proved both lower via a shared `D2Csexpdef` (a static
+type-definition). A `struct` IS a record-type alias (the user's §5.7.1 ruling), so both
+collapse to ONE mechanism: build the RHS `s2exp`, then `build_sexpdef`:
+```
+fun build_sexpdef(env, loc, name, rhs: s2exp): @(s2cst, d2ecl) = let
+  val s2t  = rhs.sort()                 // the alias inherits the RHS's sort
+  val tdef = s2exp_stpize(rhs)          // the erased styp (statyp2; NOT a .styp() accessor)
+  val s2c  = s2cst_make_idst(loc, symbl_make_name name, s2t)
+  val () = s2cst_set_sexp(s2c, rhs)     // staexp2.sats:368
+  val () = s2cst_set_styp(s2c, tdef)    // staexp2.sats:371
+  val () = tr12env_add1_s2cst(env, s2c) // register so uses resolve
+in @(s2c, d2ecl_make_node(loc, D2Csexpdef(s2c, rhs))) end
+```
+- **`type X = T`** (M5b.5): lower `T` via the existing `pylower_typ`, then `build_sexpdef`.
+- **`struct S { f: T … }`** (M5b.4) = an alias to a record type. Build the record s2exp
+  `s2exp_make_node(the_sort2_tbox, S2Etrcd(TRCDbox0, (-1)(*npf*), flds))` where each field is
+  `S2LAB(LABsym(symbl_make_name fname), fTyp)`; then `build_sexpdef`. Field projection `p.x`
+  resolves through the alias with NO extra work. (`@unboxed struct`→`TRCDflt0`,
+  `@viewtype struct`→`TRCDbox1` is M5b.6.) Implement `pylower_typ`'s deferred `PyTrec` arm to
+  this same `S2Etrcd`, so `type P = {…}` and `struct P` share the path.
+- **THE HAZARD (load-bearing):** a primitive RHS/field MUST be the direct-T2Pcst `the_s2exp_*0`
+  form (the M5a `typ_alias` table), NEVER the prelude `int`/`bool` **sexpdef** — the latter
+  crashes `unify00_s2typ` (`XATS000_cfail`) when the alias/field is used (spike probes B/C/C2).
+  Lowering field/RHS types through the existing `resolve_typ` inherits the fix for free
+  (probes A/B′/C3/C4 = `nerror=0`).
+
 ### 3.4 Operators & precedence
 
 The Python parser **owns precedence** (Pratt) and emits *already-grouped*
