@@ -1,0 +1,27 @@
+==== /Users/qcfu/Projects/ATS-Xanadu/frontend/TEST/m2_5/m25_for_range.py ====
+(pycore
+(staload pyrt@(-1:-1--1:-1))
+(fungroup@(0:0-0:3)
+  (fun sum_count@(0:0-0:3) (params n) = (Elet@(1:4-1:19) (Pvar acc@(1:12-1:15)) = (Elit@(1:18-1:19) (int 0@(1:18-1:19)))
+      in (Elet@(2:4-2:19) (Pvar cnt@(2:12-2:15)) = (Elit@(2:18-2:19) (int 0@(2:18-2:19)))
+        in (Ecase@(3:4-3:7) (Eletfun@(3:4-3:7)
+          (loop loop@(-1:-1--1:-1) (params it acc cnt) = (Ecase@(3:4-3:7) (Eapp@(3:4-3:7) (Evar iter_step@(3:4-3:7)) (args (Evar it@(-1:-1--1:-1))))
+              (arm@(-1:-1--1:-1) (Pcon iter_done@(-1:-1--1:-1)) => (Eapp@(-1:-1--1:-1) (Econ flow_next@(-1:-1--1:-1)) (args (Etup@(-1:-1--1:-1) (Evar acc@(-1:-1--1:-1)) (Evar cnt@(-1:-1--1:-1))))))
+              (arm@(-1:-1--1:-1) (Pcon iter_more@(-1:-1--1:-1) (Pvar i@(-1:-1--1:-1)) (Pvar it1@(-1:-1--1:-1))) => (Ecase@(3:4-3:7) (Elet@(4:8-4:21) (Pvar acc@(4:8-4:21)) = (Eapp@(4:14-4:21) (Evar +@(4:14-4:21)) (args (Evar acc@(4:14-4:17)) (Evar i@(4:20-4:21))))
+                  in (Elet@(5:8-5:21) (Pvar cnt@(5:8-5:21)) = (Eapp@(5:14-5:21) (Evar +@(5:14-5:21)) (args (Evar cnt@(5:14-5:17)) (Elit@(5:20-5:21) (int 1@(5:20-5:21)))))
+                    in (Eapp@(-1:-1--1:-1) (Econ flow_next@(-1:-1--1:-1)) (args (Etup@(-1:-1--1:-1) (Evar acc@(-1:-1--1:-1)) (Evar cnt@(-1:-1--1:-1)))))))
+                  (arm@(-1:-1--1:-1) (Pcon flow_next@(-1:-1--1:-1) (Ptup@(-1:-1--1:-1) (Pvar acc@(-1:-1--1:-1)) (Pvar cnt@(-1:-1--1:-1)))) => (Eapp@(3:4-3:7) (Evar loop@(-1:-1--1:-1)) (args (Etup@(3:4-3:7) (Evar it1@(3:4-3:7)) (Evar acc@(3:4-3:7)) (Evar cnt@(3:4-3:7))))))
+                  (arm@(-1:-1--1:-1) (Pcon flow_cont@(-1:-1--1:-1) (Ptup@(-1:-1--1:-1) (Pvar acc@(-1:-1--1:-1)) (Pvar cnt@(-1:-1--1:-1)))) => (Eapp@(3:4-3:7) (Evar loop@(-1:-1--1:-1)) (args (Etup@(3:4-3:7) (Evar it1@(3:4-3:7)) (Evar acc@(3:4-3:7)) (Evar cnt@(3:4-3:7))))))
+                  (arm@(-1:-1--1:-1) (Pcon flow_break@(-1:-1--1:-1) (Ptup@(-1:-1--1:-1) (Pvar acc@(-1:-1--1:-1)) (Pvar cnt@(-1:-1--1:-1)))) => (Eapp@(-1:-1--1:-1) (Econ flow_break@(-1:-1--1:-1)) (args (Etup@(-1:-1--1:-1) (Evar acc@(-1:-1--1:-1)) (Evar cnt@(-1:-1--1:-1))))))
+                  (arm@(-1:-1--1:-1) (Pcon flow_return@(-1:-1--1:-1) (Pvar r@(-1:-1--1:-1))) => (Eapp@(-1:-1--1:-1) (Econ flow_return@(-1:-1--1:-1)) (args (Evar r@(-1:-1--1:-1)))))))))
+          in (Ecase@(3:4-3:7) (Eapp@(3:4-3:7) (Evar loop@(-1:-1--1:-1)) (args (Etup@(3:4-3:7) (Eapp@(3:4-3:7) (Evar iter_open@(3:4-3:7)) (args (Eapp@(3:13-3:24) (Evar range@(3:13-3:18)) (args (Elit@(3:19-3:20) (int 0@(3:19-3:20))) (Evar n@(3:22-3:23)))))) (Evar acc@(3:4-3:7)) (Evar cnt@(3:4-3:7)))))
+            (arm@(-1:-1--1:-1) (Pcon flow_next@(-1:-1--1:-1) (Ptup@(-1:-1--1:-1) (Pvar acc@(-1:-1--1:-1)) (Pvar cnt@(-1:-1--1:-1)))) => (Eapp@(3:4-3:7) (Econ flow_next@(3:4-3:7)) (args (Etup@(3:4-3:7) (Evar acc@(3:4-3:7)) (Evar cnt@(3:4-3:7))))))
+            (arm@(-1:-1--1:-1) (Pcon flow_break@(-1:-1--1:-1) (Ptup@(-1:-1--1:-1) (Pvar acc@(-1:-1--1:-1)) (Pvar cnt@(-1:-1--1:-1)))) => (Eapp@(3:4-3:7) (Econ flow_next@(3:4-3:7)) (args (Etup@(3:4-3:7) (Evar acc@(3:4-3:7)) (Evar cnt@(3:4-3:7))))))
+            (arm@(-1:-1--1:-1) (Pcon flow_return@(-1:-1--1:-1) (Pvar r@(-1:-1--1:-1))) => (Eapp@(3:4-3:7) (Econ flow_return@(3:4-3:7)) (args (Evar r@(-1:-1--1:-1)))))))
+          (arm@(-1:-1--1:-1) (Pcon flow_next@(-1:-1--1:-1) (Ptup@(-1:-1--1:-1) (Pvar acc@(-1:-1--1:-1)) (Pvar cnt@(-1:-1--1:-1)))) => (Evar acc@(6:4-6:7)))
+          (arm@(-1:-1--1:-1) (Pcon flow_break@(-1:-1--1:-1) (Ptup@(-1:-1--1:-1) (Pvar acc@(-1:-1--1:-1)) (Pvar cnt@(-1:-1--1:-1)))) => (Evar acc@(6:4-6:7)))
+          (arm@(-1:-1--1:-1) (Pcon flow_return@(-1:-1--1:-1) (Pvar r@(-1:-1--1:-1))) => (Evar acc@(6:4-6:7))))))))
+)
+==== diagnostics ====
+(none)
+

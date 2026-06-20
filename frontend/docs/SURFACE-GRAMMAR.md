@@ -94,6 +94,13 @@ Indentation is significant. A **block (suite)** is opened by a line ending in a
   column closes contexts (emit `DEDENT`s) until it matches an enclosing one; EOF
   closes all open contexts.
 
+**Indentation must be spaces — tabs are NOT allowed.** A tab character in a line's
+**leading (indentation) whitespace is a hard error**: the lexer emits a diagnostic
+(error token) rather than guessing a tab width — no tab-stop, no spaces/tabs mixing,
+no silent acceptance. (Tabs *after* the first non-whitespace token, e.g. between
+operands, are ordinary whitespace.) This removes the tabs-vs-spaces ambiguity
+entirely. *(Lead-architect ruling, 2026-06-20.)*
+
 **Brackets vs layout (the subtle case — block lambdas inside expressions).** Open
 `(`/`[`/`{` suppress *statement* `NEWLINE`s (implicit line-join, as in Python), **but
 a block-opener still opens a layout context** even inside brackets; when that block
@@ -141,16 +148,22 @@ for v1** — the operator set (§5.6) and trailing-lambda rule (§3) finalize in
 Rust/Haskell-style, so the parser distinguishes a constructor from a binder *without*
 consulting name resolution:
 
-- **`UIDENT`** (uppercase initial) — a **type constructor** (`Int`, `List`, `Tree`)
-  **or** a **data constructor** (`Leaf`, `Node`, `Some`).
-- **`LIDENT`** (lowercase initial) — a **variable, function, type variable, or field**
-  (`x`, `sum_tree`, `a`, `name`).
+- **`UIDENT`** (uppercase initial) — a **type constructor** (`Int`, `List`, `Tree`),
+  a **data constructor** (`Leaf`, `Node`, `Some`), **or a type parameter** (`A`, `B`,
+  `T`) — Rust-style (§5.7). A type-constructor and a type-parameter use are
+  disambiguated by **scope**: a name bound in an enclosing `[…]` type-parameter list is
+  the parameter, otherwise it is a type constructor.
+- **`LIDENT`** (lowercase initial) — a **variable, function, or field** (`x`,
+  `sum_tree`, `name`).
 - `true` / `false` are **lowercase literal keywords** (like `42` / `"s"`), **not** data
   constructors — which is why they are lowercase even though `Leaf` / `Node` are not.
 
 Consequences: in a **pattern**, a `UIDENT` is a constructor (must resolve to a `d2con`,
 else "unknown constructor") and a `LIDENT` is a fresh binder — disambiguated by case
-alone. In a **type**, a `UIDENT` is a type constructor and a `LIDENT` is a type variable.
+alone (the dynamic layer needs no scope lookup). In a **type**, a `UIDENT` is a type
+constructor *or* an in-scope type parameter, resolved by scope (the static layer already
+resolves type names via the environment, so this costs nothing). *Type parameters are
+uppercase, Rust-style — decided 2026-06-20; see §5.7.*
 
 > **Bridge to the ATS prelude.** The ATS prelude names its types/constructors in
 > *lowercase* (`int`, `bool`, `list`, `list_cons`). The capitalized surface vocabulary
@@ -171,8 +184,18 @@ FLOAT    = digit+ '.' digit+ [ ('e'|'E') ['+'|'-'] digit+ ]
 STRING   = '"' { strchar | escape } '"'
 CHAR     = "'" ( char | escape ) "'"
 COMMENT  = '#' { ¬newline }                         (* discarded *)
-keywords = let mut def if elif else while for in match case
-           break continue return import from type and or not true false '_'
+keywords = let mut def if elif else while for in match case enum struct
+           break continue return import from type as and or not true false '_'
+operator = '+' '-' '*' '/' '//' '%' '**'            (* arithmetic *)
+         | '==' '!=' '<' '<=' '>' '>='              (* comparison  *)
+punct    = '=' '=>' '->' ':' ',' '.' '|'            (* '=' bind/reassign · '=>' lambda ·
+                                                       '->' type arrow · '|' RESERVED
+                                                       (no v1 use; enum/case replaced its
+                                                       datatype-separator role, §5.7) *)
+DECORATOR= '@' LIDENT                                (* @viewtype @boxed @unboxed … (§5.7) *)
+SORT     = UIDENT                                    (* sort in a type-param annotation: Type, VType, … (§5.7) *)
+bracket  = '(' ')' '[' ']' '{' '}'
+layout   = NEWLINE INDENT DEDENT                     (* off-side rule; brackets suppress *)
 ```
 
 ### 5.2 Module & declarations
@@ -186,12 +209,10 @@ binding   ::= 'let' [ 'mut' ] pattern [ ':' type ] '=' expr NEWLINE
 funcdef   ::= 'def' LIDENT [ typarams ] '(' [ params ] ')' [ '->' type ] ':' suite
 params    ::= param { ',' param }
 param     ::= LIDENT [ ':' type ]
-typarams  ::= '[' LIDENT { ',' LIDENT } ']'          (* generics: def f[a](…) — type vars lowercase *)
+typarams  ::= '[' typaram { ',' typaram } ']'        (* generics: def f[A](…) — params UPPERCASE, §5.7 *)
+typaram   ::= UIDENT [ ':' SORT ] { DECORATOR }      (* e.g. A  |  A: VType @unboxed *)
 
-typedecl  ::= 'type' UIDENT [ typarams ] '=' typedef NEWLINE     (* type name uppercase *)
-typedef   ::= type                                   (* alias:  type Id = List[Int] *)
-            | datacon { '|' datacon }                (* sum:    type Tree[a] = Leaf | Node(…) *)
-datacon   ::= UIDENT [ '(' type { ',' type } ')' ]   (* data constructor uppercase *)
+typedecl  ::= { DECORATOR NEWLINE } ( enumdecl | structdecl | aliasdecl )  (* enum/struct/type — §5.7 *)
 
 import    ::= 'import' modpath NEWLINE
             | 'from' modpath 'import' ( '*' | LIDENT { ',' LIDENT } ) NEWLINE
@@ -305,6 +326,71 @@ type_atom ::= UIDENT                                   (* type constructor:  Int
 Each operator lowers to a named prelude `d2cst` (LOWERING-MAP §3.4); `and`/`or`/`not`
 lower to short-circuiting `if`. The parser owns precedence (Pratt) — no ATS fixity.
 
+> **`|` is currently a RESERVED token with no v1 surface use.** Its earlier role as the
+> datatype-alternative separator (`A | B`) is **replaced by `enum`/`case`** (§5.7), and
+> `match` uses `case` arms — so `|` appears in no v1 production. The lexer still emits
+> `PT_BAR` (reserved for a future bitwise-or / or-pattern / union surface); the parser
+> has no v1 use for it.
+
+---
+
+### 5.7 Type declarations — `enum` / `struct` / `type`, decorators & sorts
+
+Three distinct keywords (Rust-style), so there is **no alias-vs-datatype ambiguity**:
+**`enum`** = a datatype (sum / ADT), **`struct`** = a record, **`type`** = a type alias
+(typedef). A declaration may be prefixed by zero or more **decorators** (each on its own
+line) selecting the type's memory/representation mode; **with no decorator the type is
+the default boxed, unrestricted kind**.
+
+```
+enumdecl   ::= 'enum'   UIDENT [ typarams ] ':' NEWLINE INDENT { casedecl } DEDENT
+casedecl   ::= 'case' UIDENT [ '(' type { ',' type } ')' ] NEWLINE   (* a data constructor *)
+
+structdecl ::= 'struct' UIDENT [ typarams ] ':' NEWLINE INDENT { fielddecl } DEDENT
+fielddecl  ::= LIDENT ':' type NEWLINE                               (* a record field *)
+
+aliasdecl  ::= 'type' UIDENT [ typarams ] '=' type NEWLINE           (* alias ONLY *)
+
+typarams   ::= '[' typaram { ',' typaram } ']'
+typaram    ::= UIDENT [ ':' SORT ] { DECORATOR }     (* uppercase param; opt sort + mode *)
+DECORATOR  ::= '@' LIDENT                             (* @viewtype @boxed @unboxed @prop … *)
+SORT       ::= UIDENT                                 (* Type, VType, Prop, View, Int, … *)
+```
+
+- **Type parameters are UPPERCASE** (`[A]`, `[A: VType @unboxed]`) — Rust-style,
+  resolved as a parameter vs a type constructor by scope (§5 convention).
+- **Decorators** apply both as a **prefix** to a whole declaration (its representation
+  kind) and **inline** on a type parameter (that parameter's sort/representation). The
+  surface accepts an **open vocabulary** of `@name` decorators and `Sort` names; the
+  exact set and their mapping to ATS sorts / datatype flavors (`datavtype`,
+  unboxed/flat, `prop`, …) is pinned in **M5** (LOWERING-MAP §1.4). Default (no
+  decorator) = boxed, unrestricted.
+- `case` is reused (as in `match`) for constructor lines — unambiguous by context
+  (inside an `enum:` suite it introduces a constructor; inside a `match:` suite it
+  introduces a pattern arm).
+
+**Examples.**
+```
+# a linear (viewtype) cons-list whose element type is itself linear & unboxed
+@viewtype
+enum Tree[A: VType @unboxed]:
+    case Nil
+    case Cons(A, Tree[A])
+
+# an ordinary boxed sum type (no decorator ⇒ boxed)
+enum Shape:
+    case Circle(Float)
+    case Rect(Float, Float)
+
+# a record (default boxed), generic over A
+struct Point[A]:
+    x: A
+    y: A
+
+# a type alias
+type Ints = List[Int]
+```
+
 ---
 
 ## 6. Example programs
@@ -351,7 +437,9 @@ def first_even(xs: List[Int]) -> Int:
 
 **(d) Datatype + `match` (generic)**
 ```
-type Tree[a] = Leaf | Node(Tree[a], a, Tree[a])
+enum Tree[A]:
+    case Leaf
+    case Node(Tree[A], A, Tree[A])
 
 def sum_tree(t: Tree[Int]) -> Int:
     match t:
@@ -372,7 +460,9 @@ def normalize(xs: List[Int], k: Int) -> List[Int]:
 ```
 from "prelude" import *
 
-type Point = { x: Int, y: Int }
+struct Point:
+    x: Int
+    y: Int
 
 def manhattan(p: Point, q: Point) -> Int:
     abs(p.x - q.x) + abs(p.y - q.y)
@@ -402,3 +492,21 @@ print_int(manhattan(origin, p))                # top-level expr-stmt = module in
   drafted, §5.6); whether an indented block is allowed as a general expression
   (beyond function/lambda bodies); the finalized trailing-lambda acceptance rule
   (§3); comparison chaining (`a < b < c`); the native dependent-type surface (plan §8).
+
+---
+
+## 8. Architect rulings (resolved during M1–M2)
+
+Decisions on gaps the lexer/parser agents correctly **escalated** rather than
+inventing surface syntax. Binding for v1.
+
+| # | Gap | Ruling |
+|---|---|---|
+| R-tab | tab vs space indentation | **Spaces only** — a tab in leading indentation is a hard error (§3). |
+| R-bar | `\|` token | **`PT_BAR`** lexes, but is now **RESERVED with no v1 surface use** — `enum`/`case` (§5.7) replaced its datatype-separator role and `match` uses `case` arms. Kept for a future bitwise-or / or-pattern / union surface. |
+| R-pat | pattern `: T` vs block-header `:` | A **pattern never consumes a trailing `:`** — the `:` after a `case`/`match` pattern is the block-header. Annotation `p : T` is produced **only at binding/param sites** (`let`, `def` params). |
+| R-type | `type T = …` alias vs datatype | **SUPERSEDED 2026-06-20** by distinct keywords (§5.7): `enum` = datatype, `struct` = record, `type` = **alias only**. No RHS-shape heuristic — the ambiguity is gone. (M2's interim classification is replaced in M5 when the new surface is parsed/lowered.) |
+| R-tyvar | type-parameter case | **Uppercase**, Rust-style: `[A]`, `[A: VType @unboxed]`. Type params are UIDENT, disambiguated from type constructors by scope (§5, §5.7). *Changed 2026-06-20 from the earlier "type vars lowercase" rule.* |
+| R-ifexpr | `if` as an expression | An **`if`-expression** has inline expression branches + a **mandatory `else`** (`PyEif`); an **`if`-statement** has suite branches + an **optional `else`** (`PySif`). A general indented block as an arbitrary expression stays **deferred** (§7 open item). |
+| R-trail | trailing block-lambda as a call's last arg | **Deferred** in v1: brackets suppress layout, so a block-bodied lambda mid-call is not special-cased — use an inline `=>` or parenthesize. Revisit post-v1 (§3). |
+| R-orpat | or-patterns (`p \| q`) | **Not in v1** — `\|` is solely the datatype-constructor separator. |

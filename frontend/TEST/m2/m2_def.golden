@@ -1,0 +1,14 @@
+==== /Users/qcfu/Projects/ATS-Xanadu/frontend/TEST/m2/m2_def.py ====
+(module
+(def fact@(0:0-0:3) (params (n: (Tcon Int@(0:12-0:15)))) (ret (Tcon Int@(0:20-0:23)))
+  (if@(1:4-1:6)
+    (guard@(1:4-1:6) (cond (Ebin <=@(1:7-1:13) (Evar n@(1:7-1:8)) (Elit@(1:12-1:13) (int 0@(1:12-1:13)))))
+      (expr@(1:15-1:16) (Elit@(1:15-1:16) (int 1@(1:15-1:16)))))
+    (guard@(2:4-2:8) (cond (Ebin ==@(2:9-2:15) (Evar n@(2:9-2:10)) (Elit@(2:14-2:15) (int 1@(2:14-2:15)))))
+      (expr@(2:17-2:18) (Elit@(2:17-2:18) (int 1@(2:17-2:18)))))
+    (else
+      (expr@(3:10-3:25) (Ebin *@(3:10-3:25) (Evar n@(3:10-3:11)) (Eapp@(3:14-3:25) (Evar fact@(3:14-3:18)) (args (Ebin -@(3:19-3:24) (Evar n@(3:19-3:20)) (Elit@(3:23-3:24) (int 1@(3:23-3:24)))))))))))
+)
+==== diagnostics ====
+(none)
+

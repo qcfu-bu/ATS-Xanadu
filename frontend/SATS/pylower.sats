@@ -1,0 +1,112 @@
+(* ****** ****** *)
+(*
+** M3 — Python-surface frontend: the PyCore -> L2 LOWERING (SATS).
+**
+** This is the cross-DATS contract for the M3 lowering. PyCore (frontend/SATS/pycore.sats)
+** is the functional-core IR the elaborator produces; M3 maps it STRUCTURALLY to the stock
+** compiler's level-2 AST (d2exp/d2pat/d2ecl/s2exp), mirroring the trans12_*.dats templates
+** (LOWERING-MAP §4) against a LIVE tr12env (fresh per call; names fall through to the
+** prelude). The lowered top-level decl list is wrapped by d2parsed_make_args and handed to
+** d3parsed_of_trans23, exactly as the stock frontend does — so a type error lands on the
+** REAL Python span threaded into every L2 node (the whole point of hooking at L2).
+**
+** The split mirrors trans12_{staexp,dynexp,decl00}:
+**   pylower_staexp.dats : pytyp -> s2exp (type-name resolution; surface Int/Bool aliasing)
+**                         + the surface-operator -> prelude-name remap.
+**   pylower_dynexp.dats : pclit/pcexp/pcpat -> d2exp/d2pat (templates A/B/C/D/E + literals).
+**   pylower_decl00.dats : pcdecl -> d2ecl (the fun-group template F, val, staload) + the
+**                         module driver (lower a pcdecl list -> a d2eclist).
+**
+** Cross-DATS entries MUST be SATS-declared (not `extern fun` in a DATS) so they get a
+** STABLE cross-file symbol — exactly the discipline the M2 parser / M2.5 elaborator split
+** proved (pyelab.sats preamble). The DATS implement them with `#implfun`.
+**
+** PURELY ADDITIVE: consumes pycore.sats / pyparsing.sats READ-ONLY; nothing under srcgen2/
+** or language-server/ is touched. Three-header discipline + the M0a/M0b verified API set.
+*)
+(* ****** ****** *)
+//
+#include "./../../srcgen2/HATS/libxatsopt.hats"
+#include "./../../srcgen2/HATS/xatsopt_sats.hats"
+//
+#staload "./../../srcgen2/SATS/locinfo.sats"
+//
+#staload "./../SATS/pylexing.sats"
+#staload "./../SATS/pyparsing.sats"
+#staload "./../SATS/pycore.sats"
+//
+(* ****** ****** *)
+//
+// ---- staexp (types) --------------------------------------------------------
+//
+// `pylower_typ(env, t)` lowers a surface type to an s2exp, resolving a type NAME via
+// tr12env_find_s2itm with the prelude fall-through. Surface capitalized names that have a
+// lowercase prelude counterpart are aliased here (Int->int, Bool->bool, String->strn,...);
+// an unresolved name yields s2exp_none0 (a benign placeholder trans23 will flag).
+//
+fun pylower_typ(env: !tr12env, t: pytyp): s2exp
+fun pylower_typlst(env: !tr12env, ts: list(pytyp)): s2explst
+//
+// `pylower_sres(env, t)` = the function/lambda RETURN-type signature S2RESsome from a
+// surface type (the `-> T`). S2RESnone() when no annotation is supplied.
+fun pylower_sres(env: !tr12env, t: pytyp): s2res
+//
+// the surface-operator -> prelude-name remap (LOWERING-MAP §3.4; M3-REPORT operator table).
+// `op_remap(name)` = the BINARY map: surface operator (or `print`) -> its concrete prelude
+// `sint_*` function name (D2ITMcst, resolves cleanly direct-to-L2; the overloaded D2ITMsym
+// form does NOT). `op_remap_unary(name)` = the UNARY map (a 1-arg application of `-`/`+`):
+// `-` -> `sint_neg`, `+` -> the operand unchanged-name's identity (no-op prefix). Names that
+// are not operators pass through unchanged (so ordinary fun/var calls are untouched).
+fun op_remap(name: strn): strn
+fun op_remap_unary(name: strn): strn
+//
+(* ****** ****** *)
+//
+// ---- dynexp (expressions / patterns / literals) ----------------------------
+//
+// the literal-token synthesizer: a PyCore literal's verbatim lexeme -> the token-based L2
+// leaf node (D2Eint/D2Eflt/D2Estr/D2Echr/D2Ebtf). Token-based (NOT unboxed D2E*00), the
+// only form proven through codegen (LOWERING-MAP §2.1, M0b §5.5).
+fun pylower_lit(loc: loctn, lit: pclit): d2exp
+//
+// expression lowering (templates A/B/C/D/E). `env` is mutated only by scope push/pop and
+// name binding (mirrors trans12); never the global env.
+fun pylower_exp(env: !tr12env, e: pcexp): d2exp
+fun pylower_explst(env: !tr12env, es: list(pcexp)): d2explst
+//
+// identifier-reference (template A): resolve `sym` to a d2exp via tr12env_find_d2itm,
+// branching on the d2itm. `d1eproxy` is a synthetic D1Eid0(sym) the D2ITMsym (operator
+// overload) arm needs for d2exp_sym0; the helper builds it internally.
+fun pylower_var(env: !tr12env, loc: loctn, sym: sym_t): d2exp
+//
+// pattern lowering. Every binder is a FRESH d2var; the caller registers the pattern's vars
+// with tr12env_add0_d2pat in the appropriate scope (templates C/E binding rule).
+fun pylower_pat(env: !tr12env, p: pcpat): d2pat
+fun pylower_patlst(env: !tr12env, ps: list(pcpat)): d2patlst
+//
+// a parameter-name list -> a single f2arglst (one F2ARGdapp of fresh-d2var patterns).
+// Shared by template D (lambda) and template F (fun member). Param types are inferred (v1).
+fun params_to_f2arglst(env: !tr12env, loc: loctn, params: list(strn)): f2arglst
+//
+// lower one recursive `fun` group (the PCEletfun/PCCfun member list) to a D2Cfundclst d2ecl
+// (template F). The group's names are bound into `env` BEFORE the bodies (a Python def group
+// is recursive), so self/mutual calls resolve to the same d2var. Shared by the let-form
+// (PCEletfun, in pylower_dynexp) and the top-level form (PCCfun, in pylower_decl00).
+fun lower_fungroup(env: !tr12env, loc: loctn, fdcls: list(pcfundcl)): d2ecl
+//
+(* ****** ****** *)
+//
+// ---- decl00 (declarations) + the module driver -----------------------------
+//
+// a single top-level decl -> a d2ecl. Binds top-level names into `env` (so later decls and
+// uses resolve), recursion-aware for fun groups (template F).
+fun pylower_decl(env: !tr12env, d: pcdecl): d2ecl
+//
+// the module driver: lower a PyCore decl list into a d2eclist, threading `env` left-to-right
+// (each decl's bindings visible to the following decls). Mirrors trans12.dats:528-556.
+fun pylower_decls(env: !tr12env, ds: list(pcdecl)): d2eclist
+//
+(* ****** ****** *)
+(*
+end of [frontend/SATS/pylower.sats]
+*)

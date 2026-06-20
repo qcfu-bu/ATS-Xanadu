@@ -1,0 +1,21 @@
+==== /Users/qcfu/Projects/ATS-Xanadu/frontend/TEST/m2_5/m25_guard_match.py ====
+(pycore
+(staload pyrt@(-1:-1--1:-1))
+(fungroup@(0:0-0:3)
+  (fun classify@(0:0-0:3) (params n) = (Ecase@(1:4-1:9) (Evar n@(1:10-1:11))
+      (arm@(2:8-2:12) (Pvar x@(2:13-2:14)) if (Eapp@(2:18-2:23) (Evar <@(2:18-2:23)) (args (Evar x@(2:18-2:19)) (Elit@(2:22-2:23) (int 0@(2:22-2:23))))) => (Ecase@(2:8-2:12) (Eapp@(3:12-3:20) (Econ flow_return@(3:12-3:20)) (args (Elit@(3:19-3:20) (int 0@(3:19-3:20)))))
+          (arm@(-1:-1--1:-1) (Pcon flow_return@(-1:-1--1:-1) (Pvar r@(-1:-1--1:-1))) => (Evar r@(-1:-1--1:-1)))
+          (arm@(-1:-1--1:-1) (Pcon flow_next@(-1:-1--1:-1) (Pwild@(-1:-1--1:-1))) => (Eunit@(3:12-3:20)))))
+      (arm@(4:8-4:12) (Plit@(4:13-4:14) (int 0@(4:13-4:14))) => (Ecase@(4:8-4:12) (Eapp@(5:12-5:20) (Econ flow_return@(5:12-5:20)) (args (Elit@(5:19-5:20) (int 1@(5:19-5:20)))))
+          (arm@(-1:-1--1:-1) (Pcon flow_return@(-1:-1--1:-1) (Pvar r@(-1:-1--1:-1))) => (Evar r@(-1:-1--1:-1)))
+          (arm@(-1:-1--1:-1) (Pcon flow_next@(-1:-1--1:-1) (Pwild@(-1:-1--1:-1))) => (Eunit@(5:12-5:20)))))
+      (arm@(6:8-6:12) (Pvar x@(6:13-6:14)) if (Eapp@(6:18-6:25) (Evar >@(6:18-6:25)) (args (Evar x@(6:18-6:19)) (Elit@(6:22-6:25) (int 100@(6:22-6:25))))) => (Ecase@(6:8-6:12) (Eapp@(7:12-7:20) (Econ flow_return@(7:12-7:20)) (args (Elit@(7:19-7:20) (int 3@(7:19-7:20)))))
+          (arm@(-1:-1--1:-1) (Pcon flow_return@(-1:-1--1:-1) (Pvar r@(-1:-1--1:-1))) => (Evar r@(-1:-1--1:-1)))
+          (arm@(-1:-1--1:-1) (Pcon flow_next@(-1:-1--1:-1) (Pwild@(-1:-1--1:-1))) => (Eunit@(7:12-7:20)))))
+      (arm@(8:8-8:12) (Pvar x@(8:13-8:14)) => (Ecase@(8:8-8:12) (Eapp@(9:12-9:20) (Econ flow_return@(9:12-9:20)) (args (Elit@(9:19-9:20) (int 2@(9:19-9:20)))))
+          (arm@(-1:-1--1:-1) (Pcon flow_return@(-1:-1--1:-1) (Pvar r@(-1:-1--1:-1))) => (Evar r@(-1:-1--1:-1)))
+          (arm@(-1:-1--1:-1) (Pcon flow_next@(-1:-1--1:-1) (Pwild@(-1:-1--1:-1))) => (Eunit@(9:12-9:20))))))))
+)
+==== diagnostics ====
+(none)
+

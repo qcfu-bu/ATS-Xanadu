@@ -1,0 +1,16 @@
+==== /Users/qcfu/Projects/ATS-Xanadu/frontend/TEST/m2/m2_records.py ====
+(module
+(import@(0:0-0:4) (from@(0:0-0:4) (path "prelude") *))
+(type Point@(2:0-2:4) (alias@(2:13-2:14) (Trec@(2:13-2:31) (x: (Tcon Int@(2:18-2:21))) (y: (Tcon Int@(2:26-2:29))))))
+(def manhattan@(4:0-4:3) (params (p: (Tcon Point@(4:17-4:22))) (q: (Tcon Point@(4:27-4:32)))) (ret (Tcon Int@(4:37-4:40)))
+  (expr@(5:4-5:35) (Ebin +@(5:4-5:35) (Eapp@(5:4-5:18) (Evar abs@(5:4-5:7)) (args (Ebin -@(5:8-5:17) (Efield x@(5:8-5:11) (Evar p@(5:8-5:9))) (Efield x@(5:14-5:17) (Evar q@(5:14-5:15)))))) (Eapp@(5:21-5:35) (Evar abs@(5:21-5:24)) (args (Ebin -@(5:25-5:34) (Efield y@(5:25-5:28) (Evar p@(5:25-5:26))) (Efield y@(5:31-5:34) (Evar q@(5:31-5:32)))))))))
+(cstmt@(7:0-7:29)
+  (let imm@(7:0-7:29) (Pvar origin@(7:4-7:10)) = (Erec@(7:13-7:29) (x = (Elit@(7:19-7:20) (int 0@(7:19-7:20)))) (y = (Elit@(7:26-7:27) (int 0@(7:26-7:27)))))))
+(cstmt@(8:0-8:24)
+  (let imm@(8:0-8:24) (Pvar p@(8:4-8:5)) = (Erec@(8:8-8:24) (x = (Elit@(8:14-8:15) (int 3@(8:14-8:15)))) (y = (Elit@(8:21-8:22) (int 4@(8:21-8:22)))))))
+(cstmt@(9:0-9:31)
+  (expr@(9:0-9:31) (Eapp@(9:0-9:31) (Evar print_int@(9:0-9:9)) (args (Eapp@(9:10-9:30) (Evar manhattan@(9:10-9:19)) (args (Evar origin@(9:20-9:26)) (Evar p@(9:28-9:29))))))))
+)
+==== diagnostics ====
+(none)
+

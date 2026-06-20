@@ -1,0 +1,10 @@
+==== /Users/qcfu/Projects/ATS-Xanadu/frontend/TEST/m2_5/m25_diag_reassign.py ====
+(pycore
+(fungroup@(0:0-0:3)
+  (fun bad@(0:0-0:3) (params) = (Elet@(1:4-1:13) (Pvar x@(1:8-1:9)) = (Elit@(1:12-1:13) (int 1@(1:12-1:13)))
+      in (Eseq@(2:4-2:9) (Eerror "reassignment to non-mut binding: x"@(2:4-2:9))
+        ; (Evar x@(3:4-3:5))))))
+)
+==== diagnostics ====
+  reassignment to non-mut binding: x @(2:4-2:9)
+

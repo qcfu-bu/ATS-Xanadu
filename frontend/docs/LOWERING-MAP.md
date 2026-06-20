@@ -30,7 +30,7 @@
 | Python surface | L2 node | Notes |
 |---|---|---|
 | `name` | `D2Evar d2v` / `D2Econ d2c` / `D2Ecst d2c` / `D2Econs`/`D2Ecsts`/`D2Esym0` | resolve via `tr12env_find_d2itm`; branch on the `d2itm` (§3.1, §4.A) |
-| `42` | `D2Eint tok` or `D2Ei00 n` | `tok = token_make_node(loc, T_INT01 "42")`; prefer unboxed `D2Ei00` when value known |
+| `42` | `D2Eint tok` | `tok = token_make_node(loc, T_INT01 "42")` — use the token form (proven through codegen; **avoid** unboxed `D2Ei00`, see §2.1) |
 | `3.14` | `D2Eflt tok` / `D2Ef00 f` | `T_FLT01 "3.14"` |
 | `"s"` | `D2Estr tok` / `D2Es00 s` | `T_STRN1_clsd("\"s\"", len)` — quotes included in the lexeme |
 | `'c'` | `D2Echr tok` / `D2Ec00 c` | `T_CHAR2_char "'c'"` |
@@ -127,9 +127,14 @@ tnode constructors for literals (`SATS/lexing0.sats`):
 (string, **quotes included**, `len` = byte length), `T_CHAR2_char strn` (char),
 identifiers `T_IDALP strn` (alnum) / `T_IDSYM strn` (symbolic).
 
-> Prefer the **unboxed** literal nodes where the value is already known —
-> `D2Ei00 of sint`, `D2Ef00 of dflt`, `D2Es00 of strn`, `D2Eb00 of bool`,
-> `D2Ec00 of char` — they skip token synthesis entirely.
+> **Use the token-based literal nodes** (`D2Eint`/`D2Eflt`/`D2Estr`/`D2Echr`/`D2Ebtf`)
+> — the forms the stock parser + `trans12` actually emit, and the only ones proven
+> end-to-end through codegen (M0b). The **unboxed** forms (`D2Ei00`/`D2Ef00`/`D2Es00`/
+> `D2Eb00`/`D2Ec00`) type-check fine and have symmetric `trans23`/`trxd3i0` arms, but
+> they are a less-traveled path — M0b observed a **bad JS emit** from an unboxed int in
+> an untyped top-level `val` — so **do NOT use them in v1.** Synthesizing a token is one
+> extra call (`token_make_node`); pay it. (Verified 2026-06-20; see
+> frontend/docs/M0b-REPORT.md.)
 
 ### 2.2 Symbols (identifier keys)
 

@@ -422,9 +422,30 @@ it as a known future improvement, not a TODO that blocks correctness.
 
 ---
 
-*Open items to close during M2.5:* (i) the exact `pyrt` iterator-protocol signatures
-and which containers v1 supports; (ii) confirming a 2-parameter parametric
-`datatype flow(a,r)` type-checks cleanly through `trans23` in the simple-typed
-layer (spike a hand-built example in M0, alongside the existing tracer bullet);
-(iii) the definite-assignment checker's precision (§7.4).
+*Open items — RESOLVED 2026-06-20 (architect rulings after the M2.5 spike):*
+
+(i) **Iterator protocol = THREADED / pure** (not stateful). `iter_step(it)` returns
+`done | more(x, it')`; `it'` threads as part of the loop's accumulator state, so it stays
+a tail-call argument (preserves §6) and the pass stays re-entrant (no `var`/`ref` cell).
+v1 containers: **lists** (`it` = the list; step = cons/nil) and **`range`** (`it` =
+current index). No stateful iterators in v1. *(The M2.5 elaborator currently emits the
+stateful shape — switch to threaded; an M2.5 refinement, due before `for`-loops lower.)*
+
+(ii) **2-parameter `flow(a,r)`: VERIFIED** — the M2.5 Step-0 spike typechecks + codegens
++ runs it. The combinators (`flow_bind`, loop dispatch) are **INLINED per loop site** as
+an explicit `case`, so there is **no generic `flow_bind` function** to instantiate (the
+stock backend crashes on generic-template instantiation). The parametric `flow` *datatype*
+stays in `pyrt`, used at concrete types per site. User-level generics (`def f[A]`) are a
+separate M5/M7 concern.
+
+(iii) **Definite-assignment (use-before-init, §7.4): DEFERRED** to a post-M3 additive
+pass. v1 ships target-validation only (a reassignment must target an in-scope `let mut`);
+a `mut` read before init falls through to a downstream type error — the precise diagnostic
+is polish.
+
+(iv) **Guarded `match` arms: carry the guard in PyCore** (`PCArm` gains an optional
+guard); do **not** desugar a guard to an inner `if`. A failed guard must fall through to
+the **next** arm (ML/ATS semantics) — an inner-`if` cannot. M4 lowers a guarded arm to
+ATS's native guarded clause (`d2cls` `D2GPTgua`), which has correct fall-through. *(M2.5
+refinement, due before `match` lowering in M4.)*
 </content>

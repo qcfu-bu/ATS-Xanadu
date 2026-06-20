@@ -1,0 +1,21 @@
+==== /Users/qcfu/Projects/ATS-Xanadu/frontend/TEST/m2/m2_malformed.py ====
+(module
+(def good@(0:0-0:3) (params (n: (Tcon Int@(0:12-0:15)))) (ret (Tcon Int@(0:20-0:23)))
+  (expr@(1:4-1:9) (Ebin +@(1:4-1:9) (Evar n@(1:4-1:5)) (Elit@(1:8-1:9) (int 1@(1:8-1:9))))))
+(cstmt@(3:0-5:3)
+  (let imm@(3:0-5:3) (Pvar x@(3:4-3:5)) = (Ebin +@(3:9-5:3) (Elit@(3:9-3:10) (int 1@(3:9-3:10))) (Eerror "expected an expression"@(5:0-5:3)))))
+(def after@(5:0-5:3) (params (m: (Tcon Int@(5:13-5:16)))) (ret (Tcon Int@(5:21-5:24)))
+  (expr@(6:4-6:9) (Ebin *@(6:4-6:9) (Evar m@(6:4-6:5)) (Elit@(6:8-6:9) (int 2@(6:8-6:9))))))
+(cstmt@(8:0-8:9)
+  (let imm@(8:0-8:9) (Pvar y@(8:4-8:5)) = (Elit@(8:8-8:9) (int 1@(8:8-8:9)))))
+(cstmt@(8:10-8:11)
+  (expr@(8:10-8:11) (Elit@(8:10-8:11) (int 2@(8:10-8:11)))))
+(cstmt@(8:12-8:13)
+  (expr@(8:12-8:13) (Elit@(8:12-8:13) (int 3@(8:12-8:13)))))
+(cstmt@(9:0-9:10)
+  (let imm@(9:0-9:10) (Pvar z@(9:4-9:5)) = (Elit@(9:8-9:10) (int 99@(9:8-9:10)))))
+)
+==== diagnostics ====
+  expected an expression @(5:0-5:3)
+  expected ')' @(5:0-5:3)
+

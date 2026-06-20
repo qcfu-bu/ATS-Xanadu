@@ -75,7 +75,10 @@ d2parsed = D2PARSED of
   , d1topenv    t1penv     // L1 top env (fixity) — we supply an empty one; see §6.6
   , d2topenv    t2penv     // L2 top env — the top-level bindings we created
   , d2eclistopt parsed )   // the lowered top-level declaration list
-// maker: d2parsed_make_args(...)  (SATS/dynexp2.sats:1972; symload `d2parsed`)
+// maker: d2parsed_make_args(...)  (srcgen2/SATS/dynexp2.sats:1972; symload `d2parsed`)
+// NB: d2parsed is an `#abstbox` (OPAQUE) — the `D2PARSED of (...)` above is conceptual,
+// not a visible constructor. You CANNOT pattern-match or build it directly; the ONLY
+// way to construct one is d2parsed_make_args(...). (Verified 2026-06-20.)
 ```
 
 `d2topenv` is four name→item maps `(g1mac, s2tex, s2itm, d2itm)`
@@ -345,13 +348,34 @@ we bypass `atext_tokenize`, we inherit **no** lexer-side init — but none is ne
 beyond the two calls above (verified: the keyword table is a compile-time-populated
 global, independent of our lexer).
 
-### 6.2 The compiler is **one-shot** — process-per-file
+### 6.2 Re-entrancy — the LSP is a *resident* process; be safe to re-invoke
 
-There is no reset/clear API; stamp counters, intern tables, and global envs leak
-across files (primer §4; memory `ats3-compiler-one-shot`). The frontend inherits
-this constraint **unchanged**: a batch compile or an LSP check must run each file
-in a **fresh `node` process that exits after one file**. Reuse the LSP project's
-process-per-check architecture.
+**Model corrected (2026-06-20).** Earlier drafts assumed the compiler is strictly
+one-shot (process-per-file). The **deno-based `ats-lsp` is now a resident,
+long-lived process** (`language-server/server/resident/`): it loads the prelude
+**once** at startup and then type-checks every open/edited file **in the same warm
+V8 process**, evicting per-URI state between checks (`cache_pruner`, `precheck`, a
+dependency graph). The stock `d3parsed_of_fildats`/`_filsats` are already invoked
+repeatedly in this resident loop (`xats_lsp_resident.dats:600,630`) without
+corruption, so the discipline that makes *that* safe is the discipline the frontend
+must also follow — **`pyfront_*` MUST be re-entrant**:
+
+- **Produce a self-contained `d2topenv`** from a *fresh* `tr12env_make_nil()` +
+  `tr12env_free_top()` per file. A file's top-level bindings live in its own
+  `d2topenv` (carried inside the `d2parsed`), **not** in the global prelude env.
+- **Never mutate the global envs** (`the_sexpenv`/`the_dexpenv`/the prelude maps).
+  Resolution *reads* them via fall-through (§4); the frontend must not *write* them.
+- **Global stamp counters advance monotonically** across checks — this is fine: we
+  never depend on specific stamp values, and fresh stamps each call are correct.
+- `the_tr12env_pvsl00d()` is idempotent (gated by `the_ntime`), so re-calling the
+  global bootstrap on a later check is a no-op.
+
+**M0 must prove this:** check the same hand-built program **twice in one process**
+and assert identical results (same `nerror`, same printed L3) with no state
+accumulation; a divergence on the 2nd pass is a critical finding. (A batch CLI
+compile may still run process-per-file, but the LSP — our primary consumer — does
+not, so re-entrancy is a hard requirement.) This **supersedes** the process-per-file
+note in memory `ats3-compiler-one-shot` *for the resident LSP path*.
 
 ### 6.3 Location fidelity — feed real Python spans into every L2 node
 
@@ -375,7 +399,9 @@ val e   = d2exp(loc, D2Eint(tok))
 ```
 
 There are also **unboxed** literal forms that skip the token (`D2Ei00 of sint`,
-`D2Es00 of strn`, `D2Eb00 of bool`, …) — prefer these where the value is known.
+`D2Es00 of strn`, `D2Eb00 of bool`, …). **Do not use them in v1** — only the
+token-based forms (`D2Eint`/`D2Estr`/…) are proven end-to-end through codegen (M0b);
+the unboxed path mis-emitted a bare top-level int. Synthesize the token (one call).
 Identifiers become `sym_t` via `symbl_make_name`. Full recipes: LOWERING-MAP §2.
 
 ### 6.5 Scope & binding order — mirror `trans12` exactly
@@ -502,16 +528,17 @@ is the one genuinely **unverified** integration point, so it is de-risked first
   instead has a typechecked `d3parsed` already in hand and must invoke **only the
   back half**: `trans3a` (normalize/table top-level templates) → `trtmp3b/3c`
   (template resolution) → IR → `js1emit`.
-- **M0 spike task:** locate the `xats2js` entry that accepts a typechecked program
-  (a `d3parsed` / `d3eclist`) and emits JS, rather than re-parsing a file. The
-  backend lives in `srcgen2/xats2js/`; identify its top-level emit function and
-  whether it re-runs the front-end. Two outcomes:
-  - **(a) it accepts L3** → call it directly on our `d3parsed`. Clean.
-  - **(b) it only drives from a file/d0parsed** → either (i) add a thin
-    backend entry that starts from `d3parsed`, or (ii) for an interim
-    end-to-end demo, have the frontend *also* be able to emit an equivalent ATS3
-    source as a fallback to feed the stock asset. Prefer (i); (ii) is a stopgap
-    only.
+- **M0 spike task — RESOLVED on paper (2026-06-20); needs a link+run spike.** The
+  `xats2js` backend **does** expose an in-memory L3 entry. Verified pass sequence in
+  `srcgen2/xats2js/srcgen2/UTIL/xats2js_jsemit01.dats:96-170` (`mymain_work`):
+  `d3parsed` → template/read passes (`tread3a`→`trtmp3b`→`trtmp3c`→`t3read0`) →
+  `i0parsed_of_trxd3i0(dpar)` → `i0parsed_of_tryd3i0` → `i1parsed_of_trxi0i1` →
+  `i1parsed_js1emit(ipar, filr)`. So **outcome (a) holds**: M0b calls this directly
+  on our `d3parsed`. The residual work is (i) **linking** the `xats2js` sub-compiler
+  pieces — it is a *separate* source tree with its own SATS (`js1emit.sats`,
+  `trxd3i0.sats`, …) — into the frontend bundle, and (ii) confirming the template
+  passes run cleanly on a hand-built program. Replicate the exact sequence from that
+  `mymain_work`.
 - **Build & link:** identical recipe to the LSP compiler-linking build
   (primer §10.5): build `srcgen2/lib/lib2xatsopt.js` once with the **`jsemit00`**
   transpiler (not `jsemit01`), `cat`-link the runtime + our `.cats` glue + the
@@ -602,7 +629,7 @@ appetite dictates.
 
 | # | Risk | Mitigation |
 |---|---|---|
-| **R1** | **In-memory codegen seam (§9) is unverified** — the JS backend may only drive from a file. | M0b spike resolves it first; fallback (ii) gives an interim path. This is the top risk for the end-to-end-JS goal. |
+| **R1** | **In-memory codegen seam (§9).** The in-memory L3 entry **exists** — `i0parsed_of_trxd3i0(d3parsed)` → `…tryd3i0` → `…trxi0i1` → `i1parsed_js1emit` (`xats2js_jsemit01.dats:96-170`). Residual risk: linking the *separate* `xats2js` source tree + running its template passes (`tread3a`/`trtmp3b`/`trtmp3c`) on a hand-built program. | M0b links the xats2js pieces and runs the exact pass sequence from its `mymain_work`. **Downgraded** from "unverified" to "needs a link+run spike". |
 | **R2** | The lowering must faithfully replicate `trans12`'s scope/binding **order** (recursion, push/pop, tag assignment). Subtle bugs = wrong resolution, not crashes. | Mirror `trans12_dynexp.dats`/`trans12_decl00.dats` file-for-file; differential oracle (§11) detects divergence. |
 | **R3** | `t1penv` / any field `trans23` *does* read from a non-stock `d2parsed`. | M0 verifies a hand-built `d2parsed` type-checks; supply an empty `d1topenv` and confirm (§6.6). |
 | **R4** | Operator precedence parity & semantics: Python ops vs ATS prelude ops (e.g. `and`, `%`, `//`, `**`). | Python parser owns precedence (LOWERING-MAP §3.4); map each operator to a named prelude `d2cst`; where no prelude op exists, define one or lower to a function call. Document the operator table in SURFACE-GRAMMAR.md. |
@@ -618,15 +645,46 @@ operator→prelude-`d2cst` table (M3, R4).
 
 ---
 
-## 13. LSP synergy
+## 13. LSP synergy — integrating into the deno-based `ats-lsp`
 
-The LSP server, client, and the real compiler-linking checker already exist and
-work end-to-end for the ATS3 surface (memory `ats3-lsp-project`). Because this
+The LSP is now a **resident, in-process Deno server** that already serves
+diagnostics/hover/go-to-def/completion for the ATS3 surface end-to-end
+(`language-server/server/resident/`; client `language-server/client/`). Because this
 frontend (a) hooks at L2 with **real Python locations** threaded through, and (b)
-ends at the same `d3parsed` the LSP harvester consumes, the LSP gets the Python
-surface **almost for free** at M6: point the checker at `pyfront_*` instead of
-`d2parsed_of_fildats`, and diagnostics/hover/go-to-def report on the `.py` source.
-The same process-per-check architecture (R/§6.2) applies unchanged.
+ends at the same `d3parsed` the resident harvester consumes (`harvest_with_deps`),
+the Python surface drops in at **three concrete touch-points** — no new
+diagnostics/hover/def code:
+
+1. **The dispatch seam (server).** In `xats_lsp_resident.dats`, two validators
+   produce the `d3parsed`:
+   - `text_validator` (saved file, ~L600):
+     `if fpath_is_dats(path) then d3parsed_of_fildats(path) else d3parsed_of_filsats(path)`
+   - `live_validator` (unsaved buffer, ~L630):
+     `d3parsed_of_trans03(d0parsed_of_pread00(d0parsed_from_atext_named(stadyn,text,path)))`
+
+   Insert a Python branch **above** each:
+   `if is_python_surface(path) then pyfront_d3parsed_of_fpath(path)` (resp.
+   `…_of_atext(text,path)`) `else …`. The result feeds `harvest_with_deps`
+   unchanged. The unsaved-buffer entry is exactly why the driver (§5.4) exposes
+   `pyfront_d2parsed_of_atext`.
+2. **The build (server bundle).** The resident bundle is cat-linked by
+   `server/resident/build.sh` (runtime + `lib2xatsopt.js` + `.cats` glue + driver)
+   then packaged by `client/scripts/build-deno.js` →
+   `deno compile --v8-flags=--stack-size=8801`. The frontend's `frontend/SATS` +
+   `frontend/DATS` must be transpiled (jsemit00) and linked into that bundle, and
+   `xats_lsp_resident.dats` must `#staload "pyfront.sats"`. (M0 establishes this
+   exact recipe; record it in `ENGINEERING.md` once proven, not before.)
+3. **File-type registration (client).** Register the Python-surface extension
+   (recommend `.pats`/`.pdats`, or `.py`) as a language id with an
+   `onLanguage:…` activation event in `language-server/client/package.json` +
+   `extension.ts`, so the resident server is asked to check those files. The
+   per-file extension routes the frontend; the `--py` flag (§5.5) remains the
+   override for stdin/forced-Python and the LSP unsaved-buffer path.
+
+Re-entrancy (§6.2) is what makes this safe inside the resident loop: each check
+builds a fresh env and a self-contained `d2topenv`, so repeated in-process checks of
+an edited Python file behave exactly like the stock path. **M6 is therefore mostly
+wiring** (the three touch-points above) + UTF-16 column conversion (primer §5).
 
 ---
 
@@ -646,7 +704,11 @@ The same process-per-check architecture (R/§6.2) applies unchanged.
 | leaf token maker | `token_make_node` (symload `token`) — `SATS/lexing0.sats:352`; literal tnodes `T_INT01`/`T_STRN1_clsd`/… — `SATS/lexing0.sats` |
 | location model | `postn`/`loctn`/`lcsrc`, `loctn_dummy` — `SATS/locinfo.sats` |
 | diagnostics harvest template | `f3perr0_d3exp`/`auxmain` — `DATS/f3perr0_dynexp.dats` |
-| build/link recipe | primer §10.5 — `language-server/server/build-lib2xatsopt.sh` + `build.sh` |
+| build/link recipe (resident) | `language-server/server/resident/build.sh` + client `scripts/build-deno.js` (`deno compile --v8-flags=--stack-size=8801`) |
+| deno LSP dispatch seam | `text_validator`/`live_validator` — `language-server/server/resident/DATS/xats_lsp_resident.dats:600,630` |
+| in-memory JS codegen entry | `i0parsed_of_trxd3i0`→`i1parsed_js1emit` — `srcgen2/xats2js/srcgen2/UTIL/xats2js_jsemit01.dats:96-170` |
+
+*All `SATS/`/`DATS/`/`UTIL/` paths above are under `srcgen2/` (the current compiler tree).*
 
 ---
 

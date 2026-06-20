@@ -1,0 +1,13 @@
+==== /Users/qcfu/Projects/ATS-Xanadu/frontend/TEST/m2/m2_lambda.py ====
+(module
+(def normalize@(0:0-0:3) (params (xs: (Tcon List@(0:18-0:27) (Tcon Int@(0:23-0:26)))) (k: (Tcon Int@(0:32-0:35)))) (ret (Tcon List@(0:40-0:49) (Tcon Int@(0:45-0:48))))
+  (let imm@(1:4-1:39) (Pvar doubled@(1:8-1:15)) = (Eapp@(1:18-1:39) (Evar map@(1:18-1:21)) (args (Evar xs@(1:22-1:24)) (Elam@(1:26-1:29) (params (x))
+  (expr@(1:33-1:38) (Ebin *@(1:33-1:38) (Evar x@(1:33-1:34)) (Elit@(1:37-1:38) (int 2@(1:37-1:38)))))))))
+  (let imm@(2:4-2:20) (Pvar g@(2:8-2:9)) = (Elam@(2:12-2:20) (params (acc) (x))
+  (let imm@(3:8-3:21) (Pvar y@(3:12-3:13)) = (Ebin +@(3:16-3:21) (Evar x@(3:16-3:17)) (Evar k@(3:20-3:21))))
+  (expr@(4:8-4:20) (Eapp@(4:8-4:20) (Evar cons@(4:8-4:12)) (args (Evar y@(4:13-4:14)) (Evar acc@(4:16-4:19)))))))
+  (expr@(5:4-5:24) (Eapp@(5:4-5:24) (Evar fold@(5:4-5:8)) (args (Evar doubled@(5:9-5:16)) (Elist@(5:18-5:20)) (Evar g@(5:22-5:23))))))
+)
+==== diagnostics ====
+(none)
+
