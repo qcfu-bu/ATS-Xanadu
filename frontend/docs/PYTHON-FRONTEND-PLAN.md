@@ -265,8 +265,8 @@ dispatches by extension (`fpath_satsq` → `d3parsed_of_filsats`, else `…filda
 
 ```
 val dpar =
-  if pyfront_mode || fpath_pyq(fpth)        // `--py`, or a Python extension
-    then pyfront_d3parsed_of_fpath(fpth)    // [NEW]
+  if pyfront_mode || fpath_pdatsq(fpth) || fpath_psatsq(fpth)  // `--py`, or a .pdats/.psats file
+    then pyfront_d3parsed_of_fpath(fpth)    // [NEW]  (.psats → static stadyn=0, .pdats → dynamic stadyn=1)
   else if fpath_satsq(fpth)
     then d3parsed_of_filsats(fpth)          // stock, untouched
   else d3parsed_of_fildats(fpth)            // stock, untouched
@@ -301,11 +301,16 @@ into the env). That handler does the per-dependency dispatch:
   because `pyfront` owns the Python part of the graph; this is a localized addition
   in *our* import handler, not a compiler fork.
 
-**Recommendation:** give Python-surface files a **distinct extension** (e.g.
-`.pats`/`.pdats`, or `.py`) so dependency routing is unambiguous. Then the
-**extension** auto-routes the whole graph, and **`--py`** means "treat the *entry*
-file as Python regardless of extension" — the requested opt-in, also useful for
-stdin and the LSP unsaved-buffer path (`pyfront_d2parsed_of_atext`).
+**Locked convention (decided 2026-06-20).** Python-surface files use a **distinct
+extension pair mirroring ATS's `.sats`/`.dats`**: **`.psats`** = a Python-surface
+*static / interface* module (`stadyn = 0`), **`.pdats`** = a Python-surface
+*dynamic / implementation* module (`stadyn = 1`). This (a) stops Python tooling
+(editors, linters, `mypy`/`pyright`, the `python` interpreter) from mis-claiming the
+files — the surface is Python-*flavored* but is its own ATS-semantic language — and
+(b) lets the **extension auto-route the whole dependency graph** unambiguously.
+**`--py`** remains the override: "treat the *entry* file as Python-surface regardless
+of extension" — also useful for stdin and the LSP unsaved-buffer path
+(`pyfront_d2parsed_of_atext`).
 
 **Confirmed design rule — the import boundary is one-directional:** Python-surface
 code may import ATS-surface modules; **ATS-surface code never imports Python-surface
@@ -319,8 +324,8 @@ ecosystem. Consequences:
   branch; the compiler proper is untouched.
 - Interop is about *parsing*, not *linking*: if an ATS file ever needs to use a
   Python-authored module, the escape valve is an ATS-surface `.sats` **interface**
-  for it (hand-written or generated) — ATS imports the interface, not the `.py`.
-- An ATS file that does `#staload "foo.py"` is user error for an unsupported combo;
+  for it (hand-written or generated) — ATS imports the interface, not the `.pdats`.
+- An ATS file that does `#staload "foo.pdats"` is user error for an unsupported combo;
   it simply fails as a parse error. A friendlier diagnostic would be the *only*
   reason to touch the stock loader, and it is **not required** — left out by design.
 
@@ -675,7 +680,7 @@ diagnostics/hover/def code:
    `xats_lsp_resident.dats` must `#staload "pyfront.sats"`. (M0 establishes this
    exact recipe; record it in `ENGINEERING.md` once proven, not before.)
 3. **File-type registration (client).** Register the Python-surface extension
-   (recommend `.pats`/`.pdats`, or `.py`) as a language id with an
+   (`.psats` + `.pdats`) as language ids with an
    `onLanguage:…` activation event in `language-server/client/package.json` +
    `extension.ts`, so the resident server is asked to check those files. The
    per-file extension routes the frontend; the `--py` flag (§5.5) remains the

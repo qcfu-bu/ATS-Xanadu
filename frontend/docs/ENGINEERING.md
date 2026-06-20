@@ -71,7 +71,7 @@ driver's top-level vals on load; `require` is not hoisted).
   are proven end-to-end.
 - **`npf = -1`** on every application/tuple/record (no proof args in v1; plan §6.7).
 - **Real `loctn` everywhere.** Thread the lexer's Python span into every L2 node so
-  diagnostics land on the `.py` source (plan §6.3). `loctn_dummy()` only for
+  diagnostics land on the `.pdats` source (plan §6.3). `loctn_dummy()` only for
   genuinely synthetic nodes.
 - **nil `d1topenv` = `tr01env_free_top(tr01env_make_nil())`** (plan §6.6).
 - Build the `d2parsed` only via `d2parsed_make_args(stadyn, nerror, source, t1penv,
@@ -115,7 +115,7 @@ independent, characterized reasons (M3-REPORT §6.1, build-spike.sh):
 Both are limits of the **from-source backend build + direct-L2 construction** not replicating
 what the stock source→JS pipeline does (template fill, funset instantiation) — NOT frontend
 bugs. The **LSP/diagnostics path does not need them** (it ends at the typechecked `d3parsed`
-+ `f3perr0`, which works on real `.py` — M3-4b).
++ `f3perr0`, which works on real `.pdats` — M3-4b).
 
 ### 4.2 Error detection in a direct-L2 driver: run `tread3a` FIRST
 `d3parsed_of_trans23` records type errors as **errck NODES**, not in the `d2parsed` `nerror`
@@ -129,11 +129,11 @@ never hit this (error-free programs); M3 found and fixed it.
 - **Differential oracle** (plan §11): write each program twice (ATS surface + Python
   surface), assert identical L2/L3 + identical emitted JS / diagnostics. The stock
   `d2parsed_of_fildats` is the oracle.
-- **End-to-end run**: `.py` → JS → `node` → compare stdout to golden.
+- **End-to-end run**: `.pdats` → JS → `node` → compare stdout to golden.
 
 ## 6. Deno ats-lsp integration (M6 target)
 Three touch-points (plan §13): (1) `is_python_surface(path)` branch in
 `language-server/server/resident/DATS/xats_lsp_resident.dats` `text_validator`(~L600)
 + `live_validator`(~L630); (2) link `frontend/` into `server/resident/build.sh` then
-`deno compile --v8-flags=--stack-size=8801`; (3) register `.pats`/`.py` lang-id +
+`deno compile --v8-flags=--stack-size=8801`; (3) register `.psats` + `.pdats` lang-ids +
 `onLanguage` activation in `language-server/client/{package.json,src/extension.ts}`.
