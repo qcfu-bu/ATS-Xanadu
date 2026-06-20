@@ -1,14 +1,15 @@
 /*
- * ATS3 LSP client (WS-0b).
+ * ATS3 LSP client.
  *
- * Thin TypeScript VSCode extension that launches the language server as a
- * child `node` process and speaks LSP/JSON-RPC over stdio (plan §2).
+ * Thin TypeScript VSCode extension that launches the language server and speaks
+ * LSP/JSON-RPC over stdio.
  *
- * For Phase 0 the server defaults to the throwaway stub at
- * `server/stub/server.js`, which publishes one hard-coded diagnostic to prove
- * the editor <-> server round-trip. The server module path is configurable via
- * the `ats3.server.module` setting so this client can later point at the real
- * ATS3-built `xats-lsp-server.js` with no code change.
+ * The server is shipped as a single self-contained native binary built with
+ * `deno compile` (see scripts/build-deno.js). It embeds V8 + the deno runtime +
+ * the ATS3 checker + its deps, and bakes in `--allow-all` and
+ * `--v8-flags=--stack-size=8801` (the deeply-recursive prelude load overflows
+ * V8's default stack). So the client just spawns `xats-lsp-deno --stdio` and
+ * passes XATSHOME through the environment. No node/node_modules at runtime.
  */
 
 import * as path from "path";
@@ -30,49 +31,38 @@ import {
 let client: LanguageClient | undefined;
 
 /**
- * Resolve the absolute path to the server entrypoint.
+ * Resolve the self-contained Deno server binary.
  *
- * Priority:
- *   1. the `ats3.server.module` setting, if set (absolute path expected);
- *   2. the PACKAGED server shipped inside the extension at
- *      `<extensionPath>/server-dist/xats-lsp-resident.opt1.js` (this is what
- *      an installed `.vsix` uses; its runtime `node_modules` sit next to it);
- *   3. the repo-relative dev paths (resident, then spawn-based, then the stub),
- *      so running the unpackaged extension via F5 still works.
+ * Built by `npm run build:deno` (scripts/build-deno.js) via `deno compile`,
+ * it embeds V8 + the runtime + the server + its deps, and bakes in
+ * `--allow-all` and `--v8-flags=--stack-size=8801` — so it needs no node and is
+ * launched simply as `xats-lsp-deno --stdio`. It is V8-based, so (unlike Bun)
+ * it handles the deeply-recursive prelude load.
+ *
+ * Priority: the `ats3.server.denoPath` setting; then the packaged binary in
+ * `server-dist/`; then the repo-relative dev build. Returns `undefined` when
+ * none exists (the caller surfaces an actionable error).
  */
-function resolveServerModule(context: ExtensionContext): string {
+function resolveDenoBinary(context: ExtensionContext): string | undefined {
+  const exe = process.platform === "win32" ? "xats-lsp-deno.exe" : "xats-lsp-deno";
   const configured = workspace
     .getConfiguration("ats3")
-    .get<string>("server.module", "")
+    .get<string>("server.denoPath", "")
     .trim();
   if (configured.length > 0) {
-    return configured;
+    return fs.existsSync(configured) ? configured : undefined;
   }
-
-  // Packaged-first: when installed from a .vsix, the resident server and its
-  // runtime node_modules are copied into <extensionPath>/server-dist at package
-  // time (see package.json `package` script / scripts/copy-server.js). Prefer it
-  // so installed users do not depend on any repo-relative layout.
-  // Repo layout fallback: language-server/client -> language-server/server/...
-  // Prefer the fast RESIDENT in-process server (R1); then the spawn-based
-  // server; then the WS-0b stub, so the extension still does something if the
-  // newer artifacts have not been built yet.
   const candidates = [
-    path.join(context.extensionPath, "server-dist", "xats-lsp-resident.opt1.js"),
-    path.join(context.extensionPath, "..", "server", "resident", "BUILD", "xats-lsp-resident.opt1.js"),
-    path.join(context.extensionPath, "server", "resident", "BUILD", "xats-lsp-resident.opt1.js"),
-    path.join(context.extensionPath, "..", "server", "lsp-server", "xats-lsp-server.js"),
-    path.join(context.extensionPath, "server", "lsp-server", "xats-lsp-server.js"),
-    path.join(context.extensionPath, "..", "server", "stub", "server.js"),
-    path.join(context.extensionPath, "server", "stub", "server.js"),
+    path.join(context.extensionPath, "server-dist", exe),
+    path.join(context.extensionPath, "..", "server", "resident", "BUILD", exe),
+    path.join(context.extensionPath, "server", "resident", "BUILD", exe),
   ];
   for (const c of candidates) {
     if (fs.existsSync(c)) {
       return c;
     }
   }
-  // Fall back to the first candidate so the error message is actionable.
-  return candidates[0];
+  return undefined;
 }
 
 /**
@@ -125,19 +115,14 @@ export function activate(context: ExtensionContext): void {
   const channel: OutputChannel = window.createOutputChannel("ATS3 Language Server");
   context.subscriptions.push(channel);
 
-  const serverModule = resolveServerModule(context);
-  const nodePath = workspace
-    .getConfiguration("ats3")
-    .get<string>("server.nodePath", "node");
-
-  if (!fs.existsSync(serverModule)) {
+  const denoBin = resolveDenoBinary(context);
+  if (denoBin === undefined) {
     window.showErrorMessage(
-      `ATS3 LSP: server module not found at "${serverModule}". ` +
-        `Set "ats3.server.module" to the server entrypoint, or reinstall the ` +
-        `extension (the packaged server should live at ` +
-        `<extension>/server-dist/xats-lsp-resident.opt1.js).`,
+      `ATS3 LSP: server binary not found. Build it with "npm run build:deno" ` +
+        `(it lands in server-dist/xats-lsp-deno), or set "ats3.server.denoPath" ` +
+        `to the compiled Deno binary.`,
     );
-    channel.appendLine(`[ats3] server module not found: ${serverModule}`);
+    channel.appendLine(`[ats3] server binary not found (no server-dist/xats-lsp-deno)`);
     return;
   }
 
@@ -170,29 +155,24 @@ export function activate(context: ExtensionContext): void {
   }
   const serverEnv = { ...process.env, XATSHOME: xatshome };
 
-  channel.appendLine(`[ats3] launching server: ${nodePath} ${serverModule}`);
+  channel.appendLine(`[ats3] launching server: ${denoBin} (deno binary)`);
   channel.appendLine(`[ats3] XATSHOME=${xatshome}`);
 
-  // Launch the server as a child node process; communicate over stdio.
-  // Pass `--stdio` explicitly: vscode-languageserver selects its transport from
-  // this flag. (The client's TransportKind.stdio already implies it, but being
-  // explicit keeps the server's bare-launch path and the client path identical.)
-  // The resident server bundles the deeply-recursive ATS3 compiler and loads
-  // the prelude at startup, so node needs a large V8 stack or it overflows
-  // before it can respond to `initialize` (the headless smokes pass this flag,
-  // which is why they didn't catch it). Harmless for the stub/spawn fallbacks.
-  // Must precede the script path to be parsed as a node flag.
-  const nodeArgs = ["--stack-size=8801"];
+  // Launch the server binary; communicate over stdio. `--stdio` is passed
+  // explicitly: vscode-languageserver selects its transport from this flag.
+  // (TransportKind.stdio already implies it, but being explicit keeps the
+  // bare-launch path and the client path identical.) The stack flag and
+  // permissions are compiled into the binary, so no extra args are needed.
   const serverOptions: ServerOptions = {
     run: {
-      command: nodePath,
-      args: [...nodeArgs, serverModule, "--stdio"],
+      command: denoBin,
+      args: ["--stdio"],
       transport: TransportKind.stdio,
       options: { env: serverEnv },
     },
     debug: {
-      command: nodePath,
-      args: ["--nolazy", ...nodeArgs, serverModule, "--stdio"],
+      command: denoBin,
+      args: ["--stdio"],
       transport: TransportKind.stdio,
       options: { env: serverEnv },
     },

@@ -59,15 +59,10 @@
       "type": "object",
       "title": "ATS3 Language Server",
       "properties": {
-        "ats3.server.module": {
+        "ats3.server.denoPath": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Absolute path to the LSP server entrypoint (a node script run over stdio). When empty, the client auto-resolves the server: first the copy packaged inside the extension (`server-dist/xats-lsp-resident.opt1.js`, used by an installed `.vsix`), then the repo-relative resident/spawn/stub builds (used when running the extension from source via F5)."
-        },
-        "ats3.server.nodePath": {
-          "type": "string",
-          "default": "node",
-          "description": "Path to the node executable used to launch the server."
+          "markdownDescription": "Absolute path to the compiled Deno server binary (a single executable built by `npm run build:deno` via `deno compile`, with `--allow-all` and `--v8-flags=--stack-size=8801` baked in). When empty, the client auto-resolves it from `server-dist/xats-lsp-deno` (packaged) or the repo `server/resident/BUILD/` (dev)."
         },
         "ats3.xatshome": {
           "type": "string",
@@ -92,9 +87,9 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "bundle": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
-    "copy-server": "node scripts/copy-server.js",
+    "build:deno": "node scripts/build-deno.js",
     "test:grammar": "node fixtures/tokenize-test.js",
-    "package": "npm run bundle && npm run copy-server && vsce package --out ats3-lsp-client.vsix"
+    "package": "npm run bundle && npm run build:deno && vsce package --out ats3-lsp-client.vsix"
   },
   "dependencies": {
     "vscode-languageclient": "9.0.1"

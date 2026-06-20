@@ -10,10 +10,9 @@ out/**
 tsconfig.json
 .vscodeignore
 
-# All dev node_modules: the client is bundled into dist/extension.js by esbuild
-# (vscode-languageclient is inlined), so no client node_modules are needed at
-# runtime. The SERVER's runtime node_modules live under server-dist/ and are
-# explicitly included below.
+# All node_modules: the client is bundled into dist/extension.js by esbuild
+# (vscode-languageclient is inlined), and the server ships as a self-contained
+# Deno binary (deps embedded), so no node_modules are needed at runtime.
 node_modules/**
 
 # Esbuild can emit a meta/analysis file; never ship it.
@@ -22,7 +21,6 @@ dist/**/*.txt
 # --- Included payload (these must ship) ---
 # The bundled extension entrypoint.
 !dist/extension.js
-# The packaged resident server + its runtime node_modules (copied at package
-# time by scripts/copy-server.js). server-dist/node_modules is matched by the
-# blanket node_modules ignore above, so re-include it explicitly.
+# The self-contained Deno server binary (server-dist/xats-lsp-deno), built at
+# package time by scripts/build-deno.js.
 !server-dist/**
