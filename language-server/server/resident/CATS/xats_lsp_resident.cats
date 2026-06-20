@@ -350,14 +350,18 @@ function LSP_parse_staloads(filePath, text) {
 // ---- workspace symbols: AST-accurate, from the per-uri symbol index -- //
 //
 // workspace/symbol answers from the SAME AST-accurate document symbols the
-// harvest already produces per checked file (LSP_index[uri].symbols) — NO regex.
-// A textual scan can misread ATS3 surface syntax (and is blind to a second
-// frontend), surfacing WRONG symbols; we never do that. Coverage is therefore
-// the set of files the server has CHECKED (opened/edited). Unopened files
-// contribute nothing until checked — by design: correct-but-narrower beats
-// broad-but-wrong. (A background project indexer that checks files to widen
-// coverage is a possible follow-up; it would feed this same LSP_index.)
+// harvest already produces — NO regex (a textual scan can misread ATS3 surface
+// syntax and surface WRONG symbols). Two sources, both AST-accurate:
+//   * LSP_index[uri].symbols   — files the editor has OPENED/edited (full index);
+//   * LSP_proj_symbols[path]   — files the BACKGROUND indexer has checked off the
+//                                event loop (symbols-only, light). Opened wins.
+// Together they give whole-project coverage with zero regex.
 //
+// normPath -> { uri, symbols:[{l0,c0,l1,c1,name,kind,container}] }
+const LSP_proj_symbols = new Map();
+function LSP_file_uri(n) {
+  return "file://" + String(n).split('/').map(encodeURIComponent).join('/');
+}
 // case-insensitive subsequence ("fuzzy") match, the conventional Cmd-T behavior.
 function LSP_ws_fuzzy(q, name) {
   if (!q) return true;
@@ -369,15 +373,26 @@ function LSP_ws_fuzzy(q, name) {
 function LSP_build_workspace_symbols(query) {
   const out = [];
   const CAP = 1000;                                  // bound a broad query
+  const seenUri = new Set();
+  // opened files first (full, freshest)
   for (const [uri, idx] of LSP_index) {
-    const syms = (idx && idx.symbols) || [];
-    for (const s of syms) {
+    seenUri.add(uri);
+    for (const s of (idx && idx.symbols) || []) {
       if (!LSP_ws_fuzzy(query, s.name)) continue;
-      out.push({
-        name: s.name, kind: s.kind | 0,
+      out.push({ name: s.name, kind: s.kind | 0,
         location: { uri: uri, range: LSP_jsrange(s.l0, s.c0, s.l1, s.c1) },
-        containerName: s.container || ""
-      });
+        containerName: s.container || "" });
+      if (out.length >= CAP) return out;
+    }
+  }
+  // background-indexed files (skip any already covered by an open buffer)
+  for (const [, rec] of LSP_proj_symbols) {
+    if (!rec || seenUri.has(rec.uri)) continue;
+    for (const s of rec.symbols || []) {
+      if (!LSP_ws_fuzzy(query, s.name)) continue;
+      out.push({ name: s.name, kind: s.kind | 0,
+        location: { uri: rec.uri, range: LSP_jsrange(s.l0, s.c0, s.l1, s.c1) },
+        containerName: s.container || "" });
       if (out.length >= CAP) return out;
     }
   }
@@ -1319,11 +1334,17 @@ function LSP_build_completion(uri, position) {
     add(s.name, s.kind, '1', 'this file');
     if (items.length >= CAP) break;
   }
-  // 2: project symbols — AST-accurate document symbols of OTHER checked files
+  // 2: project symbols — AST-accurate document symbols of OTHER files: open
+  // buffers (LSP_index) + background-indexed files (LSP_proj_symbols).
   if (items.length < CAP) for (const [u2, idx2] of LSP_index) {
     if (u2 === uri) continue;                        // current file is tier 1
     const syms = (idx2 && idx2.symbols) || [];
     for (const s of syms) { add(s.name, s.kind, '2', 'project'); if (items.length >= CAP) break; }
+    if (items.length >= CAP) break;
+  }
+  if (items.length < CAP) for (const [, rec] of LSP_proj_symbols) {
+    if (!rec || rec.uri === uri || LSP_index.has(rec.uri)) continue;  // open buffer wins
+    for (const s of rec.symbols || []) { add(s.name, s.kind, '2', 'project'); if (items.length >= CAP) break; }
     if (items.length >= CAP) break;
   }
   // 3: prelude / global names
@@ -1401,6 +1422,8 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
       inlays: LSP_dedup_inlays(LSP_cur_inlays),
       scopes: LSP_dedup_scopes(LSP_cur_scopes)
     });
+    // an open buffer supersedes any background-indexed copy of the same file.
+    try { LSP_proj_symbols.delete(LSP_cur_path_norm); } catch (e) {}
     const lspDiags = validatorError
       ? [ vscode_diagnostic_make(
             LSP_ls.DiagnosticSeverity.Information,
@@ -1444,6 +1467,52 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
     runValidation(uri, text, 'live', function () {
       liveValidator(LSP_dependencies, diagnostics, uri, text);
     });
+  }
+
+  // ---- WS-6 background project indexer (AST-accurate, off the event loop) ----
+  // Check workspace files in the background, keeping ONLY their symbols in
+  // LSP_proj_symbols, so workspace/symbol + completion cover the whole project
+  // (not just open buffers) with NO regex. Bounded + incremental + low-priority.
+  // ATS3_BG_INDEX_CAP=0 disables it.
+  const LSP_BG_CAP = parseInt(process.env.ATS3_BG_INDEX_CAP || '400', 10);
+  let LSP_bg_queue = [];
+  let LSP_bg_running = false;
+  let LSP_bg_done = 0;
+  function LSP_background_index_one(n) {              // n = normalized path
+    const uri = LSP_file_uri(n);
+    if (LSP_index.has(uri)) { LSP_proj_symbols.delete(n); return; }  // open buffer wins
+    if (JS_path_is_prelude(n)) return;
+    let text;
+    try { text = LSP_fs.readFileSync(n, 'utf8'); } catch (e) { LSP_proj_symbols.delete(n); return; }
+    // per-check context (symbols-only; NO sendDiagnostics — this is a query, not
+    // a validation of an open doc).
+    LSP_cur_diags = []; LSP_cur_hovers = []; LSP_cur_defs = []; LSP_cur_tokens = [];
+    LSP_cur_symbols = []; LSP_cur_inlays = []; LSP_cur_scopes = [];
+    LSP_cur_uri = uri; LSP_cur_path = n; LSP_cur_path_norm = n;
+    LSP_cur_u16 = LSP_u16_make(text); LSP_other_u16.clear();
+    try { validator(LSP_dependencies, [], uri); }    // ATS harvest (reads disk)
+    catch (e) { /* compiler abort on this file -> skip; store whatever harvested */ }
+    LSP_proj_symbols.set(n, { uri: uri, symbols: LSP_dedup_symbols(LSP_cur_symbols) });
+    LSP_cur_uri = null; LSP_cur_path = null; LSP_cur_path_norm = null; LSP_cur_u16 = null;
+  }
+  function LSP_bg_enqueue(paths) {
+    for (const p of paths) { const n = LSP_norm(p); if (n) LSP_bg_queue.push(n); }
+    if (!LSP_bg_running && LSP_bg_queue.length > 0 && LSP_BG_CAP > 0) {
+      LSP_bg_running = true;
+      setTimeout(LSP_bg_tick, 150);
+    }
+  }
+  function LSP_bg_tick() {
+    if (LSP_bg_queue.length === 0 || LSP_bg_done >= LSP_BG_CAP) {
+      LSP_bg_running = false;
+      try { process.stderr.write('[xats-lsp-resident] bg-index: ' + LSP_proj_symbols.size +
+        ' file(s) indexed' + (LSP_bg_done >= LSP_BG_CAP ? ' [capped at ' + LSP_BG_CAP + ']' : '') + '\n'); } catch (e) {}
+      return;
+    }
+    const n = LSP_bg_queue.shift();
+    try { LSP_background_index_one(n); } catch (e) {}
+    LSP_bg_done++;
+    setTimeout(LSP_bg_tick, 3);                       // yield to the event loop
   }
 
   // ---- prelude reload orchestration (the "workspace IS the prelude" case) ---
@@ -1628,6 +1697,10 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
       setImmediate(() => {
         try { LSP_proj_scan_workspace(roots); }
         catch (e) { LSP_log('project scan threw: ' + (e && e.stack ? e.stack : e)); }
+        // WS-6: after the (cheap) scan maps the project, background-index those
+        // files' AST symbols off the event loop -> whole-project workspace/symbol
+        // + completion, no regex. Bounded/incremental/low-priority.
+        try { LSP_bg_enqueue(Array.from(LSP_proj_indexed)); } catch (e) {}
       });
     }
     // WS-6: the prelude/global completion index is built by the ATS side from the

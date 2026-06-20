@@ -31,9 +31,10 @@ Mirrors the project author's own LSP (`github.com/qcfu-bu/ats-lsp`).
   - `references` + `documentHighlight` — derived by inverting the cached
     `definitions` by `(defUri, defRange)` (no new harvest data).
   - `inlayHint` — inferred `: <type>` on un-annotated `val`-bindings.
-  - `workspace/symbol` — fuzzy match over the **AST-accurate** per-uri document
-    symbols (`LSP_index`), **no regex**. Coverage = files the server has checked
-    (opened/edited); a background indexer to widen it is a follow-up.
+  - `workspace/symbol` — fuzzy match over **AST-accurate** symbols, **no regex**:
+    open buffers (`LSP_index`) ∪ a **background project indexer** that checks
+    workspace files off the event loop (`LSP_proj_symbols`; bounded by
+    `ATS3_BG_INDEX_CAP`, default 400). Whole-project coverage.
   - `completion` (WS-6 Stage 1) — index-backed identifier + keyword completion
     (current-file / project / prelude / keywords), prefix-filtered, **no
     re-parse**. Member completion (after `.`) is deferred to Stage 3. See
