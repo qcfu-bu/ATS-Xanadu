@@ -1313,6 +1313,14 @@ function LSP_starts_with_ci(name, pre) {
   if (!pre) return true;
   return name.toLowerCase().startsWith(pre.toLowerCase());
 }
+// completion `detail`: the type/sort if we have one; else a meaningful label.
+// A Function with no single type is an OVERLOAD SET (e.g. `+`); everything else
+// typeless falls back to the source label.
+function LSP_cand_detail(s, srcLabel) {
+  if (s.typ) return s.typ;
+  if ((s.kind | 0) === 12) return 'overloaded';
+  return srcLabel;
+}
 // textDocument/completion. Answers from the cached indices with NO re-parse:
 // member context (after '.') -> record FIELDS of the receiver's type (Stage 3);
 // otherwise locals/current-file/project/prelude/keywords (Stages 1-2).
@@ -1377,7 +1385,7 @@ function LSP_build_completion(uri, position) {
   }
   // 1: current-file top-level symbols (detail = the inferred type/signature)
   if (idx && idx.symbols) for (const s of idx.symbols) {
-    add(s.name, s.kind, '1', s.typ || 'this file');
+    add(s.name, s.kind, '1', LSP_cand_detail(s, 'this file'));
     if (items.length >= CAP) break;
   }
   // 2: project symbols — AST-accurate document symbols of OTHER files: open
@@ -1385,17 +1393,17 @@ function LSP_build_completion(uri, position) {
   if (items.length < CAP) for (const [u2, idx2] of LSP_index) {
     if (u2 === uri) continue;                        // current file is tier 1
     const syms = (idx2 && idx2.symbols) || [];
-    for (const s of syms) { add(s.name, s.kind, '2', s.typ || 'project'); if (items.length >= CAP) break; }
+    for (const s of syms) { add(s.name, s.kind, '2', LSP_cand_detail(s, 'project')); if (items.length >= CAP) break; }
     if (items.length >= CAP) break;
   }
   if (items.length < CAP) for (const [, rec] of LSP_proj_symbols) {
     if (!rec || rec.uri === uri || LSP_index.has(rec.uri)) continue;  // open buffer wins
-    for (const s of rec.symbols || []) { add(s.name, s.kind, '2', s.typ || 'project'); if (items.length >= CAP) break; }
+    for (const s of rec.symbols || []) { add(s.name, s.kind, '2', LSP_cand_detail(s, 'project')); if (items.length >= CAP) break; }
     if (items.length >= CAP) break;
   }
-  // 3: prelude / global names (detail = the type/signature)
+  // 3: prelude / global names (detail = the type/sort, or "overloaded")
   if (items.length < CAP) for (const s of LSP_prelude_symbols) {
-    add(s.name, s.kind, '3', s.typ || 'prelude'); if (items.length >= CAP) break;
+    add(s.name, s.kind, '3', LSP_cand_detail(s, 'prelude')); if (items.length >= CAP) break;
   }
   // 4: keywords
   if (items.length < CAP) for (const kw of LSP_KEYWORDS) {

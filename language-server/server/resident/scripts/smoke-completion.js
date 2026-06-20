@@ -194,6 +194,13 @@ function main() {
     const pTyped = fromPrelude.filter(i => i.detail && i.detail !== 'prelude' && /[-:>(]/.test(i.detail));
     if (preludeN > 0)
       (pTyped.length >= 1) ? pass(`prelude completions show types (e.g. ${pTyped[0].label}: ${pTyped[0].detail})`) : fail('no prelude completion shows a type');
+    // bare "prelude" should be essentially gone: type names show a sort, overload
+    // sets show "overloaded", everything else its type.
+    const bare = fromPrelude.filter(i => i.detail === 'prelude');
+    if (preludeN > 0)
+      (bare.length === 0)
+        ? pass('no prelude candidate shows a bare "prelude" detail')
+        : fail(`${bare.length} prelude candidate(s) still show bare "prelude" (e.g. ${bare.slice(0,3).map(i=>i.label)})`);
 
     // (G) member context after `.` -> empty (Stage-3 placeholder)
     const dWaitM = waitDiagnostics(MURI);

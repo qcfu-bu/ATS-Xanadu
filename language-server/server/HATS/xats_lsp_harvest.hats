@@ -1102,8 +1102,10 @@ walk_d2fundclist (dfs: d2fundclist): void =
 fun
 emit_symbol_scst1
 (s2c: s2cst, kind: int): void =
-  // a static-type constant (datatype/typedef/abstype): no value-type to show.
-  emit_symbol(s2cst_get_lctn(s2c), symbl_get_name(s2cst_get_name(s2c)), kind, "", "")
+  // a static-type constant (datatype/typedef/abstype): show its SORT as the
+  // "type" (e.g. `int : t@ype`, `list0 : (t@ype) -> type`).
+  emit_symbol(s2cst_get_lctn(s2c), symbl_get_name(s2cst_get_name(s2c)), kind, "",
+              typr_sort2name(s2cst_get_sort(s2c)))
 //
 fun
 emit_symbol_funs

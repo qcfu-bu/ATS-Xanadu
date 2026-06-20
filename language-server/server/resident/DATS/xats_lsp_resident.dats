@@ -696,7 +696,8 @@ case+ itm of
 | S2ITMcst(cs) =>
   ( case+ cs of
     | list_cons(c, _) =>
-      LSP_prelude_sym_push(symbl_get_name(s2cst_get_name(c)), 11(*Interface*), "")
+      LSP_prelude_sym_push(symbl_get_name(s2cst_get_name(c)), 11(*Interface*),
+        typr_sort2name(s2cst_get_sort(c)))   // the type's SORT (e.g. `(t@ype) -> type`)
     | list_nil() => () )
 | S2ITMvar(_) => ()
 | S2ITMenv(_) => ()

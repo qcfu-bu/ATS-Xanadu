@@ -570,7 +570,23 @@ case+ srt of
    | T2Bpred(s) => symbl_get_name(s)
    | T2Bimpr(_, s) => symbl_get_name(s)
    | _ => TYPRINT_sort2str(srt))
+// function sort (a TYPE CONSTRUCTOR's sort, e.g. list0 : (t@ype) -> type)
+| S2Tfun1(args, res) =>
+  strn_append("(",
+    strn_append(typr_sort2lst(args),
+      strn_append(") -> ", typr_sort2name(res))))
+| S2Ttup(srts) =>
+  strn_append("(", strn_append(typr_sort2lst(srts), ")"))
 | _ => TYPRINT_sort2str(srt)
+)
+and
+typr_sort2lst(srts: sort2lst): strn =
+(
+case+ srts of
+| list_nil() => ""
+| list_cons(s, list_nil()) => typr_sort2name(s)
+| list_cons(s, rest) =>
+  strn_append(typr_sort2name(s), strn_append(", ", typr_sort2lst(rest)))
 )
 //
 (* ****** ****** *)
