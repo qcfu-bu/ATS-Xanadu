@@ -114,6 +114,12 @@ LSPCHK_symbol_push
 LSPCHK_inlay_push
 (line: sint, col: sint, label: strn, kind: sint): void = $extnam()
 //
+// WS-6 Stage 3 member: receiver range + record field name + field type.
+#extern fun
+LSPCHK_member_push
+( l0: sint, c0: sint, l1: sint, c1: sint
+, name: strn, typ: strn): void = $extnam()
+//
 // dedup + serialize §4 bundle + write to jsonout
 #extern fun
 LSPCHK_json_finish
@@ -251,6 +257,12 @@ fun
 inlay_push
 (line: int, col: int, label: string, kind: int): void =
   LSPCHK_inlay_push(line, col, label, kind)
+//
+fun
+member_push
+( l0: int, c0: int, l1: int, c1: int
+, name: string, typ: string): void =
+  LSPCHK_member_push(l0, c0, l1, c1, name, typ)
 //
 // NO-OP token sink: the checker emits no semantic tokens (its bundle is
 // diagnostics+hovers+defs only). The shared walk still calls token_push at

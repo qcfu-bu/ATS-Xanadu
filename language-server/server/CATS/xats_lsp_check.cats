@@ -51,6 +51,7 @@ let LSPCHK_hovers  = [];
 let LSPCHK_defs    = [];
 let LSPCHK_symbols = [];   // WS-5 document symbols (outline)
 let LSPCHK_inlays  = [];   // WS-5 inlay hints (inferred val types)
+let LSPCHK_members = [];   // WS-6 Stage 3 record-field members (receiver range + field)
 //
 // Friendly-name map for the few internal type-constant head names that show
 // up in type-mismatch messages, so "expected `gint_type`" reads as
@@ -247,6 +248,21 @@ function LSPCHK_dedup_inlays(hs) {
   }
   return out.sort((a, b) => (a.line - b.line) || (a.char - b.char));
 }
+function LSPCHK_member_push(l0, c0, l1, c1, name, typ) {
+  if ((l0|0) < 0 || (c0|0) < 0) return;
+  const nm = String(name);
+  if (nm === "") return;
+  LSPCHK_members.push({ l0: l0|0, c0: c0|0, l1: l1|0, c1: c1|0, name: nm, typ: String(typ||"") });
+}
+function LSPCHK_dedup_members(ms) {
+  const seen = new Set(); const out = [];
+  for (const m of ms) {
+    const key = m.l0+":"+m.c0+":"+m.l1+":"+m.c1+":"+m.name;
+    if (seen.has(key)) continue;
+    seen.add(key); out.push(m);
+  }
+  return out;
+}
 //
 // Decision D6 dedup: the same root error surfaces multiple times — as an
 // inner expr/pat error AND an enclosing decl wrapper (D?Cerrck), and again
@@ -409,6 +425,12 @@ function LSPCHK_json_finish(uri, nerror, jsonout) {
       kind: h.kind
     };
   });
+  const members = LSPCHK_dedup_members(LSPCHK_members).map(function (m) {
+    return {
+      receiverRange: LSPCHK_jsrange(m.l0, m.c0, m.l1, m.c1),
+      name: m.name, type: m.typ
+    };
+  });
   const bundle = {
     schema: 1,
     uri: String(uri),
@@ -418,7 +440,8 @@ function LSPCHK_json_finish(uri, nerror, jsonout) {
     hovers: hovers,
     definitions: definitions,
     symbols: symbols,
-    inlays: inlays
+    inlays: inlays,
+    members: members
   };
   try {
     LSPCHK_fs.writeFileSync(jsonout, JSON.stringify(bundle, null, 2));

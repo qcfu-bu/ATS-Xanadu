@@ -202,6 +202,14 @@ fun scope_push
   ( l0: int, c0: int, l1: int, c1: int
   , name: string, typ: string) : void
 //
+// WS-6 Stage 3 MEMBER push: one row per record field of a receiver's type — the
+// 0-based byte range of the RECEIVER expression, the field name, and its type.
+// Feeds `recv.field` member completion.
+//
+fun member_push
+  ( l0: int, c0: int, l1: int, c1: int
+  , name: string, typ: string) : void
+//
 (* ****** ****** *)
 //
 // the resident bootstrap entry: register the in-process validator + pruner

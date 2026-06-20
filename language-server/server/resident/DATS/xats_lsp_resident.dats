@@ -280,6 +280,13 @@ end
     ( l0: int, c0: int, l1: int, c1: int
     , name: string, typ: string): void = $extnam() }
 //
+#implfun member_push(l0, c0, l1, c1, name, typ) =
+  LSP_member_push(l0, c0, l1, c1, name, typ)
+  where { #extern fun
+    LSP_member_push
+    ( l0: int, c0: int, l1: int, c1: int
+    , name: string, typ: string): void = $extnam() }
+//
 #implfun initialize(f, lv, g, h, e) =
   vscode_initialize(f, lv, g, h, e)
   where { #extern fun

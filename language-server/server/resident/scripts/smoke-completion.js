@@ -49,6 +49,8 @@ const MEMBER_SRC = 'val z = abc.fl\n';
 // Stage-2 locals doc: a fun param completed mid-typing inside its body — the body
 // is an UNBOUND partial (`valu`), the real live-completion scenario.
 const LOCALS_SRC = 'fun twice (value: int): int = valu\n';
+// Stage-3 member doc: a record-typed receiver; complete a field by prefix.
+const MEMBER_REC_SRC = 'fun getx (p: @{xfield= int, yfield= int}): int = p.x\n';
 
 function encode(msg) {
   const payload = Buffer.from(JSON.stringify(msg), 'utf8');
@@ -80,11 +82,12 @@ const WS = fs.mkdtempSync(path.join(os.tmpdir(), 'ats3-cmp-'));
 const FILE = path.join(WS, 'cmp.dats'); const URI = 'file://' + FILE;
 const MFILE = path.join(WS, 'member.dats'); const MURI = 'file://' + MFILE;
 const LFILE = path.join(WS, 'locals.dats'); const LURI = 'file://' + LFILE;
+const RFILE = path.join(WS, 'rec.dats'); const RURI = 'file://' + RFILE;
 
 function items(res) { const r = res && res.result; return Array.isArray(r) ? r : (r && r.items) || []; }
 
 function main() {
-  fs.writeFileSync(FILE, SRC); fs.writeFileSync(MFILE, MEMBER_SRC); fs.writeFileSync(LFILE, LOCALS_SRC);
+  fs.writeFileSync(FILE, SRC); fs.writeFileSync(MFILE, MEMBER_SRC); fs.writeFileSync(LFILE, LOCALS_SRC); fs.writeFileSync(RFILE, MEMBER_REC_SRC);
   if (!fs.existsSync(SERVER)) { fail(`server missing: ${SERVER}`); process.exit(1); }
 
   const child = spawn(process.execPath, [...NODE_ARGS, SERVER, '--stdio'], {
@@ -191,8 +194,8 @@ function main() {
     const dWaitM = waitDiagnostics(MURI);
     notify('textDocument/didOpen', { textDocument: { uri: MURI, languageId: 'ats3', version: 1, text: MEMBER_SRC } });
     await dWaitM;
-    const cMem = items(await complete(MURI, 0, 14));   // `val z = abc.fl` | cursor after `fl`
-    (cMem.length === 0) ? pass('member context (after `.`) returns empty (Stage-3 deferred)') : fail(`member context returned ${cMem.length} items (expected 0)`);
+    const cMem = items(await complete(MURI, 0, 14));   // `val z = abc.fl` (abc is unbound, not a record)
+    (cMem.length === 0) ? pass('member context on a non-record receiver returns empty (no field leak)') : fail(`member context returned ${cMem.length} items (expected 0)`);
 
     // (H) Stage-2 in-scope LOCALS: a fun param completes inside its body.
     const dWaitL = waitDiagnostics(LURI);
@@ -208,6 +211,24 @@ function main() {
     (valloc && /^0/.test(valloc.sortText || ''))       // tier 0 = locals (ranked first)
       ? pass('locals: `value` ranked in the locals tier (sortText 0…)')
       : fail('locals: `value` not ranked first (sortText=' + (valloc && valloc.sortText) + ')');
+
+    // (I) Stage-3 MEMBER completion: a record field by prefix, type-filtered.
+    const dWaitR = waitDiagnostics(RURI);
+    notify('textDocument/didOpen', { textDocument: { uri: RURI, languageId: 'ats3', version: 1, text: MEMBER_REC_SRC } });
+    await dWaitR;
+    const rline = MEMBER_REC_SRC.split('\n')[0];       // '...= p.x'
+    const cRec = items(await complete(RURI, 0, rline.length));   // cursor after `p.x`
+    console.log('[cmp] complete(p.x) -> ' + JSON.stringify(cRec.map(i => i.label + ':' + i.kind)));
+    const xf = cRec.find(i => i.label === 'xfield');
+    (xf && xf.kind === 5)                              // 5 = Field
+      ? pass('member: `p.x` offers field `xfield` (Field)')
+      : fail('member: `xfield` not offered as a Field');
+    (!cRec.some(i => i.label === 'yfield'))            // type-filtered: only matching fields
+      ? pass('member: prefix-filtered (no `yfield` for `.x`)')
+      : fail('member: offered `yfield` (should be filtered by `x`)');
+    (cRec.every(i => i.kind === 5))                    // ONLY fields — no globals leak in
+      ? pass('member: only fields offered (no globals)')
+      : fail('member: non-field candidates leaked into member context');
 
     finish();
   })().catch((e) => { fail('harness threw: ' + (e && e.stack ? e.stack : e)); finish(); });

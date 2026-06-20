@@ -796,6 +796,7 @@ let LSP_cur_tokens  = [];
 let LSP_cur_symbols = [];   // WS-5 document symbols (outline)
 let LSP_cur_inlays  = [];   // WS-5 inlay hints (inferred val types)
 let LSP_cur_scopes  = [];   // WS-6 Stage 2 scope-aware locals (binder + visibility)
+let LSP_cur_members = [];   // WS-6 Stage 3 record-field members (receiver range + field)
 // uri -> { hovers:[{range,type,kind}], definitions:[{useRange,defUri,defRange,
 //          entity,[typeDefUri,typeDefRange]}] }
 const LSP_index = new Map();
@@ -921,6 +922,17 @@ function LSP_scope_push(l0, c0, l1, c1, name, typ) {
   const nm = String(name);
   if (nm === "") return;
   LSP_cur_scopes.push({
+    l0: l0|0, c0: LSP_cur_b2u(l0, c0), l1: l1|0, c1: LSP_cur_b2u(l1, c1),
+    name: nm, typ: String(typ || "")
+  });
+}
+// WS-6 Stage 3 MEMBER push. (l0,c0..l1,c1) is the RECEIVER expression's range,
+// always in the file being checked -> current-file UTF-16 converter.
+function LSP_member_push(l0, c0, l1, c1, name, typ) {
+  if (l0 < 0 || c0 < 0) return;
+  const nm = String(name);
+  if (nm === "") return;
+  LSP_cur_members.push({
     l0: l0|0, c0: LSP_cur_b2u(l0, c0), l1: l1|0, c1: LSP_cur_b2u(l1, c1),
     name: nm, typ: String(typ || "")
   });
@@ -1167,6 +1179,17 @@ function LSP_dedup_scopes(ss) {
   }
   return out;
 }
+function LSP_dedup_members(ms) {
+  const seen = new Set(); const out = [];
+  for (const m of ms) {
+    if (m.l0 < 0 || m.c0 < 0) continue;
+    const key = m.l0+":"+m.c0+":"+m.l1+":"+m.c1+":"+m.name;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(m);
+  }
+  return out;
+}
 //
 // textDocument/documentSymbol -> a hierarchical DocumentSymbol[]. v1 containers
 // are mostly "" (flat); a non-empty container nests the symbol under the
@@ -1282,26 +1305,48 @@ function LSP_completion_partial(text, offset) {
   let j = i - 1;
   while (j >= 0 && (text[j] === ' ' || text[j] === '\t')) j--;
   const member = (j >= 0 && text[j] === '.');
-  return { word: word, start: i, member: member };
+  return { word: word, start: i, member: member, dotOffset: member ? j : -1 };
 }
 // case-insensitive PREFIX test (Stage-1 filter; fuzzy is a Stage-4 polish).
 function LSP_starts_with_ci(name, pre) {
   if (!pre) return true;
   return name.toLowerCase().startsWith(pre.toLowerCase());
 }
-// textDocument/completion (Stage 1). Answers from the cached indices + prelude +
-// keywords with NO re-parse. Member context (after '.') is deferred to Stage 3.
+// textDocument/completion. Answers from the cached indices with NO re-parse:
+// member context (after '.') -> record FIELDS of the receiver's type (Stage 3);
+// otherwise locals/current-file/project/prelude/keywords (Stages 1-2).
 function LSP_build_completion(uri, position) {
   const doc = LSP_documents.get(uri);
   if (!doc) return { isIncomplete: false, items: [] };
   const text = doc.getText();
   const offset = doc.offsetAt(position);
-  const { word, start, member } = LSP_completion_partial(text, offset);
-  // Stage 1: no member/dot completion yet (Stage 3) -> empty but re-queryable.
-  if (member) return { isIncomplete: true, items: [] };
-
+  const { word, start, member, dotOffset } = LSP_completion_partial(text, offset);
   const replaceStart = doc.positionAt(start);
   const range = { start: replaceStart, end: position };
+
+  // Stage 3: MEMBER completion. The harvest emitted each record field keyed by
+  // its RECEIVER's range; the receiver ends exactly at the '.'. So offer fields
+  // whose receiver range END == the dot position. CompletionItemKind.Field=5.
+  if (member) {
+    const idx = LSP_index.get(uri);
+    const members = (idx && idx.members) || [];
+    const dotPos = doc.positionAt(dotOffset);
+    const items = []; const seen = new Set();
+    for (const m of members) {
+      if (m.l1 !== dotPos.line || m.c1 !== dotPos.character) continue;  // receiver ends at '.'
+      if (!LSP_starts_with_ci(m.name, word)) continue;
+      if (seen.has(m.name)) continue; seen.add(m.name);
+      items.push({
+        label: m.name, kind: 5 /*Field*/,
+        detail: m.typ ? (': ' + m.typ) : 'field',
+        sortText: '0' + m.name,
+        textEdit: { range: range, newText: m.name },
+        data: { src: 'field' }
+      });
+    }
+    return { isIncomplete: true, items: items };
+  }
+
   const seen = new Set();      // dedup by name (first/highest-priority wins)
   const items = [];
   const CAP = 200;
@@ -1383,7 +1428,7 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
     const t0 = Date.now();
     // reset the per-check accumulators + remap context.
     LSP_cur_diags = []; LSP_cur_hovers = []; LSP_cur_defs = []; LSP_cur_tokens = [];
-    LSP_cur_symbols = []; LSP_cur_inlays = []; LSP_cur_scopes = [];
+    LSP_cur_symbols = []; LSP_cur_inlays = []; LSP_cur_scopes = []; LSP_cur_members = [];
     LSP_cur_uri = uri;
     LSP_cur_path = vscode_url_to_path(uri);
     LSP_cur_path_norm = LSP_norm(LSP_cur_path);
@@ -1420,7 +1465,8 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
       semanticTokens: LSP_encode_tokens(LSP_cur_tokens),
       symbols: LSP_dedup_symbols(LSP_cur_symbols),
       inlays: LSP_dedup_inlays(LSP_cur_inlays),
-      scopes: LSP_dedup_scopes(LSP_cur_scopes)
+      scopes: LSP_dedup_scopes(LSP_cur_scopes),
+      members: LSP_dedup_members(LSP_cur_members)
     });
     // an open buffer supersedes any background-indexed copy of the same file.
     try { LSP_proj_symbols.delete(LSP_cur_path_norm); } catch (e) {}
@@ -1487,7 +1533,7 @@ function vscode_initialize(validator, liveValidator, pruner, reloadPreludeFn, ev
     // per-check context (symbols-only; NO sendDiagnostics — this is a query, not
     // a validation of an open doc).
     LSP_cur_diags = []; LSP_cur_hovers = []; LSP_cur_defs = []; LSP_cur_tokens = [];
-    LSP_cur_symbols = []; LSP_cur_inlays = []; LSP_cur_scopes = [];
+    LSP_cur_symbols = []; LSP_cur_inlays = []; LSP_cur_scopes = []; LSP_cur_members = [];
     LSP_cur_uri = uri; LSP_cur_path = n; LSP_cur_path_norm = n;
     LSP_cur_u16 = LSP_u16_make(text); LSP_other_u16.clear();
     try { validator(LSP_dependencies, [], uri); }    // ATS harvest (reads disk)

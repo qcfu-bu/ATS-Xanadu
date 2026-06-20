@@ -633,6 +633,61 @@ emit_scope_f2arg
         | _ => ((*static / metric args*)) )
     ; emit_scope_f2arg(farg, visloc) ) )
 //
+(* ====================================================================== *)
+(*   MEMBER COMPLETION (WS-6 Stage 3): record fields of a receiver's type   *)
+(* ====================================================================== *)
+//
+// For each record-typed expression node, emit its FIELDS keyed by the node's
+// range (the receiver span). Completion at `recv.partial` finds the entry whose
+// receiver range ends at the `.` and offers its fields. Record fields are NOT
+// global names, so this is genuinely-semantic completion. (T2Ptrcd is both
+// tuples and records; we emit NAMED fields — LABsym — and skip positional ones.)
+//
+fun
+emit_members_aux
+(loc: loctn, t2p: s2typ, fuel: int): void =
+if (fuel <= 0) then () else
+(
+case+ s2typ_get_node(t2p) of
+| T2Ptrcd(_, _, ltps) => emit_member_ltps(loc, ltps)
+| T2Papps(head, _) => emit_members_aux(loc, head, fuel-1)
+| T2Pxtv(xv) => emit_members_aux(loc, x2t2p_get_styp(xv), fuel-1)
+| T2Plft(t) => emit_members_aux(loc, t, fuel-1)
+| T2Ptop0(t) => emit_members_aux(loc, t, fuel-1)
+| T2Ptop1(t) => emit_members_aux(loc, t, fuel-1)
+| T2Pexi0(_, t) => emit_members_aux(loc, t, fuel-1)
+| T2Puni0(_, t) => emit_members_aux(loc, t, fuel-1)
+| _ => ()
+)
+and
+emit_member_ltps
+(loc: loctn, ltps: l2t2plst): void =
+( case+ ltps of
+  | list_nil() => ()
+  | list_cons(ltp, ltps) => (emit_member_one(loc, ltp); emit_member_ltps(loc, ltps)) )
+and
+emit_member_one
+(loc: loctn, ltp: l2t2p): void = let
+  val pb = loc.pbeg()
+  val pe = loc.pend()
+in
+  case+ ltp of
+  | S2LAB(lab, t) =>
+    ( case+ lab of
+      | LABsym(sym) =>
+        let val nm = symbl_get_name(sym) in
+          if strn_nilq(nm) then () else
+          member_push(pb.nrow(), pb.ncol(), pe.nrow(), pe.ncol(), nm, typ_pretty(t))
+        end
+      | _ => ((*LABint: positional field, skip in v1*)) )
+end
+//
+fun
+emit_members
+(loc: loctn, t2p: s2typ): void =
+if loc_realq(loc) then
+if loc_in_topfile(loc) then emit_members_aux(loc, t2p, 6)
+//
 (* ****** ****** *)
 (* ====================================================================== *)
 (*       THE TRAVERSAL (find all errck; emit hover/def/token)              *)
@@ -650,6 +705,9 @@ walk_d3exp (d3e0: d3exp): void = let
 //
 // HOVER: every expression node carries its type.
 val () = emit_hover(d3e0.lctn(), d3e0.styp(), "expr")
+// MEMBERS: if this node has a record type, emit its fields (keyed by its range)
+// so `node.field` completion can offer them.
+val () = emit_members(d3e0.lctn(), d3e0.styp())
 //
 in
 (
