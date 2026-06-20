@@ -106,6 +106,26 @@ case+ it of
 | list_cons(x, rest) => iter_more(x, rest)
 )
 //
+// the BARE protocol entries the loop elaborator (pyelab_loop.dats) emits by name:
+// `iter_open(iter)` and `iter_step(it)`. v1's only container is the list, so these ARE the
+// list-backed entries above (a `for x in <list>`/`range(...)` threads a `list(x)` iterator
+// state). Adding string/dict/set containers post-v1 is one more `iter_open` overload each,
+// no protocol change (LOOP-DESUGARING open item (i)). The names must match the elaborator's
+// emitted `PCEvar("iter_open")`/`PCEvar("iter_step")` so they resolve via the tr12env
+// fall-through after `pyrt` is loaded into the global env (M16).
+fun
+<x:t0>
+iter_open(xs: list(x)): list(x) = xs
+//
+fun
+<x:t0>
+iter_step(it: list(x)): iterstep(x) =
+(
+case+ it of
+| list_nil() => iter_done()
+| list_cons(x, rest) => iter_more(x, rest)
+)
+//
 // an integer range [lo, hi) materialized to a list (v1 container #2). The elaborator's
 // `for i in range(lo, hi)` lowers `range(lo, hi)` to this, then iterates the list.
 fun

@@ -477,7 +477,13 @@ and
 pl_list(env: !tr12env, loc: loctn, es: list(pcexp)): d2exp =
 (
 case+ es of
-| list_nil() => pl_var(env, loc, symbl_make_name("list_nil"))
+// the empty list `[]` is the nullary constructor APPLICATION `list_nil()` — it must be wrapped
+// in D2Edap0 (a zero-arg application), NOT the bare `d2exp_con(list_nil)`. The bare constructor
+// is a FUNCTION value `() -> list(a)`; trans23 then checks that function against the expected
+// `list(a)` and errcks (T2Pfun1(...)->list vs list). This mirrors pl_app's `list_nil()` arm
+// (D2Edap0 for an empty arg list) — M16 (the list-literal fix the #13a operator unblock exposed).
+| list_nil() =>
+    d2exp_make_node(loc, D2Edap0(pl_var(env, loc, symbl_make_name("list_nil"))))
 | list_cons(e, rest) => let
     val d2hd = pl_exp(env, e)
     val d2tl = pl_list(env, loc, rest)

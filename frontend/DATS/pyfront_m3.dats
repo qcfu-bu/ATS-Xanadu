@@ -148,6 +148,43 @@ end
 //
 (* ****** ****** *)
 //
+// ---- pyrt load (M16) --------------------------------------------------------
+//
+// load frontend/pyrt/pyrt.dats into the global env ONCE, after the prelude bootstrap. Mirrors
+// the prelude's own f0_pvsload calls in the_tr12env_pvsl00d (xglobal.dats:1040-1068). Idempotent:
+// a module-level ref guards against a re-load on a second pipeline call (re-entrancy, plan §6.2)
+// — the global env already holds pyrt after the first call, so we MUST NOT merge it twice (a
+// double-merge would shadow-warn / duplicate the d2cons). XATSHOME is prepended by
+// filpath_pvsload, so the path is XATSHOME-relative.
+//
+// the load-once gate is a module-level sint ref (0 = not yet loaded, 1 = loaded), declared
+// EXACTLY like the compiler's own `the_ntime` (xglobal.dats:170 `a0ref_make_1val(0)` + the
+// `[]` get/set sugar) — the proven, template-free pattern (`ref<bool>` hits the same prelude
+// `$`-template backend gap the operators do, M3-REPORT, and would errck the driver build).
+local
+  val the_pyrt_loaded = a0ref_make_1val(0)
+in
+  fun
+  pyrt_pvsload((*void*)): void =
+    if the_pyrt_loaded[] > 0 then () else let
+      val () = (the_pyrt_loaded[] := 1)
+      val () = PYM_log("[m16] loading pyrt runtime prelude (filpath_pvsload) ...")
+      // knd0=0 (STATIC): we load the INTERFACE pyrt.sats, not the .dats. A `.sats` `fun foo(...)`
+      // creates a TYPED d2cst CONSTANT (-> D2ITMcst, resolves + type-checks at the call site like
+      // any prelude fun), whereas a `.dats` `fun foo(...) = ...` binds a LOCAL function d2var with
+      // no exported type (-> D2ITMvar, errcks on use; M16 finding). The .sats self-contains the
+      // flow/iterstep datatypes (their d2cons) + the fun signatures — enough to TYPECHECK the
+      // desugared loops + list_foldleft (codegen is parked, #13b, so the .dats impl is not needed
+      // here). LOOP-DESUGARING §9 + plan §5.5 (the stock ATS-dependency load path). (M16-REPORT.)
+      val () = filpath_pvsload(0(*static*), "/frontend/pyrt/pyrt.sats")
+      val () = PYM_log("[m16] pyrt loaded (flow/iter/foldleft now resolve via global fall-through)")
+    in
+      (* nothing *)
+    end
+end // end of [local: pyrt_pvsload]
+//
+(* ****** ****** *)
+//
 // ---- main -------------------------------------------------------------------
 //
 fun
@@ -156,6 +193,18 @@ mymain_m3((*void*)): void = let
   // one-time global bootstrap (idempotent; required before name resolution).
   val _ = the_fxtyenv_pvsl00d()
   val _ = the_tr12env_pvsl00d()
+  //
+  // M16: load the `pyrt` runtime prelude (the flow datatype + flow_bind + the iterator
+  // protocol + list_foldleft) into the GLOBAL env, exactly as the_tr12env_pvsl00d loads the
+  // stock prelude (parse -> trans01/trans12 -> merge t2penv into the_sortenv/sexpenv/dexpenv;
+  // xglobal.dats f0_pvsload). `filpath_pvsload(knd0, fpth)` is the EXPORTED wrapper of
+  // f0_pvsload (xglobal.sats:172); it prepends XATSHOME to `fpth`. After this, the desugared
+  // loops' pyrt names (`flow_next`/`iter_open`/`list_foldleft`/...) resolve via the ordinary
+  // tr12env GLOBAL fall-through — no per-file staload needed, so PCCstaload stays a no-op
+  // and the load is done ONCE (idempotent re-call below is guarded by pyrt_loaded). knd0=1
+  // (dynamic) because pyrt.dats is a `.dats` carrying dynamic defs (funs + the datatype's
+  // d2cons) that must land in the dexpenv. (M16-REPORT.)
+  val () = pyrt_pvsload()
   //
   val () = PYM_log("######## M3 pipeline driver (.py -> L2 -> L3 -> JS) ########")
   val path = PYM_argv_path()
