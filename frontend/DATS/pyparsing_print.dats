@@ -419,7 +419,7 @@ case+ d of
   (ps(out, "(Cerror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )
 //
-// a list of prefix/inline decorators: " (deco @viewtype@(..) @unboxed@(..))" (omit if none).
+// a list of prefix/inline decorators: " (deco @linear@(..) @unboxed@(..))" (omit if none).
 and
 pp_decolst(out: FILR, decos: list(pydecorator)): void =
 (
@@ -436,7 +436,7 @@ case+ decos of
   (ps(out, " @"); ps(out, nm); print_span(out, loc); pp_decolst_aux(out, rest))
 )
 //
-// a type-param list: " (tyvar A@(..)) (tyvar A@(..) : VType (deco @unboxed@(..)))".
+// a type-param list: " (tyvar A@(..)) (tyvar A@(..) : Linear (deco @unboxed@(..)))".
 and
 pp_typaramlst(out: FILR, tps: list(pytyparam)): void =
 (

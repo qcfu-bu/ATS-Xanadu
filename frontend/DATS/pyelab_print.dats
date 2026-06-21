@@ -72,7 +72,7 @@ case+ xs of
 | list_cons(x, rest) => (ps(out, " "); ps(out, x); pp_strlst(out, rest))
 )
 //
-// M5b.6b: render a type-param list `A`, or `A:VType` / `A@unboxed` when annotated, so a golden
+// M5b.6b: render a type-param list `A`, or `A:Linear` / `A@unboxed` when annotated, so a golden
 // can SEE the sort the param carries (a plain `[A]` still prints as just `A` — unchanged).
 fun
 pp_pcparams(out: FILR, ps0: list(pcparam)): void =

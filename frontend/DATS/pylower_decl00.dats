@@ -93,7 +93,7 @@ case+ dcs of
 // ---- M5b.3b parametric-generics helpers (SPIKE-PROVEN, LOWERING-MAP §3.3c) ------------------
 //
 // M5b.6b: map a pcparam's SURFACE sort name (+ @unboxed flag) to its L2 `sort2` (SURFACE-
-// GRAMMAR §5.7.1): `VType` -> the_sort2_vwtp (linear/non-linear viewtype), +@unboxed ->
+// GRAMMAR §5.7.1): `Linear` -> the_sort2_vwtp (linear/non-linear viewtype), +@unboxed ->
 // the_sort2_vtft (flat viewtype); `Prop` -> the_sort2_prop; `Type` or "" (default) ->
 // the_sort2_type, +@unboxed -> the_sort2_tflt (flat type). An UNKNOWN sort name defaults to
 // the_sort2_type (a sort typo must not crash — trans23 surfaces a real error if the
@@ -106,7 +106,7 @@ case+ p of
 | PCParam(_, _, sname, unboxed) =>
   (
     // "Type" OR "" (default) OR any unknown name => the_sort2_type / the_sort2_tflt.
-    if strn_eq(sname, "VType")
+    if strn_eq(sname, "Linear")
       then (if unboxed then the_sort2_vtft else the_sort2_vwtp)
       else if strn_eq(sname, "Prop")
         then the_sort2_prop
@@ -289,7 +289,7 @@ case+ d of
 | PCCdata(loc, name, tvs, dcs, mode) =>
   if list_nilq(tvs) then let
     // ---- MONOMORPHIC enum (tvs empty): the M5b.3 path. M5b.6a: the sort is mode-selected
-    //      (boxed tbox by default, linear vtbx for @viewtype) via dt_sort_of. ----------------
+    //      (boxed tbox by default, linear vtbx for @linear) via dt_sort_of. ----------------
     val s2c = s2cst_make_idst(loc, symbl_make_name(name), dt_sort_of(mode))
     val () = tr12env_add1_s2cst(env, s2c)               // register the TYPE first (recursion)
     val s2e_self = s2exp_cst(s2c)                        // the datatype's own s2exp
@@ -357,7 +357,7 @@ case+ d of
 //
 // a `struct` -> a record-type D2Csexpdef carrying its MODE (M5b.6a; SPIKE-PROVEN, see
 // build_record_sexp + rcd_kind_sort_of above). The decorator selects the S2Etrcd `trcdknd` +
-// the alias's own sort: @boxed/none -> (TRCDbox0, tbox), @viewtype -> (TRCDbox1, vtbx, linear),
+// the alias's own sort: @boxed/none -> (TRCDbox0, tbox), @linear -> (TRCDbox1, vtbx, linear),
 // @unboxed -> (TRCDflt0, tflt, flat). Otherwise SAME shape as the alias path: build the record
 // s2exp, then build_sexpdef. Parametric structs wrap the record body in s2exp_lam1 exactly like
 // the parametric alias path (the field types reference params via resolve_typ's S2ITMvar arm).

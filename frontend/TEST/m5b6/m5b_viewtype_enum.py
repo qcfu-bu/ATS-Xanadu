@@ -1,4 +1,4 @@
-@viewtype
+@linear
 enum LOpt:
     case LNone
     case LSome(Int)

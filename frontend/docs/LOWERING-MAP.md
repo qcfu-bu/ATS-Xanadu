@@ -272,7 +272,7 @@ in @(s2c, d2ecl_make_node(loc, D2Csexpdef(s2c, rhs))) end
   `s2exp_make_node(the_sort2_tbox, S2Etrcd(TRCDbox0, (-1)(*npf*), flds))` where each field is
   `S2LAB(LABsym(symbl_make_name fname), fTyp)`; then `build_sexpdef`. Field projection `p.x`
   resolves through the alias with NO extra work. (`@unboxed struct`→`TRCDflt0`,
-  `@viewtype struct`→`TRCDbox1` is M5b.6.) Implement `pylower_typ`'s deferred `PyTrec` arm to
+  `@linear struct`→`TRCDbox1` is M5b.6.) Implement `pylower_typ`'s deferred `PyTrec` arm to
   this same `S2Etrcd`, so `type P = {…}` and `struct P` share the path.
 - **THE HAZARD (load-bearing):** a primitive RHS/field MUST be the direct-T2Pcst `the_s2exp_*0`
   form (the M5a `typ_alias` table), NEVER the prelude `int`/`bool` **sexpdef** — the latter

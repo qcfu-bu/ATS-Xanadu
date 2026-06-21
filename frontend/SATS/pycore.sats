@@ -239,7 +239,7 @@ pcfundcl =
 //              M3 verbatim from the surface `enum`; the elaborator does not transform it (no
 //              imperative content). Constructor arg TYPES are kept as surface `pytyp` (M3 owns
 //              type lowering, same split as the PyAST). The trailing `pcmode` (M5b.6a) is the
-//              decorator-selected datatype sort: @boxed/none->boxed tbox, @viewtype->linear vtbx
+//              decorator-selected datatype sort: @boxed/none->boxed tbox, @linear->linear vtbx
 //              (@unboxed has no stock unboxed-datatype primitive -> pinned to BOXED tbox).
 //   PCCfun   : a top-level (possibly recursive) `fun` group from one or more surface
 //              `def`s — its members are elaborated function bodies (§5.4). Adjacency =
@@ -259,7 +259,7 @@ pcfundcl =
 //   PCCrecord: a `struct` -> a record-type alias (D2Csexpdef + S2Etrcd) carrying its MODE
 //              (M5b.6a). Unlike PCCalias, it keeps the RAW field list (`list(pcfield)`) plus a
 //              `pcmode`, so M3 selects the S2Etrcd `trcdknd` + the alias sort from the decorator
-//              (@boxed/none->boxed TRCDbox0/tbox, @viewtype->linear TRCDbox1/vtbx, @unboxed->flat
+//              (@boxed/none->boxed TRCDbox0/tbox, @linear->linear TRCDbox1/vtbx, @unboxed->flat
 //              TRCDflt0/tflt). Parametric structs wrap the body in s2exp_lam1 exactly as PCCalias.
 //   PCCerror : an elaboration-error placeholder at decl level (recovery).
 // ==================================================================
@@ -274,7 +274,7 @@ pcdecl =
 | PCCrecord  of (loctn, strn, list(pcparam), list(pcfield), pcmode)
 | PCCerror   of (loctn, strn)
 //
-// M5b.6b: a type param carries its surface sort name (Type/VType/Prop, "" = none ⇒ default
+// M5b.6b: a type param carries its surface sort name (Type/Linear/Prop, "" = none ⇒ default
 // Type) + an @unboxed flag; M3 maps these to the s2var sort. (The names are still all that
 // the monomorphic path needs; the parametric path now reads the sort.)
 and
@@ -283,11 +283,11 @@ pcparam =
 //
 // the memory/representation MODE selected by a §5.7 type-declaration decorator:
 //   @boxed / none -> PCMbox  (boxed datatype `the_sort2_tbox` / record S2Etrcd(TRCDbox0)),
-//   @viewtype     -> PCMlin  (linear  datatype `the_sort2_vtbx` / record S2Etrcd(TRCDbox1)),
+//   @linear       -> PCMlin  (linear  datatype `the_sort2_vtbx` / record S2Etrcd(TRCDbox1)),
 //   @unboxed      -> PCMflat (flat record S2Etrcd(TRCDflt0); a flat DATATYPE has no stock
 //                             primitive — M5b.6a pins it to BOXED with a code comment).
 // M5b.6a: only the DECL-level decorators on `enum`/`struct` select a mode here; the type-PARAM
-// sort annotations (`[A: VType @unboxed]`) are a separate later slice (M5b.6b).
+// sort annotations (`[A: Linear @unboxed]`) are a separate later slice (M5b.6b).
 and
 pcmode =
 | PCMbox  of ()

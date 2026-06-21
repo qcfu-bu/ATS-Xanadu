@@ -1,4 +1,4 @@
-enum VBox[A: VType]:
+enum VBox[A: Linear]:
     case VWrap(A)
 
 def unwrapv(b: VBox[Int]) -> Int:

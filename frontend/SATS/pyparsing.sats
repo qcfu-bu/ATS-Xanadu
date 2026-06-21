@@ -276,9 +276,9 @@ and
 pyparam =
 | PyParam of (loctn, strn, pytypopt)
 //
-// a decorator: @name  (§5.7) — e.g. @viewtype, @unboxed, @boxed
+// a decorator: @name  (§5.7) — e.g. @linear, @unboxed, @boxed
 and pydecorator = PyDecor of (loctn, strn)
-// the optional sort annotation on a type param (Type/VType/Prop/… — OPEN vocab, kept as strn)
+// the optional sort annotation on a type param (Type/Linear/Prop/… — OPEN vocab, kept as strn)
 and pysortopt   = PySortNone of () | PySortSome of (loctn, strn)
 // a type parameter:  UIDENT [ ':' SORT ] { DECORATOR }   (§5.7)
 and pytyparam    = PyTyParam of (loctn, strn, pysortopt, list(pydecorator))

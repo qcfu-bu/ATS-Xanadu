@@ -1,4 +1,4 @@
-@viewtype
+@linear
 struct LPair:
     a: Int
     b: Int

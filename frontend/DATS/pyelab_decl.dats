@@ -66,7 +66,7 @@ tvars_of(ts: list(strn)): list(strn) = ts
 //   * name      = the PyTyParam name.
 //   * sort name = the `[A: SORT]` annotation if present ("" = none ⇒ default Type).
 //   * unboxed   = whether any param decorator is `@unboxed` (`PyDecor(_, "unboxed")`). Only
-//                 @unboxed flattens the sort; @boxed/@viewtype on a PARAM are not meaningful
+//                 @unboxed flattens the sort; @boxed/@linear on a PARAM are not meaningful
 //                 for the sort selection (they pick a DECL mode, not a param sort) — ignored.
 fun
 decos_has_unboxed(decos: list(pydecorator)): bool =
@@ -118,8 +118,8 @@ case+ fs of
 //
 // M5b.6a: map a §5.7 decorator list to the memory/representation MODE. Decorator NAMES come
 // from `@<name>` (`pydecorator = PyDecor of (loctn, strn)`). LAST-WINS: scan left-to-right
-// carrying the current verdict; each RECOGNIZED decorator overrides it (so `@boxed @viewtype`
-// is linear), an UNRECOGNIZED one is ignored. `viewtype`->PCMlin (linear), `unboxed`->PCMflat
+// carrying the current verdict; each RECOGNIZED decorator overrides it (so `@boxed @linear`
+// is linear), an UNRECOGNIZED one is ignored. `linear`->PCMlin (linear), `unboxed`->PCMflat
 // (flat), `boxed`->PCMbox. The seed (no/only-unknown decorators) is PCMbox (boxed default).
 fun
 mode_of_decos_go(decos: list(pydecorator), cur: pcmode): pcmode =
@@ -129,7 +129,7 @@ case+ decos of
 | list_cons(PyDecor(_, nm), rest) =>
     let
       val cur1 =
-        if strn_eq(nm, "viewtype") then PCMlin()
+        if strn_eq(nm, "linear") then PCMlin()
         else if strn_eq(nm, "unboxed") then PCMflat()
         else if strn_eq(nm, "boxed") then PCMbox()
         else cur                              // unknown decorator: keep the current verdict
@@ -162,11 +162,11 @@ case+ d of
     end
 | PyCenum(loc, decos, nm, tps, dcs) =>
     // §5.7 enum → a PyCore datatype. M5b.6a: the decorator selects the memory/representation
-    // MODE (@viewtype->linear, @unboxed/none/@boxed->boxed datatype). tvs are the bare names.
+    // MODE (@linear->linear, @unboxed/none/@boxed->boxed datatype). tvs are the bare names.
     list_sing(PCCdata(loc, nm, elab_typarams(tps), elab_datacons(dcs), mode_of_decos(decos)))
 | PyCstruct(loc, decos, nm, tps, fields) =>
     // §5.7.1 — a `struct` IS a record-type alias. M5b.6a: emit a PCCrecord carrying the RAW
-    // fields + the decorator-selected MODE (@viewtype->linear record, @unboxed->flat record,
+    // fields + the decorator-selected MODE (@linear->linear record, @unboxed->flat record,
     // none/@boxed->boxed record). M3 selects the S2Etrcd trcdknd + alias sort from the mode.
     // tvs are the bare names (parametric structs wrap in s2exp_lam1 at lowering).
     list_sing(PCCrecord(loc, nm, elab_typarams(tps), fields_to_pcfields(fields), mode_of_decos(decos)))

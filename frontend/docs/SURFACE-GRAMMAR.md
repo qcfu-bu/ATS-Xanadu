@@ -192,8 +192,8 @@ punct    = '=' '=>' '->' ':' ',' '.' '|'            (* '=' bind/reassign · '=>'
                                                        '->' type arrow · '|' RESERVED
                                                        (no v1 use; enum/case replaced its
                                                        datatype-separator role, §5.7) *)
-DECORATOR= '@' LIDENT                                (* @viewtype @boxed @unboxed … (§5.7) *)
-SORT     = UIDENT                                    (* sort in a type-param annotation: Type, VType, … (§5.7) *)
+DECORATOR= '@' LIDENT                                (* @linear @boxed @unboxed … (§5.7) *)
+SORT     = UIDENT                                    (* sort in a type-param annotation: Type, Linear, … (§5.7) *)
 bracket  = '(' ')' '[' ']' '{' '}'
 layout   = NEWLINE INDENT DEDENT                     (* off-side rule; brackets suppress *)
 ```
@@ -210,7 +210,7 @@ funcdef   ::= 'def' LIDENT [ typarams ] '(' [ params ] ')' [ '->' type ] ':' sui
 params    ::= param { ',' param }
 param     ::= LIDENT [ ':' type ]
 typarams  ::= '[' typaram { ',' typaram } ']'        (* generics: def f[A](…) — params UPPERCASE, §5.7 *)
-typaram   ::= UIDENT [ ':' SORT ] { DECORATOR }      (* e.g. A  |  A: VType @unboxed *)
+typaram   ::= UIDENT [ ':' SORT ] { DECORATOR }      (* e.g. A  |  A: Linear @unboxed *)
 
 typedecl  ::= { DECORATOR NEWLINE } ( enumdecl | structdecl | aliasdecl )  (* enum/struct/type — §5.7 *)
 
@@ -353,11 +353,11 @@ aliasdecl  ::= 'type' UIDENT [ typarams ] '=' type NEWLINE           (* alias ON
 
 typarams   ::= '[' typaram { ',' typaram } ']'
 typaram    ::= UIDENT [ ':' SORT ] { DECORATOR }     (* uppercase param; opt sort + mode *)
-DECORATOR  ::= '@' LIDENT                             (* @viewtype @boxed @unboxed @prop … *)
-SORT       ::= UIDENT                                 (* Type, VType, Prop, View, Int, … *)
+DECORATOR  ::= '@' LIDENT                             (* @linear @boxed @unboxed @prop … *)
+SORT       ::= UIDENT                                 (* Type, Linear, Prop, View, Int, … *)
 ```
 
-- **Type parameters are UPPERCASE** (`[A]`, `[A: VType @unboxed]`) — Rust-style,
+- **Type parameters are UPPERCASE** (`[A]`, `[A: Linear @unboxed]`) — Rust-style,
   resolved as a parameter vs a type constructor by scope (§5 convention).
 - **Decorators** apply both as a **prefix** to a whole declaration (its representation
   kind) and **inline** on a type parameter (that parameter's sort/representation).
@@ -375,22 +375,22 @@ from `srcgen2/`; see the M5b recon in LOWERING-MAP §1.4). This **closes** the e
 | Surface | L2 target | sort / kind |
 |---|---|---|
 | `enum E` | `D2Cdatatype` + `s2cst_make_idst` + `d2con_make_idtp` per `case` | `the_sort2_tbox` (boxed) |
-| `@viewtype enum E` | same, linear datatype flavor | `the_sort2_vtbx` (boxed linear) |
+| `@linear enum E` | same, linear datatype flavor | `the_sort2_vtbx` (boxed linear) |
 | `@boxed enum E` | same as bare `enum` (explicit default) | `the_sort2_tbox` |
 | `@unboxed enum E` | **accepted, lowered as boxed** — decorator NOT honored for enums in v1 (no stock unboxed-datatype primitive); intentional, documented limitation | `the_sort2_tbox` |
 | `struct S` | `D2Csexpdef` binding `S` → `S2Etrcd(TRCDbox0, …)` (record-type alias) | boxed record |
-| `@viewtype struct S` | `S2Etrcd(TRCDbox1, …)` | boxed linear record |
+| `@linear struct S` | `S2Etrcd(TRCDbox1, …)` | boxed linear record |
 | `@unboxed struct S` | `S2Etrcd(TRCDflt0, …)` | flat record |
 | `type T = …` | `D2Csexpdef(s2cst, s2exp)` | (sort of the RHS) |
 | sort `Type` | `the_sort2_type` / `the_sort2_tbox` | boxed type |
-| sort `VType` | `the_sort2_vwtp` | linear (box-or-flat) |
+| sort `Linear` | `the_sort2_vwtp` | linear (box-or-flat) |
 | sort `Prop` | `the_sort2_prop` | proof |
 | param `@unboxed` on a `Type` param | `the_sort2_tflt` | flat type |
-| param `@unboxed` on a `VType` param | `the_sort2_vtft` | flat linear |
+| param `@unboxed` on a `Linear` param | `the_sort2_vtft` | flat linear |
 | un-annotated param (`[A]`) | default sort | `the_sort2_type` (boxed) |
 
-Notes: (1) the user's canonical example `@viewtype enum Tree[A: VType @unboxed]` is fully
-supported — `@viewtype`→`vtbx`, `A: VType @unboxed`→`vtft`. (2) `@unboxed enum` is the
+Notes: (1) the user's canonical example `@linear enum Tree[A: Linear @unboxed]` is fully
+supported — `@linear`→`vtbx`, `A: Linear @unboxed`→`vtft`. (2) `@unboxed enum` is the
 **only** decorator that is accepted-but-not-honored in v1 (lowered boxed); when the
 compiler gains an unboxed-datatype primitive it wires through with no surface change.
 (3) `struct` = a **record-type alias** (not a single-constructor datatype): construction
@@ -399,12 +399,15 @@ is a record literal, field access is projection — no synthesized constructor n
 the direct-L2 frontend does not produce — resolved by the M5b spike (synthesize a minimal
 `d1ecl`, or confirm the field is vestigial for typecheck/codegen). `struct`/`type` via
 `D2Csexpdef` carry no `d1ecl` and are lower-risk.
+(5) The surface sort `View` is **RESERVED** for future use — it names a distinct ATS `view`
+sort (a stand-alone proof of resource ownership), **not** the same as `Linear` (the
+`viewtype`/`the_sort2_vwtp` family); no v1 surface lowering is wired for it yet.
 
 **Examples.**
 ```
-# a linear (viewtype) cons-list whose element type is itself linear & unboxed
-@viewtype
-enum Tree[A: VType @unboxed]:
+# a linear cons-list whose element type is itself linear & unboxed
+@linear
+enum Tree[A: Linear @unboxed]:
     case Nil
     case Cons(A, Tree[A])
 
@@ -537,7 +540,7 @@ inventing surface syntax. Binding for v1.
 | R-bar | `\|` token | **`PT_BAR`** lexes, but is now **RESERVED with no v1 surface use** — `enum`/`case` (§5.7) replaced its datatype-separator role and `match` uses `case` arms. Kept for a future bitwise-or / or-pattern / union surface. |
 | R-pat | pattern `: T` vs block-header `:` | A **pattern never consumes a trailing `:`** — the `:` after a `case`/`match` pattern is the block-header. Annotation `p : T` is produced **only at binding/param sites** (`let`, `def` params). |
 | R-type | `type T = …` alias vs datatype | **SUPERSEDED 2026-06-20** by distinct keywords (§5.7): `enum` = datatype, `struct` = record, `type` = **alias only**. No RHS-shape heuristic — the ambiguity is gone. (M2's interim classification is replaced in M5 when the new surface is parsed/lowered.) |
-| R-tyvar | type-parameter case | **Uppercase**, Rust-style: `[A]`, `[A: VType @unboxed]`. Type params are UIDENT, disambiguated from type constructors by scope (§5, §5.7). *Changed 2026-06-20 from the earlier "type vars lowercase" rule.* |
+| R-tyvar | type-parameter case | **Uppercase**, Rust-style: `[A]`, `[A: Linear @unboxed]`. Type params are UIDENT, disambiguated from type constructors by scope (§5, §5.7). *Changed 2026-06-20 from the earlier "type vars lowercase" rule.* |
 | R-ifexpr | `if` as an expression | An **`if`-expression** has inline expression branches + a **mandatory `else`** (`PyEif`); an **`if`-statement** has suite branches + an **optional `else`** (`PySif`). A general indented block as an arbitrary expression stays **deferred** (§7 open item). |
 | R-trail | trailing block-lambda as a call's last arg | **Deferred** in v1: brackets suppress layout, so a block-bodied lambda mid-call is not special-cased — use an inline `=>` or parenthesize. Revisit post-v1 (§3). |
 | R-orpat | or-patterns (`p \| q`) | **Not in v1** — `\|` is solely the datatype-constructor separator. |

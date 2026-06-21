@@ -1,5 +1,5 @@
-@viewtype
-enum Tree[A: VType @unboxed]:
+@linear
+enum Tree[A: Linear @unboxed]:
     case Nil
     case Cons(A, Tree[A])
 

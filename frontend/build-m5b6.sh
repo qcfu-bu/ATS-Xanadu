@@ -4,9 +4,9 @@
 # memory/representation MODE (boxed / linear / flat) on `enum` / `struct`.
 #
 # Slice 6a (the decorator delta on the proven boxed M5b.3/.4/.5 constructions): a
-#   * `@viewtype enum`   -> a LINEAR datatype (s2cst sort the_sort2_vtbx, vs boxed tbox),
+#   * `@linear enum`     -> a LINEAR datatype (s2cst sort the_sort2_vtbx, vs boxed tbox),
 #   * `@unboxed struct`  -> a FLAT record   (S2Etrcd(TRCDflt0,...), sort the_sort2_tflt),
-#   * `@viewtype struct` -> a LINEAR record (S2Etrcd(TRCDbox1,...), sort the_sort2_vtbx),
+#   * `@linear struct`   -> a LINEAR record (S2Etrcd(TRCDbox1,...), sort the_sort2_vtbx),
 #   * a bare/`@boxed` enum/struct -> BOXED (the proven default; tbox / TRCDbox0), unchanged.
 # (`@unboxed enum` has NO stock unboxed-datatype primitive -> pinned to BOXED tbox.)
 #
@@ -96,9 +96,9 @@ mode_lines_of() {
 
 # fixture  ->  expected mode word that PROVES the decorator was honored.
 declare -a FIX=(
-  "m5b_viewtype_enum:linear"    # @viewtype enum  -> linear datatype  (sort vtbx)
+  "m5b_viewtype_enum:linear"    # @linear enum    -> linear datatype  (sort vtbx)
   "m5b_unboxed_struct:flat"     # @unboxed  struct-> flat record      (TRCDflt0, tflt)
-  "m5b_viewtype_struct:linear"  # @viewtype struct-> linear record    (TRCDbox1, vtbx)
+  "m5b_viewtype_struct:linear"  # @linear struct  -> linear record    (TRCDbox1, vtbx)
   "m5b_boxed_default:boxed"     # bare enum+struct-> boxed (regression; tbox / TRCDbox0)
 )
 
@@ -135,8 +135,8 @@ done
 
 echo "======================================================================"
 if [ "$FAIL" -ne 0 ]; then echo ">> M5b6: FAIL (see failures above)"; exit 1; fi
-echo ">> M5b6: PASS (@viewtype/@unboxed/@boxed on enum/struct SELECT the ATS memory mode:"
-echo "            @viewtype->linear (vtbx/TRCDbox1), @unboxed->flat (TRCDflt0/tflt),"
+echo ">> M5b6: PASS (@linear/@unboxed/@boxed on enum/struct SELECT the ATS memory mode:"
+echo "            @linear->linear (vtbx/TRCDbox1), @unboxed->flat (TRCDflt0/tflt),"
 echo "            bare/@boxed->boxed (tbox/TRCDbox0); every mode TYPECHECKS nerror=0 and the"
 echo "            PyCore dump PROVES the decorator is honored — NOT silently boxed)"
 exit 0

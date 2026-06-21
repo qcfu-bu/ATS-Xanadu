@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 ########################################################################
 # M5b.6b — Python-surface frontend: type-PARAMETER SORT ANNOTATIONS
-# ([A: VType @unboxed]) wired into the s2var sort + TYPECHECK.
+# ([A: Linear @unboxed]) wired into the s2var sort + TYPECHECK.
 #
 # Slice 6b (the LAST piece of M5b): a param's declared surface sort now SELECTS its s2var
 # sort, instead of every param being forced to the_sort2_type. The mapping (SURFACE-GRAMMAR
-# §5.7.1): Type/none -> the_sort2_type (+@unboxed -> the_sort2_tflt); VType -> the_sort2_vwtp
+# §5.7.1): Type/none -> the_sort2_type (+@unboxed -> the_sort2_tflt); Linear -> the_sort2_vwtp
 # (+@unboxed -> the_sort2_vtft); Prop -> the_sort2_prop. PyCore now carries the param sort
 # (pcparam = name + sort name + @unboxed flag) through the elaborator into M3's psort2_of.
 #
 # Verifies:
-#   * a parametric `enum VBox[A: VType]` (param sorted VType) instantiated at a NON-linear type
+#   * a parametric `enum VBox[A: Linear]` (param sorted Linear) instantiated at a NON-linear type
 #     (`VBox[Int]` — vtype superset of type, so Int is accepted) + a `match` -> nerror=0,
 #   * a PLAIN `enum PBox[A]` (default Type sort, the regression-equality case — byte-identical
 #     to before this slice) instantiated at `PBox[Int]` + a `match` -> nerror=0.
@@ -75,7 +75,7 @@ nerror_of() {
 
 # ---- VALID programs: each must LOWER + TYPECHECK to nerror=0 -----------------
 VALID=(
-  "m5b_vtype_param" # enum VBox[A: VType]{VWrap(A)} + unwrapv(b: VBox[Int]) -> Int : match (VType param)
+  "m5b_vtype_param" # enum VBox[A: Linear]{VWrap(A)} + unwrapv(b: VBox[Int]) -> Int : match (Linear param)
   "m5b_plain_param" # enum PBox[A]{PWrap(A)}        + unwrapp(b: PBox[Int]) -> Int : match (plain param)
 )
 for base in "${VALID[@]}"; do
@@ -98,7 +98,7 @@ done
 
 echo "======================================================================"
 if [ "$FAIL" -ne 0 ]; then echo ">> M5b6b: FAIL (see failures above)"; exit 1; fi
-echo ">> M5b6b: PASS (a VType-sorted param ([A: VType]) selects the_sort2_vwtp s2var sort and"
+echo ">> M5b6b: PASS (a Linear-sorted param ([A: Linear]) selects the_sort2_vwtp s2var sort and"
 echo "            instantiates at a non-linear Int (vtype superset of type) -> nerror=0; a plain"
 echo "            [A] still defaults to the_sort2_type -> nerror=0, byte-identical to before)"
 exit 0
