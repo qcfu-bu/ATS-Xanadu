@@ -60,6 +60,9 @@ case+ e of
 | PCElist(_, es) => harv_explst(es, acc)
 | PCEfield(_, e1, _) => harv_exp(e1, acc)
 | PCEseq(_, e1, e2) => harv_exp(e2, harv_exp(e1, acc))
+// EXN: raise harvests its sub-expr; try harvests its body + the except arms.
+| PCEraise(_, e1) => harv_exp(e1, acc)
+| PCEtry(_, body, hs) => harv_arms(hs, harv_exp(body, acc))
 )
 //
 and
@@ -109,6 +112,7 @@ case+ d of
 | PCCimport(_, _, _, _) => acc  // a USER import carries only a module path — no poison nodes.
 | PCCalias(_, _, _, _) => acc   // a type alias carries only a surface type — no poison nodes.
 | PCCrecord(_, _, _, _, _) => acc // a struct record carries only field types — no poison nodes.
+| PCCexcept(_, _, _) => acc      // EXN: an exception decl carries only arg types — no poison nodes.
 )
 //
 fun
@@ -156,6 +160,9 @@ case+ e of
 | PCElist(_, es) => uses_explst(es)
 | PCEfield(_, e1, _) => uses_exp(e1)
 | PCEseq(_, e1, e2) => b_or(uses_exp(e1), uses_exp(e2))
+// EXN: raise/try recurse into their sub-exprs / body + arms (no pyrt names of their own).
+| PCEraise(_, e1) => uses_exp(e1)
+| PCEtry(_, body, hs) => b_or(uses_exp(body), uses_arms(hs))
 )
 //
 and

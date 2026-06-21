@@ -104,6 +104,10 @@ case+ e of
 | PCErec(_, fs) => lint_efields_nt(fs, acc)
 | PCElist(_, es) => lint_explst_nt(es, acc)
 | PCEfield(_, e1, _) => lint_exp(e1, false, acc)
+// EXN: the raised sub-expr is NOT tail. A try's body + each handler body ARE in the try's
+// tail position (the try is value-valued, like a case) — walk them with the inherited `tail`.
+| PCEraise(_, e1) => lint_exp(e1, false, acc)
+| PCEtry(_, body, hs) => lint_arms(hs, tail, lint_exp(body, tail, acc))
 | PCElit(_, _) => acc
 | PCEvar(_, _) => acc
 | PCEcon(_, _) => acc
@@ -161,6 +165,10 @@ case+ e of
 | PCElist(_, es) => lint_loops_explst(es, acc)
 | PCEfield(_, e1, _) => lint_loops_exp(e1, acc)
 | PCEseq(_, e1, e2) => lint_loops_exp(e2, lint_loops_exp(e1, acc))
+// EXN: recurse into raise/try so a generated loop nested in a try body/handler is still
+// tail-walked from its own loop-binding fundcl (lint_loops_fundcls drives lint_exp there).
+| PCEraise(_, e1) => lint_loops_exp(e1, acc)
+| PCEtry(_, body, hs) => lint_loops_arms(hs, lint_loops_exp(body, acc))
 | _ => acc
 )
 //

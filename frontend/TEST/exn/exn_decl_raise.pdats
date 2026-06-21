@@ -1,0 +1,9 @@
+exception NotFound(Int)
+
+def lookup(k: Int) -> Int:
+    try:
+        raise NotFound(k)
+    except NotFound(x):
+        x
+    except _:
+        0

@@ -38,6 +38,7 @@ case+ e of
 | PCErec(loc, _) => loc       | PCElist(loc, _) => loc
 | PCEfield(loc, _, _) => loc  | PCEseq(loc, _, _) => loc
 | PCEunit(loc) => loc         | PCEerror(loc, _) => loc
+| PCEraise(loc, _) => loc     | PCEtry(loc, _, _) => loc
 )
 //
 #implfun
@@ -59,6 +60,7 @@ case+ d of
 | PCCimport(loc, _, _, _) => loc
 | PCCalias(loc, _, _, _) => loc
 | PCCrecord(loc, _, _, _, _) => loc
+| PCCexcept(loc, _, _) => loc
 | PCCerror(loc, _) => loc
 )
 //

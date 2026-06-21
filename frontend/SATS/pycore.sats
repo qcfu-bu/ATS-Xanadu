@@ -194,6 +194,13 @@ pcexp =
 | PCEfield  of (loctn, pcexp, strn)
 | PCEseq    of (loctn, pcexp, pcexp)
 | PCEunit   of (loctn)
+//   PCEraise : `raise e` (EXN) -> D2Eraise. `e` lowers to an exn-typed expr.
+//   PCEtry   : `try body except <pat>: handler ...` (EXN) -> D2Etry0. The body is a single
+//              elaborated pcexp (the surface body-suite was folded by el_func_body); the
+//              except clauses are pcarm (reusing the match-clause machinery, lowered to
+//              d2cls over the caught exn).
+| PCEraise  of (loctn, pcexp)
+| PCEtry    of (loctn, pcexp(*body*), list(pcarm)(*handlers over exn*))
 | PCEerror  of (loctn, strn)
 //
 // a record-literal field `name = expr`.
@@ -297,6 +304,11 @@ pcdecl =
 | PCCimport  of (loctn, strn(*resolved XATSHOME-rel .sats path*), sint(*0=static*), bool(*is_python: defer*))
 | PCCalias   of (loctn, strn, list(pcparam), pytyp)
 | PCCrecord  of (loctn, strn, list(pcparam), list(pcfield), pcmode)
+//   PCCexcept : `exception E(T...)` (EXN) — an exception CONSTRUCTOR decl. Carries the con
+//               NAME + its surface arg types. M3 lowers it to a D2Cexcptcon: a d2con of the
+//               built-in `exn` type (the_s2cst_excptn), registered like a datatype con so
+//               `raise E` / `except E` resolve. Nullary `exception Empty` has [].
+| PCCexcept  of (loctn, strn, list(pytyp))
 | PCCerror   of (loctn, strn)
 //
 // M5b.6b: a type param carries its surface sort name (Type/Linear/Prop, "" = none ⇒ default

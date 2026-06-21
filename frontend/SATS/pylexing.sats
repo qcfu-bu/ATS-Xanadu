@@ -111,6 +111,10 @@ ptnode =
 | PT_KW_TYPE    of ()   // type
 | PT_KW_ENUM    of ()   // enum   (type declaration; SURFACE-GRAMMAR §5.7)
 | PT_KW_STRUCT  of ()   // struct (type declaration; SURFACE-GRAMMAR §5.7)
+| PT_KW_EXCEPTION of () // exception (exception-constructor declaration; EXN)
+| PT_KW_RAISE   of ()   // raise  (raise an exception; EXN)
+| PT_KW_TRY     of ()   // try    (try/except expression; EXN)
+| PT_KW_EXCEPT  of ()   // except (an except clause of a try; EXN)
 | PT_KW_AS      of ()   // as  (pattern alias; SURFACE-GRAMMAR §5.5)
 | PT_KW_AND     of ()   // and (keyword operator, §5.6 lvl 2)
 | PT_KW_OR      of ()   // or  (keyword operator, §5.6 lvl 1)

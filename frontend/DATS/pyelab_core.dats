@@ -347,6 +347,10 @@ case+ e of
     // a nested lambda: its params are bound WITHIN its body; collect its body's FV.
     fc_fv_stmts(fc_param_names(bnd, params), fv, body)
 | PyEann(_, e1, _) => fc_fv_exp(bnd, fv, e1)
+// EXN: raise scans its sub-expr; try scans its body suite + the except arms (the arm
+// patterns bind names in their own handlers — fc_fv_arms handles that subtraction).
+| PyEraise(_, e1) => fc_fv_exp(bnd, fv, e1)
+| PyEtry(_, body, hs) => fc_fv_arms(bnd, fc_fv_stmts(bnd, fv, body), hs)
 | PyEerror(_, _)  => fv
 )
 and
@@ -503,6 +507,12 @@ case+ e of
         else lamexp
     end
 | PyEann(_, e1, _) => el_exp(encl, e1)
+// EXN: raise -> PCEraise. The raised value (a con application) is an ordinary expr.
+| PyEraise(loc, e1) => PCEraise(loc, el_exp(encl, e1))
+// EXN: try -> PCEtry. The body SUITE folds to one value-expr via el_func_body (same as a
+// def/branch body). The except clauses reuse el_arms (the match-arm elaborator) — each
+// `except <pat>:` is a case-arm over the caught exn; its pattern binders scope its handler.
+| PyEtry(loc, body, hs) => PCEtry(loc, el_func_body(encl, loc, body), el_arms(encl, hs))
 | PyEerror(loc, msg) => PCEerror(loc, msg)
 )
 //

@@ -206,6 +206,11 @@ case+ d of
     // §5.7 — a `type X = T` alias -> a PCCalias (M5b.5). M3 lowers `T` via pylower_typ and
     // builds the D2Csexpdef. tvs are monomorphic for now (a non-empty list is M5c).
     list_sing(PCCalias(loc, nm, elab_typarams(tps), aliasTyp))
+| PyCexcept(loc, nm, ts) =>
+    // EXN: `exception E(T...)` -> a PCCexcept carrying the con name + raw surface arg types.
+    // M3 lowers it to a D2Cexcptcon: a d2con of the built-in `exn` type, registered like a
+    // datatype con so `raise E` / `except E` resolve. No imperative content to elaborate.
+    list_sing(PCCexcept(loc, nm, ts))
 | PyCimport(loc, imp) =>
     // M7-import (task #34): a USER `import M` / `from M import x` -> a PCCimport carrying the
     // RESOLVED XATSHOME-relative `.sats` path (v1 rule: dotted `a.b` -> `/a/b.sats`). M3

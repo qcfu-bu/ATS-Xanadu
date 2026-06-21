@@ -125,6 +125,8 @@ in
   case+ nod of
   | PT_KW_IF()    => p_if_expr(st)
   | PT_KW_MATCH() => p_match_expr(st)
+  | PT_KW_RAISE() => p_raise_expr(st)
+  | PT_KW_TRY()   => p_try_expr(st)
   | PT_AT()       =>
     // M7-closures: a `@func` prefix on a lambda in EXPRESSION position opts the lambda into
     // being NON-capturing (enforced by the elaborator's capture check). Only `@func` is valid
@@ -607,6 +609,57 @@ case+ ps_peek(st) of
 //
 (* ****** ****** *)
 //
+// ---- EXN: raise / try-except (mirror p_match_expr's suite layout) -----------
+//
+// raise_expr ::= 'raise' expr   (an expression of any type; lowers to D2Eraise)
+and
+p_raise_expr(st: pstate): @(pyexp, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'raise'
+  val @(e, st2) = p_expr(st1)
+in
+  @(PyEraise(loc_span(loc, pyexp_loctn(e)), e), st2)
+end
+//
+// try_expr ::= 'try' ':' NEWLINE INDENT <body suite> DEDENT { except_clause }
+//   except_clause ::= 'except' pattern ':' NEWLINE INDENT <handler suite> DEDENT
+// the body is a SUITE (statements) — like a def/if/match body, NOT a single expr; the
+// except clauses are case-arms over the caught exn (reuse pyarm). The whole try is an
+// EXPRESSION (a value): the body's value, or the matching handler's value.
+and
+p_try_expr(st: pstate): @(pyexp, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'try'
+  val st2 = expect_colon_e(st1)
+  val @(body, st3) = parse_suite(st2)    // consumes NEWLINE INDENT <body> DEDENT
+  val @(hs, st4) = p_except_clauses(st3)
+in
+  @(PyEtry(loc, body, hs), st4)
+end
+//
+// { except_clause } until something that is not 'except'.
+and
+p_except_clauses(st: pstate): @(list(pyarm), pstate) =
+(
+case+ ps_peek(st) of
+| PT_KW_EXCEPT() =>
+  let
+    val loc = ps_peek_loctn(st)
+    val st1 = ps_advance(st)             // past 'except'
+    val @(p, st2) = parse_pattern(st1)   // E(x), nullary E, or _ — reuse pattern parsing
+    val st3 = expect_colon_e(st2)
+    val @(body, st4) = parse_suite(st3)  // the handler suite
+    // an except clause has no guard (PyExpNone); reuse pyarm so M3 reuses match-clause lowering.
+    val arm = PyArm(loc, p, PyExpNone(), body)
+    val @(rest, st5) = p_except_clauses(st4)
+  in
+    @(list_cons(arm, rest), st5)
+  end
+| _ => @(list_nil(), st)
+)
+//
+(* ****** ****** *)
+//
 // ---- expect helpers (expression file copies) -------------------------------
 //
 and
@@ -713,9 +766,18 @@ in
     // a match used as a statement: parse the match-EXPR, wrap as an expr-stmt.
     let val @(e, st1) = p_match_expr(st) in
       @(PySexpr(loc, e), st1) end
+  | PT_KW_TRY() =>
+    // EXN: a try-except used as a statement: parse the try-EXPR (block-bodied, consumes its
+    // own layout), wrap as an expr-stmt (the try IS a value; in stmt position its value falls
+    // off as the suite tail). No trailing NEWLINE — the except clauses consume their layout.
+    let val @(e, st1) = p_try_expr(st) in
+      @(PySexpr(loc, e), st1) end
   | PT_KW_DEF() =>
     let val @(d, st1) = parse_decl(st) in @(PySdecl(loc, d), st1) end
   | PT_KW_TYPE() =>
+    let val @(d, st1) = parse_decl(st) in @(PySdecl(loc, d), st1) end
+  | PT_KW_EXCEPTION() =>
+    // EXN: a single-line `exception E(T...)` decl in statement position (parity with `type`).
     let val @(d, st1) = parse_decl(st) in @(PySdecl(loc, d), st1) end
   | PT_KW_IMPORT() =>
     let val @(d, st1) = parse_decl(st) in @(PySdecl(loc, d), st1) end

@@ -248,6 +248,11 @@ case+ e of
     pp_exp(out, e2, ind + 1); ps(out, ")") )
 | PCEunit(loc) =>
   (ps(out, "(Eunit"); print_span(out, loc); ps(out, ")"))
+| PCEraise(loc, e1) =>
+  ( ps(out, "(Eraise"); print_span(out, loc); ps(out, " "); pp_exp(out, e1, ind); ps(out, ")") )
+| PCEtry(loc, body, hs) =>
+  ( ps(out, "(Etry"); print_span(out, loc); ps(out, " ");
+    pp_exp(out, body, ind); pp_armlst(out, hs, ind + 1); ps(out, ")") )
 | PCEerror(loc, msg) =>
   (ps(out, "(Eerror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )
@@ -374,6 +379,8 @@ case+ d of
   ( ps(out, "(alias "); ps(out, nm); print_span(out, loc);
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_pcparams(out, tvs); ps(out, ")")) );
     ps(out, " "); pp_typ(out, typ); ps(out, ")") )
+| PCCexcept(loc, nm, ts) =>
+  ( ps(out, "(exception "); ps(out, nm); print_span(out, loc); pp_typlst(out, ts); ps(out, ")") )
 | PCCerror(loc, msg) =>
   (ps(out, "(Cerror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )

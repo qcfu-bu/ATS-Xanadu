@@ -254,6 +254,11 @@ case+ e of
 | PyEann(loc, e1, t) =>
   ( ps(out, "(Eann"); print_span(out, loc); ps(out, " ");
     pp_exp(out, e1); ps(out, " : "); pp_typ(out, t); ps(out, ")") )
+| PyEraise(loc, e1) =>
+  ( ps(out, "(Eraise"); print_span(out, loc); ps(out, " "); pp_exp(out, e1); ps(out, ")") )
+| PyEtry(loc, body, hs) =>
+  ( ps(out, "(Etry"); print_span(out, loc);
+    pp_stmtlst(out, body, 1); pp_armlst(out, hs, 1); ps(out, ")") )
 | PyEerror(loc, msg) =>
   (ps(out, "(Eerror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )
@@ -411,6 +416,8 @@ case+ d of
     pp_decolst(out, decos);
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
     ps(out, " (alias "); pp_typ(out, t); ps(out, ")"); ps(out, ")") )
+| PyCexcept(loc, nm, ts) =>
+  ( ps(out, "(exception "); ps(out, nm); print_span(out, loc); pp_typlst(out, ts); ps(out, ")") )
 | PyCimport(loc, imp) =>
   (ps(out, "(import"); print_span(out, loc); ps(out, " "); pp_import(out, imp); ps(out, ")"))
 | PyCstmt(loc, s) =>

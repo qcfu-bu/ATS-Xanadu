@@ -60,6 +60,11 @@ fun tok_case(loc: loctn): token = token_make_node(loc, T_CASE(CSKcas0))
 // (inexhaustive match). T_TRCD20(0) selects TRCDflt0, the FLAT (unboxed) record `@{...}` the
 // Pythonic `{l=e,...}` lowers to. (Verified: T_LBRACE -> hard crash in trans23_d2valdcl.)
 fun tok_rec(loc: loctn): token = token_make_node(loc, T_TRCD20(0))
+// EXN: the `$raise`/`try` kind-tokens for D2Eraise/D2Etry0 (the tknd is only destructured by
+// trans23 — its presence/kind is what matters, not the lexeme). The stock parser builds
+// D2Eraise with a T_DLR_RAISE token and D2Etry0 with a T_TRY token (SPIKE-PROVEN).
+fun tok_raise(loc: loctn): token = token_make_node(loc, T_DLR_RAISE())
+fun tok_try(loc: loctn): token = token_make_node(loc, T_TRY())
 //
 (* ****** ****** *)
 //
@@ -174,6 +179,36 @@ in
             d2exp_sym0(loc, drxp, d1e0, dpis)
           end
     )
+end
+//
+// resolve a bare CONSTRUCTOR NAME used as a VALUE. Identical to pl_var EXCEPT a single resolved
+// con whose arity is 0 (a nullary con: `Nothing`, `Empty`, a nullary exn con) is APPLIED to zero
+// args — wrapped in D2Edap0 — so it has its RESULT type, not its `() -> T` con-function type
+// (the same fix the list-literal `list_nil()` path and the nullary-con PATTERN path apply). A
+// con of arity > 0 referenced bare (a partial/HOF con) is left as the raw d2exp_con (unchanged).
+fun
+pl_con_value(env: !tr12env, loc: loctn, sym: sym_t): d2exp = let
+  val dopt = tr12env_find_d2itm(env, sym)
+  // is the resolution a SINGLE nullary con? (compute the verdict; consume `dopt` cleanly).
+  val nullary_con =
+    (
+    case+ dopt of
+    | ~optn_vt_cons(d2i) =>
+      (
+        case+ d2i of
+        | D2ITMcon(d2cs) =>
+            if list_singq(d2cs) then (d2con_get_narg(d2cs.head()) = 0) else false
+        | _ => false
+      )
+    | ~optn_vt_nil() => false
+    ) : bool
+in
+  // a nullary con must be applied to zero args (D2Edap0) so it has its RESULT type. Everything
+  // else (n-ary partial con, overloaded set, var, cst, sym, unbound) -> the shared pl_var path,
+  // which re-does the (re-entrant) lookup and builds the appropriate node.
+  if nullary_con
+    then d2exp_make_node(loc, D2Edap0(pl_var(env, loc, sym)))
+    else pl_var(env, loc, sym)
 end
 //
 (* ****** ****** *)
@@ -394,8 +429,14 @@ case+ e of
 // PCEvar : an ordinary var/fun reference (template A). A BARE operator name (not applied) is
 // not a runnable value in v1, but resolve it as-is for recovery (deferred).
 | PCEvar(loc, name) => pl_var(env, loc, symbl_make_name(name))
-// PCEcon : UIDENT -> a d2con reference (template A resolves it to D2ITMcon).
-| PCEcon(loc, name) => pl_var(env, loc, symbl_make_name(name))
+// PCEcon : UIDENT -> a d2con reference (template A resolves it to D2ITMcon). CRITICAL: a
+// NULLARY con used as a VALUE (`Nothing`, `Empty`, a nullary exn con) must be APPLIED to zero
+// args — wrapped in D2Edap0 — exactly as the list-literal path wraps `list_nil()` (M16) and the
+// nullary-con PATTERN path wraps in D2Pdap0 (#21). A bare D2Econ keeps the con's `() -> T`
+// FUNCTION type, which then fails to unify with the result type `T` (D3Et2pck errck). An n-ary
+// con reaches here only as the head of a PCEapp (handled by pl_app -> D2Edapp); a BARE n-ary con
+// reference (a HOF-style partial con) stays unwrapped. So: wrap iff the resolved con is nullary.
+| PCEcon(loc, name) => pl_con_value(env, loc, symbl_make_name(name))
 //
 // template B : application f(a,b) -> D2Edapp(d2f, -1, args). Empty arg list -> D2Edap0.
 // OPERATOR-HEADED applications are remapped to their concrete prelude `sint_*` function by
@@ -518,6 +559,27 @@ case+ e of
 //
 // PCEunit : () -> the empty tuple D2Etup0(-1, []).
 | PCEunit(loc) => d2exp_make_node(loc, D2Etup0((-1), list_nil()))
+//
+// EXN: PCEraise -> D2Eraise($raise-tok, e). trans23 f0_raise typechecks `e` against the
+// built-in exn type (the_s2typ_excptn) and gives the whole raise a FRESH type var — `raise`
+// does not return, so it unifies with any context type. (SPIKE-PROVEN, nerror=0.)
+| PCEraise(loc, e1) => let
+    val d2e1 = pl_exp(env, e1)
+  in
+    d2exp_make_node(loc, D2Eraise(tok_raise(loc), d2e1))
+  end
+//
+// EXN: PCEtry -> D2Etry0(try-tok, body, clauses). The body lowers first (its names resolve in
+// the OUTER scope). The except clauses reuse pl_armlst — the SAME match-clause lowering as
+// PCEcase — so each `except <pat>:` becomes a d2cls; trans23 f0_try0 typechecks them as
+// case-arms over a synthetic exn-typed scrutinee, all branches unifying to the body's type.
+// (SPIKE-PROVEN, nerror=0.)
+| PCEtry(loc, body, hs) => let
+    val d2body = pl_exp(env, body)
+    val d2cs = pl_armlst(env, hs)
+  in
+    d2exp_make_node(loc, D2Etry0(tok_try(loc), d2body, d2cs))
+  end
 //
 // PCEerror : an elaboration poison node — surface it as a none-node that SURVIVES to tread3a
 // (so the elaboration error actually FAILS the typecheck, nerror>0). A bare d2exp_none0 gets

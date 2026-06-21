@@ -459,6 +459,27 @@ case+ d of
     build_sexpdef(env, loc, name, rhs)
   end
 //
+// EXN: `exception E(T...)` -> a D2Cexcptcon. SPIKE-PROVEN recipe, mirrors the stock
+// f0_excptcon (trans12_decl00.dats:3084): the con is a d2con of the BUILT-IN `exn` type
+// (the_s2cst_excptn — sort vtbx/linear), its function type `(args) -> exn`. CRITICAL DELTAS
+// from a datatype con (lower_datacon): (1) the result type is s2exp_cst(the_s2cst_excptn()),
+// NOT a fresh datatype s2cst; (2) the con tag STAYS -1 (f0_excptcon: "tags of d2cs should
+// stay (-1)" — an exn con is not a positional datatype variant), so we do NOT call
+// d2con_set_ctag. Register the con via tr12env_add1_d2conlst exactly like f0_excptcon so
+// `raise E` / `except E` resolve. The decl's first field is a VESTIGIAL d1ecl (trans23
+// f0_excptcon binds but never reads it — d1ecl_none0 is safe, same as D2Cdatatype).
+| PCCexcept(loc, name, argtyps) => let
+    val s2e_exn  = s2exp_cst(the_s2cst_excptn())
+    val argSexps = pylower_typlst(env, argtyps)    // aliases Int -> the_s2exp_sint0
+    val conSexp  = s2exp_fun1_nil0((-1)(*npf*), argSexps, s2e_exn)
+    val tok      = token_make_node(loc, T_IDALP(name))
+    val con      = d2con_make_idtp(tok, list_nil()(*tqas*), conSexp)
+    val d2cs     = list_sing(con)
+    val () = tr12env_add1_d2conlst(env, d2cs)      // register the con (so raise/except resolve)
+  in
+    d2ecl_make_node(loc, D2Cexcptcon(d1ecl_none0(loc), d2cs))
+  end
+//
 // an elaboration poison node -> a benign no-op (the diagnostic was already reported by the
 // elaborator; M3 surfaces it via the harness's diagnostics dump, never crashes).
 | PCCerror(loc, _) => d2ecl_make_node(loc, D2Cnone0())

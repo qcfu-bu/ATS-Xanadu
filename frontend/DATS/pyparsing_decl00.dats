@@ -261,6 +261,52 @@ end
 //
 (* ****** ****** *)
 //
+// ---- EXN: exception decl: 'exception' UIDENT [ '(' type {',' type} ')' ] NEWLINE ----
+//      a single exception CONSTRUCTOR (a con of the built-in `exn` type). Shape mirrors a
+//      datacon: UIDENT + optional parenthesized arg types. Nullary `exception Empty` allowed.
+//      The trailing NEWLINE is consumed by p_top_item (expect_newline_d), like `type`/`import`.
+//
+fun
+p_exceptdecl(st: pstate): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'exception'
+  val @(nm, st2) =
+    ( case+ ps_peek(st1) of
+      | PT_UIDENT(s) => @(s, ps_advance(st1))
+      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected an exception name (uppercase)")) )
+in
+  case+ ps_peek(st2) of
+  | PT_LPAREN() =>
+    let
+      val @(ts, st3) = p_exc_types(ps_advance(st2))
+      val locR = ps_peek_loctn(st3)
+      val st4 =
+        ( case+ ps_peek(st3) of
+          | PT_RPAREN() => ps_advance(st3)
+          | _ => ps_diag(st3, locR, "expected ')' in exception declaration") )
+    in
+      @(PyCexcept(loc_span(loc, locR), nm, ts), st4)
+    end
+  | _ => @(PyCexcept(loc, nm, list_nil()), st2)
+end
+//
+// exc_types ::= [ type { ',' type } ]   (the parenthesized arg types of an exception con)
+and
+p_exc_types(st: pstate): @(pytyplst, pstate) =
+( case+ ps_peek(st) of
+  | PT_RPAREN() => @(list_nil(), st)
+  | PT_EOF() => @(list_nil(), st)
+  | _ =>
+    let val @(t, st1) = parse_type(st) in
+      case+ ps_peek(st1) of
+      | PT_COMMA() =>
+        let val @(ts, st2) = p_exc_types(ps_advance(st1)) in
+          @(list_cons(t, ts), st2) end
+      | _ => @(list_cons(t, list_nil()), st1)
+    end )
+//
+(* ****** ****** *)
+//
 // ---- enum decl: 'enum' UIDENT [typarams] ':' NEWLINE INDENT { casedecl } DEDENT ----
 //      casedecl ::= 'case' UIDENT [ '(' type {',' type} ')' ] NEWLINE
 //
@@ -506,6 +552,15 @@ in
   | PT_KW_ENUM()   => p_enumdecl(st0, decos)
   | PT_KW_STRUCT() => p_structdecl(st0, decos)
   | PT_KW_TYPE()   => p_typedecl(st0, decos)
+  | PT_KW_EXCEPTION() =>
+    // EXN: `exception E(T...)` takes NO decorators in v1 (it is a single exn constructor,
+    // not a mode-bearing type decl). If any precede it, reject for recovery (mirrors def).
+    ( case+ decos of
+      | list_nil() => p_exceptdecl(st0)
+      | _ =>
+        let val @(_, st1) = p_exceptdecl(st0) in
+          @(PyCerror(locD, "decorators are not allowed on an 'exception'"),
+            ps_diag(st1, locD, "decorators are not allowed on an 'exception'")) end )
   | PT_KW_IMPORT() => p_import(st0)
   | PT_KW_FROM()   => p_import(st0)
   | _ =>
@@ -544,6 +599,9 @@ in
     // is a no-op after a block (DEDENT consumed), and consumes the NEWLINE after an alias.
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_TYPE()   =>
+    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+  | PT_KW_EXCEPTION() =>
+    // EXN: a single-line `exception E(T...)` decl — consume its trailing NEWLINE, like `type`.
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_IMPORT() =>
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end

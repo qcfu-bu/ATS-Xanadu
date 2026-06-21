@@ -259,6 +259,15 @@ pyexp =
 | PyEindex of (loctn, pyexp, pyexp)
 | PyElam   of (loctn, bool(*@func*), list(pyparam), list(pystmt))
 | PyEann   of (loctn, pyexp, pytyp)
+//   PyEraise : `raise e` — raise an exception (EXN). `e` is an exn-typed expression
+//              (a constructor application `E(args)` or a nullary `E`). The whole
+//              `raise` does not return (it has any type — lowers to D2Eraise).
+//   PyEtry   : `try: <body suite>  except <pat>: <handler suite> ...` (EXN). A VALUE:
+//              the body's value if no raise, else the matching handler's value (all
+//              branches unify). The except clauses reuse `pyarm` (pattern + body suite,
+//              like a match `case`). Lowers to D2Etry0(body, clauses-over-exn).
+| PyEraise of (loctn, pyexp)
+| PyEtry   of (loctn, list(pystmt)(*body*), list(pyarm)(*except handlers over exn*))
 | PyEerror of (loctn, strn)
 //
 // a record-literal field `name = expr`
@@ -362,6 +371,7 @@ pydecl =
 | PyCenum   of (loctn, list(pydecorator), strn, list(pytyparam), list(pydatacon))   // enum: case suite
 | PyCstruct of (loctn, list(pydecorator), strn, list(pytyparam), list(pyfield))     // struct: field suite
 | PyCtype   of (loctn, list(pydecorator), strn, list(pytyparam), pytyp)             // type: ALIAS ONLY
+| PyCexcept of (loctn, strn, list(pytyp))   // exception E(T1,T2): an exception constructor (EXN)
 | PyCimport of (loctn, pyimport)
 | PyCstmt   of (loctn, pystmt)
 | PyCerror  of (loctn, strn)
