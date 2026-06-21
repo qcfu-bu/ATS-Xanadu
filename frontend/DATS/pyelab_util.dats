@@ -40,6 +40,7 @@ case+ e of
 | PCEfield(loc, _, _) => loc  | PCEseq(loc, _, _) => loc
 | PCEunit(loc) => loc         | PCEerror(loc, _) => loc
 | PCEraise(loc, _) => loc     | PCEtry(loc, _, _) => loc
+| PCEinst(loc, _, _) => loc
 )
 //
 #implfun
@@ -65,7 +66,8 @@ case+ d of
 | PCCabstype(loc, _, _, _) => loc
 | PCCassume(loc, _, _) => loc
 | PCCextern(loc, _, _, _, _) => loc
-| PCCimplement(loc, _, _, _, _, _) => loc | PCCoverload(loc, _, _) => loc
+| PCCimplement(loc, _, _, _, _, _, _) => loc | PCCoverload(loc, _, _) => loc
+| PCCtempl(loc, _, _, _, _, _, _, _) => loc
 | PCCsortdef(loc, _, _) => loc | PCCstacst(loc, _, _) => loc
 | PCCstadef(loc, _, _) => loc
 | PCCprfun(loc, _, _) => loc   | PCCprval(loc, _, _, _) => loc

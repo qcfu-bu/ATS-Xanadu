@@ -261,6 +261,10 @@ case+ e of
 | PCEtry(loc, body, hs) =>
   ( ps(out, "(Etry"); print_span(out, loc); ps(out, " ");
     pp_exp(out, body, ind); pp_armlst(out, hs, ind + 1); ps(out, ")") )
+// A-TEMPLATE: `@inst[types] e` -> the type-arg list + the instantiated inner expr.
+| PCEinst(loc, ts, e1) =>
+  ( ps(out, "(Einst"); print_span(out, loc); ps(out, " [types");
+    pp_typlst(out, ts); ps(out, "] "); pp_exp(out, e1, ind); ps(out, ")") )
 | PCEerror(loc, msg) =>
   (ps(out, "(Eerror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )
@@ -414,13 +418,28 @@ case+ d of
       | PyTypNone() => ()
       | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
     ps(out, ")") )
-| PCCimplement(loc, nm, pnames, _ptypes, ret, body) =>
+| PCCimplement(loc, nm, pnames, _ptypes, ret, body, tias) =>
   ( ps(out, "(implement "); ps(out, nm); print_span(out, loc);
+    // A-TEMPLATE: render the `@impl[Int, ..]` instantiation type-args (empty for a bare @impl).
+    ( case+ tias of list_nil() => () | _ => (ps(out, " [tias"); pp_typlst(out, tias); ps(out, "]")) );
     ps(out, " (params"); pp_strnlst(out, pnames); ps(out, ")");
     ( case+ ret of
       | PyTypNone() => ()
       | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
     ps(out, " = "); pp_exp(out, body, ind + 1); ps(out, ")") )
+// A-TEMPLATE: a `@template[A] def foo[C](...) [: body]` declaration.
+| PCCtempl(loc, targs, nm, pargs, pnames, _ptypes, ret, bodyopt) =>
+  ( ps(out, "(template "); ps(out, nm); print_span(out, loc);
+    ps(out, " (targs"); pp_pcparams(out, targs); ps(out, ")");
+    ps(out, " (pargs"); pp_pcparams(out, pargs); ps(out, ")");
+    ps(out, " (params"); pp_strnlst(out, pnames); ps(out, ")");
+    ( case+ ret of
+      | PyTypNone() => ()
+      | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
+    ( case+ bodyopt of
+      | PCEGNone() => ()
+      | PCEGSome(b) => (ps(out, " = "); pp_exp(out, b, ind + 1)) );
+    ps(out, ")") )
 | PCCoverload(loc, nm, impl) =>
   ( ps(out, "(overload "); ps(out, nm); print_span(out, loc);
     ps(out, " with "); ps(out, impl); ps(out, ")") )

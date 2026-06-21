@@ -215,6 +215,14 @@ pcexp =
 //              d2cls over the caught exn).
 | PCEraise  of (loctn, pcexp)
 | PCEtry    of (loctn, pcexp(*body*), list(pcarm)(*handlers over exn*))
+//   PCEinst : `@inst[T1, ..] e` (A-template) — an EXPRESSION-position TEMPLATE INSTANTIATION. It
+//             carries the type-ARG list (`list(pytyp)`, the `[T1, ..]` brackets) + the instantiated
+//             inner expression. M3 lowers it (pl_exp) to a tapp nested in the value-app: when the
+//             inner is a call `PCEapp(f, args)`, `D2Edapp(d2exp_tapp(<f>, <types>), -1, <args>)`;
+//             when it is a bare head, `d2exp_tapp(<inner>, <types>)`. The surface `@inst[Int] foo(5)`
+//             thus reaches ATS `foo<Int>(5)`. (Resolution/monomorphization is deferred to trtmp3b/3c,
+//             AFTER tread3a, so the instantiated form typechecks structurally — SPIKE T3-proven.)
+| PCEinst   of (loctn, list(pytyp), pcexp)
 | PCEerror  of (loctn, strn)
 //
 // a record-literal field `name = expr`.
@@ -353,8 +361,34 @@ pcdecl =
 //                  the IMPL NAME (an already-registered def/extern). M3 (SPIKE-PROVEN; mirrors stock
 //                  f0_symload @ trans12_decl00.dats:2056) resolves IMPL's d2itm, REGISTERS NAME -> a
 //                  D2ITMsym bucket via tr12env_add0_d2itm (the load-bearing step), emits D2Csymload.
-| PCCimplement of (loctn, strn, list(strn), list(pytypopt), pytypopt, pcexp)
+//   A-TEMPLATE: PCCimplement gains a TRAILING `list(pytyp)` = the `@impl[Int, ..]` template-arg
+//   INSTANTIATION list (the `tias`). A bare `@impl def` (no brackets) carries `[]` (byte-identical
+//   to before this slice — the existing non-template implement). A `@impl[Int] def` carries the
+//   bracket types; M3 (lower_implement) builds `tias = [ t2iag_make_s2es(loc, [<types>]) ]` and a
+//   fresh impl-side `tqas` matching the declared template d2cst's shape.
+| PCCimplement of (loctn, strn, list(strn), list(pytypopt), pytypopt, pcexp, list(pytyp)(*tias*))
 | PCCoverload  of (loctn, strn(*name*), strn(*impl*))
+//   PCCtempl : a `@template[A, B] def foo[C, D](params) [-> Ret] [: body]` TEMPLATE declaration
+//              (A-template). Carries:
+//                * the TEMPLATE-arg binders (`list(pcparam)`, the `@template[A,B]` brackets) -> the
+//                  d2cst's `tqas` (the `fun{A,B}` args), via t2qag_make_s2vs.
+//                * the fun NAME.
+//                * the POLYMORPHIC-arg binders (`list(pcparam)`, the `foo[C,D]` brackets) -> the fn
+//                  type's universal `s2exp_uni0` quantifier (the `tqas`-on-fundclst half we lower
+//                  for an ordinary def — here wrapping the bodyless extern's fn type).
+//                * the value param names + OPTIONAL types (parallel, M5a-style) + OPTIONAL return.
+//                * an OPTIONAL inline BODY (`pcexpopt`): PRESENT ⇒ the template is DECLARED (extern
+//                  fun{A,B}) AND given its GENERIC implement in one shot (like ATS `fn{a} foo(x)=e`);
+//                  ABSENT ⇒ declaration-only (extern fun{A,B}), bodies come from separate @impl[…]s.
+//              M3 (pylower_decl00) builds the template extern via build_template_extern (the spike's
+//              build_template_id/foo recipe: a NON-EMPTY tqas makes d2cst_tempq=true), and, when a
+//              body is present, ALSO emits the generic implement (tias=[]).
+| PCCtempl     of ( loctn
+                  , list(pcparam)(*template args*)
+                  , strn
+                  , list(pcparam)(*polymorphic args*)
+                  , list(strn), list(pytypopt), pytypopt
+                  , pcexpopt(*inline body*) )
 //   PCCsortdef : a `sortdef Name = SORT` SORT ALIAS (ATS-parity). Carries the alias NAME +
 //                the RHS SORT-reference NAME (a sort vocab string like SInt/Type/Prop). M3
 //                maps the RHS string to a sort2 (the psort2_of vocab) and emits

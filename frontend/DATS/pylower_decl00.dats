@@ -469,6 +469,106 @@ in
   d2ecl_make_node(loc, D2Cextern(tok_ext, dyncst))
 end
 //
+// A-TEMPLATE: collapse the 1-or-2 template decls (extern [+ implement]) into the ONE d2ecl the
+// module driver expects per pcdecl. A single decl passes through; two are wrapped in a TRANSPARENT
+// `D2Clocal0([], decls)` (empty local-head, both decls in the local-body) — trans23 processes the
+// body decls in this env and they stay visible (the template d2cst is already env-registered via
+// tr12env_add1_d2cst, so no scoping is lost). A degenerate empty list -> a benign D2Cnone0.
+fun
+template_decls_as_one(loc: loctn, decls: d2eclist): d2ecl =
+( case+ decls of
+  | list_nil() => d2ecl_make_node(loc, D2Cnone0())
+  | list_cons(d, list_nil()) => d
+  | _ => d2ecl_make_node(loc, D2Clocal0(list_nil(), decls)) )
+//
+(* ****** ****** *)
+//
+// ---- A-TEMPLATE: PCCtempl -> a TEMPLATE extern (+ optional generic implement). -----------------
+//
+// SPIKE-PROVEN recipe (frontend/DATS/pyfront_atmpl_spike.dats build_template_id / build_template_foo):
+//   * one s2var per `@template[A,B]` binder (the TEMPLATE args) + one per `foo[C,D]` binder (the
+//     POLYMORPHIC args), at each param's psort2_of sort (default the_sort2_type — boxed; flat
+//     `t@ype` is future unboxed work). All bound in a lam-scope so the param/return types resolve
+//     them (`A`/`C` -> s2exp_var via resolve_typ's S2ITMvar arm).
+//   * the inner fn type `(args) -> ret`; when POLYMORPHIC params exist, wrap it in
+//     `s2exp_uni0(<C,D s2vars>, [], inner)` (the `{C,D}` universal — the half we lower for an
+//     ordinary def, here over the bodyless extern's fn type).
+//   * the d2cst's `tqas = [ t2qag_make_s2vs(loc, <A,B s2vars>) ]` — a NON-EMPTY tqas makes
+//     d2cst_tempq=true (THE template marker). `d2cst_make_idtp(tok_fnk, tok_id, tqas, sfun)`.
+//   * register via tr12env_add1_d2cst (so `@impl[…]` + `@inst[…]` attach to the SAME d2cst), wrap in
+//     D2Cdynconst(tok_fnk, tqas, [dcdcl]) then D2Cextern.
+//
+// build the TEMPLATE extern d2ecl + return the d2cst (so the inline-body implement reuses the name).
+fun
+build_template_extern
+( env: !tr12env, loc: loctn
+, targs: list(pcparam), name: strn, pargs: list(pcparam)
+, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt ): @(d2ecl, d2cst) = let
+  // the TEMPLATE-arg s2vars (the `{A,B}`) + the POLYMORPHIC-arg s2vars (the `{C,D}`).
+  val a_s2vs = mk_param_s2vars(targs)
+  val c_s2vs = mk_param_s2vars(pargs)
+  // bind BOTH groups so the param/return types resolve them.
+  val () = tr12env_pshlam0(env)
+  val () = bind_param_s2vars(env, a_s2vs)
+  val () = bind_param_s2vars(env, c_s2vs)
+  val argtyps = extern_argtyps(env, ptypes)
+  val restyp =
+    (
+    case+ ret of
+    | PyTypSome(t) => pylower_typ(env, t)
+    | PyTypNone()  => resolve_typ_name(env, "void")
+    ): s2exp
+  val () = tr12env_poplam0(env)
+  val inner = s2exp_fun1_nil0((-1)(*npf*), argtyps, restyp)
+  // wrap in the {C,D} universal when polymorphic params are present (else the bare fn type).
+  val sfun =
+    ( if list_nilq(pargs) then inner
+      else s2exp_uni0(c_s2vs, list_nil()(*s2ps*), inner) ): s2exp
+  // the TEMPLATE quantifier group {A,B} on the d2cst (NON-EMPTY -> d2cst_tempq=true).
+  val tqas    = list_sing(t2qag_make_s2vs(loc, a_s2vs)) : t2qaglst
+  val tok_id  = token_make_node(loc, T_IDALP(name))
+  val tok_fnk = token_make_node(loc, T_FUN(FNKfn2))
+  val d2c     = d2cst_make_idtp(tok_fnk, tok_id, tqas, sfun)
+  val () = tr12env_add1_d2cst(env, d2c)              // register so @impl/@inst resolve to it
+  val dcdcl   = d2cstdcl_make_args(loc, d2c, list_nil()(*darg*), S2RESnone(), TEQD2EXPnone())
+  val dyncst  = d2ecl_make_node(loc, D2Cdynconst(tok_fnk, tqas, list_sing(dcdcl)))
+  val tok_ext = token_make_node(loc, T_SRP_EXTERN())
+  val decl    = d2ecl_make_node(loc, D2Cextern(tok_ext, dyncst))
+in
+  @(decl, d2c)
+end
+//
+// the SATS `lower_template` entry: build the TEMPLATE extern, then — when an INLINE body is present
+// — ALSO emit the GENERIC implement (the body IS the template's generic implementation, like ATS
+// `fn{a} foo(x) = e`). The implement is BARE-generic (tias=[]): lower_implement resolves the
+// just-registered template d2cst by NAME, builds a fresh impl-side tqas matching its `{A,B}` shape,
+// binds the params, lowers the body, and emits D2Cimplmnt0. A BODYLESS template (PCEGNone) yields
+// ONLY the extern (declaration-only). The pcexpopt body slot reuses pcexp's PCEGSome/PCEGNone.
+// the inline-implement's params are UNANNOTATED (PyTypNone per param) — their types are inferred
+// from the (already-registered) template d2cst's function type, exactly like the working separate
+// `@impl def pick(x, y)` form. RE-ANNOTATING with the surface `A`/`C` template-binder names would
+// resolve them to `s2exp_none0` in the fresh impl-tqas scope (the binder is "a", not "A") and then
+// fail to t2pck — so we deliberately DROP the param/return annotations for the inline implement.
+fun
+none_types(ns: list(strn)): list(pytypopt) =
+( case+ ns of
+  | list_nil() => list_nil()
+  | list_cons(_, rest) => list_cons(PyTypNone(), none_types(rest)) )
+//
+#implfun
+lower_template(env, loc, targs, name, pargs, pnames, ptypes, ret, bodyopt) = let
+  val @(decl_ext, _d2c) = build_template_extern(env, loc, targs, name, pargs, pnames, ptypes, ret)
+in
+  case+ bodyopt of
+  | PCEGNone() => list_sing(decl_ext)            // BODYLESS: declaration-only (extern fun{A,B})
+  | PCEGSome(body) =>
+      // INLINE body: the GENERIC implement (tias=[] — not instantiated; this is the generic body).
+      // Params/return are inferred from the d2cst's fn type (untyped here — see none_types above).
+      let val decl_impl = lower_implement(env, loc, name, pnames, none_types(pnames), PyTypNone(), body, list_nil()) in
+        list_cons(decl_ext, list_sing(decl_impl))
+      end
+end
+//
 (* ****** ****** *)
 //
 // ---- OVERLOAD (ATS-parity, `#symload`): PCCoverload -> D2Csymload + env registration.
@@ -746,8 +846,17 @@ case+ d of
 // ATS-parity: an `implement NAME(params) -> Ret: body` -> a D2Cimplmnt0. lower_implement (in
 // pylower_dynexp, where pl_exp/pl_params_typed are in scope) RESOLVES the pre-declared d2cst by
 // name, binds the params, lowers the body, and assembles the node (MONOMORPHIC). SPIKE-PROVEN.
-| PCCimplement(loc, name, pnames, ptypes, ret, body) =>
-    lower_implement(env, loc, name, pnames, ptypes, ret, body)
+| PCCimplement(loc, name, pnames, ptypes, ret, body, tias) =>
+    lower_implement(env, loc, name, pnames, ptypes, ret, body, tias)
+//
+// A-TEMPLATE: a `@template[A] def foo[C](...) [: body]` -> a TEMPLATE extern (+ optional generic
+// implement). lower_template builds the template d2cst (non-empty tqas + s2exp_uni0 poly wrap) and,
+// when an inline body is present, ALSO emits the generic implement. It returns a d2eclist (1 or 2
+// decls); the module driver expects ONE d2ecl per pcdecl, so we wrap the list in a single
+// D2Clocal0(decls, []) node (a transparent local block — trans23 processes its body decls in this
+// env; the wrapper carries no scope of its own here). SPIKE-PROVEN.
+| PCCtempl(loc, targs, name, pargs, pnames, ptypes, ret, bodyopt) =>
+    template_decls_as_one(loc, lower_template(env, loc, targs, name, pargs, pnames, ptypes, ret, bodyopt))
 //
 // ATS-parity (`#symload`): an `overload NAME with IMPL` -> a D2Csymload + the env registration that
 // makes NAME resolve to IMPL (build_overload, via tr12env_add0_d2itm). SPIKE-PROVEN.

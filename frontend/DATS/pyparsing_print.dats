@@ -264,6 +264,10 @@ case+ e of
     pp_stmtlst(out, body, 1); pp_armlst(out, hs, 1); ps(out, ")") )
 | PyEop(loc, nm) =>
   (ps(out, "(Eop "); ps(out, nm); print_span(out, loc); ps(out, ")"))
+// A-TEMPLATE: `@inst[T..] e` — print the type-arg list then the instantiated expr.
+| PyEinst(loc, ts, e1) =>
+  ( ps(out, "(Einst"); print_span(out, loc); ps(out, " [types");
+    pp_typlst(out, ts); ps(out, "] "); pp_exp(out, e1); ps(out, ")") )
 | PyEerror(loc, msg) =>
   (ps(out, "(Eerror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )
@@ -472,8 +476,14 @@ pp_decolst_aux(out: FILR, decos: list(pydecorator)): void =
 (
 case+ decos of
 | list_nil() => ()
-| list_cons(PyDecor(loc, nm), rest) =>
-  (ps(out, " @"); ps(out, nm); print_span(out, loc); pp_decolst_aux(out, rest))
+| list_cons(PyDecor(loc, nm, dargs), rest) =>
+  ( ps(out, " @"); ps(out, nm); print_span(out, loc);
+    // A-TEMPLATE: render the optional `[…]` arg payload so a goldens diff shows the new syntax.
+    ( case+ dargs of
+      | PyDAnone() => ()
+      | PyDAbinders(bs) => (ps(out, "[binders"); pp_typaramlst(out, bs); ps(out, "]"))
+      | PyDAtypes(ts)   => (ps(out, "[types"); pp_typlst(out, ts); ps(out, "]")) );
+    pp_decolst_aux(out, rest) )
 )
 //
 // a type-param list: " (tyvar A@(..)) (tyvar A@(..) : Linear (deco @unboxed@(..)))".

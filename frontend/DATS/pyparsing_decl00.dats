@@ -163,8 +163,10 @@ p_inline_decorators(st: pstate): @(list(pydecorator), pstate) =
     in
       case+ ps_peek(st1) of
       | PT_LIDENT(nm) =>
+        // an inline type-param decorator (`[A @unboxed]`) never carries a bracket payload (the
+        // enclosing `[` is the typaram bracket itself) — always PyDAnone.
         let val @(rest, st2) = p_inline_decorators(ps_advance(st1)) in
-          @(list_cons(PyDecor(locA, nm), rest), st2) end
+          @(list_cons(PyDecor(locA, nm, PyDAnone()), rest), st2) end
       | _ =>
         let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected a decorator name after '@'") in
           @(list_nil(), st2) end
@@ -173,8 +175,36 @@ p_inline_decorators(st: pstate): @(list(pydecorator), pstate) =
 //
 (* ****** ****** *)
 //
-// ---- prefix decorators: { '@' LIDENT NEWLINE } → a list(pydecorator) in source order. ----
-//   Each prefix decorator sits on its own line (§5.7), so a NEWLINE follows.
+// A-TEMPLATE: parse a decorator's OPTIONAL `[…]` ARG PAYLOAD, dispatched by the decorator NAME:
+//   * `@template`        -> type-param BINDERS (p_typarams, the SAME parser a `def foo[A]` uses):
+//                           PyDAbinders. These BIND fresh (possibly sort-annotated) type vars.
+//   * `@impl` / `@inst`  -> type-arg USES (parse_deco_typeargs): PyDAtypes. `Int`/`List[Int]`/...
+//   * every other name   -> PyDAnone (no payload; byte-identical to before this slice).
+// A name that CAN take a payload but is NOT followed by '[' gets PyDAnone (a bare `@impl def` /
+// `@inst foo` is the no-bracket form). Only `@template`, `@impl`, `@inst` ever consume a '['.
+fun
+p_deco_args(nm: strn, st: pstate): @(pydecoargs, pstate) = let
+  // does this decorator take a TYPE-arg payload (`@impl[...]` / `@inst[...]`)? (no `andalso` in this
+  // dialect — compose with a nested if into a `val`, matching pl_app's `is_unary` style.)
+  val takes_types = (if strn_eq(nm, "impl") then true else strn_eq(nm, "inst")): bool
+in
+  case+ ps_peek(st) of
+  | PT_LBRACK() =>
+    // (the nested if is PARENTHESIZED — the ATS2 dialect rejects a bare `else if` after a
+    // `let…end` then-branch; wrapping the continuation in `( if … )` is the codebase idiom.)
+    if strn_eq(nm, "template") then
+      // template BINDERS: reuse the def typaram parser (consumes the matching ']').
+      let val @(bs, st1) = p_typarams(st) in @(PyDAbinders(bs), st1) end
+    else (if takes_types then
+      // type-arg USES: reuse the shared type-arg parser (consumes the matching ']').
+      let val @(ts, st1) = parse_deco_typeargs(st) in @(PyDAtypes(ts), st1) end
+    else @(PyDAnone(), st))        // a '[' after some OTHER decorator: not a payload — leave it.
+  | _ => @(PyDAnone(), st)
+end
+//
+// ---- prefix decorators: { '@' LIDENT [ '[' args ']' ] NEWLINE } → a list(pydecorator) in source
+//      order. Each prefix decorator sits on its own line (§5.7), so a NEWLINE follows the (optional)
+//      bracket payload. A-TEMPLATE: the OPTIONAL `[…]` payload is parsed by p_deco_args (per-name).
 //
 fun
 p_decorators(st: pstate): @(list(pydecorator), pstate) =
@@ -188,14 +218,16 @@ p_decorators(st: pstate): @(list(pydecorator), pstate) =
       | PT_LIDENT(nm) =>
         let
           val st2 = ps_advance(st1)
+          // A-TEMPLATE: the optional `[…]` arg payload (template binders / impl-inst types).
+          val @(dargs, st2b) = p_deco_args(nm, st2)
           // consume the trailing NEWLINE (prefix decorators are line-terminated).
           val st3 =
-            ( case+ ps_peek(st2) of
-              | PT_NEWLINE() => ps_advance(st2)
-              | _ => st2 )
+            ( case+ ps_peek(st2b) of
+              | PT_NEWLINE() => ps_advance(st2b)
+              | _ => st2b )
           val @(rest, st4) = p_decorators(st3)
         in
-          @(list_cons(PyDecor(locA, nm), rest), st4)
+          @(list_cons(PyDecor(locA, nm, dargs), rest), st4)
         end
       | _ =>
         let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected a decorator name after '@'") in
@@ -285,7 +317,7 @@ fun
 decos_has_p(decos: list(pydecorator), name: strn): bool =
 ( case+ decos of
   | list_nil() => false
-  | list_cons(PyDecor(_, nm), rest) =>
+  | list_cons(PyDecor(_, nm, _), rest) =>
       if strn_eq(nm, name) then true else decos_has_p(rest, name) )
 //
 // ---- type declarations (§5.7): the decorators are parsed by the caller (parse_decl)

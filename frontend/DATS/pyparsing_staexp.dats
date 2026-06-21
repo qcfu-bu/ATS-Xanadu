@@ -463,6 +463,24 @@ case+ ps_peek(st) of
 #implfun parse_index_type(st) = p_index(st)
 #implfun parse_pattern(st) = p_pat(st)
 //
+// A-TEMPLATE: a decorator's `[ type {, type} ]` type-arg payload (the `@impl[Int]` / `@inst[Int]`
+// brackets). Consume the '[', reuse the EXISTING type-arg grammar (p_type_args — the SAME one a
+// `List[Int]` application uses, so `Int` / `List[Int]` / a bare index all parse), then expect ']'.
+// A missing '[' yields an empty list (the caller only calls this when a '[' is present, but be
+// defensive). NO trailing token is consumed beyond the ']'.
+#implfun
+parse_deco_typeargs(st) =
+( case+ ps_peek(st) of
+  | PT_LBRACK() =>
+    let
+      val @(ts, st1) = p_type_args(ps_advance(st))
+      val locR = ps_peek_loctn(st1)
+      val st2 = expect_rbrack(st1, locR)
+    in
+      @(ts, st2)
+    end
+  | _ => @(list_nil(), st) )
+//
 (* ****** ****** *)
 (*
 end of [frontend/DATS/pyparsing_staexp.dats]

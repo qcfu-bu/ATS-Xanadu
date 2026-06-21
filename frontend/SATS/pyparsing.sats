@@ -289,6 +289,15 @@ pyexp =
 //              `(Int,Int)->Int` value; `let f = (+)` then `f(1,2)` works. The parser disambiguates
 //              `(+)` (an OPERATOR token between the parens) from a parenthesized expression `(e)`.
 | PyEop    of (loctn, strn)
+//   PyEinst  : `@inst[T1, T2, ..] e` — an EXPRESSION-position TEMPLATE INSTANTIATION decorator
+//              (A-template). `@inst` is our FIRST non-declaration decorator: it carries a list of
+//              type-ARG USES (the `[T1,T2,..]` brackets, a `list(pytyp)`) and the following
+//              EXPRESSION `e` it instantiates. The surface `@inst[Int] foo(x)` ATS-lowers to
+//              `foo<Int>(x)` = `D2Edapp(d2exp_tapp(foo, [Int]), -1, [x])` (the tapp wraps the
+//              CALLEE, nested inside the value-app). If `e` is a bare head (not a call), it lowers
+//              to a plain `d2exp_tapp(e, [Int])` (no value-app). `@` stays decorators-only on the
+//              surface, so there is no collision with any operator.
+| PyEinst  of (loctn, list(pytyp), pyexp)
 | PyEerror of (loctn, strn)
 //
 // a record-literal field `name = expr`
@@ -312,8 +321,20 @@ and
 pyparam =
 | PyParam of (loctn, strn, pytypopt)
 //
-// a decorator: @name  (§5.7) — e.g. @linear, @unboxed, @boxed
-and pydecorator = PyDecor of (loctn, strn)
+// a decorator: @name  (§5.7) — e.g. @linear, @unboxed, @boxed. A-TEMPLATE: a decorator may now
+// carry an OPTIONAL `[…]` ARG PAYLOAD, dispatched by the decorator NAME at parse time:
+//   * `@template[A, B]`   — type-param BINDERS (`pydecoargs = PyDAbinders`): these BIND fresh type
+//                           vars (possibly sort-annotated `[A: Type]`), parsed with the def typaram
+//                           parser. They become the template d2cst's `tqas` (the `fun{A,B}` args).
+//   * `@impl[Int, Bool]`  — type-arg USES (`pydecoargs = PyDAtypes`): type EXPRESSIONS like `Int` /
+//   * `@inst[Int, ..]`      `List[Int]`, parsed with the type-arg parser. `@impl[…]` -> the impl's
+//                           `tias` (instantiation list); `@inst[…]` -> the call-site `<…>` brackets.
+//   * every OTHER decorator (@proof/@extern/@impl-without-brackets/@linear/…) carries `PyDAnone`
+//     (no payload — byte-identical to before this slice).
+// The payload rides on PyDecor as a THIRD field so the existing per-name routing (decos_has, the
+// mode/variant dispatch) is unchanged; only the new template paths read the payload.
+and pydecoargs   = PyDAnone of () | PyDAbinders of list(pytyparam) | PyDAtypes of list(pytyp)
+and pydecorator  = PyDecor of (loctn, strn, pydecoargs)
 // the optional sort annotation on a type param (Type/Linear/Prop/… — OPEN vocab, kept as strn)
 and pysortopt   = PySortNone of () | PySortSome of (loctn, strn)
 // a type parameter:  UIDENT [ ':' SORT ] { DECORATOR }   (§5.7)
@@ -580,6 +601,12 @@ fun parse_type(st: pstate): @(pytyp, pstate)
 // decl00 for the guard.)
 fun parse_index_type(st: pstate): @(pytyp, pstate)
 fun parse_pattern(st: pstate): @(pypat, pstate)
+// A-TEMPLATE: parse a decorator's `[ type {, type} ]` TYPE-ARG payload (the `@impl[Int, Bool]` /
+// `@inst[Int, ..]` brackets — type USES, NOT binders). The lookahead MUST be PT_LBRACK; we consume
+// the matching PT_RBRACK. Each element is a full surface type (reuses the staexp type-arg grammar,
+// so `Int` / `List[Int]` / a bare index all parse). Lives in staexp (where parse_type is in scope);
+// used by BOTH decl00 (@impl decorator payload) and dynexp (@inst expr decorator payload).
+fun parse_deco_typeargs(st: pstate): @(list(pytyp), pstate)
 fun parse_expr(st: pstate): @(pyexp, pstate)
 fun parse_suite(st: pstate): @(pystmtlst, pstate)
 fun parse_decl(st: pstate): @(pydecl, pstate)

@@ -179,12 +179,36 @@ in
                                       "@func must prefix a lambda ('(params) => body')") in
                   @(PyEerror(locA, "@func not followed by a lambda"), ps_advance(st4)) end
           end
+        // A-TEMPLATE: `@inst[T1, ..] e` — the EXPRESSION-position TEMPLATE INSTANTIATION decorator
+        // (our FIRST non-declaration decorator). Parse the `[T1, ..]` type-arg list, then the
+        // following EXPRESSION it instantiates (recurse via p_expr — `@inst[Int] foo(x)` reads
+        // `foo(x)` as the inner call, so the postfix call binds to it, NOT the whole `@inst`).
+        // (The nested if is PARENTHESIZED — the ATS2 dialect rejects a bare `else if` after a
+        // `let…end` then-branch; wrapping the continuation in `( if … )` is the codebase idiom.)
+        else (if strn_eq(nm, "inst") then
+          let
+            val st2 = ps_advance(st1)               // past 'inst'
+          in
+            case+ ps_peek(st2) of
+            | PT_LBRACK() =>
+              let
+                val @(ts, st3) = parse_deco_typeargs(st2)  // the `[T1, ..]` type-arg list
+                val @(e, st4) = p_expr(st3)                // the instantiated expression
+              in
+                @(PyEinst(loc_span(locA, pyexp_loctn(e)), ts, e), st4)
+              end
+            | _ =>
+              // RECOVERY: `@inst` with NO `[...]` brackets — advance once so parsing progresses.
+              let val st3 = ps_diag(st2, ps_peek_loctn(st2),
+                    "@inst must be followed by a '[' type-arg list (e.g. @inst[Int] foo(x))") in
+                @(PyEerror(locA, "@inst not followed by '[' type-args"), ps_advance(st3)) end
+          end
         else
-          // RECOVERY: a non-`func` decorator on a lambda — CONSUME the bad name (advance past it)
-          // so parsing continues past `@bad` rather than looping on it.
+          // RECOVERY: a non-`func`/`inst` decorator in expression position — CONSUME the bad name
+          // (advance past it) so parsing continues past `@bad` rather than looping on it.
           let val st2 = ps_diag(st1, locA,
-                strn_append("only @func is valid on a lambda; got @", nm)) in
-            @(PyEerror(locA, strn_append("invalid decorator on a lambda: @", nm)), ps_advance(st2)) end
+                strn_append("only @func / @inst are valid in expression position; got @", nm)) in
+            @(PyEerror(locA, strn_append("invalid decorator in expression position: @", nm)), ps_advance(st2)) end)
       | _ =>
         // RECOVERY: `@` not followed by a name — advance once past whatever follows.
         let val st2 = ps_diag(st1, ps_peek_loctn(st1),

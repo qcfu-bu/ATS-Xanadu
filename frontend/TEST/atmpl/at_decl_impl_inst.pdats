@@ -1,0 +1,3 @@
+@template[A] def id(x: A) -> A: x
+def main() -> Int:
+    @inst[Int] id(5)

@@ -73,7 +73,7 @@ decos_has_unboxed(decos: list(pydecorator)): bool =
 (
 case+ decos of
 | list_nil() => false
-| list_cons(PyDecor(_, nm), rest) =>
+| list_cons(PyDecor(_, nm, _), rest) =>
     if strn_eq(nm, "unboxed") then true else decos_has_unboxed(rest)
 )
 //
@@ -130,7 +130,7 @@ mode_of_decos_go(decos: list(pydecorator), cur: pcmode): pcmode =
 (
 case+ decos of
 | list_nil() => cur
-| list_cons(PyDecor(_, nm), rest) =>
+| list_cons(PyDecor(_, nm, _), rest) =>
     let
       val cur1 =
         if strn_eq(nm, "linear") then PCMlin()
@@ -175,8 +175,37 @@ decos_has(decos: list(pydecorator), name: strn): bool =
 (
 case+ decos of
 | list_nil() => false
-| list_cons(PyDecor(_, nm), rest) =>
+| list_cons(PyDecor(_, nm, _), rest) =>
     if strn_eq(nm, name) then true else decos_has(rest, name)
+)
+//
+// A-TEMPLATE: the `@template[A, B]` decorator's BINDER payload (the template args), or [] if there
+// is no `@template` decorator / it carried no `[…]`. Found by NAME; the PyDAbinders payload is the
+// type-param binder list (later elab_typarams'd to pcparams). A `@template` with no brackets (an
+// odd but recoverable form) yields [] — the def then has NO template quantifier (still well-formed).
+fun
+decos_template_binders(decos: list(pydecorator)): list(pytyparam) =
+(
+case+ decos of
+| list_nil() => list_nil()
+| list_cons(PyDecor(_, nm, dargs), rest) =>
+    if strn_eq(nm, "template")
+      then (case+ dargs of PyDAbinders(bs) => bs | _ => list_nil())
+      else decos_template_binders(rest)
+)
+//
+// A-TEMPLATE: the `@impl[Int, Bool]` decorator's TYPE payload (the instantiation type-args), or []
+// for a bare `@impl def` (no brackets). Found by NAME; the PyDAtypes payload is the type-arg list.
+// [] keeps the existing non-template implement path byte-identical.
+fun
+decos_impl_types(decos: list(pydecorator)): list(pytyp) =
+(
+case+ decos of
+| list_nil() => list_nil()
+| list_cons(PyDecor(_, nm, dargs), rest) =>
+    if strn_eq(nm, "impl")
+      then (case+ dargs of PyDAtypes(ts) => ts | _ => list_nil())
+      else decos_impl_types(rest)
 )
 //
 // DECORATOR REWORK (slice 2): a `@static let` lowers to the old `stadef` (WITH a value) or `stacst`
@@ -278,10 +307,31 @@ case+ d of
       val is_extern   = decos_has(decos, "extern")
       val is_impl     = decos_has(decos, "impl")
       val is_overload = decos_has(decos, "overload")
+      // A-TEMPLATE: `@template[A] def foo[C](...) [: body]` declares a template. The TEMPLATE args
+      // are the `@template[A]` binders; the POLYMORPHIC args are the def's own `foo[C]` typarams.
+      val is_template = decos_has(decos, "template")
     in
       // NOTE: this dialect has no `andalso`; boolean composition is via nested `if`. An @extern def
       // is BODYLESS either way; within the @extern branch, @proof selects praxi vs a plain extern.
-      if is_extern then
+      if is_template then
+        // A-TEMPLATE: route to PCCtempl. The TEMPLATE-arg binders come from `@template[A,B]`; the
+        // POLYMORPHIC-arg binders are the def's own `foo[C,D]` typarams (`tps`). An INLINE body
+        // (params suite non-empty) ⇒ declare + generic-implement; a BODYLESS def (empty body suite)
+        // ⇒ declaration-only. The body suite (when present) is folded to a function-epilogue expr by
+        // elab_func_body, EXACTLY like a `def` body; bodyless ⇒ PCEGNone.
+        let
+          val targs = elab_typarams(decos_template_binders(decos))
+          val pargs = elab_typarams(tps)
+          val bodyopt =
+            ( case+ body of
+              | list_nil() => PCEGNone()    // BODYLESS: declaration-only (extern fun{A,B})
+              | _ => PCEGSome(elab_func_body(fc_param_names_pub(list_nil(), params), loc, body))
+            ): pcexpopt
+        in
+          list_sing(PCCtempl(loc, targs, nm, pargs,
+                             param_names_d(params), param_types_d(params), ret, bodyopt))
+        end
+      else if is_extern then
         ( if is_proof then
             // @proof @extern def NAME(...) -> T  ==  praxi (proof AXIOM, bodyless). Body is ignored.
             list_sing(PCCpraxi(loc, nm, param_names_d(params), param_types_d(params), ret))
@@ -299,8 +349,11 @@ case+ d of
       else if is_impl then
         // @impl def NAME(...) -> T: body  ==  implement (body for a pre-declared fun). The suite is
         // folded to a function-epilogue expr by elab_func_body, EXACTLY like a `def` body.
+        // A-TEMPLATE: a `@impl[Int, ..]` carries an INSTANTIATION type-arg list (the `tias`); a bare
+        // `@impl def` carries [] (the existing non-template implement, byte-identical).
         list_sing(PCCimplement(loc, nm, param_names_d(params), param_types_d(params), ret,
-                               elab_func_body(fc_param_names_pub(list_nil(), params), loc, body)))
+                               elab_func_body(fc_param_names_pub(list_nil(), params), loc, body),
+                               decos_impl_types(decos)))
       else
         // a plain `def` (no variant decorator) OR an @overload def. Either way the def itself is a
         // PCCfun group. M5a: thread the param types + return annotation into the PCFundcl (typed

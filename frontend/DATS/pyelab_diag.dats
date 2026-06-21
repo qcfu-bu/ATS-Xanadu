@@ -65,6 +65,8 @@ case+ e of
 // EXN: raise harvests its sub-expr; try harvests its body + the except arms.
 | PCEraise(_, e1) => harv_exp(e1, acc)
 | PCEtry(_, body, hs) => harv_arms(hs, harv_exp(body, acc))
+// A-TEMPLATE: `@inst[types] e` harvests poison nodes of its instantiated inner expr.
+| PCEinst(_, _, e1) => harv_exp(e1, acc)
 )
 //
 and
@@ -118,7 +120,11 @@ case+ d of
 | PCCabstype(_, _, _, _) => acc  // an abstract type carries only a name/params — no poison nodes.
 | PCCassume(_, _, _) => acc      // an assume carries only a name + a surface type — no poison nodes.
 | PCCextern(_, _, _, _, _) => acc // an extern signature carries only types — no poison nodes.
-| PCCimplement(_, _, _, _, _, body) => harv_exp(body, acc) // an implement BODY may carry poison nodes.
+| PCCimplement(_, _, _, _, _, body, _) => harv_exp(body, acc) // an implement BODY may carry poison nodes.
+// A-TEMPLATE: a template decl's INLINE body (when present) may carry poison nodes; a bodyless one
+// carries only its signature — no poison.
+| PCCtempl(_, _, _, _, _, _, _, bodyopt) =>
+    (case+ bodyopt of PCEGNone() => acc | PCEGSome(b) => harv_exp(b, acc))
 | PCCoverload(_, _, _) => acc    // an overload carries only two bare names — no poison nodes.
 | PCCsortdef(_, _, _) => acc     // a sortdef carries only two names — no poison nodes.
 | PCCstacst(_, _, _) => acc      // a stacst carries only a name + a sort ref — no poison nodes.
@@ -178,6 +184,8 @@ case+ e of
 // EXN: raise/try recurse into their sub-exprs / body + arms (no pyrt names of their own).
 | PCEraise(_, e1) => uses_exp(e1)
 | PCEtry(_, body, hs) => b_or(uses_exp(body), uses_arms(hs))
+// A-TEMPLATE: `@inst[types] e` uses pyrt iff its inner expr does (the type-args name no pyrt fn).
+| PCEinst(_, _, e1) => uses_exp(e1)
 )
 //
 and

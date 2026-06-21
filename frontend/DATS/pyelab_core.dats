@@ -352,6 +352,8 @@ case+ e of
 | PyEraise(_, e1) => fc_fv_exp(bnd, fv, e1)
 | PyEtry(_, body, hs) => fc_fv_arms(bnd, fc_fv_stmts(bnd, fv, body), hs)
 | PyEop(_, _)     => fv     // an operator-as-value names no LOCAL — contributes no free vars
+// A-TEMPLATE: `@inst[types] e` — the type-args name no LOCAL; the free vars are those of `e`.
+| PyEinst(_, _, e1) => fc_fv_exp(bnd, fv, e1)
 | PyEerror(_, _)  => fv
 )
 and
@@ -528,6 +530,9 @@ case+ e of
 // pl_var resolves the operator name (the prelude overload symbol) to a d2exp_sym0 VALUE, exactly as
 // the call-head path resolves a head `+` — so `op+` IS the `+` function value (e.g. reduce(xs, op+)).
 | PyEop(loc, nm) => PCEvar(loc, nm)
+// A-TEMPLATE: `@inst[types] e` -> PCEinst, carrying the type-args + the elaborated inner expr.
+// M3 (pl_exp) lowers it to a tapp-nested-in-dapp (foo<Int>(args)) / a bare tapp.
+| PyEinst(loc, ts, e1) => PCEinst(loc, ts, el_exp(encl, e1))
 | PyEerror(loc, msg) => PCEerror(loc, msg)
 )
 //

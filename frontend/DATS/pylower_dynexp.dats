@@ -648,6 +648,33 @@ case+ e of
     d2exp_make_node(loc, D2Etry0(tok_try(loc), d2body, d2cs))
   end
 //
+// A-TEMPLATE: `@inst[T1, ..] e` (PCEinst) — the EXPRESSION-position TEMPLATE INSTANTIATION. Lower
+// the type-arg list to an s2explst (pylower_typlst), then:
+//   * inner is a CALL `PCEapp(f, args)` -> `D2Edapp(d2exp_tapp(<f>, <types>), -1, <args>)`: the
+//     template callee is INSTANTIATED first (the tapp wraps the CALLEE), then value-applied — the
+//     surface `@inst[Int] foo(5)` reaches ATS `foo<Int>(5)`. The head `f` lowers via pl_exp (a plain
+//     fun/cst head; NOT the operator-remap path — a template head is never an operator).
+//   * inner is a BARE head -> `d2exp_tapp(<inner>, <types>)`: just the instantiated callee value.
+// (Resolution/monomorphization is deferred to trtmp3b/3c, AFTER tread3a — so this typechecks
+// structurally; SPIKE T3-proven. A type-MISMATCHED arg DOES errck at tread3a — SPIKE T5-proven.)
+| PCEinst(loc, typs, inner) => let
+    val s2es = pylower_typlst(env, typs)
+  in
+    case+ inner of
+    | PCEapp(_, f, args) => let
+        val d2f = pl_exp(env, f)
+        val d2callee = d2exp_tapp(loc, d2f, s2es)          // f<T1, ..>
+        val d2args = pl_explst(env, args)
+      in
+        d2exp_make_node(loc, D2Edapp(d2callee, (-1)(*npf*), d2args))
+      end
+    | _ => let
+        val d2inner = pl_exp(env, inner)
+      in
+        d2exp_tapp(loc, d2inner, s2es)                     // bare instantiated callee
+      end
+  end
+//
 // PCEerror : an elaboration poison node — surface it as a none-node that SURVIVES to tread3a
 // (so the elaboration error actually FAILS the typecheck, nerror>0). A bare d2exp_none0 gets
 // `void`-stamped by trans2a and then unified AWAY (the M4-recovery HARD LESSON; #13a) — so a
@@ -893,22 +920,48 @@ end
 //
 // ---- implement (ATS-parity): PCCimplement -> D2Cimplmnt0 -------------------
 //
-// SPIKE-PROVEN recipe (frontend/DATS/pyfront_surf1_spike.dats case 3; mirrors stock
-// f0_implmnt0_dimp @ srcgen2/DATS/trans12_decl00.dats:3373-3463):
+// SPIKE-PROVEN recipe (frontend/DATS/pyfront_surf1_spike.dats case 3 + pyfront_atmpl_spike.dats
+// build_implement_id; mirrors stock f0_implmnt0_dimp @ srcgen2/DATS/trans12_decl00.dats:3373-3463):
 //   * RESOLVE the pre-declared d2cst by NAME (the extern/template `def` already registered it via
 //     tr12env_add1_d2cst) -> a `dimpl(loc, DIMPLone1(d2c))`. (No registration here — the d2cst is
 //     pre-existing; building the impl does NOT re-register anything.)
+//   * A-TEMPLATE: if the resolved d2cst is a TEMPLATE (its `tqas` is non-empty), build a FRESH
+//     impl-side `tqas` of the SAME shape/sorts (so the body's `x:a'` matches the declared `{a}`) and
+//     bind it via tr12env_add0_tqas; otherwise `tqas = []` (the non-template implement, unchanged).
+//   * A-TEMPLATE: `tias` = the `@impl[Int, ..]` INSTANTIATION list — `[ t2iag_make_s2es(loc, [<lowered
+//     types>]) ]` when `tias_typs` is non-empty, else `[]` (a bare `@impl def`, byte-identical).
 //   * BIND the (typed) params in a pshlam0/add0_f2as scope, lower the body, poplam0 — EXACTLY the
 //     fun-body scope dance (pl_one_fundcl). The f2arglst rides on the D2Cimplmnt0 node and the body
 //     references the bound params.
-//   * ASSEMBLE D2Cimplmnt0(tknd, [], [], dimp, [], f2as, sres, body) — all quantifier/template-arg
-//     lists EMPTY (MONOMORPHIC v1; the resolved d2cst already carries the function type). tknd =
-//     T_IMPLMNT(IMPLfun()). An UNRESOLVABLE name (no matching d2cst) -> a benign D2Cnone0 (recovery;
-//     trans23 already reported any use-site mismatch).
+//   * ASSEMBLE D2Cimplmnt0(tknd, [], tqas, dimp, tias, f2as, sres, body). tknd = T_IMPLMNT(IMPLfun()).
+//     An UNRESOLVABLE name (no matching d2cst) -> a benign D2Cnone0 (recovery; trans23 already
+//     reported any use-site mismatch).
+//
+// build a FRESH impl-side tqas matching the declared d2cst's tqas shape (one fresh s2var per declared
+// s2var, at the SAME sort). Empty for a non-template d2cst.
+fun
+fresh_impl_tqas(loc: loctn, decl_tqas: t2qaglst): t2qaglst = let
+  fun
+  fresh_vars(s2vs: s2varlst): s2varlst =
+    case+ s2vs of
+    | list_nil() => list_nil()
+    | list_cons(s2v, rest) =>
+        list_cons(s2var_make_idst(symbl_make_name("a"), s2var_get_sort(s2v)), fresh_vars(rest))
+  fun
+  go(gs: t2qaglst): t2qaglst =
+    case+ gs of
+    | list_nil() => list_nil()
+    | list_cons(g, rest) =>
+        list_cons(t2qag_make_s2vs(loc, fresh_vars(t2qag_get_s2vs(g))), go(rest))
+in
+  go(decl_tqas)
+end
+//
 fun
 pl_implement
 ( env: !tr12env, loc: loctn, name: strn
-, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt, body: pcexp): d2ecl = let
+, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt, body: pcexp
+, tias_typs: list(pytyp)): d2ecl = let
   // resolve the pre-declared d2cst by name (mirror f1_dqid: find_d2itm -> D2ITMcst head).
   val d2copt =
     (
@@ -924,17 +977,28 @@ in
   | ~optn_cons(d2c) => let
       val dimp = dimpl_make_node(loc, DIMPLone1(d2c))
       val tknd = token_make_node(loc, T_IMPLMNT(IMPLfun()))
-      // build + bind the (typed) params, lower the body, pop — the fun-body scope dance.
-      val f2as = pl_params_typed(env, loc, pnames, ptypes)
-      val sres = pl_sres(env, ret)
+      // A-TEMPLATE: a fresh impl-side tqas matching the declared d2cst's template-quantifier shape
+      // (empty for a non-template d2cst — the existing monomorphic implement path).
+      val tqas = fresh_impl_tqas(loc, d2cst_get_tqas(d2c))
+      // A-TEMPLATE: the `@impl[Int, ..]` instantiation list (empty for a bare `@impl def`).
+      val tias =
+        ( case+ tias_typs of
+          | list_nil() => list_nil()
+          | list_cons(_, _) => list_sing(t2iag_make_s2es(loc, pylower_typlst(env, tias_typs)))
+        ): t2iaglst
+      // build + bind the (typed) params, lower the body, pop — the fun-body scope dance. The fresh
+      // template tqas vars are bound FIRST so the param types / body resolve them.
       val () = tr12env_pshlam0(env)
+      val () = tr12env_add0_tqas(env, tqas)
+      val f2as = pl_params_typed(env, loc, pnames, ptypes)
       val () = tr12env_add0_f2arglst(env, f2as)
       val d2body = pl_exp(env, body)
       val () = tr12env_poplam0(env)
+      val sres = pl_sres(env, ret)
     in
       d2ecl_make_node
-        (loc, D2Cimplmnt0(tknd, list_nil()(*sqas*), list_nil()(*tqas*),
-                          dimp, list_nil()(*tias*), f2as, sres, d2body))
+        (loc, D2Cimplmnt0(tknd, list_nil()(*sqas*), tqas,
+                          dimp, tias, f2as, sres, d2body))
     end
   | ~optn_nil() => d2ecl_make_node(loc, D2Cnone0())   // unresolvable name: benign no-op (recovery)
 end
@@ -1046,8 +1110,8 @@ end
 #implfun pylower_explst(env, es) = pl_explst(env, es)
 #implfun params_to_f2arglst(env, loc, params) = pl_params(loc, params)
 #implfun lower_fungroup(env, loc, tvs, fdcls) = pl_fungroup(env, loc, tvs, fdcls)
-#implfun lower_implement(env, loc, name, pnames, ptypes, ret, body) =
-  pl_implement(env, loc, name, pnames, ptypes, ret, body)
+#implfun lower_implement(env, loc, name, pnames, ptypes, ret, body, tias_typs) =
+  pl_implement(env, loc, name, pnames, ptypes, ret, body, tias_typs)
 // proof-function group (prfun): the funkind-parameterized fun-group with FNKprfn1.
 #implfun lower_prfungroup(env, loc, tvs, fdcls) =
   pl_fungroup_fnk(env, loc, FNKprfn1, tvs, fdcls)

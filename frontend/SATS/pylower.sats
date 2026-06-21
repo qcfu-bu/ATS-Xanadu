@@ -119,13 +119,32 @@ fun mk_param_s2vars(params: list(pcparam)): s2varlst
 //
 // lower an `implement NAME(params) [-> Ret]: body` (PCCimplement) to a D2Cimplmnt0 (ATS-parity).
 // RESOLVES the pre-declared d2cst by NAME (DIMPLone1), binds the (typed) params in a lam scope,
-// lowers the body, and assembles D2Cimplmnt0 with empty quantifier lists (MONOMORPHIC v1). Lives
-// in pylower_dynexp (where pl_exp / pl_params_typed / pl_sres are in scope); called from decl00.
-// SPIKE-PROVEN (frontend/DATS/pyfront_surf1_spike.dats case 3; mirrors stock f0_implmnt0_dimp).
+// lowers the body, and assembles D2Cimplmnt0. Lives in pylower_dynexp (where pl_exp /
+// pl_params_typed / pl_sres are in scope); called from decl00. SPIKE-PROVEN (pyfront_surf1_spike
+// case 3 + pyfront_atmpl_spike build_implement_id; mirrors stock f0_implmnt0_dimp).
+// A-TEMPLATE: `tias_typs` are the `@impl[Int, ..]` INSTANTIATION type-args (the impl's `tias`); []
+// for a bare `@impl def` (the non-template implement, byte-identical). When the resolved d2cst is a
+// TEMPLATE (non-empty tqas), a fresh impl-side tqas of the same shape is built + bound.
 fun
 lower_implement
 ( env: !tr12env, loc: loctn, name: strn
-, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt, body: pcexp): d2ecl
+, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt, body: pcexp
+, tias_typs: list(pytyp)): d2ecl
+//
+// A-TEMPLATE: lower a `@template[A, B] def foo[C, D](params) [-> Ret] [: body]` TEMPLATE
+// declaration (PCCtempl) to ONE-or-TWO d2ecls. SPIKE-PROVEN (pyfront_atmpl_spike build_template_id/
+// build_template_foo): build a TEMPLATE extern d2cst — its `tqas = [ t2qag_make_s2vs(loc, <A,B
+// s2vars>) ]` (a NON-EMPTY tqas makes d2cst_tempq=true), its fn type wrapped in `s2exp_uni0(<C,D
+// s2vars>, [], inner)` when polymorphic params are present — register it + emit D2Cextern. When an
+// INLINE body is present, ALSO emit the GENERIC implement (via lower_implement with tias=[]). Lives
+// in pylower_decl00 (where build_extern's d2cst/extern machinery is); the inline-body implement is
+// delegated to lower_implement (pylower_dynexp). `targs`/`pargs` are the template/polymorphic param
+// binders; `bodyopt` is the optional inline body (PCEGNone ⇒ declaration-only).
+fun
+lower_template
+( env: !tr12env, loc: loctn
+, targs: list(pcparam), name: strn, pargs: list(pcparam)
+, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt, bodyopt: pcexpopt ): d2eclist
 //
 // PROOF parity (ATS-parity prfun/prval/praxi). All three live in pylower_dynexp (where pl_exp /
 // pl_pat / pl_params_typed / the fun-group machinery are in scope); called from pylower_decl00.
