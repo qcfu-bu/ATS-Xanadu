@@ -93,11 +93,11 @@ end
 //
 fun
 mk_arm_con(tag: strn, accs: nameset, rhs: pcexp): pcarm =
-  PCArm(el_dloc(), PCPcon(el_dloc(), tag, list_sing(accs_tuple_pat(el_dloc(), accs))), PCEGNone(), rhs)
+  PCArm(el_dloc(), PCPcon(el_dloc(), tag, list_nil()(*sargs*), list_sing(accs_tuple_pat(el_dloc(), accs))), PCEGNone(), rhs)
 //
 fun
 mk_arm_ret(rhs: pcexp): pcarm =
-  PCArm(el_dloc(), PCPcon(el_dloc(), "flow_return", list_sing(PCPvar(el_dloc(), "r"))), PCEGNone(), rhs)
+  PCArm(el_dloc(), PCPcon(el_dloc(), "flow_return", list_nil()(*sargs*), list_sing(PCPvar(el_dloc(), "r"))), PCEGNone(), rhs)
 //
 fun
 param_names_l(ps0: list(pyparam)): list(strn) =
@@ -376,12 +376,12 @@ let
   // M5a: the `it` slot is untyped (its type is inferred from iter_open); the accs carry theirs.
   val itptypes = list_cons(PyTypNone(), accs_types(accs, mts))
   val stepcall = PCEapp(loc, PCEvar(loc, "iter_step"), list_sing(PCEvar(el_dloc(), ITNAME)))
-  val a_done = PCArm(el_dloc(), PCPcon(el_dloc(), "iter_done", list_nil()), PCEGNone(),
+  val a_done = PCArm(el_dloc(), PCPcon(el_dloc(), "iter_done", list_nil()(*sargs*), list_nil()), PCEGNone(),
                      flow_app(el_dloc(), "flow_next", accs_tuple_exp(el_dloc(), accs)))
   val bodydisp = for_body_dispatch(encl_body, loc, body, muts, mts, accs)
   // iter_more(x, it1): bind the element `x` AND the advanced iterator `it1` (threaded).
   val more_pat =
-    PCPcon(el_dloc(), "iter_more",
+    PCPcon(el_dloc(), "iter_more", list_nil()(*sargs*),
            list_cons(PCPvar(el_dloc(), xname), list_sing(PCPvar(el_dloc(), ITNEXT))))
   val a_more = PCArm(el_dloc(), more_pat, PCEGNone(), bodydisp)
   val step_case = PCEcase(loc, stepcall, list_cons(a_done, list_sing(a_more)))

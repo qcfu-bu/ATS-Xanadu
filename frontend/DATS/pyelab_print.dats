@@ -29,6 +29,16 @@
 (* ****** ****** *)
 //
 fun ps(out: FILR, s: strn): void = strn_fprint(s, out)
+// C-PROOF: a comma-separated NAME printer for the `{n, m}` unpack static binders (defined HERE,
+// near `ps`, so it is visible to the PCPcon print arm below — `pp_strnlst` is defined later).
+fun
+pp_cnames(out: FILR, ns: list(strn)): void =
+(
+case+ ns of
+| list_nil() => ()
+| list_cons(n, list_nil()) => strn_fprint(n, out)
+| list_cons(n, rest) => (strn_fprint(n, out); strn_fprint(", ", out); pp_cnames(out, rest))
+)
 fun pi(out: FILR, n: sint): void = gint_fprint$sint(n, out)
 //
 fun
@@ -159,8 +169,9 @@ case+ p of
   (ps(out, "(Pvar "); ps(out, nm); print_span(out, loc); ps(out, ")"))
 | PCPwild(loc) =>
   (ps(out, "(Pwild"); print_span(out, loc); ps(out, ")"))
-| PCPcon(loc, nm, args) =>
+| PCPcon(loc, nm, sargs, args) =>
   ( ps(out, "(Pcon "); ps(out, nm); print_span(out, loc);
+    ( case+ sargs of list_nil() => () | _ => (ps(out, " {"); pp_cnames(out, sargs); ps(out, "}")) );
     pp_patlst(out, args); ps(out, ")") )
 | PCPtup(loc, ps0) =>
   (ps(out, "(Ptup"); print_span(out, loc); pp_patlst(out, ps0); ps(out, ")"))
@@ -388,7 +399,7 @@ case+ d of
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_pcparams(out, tvs); ps(out, ")")) );
     ps(out, " mode="); pp_mode(out, mode);
     pp_pcfields(out, fields); ps(out, ")") )
-| PCCfun(loc, _tps, fs) =>
+| PCCfun(loc, _tps, _mets, fs) =>
   ( ps(out, "(fungroup"); print_span(out, loc);
     pp_fundclst(out, fs, ind + 1); ps(out, ")") )
 | PCCval(loc, p, e) =>

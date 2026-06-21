@@ -109,7 +109,7 @@ harv_decl(d: pcdecl, acc: list(pcdiag)): list(pcdiag) =
 (
 case+ d of
 | PCCerror(loc, msg) => list_append(acc, list_sing(PCDiag(loc, msg)))
-| PCCfun(_, _, fs) => harv_fundcls(fs, acc)
+| PCCfun(_, _, _, fs) => harv_fundcls(fs, acc)
 | PCCval(_, _, e) => harv_exp(e, acc)
 | PCCdata(_, _, _, _, _) => acc
 | PCCstaload(_, _) => acc
@@ -220,7 +220,7 @@ and
 uses_pat(p: pcpat): bool =
 (
 case+ p of
-| PCPcon(_, nm, args) => b_or(is_pyrt_name(nm), uses_patlst(args))
+| PCPcon(_, nm, _, args) => b_or(is_pyrt_name(nm), uses_patlst(args))
 | PCPtup(_, ps0) => uses_patlst(ps0)
 | PCPas(_, _, inner) => uses_pat(inner)  // M7: recurse into the as-pattern's inner pattern
 | _ => false
@@ -246,7 +246,7 @@ fun
 uses_decl(d: pcdecl): bool =
 (
 case+ d of
-| PCCfun(_, _, fs) => uses_fundcls(fs)
+| PCCfun(_, _, _, fs) => uses_fundcls(fs)
 | PCCval(_, _, e) => uses_exp(e)
 | _ => false
 )

@@ -33,6 +33,16 @@
 fun ps(out: FILR, s: strn): void = strn_fprint(s, out)
 fun pi(out: FILR, n: sint): void = gint_fprint$sint(n, out)
 //
+// C-PROOF: a comma-separated NAME list printer (the `{n, m}` unpack static binders on PyPcon).
+fun
+pp_strnlst(out: FILR, ns: list(strn)): void =
+(
+case+ ns of
+| list_nil() => ()
+| list_cons(n, list_nil()) => ps(out, n)
+| list_cons(n, rest) => (ps(out, n); ps(out, ", "); pp_strnlst(out, rest))
+)
+//
 fun
 print_span(out: FILR, loc: loctn): void = let
   val pb = loc.pbeg()
@@ -193,8 +203,9 @@ case+ p of
   (ps(out, "(Pvar "); ps(out, nm); print_span(out, loc); ps(out, ")"))
 | PyPwild(loc) =>
   (ps(out, "(Pwild"); print_span(out, loc); ps(out, ")"))
-| PyPcon(loc, nm, args) =>
+| PyPcon(loc, nm, sargs, args) =>
   ( ps(out, "(Pcon "); ps(out, nm); print_span(out, loc);
+    ( case+ sargs of list_nil() => () | _ => (ps(out, " {"); pp_strnlst(out, sargs); ps(out, "}")) );
     pp_patlst(out, args); ps(out, ")") )
 | PyPtup(loc, ps0) =>
   (ps(out, "(Ptup"); print_span(out, loc); pp_patlst(out, ps0); ps(out, ")"))

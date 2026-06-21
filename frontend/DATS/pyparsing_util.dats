@@ -51,7 +51,7 @@ pypat_loctn(p) =
 (
 case+ p of
 | PyPvar(loc, _) => loc       | PyPwild(loc) => loc
-| PyPcon(loc, _, _) => loc    | PyPtup(loc, _) => loc
+| PyPcon(loc, _, _, _) => loc | PyPtup(loc, _) => loc
 | PyPrec(loc, _) => loc       | PyPlit(loc, _) => loc
 | PyPas(loc, _, _) => loc     | PyPann(loc, _, _) => loc
 | PyPerror(loc, _) => loc

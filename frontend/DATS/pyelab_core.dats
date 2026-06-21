@@ -164,7 +164,7 @@ el_pat(p: pypat): pcpat =
 case+ p of
 | PyPvar(loc, nm) => PCPvar(loc, nm)
 | PyPwild(loc) => PCPwild(loc)
-| PyPcon(loc, nm, args) => PCPcon(loc, nm, el_patlst(args))
+| PyPcon(loc, nm, sargs, args) => PCPcon(loc, nm, sargs, el_patlst(args))
 | PyPtup(loc, ps0) => PCPtup(loc, el_patlst(ps0))
 | PyPrec(loc, fs) => PCPrec(loc, el_pfields(fs))
 | PyPlit(loc, lit) => PCPlit(loc, el_lit(lit))
@@ -290,7 +290,7 @@ fc_pat_names(s: nameset, p: pypat): nameset =
 case+ p of
 | PyPvar(_, nm)     => nameset_add(s, nm)
 | PyPwild(_)        => s
-| PyPcon(_, _, args) => fc_pat_names_lst(s, args)
+| PyPcon(_, _, _, args) => fc_pat_names_lst(s, args)
 | PyPtup(_, ps0)    => fc_pat_names_lst(s, ps0)
 | PyPrec(_, fs)     => fc_pfield_names(s, fs)
 | PyPlit(_, _)      => s
@@ -634,10 +634,10 @@ in
     let
       val flowexp = elab_flow(encl, body, list_nil(), list_nil(), list_nil())
       val a_ret =
-        PCArm(el_dloc0(), PCPcon(el_dloc0(), "flow_return", list_sing(PCPvar(el_dloc0(), "r"))),
+        PCArm(el_dloc0(), PCPcon(el_dloc0(), "flow_return", list_nil()(*sargs*), list_sing(PCPvar(el_dloc0(), "r"))),
               PCEGNone(), PCEvar(el_dloc0(), "r"))
       val a_next =
-        PCArm(el_dloc0(), PCPcon(el_dloc0(), "flow_next", list_sing(PCPwild(el_dloc0()))),
+        PCArm(el_dloc0(), PCPcon(el_dloc0(), "flow_next", list_nil()(*sargs*), list_sing(PCPwild(el_dloc0()))),
               PCEGNone(), el_suite_tail(encl, loc, body))
     in
       PCEcase(loc, flowexp, list_cons(a_ret, list_sing(a_next)))

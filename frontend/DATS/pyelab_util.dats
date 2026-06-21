@@ -48,7 +48,7 @@ pcpat_loctn(p) =
 (
 case+ p of
 | PCPvar(loc, _) => loc   | PCPwild(loc) => loc
-| PCPcon(loc, _, _) => loc | PCPtup(loc, _) => loc
+| PCPcon(loc, _, _, _) => loc | PCPtup(loc, _) => loc
 | PCPrec(loc, _) => loc   | PCPlit(loc, _) => loc
 | PCPas(loc, _, _) => loc
 )
@@ -57,7 +57,7 @@ case+ p of
 pcdecl_loctn(d) =
 (
 case+ d of
-| PCCdata(loc, _, _, _, _) => loc | PCCfun(loc, _, _) => loc
+| PCCdata(loc, _, _, _, _) => loc | PCCfun(loc, _, _, _) => loc
 | PCCval(loc, _, _) => loc     | PCCstaload(loc, _) => loc
 | PCCimport(loc, _, _, _) => loc
 | PCCalias(loc, _, _, _) => loc

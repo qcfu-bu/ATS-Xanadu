@@ -1,0 +1,3 @@
+@terminates[n]
+def countdown[n: SInt](k: SInt[n]) -> SInt:
+    0

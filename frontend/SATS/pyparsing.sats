@@ -183,7 +183,11 @@ pytfield =
 //
 //   PyPvar   : LIDENT — a fresh binder.
 //   PyPwild  : `_` wildcard.
-//   PyPcon   : UIDENT [ '(' args ')' ] — constructor pattern; nullary `Leaf` has [].
+//   PyPcon   : UIDENT [ '{' sargs '}' ] [ '(' args ')' ] — constructor pattern; nullary `Leaf`
+//              has no value args. C-PROOF: the OPTIONAL `{ sargs }` between the con name and the
+//              value-arg parens is the EXISTENTIAL-UNPACK static-arg list (`VCons{n}(x, rest)` —
+//              the `{n}` BINDS the con's hidden index var into the arm scope). `list(strn)` = the
+//              static binder NAMES (`[]` = a plain con pattern, no unpack).
 //   PyPtup   : `( p, p )` tuple pattern.
 //   PyPrec   : `{ f = p, ... }` record pattern.
 //   PyPlit   : a literal pattern (incl. true/false). Carries the literal node.
@@ -195,7 +199,7 @@ and
 pypat =
 | PyPvar   of (loctn, strn)
 | PyPwild  of (loctn)
-| PyPcon   of (loctn, strn, list(pypat))
+| PyPcon   of (loctn, strn, list(strn)(*sargs*), list(pypat))
 | PyPtup   of (loctn, list(pypat))
 | PyPrec   of (loctn, list(pypfield))
 | PyPlit   of (loctn, pylit)

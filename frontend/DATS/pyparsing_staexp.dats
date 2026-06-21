@@ -427,17 +427,23 @@ in
   | PT_USCORE() => @(PyPwild(loc), ps_advance(st))
   | PT_LIDENT(s) => @(PyPvar(loc, s), ps_advance(st))
   | PT_UIDENT(s) =>
-    let val st1 = ps_advance(st) in
-      case+ ps_peek(st1) of
+    let
+      val st1 = ps_advance(st)
+      // C-PROOF: an OPTIONAL `{ sarg, ... }` EXISTENTIAL-UNPACK static-arg list between the con
+      // name and the value-arg parens (`VCons{n}(x, rest)`). `{n}` binds the con's hidden index
+      // into the arm scope. p_pat_sargs returns [] when no `{` follows (a plain con pattern).
+      val @(sargs, st1b) = p_pat_sargs(st1)
+    in
+      case+ ps_peek(st1b) of
       | PT_LPAREN() =>
         let
-          val @(args, st2) = p_pat_seq(ps_advance(st1))
+          val @(args, st2) = p_pat_seq(ps_advance(st1b))
           val locR = ps_peek_loctn(st2)
           val st3 = expect_rparen(st2, locR)
         in
-          @(PyPcon(loc_span(loc, locR), s, args), st3)
+          @(PyPcon(loc_span(loc, locR), s, sargs, args), st3)
         end
-      | _ => @(PyPcon(loc, s, list_nil()), st1)
+      | _ => @(PyPcon(loc, s, sargs, list_nil()), st1b)
     end
   | PT_LPAREN() =>
     let
@@ -480,6 +486,47 @@ case+ ps_peek(st) of
         @(list_cons(p, ps0), st2) end
     | _ => @(list_cons(p, list_nil()), st1)
   end
+)
+//
+// C-PROOF: parse the OPTIONAL `{ name, name, ... }` EXISTENTIAL-UNPACK static-arg list that may
+// follow a con name in a pattern (`VCons{n}(x, rest)`). Returns the binder NAMES (LIDENTs) — `[]`
+// when no `{` follows (a plain con pattern). The `{n}` binds the con's hidden index var into the
+// arm scope. A `{` here is unambiguous: a record PATTERN `{f=p}` is only ever an ATOM (never right
+// after a UIDENT), so `UIDENT {` always opens a static-arg list.
+and
+p_pat_sargs(st: pstate): @(list(strn), pstate) =
+(
+case+ ps_peek(st) of
+| PT_LBRACE() =>
+  let
+    val @(ns, st1) = p_sarg_names(ps_advance(st))
+    val locR = ps_peek_loctn(st1)
+    val st2 = expect_rbrace(st1, locR)
+  in
+    @(ns, st2)
+  end
+| _ => @(list_nil(), st)
+)
+//
+// the comma-separated LIDENT name list inside a `{ ... }` static-arg list. A non-LIDENT (or `}`)
+// terminates; a stray token is reported + skipped (recovery) so a malformed `{...}` can't wedge.
+and
+p_sarg_names(st: pstate): @(list(strn), pstate) =
+(
+case+ ps_peek(st) of
+| PT_RBRACE() => @(list_nil(), st)
+| PT_EOF() => @(list_nil(), st)
+| PT_LIDENT(nm) =>
+  let val st1 = ps_advance(st) in
+    case+ ps_peek(st1) of
+    | PT_COMMA() =>
+      let val @(ns, st2) = p_sarg_names(ps_advance(st1)) in
+        @(list_cons(nm, ns), st2) end
+    | _ => @(list_cons(nm, list_nil()), st1)
+  end
+| _ =>
+  let val st1 = ps_diag(st, ps_peek_loctn(st), "expected an index binder name in '{...}' unpack") in
+    @(list_nil(), st1) end
 )
 //
 and

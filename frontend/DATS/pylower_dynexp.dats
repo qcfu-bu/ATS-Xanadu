@@ -288,6 +288,19 @@ case+ s2vs of
     let val () = tr12env_add0_s2var(env, s2v) in bind_param_s2vars_d(env, rest) end
 )
 //
+// C-PROOF: build a FRESH int-sorted s2var per EXISTENTIAL-UNPACK static binder name (`{n, m}` on a
+// con pattern). The index sort is `the_sort2_int0` (the SInt index sort — the only existential
+// index a v1 datatype carries; matches mk_param_s2vars' SInt path). The s2vars ride on the pattern's
+// D2Psapp and are registered into the arm scope by tr12env_add0_d2gpt (no manual push here).
+fun
+mk_sarg_s2vars(names: list(strn)): s2varlst =
+(
+case+ names of
+| list_nil() => list_nil()
+| list_cons(nm, rest) =>
+    list_cons(s2var_make_idst(symbl_make_name(nm), the_sort2_int0), mk_sarg_s2vars(rest))
+)
+//
 // M5a: build a list of (possibly typed) param patterns, parallel to a name + type list.
 fun
 pl_param_pats
@@ -352,10 +365,10 @@ case+ p of
 | PCPvar(loc, name) =>
     let val d2v = d2var_new2_name(loc, symbl_make_name(name)) in d2pat_var(loc, d2v) end
 | PCPwild(loc) => d2pat_make_node(loc, D2Pany())
-| PCPcon(loc, name, args) => let
+| PCPcon(loc, name, sargs, args) => let
     val sym = symbl_make_name(name)
     val dopt = tr12env_find_d2itm(env, sym)
-    val phd =
+    val con_hd =
       (
         case+ dopt of
         | ~optn_vt_cons(d2i) =>
@@ -370,6 +383,20 @@ case+ p of
           )
         | ~optn_vt_nil() => d2pat_make_node(loc, D2Pnone0())
       )
+    // C-PROOF: the EXISTENTIAL-UNPACK static-args `{n, m}` (CP-UNP-spike-proven nerror=0). Each
+    // surface binder name -> a FRESH int-sorted s2var; `d2pat_sapp(loc, <con>, [s2vs])` introduces
+    // them (the con's hidden index vars) into the arm scope. The BARE con (not dap0-wrapped) is the
+    // sapp head, exactly as stock my_d2pat_sapp wraps a non-D2Pdap0 con (trans12_dynexp.dats:258);
+    // then the value-arg D2Pdapp applies to the sapp (my_d2pat_dapp, trans12_dynexp.dats:306). The
+    // fresh s2vars are registered into the arm scope by tr12env_add0_d2gpt's D2Psapp walk
+    // (trans12_myenv0.dats:2020). EMPTY sargs => `phd` is just the con (byte-identical pre-C path).
+    val phd =
+      (
+        case+ sargs of
+        | list_nil() => con_hd
+        | list_cons _ =>
+            let val s2vs = mk_sarg_s2vars(sargs) in d2pat_sapp(loc, con_hd, s2vs) end
+      ): d2pat
   in
     case+ args of
     // NULLARY con pattern (e.g. `Nothing`, `Red`): MUST be wrapped in D2Pdap0 (#21, M5b-spike
@@ -377,7 +404,8 @@ case+ p of
     // unify with the scrutinee `T`; trans2a's f0_dap0 rewrites D2Pdap0(con) -> dapp(con,-1,[]),
     // applying the con-function to ZERO args to yield the RESULT type `T`. (Dormant until now —
     // no nullary con pattern had ever been typechecked.) When `phd` is an unresolved D2Pnone0,
-    // the dap0 wrapper is benign (the node is already a poison placeholder).
+    // the dap0 wrapper is benign (the node is already a poison placeholder). NB: an unpack with NO
+    // value args (`VNil{n}`) also takes the dap0 path — the sapp-wrapped con dap0'd to its result.
     | list_nil() => d2pat_make_node(loc, D2Pdap0(phd))
     | list_cons(_, _) =>
         let val dps = pl_patlst(env, args) in d2pat_make_node(loc, D2Pdapp(phd, (-1), dps)) end
@@ -560,7 +588,8 @@ case+ e of
 | PCEletfun(loc, fdcls, body) => let
     val () = tr12env_pshlet0(env)
     // DEP: a generated loop / local fun group is NEVER index-quantified — pass empty typarams.
-    val decl = pl_fungroup(env, loc, list_nil()(*tvs*), fdcls)
+    // C-PROOF: a local/loop fun group carries NO `@terminates` metric either — pass empty mets.
+    val decl = pl_fungroup(env, loc, list_nil()(*tvs*), list_nil()(*mets*), fdcls)
     val d2body = pl_exp(env, body)
     val () = tr12env_poplet0(env)
   in
@@ -834,16 +863,23 @@ case+ hd of
 // `while` loop (what the desugared loops rely on). No generic tqas in v1.
 //
 and
-pl_fungroup(env: !tr12env, loc: loctn, tvs: list(pcparam), fdcls: list(pcfundcl)): d2ecl =
-  pl_fungroup_fnk(env, loc, FNKfn2(*tailrec*), tvs, fdcls)
+pl_fungroup(env: !tr12env, loc: loctn, tvs: list(pcparam), mets: list(pytyp), fdcls: list(pcfundcl)): d2ecl =
+  pl_fungroup_fnk(env, loc, FNKfn2(*tailrec*), tvs, mets, fdcls)
 //
 // the funkind-parameterized fun-group lowering. Identical to the tailrec path, but the
 // D2Cfundclst's funkind TOKEN is supplied by the caller — a plain `def`/loop group passes
 // FNKfn2 (tailrec; via pl_fungroup), a `prfun` passes FNKprfn1 (a PROOF function group). The
 // funkind is the ONLY delta from a value fun group (the spike P5 recipe; FNKprfn1 cited in
 // srcgen2/SATS/xbasics.sats). trans23 reads the kind off the token, not its lexeme.
+//
+// C-PROOF: `mets` is the optional `@terminates[n]` termination metric (index-exprs). The metric
+// is lowered to s2exps WITHIN the typaram lam-scope (so `n` resolves) and the resulting
+// `F2ARGmets([...])` f2arg is PREPENDED to the FIRST member's f2arglst by pl_one_fundcl_met
+// (the stock totality-metric position; CP-MET-spike-proven nerror=0). The `prfun`/loop callers
+// pass `[]`. The metric lowering of a NON-generic def (tvs empty) still works — `mets` referencing
+// a typaram is only well-formed when tvs is non-empty, but `[]` is the universal safe default.
 and
-pl_fungroup_fnk(env: !tr12env, loc: loctn, fnk: funkind, tvs: list(pcparam), fdcls: list(pcfundcl)): d2ecl = let
+pl_fungroup_fnk(env: !tr12env, loc: loctn, fnk: funkind, tvs: list(pcparam), mets: list(pytyp), fdcls: list(pcfundcl)): d2ecl = let
   val tok_fnk = token_make_node(loc, T_FUN(fnk))
   //
   fun
@@ -857,11 +893,27 @@ pl_fungroup_fnk(env: !tr12env, loc: loctn, fnk: funkind, tvs: list(pcparam), fdc
   // recursive: bind the names BEFORE lowering the bodies (so self/mutual calls resolve).
   val () = tr12env_add0_d2varlst(env, d2vs)
   //
+  // C-PROOF: lower the metric index-exprs to s2exps (within whatever scope `members` runs in) and
+  // wrap them in an `F2ARGmets` f2arg, returned as a f2arglst (EMPTY when no metric, SINGLETON
+  // otherwise). The metric f2arg is prepended to the FIRST member's f2arglst only.
   fun
-  members(ds: list(d2var), fs: list(pcfundcl)): d2fundclist =
+  met_f2as((*void*)): f2arglst =
+    case+ mets of
+    | list_nil() => list_nil()
+    | list_cons _ =>
+        let val s2es = pylower_typlst(env, mets) in
+          list_sing(f2arg_make_node(loc, F2ARGmets(s2es)))
+        end
+  //
+  // members: lower each member; the FIRST member receives the metric f2as (prepended to its
+  // f2arglst), the rest are metric-free (`[]`). (`isfst` flags the head.)
+  fun
+  members(isfst: bool, ds: list(d2var), fs: list(pcfundcl)): d2fundclist =
     case+ (ds, fs) of
     | (list_cons(d2v, drest), list_cons(fdcl, frest)) =>
-        list_cons(pl_one_fundcl(env, d2v, fdcl), members(drest, frest))
+        let val m = (if isfst then met_f2as() else list_nil()): f2arglst in
+          list_cons(pl_one_fundcl_met(env, d2v, fdcl, m), members(false, drest, frest))
+        end
     | (_, _) => list_nil()
 in
   // DEP (Stages 1–2): a GENERIC def `def f[A, n: SInt](...)` — the §5.7 type/INDEX params `tvs`
@@ -874,7 +926,7 @@ in
   // type lowering AND the bodies (pl_one_fundcl's inner body pshlam0 nests under this outer one).
   if list_nilq(tvs) then let
     // NON-generic def (tvs empty): the byte-identical pre-DEP path (no scope push, empty tqas).
-    val d2fs = members(d2vs, fdcls)
+    val d2fs = members(true, d2vs, fdcls)
   in
     d2ecl_make_node(loc, D2Cfundclst(tok_fnk, list_nil()(*tqas*), list_nil()(*d2cs*), d2fs))
   end
@@ -882,7 +934,7 @@ in
     val s2vs = mk_param_s2vars(tvs)               // one s2var per param at its declared sort
     val () = tr12env_pshlam0(env)                 // enter the quantifier scope
     val () = bind_param_s2vars_d(env, s2vs)       // bind `A`/`n` so the param/return types resolve them
-    val d2fs = members(d2vs, fdcls)               // lower the members WITHIN the quantifier scope
+    val d2fs = members(true, d2vs, fdcls)         // lower the members WITHIN the quantifier scope
     val () = tr12env_poplam0(env)                 // leave the quantifier scope
     val tqas = list_sing(t2qag(loc, s2vs)) : t2qaglst   // the def's universal {A}{n:i0} quantifier
   in
@@ -898,7 +950,17 @@ end
 // unannotated def lowers exactly as before (params/return inferred).
 //
 and
-pl_one_fundcl(env: !tr12env, d2v: d2var, fdcl: pcfundcl): d2fundcl = let
+pl_one_fundcl(env: !tr12env, d2v: d2var, fdcl: pcfundcl): d2fundcl =
+  pl_one_fundcl_met(env, d2v, fdcl, list_nil()(*no metric*))
+//
+// C-PROOF: lower one member, OPTIONALLY prefixed by a termination-metric f2arg. `metf2as` is the
+// `@terminates[n]` metric (an `[F2ARGmets([...])]` singleton) or `[]` (no metric). It is PREPENDED
+// to the member's value-arg f2arglst so the def's f2as is `[F2ARGmets(...); F2ARGdapp(...)]` — the
+// stock totality-metric position (CP-MET-spike-proven nerror=0; stock f0_f2as skips the mets f2arg
+// when computing the fn type, so it is purely a totality annotation). The metric f2arg carries NO
+// binders, so it is NOT registered into the body scope (only the value-arg `f2as` are).
+and
+pl_one_fundcl_met(env: !tr12env, d2v: d2var, fdcl: pcfundcl, metf2as: f2arglst): d2fundcl = let
   val+ PCFundcl(loc, _, params, ptypes, ret, body, isloop) = fdcl
   // M5a: a generated `loop` (isloop) is called with a SINGLE accumulator-tuple argument, so
   // for 2+ accs it takes ONE tuple parameter (pl_loop_params). A surface `def` takes its
@@ -911,9 +973,11 @@ pl_one_fundcl(env: !tr12env, d2v: d2var, fdcl: pcfundcl): d2fundcl = let
   val () = tr12env_add0_f2arglst(env, f2as)
   val d2body = pl_exp(env, body)
   val () = tr12env_poplam0(env)
+  // PREPEND the metric f2arg (if any) ahead of the value-arg f2args.
+  val f2as_full = list_append(metf2as, f2as) : f2arglst
 in
   d2fundcl_make_args
-    (loc, d2v, f2as, sres, TEQD2EXPsome(tok_val(loc), d2body), WTHS2EXPnone())
+    (loc, d2v, f2as_full, sres, TEQD2EXPsome(tok_val(loc), d2body), WTHS2EXPnone())
 end
 //
 (* ****** ****** *)
@@ -1109,12 +1173,12 @@ end
 #implfun pylower_exp(env, e) = pl_exp(env, e)
 #implfun pylower_explst(env, es) = pl_explst(env, es)
 #implfun params_to_f2arglst(env, loc, params) = pl_params(loc, params)
-#implfun lower_fungroup(env, loc, tvs, fdcls) = pl_fungroup(env, loc, tvs, fdcls)
+#implfun lower_fungroup(env, loc, tvs, mets, fdcls) = pl_fungroup(env, loc, tvs, mets, fdcls)
 #implfun lower_implement(env, loc, name, pnames, ptypes, ret, body, tias_typs) =
   pl_implement(env, loc, name, pnames, ptypes, ret, body, tias_typs)
 // proof-function group (prfun): the funkind-parameterized fun-group with FNKprfn1.
 #implfun lower_prfungroup(env, loc, tvs, fdcls) =
-  pl_fungroup_fnk(env, loc, FNKprfn1, tvs, fdcls)
+  pl_fungroup_fnk(env, loc, FNKprfn1, tvs, list_nil()(*no metric*), fdcls)
 #implfun lower_prval(env, loc, p, ann, rhs) = pl_prval(env, loc, p, ann, rhs)
 #implfun lower_praxi(env, loc, name, pnames, ptypes, ret) =
   pl_praxi(env, loc, name, pnames, ptypes, ret)

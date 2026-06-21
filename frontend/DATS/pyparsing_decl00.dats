@@ -190,7 +190,12 @@ fun
 p_deco_args(nm: strn, st: pstate): @(pydecoargs, pstate) = let
   // does this decorator take a TYPE-arg payload (`@impl[...]` / `@inst[...]`)? (no `andalso` in this
   // dialect — compose with a nested if into a `val`, matching pl_app's `is_unary` style.)
-  val takes_types = (if strn_eq(nm, "impl") then true else strn_eq(nm, "inst")): bool
+  // C-PROOF: `@terminates[n]` also takes a type/INDEX-arg payload — the `[n]` is the termination
+  // metric (an index EXPRESSION referencing the def's own typaram), parsed by the SAME type-arg
+  // parser `@impl`/`@inst` use (PyDAtypes). The metric is lowered to F2ARGmets at the def path.
+  val takes_types =
+    (if strn_eq(nm, "impl") then true
+     else (if strn_eq(nm, "inst") then true else strn_eq(nm, "terminates"))): bool
 in
   case+ ps_peek(st) of
   | PT_LBRACK() =>

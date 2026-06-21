@@ -107,8 +107,14 @@ fun bind_let_styp(d2p: d2pat, d2rhs: d2exp): void
 // D2Cfundclst over them (its t2qag `tqas` field — the stock f0_fundclst mechanism). EMPTY `tvs`
 // => the byte-identical NON-generic path (no scope push, empty tqas). The PCEletfun (loop) caller
 // passes `[]` — a generated loop is never index-quantified.
+//
+// C-PROOF: `mets` is the OPTIONAL `@terminates[n]` termination metric (the index-exprs). When
+// non-empty, lower_fungroup lowers each metric index WITHIN the typaram lam-scope (so `n` resolves
+// to its s2var) and PREPENDS an `F2ARGmets([<lowered s2exps>])` f2arg onto the FIRST member's
+// f2arglst (the stock totality-metric position — trans2a/trans23 carry it type-agnostically). EMPTY
+// `mets` => no metric (byte-identical). The PCEletfun (loop) caller passes `[]`.
 fun lower_fungroup
-  (env: !tr12env, loc: loctn, tvs: list(pcparam), fdcls: list(pcfundcl)): d2ecl
+  (env: !tr12env, loc: loctn, tvs: list(pcparam), mets: list(pytyp), fdcls: list(pcfundcl)): d2ecl
 //
 // DEP: map a pcparam's surface sort name (+ @unboxed) to its L2 sort2 (the SInt/SBool index sorts
 // + the Type/Linear/Prop type sorts). EXPORTED so the def quantifier (pylower_dynexp) + the

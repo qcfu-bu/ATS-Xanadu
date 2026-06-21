@@ -693,7 +693,7 @@ case+ d of
 // DEP (Stages 1–2): a def group carries its §5.7 type/INDEX params `tvs` (`def f[A, n: SInt]`).
 // lower_fungroup builds an s2var per param (int-sorted for `[n: SInt]`), binds them while lowering
 // the param/return types, and quantifies the D2Cfundclst over them. `tvs = []` => non-generic def.
-| PCCfun(loc, tvs, fdcls) => lower_fungroup(env, loc, tvs, fdcls)
+| PCCfun(loc, tvs, mets, fdcls) => lower_fungroup(env, loc, tvs, mets, fdcls)
 //
 // a top-level `val p = e` -> D2Cvaldclst (template C: bind the pattern AFTER its RHS).
 | PCCval(loc, p, rhs) => let

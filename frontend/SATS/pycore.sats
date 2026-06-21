@@ -94,7 +94,11 @@ pclit =
 //
 //   PCPvar  : LIDENT  — a fresh binder (or a `_`-equivalent; the wildcard is PCPwild).
 //   PCPwild : `_`.
-//   PCPcon  : UIDENT [args] — a constructor pattern (-> d2con). Nullary ctor has [].
+//   PCPcon  : UIDENT [{sargs}] [args] — a constructor pattern (-> d2con). Nullary ctor has [].
+//             C-PROOF: the `list(strn)` SARGS field is the EXISTENTIAL-UNPACK static binders
+//             (`VCons{n}(x, rest)` — `{n}` binds the con's hidden index). [] = a plain con pattern.
+//             M3 lowers a non-empty sargs to `d2pat_sapp(<con>, [<fresh int-sorted s2vars>])`
+//             wrapped under the value-arg `D2Pdapp` (CP-UNP-spike-proven nerror=0).
 //   PCPtup  : a tuple pattern `(p, p)` — emitted at loop boundaries to destructure the
 //             accumulator tuple returned by a `loop` call (the §5 `val (i,acc) = loop(...)`).
 //   PCPrec  : a record pattern `{ f = p, ... }`.
@@ -114,7 +118,7 @@ and
 pcpat =
 | PCPvar  of (loctn, strn)
 | PCPwild of (loctn)
-| PCPcon  of (loctn, strn, list(pcpat))
+| PCPcon  of (loctn, strn, list(strn)(*sargs*), list(pcpat))
 | PCPtup  of (loctn, list(pcpat))
 | PCPrec  of (loctn, list(pcpfield))
 | PCPlit  of (loctn, pclit)
@@ -328,7 +332,12 @@ pcdecl =
 //            resolve `n`/`A`), and quantifies the D2Cfundclst over them (the t2qag `tqas` field —
 //            the stock f0_fundclst mechanism). EMPTY list = a NON-generic def (byte-identical to
 //            before this slice). Loop-generated fun groups (PCEletfun) carry NO typarams.
-| PCCfun     of (loctn, list(pcparam), list(pcfundcl))
+//            C-PROOF: the 3rd field `list(pytyp)` is the OPTIONAL `@terminates[n]` TERMINATION
+//            METRIC — a list of index EXPRESSIONS (`[n]`, `[m, n]`) referencing the def's own
+//            typarams. EMPTY = no metric (byte-identical to before C-proof). M3 lowers a non-empty
+//            metric to an `F2ARGmets([<lowered index s2exps>])` f2arg PREPENDED to the def member's
+//            f2arglst (the stock totality-checker metric; trans2a/trans23 treat it type-agnostically).
+| PCCfun     of (loctn, list(pcparam), list(pytyp)(*metric*), list(pcfundcl))
 | PCCval     of (loctn, pcpat, pcexp)
 | PCCstaload of (loctn, strn)
 | PCCimport  of (loctn, strn(*resolved XATSHOME-rel .sats path*), sint(*0=static*), bool(*is_python: defer*))

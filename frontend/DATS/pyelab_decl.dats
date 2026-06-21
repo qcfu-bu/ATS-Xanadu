@@ -208,6 +208,20 @@ case+ decos of
       else decos_impl_types(rest)
 )
 //
+// C-PROOF: the `@terminates[n]` decorator's TYPE payload (the termination METRIC index-exprs), or
+// [] when there is no `@terminates` decorator (or it carried no `[…]`). Found by NAME; the payload
+// is the SAME PyDAtypes the type-arg parser produces. [] keeps the non-metric def path identical.
+fun
+decos_terminates_metric(decos: list(pydecorator)): list(pytyp) =
+(
+case+ decos of
+| list_nil() => list_nil()
+| list_cons(PyDecor(_, nm, dargs), rest) =>
+    if strn_eq(nm, "terminates")
+      then (case+ dargs of PyDAtypes(ts) => ts | _ => list_nil())
+      else decos_terminates_metric(rest)
+)
+//
 // DECORATOR REWORK (slice 2): a `@static let` lowers to the old `stadef` (WITH a value) or `stacst`
 // (BODYLESS — a type annotation but no `= rhs`). The parser signals "bodyless" with a sentinel RHS
 // `PyEerror(_, "@@stacst@@")`. These helpers recover the pieces from the surface `let`:
@@ -362,7 +376,9 @@ case+ d of
         let
           val fundcl = PCFundcl(loc, nm, param_names_d(params), param_types_d(params),
                                 ret, elab_func_body(fc_param_names_pub(list_nil(), params), loc, body), false)
-          val pccfun = PCCfun(loc, elab_typarams(tps), list_sing(fundcl))
+          // C-PROOF: thread the optional `@terminates[n]` termination metric (the index-exprs)
+          // onto the PCCfun group; [] for a plain def (the metric-free path is byte-identical).
+          val pccfun = PCCfun(loc, elab_typarams(tps), decos_terminates_metric(decos), list_sing(fundcl))
         in
           // @overload def NAME  ==>  the def PLUS a self-overload registration (NAME -> NAME). The
           // PCCfun MUST come first so build_overload finds NAME's d2cst already registered as the impl.
