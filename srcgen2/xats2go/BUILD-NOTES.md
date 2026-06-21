@@ -2468,6 +2468,35 @@ program, passed `go vet`/`go build`, and produced empty stdout.
 
 ---
 
+## xats2js parity rung — broader fact/fibo/by-ref program (`test87_xats2js03_full_xats2go`)
+
+This pass promotes xats2js `test03_xats2js.dats` as a local regression rung.
+No backend code change was needed after the auto-flush fix, which is itself
+useful evidence: the existing tuple/record loop lowering and by-reference
+assignment path already cover this larger source.
+
+### Coverage
+
+- Ordinary recursive `fact1`/`fibo1`.
+- Tail-recursive local loops over flat tuples and records (`loop@(...)` and
+  `loop@{...}`).
+- Multiple top-level `prints(...)` calls with no explicit
+  `the_print_store_log()`.
+- By-reference initialization: `foo(x0)` where `foo` has
+  `x0 : &(?int) >> int`, followed by `fibo1(x0)`.
+
+### Validation
+
+- External probe:
+  `make test TEST=../xats2js/srcgen1/TEST/test03_xats2js.dats` = PASS,
+  byte-equal-vs-JS.
+- Promoted local rung: `TEST/test87_xats2js03_full_xats2go.dats`.
+- Expected output: `TEST/OUTS/test87_xats2js03_full_xats2go.expected`.
+- `make run/test87_xats2js03_full_xats2go` = PASS, byte-equal-vs-JS.
+- `make -j 8 psuite` = **70/70 GREEN**.
+
+---
+
 ## intrep1 node coverage (final pass — lazy / fold / free / dp2tr / top / p2rj / extnam / env / aexp)
 
 This pass FINISHED the i1ins/i1val node coverage. Key finding: several target

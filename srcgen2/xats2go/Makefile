@@ -651,6 +651,7 @@ SUITE_NAMES := \
   test84_poly_avl_xats2go \
   test85_list_vt_mut_xats2go \
   test86_autoflush_tpl_xats2go \
+  test87_xats2js03_full_xats2go \
   test90_top_xats2go
 
 # Self-hosting forcing-function rungs (copies of the JS backend's own test
@@ -665,7 +666,8 @@ SUITE_NAMES := \
 # copies are now in the suite above.  test84 adds a focused polymorphic
 # user-template body instantiation from the xats2js AVL test; test85 adds
 # linear list_vt datacon-field mutation from the xats2js list_vt test; test86
-# adds xats2js-style program-exit flushing for pending top-level `prints`.
+# adds xats2js-style program-exit flushing for pending top-level `prints`;
+# test87 promotes the broader xats2js test03 fact/fibo/by-ref program.
 # See BUILD-NOTES "Self-hosting gap-fix" for the precise remaining-blocker list.
 
 # SEQUENTIAL suite — unchanged behavior.  Bundles are built ONCE up front (the
