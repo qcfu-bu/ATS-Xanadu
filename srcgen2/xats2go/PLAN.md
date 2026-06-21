@@ -434,6 +434,75 @@ are **executable** (something compiles/runs/diffs-clean), never "looks done".
 Cross-cutting throughout: the differential test harness (§8), CI, and a coverage matrix of
 intrep1 constructors handled.
 
+### Self-hosting drive (the north star — user-directed)
+
+**Goal:** xats2go compiles the ATS3 compiler/emitter's own sources to Go → a native Go binary
+of the compiler that can compile itself. This reorders the back half of the roadmap around a
+**forcing function**: stop inventing small tests; point xats2go at *real, increasingly-large
+ATS3 code* and fix whatever breaks. The failure set IS the prioritized work list.
+
+**Escalation ladder (each rung gated by byte-equal-vs-JS where the program has output):**
+1. **The JS backend's own test programs** (`xats2js/srcgen2/TEST/test01–03_xats2js.dats`, 126–161
+   lines: prelude `list(sint)`, `list_length<T>`, local `fun`, nested ctor patterns, `var` loops).
+2. Larger standalone real programs (algorithms over lists/strings/arrays/options).
+3. A real prelude/library **module** compiled + exercised.
+4. **The emitter's own source files** (`go1emit_*.dats`, `trxi0i1_*.dats`, …) — the literal
+   self-hosting target.
+5. The full compiler (frontend + intrep0/1 + go1emit + driver) → a Go binary that self-hosts.
+
+**Gap tracker (seeded by the first probe on test01–03 — fix in priority order):**
+- **[lang] Local functions — ✅ DONE (M-selfhost.1).** A `fun` declared inside `let`/`where`
+  (capturing locals) now emits as a Go LOCAL CLOSURE at its declaration point — the M2.5 fix0 idiom
+  `var f F; f = func(..){.. f(..) ..}` (pre-declared `var` => self/mutual recursion; Go lexical
+  capture => surrounding locals). A NESTED `I1Dfundclst` is routed via a NEW
+  `i1dclist_go1emit_local`/`i1dcl_go1emit_local` entry (used by the `I1INSlet0` decl walk) ->
+  `f0_localfun` (in `go1emit_decl00.dats`); TOP-level funs keep the M2.2 package-level hoisting
+  (distinguished by ENTRY POINT, never double-emitted). A tail-recursive local closure reuses the
+  M2.4 `for{..continue}` TCO loop. PROVEN byte-equal-vs-JS by **test74** (`fact`'s `loop` captures +
+  mutates the enclosing `var res`; `summ`'s `aux` is a tail-recursive local closure), and on test70's
+  `fact1/fact2/fact3` (the JS test01 copy).
+- **[bug] String escaping — ✅ DONE (M-selfhost.1).** The string-literal TOKEN emitter
+  (`i0strgo1`/`f0_strn` in `go1emit_utils0.dats`) now normalizes the RAW SOURCE rep to a valid Go
+  double-quoted literal (mirrors the JS backend's `f0_strn`, retargeted to Go): a source
+  line-continuation `\<NL>` is DROPPED; an already-two-char source escape (`\n` `\t` `\"` `\\` `\r`)
+  passes through (valid Go); a RAW control byte -> the Go escape. (The previous code copied the rep
+  verbatim -> `\<NL>` -> `string literal not terminated`, +16 more.) PROVEN byte-equal-vs-JS by
+  **test73** (line-continuation + tab + escaped quote/backslash + `\n`) and test70.
+- **[runtime] variadic `prints`/`gs_print_aN` — ✅ ADDED (bounded, required for ALL three rungs).**
+  `prints(..)` resolves to `gs_print_aN` (a template whose body is `g_print<x_i>(x_i)` per arg).
+  The Go backend resolves the whole call to ONE runtime fn; added `Xats_gs_print_a0..a4` to
+  `runtime/xatsgo/xatsgo.go` — a per-arg `gsPrintOne(any)` type-switch (string/int/bool/float64/rune
+  -> the same bytes the per-type prints push). Needed because every rung's OUTPUT goes through
+  `prints`. (Faithful template INLINING is still the longer-term M3 path.)
+- **[runtime] Prelude coverage (M4)** — missing `xatsgo.<fn>` (e.g. `list_length`, list ops). The
+  big ongoing runtime build: implement the ATS prelude surface in Go (mine the JS runtime
+  `srcgen2_prelude.js`/`precats.js`/`xatslib.js` for the contract). Also: `list_length<sint>` is a
+  *template* instantiation — verify whether its instantiated body emits (then needs no runtime) or
+  resolves to a prelude d2cst (then needs a runtime fn). This ties into M3 (emit user-template bodies).
+- **[rung-1 RESULT — the 3 real JS-backend programs are NOT green yet]** test73/74 (isolated proofs
+  of the two fixes) are byte-equal-vs-JS and in the suite, but the REAL programs test70/71/72 (= JS
+  backend test01/02/03, kept under TEST/ as rungs, NOT in the green suite) each hit MORE gaps the
+  oracle caught — **the next-rung work list (priority order):**
+  1. **[lang] `&` by-reference params** — test70 `fact4(10)` COMPILES+RUNS but gives the WRONG answer
+     (`1` vs `3628800`): a `&res`-style by-ref arg's mutation doesn't propagate. (Go fix: pass a
+     pointer / addressable cell for `&`-params.) Silent-wrong → caught only by the differential oracle.
+  2. **[lang] Tuple-pattern function params** — test71 `fun loop@(x,r) = …` → `UNHANDLED: i1val`
+     (destructuring a tuple param). Needs param-pattern destructuring in the arg emit.
+  3. **[M2.7b] Datacon-tail typed projection** — test72 `length1`: a recursive datatype field
+     (`cons`-tail) is typed `any` (`goty_of_p1cn`/`I1Vp1cn` → "any") but a fn wants `*xatsgo.XatsCon`
+     → `cannot use … need type assertion`. Fix = the M2.7b typed-projection for `I1Vp1cn`.
+  4. **[runtime/M4] Prelude list ops** — test72 `undefined: xatsgo.Xats_list_length`,
+     `Xats_gseq_folditm`.
+  5. **[lang] Tuple-element lvalue** — test72 `foo1`/`foo2` (`p.k := v` on a tuple position).
+- **[lang] Still owed for self-hosting:** M2.8 (exceptions/lazy — the compiler uses try/raise for
+  error handling), type annotation `(e:T)` (still `UNHANDLED nil`, tracked since M2.6a), modules/
+  `staload`, abstract types (`abstype`/`assume`), FFI/`extern`, the full pattern language,
+  polymorphic-function uniform repr. Discover the rest via the forcing function.
+
+**Methodology:** keep `xats2js/.../TEST/*.dats` (and a growing real-program corpus) as conformance
+rungs in the suite; each rung that breaks → categorize gaps (emit-time `// UNHANDLED` + `go build`
+`undefined:`/type errors) → fix → escalate. Update this tracker each rung.
+
 ---
 
 ## 8. Test / conformance strategy

@@ -1891,3 +1891,201 @@ The IR shapes above were instead recovered via a temporary emitter-side probe
 - **Real-vs-stub:** the var/lvalue/assign emission is REAL (direct Go addressable
   assignment, oracle-gated).  The only stubs are the documented M2.7 deferrals
   (`I1Vlpcn`/datacon) and the no-init-var `any` fallback.
+
+---
+
+# M-selfhost.1 — first self-hosting gap-fix: LOCAL FUNCTIONS + STRING ESCAPING
+
+Status: the two language gaps surfaced by probing the JS backend's own test
+programs (`xats2js/srcgen2/TEST/test01–03`) are FIXED, proven byte-equal-vs-JS.
+`make -j psuite` = **53/53 GREEN** (51 prior + the 2 focused gap proofs), gofmt
+clean, `go vet` OK, no regression. All additive under `srcgen2/xats2go/`.
+
+## How to run
+
+```bash
+cd srcgen2/xats2go
+make -j psuite                       # 53 GREEN
+make run/test74_localfun_xats2go     # GAP-1 proof (local closure captures `res`)
+make run/test73_strescape_xats2go    # GAP-2 proof (string escaping)
+```
+
+## GAP 1 — local (nested) functions -> Go LOCAL CLOSURES
+
+A `fun` declared INSIDE a function body / `let .. in .. end` / `where { .. }`
+captures surrounding locals and is often self-recursive, so it must NOT be
+hoisted to package level (M2.2 hoisting can't see the captured locals). The
+fix emits it as a Go LOCAL CLOSURE at its declaration point — the M2.5 fix0
+idiom `var f F; f = func(..){..}` (pre-declared `var` => self/mutual recursion;
+Go lexical capture => surrounding locals).
+
+**IR finding:** a nested fun surfaces (in the enclosing `I1INSlet0`'s decl list)
+as `I1Ddclenv(I1Dfundclst(..), freevars)` — IDENTICAL in shape to a TOP-level
+fun. So it cannot be distinguished from a top-level fun by node shape; the
+distinction is the **ENTRY POINT**:
+- TOP-level funs: hoisted in PASS 1 (`i1dcl_go1emit_fun`), and the PASS-2 walk
+  (`i1dcl_go1emit`) SKIPS them (a bare `I1Dfundclst` -> `((*void*))`; a wrapped
+  one -> a harmless `// (skipped ..)` comment via `f0_otherwise`).
+- NESTED funs: the `I1INSlet0` emitter (`go1emit_dynexp.dats`) now walks the
+  block's decls with a NEW **`i1dclist_go1emit_local`/`i1dcl_go1emit_local`**
+  (SATS-declared) instead of the plain `i1dclist_go1emit`. `i1dcl_go1emit_local`
+  routes a (wrapped) `I1Dfundclst` to **`f0_localfun`** (local-closure emission)
+  and everything else back to `i1dcl_go1emit`.
+
+`f0_localfun` (in `go1emit_decl00.dats`) emits a fun GROUP in two passes (so a
+`fun .. and ..` mutual group works): PASS A `localfun_predecl` pre-declares
+`var <name> <funcType>` for EVERY fundcl first; PASS B `localfun_assign` emits
+`<name> = func(<typed params>) <ret> { <body> }`. The body reuses the SAME
+logic as a top-level fun (`i1fundcl_go1emit`): if `i1cmp_body_has_tailcall` it
+is wrapped in a Go `for { .. param=newval; continue }` TCO loop (local-closure
+TCO — O(1) stack); else a plain recursive call. The self-call `I1Vfenv(dvar)`
+emits `d2vargo1(dvar)` = the same `<name>`, resolving to the pre-declared `var`.
+Signature types come from the fundcl's parallel d2cst (`gotypes_of_funstyp`,
+the top-level path), else the fundcl's own param d2vars.
+
+**The earlier-caught bug (fixed):** the FIRST cut routed the local case from
+inside `i1dcl_go1emit` itself, so a TOP-level wrapped fun reaching PASS 2 was
+RE-emitted as a local closure inside `func main` (double-emission; the package
+func shadowed but still wasteful/wrong). The split entry point
+(`i1dcl_go1emit_local` only on the let-block walk) is what prevents this — a
+top-level fun never reaches the local walk.
+
+Emitted Go (test74 `fact`, capturing the enclosing `var res`):
+```go
+func fact_1046(goxtnm1 int) int {
+	{
+		var goxtnm2 int = 1                    // the `var res`
+		var loop_1117 func(int) any
+		loop_1117 = func(goxtnm3 int) any {    // LOCAL closure, self-ref via the var
+			for {
+				...
+				goxtnm2 = goxtnm28             // mutate the CAPTURED outer var (res)
+				goxtnm37 := loop_1117(goxtnm36) // self-call -> the pre-declared var
+				...
+			}
+		}
+		_ = loop_1117(0)
+		goxtnm40 := goxtnm2                     // read res back after the loop
+		return goxtnm40
+	}
+}
+```
+`summ`'s `aux` shows local-fun TCO: `goxtnm43 = goxtnm60; goxtnm44 = goxtnm68;
+continue` (no stack growth).
+
+## GAP 2 — Go string-literal escaping
+
+The string-literal TOKEN emitter `i0strgo1`/`f0_strn` (`go1emit_utils0.dats`)
+copied the token's RAW SOURCE rep verbatim. The rep includes the surface text,
+so a source LINE-CONTINUATION `"\<NL>foo"` (backslash + a real newline — the ATS
+way to fold a long string across lines) was emitted as `"\<NL>foo"`, which Go
+rejects (`string literal not terminated`, `unknown escape sequence`,
+`illegal character U+005C`, +16 more — exactly the probe's symptom).
+
+The fix mirrors the JS backend's `f0_strn` escape handling, retargeted to Go:
+- a source `\<NL>` line-continuation -> **DROP both** (the JS backend does too);
+- a source backslash escape `\`+c (`\n` `\t` `\"` `\\` `\r`, already two chars in
+  the rep) -> **pass through** (the SAME escape syntax is valid in a Go
+  double-quoted literal — no re-escaping);
+- a RAW (unescaped) control byte in the rep (a literal `\n`/`\t`/`\r`, which the
+  JS backend turns into a JS line-continuation `\n\<NL>`) -> the plain Go escape
+  `\n`/`\t`/`\r` (Go has no line continuation);
+- a bare trailing backslash (malformed) -> `\\` for totality.
+
+The evaluated-string path (`i0s00go1`/`f0_gostr`, for `I1Vs00`) already escaped
+raw bytes correctly and is unchanged.
+
+Before/after (test70's `prints("\<NL>fact1(10) = ", ..)`):
+```go
+// BEFORE:  xatsgo.XATSSTRN("\<actual newline>fact1(10) = ")   // Go rejects
+// AFTER:   xatsgo.XATSSTRN("fact1(10) = ")                    // line-cont dropped
+```
+
+## Runtime addition — variadic `prints` (`gs_print_aN`)
+
+ALL THREE rungs route their output through `prints(..)`, which resolves to
+`gs_print_aN` (a template whose body is `g_print<x_i>(x_i)` per arg, with no-op
+`beg/sep/end`). The JS backend INLINES this per call (each arg's static type
+picks `g_print<T>`); the Go backend resolves the whole call to ONE runtime fn
+(the M1 timp->named-runtime pattern). Added `Xats_gs_print_a0..a4` to
+`runtime/xatsgo/xatsgo.go`: a per-arg `gsPrintOne(any)` type-switch
+(string/int/bool/float64/rune -> the SAME bytes the per-type prints push). This
+is a small, faithful, REQUIRED addition (oracle-confirmed byte-equal). Faithful
+template INLINING (so this needs no runtime) remains the longer-term M3 path.
+
+## Targets — green proofs + the JS-test rungs
+
+GREEN, byte-equal-vs-JS, in the suite (`SUITE_NAMES`):
+- **test73_strescape** — GAP-2: line-continuation + `\t` + `\"` + `\\` + `\n`.
+- **test74_localfun** — GAP-1: `fact`'s `loop` captures+mutates the enclosing
+  `var res` + self-recurses; `summ`'s `aux` is a tail-recursive local closure
+  (TCO loop). Both are the focused, isolated proofs of the two gaps.
+
+The JS-backend test COPIES are kept under `TEST/` as forcing-function rungs but
+are NOT in the green suite — each is blocked by a SEPARATE feature beyond the
+two gaps (so they are honest rungs, not the gap proofs):
+- **test70_jsbk01** (= JS test01): `fact1/fact2/fact3` are byte-equal-vs-JS
+  (local closures + line-continuation strings + `prints` all work). BLOCKED by
+  **`fact4` only** — it uses `&sint` BY-REFERENCE params (`auxlp(x: &sint, r:
+  &sint)`), which the Go backend models as value params, so the mutation does
+  not propagate to the caller (`fact4(10) = 1` vs JS `3628800`). Call-by-
+  reference (`&T` -> Go `*T` params + `&`/`*` at call/read/write sites) is a
+  distinct feature, NOT one of the two gaps -> deferred (would be its own chunk).
+- **test71_jsbk02** (= JS test02): the local closures DO emit (`loop_NNN` etc.).
+  BLOCKED by **tuple-PATTERN function params** — `fibo2`/`fibo3`/`fibo4` use
+  `loop@(x, r)` / `loop(xrr: @(sint,sint,sint))`, whose tuple-destructured
+  params surface as an UNHANDLED `i1val` (26 of them) -> emits `nil` ->
+  `nil > 0` go-build error. (Tuple-pattern params, not the two gaps.)
+- **test72_jsbk03** (= JS test03): the GAP-1 CANONICAL `fact`/`loop`/`res` part
+  emits CORRECTLY (the capture-`res` local closure — same as test74). BLOCKED by
+  the M4 RUNTIME + M2.7: needs **`xatsgo.Xats_list_length`** and
+  **`xatsgo.Xats_gseq_folditm`** (both emit as RUNTIME CALLS, i.e. `list_length
+  <sint>` resolves to a prelude d2cst -> `xatsgo.Xats_list_length`, NOT an
+  instantiated body), plus a datacon-tail TYPE ASSERTION (`length1`'s `cons`
+  tail `goxtnm.Args[1]` is `any` but `length1` expects `*xatsgo.XatsCon` — the
+  known M2.7 `goty_of_p1cn`-returns-"any"-for-recursive-datatype-field gap), plus
+  tuple-LVALUE assignment in `foo1`/`foo2` (`xyz := #(0,1,@(2,3))`; `(xyz.2).0 :=
+  20` -> 10 UNHANDLED `I0Pdapp`). These are the EXPECTED next rungs (M4 runtime +
+  M2.7b), not this fix.
+
+## Files touched (all under srcgen2/xats2go/)
+
+- `srcgen2/DATS/go1emit_utils0.dats` — `f0_strn` rewrite (GAP 2).
+- `srcgen2/DATS/go1emit_decl00.dats` — `dcl_is_fundclst`, `localfun_*`,
+  `f0_localfun`, `i1dcl_go1emit_local`, `i1dclist_go1emit_local` (GAP 1); the
+  PASS-2 `i1dcl_go1emit` keeps skipping top-level funs.
+- `srcgen2/DATS/go1emit_dynexp.dats` — `I1INSlet0` decl walk now uses
+  `i1dclist_go1emit_local`.
+- `srcgen2/SATS/go1emit.sats` — declared `i1dcl_go1emit_local` /
+  `i1dclist_go1emit_local`. (SATS edit -> `make clean && make` was run; suite
+  reproduced 53/53 from a clean rebuild.)
+- `runtime/xatsgo/xatsgo.go` — `Xats_gs_print_a0..a4` + `gsPrintOne`.
+- `Makefile` — `SUITE_NAMES` += test73/test74 (+ a note on the test70/71/72
+  rungs). The 3 JS-test copies live in `TEST/` (not wired into the suite).
+
+## Honest coverage / real-vs-stub
+
+- **REAL (oracle-validated byte-equal-vs-JS):** local-closure emission (capture
+  of an enclosing `var`; self-recursion via the pre-declared `var`; local-fun
+  TCO loop); the string-escape normalization (line-continuation drop +
+  passthrough + raw-control escapes); `gs_print_a0..a4`. 53/53 suite green,
+  gofmt clean, `go vet` OK, clean-rebuild reproducible.
+- **DEFERRED (reported, not silently wrong):** `&sint` by-reference params
+  (test70 `fact4`); tuple-pattern function params (test71); the list runtime
+  `list_length`/`gseq_folditm` + datacon-tail type assertion + tuple lvalues
+  (test72) — each a distinct chunk beyond the two gaps. A TEMPLATE local fun
+  (non-empty t2qaglst) -> `// UNHANDLED: template local fundclst` + stderr NOTE
+  (M3), mirroring the top-level path. A no-body local fun -> a panic stub +
+  NOTE.
+- **Deviation from the brief:** the brief framed GAP-2 as "escape the raw string
+  content (`\` -> `\\`, `"` -> `\"`, ...)". The token's rep is RAW SOURCE TEXT
+  (already-escaped: `\n` is two chars; interior `"` is `\"`), NOT an evaluated
+  value — so the correct fix mirrors the JS backend's source-rep handling
+  (drop line-continuations, pass through existing escapes) rather than
+  re-escaping from scratch; re-escaping the rep would double the backslashes.
+  The evaluated-value path (`i0s00go1`) DOES do the from-scratch escape the brief
+  describes, and was already correct. Also: the brief's named green targets were
+  test70 (strings) / test71 (local funcs); the actual JS files mix in `&sint`
+  refs / tuple-pattern params / list runtime, so the SUITE proofs are the
+  focused test73/test74 (which isolate exactly the two gaps and ARE byte-equal-
+  vs-JS), with test70/71/72 kept as documented rungs.

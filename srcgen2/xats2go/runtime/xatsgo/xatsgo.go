@@ -240,3 +240,67 @@ var Xats_char_neq = func(c1 any, c2 any) any { return c1.(int32) != c2.(int32) }
 
 var Xats_bool_eq = func(b1 any, b2 any) any { return b1.(bool) == b2.(bool) }
 var Xats_bool_neq = func(b1 any, b2 any) any { return b1.(bool) != b2.(bool) }
+
+// -- variadic prints / gs_print_aN ------------------------------------------
+//
+// `prints(x0, ..)` resolves (prelude/SATS/gsyn000.sats) to gs_print_aN, whose
+// template BODY (prelude/DATS/gsyn000.dats) is
+//
+//	gs_print$beg(); g_print<x0>(x0); gs_print$sep(); g_print<x1>(x1); ...
+//	                ...; gs_print$end()
+//
+// where the DEFAULT gs_print$beg/$sep/$end are NO-OPS, and each g_print<T> is
+// the per-type print (strn_print / sint_print / ...) that PUSHES onto the
+// print store.  The JS backend INLINES this template per call (each arg's
+// static type picks g_print<T> at compile time).  The Go backend resolves the
+// whole call to ONE runtime function (the M1 timp->named-runtime pattern), so
+// the per-arg type dispatch happens HERE, at run time, on the arg's dynamic Go
+// type -- producing the SAME pushed bytes (the differential oracle confirms).
+//
+// gsPrintOne mirrors g_print<T> for the scalar/string types the prelude default
+// `print` covers: a Go string (from XATSSTRN/XATSSTR0) -> push verbatim (==
+// strn_print); int -> Itoa (== sint_print); bool -> "true"/"false"; float64 ->
+// XatsFloatToString; rune/int32 (a char) -> its single character.  An unknown
+// type falls back to Go's default formatting (defensive; not on the test
+// surface).
+func gsPrintOne(x any) {
+	switch v := x.(type) {
+	case string:
+		thePrintStore = append(thePrintStore, v)
+	case int:
+		thePrintStore = append(thePrintStore, strconv.Itoa(v))
+	case bool:
+		if v {
+			thePrintStore = append(thePrintStore, "true")
+		} else {
+			thePrintStore = append(thePrintStore, "false")
+		}
+	case float64:
+		thePrintStore = append(thePrintStore, XatsFloatToString(v))
+	case int32: // a char literal is emitted as a Go rune (int32)
+		thePrintStore = append(thePrintStore, string(rune(v)))
+	default:
+		thePrintStore = append(thePrintStore, fmt.Sprintf("%v", v))
+	}
+}
+
+var Xats_gs_print_a0 = func() any { return XATSNIL() }
+var Xats_gs_print_a1 = func(x0 any) any { gsPrintOne(x0); return XATSNIL() }
+var Xats_gs_print_a2 = func(x0 any, x1 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	return XATSNIL()
+}
+var Xats_gs_print_a3 = func(x0 any, x1 any, x2 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	gsPrintOne(x2)
+	return XATSNIL()
+}
+var Xats_gs_print_a4 = func(x0 any, x1 any, x2 any, x3 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	gsPrintOne(x2)
+	gsPrintOne(x3)
+	return XATSNIL()
+}

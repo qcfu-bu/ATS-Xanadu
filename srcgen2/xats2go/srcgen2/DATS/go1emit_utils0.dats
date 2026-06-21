@@ -247,6 +247,32 @@ strnfpr(filr, "\")"))
 ) where
 {
 //
+(*
+GAP-2 fix (self-hosting): the token's [rep1] holds the RAW SOURCE chars of
+the string literal (the surface text between the quotes, INCLUDING the
+opening quote at index 0).  Two source conventions must be normalized to a
+valid Go double-quoted literal -- this mirrors the JS backend's [f0_strn]
+escape handling (so the bytes match the JS oracle), with the JS-specific
+output retargeted to Go:
+//
+  (a) a SOURCE BACKSLASH ESCAPE (`\n`, `\t`, `\"`, `\\`, ...) is already two
+      literal chars '\'+c in [rep1].  A Go double-quoted literal accepts the
+      SAME escape syntax (`\n` `\t` `\"` `\\` `\r` etc.), so we pass `\`+c
+      THROUGH verbatim -- EXCEPT a backslash followed by a real NEWLINE byte,
+      which is an ATS source LINE-CONTINUATION (`"foo\<NL>bar"` == `"foobar"`)
+      and must be DROPPED entirely (both the `\` and the newline).  This is
+      the bug that broke test70: the line-continuation `\<NL>` was copied raw,
+      producing `"\<NL>..."` which Go rejects (`string literal not
+      terminated`, `unknown escape sequence`).
+  (b) a RAW CONTROL byte that appears UNESCAPED in [rep1] (a literal newline,
+      tab or CR not preceded by `\`) is emitted as the corresponding Go escape
+      (`\n` `\t` `\r`).  (The JS backend turns a raw newline into `\n\<NL>`, a
+      JS line continuation; Go has no line continuation, so a plain `\n`.)
+//
+A bare trailing backslash (the last char before the closing quote) cannot
+occur in a well-formed string but, for totality, is emitted as `\\` so the
+output stays a valid Go literal.
+*)
 fun
 f0_strn
 ( rep1: strn
@@ -265,17 +291,44 @@ let
 val c0 = rep1[i0]
 in//let
 //
-(*
-The token's [rep1] holds the RAW SOURCE chars, so any backslash escape
-(e.g. \n) is already present as the two literal chars '\' 'n' -- which is
-exactly the form a Go double-quoted string literal wants. So we copy
-verbatim, mirroring i0strjs1 (which likewise does NOT re-escape '\').
-A raw newline byte cannot appear in a single-line source string, so no
-special case is needed for it here.
-*)
+if // if1
+(c0 = '\\')
+then//then1
 (
-char_fprint(c0, filr); loop1(i0+1))
+// a source backslash: consume + handle the following char in [loop2].
+loop2(i0+1)
+) else//if1
+(
+// a RAW (unescaped) control byte -> the matching Go escape; else verbatim.
+case+ c0 of
+| '\n' => (strn_fprint("\\n", filr); loop1(i0+1))
+| '\t' => (strn_fprint("\\t", filr); loop1(i0+1))
+| '\r' => (strn_fprint("\\r", filr); loop1(i0+1))
+| _(*else*) => (char_fprint(c0, filr); loop1(i0+1)))
 end//let//end-of-[loop1(i0)]
+//
+and
+loop2
+(i1: nint): void =
+if // if
+(i1 >= n0)
+then//then
+(
+// a trailing bare backslash (malformed source) -> a literal `\\` (Go-valid).
+strn_fprint("\\\\", filr)) else
+let
+  val c1 = rep1[i1]
+in (*let*)
+if // if
+(c1 = '\n')
+then//then
+(
+// `\<NL>` = ATS source line continuation -> DROP both, continue after the NL.
+loop1(i1+1)) else
+(
+// `\`+c is an already-valid Go escape (\n \t \" \\ \r ...) -> pass through.
+char_fprint('\\', filr); char_fprint(c1, filr); loop1(i1+1))
+end//let//end-of-[loop2(i1)]
 //
 in//let
 (

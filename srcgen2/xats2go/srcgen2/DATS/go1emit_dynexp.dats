@@ -1716,8 +1716,12 @@ case+ iins of
     nindfpr(filr, nind); strnfpr(filr, "{"); fprintln(filr))
     val () = envx2go_incnind(env0, 1)
     //
-    // emit the inner LOCAL declarations (reuse the decl walk).
-    val () = i1dclist_go1emit(dcls, env0)
+    // emit the inner LOCAL declarations.  GAP-1: use the LOCAL decl walk so a
+    // NESTED `fun` (in a `where`/`let`) is emitted as a Go LOCAL CLOSURE at its
+    // declaration point (capturing surrounding locals + self-recursion) rather
+    // than skipped/hoisted (the M2.2 top-level hoisting stays for top-level
+    // funs, which never reach this let-block walk).
+    val () = i1dclist_go1emit_local(dcls, env0)
     //
     // emit the let BODY:
     //  - RETURN mode -> i1cmp_go1emit_ret (the body's inner if/case branches

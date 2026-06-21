@@ -550,7 +550,19 @@ SUITE_NAMES := \
   test61_list_sum_xats2go \
   test62_tree_xats2go \
   test63_con_guard_xats2go \
-  test64_guard_order_xats2go
+  test64_guard_order_xats2go \
+  test73_strescape_xats2go \
+  test74_localfun_xats2go
+
+# Self-hosting forcing-function rungs (copies of the JS backend's own test
+# programs).  test73/test74 above are the FOCUSED green proofs of the two
+# self-hosting gaps fixed here (GAP-2 string escaping, GAP-1 local closures);
+# they ARE in the suite (byte-equal-vs-JS).  The JS-test COPIES test70/71/72
+# are kept under TEST/ as rungs but NOT in the green suite -- each is blocked by
+# a SEPARATE feature beyond the two gaps (test70: `&sint` by-reference params;
+# test71: tuple-PATTERN function params `loop@(x,r)`; test72: the list runtime
+# `list_length`/`gseq_folditm` + datacon-tail type assertion + tuple lvalues).
+# See BUILD-NOTES "Self-hosting gap-fix" for the precise remaining-blocker list.
 
 # SEQUENTIAL suite — unchanged behavior.  Bundles are built ONCE up front (the
 # GOPATCHED + JSPATCHED prereqs), then each test reuses them.

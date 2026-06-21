@@ -94,8 +94,15 @@ dcl0.node() of
 (
   f0_vardclst(dcl0, env0))
 //
-// I1Dfundclst is emitted at PACKAGE level in PASS 1 (i1dcl_go1emit_fun);
-// the in-main pass skips it (no Go output) so it is not duplicated.
+// A TOP-LEVEL function is emitted at PACKAGE level in PASS 1
+// (i1dcl_go1emit_fun); this in-main / top-level PASS-2 walk SKIPS a bare
+// I1Dfundclst (no Go output -> no duplication).  A top-level fun usually
+// surfaces here WRAPPED (I1Ddclenv(I1Dfundclst,..)) and falls into
+// [f0_otherwise] -> a harmless `// (skipped ..)` comment (it was already
+// hoisted).  A NESTED function does NOT come through [i1dcl_go1emit] -- it
+// comes through [i1dcl_go1emit_local] (the I1INSlet0 decl walk), which routes
+// a (wrapped) I1Dfundclst to [f0_localfun] (a local Go closure).  So nested vs
+// top-level is distinguished by the ENTRY POINT, never double-emitted.
 |I1Dfundclst _ => ((*void*))
 //
 | _(*otherwise*) =>
@@ -167,6 +174,340 @@ loctn_fprint(loc0, filr); strnfpr(filr, ")"); fprintln(filr)) end
 //endof[f0_otherwise(dcl0,env0)]
 //
 }(*where*)//endof[i1dcl_go1emit(dcl0,env0)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
+=======================================================================
+== GAP-1: NESTED (LOCAL) FUNCTIONS as Go LOCAL CLOSURES               ==
+=======================================================================
+//
+A NESTED function -- a `fun` declared inside a function body / `let .. in ..
+end` / `where { .. }` -- surfaces (in the let-block decl list) as an
+I1Ddclenv(I1Dfundclst(..), freevars) (or I1Dtmpsub/I1Dstatic wrapper).  It
+CAPTURES surrounding locals and is often self-recursive, so it must NOT be
+hoisted to package level (M2.2 hoisting can't see the captured locals).
+Instead it is emitted RIGHT AT ITS DECLARATION POINT as a Go LOCAL CLOSURE --
+the M2.5 fix0 idiom `var f F; f = func(..){..}` (the pre-declared `var` enables
+self/mutual recursion; Go's lexical capture handles the surrounding locals,
+the IR having already rewritten each captured free var to its outer Go local).
+//
+The routing is split from the top-level pass: a nested decl comes through
+[i1dcl_go1emit_local] (the I1INSlet0 decl walk, see [i1dclist_go1emit_local]),
+which sends a (wrapped) I1Dfundclst to [f0_localfun] and everything else back
+to the normal [i1dcl_go1emit].  A TOP-LEVEL fun does NOT come through here (it
+is hoisted in PASS 1 and SKIPPED by [i1dcl_go1emit] in PASS 2), so it is never
+double-emitted.
+//
+[dcl_is_fundclst]: does this decl reduce (under the env/template wrappers) to
+an I1Dfundclst?  (Used both by [i1dcl_go1emit]'s top-level SKIP guards and by
+[i1dcl_go1emit_local]'s local-closure routing.)
+*)
+fun
+dcl_is_fundclst
+(dcl1: i1dcl): bool =
+(
+case+ dcl1.node() of
+|I1Dfundclst _ => true
+|I1Ddclenv(idcl2, _) => dcl_is_fundclst(idcl2)
+|I1Dtmpsub(_, idcl2) => dcl_is_fundclst(idcl2)
+|I1Dstatic(_, idcl2) => dcl_is_fundclst(idcl2)
+| _(*else*) => false
+)//endof[dcl_is_fundclst(dcl1)]
+//
+(*
+[localfun_unwrap]: strip the env/template wrappers down to the bare
+I1Dfundclst (the caller already checked [dcl_is_fundclst]).
+*)
+fun
+localfun_unwrap
+(dcl1: i1dcl): i1dcl =
+(
+case+ dcl1.node() of
+|I1Dfundclst _ => dcl1
+|I1Ddclenv(idcl2, _) => localfun_unwrap(idcl2)
+|I1Dtmpsub(_, idcl2) => localfun_unwrap(idcl2)
+|I1Dstatic(_, idcl2) => localfun_unwrap(idcl2)
+| _(*else: unreachable -- guarded by dcl_is_fundclst*) => dcl1
+)//endof[localfun_unwrap(dcl1)]
+//
+(*
+[localfun_funty]: the Go function-TYPE `func(T0,T1) Tret` for one local
+fundcl, recovered from its parallel d2cst's static type (the SAME signature
+source a top-level fun uses, [gotypes_of_funstyp]); a missing d2cst falls back
+to the fundcl's own param d2vars + body inference.  This is the type of the
+pre-declared `var <name> <funty>` self-reference target.
+*)
+fun
+localfun_funty
+( ifun: i1fundcl
+, dcopt: optn(d2cst)): strn =
+let
+  val (argtys, retty) =
+  (
+  case+ dcopt of
+  |optn_cons(dcst) => gotypes_of_funstyp(d2cst_get_styp(dcst))
+  |optn_nil() =>
+    let
+      val fjas = i1fundcl_farg$get(ifun)
+    in
+      @(gotypes_of_fjarglst(fjas), "any")
+    end)
+in
+  gofunctype_of_fjarglst(argtys, retty)
+end//endof[localfun_funty(ifun,dcopt)]
+//
+(*
+[localfun_predecl]: PASS A -- pre-declare `var <name> <funty>` for EVERY
+fundcl in the group BEFORE any assignment, so a self-recursive call (and a
+mutually-recursive call to a sibling in the same `fun .. and ..` group)
+resolves to the in-scope `var`.  [d2cs] is the parallel d2cst list (positional
+with [i1fs]); a desync yields optn_nil() -> `any`-typed func.
+*)
+fun
+localfun_predecl
+( i1fs: i1fundclist
+, d2cs: d2cstlst
+, env0: !envx2go): void =
+let
+  val filr = env0.filr()
+  val nind = envx2go_nind$get(env0)
+in//let
+  case+ i1fs of
+  |list_nil() => ((*void*))
+  |list_cons(i1f1, i1fs1) =>
+    let
+      val (dcopt, d2cs1) =
+      (
+      case+ d2cs of
+      |list_nil() => (optn_nil(): optn(d2cst), list_nil(): d2cstlst)
+      |list_cons(d2c1, d2cs1) => (optn_cons(d2c1), d2cs1))
+      val dvar = i1fundcl_dpid$get(i1f1)
+      val funty = localfun_funty(i1f1, dcopt)
+      val () =
+      (
+      nindfpr(filr, nind);
+      strnfpr(filr, "var "); d2vargo1(filr, dvar);
+      strnfpr(filr, " "); strnfpr(filr, funty); fprintln(filr))
+    in
+      localfun_predecl(i1fs1, d2cs1, env0)
+    end
+end//let//endof[localfun_predecl(i1fs,d2cs,env0)]
+//
+(*
+[localfun_emit_params]: emit the local closure's `<p0> <T0>, <p1> <T1>` param
+list (zip the param i1tnms with the recovered Go types; "any" fallback).  A
+self-contained copy of the M2.5 fjarglst_go1emit_typed_params (which lives in a
+different where-block, hence not reusable here).
+*)
+fun
+localfun_emit_params
+( filr: FILR
+, fjas: fjarglst
+, ptys: list(strn)): void =
+let
+  val ptnms = params_of_fjarglst(fjas)
+  //
+  fun
+  loop
+  (i0: sint, ts: i1tnmlst, gs: list(strn)): void =
+  (
+  case+ ts of
+  |list_nil() => ((*void*))
+  |list_cons(p1, ts1) =>
+    let
+      val (goty, gs1) =
+      (
+      case+ gs of
+      |list_nil() => @("any", list_nil())
+      |list_cons(g1, gs1) => @(g1, gs1))
+      val () =
+      (
+      if (i0 >= 1) then strnfpr(filr, ", ");
+      i1tnmgo1(filr, p1); strnfpr(filr, " "); strnfpr(filr, goty))
+    in
+      loop(i0+1, ts1, gs1)
+    end
+  )
+in
+  loop(0, ptnms, ptys)
+end//endof[localfun_emit_params(filr,fjas,ptys)]
+//
+(*
+[localfun_assign]: PASS B -- emit `<name> = func(<typed params>) <ret> {
+<body> }` for each fundcl, binding the (already-declared) `var`.  The body is
+emitted in RETURN mode exactly like a top-level fun: if it has a reachable
+TAIL self-call (i1cmp_body_has_tailcall) it is wrapped in a Go `for { ...
+param=newval; continue }` loop (O(1) stack -- the local-closure TCO the task
+asked for); otherwise a plain recursive call.  The self-call lowers to
+I1INSdapp(I1Vfenv(<this fundcl's dvar>),..) whose callee emits [d2vargo1] = the
+same `<name>` -- resolving to the pre-declared `var`.  Captured surrounding
+locals are read directly via Go's lexical closure (the IR already rewrote each
+captured free var to its outer Go local).
+*)
+fun
+localfun_assign
+( i1fs: i1fundclist
+, d2cs: d2cstlst
+, env0: !envx2go): void =
+let
+  val filr = env0.filr()
+  val nind = envx2go_nind$get(env0)
+in//let
+  case+ i1fs of
+  |list_nil() => ((*void*))
+  |list_cons(i1f1, i1fs1) =>
+    let
+      val (dcopt, d2cs1) =
+      (
+      case+ d2cs of
+      |list_nil() => (optn_nil(): optn(d2cst), list_nil(): d2cstlst)
+      |list_cons(d2c1, d2cs1) => (optn_cons(d2c1), d2cs1))
+      //
+      val dvar = i1fundcl_dpid$get(i1f1)
+      val fjas = i1fundcl_farg$get(i1f1)
+      val tdxp = i1fundcl_tdxp$get(i1f1)
+      //
+      // param Go types: the SAME signature [gotypes_of_funstyp] gives a
+      // top-level fun; fall back to the param d2vars when no d2cst.
+      val argtys =
+      (
+      case+ dcopt of
+      |optn_cons(dcst) =>
+        let val (ats, _) = gotypes_of_funstyp(d2cst_get_styp(dcst)) in ats end
+      |optn_nil() => gotypes_of_fjarglst(fjas))
+      //
+      // `<name> = func(<p0> <T0>, ..) <ret> {`
+      val () =
+      (
+      nindfpr(filr, nind);
+      d2vargo1(filr, dvar); strnfpr(filr, " = func("))
+      val () = localfun_emit_params(filr, fjas, argtys)
+      val retty =
+      (
+      case+ dcopt of
+      |optn_cons(dcst) =>
+        let val (_, rt) = gotypes_of_funstyp(d2cst_get_styp(dcst)) in rt end
+      |optn_nil() => goretty_of_funvar(dvar))
+      val () =
+      (
+      strnfpr(filr, ") "); strnfpr(filr, retty);
+      strnfpr(filr, " {"); fprintln(filr))
+      //
+      // body: return mode, TCO-loop when it has a reachable tail self-call.
+      val () =
+      (
+      case+ tdxp of
+      |TEQI1CMPnone() =>
+        (
+        envx2go_incnind(env0, 1(*++*));
+        nindfpr(filr, envx2go_nind$get(env0));
+        strnfpr(filr, "panic(\"xats2go: local function with no body\")");
+        fprintln(filr);
+        envx2go_decnind(env0, 1(*--*));
+        prerrsln("[go1emit] NOTE: local I1Dfundcl with no body (TEQI1CMPnone)"))
+      |TEQI1CMPsome(_, icmp) =>
+        let
+          val hastc = i1cmp_body_has_tailcall(icmp)
+          val bnds  = binds_of_fjarglst(fjas)
+        in
+        if hastc then
+          let
+            val params = params_of_fjarglst(fjas)
+            val () = envx2go_incnind(env0, 1(*++*))
+            val () = (nindfpr(filr, envx2go_nind$get(env0)); strnfpr(filr, "for {\n"))
+            val () = envx2go_incnind(env0, 1(*++*))
+            val () = i1cmp_go1emit_ret(icmp, params, bnds, env0)
+            val () = envx2go_decnind(env0, 1(*--*))
+            val () = (nindfpr(filr, envx2go_nind$get(env0)); strnfpr(filr, "}\n"))
+            val () = envx2go_decnind(env0, 1(*--*))
+          in ((*void*)) end
+        else
+          (
+          envx2go_incnind(env0, 1(*++*));
+          i1cmp_go1emit_ret(icmp, list_nil(), bnds, env0);
+          envx2go_decnind(env0, 1(*--*)))
+        end)
+      //
+      // closing `}` of the func literal.
+      val () = (nindfpr(filr, nind); strnfpr(filr, "}"); fprintln(filr))
+    in
+      localfun_assign(i1fs1, d2cs1, env0)
+    end
+end//let//endof[localfun_assign(i1fs,d2cs,env0)]
+//
+(*
+[f0_localfun]: emit a NESTED function group (a `fun ..` / `fun .. and ..`
+inside a body / let / where) as Go LOCAL CLOSURES at this declaration point:
+  var f F                       (PASS A -- all `var`s first, for self/mutual rec)
+  var g G
+  f = func(..){ ..f(..)..g(..).. }   (PASS B -- the assignments)
+  g = func(..){ .. }
+A TEMPLATE local fun (non-empty t2qaglst) is reported UNHANDLED (M3), matching
+the top-level path.  The [dcl1] passed in may be a (wrapped) I1Dfundclst --
+[localfun_unwrap] strips to the bare node.
+*)
+fun
+f0_localfun
+(dcl1: i1dcl, env0: !envx2go): void =
+let
+  val filr = env0.filr()
+  val dclF = localfun_unwrap(dcl1)
+  val-I1Dfundclst(_, _, tqas, d2cs, i1fs) = dclF.node()
+in//let
+  case+ tqas of
+  |list_nil() =>
+    (
+    localfun_predecl(i1fs, d2cs, env0);
+    localfun_assign(i1fs, d2cs, env0))
+  |list_cons _ =>
+    (
+    nindfpr(filr, envx2go_nind$get(env0));
+    strnfpr(filr, "// UNHANDLED: template local fundclst"); fprintln(filr);
+    prerrsln("[go1emit] UNHANDLED: template local I1Dfundclst (M3)"))
+end//let//endof[f0_localfun(dcl1,env0)]
+//
+(* ****** ****** *)
+//
+(*
+[i1dcl_go1emit_local]: the per-decl entry for the decls INSIDE a function body
+/ let-in / where block (the I1INSlet0 decl list).  A (wrapped) I1Dfundclst is a
+NESTED function -> emit it as a LOCAL Go closure ([f0_localfun]); everything
+else routes to the normal [i1dcl_go1emit].  This is what keeps nested funs OUT
+of the package-level hoisting (and a TOP-level fun -- handled by the two-pass
+walk -- never reaches here).
+*)
+#implfun
+i1dcl_go1emit_local
+(dcl0, env0) =
+(
+if dcl_is_fundclst(dcl0)
+then f0_localfun(dcl0, env0)
+else i1dcl_go1emit(dcl0, env0)
+)//endof[i1dcl_go1emit_local(dcl0,env0)]
+//
+(*
+[i1dclist_go1emit_local]: walk a let-block's decl list with the local-closure
+routing ([i1dcl_go1emit_local]).  Used by the I1INSlet0 emitter (go1emit_dynexp)
+in place of the plain [i1dclist_go1emit] so a nested `fun` becomes a local
+closure instead of being skipped.
+*)
+#implfun
+i1dclist_go1emit_local
+(dcls, env0) =
+(
+list_foritm$e1nv<x0><e1>(dcls, env0)
+) where
+{
+#vwtpdef e1 = envx2go
+#typedef x0 = i1dcl
+#impltmp
+foritm$e1nv$work
+<x0><e1>(dcl1, env0) =
+(
+  i1dcl_go1emit_local(dcl1, env0))
+}(*where*)//endof[i1dclist_go1emit_local(dcls,env0)]
 //
 (* ****** ****** *)
 (* ****** ****** *)

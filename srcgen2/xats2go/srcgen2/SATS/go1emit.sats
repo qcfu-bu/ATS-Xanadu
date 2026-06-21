@@ -387,6 +387,20 @@ fun
 i1dcl_go1emit
 (dcl0: i1dcl, env0: !envx2go): void
 //
+// GAP-1: the decl walk for the decls INSIDE a function body / let-in / where
+// block (the I1INSlet0 decl list).  Identical to i1dclist_go1emit / i1dcl_go1emit
+// EXCEPT a (wrapped) I1Dfundclst -- a NESTED function -- is routed to a Go LOCAL
+// CLOSURE (`var f F; f = func(..){..}`, capturing surrounding locals + self-rec)
+// instead of being skipped/hoisted.  Used by the I1INSlet0 emitter so a `fun`
+// declared in a `where`/`let` is DEFINED at its declaration point.
+//
+fun
+i1dclist_go1emit_local
+(dcls: i1dclist, env0: !envx2go): void
+fun
+i1dcl_go1emit_local
+(dcl0: i1dcl, env0: !envx2go): void
+//
 // PASS-1 (package-level function) walkers -- emit ONLY I1Dfundclst nodes
 // at package scope (Go requires top-level `func` declarations).  The
 // in-main pass (i1dcl_go1emit) SKIPS I1Dfundclst.
