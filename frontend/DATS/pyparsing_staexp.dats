@@ -499,7 +499,32 @@ in
       @(PyPfree(loc_span(loc, pypat_loctn(p1)), p1), st1)
     end
   | PT_USCORE() => @(PyPwild(loc), ps_advance(st))
-  | PT_LIDENT(s) => @(PyPvar(loc, s), ps_advance(st))
+  | PT_LIDENT(s) =>
+    let val st1 = ps_advance(st) in
+      // GAP C (crash-safety): a lowercase identifier is a VARIABLE pattern and CANNOT take
+      // arguments. A `lident(args)` in pattern position (e.g. `case list_cons(a, b):`) is
+      // malformed — a constructor pattern needs an UPPERCASE name. Previously the parser
+      // returned the bare `PyPvar` here WITHOUT consuming the trailing `(args)`, leaving the
+      // cursor stuck at `(`; the downstream `expect_colon_e` then recorded a diagnostic but
+      // did not advance, and the case-arm/suite recovery spun without progress -> unbounded
+      // recursion -> SIGSEGV. The fix: detect the `(`, CONSUME the bogus arg list as a pattern
+      // sequence (so the cursor advances PAST `)` to the `:`), emit a survivable diagnostic,
+      // and return a PyPerror. The parser then makes forward progress (clean parse error +
+      // nerror>0, never a loop). (Per the capitalize decision the bootstrap emits UPPERCASE
+      // cons, so this is purely crash-safety, not a feature.)
+      case+ ps_peek(st1) of
+      | PT_LPAREN() =>
+        let
+          val @(_args, st2) = p_pat_seq(ps_advance(st1))   // ADVANCE past the bogus (args)
+          val locR = ps_peek_loctn(st2)
+          val st3 = expect_rparen(st2, locR)
+          val st4 = ps_diag(st3, loc_span(loc, locR),
+            "a constructor pattern needs an uppercase name (a lowercase variable pattern cannot be applied to arguments)")
+        in
+          @(PyPerror(loc_span(loc, locR), "lowercase con-application pattern"), st4)
+        end
+      | _ => @(PyPvar(loc, s), st1)
+    end
   | PT_UIDENT(s) =>
     let
       val st1 = ps_advance(st)

@@ -1,0 +1,8 @@
+# GAP B (DYNAMIC P1 feature 5): a first-class ref CELL created (a0ref_make_1val),
+# WRITTEN through with `r[] := e` (-> a0ref_set), and READ through with `r[]` (-> a0ref_get).
+# All three are the stock prelude ref API (re-exported in pyrt.sats). Typechecks nerror=0.
+
+def use_ref() -> Int:
+    let r = a0ref_make_1val(0)
+    r[] := 10
+    r[]

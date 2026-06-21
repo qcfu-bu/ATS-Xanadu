@@ -1,0 +1,13 @@
+# GAP A: a `private:` block whose HEAD holds a NON-`def` decl (an `enum` AND a module-level
+# `let`) + a public def using them. The D2Clocal0(non-def-head, rest) capture-rest LOWERS +
+# TYPECHECKS to nerror=0 (the boundary verdict). (The later codegen `i0varfst_mklst` ReferenceError
+# is a stock srcgen2 codegen-lib gap, INDEPENDENT of private: — it hits any def codegen — so the
+# assertion is the TYPECHECK count `nerror (after tread3a) = 0`, printed BEFORE codegen.)
+
+private:
+    enum Box:
+        case Mk(Int)
+    let base = 10
+
+def use_priv() -> Int:
+    base + 1

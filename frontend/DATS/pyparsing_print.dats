@@ -319,6 +319,9 @@ case+ e of
   ( ps(out, "(Eaddr"); print_span(out, loc); ps(out, " &"); pp_exp(out, e1); ps(out, ")") )
 | PyEderef(loc, e1) =>
   ( ps(out, "(Ederef"); print_span(out, loc); ps(out, " !"); pp_exp(out, e1); ps(out, ")") )
+// GAP B: `r[]` ref-cell deref.
+| PyEderefcell(loc, e1) =>
+  ( ps(out, "(Ederefcell"); print_span(out, loc); ps(out, " "); pp_exp(out, e1); ps(out, "[])") )
 | PyEerror(loc, msg) =>
   (ps(out, "(Eerror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )

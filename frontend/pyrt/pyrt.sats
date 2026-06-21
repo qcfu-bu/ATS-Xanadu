@@ -93,6 +93,39 @@ fun
 list_foldleft(xs: list(x), a0: a, f: (a, x) -> a): a
 //
 (* ****** ****** *)
+//
+// ============================ §B the first-class ref cell ============================
+//
+// GAP B (DYNAMIC P1 feature 5) — the surface `r[]` (read through a ref cell) and `r[] := e`
+// (assign through). These re-export the stock prelude's `a0ref` ref-cell API (srcgen1/prelude/
+// SATS/arrn000.sats) into the M3 USER env: the M3 driver loads THIS .sats via filpath_pvsload,
+// so a `fun` SIGNATURE here creates a TYPED d2cst CONSTANT (-> D2ITMcst) that resolves + type-
+// checks at the call site like any prelude fun. The stock prelude's `arrn000.sats` is NOT loaded
+// into `the_tr12env_pvsl00d` (the reduced M3 user prelude — basics0 has the `a0ref` TYPEDEF, but
+// not arrn000's fns), so the surface lowering's `a0ref_get`/`a0ref_set`/`a0ref_make_1val` would
+// resolve to D2Enone1 (unbound) without these re-exports. (The TYPE `a0ref(a)` IS in scope — it
+// is a `#typedef a0ref(a:vt) = a0ref_vt_tx(a)` in basics0.sats:1488, loaded by the bootstrap.)
+//
+// SURFACE MAPPING (pylower_dynexp.dats): `r[]` -> `a0ref_get(r)`, `r[] := e` -> `a0ref_set(r, e)`.
+// `a0ref_make_1val(x)` builds a cell (the surface `ref(x)` constructor). Signatures are the EXACT
+// stock prelude signatures (arrn000.sats:43-56), so they unify identically.
+//
+// make a fresh ref cell holding `x`.
+fun
+<a:vt>
+a0ref_make_1val(x: a): a0ref(a)
+//
+// read through a ref cell: `r[]`.
+fun
+<a:t0>
+a0ref_get(r: a0ref(a)): ( a )
+//
+// assign through a ref cell: `r[] := x`.
+fun
+<a:t0>
+a0ref_set(r: a0ref(a), x: a): void
+//
+(* ****** ****** *)
 (*
 end of [frontend/pyrt/pyrt.sats]
 *)

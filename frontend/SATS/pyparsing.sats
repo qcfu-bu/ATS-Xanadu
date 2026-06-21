@@ -324,6 +324,12 @@ pyexp =
 //              a DISTINCT, deferred feature; this is the expr-position deref only.
 | PyEaddr  of (loctn, pyexp)
 | PyEderef of (loctn, pyexp)
+//   PyEderefcell : `r[]` — read THROUGH a first-class ref CELL (GAP B, DYNAMIC P1 feature 5).
+//              The EMPTY-bracket subscript `r[]` (no index) — DISTINCT from `PyEindex` (`r[i]`,
+//              array indexing). ATS's pervasive `a0ref` deref: the elaborator maps it to the
+//              prelude `a0ref_get(r)` call (re-exported in pyrt.sats). In an LVALUE position
+//              `r[] := e`, the PySassign elaborator instead maps `r[]` to `a0ref_set(r, e)`.
+| PyEderefcell of (loctn, pyexp)
 //   PyEinst  : `@inst[T1, T2, ..] e` — an EXPRESSION-position TEMPLATE INSTANTIATION decorator
 //              (A-template). `@inst` is our FIRST non-declaration decorator: it carries a list of
 //              type-ARG USES (the `[T1,T2,..]` brackets, a `list(pytyp)`) and the following

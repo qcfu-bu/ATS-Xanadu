@@ -1,0 +1,76 @@
+# ROUND-TRIP (round 2) — FAITHFUL pythonic translation of
+#   srcgen2/DATS/filpath_drpth0.dats  (162 lines, a real ATS3 compiler .dats)
+# Dynamic-rich: TWO `local … in … end` blocks (the #1 backlog item, 1141x corpus-wide),
+# a `datatype` + `#absimpl` nested in a local-head, `#implfun` free-fn impls, `let`+`val+`
+# DESTRUCTURING binds, `case-` partial match on `list_cons`/`list_nil`, ref-cell `[]`
+# get/`[] :=` set, and `(a; b)` sequencing.
+#
+# Convention (per BOOTSTRAP decision): type & data-constructor names are UPPERCASED
+#   drpth -> Drpth ; DRPTH stays DRPTH (already upper).
+# Prelude library names (list_cons/list_nil/a0ref_*) are external refs — left as-is.
+
+@static
+let ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+# ---- local block #1: a datatype + #absimpl in the HEAD, two #implfun in the body ----
+# ATS:
+#   local
+#     datatype drpth = DRPTH of (strn)
+#     #absimpl drpth_tbox = drpth
+#   in
+#     #implfun drpth_get_name(dpx) = let val+ DRPTH(dnm) = dpx in dnm end
+#     #implfun drpth_make_name(dnm) = DRPTH(dnm)
+#   end
+
+private:
+    enum Drpth:
+        case DRPTH(Strn)
+    @absimpl Drpth_tbox = Drpth
+
+@impl def drpth_get_name(dpx: Drpth) -> Strn:
+    let DRPTH(dnm) = dpx
+    dnm
+
+@impl def drpth_make_name(dnm: Strn) -> Drpth:
+    DRPTH(dnm)
+
+# ---- local block #2: three module-level ref cells in the HEAD, five #implfun in body ----
+# ATS:
+#   local
+#     val the_drpth_nil = drpth_make_name("")
+#     val the_drpth_ref = a0ref_make_1val(the_drpth_nil)
+#     val the_drpthlst_ref = a0ref_make_1val(list_nil())
+#   in ... end
+
+private:
+    let the_drpth_nil = drpth_make_name("")
+    let the_drpth_ref = a0ref_make_1val(the_drpth_nil)
+    let the_drpthlst_ref = a0ref_make_1val(list_nil())
+
+@impl def the_drpth_get() -> Drpth:
+    the_drpth_ref[]
+
+@impl def the_drpthlst_get() -> List(Drpth):
+    the_drpthlst_ref[]
+
+@impl def the_drpth_pop0() -> Void:
+    let dpx0 = a0ref_get(the_drpth_ref)
+    let dpxs = a0ref_get(the_drpthlst_ref)
+    match dpxs:
+        case list_cons(dpx1, dpxs):
+            the_drpth_ref[] := dpx1
+            the_drpthlst_ref[] := dpxs
+
+@impl def the_drpth_push(dpth: Drpth) -> Void:
+    let dpx0 = the_drpth_ref[]
+    the_drpth_ref[] := dpth
+    the_drpthlst_ref[] := list_cons(dpx0, the_drpthlst_ref[])
+
+@impl def the_drpth_pop1() -> Drpth:
+    let dpx0 = a0ref_get(the_drpth_ref)
+    let dpxs = a0ref_get(the_drpthlst_ref)
+    match dpxs:
+        case list_cons(dpx1, dpxs):
+            the_drpth_ref[] := dpx1
+            the_drpthlst_ref[] := dpxs
+            dpx0

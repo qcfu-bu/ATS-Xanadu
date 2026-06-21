@@ -1,0 +1,9 @@
+# GAP C (crash-safety): `case list_cons(a, b):` — a LOWERCASE-head con-application in PATTERN
+# position. A lowercase identifier is a VARIABLE pattern and cannot take arguments. This used to
+# loop unboundedly -> SIGSEGV; now it is a CLEAN parse diagnostic ("a constructor pattern needs an
+# uppercase name") + a COUNTED error (nerror>0), and the process exits cleanly (rc != 139).
+
+def classify(x: Int) -> Int:
+    match x:
+        case list_cons(a, b): 1
+        case other: 0

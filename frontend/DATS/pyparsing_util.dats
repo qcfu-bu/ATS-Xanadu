@@ -44,6 +44,7 @@ case+ e of
 | PyEraise(loc, _) => loc     | PyEtry(loc, _, _) => loc
 | PyEop(loc, _) => loc        | PyEinst(loc, _, _) => loc
 | PyEaddr(loc, _) => loc      | PyEderef(loc, _) => loc
+| PyEderefcell(loc, _) => loc
 | PyEerror(loc, _) => loc
 )
 //

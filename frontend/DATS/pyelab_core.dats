@@ -175,7 +175,14 @@ case+ p of
 | PyPann(_, p1, _) => el_pat(p1)
 // B-LINEAR: `~p` -> PCPfree(loc, <elaborated p>). M3 lowers it to D2Pfree wrapping the inner.
 | PyPfree(loc, p1) => PCPfree(loc, el_pat(p1))
-| PyPerror(loc, _) => PCPvar(loc, "_error")
+// GAP C (crash-safety): a malformed pattern (e.g. `case list_cons(a,b):` — a lowercase
+// con-application the parser flagged as PyPerror) lowers to an UNRESOLVED constructor pattern
+// (`_ERRPAT_` is uppercase-shaped + can never be a real con), so M3's pl_pat routes it through
+// the unbound-con path -> a counted poison that tread3a COUNTS (nerror>0). Previously this was
+// a benign `PCPvar("_error")` binder that typechecked silently (nerror=0), so a malformed
+// pattern slipped through with only a parse diagnostic. The parser already emitted the survivable
+// diagnostic + advanced past the bogus args (no loop); this makes the error COUNT at typecheck.
+| PyPerror(loc, _) => PCPcon(loc, "_ERRPAT_", list_nil(), list_nil())
 )
 //
 and
@@ -361,6 +368,8 @@ case+ e of
 // B-LINEAR: `&x` / `!p` — the free vars are those of the inner l-value / pointer expr.
 | PyEaddr(_, e1)  => fc_fv_exp(bnd, fv, e1)
 | PyEderef(_, e1) => fc_fv_exp(bnd, fv, e1)
+// GAP B: `r[]` ref-cell deref — its free vars are those of the ref expr `r`.
+| PyEderefcell(_, e1) => fc_fv_exp(bnd, fv, e1)
 | PyEerror(_, _)  => fv
 )
 and
@@ -519,6 +528,11 @@ case+ e of
 | PyEfield(loc, e1, nm) => PCEfield(loc, el_exp(encl, e1), nm)
 | PyEindex(loc, e1, ix) =>
     PCEapp(loc, PCEvar(loc, "[]"), list_cons(el_exp(encl, e1), list_sing(el_exp(encl, ix))))
+// GAP B: `r[]` (read THROUGH a ref cell) -> a `a0ref_get(r)` call (the prelude ref-get, re-
+// exported in pyrt.sats). DISTINCT from PyEindex (`r[i]` -> the `[]` overload). In an LVALUE
+// position (`r[] := e`) the PySassign arm rewrites it to `a0ref_set(r, e)` instead.
+| PyEderefcell(loc, e1) =>
+    PCEapp(loc, PCEvar(loc, "a0ref_get"), list_sing(el_exp(encl, e1)))
 | PyElam(loc, is_func, params, body) =>
     // M7-closures: the lambda's own params are bound IN its body (and are enclosing-locals
     // for any DEEPER lambda). If @func, check captures against the CURRENT `encl` and wrap a
@@ -559,6 +573,21 @@ el_explst(encl: nameset, es: list(pyexp)): list(pcexp) =
 case+ es of
 | list_nil() => list_nil()
 | list_cons(e, rest) => list_cons(el_exp(encl, e), el_explst(encl, rest))
+)
+//
+// GAP B: elaborate a CELL ASSIGNMENT `lv := rhs`. If the lvalue is a ref-cell deref `r[]`
+// (PyEderefcell), the assignment writes THROUGH the ref cell -> a `a0ref_set(r, rhs)` call
+// (the prelude ref-set, re-exported in pyrt.sats). Otherwise it is a `var`-cell assignment
+// to a named lvalue -> PCEassign (the existing D2Eassgn path). Shared by every PySassign
+// site (el_pure + el_stmt below, and the loop-body elaborator pyelab_loop.dats).
+and
+el_cellassign(encl: nameset, loc: loctn, lv: pyexp, rhs: pyexp): pcexp =
+(
+case+ lv of
+| PyEderefcell(_, r) =>
+    PCEapp(loc, PCEvar(loc, "a0ref_set"),
+           list_cons(el_exp(encl, r), list_sing(el_exp(encl, rhs))))
+| _ => PCEassign(loc, el_exp(encl, lv), el_exp(encl, rhs))
 )
 //
 and
@@ -712,7 +741,9 @@ case+ ss of
       // a CELL ASSIGNMENT `lv := rhs` -> PCEassign (lowers to D2Eassgn). DISTINCT from the
       // `=` SSA-reassign path below (which rebinds in `muts`). A var cell is mutated in place;
       // there is no SSA shadowing here, so `muts`/`mts`/`encl` are unchanged for the rest.
-      PCEseq(loc, PCEassign(loc, el_exp(encl, lv), el_exp(encl, rhs)),
+      // GAP B: a ref-cell lvalue `r[] := rhs` becomes `a0ref_set(r, rhs)`; a named `var` cell
+      // `x := rhs` stays PCEassign (D2Eassgn). el_cellassign dispatches on the lvalue shape.
+      PCEseq(loc, el_cellassign(encl, loc, lv, rhs),
              el_pure(encl, rest, muts, mts, tail))
   // B-LINEAR: MOVE `lv :=> rhs` -> PCEmove (D2Exazgn) ; SWAP `lv :=: rhs` -> PCEswap (D2Exchng).
   // Both sides are existing l-values (var cells); they bind no new name. UNLIKE `:=` (D2Eassgn,

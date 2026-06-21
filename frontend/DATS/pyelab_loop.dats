@@ -169,8 +169,20 @@ case+ ss of
       // a CELL ASSIGNMENT inside a loop body -> PCEassign (D2Eassgn), in place. DISTINCT from
       // `=` reassign (which SSA-rebinds an accumulator in `muts`): a var cell is mutated where
       // it lives — captured from the enclosing scope, not threaded through the loop's accs.
-      PCEseq(loc, PCEassign(loc, elab_exp(encl, lv), elab_exp(encl, rhs)),
-             fl_suite(encl, rest, accs, muts, mts))
+      // GAP B: a ref-cell lvalue `r[] := rhs` writes THROUGH the cell -> `a0ref_set(r, rhs)`;
+      // a named `var` cell stays PCEassign. (Same dispatch as el_cellassign, over elab_exp.)
+      let
+        val ass =
+          (
+          case+ lv of
+          | PyEderefcell(_, r) =>
+              PCEapp(loc, PCEvar(loc, "a0ref_set"),
+                     list_cons(elab_exp(encl, r), list_sing(elab_exp(encl, rhs))))
+          | _ => PCEassign(loc, elab_exp(encl, lv), elab_exp(encl, rhs))
+          ): pcexp
+      in
+        PCEseq(loc, ass, fl_suite(encl, rest, accs, muts, mts))
+      end
   // B-LINEAR: MOVE / SWAP inside a loop body — in place; NOT accumulators. `:=>`/`:=:` return the
   // l-value type (NOT void), so a non-tail move/swap is bound to a `_` wildcard let to absorb its
   // result (a void seq-init would reject the non-void value); the LAST one is the suite tail.

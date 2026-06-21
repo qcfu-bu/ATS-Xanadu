@@ -445,13 +445,27 @@ in
       p_postfix_loop(e1, st2)
     end
   | PT_LBRACK() =>
-    let
-      val @(ix, st1) = p_expr(ps_advance(st))
-      val locR = ps_peek_loctn(st1)
-      val st2 = expect_rbrack_e(st1, locR)
-      val e1 = PyEindex(loc_span(loc0, locR), e0, ix)
-    in
-      p_postfix_loop(e1, st2)
+    let val st_a = ps_advance(st) in
+      case+ ps_peek(st_a) of
+      // GAP B: an EMPTY subscript `r[]` is a ref-cell DEREF (read THROUGH an `a0ref`), NOT an
+      // index. Detect the immediate `]` (no index expr) and build PyEderefcell; the elaborator
+      // maps it to `a0ref_get(r)` (or, as an lvalue in `r[] := e`, to `a0ref_set(r, e)`).
+      | PT_RBRACK() =>
+        let
+          val locR = ps_peek_loctn(st_a)
+          val e1 = PyEderefcell(loc_span(loc0, locR), e0)
+        in
+          p_postfix_loop(e1, ps_advance(st_a))
+        end
+      | _ =>
+        let
+          val @(ix, st1) = p_expr(st_a)
+          val locR = ps_peek_loctn(st1)
+          val st2 = expect_rbrack_e(st1, locR)
+          val e1 = PyEindex(loc_span(loc0, locR), e0, ix)
+        in
+          p_postfix_loop(e1, st2)
+        end
     end
   | PT_DOT() =>
     let val st1 = ps_advance(st) in
