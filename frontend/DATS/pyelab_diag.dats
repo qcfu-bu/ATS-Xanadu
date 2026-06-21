@@ -107,7 +107,7 @@ harv_decl(d: pcdecl, acc: list(pcdiag)): list(pcdiag) =
 (
 case+ d of
 | PCCerror(loc, msg) => list_append(acc, list_sing(PCDiag(loc, msg)))
-| PCCfun(_, fs) => harv_fundcls(fs, acc)
+| PCCfun(_, _, fs) => harv_fundcls(fs, acc)
 | PCCval(_, _, e) => harv_exp(e, acc)
 | PCCdata(_, _, _, _, _) => acc
 | PCCstaload(_, _) => acc
@@ -231,7 +231,7 @@ fun
 uses_decl(d: pcdecl): bool =
 (
 case+ d of
-| PCCfun(_, fs) => uses_fundcls(fs)
+| PCCfun(_, _, fs) => uses_fundcls(fs)
 | PCCval(_, _, e) => uses_exp(e)
 | _ => false
 )

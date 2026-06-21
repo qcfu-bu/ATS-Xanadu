@@ -92,10 +92,46 @@ typ_alias(name: strn): strn =
   else if strn_eq(name, "String") then "the_s2exp_strn0"
   else if strn_eq(name, "Char") then "the_s2exp_char0"
   else if strn_eq(name, "Float") then "the_s2exp_dflt0"
+  // DEP: a BARE `SInt` (no index args) is the EXISTENTIAL int — the SAME `the_s2exp_sint0`
+  // that an int literal's type is `T2Pcst(the_s2exp_sint0)` (M5a reasoning), so `-> SInt`
+  // unifies with `0`. The INDEXED form `SInt[k]` is routed separately (the_s2exp_sint1) in
+  // the PyTcon arm BEFORE this alias runs — so this branch only fires for the bare name.
+  else if strn_eq(name, "SInt") then "the_s2exp_sint0"
+  else if strn_eq(name, "SBool") then "the_s2exp_bool0"
   else name
 )
 //
 (* ****** ****** *)
+//
+// DEP (dependent-type surface, Stages 1–2): parse a surface INDEX literal (a digit lexeme kept
+// verbatim on PyTidx) to a STATIC int s2exp `s2exp_int(k)` (DEP-spike P1-proven: an index ARG on
+// a type con). `gint_parse_sint` (prelude gint000.sats) converts the lexeme; a malformed lexeme
+// parses to 0 (benign — the surface lexer only emits PT_INT for a real integer, so this is total).
+fun
+pylower_index_lit(loc: loctn, raw: strn): s2exp =
+  s2exp_int(gint_parse_sint(raw))
+//
+(* ****** ****** *)
+//
+// DEP: resolve a RAW (prelude) static name to its head s2cst s2exp, with NO surface aliasing —
+// used for the registered parametric int/bool sexpdefs `the_s2exp_sint1`/`the_s2exp_bool1` (the
+// indexed-primitive heads). Mirrors the spike's resolve_typ_name (S2ITMcst -> head). An unbound
+// name -> s2exp_none0 (benign; trans23 treats it as an unconstrained tyvar — characterized).
+fun
+resolve_typ_name(env: !tr12env, name: strn): s2exp = let
+  val sopt = tr12env_find_s2itm(env, symbl_make_name(name))
+in
+  case+ sopt of
+  | ~optn_vt_cons(s2i) =>
+    (
+      case+ s2i of
+      | S2ITMcst(s2cs) =>
+          if list_nilq(s2cs) then s2exp_none0() else s2exp_cst(s2cs.head())
+      | S2ITMvar(s2v)  => s2exp_var(s2v)
+      | S2ITMenv(_)    => s2exp_none0()
+    )
+  | ~optn_vt_nil() => s2exp_none0()
+end
 //
 // resolve a type NAME to an s2exp (LOWERING-MAP §3.5). On a hit with a single s2cst, emit
 // S2Ecst; an overloaded set takes the head; a static var -> S2Evar; unbound -> s2exp_none0.
@@ -116,6 +152,23 @@ in
     )
   | ~optn_vt_nil() => s2exp_none0()
 end
+//
+(* ****** ****** *)
+//
+// DEP: the HEAD s2exp for an APPLIED type-con `name[...]`. The indexed primitives `SInt`/`SBool`
+// (when applied) route to the registered parametric int/bool s2cst the_s2exp_sint1/the_s2exp_bool1
+// (resolve_typ_name, NO surface aliasing — the raw prelude name); every other name resolves via
+// the usual surface-aliased resolve_typ (so `Vec`/`List`/`Tree` keep working). Factored OUT of
+// pylower_typ's PyTcon arm so the arm is a single application expression (the standalone
+// transpiler rejects an inline `let`-in-`else if` cascade inside a case arm). Defined AFTER
+// resolve_typ/resolve_typ_name so the forward references resolve (a plain `fun` sees earlier funs).
+fun
+pytcon_head(env: !tr12env, name: strn): s2exp =
+(
+  if strn_eq(name, "SInt") then resolve_typ_name(env, "the_s2exp_sint1")
+  else if strn_eq(name, "SBool") then resolve_typ_name(env, "the_s2exp_bool1")
+  else resolve_typ(env, loctn_dummy(), name)
+)
 //
 (* ****** ****** *)
 //
@@ -170,12 +223,23 @@ case+ t of
 | PyTcon(loc, name, args) =>
   if list_nilq(args)
     then resolve_typ(env, loc, name)
-    else let
-      val s2f = resolve_typ(env, loc, name)
-      val s2as = pylower_typlst(env, args)
-    in s2exp_apps(loc, s2f, s2as) end
+    // DEP: the INDEXED primitives `SInt[k]`/`SInt[n]` (and `SBool[..]`) route through the
+    // registered parametric int/bool s2cst the_s2exp_sint1 / the_s2exp_bool1 (NOT the bare-int
+    // sexpdef — the M5a/P8 hazard: the bare int hits the unify00 T2Pbas crash). DEP-spike
+    // P8-proven: s2exp_apps(the_s2exp_sint1, [idx]) with a literal/var index typechecks (nerror=0).
+    // A general parametric type-con (`Vec[A, n]`, `List[A, n]`) -> resolve the head + apply: each
+    // arg lowers via pylower_typ — a TYPE arg (`A`/`Int`, an UIDENT -> PyTcon) -> its s2exp; an
+    // INDEX LITERAL (`0`, a digit -> PyTidx) -> s2exp_int(k); an INDEX VAR (`n`, a lowercase LIDENT
+    // -> PyTvar) -> s2exp_var(<the int-sorted s2var bound by the enclosing quantifier>) via
+    // resolve_typ's S2ITMvar arm. (DEP-spike P1-proven: a mixed type+index arg list on a
+    // parametric con whose sort is S2Tfun1([type, int0], tbox) typechecks structurally.)
+    // pytcon_head resolves the head s2exp; pylower_typlst lowers the (type/index) args.
+    else s2exp_apps(loc, pytcon_head(env, name), pylower_typlst(env, args))
 | PyTvar(loc, name) => resolve_typ(env, loc, name)
-| PyTidx(loc, _)    => s2exp_none0()  // dependent index — deferred (M4/M5)
+// DEP: an INDEX LITERAL (`0`, `5`) in a type-arg list -> a STATIC int s2exp s2exp_int(k). (A bare
+// index variable `n` arrives as PyTvar, not PyTidx — the lexer emits PT_LIDENT for a lowercase
+// name; PyTvar's resolve_typ S2ITMvar arm yields s2exp_var. So PyTidx is ONLY the literal case.)
+| PyTidx(loc, raw)  => pylower_index_lit(loc, raw)
 // M7 (B): a surface function type `(A, B) -> R` lowers to the L2 con-function type S2Efun1.
 // We mirror the PROVEN con-type maker `s2exp_fun1_nil0(npf, argSexps, resSexp)` (M5b.3 con
 // types, pylower_decl00.dats:73; staexp2.dats:1037 shows nil0 = fun1_full(F2CLfun, ...)) — the

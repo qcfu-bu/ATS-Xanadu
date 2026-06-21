@@ -1,0 +1,6 @@
+enum Vec[A, n: SInt]:
+    case VNil
+    case VCons(A, Vec[A, n])
+
+def len_index[A, n: SInt](v: Vec[A, n]) -> SInt:
+    0

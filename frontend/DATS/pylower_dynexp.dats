@@ -275,6 +275,19 @@ fun
 pl_sres(env: !tr12env, ret: pytypopt): s2res =
 ( case+ ret of PyTypNone() => S2RESnone() | PyTypSome(t) => pylower_sres(env, t) )
 //
+// DEP (Stages 1–2): push a def's quantifier s2vars into the current lam-scope so the member
+// param/return types resolve them (`Vec[A, n]` -> `A`/`n` via resolve_typ's S2ITMvar arm). The
+// dynexp-file twin of pylower_decl00's bind_param_s2vars (file-local there; the bodies are lowered
+// HERE). Caller brackets with pshlam0/poplam0.
+fun
+bind_param_s2vars_d(env: !tr12env, s2vs: s2varlst): void =
+(
+case+ s2vs of
+| list_nil() => ()
+| list_cons(s2v, rest) =>
+    let val () = tr12env_add0_s2var(env, s2v) in bind_param_s2vars_d(env, rest) end
+)
+//
 // M5a: build a list of (possibly typed) param patterns, parallel to a name + type list.
 fun
 pl_param_pats
@@ -546,7 +559,8 @@ case+ e of
 // template F (local form) : `let fun f(..)=.. and g(..)=.. in body`.
 | PCEletfun(loc, fdcls, body) => let
     val () = tr12env_pshlet0(env)
-    val decl = pl_fungroup(env, loc, fdcls)
+    // DEP: a generated loop / local fun group is NEVER index-quantified — pass empty typarams.
+    val decl = pl_fungroup(env, loc, list_nil()(*tvs*), fdcls)
     val d2body = pl_exp(env, body)
     val () = tr12env_poplet0(env)
   in
@@ -793,7 +807,7 @@ case+ hd of
 // `while` loop (what the desugared loops rely on). No generic tqas in v1.
 //
 and
-pl_fungroup(env: !tr12env, loc: loctn, fdcls: list(pcfundcl)): d2ecl = let
+pl_fungroup(env: !tr12env, loc: loctn, tvs: list(pcparam), fdcls: list(pcfundcl)): d2ecl = let
   //
   fun
   names_d2vs(fs: list(pcfundcl)): list(d2var) =
@@ -812,10 +826,31 @@ pl_fungroup(env: !tr12env, loc: loctn, fdcls: list(pcfundcl)): d2ecl = let
     | (list_cons(d2v, drest), list_cons(fdcl, frest)) =>
         list_cons(pl_one_fundcl(env, d2v, fdcl), members(drest, frest))
     | (_, _) => list_nil()
-  //
-  val d2fs = members(d2vs, fdcls)
 in
-  d2ecl_make_node(loc, D2Cfundclst(tok_fun(loc), list_nil()(*tqas*), list_nil()(*d2cs*), d2fs))
+  // DEP (Stages 1–2): a GENERIC def `def f[A, n: SInt](...)` — the §5.7 type/INDEX params `tvs`
+  // are NON-empty. Mirror the stock f0_fundclst quantifier dance (trans12_decl00.dats:2965-3030):
+  // one s2var per param at its psort2_of sort (a `[n: SInt]` -> an INT-sorted s2var), pushed into
+  // a lam-scope so the member param/return TYPES resolve `n`/`A` (resolve_typ's S2ITMvar arm), then
+  // the D2Cfundclst is QUANTIFIED over them via its t2qag `tqas` field. (NO s2exp_uni0 wrap is
+  // needed — the tqas field is the def-quantification mechanism; the spike's P2 uni0 was for a
+  // bodyless d2cst, not a fundcl-with-body.) The s2vars stay in scope across BOTH the f2as param-
+  // type lowering AND the bodies (pl_one_fundcl's inner body pshlam0 nests under this outer one).
+  if list_nilq(tvs) then let
+    // NON-generic def (tvs empty): the byte-identical pre-DEP path (no scope push, empty tqas).
+    val d2fs = members(d2vs, fdcls)
+  in
+    d2ecl_make_node(loc, D2Cfundclst(tok_fun(loc), list_nil()(*tqas*), list_nil()(*d2cs*), d2fs))
+  end
+  else let
+    val s2vs = mk_param_s2vars(tvs)               // one s2var per param at its declared sort
+    val () = tr12env_pshlam0(env)                 // enter the quantifier scope
+    val () = bind_param_s2vars_d(env, s2vs)       // bind `A`/`n` so the param/return types resolve them
+    val d2fs = members(d2vs, fdcls)               // lower the members WITHIN the quantifier scope
+    val () = tr12env_poplam0(env)                 // leave the quantifier scope
+    val tqas = list_sing(t2qag(loc, s2vs)) : t2qaglst   // the def's universal {A}{n:i0} quantifier
+  in
+    d2ecl_make_node(loc, D2Cfundclst(tok_fun(loc), tqas, list_nil()(*d2cs*), d2fs))
+  end
 end
 //
 // lower one member: build the (possibly typed) params, push a lam scope, register them, lower
@@ -905,7 +940,7 @@ end
 #implfun pylower_exp(env, e) = pl_exp(env, e)
 #implfun pylower_explst(env, es) = pl_explst(env, es)
 #implfun params_to_f2arglst(env, loc, params) = pl_params(loc, params)
-#implfun lower_fungroup(env, loc, fdcls) = pl_fungroup(env, loc, fdcls)
+#implfun lower_fungroup(env, loc, tvs, fdcls) = pl_fungroup(env, loc, tvs, fdcls)
 #implfun lower_implement(env, loc, name, pnames, ptypes, ret, body) =
   pl_implement(env, loc, name, pnames, ptypes, ret, body)
 //

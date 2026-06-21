@@ -382,7 +382,7 @@ case+ d of
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_pcparams(out, tvs); ps(out, ")")) );
     ps(out, " mode="); pp_mode(out, mode);
     pp_pcfields(out, fields); ps(out, ")") )
-| PCCfun(loc, fs) =>
+| PCCfun(loc, _tps, fs) =>
   ( ps(out, "(fungroup"); print_span(out, loc);
     pp_fundclst(out, fs, ind + 1); ps(out, ")") )
 | PCCval(loc, p, e) =>

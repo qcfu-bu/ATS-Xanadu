@@ -312,7 +312,15 @@ pcfundcl =
 and
 pcdecl =
 | PCCdata    of (loctn, strn, list(pcparam), list(pcdatacon), pcmode)
-| PCCfun     of (loctn, list(pcfundcl))
+//   PCCfun : a top-level def group. DEP (Stages 1–2): the `list(pcparam)` carries the def's §5.7
+//            type/INDEX params (`def f[A, n: SInt](...)`) — each pcparam its name + sort name +
+//            @unboxed flag (the SAME shape PCCdata/PCCalias carry). M3 builds an s2var per param at
+//            its psort2_of sort (a `[n: SInt]` -> an int-sorted s2var, via SInt->the_sort2_int0),
+//            binds them in scope while lowering the param/return types (so `Vec[A, n]` / `SInt`
+//            resolve `n`/`A`), and quantifies the D2Cfundclst over them (the t2qag `tqas` field —
+//            the stock f0_fundclst mechanism). EMPTY list = a NON-generic def (byte-identical to
+//            before this slice). Loop-generated fun groups (PCEletfun) carry NO typarams.
+| PCCfun     of (loctn, list(pcparam), list(pcfundcl))
 | PCCval     of (loctn, pcpat, pcexp)
 | PCCstaload of (loctn, strn)
 | PCCimport  of (loctn, strn(*resolved XATSHOME-rel .sats path*), sint(*0=static*), bool(*is_python: defer*))

@@ -1,0 +1,6 @@
+enum Vec[A, n: SInt]:
+    case VNil
+    case VCons(A, Vec[A, n])
+
+def vec_id[A, n: SInt](v: Vec[A, n]) -> Vec[A, n]:
+    v

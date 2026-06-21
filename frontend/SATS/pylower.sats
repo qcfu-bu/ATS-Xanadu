@@ -99,7 +99,23 @@ fun bind_let_styp(d2p: d2pat, d2rhs: d2exp): void
 // (template F). The group's names are bound into `env` BEFORE the bodies (a Python def group
 // is recursive), so self/mutual calls resolve to the same d2var. Shared by the let-form
 // (PCEletfun, in pylower_dynexp) and the top-level form (PCCfun, in pylower_decl00).
-fun lower_fungroup(env: !tr12env, loc: loctn, fdcls: list(pcfundcl)): d2ecl
+//
+// DEP (Stages 1–2): `tvs` are the def's §5.7 type/INDEX params (`def f[A, n: SInt](...)`). When
+// non-empty, lower_fungroup builds an s2var per param at its psort2_of sort (a `[n: SInt]` -> an
+// int-sorted s2var), pushes them into a lam-scope BEFORE lowering the param/return types (so
+// `Vec[A, n]` / `SInt` resolve `n`/`A` via resolve_typ's S2ITMvar arm), and quantifies the
+// D2Cfundclst over them (its t2qag `tqas` field — the stock f0_fundclst mechanism). EMPTY `tvs`
+// => the byte-identical NON-generic path (no scope push, empty tqas). The PCEletfun (loop) caller
+// passes `[]` — a generated loop is never index-quantified.
+fun lower_fungroup
+  (env: !tr12env, loc: loctn, tvs: list(pcparam), fdcls: list(pcfundcl)): d2ecl
+//
+// DEP: map a pcparam's surface sort name (+ @unboxed) to its L2 sort2 (the SInt/SBool index sorts
+// + the Type/Linear/Prop type sorts). EXPORTED so the def quantifier (pylower_dynexp) + the
+// data/alias/struct generics (pylower_decl00) share ONE source of truth. `mk_param_s2vars` makes
+// one s2var per param at its psort2_of sort, in order (the quantifier's bound vars).
+fun psort2_of(p: pcparam): sort2
+fun mk_param_s2vars(params: list(pcparam)): s2varlst
 //
 // lower an `implement NAME(params) [-> Ret]: body` (PCCimplement) to a D2Cimplmnt0 (ATS-parity).
 // RESOLVES the pre-declared d2cst by NAME (DIMPLone1), binds the (typed) params in a lam scope,

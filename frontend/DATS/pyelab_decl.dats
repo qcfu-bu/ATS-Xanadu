@@ -180,17 +180,20 @@ fun
 elab_decl(d: pydecl): list(pcdecl) =
 (
 case+ d of
-| PyCfun(loc, nm, _tps, params, ret, body) =>
+| PyCfun(loc, nm, tps, params, ret, body) =>
     let
       // M5a: thread the param types + the return annotation into the PCFundcl (typed def).
-      // (typarams `_tps` are still ignored at this layer — unchanged behavior; the field
-      //  type changed to list(pytyparam) in §5.7 but the value flow is identical.)
       // M7-closures: seed `encl` with the def's OWN params — they are the first enclosing
       // FUNCTION-LOCALS a @func lambda in this body may NOT capture (make_bad(n)'s `n`).
       val fundcl = PCFundcl(loc, nm, param_names_d(params), param_types_d(params),
                             ret, elab_func_body(fc_param_names_pub(list_nil(), params), loc, body), false)
+      // DEP (Stages 1–2): the def's §5.7 type/INDEX params (`def f[A, n: SInt](...)`) are now
+      // THREADED onto the PCCfun group (was dropped here). elab_typarams keeps each param's sort
+      // name + @unboxed flag, so M3 builds an int-sorted s2var for a `[n: SInt]` (via psort2_of's
+      // SInt->the_sort2_int0) and quantifies the def over it (the t2qag mechanism). A non-generic
+      // def has `tps = []` => `[]` => byte-identical lowering to before this slice.
     in
-      list_sing(PCCfun(loc, list_sing(fundcl)))
+      list_sing(PCCfun(loc, elab_typarams(tps), list_sing(fundcl)))
     end
 | PyCenum(loc, decos, nm, tps, dcs) =>
     // §5.7 enum → a PyCore datatype. M5b.6a: the decorator selects the memory/representation

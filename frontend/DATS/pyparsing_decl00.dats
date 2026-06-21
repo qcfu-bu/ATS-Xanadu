@@ -72,29 +72,39 @@ and
 p_tyvar_seq(st: pstate): @(list(pytyparam), pstate) =
 ( case+ ps_peek(st) of
   | PT_RBRACK() => @(list_nil(), ps_advance(st))
-  | PT_UIDENT(_) =>
-    let val @(tp, st1) = p_typaram(st) in
-      case+ ps_peek(st1) of
-      | PT_COMMA() =>
-        let val @(rest, st2) = p_tyvar_seq(ps_advance(st1)) in
-          @(list_cons(tp, rest), st2) end
-      | PT_RBRACK() => @(list_cons(tp, list_nil()), ps_advance(st1))
-      | _ =>
-        let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected ',' or ']' in type params") in
-          @(list_cons(tp, list_nil()), st2) end
-    end
+  // a TYPE param is an UIDENT (`A`); DEP: an INDEX param is a LOWERCASE LIDENT (`n`, `b` in
+  // `[A, n: SInt]`) — both open a typaram. p_typaram accepts either name kind; the sort
+  // annotation (`: SInt`/`: SBool`) is what makes it an index param at lowering (psort2_of).
+  | PT_UIDENT(_) => p_tyvar_seq_one(st)
+  | PT_LIDENT(_) => p_tyvar_seq_one(st)
   | _ =>
-    let val st1 = ps_diag(st, ps_peek_loctn(st), "expected a type parameter (uppercase)") in
+    let val st1 = ps_diag(st, ps_peek_loctn(st), "expected a type parameter") in
       @(list_nil(), st1) end )
 //
-// one type parameter: UIDENT [ ':' SORT ] { '@' LIDENT }.
+// parse one typaram then the trailing ',' / ']' (shared by the UIDENT + LIDENT entry arms).
+and
+p_tyvar_seq_one(st: pstate): @(list(pytyparam), pstate) =
+  let val @(tp, st1) = p_typaram(st) in
+    case+ ps_peek(st1) of
+    | PT_COMMA() =>
+      let val @(rest, st2) = p_tyvar_seq(ps_advance(st1)) in
+        @(list_cons(tp, rest), st2) end
+    | PT_RBRACK() => @(list_cons(tp, list_nil()), ps_advance(st1))
+    | _ =>
+      let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected ',' or ']' in type params") in
+        @(list_cons(tp, list_nil()), st2) end
+  end
+//
+// one type parameter: (UIDENT | DEP: LIDENT) [ ':' SORT ] { '@' LIDENT }. The name may be an
+// UIDENT (a TYPE param `A`) or a LOWERCASE LIDENT (DEP: an INDEX param `n` — `[n: SInt]`).
 and
 p_typaram(st: pstate): @(pytyparam, pstate) = let
   val loc = ps_peek_loctn(st)
   val @(nm, st1) =
     ( case+ ps_peek(st) of
       | PT_UIDENT(s) => @(s, ps_advance(st))
-      | _ => @("?", ps_diag(st, loc, "expected a type parameter (uppercase)")) )
+      | PT_LIDENT(s) => @(s, ps_advance(st))   // DEP: a lowercase INDEX param name (`n`)
+      | _ => @("?", ps_diag(st, loc, "expected a type parameter name")) )
   // optional sort annotation: ':' UIDENT
   val @(sopt, st2) =
     ( case+ ps_peek(st1) of

@@ -132,9 +132,16 @@ pyuop =
 // ==================================================================
 //
 //   PyTcon  : UIDENT applied to 0+ type args — `Int`, `List[Int]`, `Tree[a]`.
-//             (a bare `Int` is `PyTcon("Int", [])`; `List[Int]` carries one arg.)
-//   PyTvar  : LIDENT — a type variable (`a`, `b`).
-//   PyTidx  : an INT index literal in a dependent type (e.g. array sizes).
+//             (a bare `Int` is `PyTcon("Int", [])`; `List[Int]` carries one arg.) DEP: a type-app
+//             arg list `Vec[A, n]` / `Vec[Int, 0]` may MIX type args (`A`, `Int` — PyTcon) and
+//             INDEX args (a literal `0` -> PyTidx; a variable `n` -> PyTvar). The index-vs-type
+//             distinction is resolved at LOWERING (a digit -> s2exp_int; a bound index s2var ->
+//             s2exp_var via resolve_typ's S2ITMvar arm), not in the AST shape.
+//   PyTvar  : LIDENT — a type variable (`a`, `b`) OR an INDEX variable (`n`, bound by an enclosing
+//             `[n: SInt]` quantifier). Both are lowercase names; resolve_typ's S2ITMvar arm yields
+//             s2exp_var of WHATEVER s2var the name is bound to (type-sorted or int/bool-sorted).
+//   PyTidx  : an INT index LITERAL in a dependent type (e.g. `Vec[A, 0]` size). DEP: the parser
+//             emits this for a bare digit in a type-arg list (PT_INT); lowering -> s2exp_int(k).
 //   PyTfun  : function type `(A, B) -> C` — args ++ result, right-assoc at parse.
 //   PyTtup  : tuple type `(A, B)`.
 //   PyTrec  : record type `{ x: Int, y: Int }` — fields use ':'.

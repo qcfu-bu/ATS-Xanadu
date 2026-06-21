@@ -109,18 +109,33 @@ case+ dcs of
 // the_sort2_type (a sort typo must not crash — trans23 surfaces a real error if the
 // instantiation mismatches). Plain `[A]` (sname="", unboxed=false) -> the_sort2_type, so the
 // monomorphic-and-plain-parametric path is BYTE-IDENTICAL to before this slice.
-fun
-psort2_of(p: pcparam): sort2 =
+//
+// DEP (dependent-type surface, Stages 1–2): the two INDEX sorts (DEP-spike P1/P2-proven, the
+// predicative static-arithmetic sorts a `[n: SInt]` / `[b: SBool]` quantifier binds):
+//   `SInt`  -> the_sort2_int0   (the int index sort — so `[n: SInt]` is an INDEX param; its
+//              s2var is `s2var_make_idst(sym, the_sort2_int0)`, the spike's index-var recipe),
+//   `SBool` -> the_sort2_bool   (the bool index sort).
+// An index param's s2var (int/bool-sorted) is bound in scope exactly like a type param, so a
+// type-app arg `Vec[A, n]` resolves `n` to s2exp_var(<the int s2var>) via resolve_typ's S2ITMvar
+// arm. (Static arithmetic `n+1` + guards `{n | n>=0}` are a SEPARATE follow-up — literal +
+// variable indices only here.)
+#implfun
+psort2_of(p) =
 (
 case+ p of
 | PCParam(_, _, sname, unboxed) =>
   (
+    // DEP: the index sorts first (a `[n: SInt]` is an INDEX param, not a type param).
+    if strn_eq(sname, "SInt")
+      then the_sort2_int0
+      else if strn_eq(sname, "SBool")
+        then the_sort2_bool
     // "Type" OR "" (default) OR any unknown name => the_sort2_type / the_sort2_tflt.
-    if strn_eq(sname, "Linear")
-      then (if unboxed then the_sort2_vtft else the_sort2_vwtp)
-      else if strn_eq(sname, "Prop")
-        then the_sort2_prop
-        else (if unboxed then the_sort2_tflt else the_sort2_type)
+      else if strn_eq(sname, "Linear")
+        then (if unboxed then the_sort2_vtft else the_sort2_vwtp)
+        else if strn_eq(sname, "Prop")
+          then the_sort2_prop
+          else (if unboxed then the_sort2_tflt else the_sort2_type)
   )
 )
 //
@@ -128,8 +143,8 @@ case+ p of
 // are BOTH the params bound into scope (so a con arg type / record field `A` resolves to
 // s2exp_var) AND the vars the result type is applied to + the con/alias is quantified over.
 //
-fun
-mk_param_s2vars(params: list(pcparam)): s2varlst =
+#implfun
+mk_param_s2vars(params) =
 (
 case+ params of
 | list_nil() => list_nil()
@@ -516,7 +531,10 @@ case+ d of
 //
 // a top-level (possibly recursive/mutual) def group -> D2Cfundclst. lower_fungroup binds the
 // group's names into `env` (visible to later decls + recursive self-calls) BEFORE the bodies.
-| PCCfun(loc, fdcls) => lower_fungroup(env, loc, fdcls)
+// DEP (Stages 1–2): a def group carries its §5.7 type/INDEX params `tvs` (`def f[A, n: SInt]`).
+// lower_fungroup builds an s2var per param (int-sorted for `[n: SInt]`), binds them while lowering
+// the param/return types, and quantifies the D2Cfundclst over them. `tvs = []` => non-generic def.
+| PCCfun(loc, tvs, fdcls) => lower_fungroup(env, loc, tvs, fdcls)
 //
 // a top-level `val p = e` -> D2Cvaldclst (template C: bind the pattern AFTER its RHS).
 | PCCval(loc, p, rhs) => let

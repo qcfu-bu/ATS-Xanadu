@@ -1,0 +1,5 @@
+def zero_idx() -> SInt[0]:
+    0
+
+def same_idx[n: SInt](x: SInt[n]) -> SInt[n]:
+    x
