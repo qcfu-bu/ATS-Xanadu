@@ -66,6 +66,8 @@ case+ nod of
 | PT_KW_FORALL() => "KW_FORALL"
 | PT_KW_EXISTS() => "KW_EXISTS"
 | PT_KW_AT() => "KW_AT"
+| PT_KW_WHERE() => "KW_WHERE"
+| PT_KW_PRIVATE() => "KW_PRIVATE"
 | PT_KW_AND() => "KW_AND"
 | PT_KW_OR() => "KW_OR"
 | PT_KW_NOT() => "KW_NOT"

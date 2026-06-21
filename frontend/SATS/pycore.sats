@@ -237,6 +237,12 @@ pcexp =
 //             thus reaches ATS `foo<Int>(5)`. (Resolution/monomorphization is deferred to trtmp3b/3c,
 //             AFTER tread3a, so the instantiated form typechecks structurally — SPIKE T3-proven.)
 | PCEinst   of (loctn, list(pytyp), pcexp)
+//   PCEwhere : SCOPING (bootstrap P1) — a def BODY wrapped in a `where:` block: `e where {decls}`.
+//              Carries the body expr + the ELABORATED where-decls. M3 lowers it (pl_exp) to
+//              D2Ewhere(<body>, <lowered where-decls>) — the where-decls are BACKWARDS-scoped around
+//              the body (ATS `where`), so a body reference to a where-defined helper resolves.
+//              SPIKE-PROVEN (S1, nerror=0). Only the elaborator's def-body wrapping builds it.
+| PCEwhere  of (loctn, pcexp(*body*), list(pcdecl)(*where-decls*))
 | PCEerror  of (loctn, strn)
 //
 // a record-literal field `name = expr`.
@@ -445,6 +451,16 @@ pcdecl =
 //               built-in `exn` type (the_s2cst_excptn), registered like a datatype con so
 //               `raise E` / `except E` resolve. Nullary `exception Empty` has [].
 | PCCexcept  of (loctn, strn, list(pytyp))
+//   PCCprivate : SCOPING (bootstrap P1) — a RUN of `private` decls (a single `private def …`
+//                modifier → a one-element run, or a `private:` block → the indented suite). The
+//                MODULE/SUITE driver (pylower_decls) applies the CAPTURE-REST transform: the
+//                privates become the local-HEAD (D1) and ALL FOLLOWING sibling decls in the same
+//                suite become the local-BODY (D2) of a single D2Clocal0(D1, D2) — so the privates
+//                are visible to D2 but NOT exported past the block. SPIKE-PROVEN (S2, nerror=0).
+//                FAITHFULNESS: capture-rest is exact for the dominant case where `local…end` is the
+//                TAIL of its scope (a `private` run is followed by all the publics it scopes); the
+//                rare "decls AFTER the end of the local" ATS shape is a future pretty-printer concern.
+| PCCprivate of (loctn, list(pcdecl)(*private decls*))
 | PCCerror   of (loctn, strn)
 //
 // M5b.6b: a type param carries its surface sort name (Type/Linear/Prop, "" = none ⇒ default

@@ -635,6 +635,21 @@ case+ e of
     d2exp_make_node(loc, D2Elet0(list_sing(decl), d2body))
   end
 //
+// SCOPING (bootstrap P1): PCEwhere — a def body wrapped in a `where:` block -> D2Ewhere(body, decls).
+// The where-decls are BACKWARDS-scoped around the body (ATS `e where {decls}`): we lower the decls
+// FIRST (threading env so they register their names + see each other for mutual recursion), THEN
+// lower the body in the SAME env (so a body reference to a where-defined helper resolves). The
+// where-scope is push/pop-bracketed so the helper names do NOT leak past the where-expression.
+// SPIKE-PROVEN (S1, nerror=0): d2exp_make_node(loc, D2Ewhere(d2body, d2decls)).
+| PCEwhere(loc, body, decls) => let
+    val () = tr12env_pshlet0(env)
+    val d2decls = pylower_decls(env, decls)
+    val d2body  = pl_exp(env, body)
+    val () = tr12env_poplet0(env)
+  in
+    d2exp_make_node(loc, D2Ewhere(d2body, d2decls))
+  end
+//
 // PCEif : 3-branch value-if -> D2Eift0(cond, Some then, Some else).
 | PCEif(loc, c, t, f) => let
     val d2c = pl_exp(env, c)

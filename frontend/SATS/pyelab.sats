@@ -103,6 +103,11 @@ fun elab_pat(p: pypat): pcpat
 // value, or the flow-mode `case flow_return | flow_next` epilogue).
 fun elab_func_body(encl: nameset, loc: loctn, body: list(pystmt)): pcexp
 //
+// SCOPING (bootstrap P1): elaborate a LIST of surface decls -> the flattened PyCore decl list
+// (each via elab_decl). Exposed so pyelab_core can elaborate an inner def's `where:` decl-run for
+// its PCEwhere wrapper. Defined in pyelab_decl.dats (the module driver).
+fun elab_decls(ds: list(pydecl)): list(pcdecl)
+//
 // a loop-`else` clause (§7.3) elaborated with the enclosing `muts` IN SCOPE (so a
 // reassignment to an enclosing mut is a valid SSA rebind, not a false "non-mut" error).
 // Returns the else as a control-pure threaded expression ending in unit (its effect).

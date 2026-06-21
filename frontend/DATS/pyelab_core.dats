@@ -452,7 +452,9 @@ case+ ss of
       // an inner `def` binds its NAME for later stmts; its body's FV are collected with its
       // own params bound (its params are NOT free in the enclosing scope).
       (case+ d of
-       | PyCfun(_, _, nm, _, params, _, fbody) =>
+       // SCOPING: a where-block on an inner def is ignored for FV purposes (its decls bind their own
+       // names; the body's own FV over the def's params is what the capture-check needs).
+       | PyCfun(_, _, nm, _, params, _, fbody, _) =>
            let val fv1 = fc_fv_stmts(fc_param_names(bnd, params), fv, fbody) in
              fc_fv_stmts(nameset_add(bnd, nm), fv1, rest) end
        | _ => fc_fv_stmts(bnd, fv, rest))
@@ -788,14 +790,24 @@ and
 el_local_decl(encl: nameset, loc: loctn, d: pydecl, kont: pcexp): pcexp =
 (
 case+ d of
-| PyCfun(floc, _decos, nm, _, params, ret, body) =>
+| PyCfun(floc, _decos, nm, _, params, ret, body, wheres) =>
     // an inner `def` binds its NAME (a function-local for later stmts: el_decl_name handles that);
     // its OWN params seed the inner body's enclosing-locals. (DECORATOR REWORK: a decorated inner
     // def — rare — is lowered as a plain inner def here; the proof/extern variants are top-level.)
-    PCEletfun(loc,
-      list_sing(PCFundcl(floc, nm, el_param_names(params), el_param_types(params),
-                         ret, el_func_body(fc_param_names(encl, params), floc, body), false)),
-      kont)
+    // SCOPING: an inner def MAY carry a trailing `where:` block — wrap its body in PCEwhere (M3 ->
+    // D2Ewhere), the SAME backwards-scoping as a top-level def (EMPTY where => no wrap).
+    let
+      val ibody0 = el_func_body(fc_param_names(encl, params), floc, body)
+      val ibody1 =
+        ( case+ wheres of
+          | list_nil() => ibody0
+          | _ => PCEwhere(floc, ibody0, elab_decls(wheres)) )
+    in
+      PCEletfun(loc,
+        list_sing(PCFundcl(floc, nm, el_param_names(params), el_param_types(params),
+                           ret, ibody1, false)),
+        kont)
+    end
 | _ => kont
 )
 //
@@ -804,7 +816,7 @@ and
 el_decl_name(encl: nameset, d: pydecl): nameset =
 (
 case+ d of
-| PyCfun(_, _, nm, _, _, _, _) => nameset_add(encl, nm)
+| PyCfun(_, _, nm, _, _, _, _, _) => nameset_add(encl, nm)
 | _ => encl
 )
 //

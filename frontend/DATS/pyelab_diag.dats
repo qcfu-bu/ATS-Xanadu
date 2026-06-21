@@ -67,6 +67,8 @@ case+ e of
 | PCEtry(_, body, hs) => harv_arms(hs, harv_exp(body, acc))
 // A-TEMPLATE: `@inst[types] e` harvests poison nodes of its instantiated inner expr.
 | PCEinst(_, _, e1) => harv_exp(e1, acc)
+// SCOPING: a `where:` body harvests poison nodes of BOTH the body expr AND the where-decls.
+| PCEwhere(_, body, ds) => harv_decls_go(ds, harv_exp(body, acc))
 // B-LINEAR: &/!/move/swap harvest poison nodes of their operand sub-exprs.
 | PCEaddr(_, lv) => harv_exp(lv, acc)
 | PCEderef(_, p) => harv_exp(p, acc)
@@ -109,7 +111,7 @@ case+ fs of
 | list_cons(PCFundcl(_, _, _, _, _, body, _), rest) => harv_fundcls(rest, harv_exp(body, acc))
 )
 //
-fun
+and
 harv_decl(d: pcdecl, acc: list(pcdiag)): list(pcdiag) =
 (
 case+ d of
@@ -138,9 +140,11 @@ case+ d of
 | PCCprfun(_, _, PCFundcl(_, _, _, _, _, body, _)) => harv_exp(body, acc) // a prfun BODY may carry poison.
 | PCCprval(_, _, _, e) => harv_exp(e, acc) // a prval RHS (an expr) may carry poison nodes.
 | PCCpraxi(_, _, _, _, _) => acc // a praxi carries only a signature — no poison nodes.
+// SCOPING: a `private` run harvests poison nodes of every private decl it carries.
+| PCCprivate(_, ds) => harv_decls_go(ds, acc)
 )
 //
-fun
+and
 harv_decls_go(ds: list(pcdecl), acc: list(pcdiag)): list(pcdiag) =
 (
 case+ ds of
@@ -192,6 +196,8 @@ case+ e of
 | PCEtry(_, body, hs) => b_or(uses_exp(body), uses_arms(hs))
 // A-TEMPLATE: `@inst[types] e` uses pyrt iff its inner expr does (the type-args name no pyrt fn).
 | PCEinst(_, _, e1) => uses_exp(e1)
+// SCOPING: a `where:` body uses pyrt iff the body OR any where-decl does.
+| PCEwhere(_, body, ds) => b_or(uses_exp(body), uses_decls_go(ds))
 // B-LINEAR: &/!/move/swap use pyrt iff an operand sub-expr does.
 | PCEaddr(_, lv) => uses_exp(lv)
 | PCEderef(_, p) => uses_exp(p)
@@ -252,16 +258,18 @@ case+ fs of
 | list_cons(PCFundcl(_, _, _, _, _, body, _), rest) => b_or(uses_exp(body), uses_fundcls(rest))
 )
 //
-fun
+and
 uses_decl(d: pcdecl): bool =
 (
 case+ d of
 | PCCfun(_, _, _, fs) => uses_fundcls(fs)
 | PCCval(_, _, e) => uses_exp(e)
+// SCOPING: a `private` run uses pyrt iff any of its private decls does.
+| PCCprivate(_, ds) => uses_decls_go(ds)
 | _ => false
 )
 //
-fun
+and
 uses_decls_go(ds: list(pcdecl)): bool =
 (
 case+ ds of

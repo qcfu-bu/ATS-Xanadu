@@ -307,7 +307,7 @@ fun
 elab_decl(d: pydecl): list(pcdecl) =
 (
 case+ d of
-| PyCfun(loc, decos, nm, tps, params, ret, body) =>
+| PyCfun(loc, decos, nm, tps, params, ret, body, wheres) =>
     // DECORATOR REWORK: a `def` with its decorator list. Route to the SAME PyCore variant the
     // keyword version produced, based on the decorators (the L2 lowering is reused unchanged):
     //   @proof @extern  -> PCCpraxi    (proof + bodyless = the old `praxi`)
@@ -374,8 +374,16 @@ case+ d of
         // def). M7-closures: seed `encl` with the def's OWN params (the first enclosing locals a
         // @func lambda may NOT capture). DEP: thread the §5.7 type/INDEX params onto the PCCfun.
         let
+          // SCOPING: a trailing `where:` block BACKWARDS-scopes its decls around the body. We wrap the
+          // elaborated body expr in PCEwhere(body, <elab where-decls>) so M3 emits D2Ewhere (SPIKE S1).
+          // The where-decls are full decls (def go(...)), elaborated via elab_decl. EMPTY => no wrap.
+          val body0 = elab_func_body(fc_param_names_pub(list_nil(), params), loc, body)
+          val body1 =
+            ( case+ wheres of
+              | list_nil() => body0
+              | _ => PCEwhere(loc, body0, elab_decls(wheres)) )
           val fundcl = PCFundcl(loc, nm, param_names_d(params), param_types_d(params),
-                                ret, elab_func_body(fc_param_names_pub(list_nil(), params), loc, body), false)
+                                ret, body1, false)
           // C-PROOF: thread the optional `@terminates[n]` termination metric (the index-exprs)
           // onto the PCCfun group; [] for a plain def (the metric-free path is byte-identical).
           val pccfun = PCCfun(loc, elab_typarams(tps), decos_terminates_metric(decos), list_sing(fundcl))
@@ -468,6 +476,12 @@ case+ d of
           list_sing(PCCimport(iloc, modpath_to_sats(segs), 0(*static*), false(*is_python*)))
     )
 | PyCstmt(loc, s) => elab_module_stmt(s)
+| PyCprivate(loc, ds) =>
+    // SCOPING (bootstrap P1): a `private` run (modifier or block) -> a PCCprivate carrying the
+    // ELABORATED private decls. The CAPTURE-REST module/suite transform (privates = D1 local-head,
+    // following siblings = D2 local-body of a D2Clocal0) is done at M3 (pylower_decls). A private
+    // decl-run may itself contain defs/types/nested privates, so we elaborate it with elab_decls.
+    list_sing(PCCprivate(loc, elab_decls(ds)))
 | PyCerror(loc, msg) => list_sing(PCCerror(loc, msg))
 )
 //
@@ -504,8 +518,8 @@ case+ s of
     end
 )
 //
-fun
-elab_decls(ds: list(pydecl)): list(pcdecl) =
+#implfun
+elab_decls(ds) =
 (
 case+ ds of
 | list_nil() => list_nil()

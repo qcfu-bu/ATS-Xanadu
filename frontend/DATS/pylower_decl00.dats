@@ -1032,6 +1032,14 @@ case+ d of
 // is registered so a `prval pf = NAME(...)` resolves.
 | PCCpraxi(loc, name, pnames, ptypes, ret) => lower_praxi(env, loc, name, pnames, ptypes, ret)
 //
+// SCOPING (bootstrap P1): a `private` run is normally consumed by pylower_decls' capture-rest arm
+// (it needs the FOLLOWING siblings as the local-body). Reaching it HERE means there are no siblings
+// to capture (e.g. a `private:` block as the very last decl, or nested in a context with no rest):
+// lower it as a TRANSPARENT local — D2Clocal0(privs, []) (empty local-body; the privates lower in
+// this env and stay registered, like the A-TEMPLATE template_decls_as_one wrapper). SPIKE-PROVEN.
+| PCCprivate(loc, privs) =>
+    d2ecl_make_node(loc, D2Clocal0(pylower_decls(env, privs), list_nil()))
+//
 // an elaboration poison node -> a benign no-op (the diagnostic was already reported by the
 // elaborator; M3 surfaces it via the harness's diagnostics dump, never crashes).
 | PCCerror(loc, _) => d2ecl_make_node(loc, D2Cnone0())
@@ -1050,6 +1058,21 @@ pylower_decls(env, ds) =
 (
 case+ ds of
 | list_nil() => list_nil()
+// SCOPING (bootstrap P1): a `private` run -> the CAPTURE-REST transform. The privates are the
+// local-HEAD (D1) and ALL FOLLOWING sibling decls are the local-BODY (D2) of ONE D2Clocal0(D1, D2):
+// the privates are visible to D2 (we lower D1 FIRST, threading env, so its names register) but NOT
+// exported past the local — trans23 processes D2's decls in this env, exporting only D2. The whole
+// `private…rest` therefore collapses to a SINGLE d2ecl (the local block); there are no siblings AFTER
+// it. SPIKE-PROVEN (S2, nerror=0). (Faithfulness: capture-rest is exact for the dominant case where
+// the `local…end` is the TAIL of its scope — a `private` run scopes all the publics that follow it.)
+| list_cons(PCCprivate(loc, privs), rest) =>
+    let
+      val d1 = pylower_decls(env, privs)       // local-HEAD: lower + register the privates FIRST
+      val d2 = pylower_decls(env, rest)         // local-BODY: the rest-of-suite (sees the privates)
+      val dloc = d2ecl_make_node(loc, D2Clocal0(d1, d2))
+    in
+      list_sing(dloc)
+    end
 | list_cons(d, rest) =>
     let val d2c = pylower_decl(env, d) in list_cons(d2c, pylower_decls(env, rest)) end
 )

@@ -210,11 +210,21 @@ case+ ss of
   | PySblock(loc, body) => fl_suite(encl, list_append(body, rest), accs, muts, mts)
   | PySdecl(loc, d) =>
       (case+ d of
-       | PyCfun(floc, _decos, nm, _, params, ret, fbody) =>
-           PCEletfun(loc,
-             list_sing(PCFundcl(floc, nm, param_names_l(params), param_types_l(params),
-                                ret, elab_func_body(fc_param_names_pub(encl, params), floc, fbody), false)),
-             fl_suite(nameset_add(encl, nm), rest, accs, muts, mts))
+       | PyCfun(floc, _decos, nm, _, params, ret, fbody, wheres) =>
+           // SCOPING: an inner def in flow-mode MAY carry a `where:` block — wrap its body in
+           // PCEwhere (M3 -> D2Ewhere); EMPTY where => no wrap (byte-identical to before).
+           let
+             val ibody0 = elab_func_body(fc_param_names_pub(encl, params), floc, fbody)
+             val ibody1 =
+               ( case+ wheres of
+                 | list_nil() => ibody0
+                 | _ => PCEwhere(floc, ibody0, elab_decls(wheres)) )
+           in
+             PCEletfun(loc,
+               list_sing(PCFundcl(floc, nm, param_names_l(params), param_types_l(params),
+                                  ret, ibody1, false)),
+               fl_suite(nameset_add(encl, nm), rest, accs, muts, mts))
+           end
        | _ => fl_suite(encl, rest, accs, muts, mts))
   | PySerror(loc, msg) => PCEseq(loc, PCEerror(loc, msg), fl_suite(encl, rest, accs, muts, mts))
   )

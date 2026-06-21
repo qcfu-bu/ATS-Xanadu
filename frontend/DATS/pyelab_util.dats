@@ -41,6 +41,7 @@ case+ e of
 | PCEunit(loc) => loc         | PCEerror(loc, _) => loc
 | PCEraise(loc, _) => loc     | PCEtry(loc, _, _) => loc
 | PCEinst(loc, _, _) => loc
+| PCEwhere(loc, _, _) => loc
 | PCEaddr(loc, _) => loc      | PCEderef(loc, _) => loc
 | PCEmove(loc, _, _) => loc   | PCEswap(loc, _, _) => loc
 )
@@ -75,6 +76,7 @@ case+ d of
 | PCCstadef(loc, _, _) => loc
 | PCCprfun(loc, _, _) => loc   | PCCprval(loc, _, _, _) => loc
 | PCCpraxi(loc, _, _, _, _) => loc
+| PCCprivate(loc, _) => loc
 | PCCerror(loc, _) => loc
 )
 //

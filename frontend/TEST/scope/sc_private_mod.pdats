@@ -1,0 +1,9 @@
+# SCOPING (bootstrap P1): a single `private def helper` MODIFIER + a public def using it.
+# The one-element private run captures the FOLLOWING siblings as the local-body D2 of a
+# D2Clocal0 -> `helper` is visible to `public_use` but not exported.
+
+private def helper(x: Int) -> Int:
+    x + 1
+
+def public_use(y: Int) -> Int:
+    helper(y)

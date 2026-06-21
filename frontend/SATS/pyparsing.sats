@@ -470,7 +470,19 @@ pystmt =
 //
 and
 pydecl =
-| PyCfun    of (loctn, list(pydecorator), strn, list(pytyparam), list(pyparam), pytypopt, list(pystmt))
+//   SCOPING (bootstrap P1): PyCfun gains a TRAILING `list(pydecl)` WHERE-field — the decls of an
+//   optional `where:` block at the def's indent level (default `[]` = no where-block). The
+//   where-decls are BACKWARDS-scoped around the def BODY (ATS `e where {decls}`); the elaborator
+//   WRAPS the def's body expr in a PCEwhere(body, <elaborated where-decls>) PyCore expr, and M3
+//   lowers PCEwhere -> D2Ewhere(body, where_decls). (where IS an expression form, so it lives on the
+//   body expr — no PCCfun/fungroup-lowering changes.) SPIKE-PROVEN (S1).
+| PyCfun    of (loctn, list(pydecorator), strn, list(pytyparam), list(pyparam), pytypopt, list(pystmt), list(pydecl)(*where*))
+//   SCOPING (bootstrap P1): PyCprivate carries a RUN of `private` decls — either a single
+//   `private def …` modifier (one-element run) or a `private:` block (the indented suite). The
+//   MODULE/SUITE lowering applies the capture-rest transform: the privates become the local-HEAD
+//   (D1) and ALL following sibling decls become the local-BODY (D2) of a D2Clocal0(D1, D2) — so the
+//   privates are visible to D2 but NOT exported past it. SPIKE-PROVEN (S2).
+| PyCprivate of (loctn, list(pydecl)(*private decls*))
 //   PyCenum : `[decorators] enum Name [typarams]: <case suite>` — a datatype/ADT (§5.7).
 //   DECORATOR REWORK (slice 2): the @prop / @view decorators turn a plain `enum` into the old
 //   `dataprop` / `dataview` (a PROOF / VIEW datatype) — the elaborator routes them to PCCdata
@@ -656,6 +668,18 @@ fun parse_deco_typeargs(st: pstate): @(list(pytyp), pstate)
 fun parse_expr(st: pstate): @(pyexp, pstate)
 fun parse_suite(st: pstate): @(pystmtlst, pstate)
 fun parse_decl(st: pstate): @(pydecl, pstate)
+//
+// SCOPING (bootstrap P1): the decl-block + private helpers (all in decl00). Declared here so they
+// are GLOBALLY resolvable — p_def (an EARLY group) forward-calls p_decl_block, and p_decl_block_loop
+// / p_private forward-call p_top_item, across separate `fun` groups in the same file.
+//   p_top_item       : parse ONE top-level item (a decl, or a stmt-as-decl). Consumes per-decl layout.
+//   p_decl_block     : a `where:`/`private:` SUITE-OF-DECLS — NEWLINE INDENT decl* DEDENT.
+//   p_decl_block_loop: the decl-block body loop (until DEDENT/EOF), one p_top_item per entry.
+//   p_private        : a `private` run — a `private:` block or a single `private <decl>` modifier.
+fun p_top_item(st: pstate): @(pydecl, pstate)
+fun p_decl_block(st: pstate): @(pydeclst, pstate)
+fun p_decl_block_loop(st: pstate): @(pydeclst, pstate)
+fun p_private(st: pstate): @(pydecl, pstate)
 //
 // parse_stmt: one full statement (block stmt consumes its own suite+layout; a simple
 // stmt is terminated by NEWLINE). Used at module top level (decl00) and inside suites

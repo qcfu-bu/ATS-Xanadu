@@ -467,7 +467,7 @@ pp_decl(out: FILR, d: pydecl, ind: sint): void =
 (
 nl(out); print_indent(out, ind);
 case+ d of
-| PyCfun(loc, decos, nm, tvs, params, ropt, body) =>
+| PyCfun(loc, decos, nm, tvs, params, ropt, body, wheres) =>
   ( ps(out, "(def "); ps(out, nm); print_span(out, loc);
     pp_decolst(out, decos);   // DECORATOR REWORK: prints " (deco ...)" only when non-empty (no golden drift for a plain def)
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
@@ -475,7 +475,16 @@ case+ d of
     ( case+ ropt of
       | PyTypNone() => ()
       | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
-    pp_stmtlst(out, body, ind + 1); ps(out, ")") )
+    pp_stmtlst(out, body, ind + 1);
+    // SCOPING: print the `where:` block only when present (no golden drift for a plain def).
+    ( case+ wheres of
+      | list_nil() => ()
+      | _ => (nl(out); print_indent(out, ind + 1); ps(out, "(where");
+              pp_decllst_ind(out, wheres, ind + 2); ps(out, ")")) );
+    ps(out, ")") )
+| PyCprivate(loc, ds) =>
+  ( ps(out, "(private"); print_span(out, loc);
+    pp_decllst_ind(out, ds, ind + 1); ps(out, ")") )
 | PyCenum(loc, decos, nm, tvs, dcons) =>
   ( ps(out, "(enum "); ps(out, nm); print_span(out, loc);
     pp_decolst(out, decos);
@@ -520,6 +529,16 @@ case+ d of
   (ps(out, "(cstmt"); print_span(out, loc); pp_stmt(out, s, ind + 1); ps(out, ")"))
 | PyCerror(loc, msg) =>
   (ps(out, "(Cerror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
+)
+//
+// SCOPING: an INDENT-aware decl-list printer (for the `where:` / `private:` sub-blocks). In the
+// `and`-group so it is mutually recursive with pp_decl (each sub-decl prints its own `nl`+indent).
+and
+pp_decllst_ind(out: FILR, ds: list(pydecl), ind: sint): void =
+(
+case+ ds of
+| list_nil() => ()
+| list_cons(d, rest) => (pp_decl(out, d, ind); pp_decllst_ind(out, rest, ind))
 )
 //
 // a list of prefix/inline decorators: " (deco @linear@(..) @unboxed@(..))" (omit if none).

@@ -1,0 +1,12 @@
+# SCOPING (bootstrap P1): a `where:` block trailing a def. The where-decls are
+# BACKWARDS-scoped around the def BODY (ATS `e where {decls}`) -> D2Ewhere.
+# `fact`'s body calls `go`, which is defined in the trailing where-block.
+
+def fact(n: Int) -> Int:
+    go(n, 1)
+where:
+    def go(k: Int, acc: Int) -> Int:
+        if k <= 0:
+            acc
+        else:
+            go(k - 1, acc * k)

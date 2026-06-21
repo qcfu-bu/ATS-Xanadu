@@ -123,6 +123,8 @@ ptnode =
 | PT_KW_EXISTS  of ()   // exists (EXPLICIT existential quantifier in a type; A-QUANT, §A)
 | PT_KW_AT      of ()   // at  (AT-VIEW relation in a type: `A at l`; B-LINEAR, §B. `@` stays
                         //      decorators-only — `at` is a genuine keyword/relation, not a decorator.)
+| PT_KW_WHERE   of ()   // where (SCOPING: a `where:` block trailing a def → D2Ewhere; bootstrap P1)
+| PT_KW_PRIVATE of ()   // private (SCOPING: a `private` decl-modifier / `private:` block → D2Clocal0)
 //
 // NOTE (decorator rework): the ATS-specific def/let variants are NO LONGER keywords. They are
 // expressed as @decorators on a plain `def`/`let` — `@proof def`/`@proof let`/`@proof @extern def`

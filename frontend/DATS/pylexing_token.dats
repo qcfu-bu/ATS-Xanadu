@@ -170,6 +170,11 @@ kw_of_lident(s: strn): ptnode =
   // B-LINEAR: `at` is the AT-VIEW relation keyword (`A at l`). A genuine binder/relation
   // (not decorator-izable), so it is a reserved word, NOT a LIDENT.
   else if s = "at" then PT_KW_AT()
+  // SCOPING (bootstrap P1): `where` trails a def as a `where:` block (backwards-scoping decls
+  // around the body → D2Ewhere); `private` is a decl-modifier / `private:` block (capture-rest
+  // → D2Clocal0). Both are genuine binders/scopers, so they are reserved words, NOT LIDENTs.
+  else if s = "where" then PT_KW_WHERE()
+  else if s = "private" then PT_KW_PRIVATE()
   // NOTE (decorator rework): `extern`/`implement`/`overload`/`prfun`/`prval`/`praxi`/`op`/`with`
   // are NO LONGER keywords — the ATS-specific def/let variants are now @decorators on a plain
   // `def`/`let` (`@extern`/`@impl`/`@overload`/`@proof`), and `op+` became the parenthesized

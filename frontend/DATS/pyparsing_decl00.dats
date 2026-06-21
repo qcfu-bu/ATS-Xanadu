@@ -288,8 +288,25 @@ p_def(st: pstate, decos: list(pydecorator)): @(pydecl, pstate) = let
     ( case+ ps_peek(st7) of
       | PT_COLON() => parse_suite(ps_advance(st7))
       | _ => @(list_nil(), st7) )
+  // SCOPING (bootstrap P1): an OPTIONAL trailing `where:` block at the DEF's indent level. After
+  // the body suite consumes its own DEDENT, a `where` keyword sits at the def's level. Its block
+  // is a SUITE OF DECLS (`def go(...)`) indented under `where:`. The decls are BACKWARDS-scoped
+  // around the body (ATS `e where {decls}`); we attach them and M3 wraps the body in D2Ewhere.
+  val @(wheres, st10) =
+    ( case+ ps_peek(st9) of
+      | PT_KW_WHERE() =>
+        let
+          val stw = ps_advance(st9)              // past 'where'
+          val stw2 =
+            ( case+ ps_peek(stw) of
+              | PT_COLON() => ps_advance(stw)
+              | _ => ps_diag(stw, ps_peek_loctn(stw), "expected ':' after 'where'") )
+        in
+          p_decl_block(stw2)
+        end
+      | _ => @(list_nil(), st9) )
 in
-  @(PyCfun(loc, decos, nm, tvs, params, ropt, body), st9)
+  @(PyCfun(loc, decos, nm, tvs, params, ropt, body, wheres), st10)
 end
 //
 // def params: param { ',' param } until ')'. param ::= LIDENT [ ':' type ].
@@ -801,6 +818,17 @@ in
             ps_diag(st1, locD, "decorators are not allowed on an 'exception'")) end )
   | PT_KW_IMPORT() => p_import(st0)
   | PT_KW_FROM()   => p_import(st0)
+  // SCOPING (bootstrap P1): `private` — a decl-MODIFIER (`private def helper(...)` — one decl) or a
+  // `private:` BLOCK (an indented suite of private decls). It is the OUTERMOST modifier (it takes no
+  // PRECEDING decorators; an inner `private @impl def` re-enters parse_decl which parses those). The
+  // capture-rest transform (privates = local-head D1, following siblings = local-body D2 -> D2Clocal0)
+  // is a MODULE/SUITE-lowering concern; the parser just emits the PyCprivate marker carrying the run.
+  | PT_KW_PRIVATE() =>
+    ( case+ decos of
+      | list_cons _ =>
+        let val st1 = ps_diag(st0, locD, "decorators must follow 'private', not precede it") in
+          @(PyCerror(locD, "decorators must follow 'private'"), st1) end
+      | list_nil() => p_private(st0) )
   | _ =>
     // not a structural decl — should be reached only via the module loop's fallback;
     // produce an error decl (the loop already handles stmt-position decls separately).
@@ -811,6 +839,61 @@ in
       @(PyCerror(loc, "expected a declaration"), st1)
     end
 end
+//
+// SCOPING (bootstrap P1): parse a `private` run. Positioned ON the `private` keyword.
+//   `private:` <NEWLINE INDENT decl* DEDENT>   -> PyCprivate(loc, <block decls>)
+//   `private <decl>`                           -> PyCprivate(loc, [<single decl>])
+// A nested `private @impl def helper(...)` re-enters p_top_item, which dispatches the decorators.
+#implfun
+p_private(st) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)                       // past 'private'
+in
+  case+ ps_peek(st1) of
+  | PT_COLON() =>
+    let val @(ds, st2) = p_decl_block(ps_advance(st1)) in
+      @(PyCprivate(loc, ds), st2) end
+  | _ =>
+    // a single private decl — reuse p_top_item so the following decl consumes its own layout.
+    let val @(d, st2) = p_top_item(st1) in
+      @(PyCprivate(loc, list_sing(d)), st2) end
+end
+//
+// SCOPING (bootstrap P1): parse a block of DECLS — NEWLINE INDENT decl { decl } DEDENT — the body of
+// a `where:` or `private:` header. Mirrors p_block_suite but loops `p_top_item` (the decl dispatcher),
+// so each entry is a full pydecl (def/enum/type/nested private). Standalone #implfun so p_def (an
+// earlier group) can forward-call it (the call crosses `fun`-group boundaries — see the SATS decl).
+#implfun
+p_decl_block(st) = let
+  val st1 = ( case+ ps_peek(st) of PT_NEWLINE() => ps_advance(st) | _ => st )
+in
+  case+ ps_peek(st1) of
+  | PT_INDENT() =>
+    let
+      val st2 = ps_advance(st1)                 // past INDENT
+      val @(ds, st3) = p_decl_block_loop(st2)
+      val st4 = ( case+ ps_peek(st3) of PT_DEDENT() => ps_advance(st3) | _ => st3 )
+    in
+      @(ds, st4)
+    end
+  | _ =>
+    let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected an indented block") in
+      @(list_nil(), st2) end
+end
+//
+// decl-block loop until DEDENT/EOF. Each item is a full top-level decl (reusing p_top_item, which
+// consumes per-decl trailing layout). Stray blank lines are skipped.
+#implfun
+p_decl_block_loop(st) =
+( case+ ps_peek(st) of
+  | PT_DEDENT() => @(list_nil(), st)
+  | PT_EOF() => @(list_nil(), st)
+  | PT_NEWLINE() => p_decl_block_loop(ps_advance(st))
+  | _ =>
+    let val @(d, st1) = p_top_item(st) in
+      let val @(ds, st2) = p_decl_block_loop(st1) in
+        @(list_cons(d, ds), st2) end
+    end )
 //
 (* ****** ****** *)
 //
@@ -824,14 +907,18 @@ end
 // parse one top-level item (decl or a statement-as-decl). The simple-statement path
 // needs to consume its NEWLINE terminator; block statements consume their own.
 //
-fun
-p_top_item(st: pstate): @(pydecl, pstate) = let
+#implfun
+p_top_item(st) = let
   val nod = ps_peek(st)
 in
   case+ nod of
   | PT_KW_DEF()    => parse_decl(st)
   | PT_KW_ENUM()   => parse_decl(st)     // block-bodied: consumes its own DEDENT (no trailing NEWLINE)
   | PT_KW_STRUCT() => parse_decl(st)     // block-bodied: consumes its own DEDENT
+  // SCOPING (bootstrap P1): `private` — a `private:` block consumes its own DEDENT; a `private def…`
+  // modifier delegates to the inner p_top_item (which consumes the inner decl's own layout). Either
+  // way no extra trailing NEWLINE is owed here.
+  | PT_KW_PRIVATE() => parse_decl(st)
   | PT_AT()        =>
     // DECORATOR REWORK: a decorator-prefixed decl. The construct after the decorators may be:
     //   * enum/struct/def-with-body (`@impl def`, `@proof def`, `@overload def`, `@prop enum`,

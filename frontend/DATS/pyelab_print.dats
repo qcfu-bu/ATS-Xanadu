@@ -279,6 +279,18 @@ case+ e of
 | PCEinst(loc, ts, e1) =>
   ( ps(out, "(Einst"); print_span(out, loc); ps(out, " [types");
     pp_typlst(out, ts); ps(out, "] "); pp_exp(out, e1, ind); ps(out, ")") )
+// SCOPING: `e where {decls}` -> the body expr + the where-decl block. The where-decls print via the
+// SATS-exposed pcdecl_fprint (globally resolvable, so no cross-`fun`-group forward reference from the
+// pp_exp group). A small let-local loop walks them.
+| PCEwhere(loc, body, ds) => let
+    fun pp_wds(out: FILR, ds: list(pcdecl)): void =
+      ( case+ ds of
+        | list_nil() => ()
+        | list_cons(d, rest) => (pcdecl_fprint(out, d); pp_wds(out, rest)) )
+  in
+    ps(out, "(Ewhere"); print_span(out, loc); ps(out, " ");
+    pp_exp(out, body, ind); ps(out, " (where"); pp_wds(out, ds); ps(out, "))")
+  end
 // B-LINEAR: &/!/move/swap.
 | PCEaddr(loc, lv) =>
   ( ps(out, "(Eaddr"); print_span(out, loc); ps(out, " &"); pp_exp(out, lv, ind); ps(out, ")") )
@@ -498,16 +510,29 @@ case+ d of
       | PyTypNone() => ()
       | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
     ps(out, ")") )
+// SCOPING: a `private` run -> the private decl block (capture-rest transform happens at M3).
+| PCCprivate(loc, ds) =>
+  ( ps(out, "(private"); print_span(out, loc);
+    pp_decllst_ind(out, ds, ind + 1); ps(out, ")") )
 | PCCerror(loc, msg) =>
   (ps(out, "(Cerror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )
 //
-fun
+and
 pp_decllst(out: FILR, ds: list(pcdecl)): void =
 (
 case+ ds of
 | list_nil() => ()
 | list_cons(d, rest) => (pp_decl(out, d, 0); pp_decllst(out, rest))
+)
+//
+// SCOPING: an INDENT-aware decl-list printer (for the `where:` / `private:` sub-blocks).
+and
+pp_decllst_ind(out: FILR, ds: list(pcdecl), ind: sint): void =
+(
+case+ ds of
+| list_nil() => ()
+| list_cons(d, rest) => (pp_decl(out, d, ind); pp_decllst_ind(out, rest, ind))
 )
 //
 fun
