@@ -99,10 +99,15 @@ pclit =
 //             accumulator tuple returned by a `loop` call (the §5 `val (i,acc) = loop(...)`).
 //   PCPrec  : a record pattern `{ f = p, ... }`.
 //   PCPlit  : a literal pattern.
+//   PCPas   : an as-pattern `p as x` (M7) — binds the WHOLE matched value to the LIDENT `x`
+//             AND keeps matching the inner pattern `p`. Carries the bound NAME first, then the
+//             inner pattern (the surface PyPas's `(loc, inner, name)` is reordered here to put
+//             the name adjacent to the loc, mirroring PCPvar's `(loc, name)` head). M3 lowers
+//             it to L2 `D2Prfpt(<inner>, AS-tok, D2Pvar x)` (dynexp2.sats:757), so `x` is a
+//             fresh, registered binder usable in the arm body (the dropped-binding bug fix).
 //
-//  (No as-pattern / annotated-pattern node in v1: the elaborator never synthesizes them,
-//   and surface `as`/`p:T` patterns lower to the head pattern here — kept minimal as the
-//   contract. Additive to add later if a surface feature needs it.)
+//  (No annotated-pattern node in v1: the elaborator drops a surface `p:T` to its head pattern
+//   `p`; additive to add later if a surface feature needs the annotation.)
 // ==================================================================
 //
 and
@@ -113,6 +118,7 @@ pcpat =
 | PCPtup  of (loctn, list(pcpat))
 | PCPrec  of (loctn, list(pcpfield))
 | PCPlit  of (loctn, pclit)
+| PCPas   of (loctn, strn(*name*), pcpat(*inner*))
 //
 // a record-pattern field `name = pat`.
 and

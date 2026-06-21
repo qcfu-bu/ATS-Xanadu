@@ -190,6 +190,7 @@ uses_pat(p: pcpat): bool =
 case+ p of
 | PCPcon(_, nm, args) => b_or(is_pyrt_name(nm), uses_patlst(args))
 | PCPtup(_, ps0) => uses_patlst(ps0)
+| PCPas(_, _, inner) => uses_pat(inner)  // M7: recurse into the as-pattern's inner pattern
 | _ => false
 )
 //

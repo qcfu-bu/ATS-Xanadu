@@ -168,7 +168,10 @@ case+ p of
 | PyPtup(loc, ps0) => PCPtup(loc, el_patlst(ps0))
 | PyPrec(loc, fs) => PCPrec(loc, el_pfields(fs))
 | PyPlit(loc, lit) => PCPlit(loc, el_lit(lit))
-| PyPas(_, p1, _) => el_pat(p1)
+// M7: `p as x` -> PCPas(loc, x, <elaborated p>). The surface PyPas is `(loc, inner, name)`;
+// PCPas reorders to `(loc, name, inner)`. The binding is no longer dropped — M3 lowers it to a
+// D2Prfpt so `x` is usable in the arm body.
+| PyPas(loc, p1, nm) => PCPas(loc, nm, el_pat(p1))
 | PyPann(_, p1, _) => el_pat(p1)
 | PyPerror(loc, _) => PCPvar(loc, "_error")
 )

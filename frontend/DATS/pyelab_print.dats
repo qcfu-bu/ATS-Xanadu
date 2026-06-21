@@ -168,6 +168,9 @@ case+ p of
   (ps(out, "(Prec"); print_span(out, loc); pp_pfields(out, fs); ps(out, ")"))
 | PCPlit(loc, lit) =>
   (ps(out, "(Plit"); print_span(out, loc); ps(out, " "); pp_lit(out, lit); ps(out, ")"))
+| PCPas(loc, nm, inner) =>
+  ( ps(out, "(Pas "); ps(out, nm); print_span(out, loc);
+    ps(out, " "); pp_pat(out, inner); ps(out, ")") )
 )
 //
 and

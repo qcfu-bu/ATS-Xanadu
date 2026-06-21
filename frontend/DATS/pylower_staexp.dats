@@ -140,6 +140,29 @@ case+ fs of
 //
 (* ****** ****** *)
 //
+// M7 (A) — lower a tuple-type element list `(T0, T1, ...)` to an `l2s2elst` with INTEGER
+// labels `0, 1, ..., n-1` (S2LAB(LABint(i), <lowered Ti>)). A tuple IS a record with int
+// labels in ATS (statyp2.dats f0_labelize:183 builds tuple TYPES exactly this way, threading
+// the index from 0). Each element type goes through the EXISTING pylower_typ, so a primitive
+// element (`(Int, Bool)`) inherits the M5a `resolve_typ` mitigation (direct T2Pcst the_s2exp_*0).
+// The index is threaded; LABint takes a `sint`, so we count with a `sint` accumulator.
+//
+fun
+pylower_tuptypes(env: !tr12env, ts: list(pytyp), i: sint): l2s2elst =
+(
+case+ ts of
+| list_nil() => list_nil()
+| list_cons(t, rest) =>
+    let
+      val lab = LABint(i)
+      val s2e = pylower_typ(env, t)
+    in
+      list_cons(S2LAB(lab, s2e), pylower_tuptypes(env, rest, i + 1))
+    end
+)
+//
+(* ****** ****** *)
+//
 #implfun
 pylower_typ(env, t) =
 (
@@ -153,8 +176,33 @@ case+ t of
     in s2exp_apps(loc, s2f, s2as) end
 | PyTvar(loc, name) => resolve_typ(env, loc, name)
 | PyTidx(loc, _)    => s2exp_none0()  // dependent index — deferred (M4/M5)
-| PyTfun(loc, _, _) => s2exp_none0()  // function type — deferred (M4/M5)
-| PyTtup(loc, _)    => s2exp_none0()  // tuple type — deferred (M4/M5)
+// M7 (B): a surface function type `(A, B) -> R` lowers to the L2 con-function type S2Efun1.
+// We mirror the PROVEN con-type maker `s2exp_fun1_nil0(npf, argSexps, resSexp)` (M5b.3 con
+// types, pylower_decl00.dats:73; staexp2.dats:1037 shows nil0 = fun1_full(F2CLfun, ...)) — the
+// SAME maker the frontend already uses to build constructor function types, and the same
+// flat-fun arrow the internal `def` lowering's S2Efun1 carries. Arg types lower via
+// pylower_typlst, the result via pylower_typ (each inheriting the M5a primitive mitigation).
+// M7: surface `(A)->B` uses the flat-fun arrow F2CLfun for now; the fun-vs-cloref (closure)
+// arrow kind is being workshopped (task #38) and may change to cloref for capturing-lambda args.
+| PyTfun(loc, args, res) =>
+    let
+      val argSexps = pylower_typlst(env, args)
+      val resSexp  = pylower_typ(env, res)
+    in
+      s2exp_fun1_nil0((-1)(*npf*), argSexps, resSexp)
+    end
+// M7 (A): a surface tuple type `(A, B)` is a FLAT tuple = a record with INTEGER labels
+// 0..n-1. CRUCIALLY it must mirror what a surface tuple VALUE `(1, 2)` lowers to so an
+// annotation `let xy: (Int, Int) = (1, 2)` unifies: `D2Etup0(-1, ...)` is typed by trans2a's
+// f0_tup0 via `s2typ_tup0(-1, ...)` (statyp2.dats:221), which builds
+// `T2Ptrcd(TRCDflt0(*flat*), -1, f0_labelize(...))` at sort `the_sort2_type` — NOT the boxed
+// TRCDbox0/tbox. (Verified: a TRCDbox0 tuple TYPE fails to unify with the TRCDflt0 tuple LITERAL
+// — D3Et2pck(TRCDflt0 vs TRCDbox0).) So we replicate s2typ_tup0's flat shape: TRCDflt0 +
+// the_sort2_type. pylower_tuptypes threads the int index from 0 (= f0_labelize's labeling).
+| PyTtup(loc, elts)  =>
+    let val l2elts = pylower_tuptypes(env, elts, 0(*i0*)) in
+      s2exp_make_node(the_sort2_type, S2Etrcd(TRCDflt0, (-1)(*npf*), l2elts))
+    end
 | PyTrec(loc, flds) =>                // M5b.4: a boxed (default) record type — S2Etrcd.
     let val l2flds = pylower_tfields(env, flds) in
       s2exp_make_node(the_sort2_tbox, S2Etrcd(TRCDbox0, (-1)(*npf*), l2flds))

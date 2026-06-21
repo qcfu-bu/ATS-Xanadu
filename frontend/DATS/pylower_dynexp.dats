@@ -342,6 +342,23 @@ case+ p of
       | PCLchr(_, s) => d2pat_make_node(loc, D2Pchr(token_make_node(loc, T_CHAR2_char(s))))
       | PCLbool(_, b) => d2pat_make_node(loc, D2Pbtf(symbl_make_name(if b then "true" else "false")))
     )
+// M7: as-pattern `p as x` -> D2Prfpt(<lowered p>, AS-tok, D2Pvar <fresh d2v for x>). The L2
+// node binds a fresh d2var for `x` AND keeps the inner pattern `p` (dynexp2.sats:757; trans12
+// builds it as D2Prfpt(inner, tknd, binder) at trans12_dynexp.dats:1161). The binder is the
+// SECOND d2pat (the comment at trans23_dynexp.dats:863 "[d2p1] is supposed to be a d2var" is
+// about the INNER pat, which trans23 tpck's against the binder's type — so the binder `x` gets
+// the matched value's type). tr12env_add0_d2pat has a D2Prfpt arm (trans12_myenv0.dats:2040)
+// that REGISTERS BOTH the binder and the inner pattern's vars, so `x` is usable in the arm body
+// (this is the dropped-binding bug fix). The AS token's kind/lexeme is irrelevant to typing
+// (trans2a/trans23 f0_rfpt destructure but ignore tkas) — reuse tok_val like the other binders.
+| PCPas(loc, name, inner) =>
+    let
+      val d2pinner = pl_pat(env, inner)
+      val d2v = d2var_new2_name(loc, symbl_make_name(name))
+      val d2pbind = d2pat_var(loc, d2v)
+    in
+      d2pat_make_node(loc, D2Prfpt(d2pinner, tok_val(loc), d2pbind))
+    end
 )
 //
 and
