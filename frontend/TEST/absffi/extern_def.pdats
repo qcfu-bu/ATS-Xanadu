@@ -1,0 +1,4 @@
+extern def c_strlen(s: String) -> Int
+
+def use(s: String) -> Int:
+    c_strlen(s)

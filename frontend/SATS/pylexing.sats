@@ -111,6 +111,9 @@ ptnode =
 | PT_KW_TYPE    of ()   // type
 | PT_KW_ENUM    of ()   // enum   (type declaration; SURFACE-GRAMMAR §5.7)
 | PT_KW_STRUCT  of ()   // struct (type declaration; SURFACE-GRAMMAR §5.7)
+| PT_KW_ABSTYPE of ()   // abstype (abstract-type declaration; ATS-parity)
+| PT_KW_ASSUME  of ()   // assume  (abstract-type representation; ATS-parity)
+| PT_KW_EXTERN  of ()   // extern  (FFI bodyless function signature; ATS-parity)
 | PT_KW_EXCEPTION of () // exception (exception-constructor declaration; EXN)
 | PT_KW_RAISE   of ()   // raise  (raise an exception; EXN)
 | PT_KW_TRY     of ()   // try    (try/except expression; EXN)

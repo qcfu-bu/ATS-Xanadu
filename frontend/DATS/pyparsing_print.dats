@@ -416,6 +416,21 @@ case+ d of
     pp_decolst(out, decos);
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
     ps(out, " (alias "); pp_typ(out, t); ps(out, ")"); ps(out, ")") )
+| PyCabstype(loc, decos, nm, tvs) =>
+  ( ps(out, "(abstype "); ps(out, nm); print_span(out, loc);
+    pp_decolst(out, decos);
+    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
+    ps(out, ")") )
+| PyCassume(loc, nm, t) =>
+  ( ps(out, "(assume "); ps(out, nm); print_span(out, loc);
+    ps(out, " (rep "); pp_typ(out, t); ps(out, ")"); ps(out, ")") )
+| PyCextern(loc, nm, params, ropt) =>
+  ( ps(out, "(extern "); ps(out, nm); print_span(out, loc);
+    ps(out, " (params"); pp_paramlst(out, params); ps(out, ")");
+    ( case+ ropt of
+      | PyTypNone() => ()
+      | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
+    ps(out, ")") )
 | PyCexcept(loc, nm, ts) =>
   ( ps(out, "(exception "); ps(out, nm); print_span(out, loc); pp_typlst(out, ts); ps(out, ")") )
 | PyCimport(loc, imp) =>

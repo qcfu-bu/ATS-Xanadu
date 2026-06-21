@@ -264,6 +264,149 @@ end
 //
 (* ****** ****** *)
 //
+// ---- ABSTRACT TYPES (ATS-parity): PCCabstype -> D2Cabstype, PCCassume -> D2Cabsimpl.
+//      SPIKE-PROVEN recipe (frontend/DATS/pyfront_abs_spike.dats; mirrors stock f0_abstype @
+//      trans12_decl00.dats:1471 + f0_absimpl @ :1947). The abstract s2cst has NO sexp attached —
+//      opacity holds at typecheck (it is a distinct singleton until `assume` gives the rep).
+//
+// the ABSTYPE sort for a mode: @boxed/none -> the_sort2_tbox (boxed abstract type), @unboxed ->
+// the_sort2_tflt (a FLAT abstract type — unlike datatypes, abstract types DO have a flat sort),
+// @linear -> DEFERRED, pinned to BOXED tbox in v1 (linearity is erased on the typecheck path —
+// the abstract singleton typechecks identically; a code comment records the deferral). The
+// monomorphic abstract type's sort; a parametric `abstype Foo[A]` wraps it in a FUNCTION sort.
+fun
+abs_sort_of(m: pcmode): sort2 =
+(
+case+ m of
+| PCMbox()  => the_sort2_tbox
+| PCMflat() => the_sort2_tflt   // a flat abstract type (abstract types DO have a flat repr).
+| PCMlin()  => the_sort2_tbox   // @linear abstype DEFERRED -> boxed (linearity erased; v1).
+)
+//
+// build a `D2Cabstype` for an OPAQUE type `name`. Mirrors f0_abstype's tail: s2cst_make_idst
+// (loc, sym, sort) with NO s2exp attached (the opacity), tr12env_add1_s2cst (register so later
+// uses + the `assume` resolve it), D2Cabstype(s2c, A2TDFsome()) (A2TDFsome = a plain abstract
+// declaration). A parametric `abstype Foo[A]` gets a FUNCTION sort (type)->...->RESULT (arity N).
+fun
+build_abstype(env: !tr12env, loc: loctn, name: strn, tvs: list(pcparam), mode: pcmode): d2ecl =
+  let
+    val s2t =
+      if list_nilq(tvs)
+        then abs_sort_of(mode)
+        else S2Tfun1(mk_type_sorts(tvs), abs_sort_of(mode))
+    val s2c = s2cst_make_idst(loc, symbl_make_name(name), s2t)
+    val () = tr12env_add1_s2cst(env, s2c)
+  in
+    d2ecl_make_node(loc, D2Cabstype(s2c, A2TDFsome()))
+  end
+//
+// build a `D2Cabsimpl` for `assume name = T`: SELECT the already-registered abstract s2cst by
+// name (mirrors f1_sqid: tr12env_find_s2itm -> S2ITMcst -> head), build a simpl(loc, SIMPLone1
+// (s2c)), and attach the concrete representation `rhs`. trans23 inserts the s2c into the env; the
+// abstract s2cst still has no sexp at the decl, so opacity holds for code BEFORE the assume.
+// If the name does NOT resolve to an s2cst (a forward/typo `assume`), emit a benign no-op (the
+// using-decls will errck as unresolved — a graceful failure, never a crash).
+fun
+build_absimpl(env: !tr12env, loc: loctn, name: strn, rhs: s2exp): d2ecl = let
+  val sopt = tr12env_find_s2itm(env, symbl_make_name(name))
+in
+  case+ sopt of
+  | ~optn_vt_cons(s2i) =>
+    (
+      case+ s2i of
+      | S2ITMcst(s2cs) =>
+          if list_nilq(s2cs) then d2ecl_make_node(loc, D2Cnone0())
+          else let
+            val s2c  = s2cs.head()
+            val simp = simpl_make_node(loc, SIMPLone1(s2c))
+            val tok  = token_make_node(loc, T_ABSIMPL())
+          in
+            d2ecl_make_node(loc, D2Cabsimpl(tok, simp, rhs))
+          end
+      | _ => d2ecl_make_node(loc, D2Cnone0())
+    )
+  | ~optn_vt_nil() => d2ecl_make_node(loc, D2Cnone0())
+end
+//
+(* ****** ****** *)
+//
+// ---- FFI EXTERN SIGNATURE (ATS-parity): PCCextern -> D2Cextern(D2Cdynconst(...)).
+//      SPIKE-PROVEN recipe (frontend/DATS/pyfront_abs_spike.dats; mirrors stock trans12_d1cstdcl
+//      @ trans12_decl00.dats:4438 + f0_dynconst @ :3479 + D1Cextern @ :845). A BODYLESS function
+//      signature is a `d2cst` carrying the function type, REGISTERED so calls resolve. No body.
+//
+// resolve a (prelude) type NAME to its s2exp — the `void` fallback for an untyped extern
+// slot. (resolve_typ in pylower_staexp.dats is file-local; this is the minimal env-lookup it
+// needs, the same S2ITMcst-head pattern build_absimpl uses.) An unresolvable name -> s2exp_none0
+// (trans23 treats it as an unconstrained tyvar — a benign, characterized degenerate case).
+fun
+resolve_typ_name(env: !tr12env, name: strn): s2exp = let
+  val sopt = tr12env_find_s2itm(env, symbl_make_name(name))
+in
+  case+ sopt of
+  | ~optn_vt_cons(s2i) =>
+    (
+      case+ s2i of
+      | S2ITMcst(s2cs) =>
+          if list_nilq(s2cs) then s2exp_none0() else s2exp_cst(s2cs.head())
+      | S2ITMvar(s2v)  => s2exp_var(s2v)
+      | S2ITMenv(_)    => s2exp_none0()
+    )
+  | ~optn_vt_nil() => s2exp_none0()
+end
+//
+// lower an extern signature's PARAMETER TYPES (parallel name/type lists, M5a-style) to an
+// s2explst. A `PyTypSome(T)` param lowers via pylower_typ (a primitive inherits the resolve_typ
+// mitigation). A `PyTypNone()` param (untyped — unusual for an FFI sig) defaults to the prelude
+// `void` so the signature still typechecks (a benign characterized fallback, not a crash).
+fun
+extern_argtyps(env: !tr12env, tys: list(pytypopt)): s2explst =
+(
+case+ tys of
+| list_nil() => list_nil()
+| list_cons(topt, rest) =>
+    let
+      val s2e =
+        (
+        case+ topt of
+        | PyTypSome(t) => pylower_typ(env, t)
+        | PyTypNone()  => resolve_typ_name(env, "void")
+        ): s2exp
+    in
+      list_cons(s2e, extern_argtyps(env, rest))
+    end
+)
+//
+// build a `D2Cextern` wrapping a `D2Cdynconst` whose single d2cst is the bodyless function
+// signature `name : (argtyps) -> restyp`. Mirrors the spike: s2exp_fun1_nil0 for the fun type,
+// d2cst_make_idtp(tok, dpid, [], sfun), REGISTER via tr12env_add1_d2cst (so a call to `name`
+// resolves), d2cstdcl_make_args (no args list / no body — the fun type already lives in the
+// d2cst), wrap in D2Cdynconst then D2Cextern. A missing `-> Ret` defaults to `void`.
+fun
+build_extern
+( env: !tr12env, loc: loctn, name: strn
+, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt): d2ecl = let
+  val argtyps = extern_argtyps(env, ptypes)
+  val restyp =
+    (
+    case+ ret of
+    | PyTypSome(t) => pylower_typ(env, t)
+    | PyTypNone()  => resolve_typ_name(env, "void")
+    ): s2exp
+  val sfun     = s2exp_fun1_nil0((-1)(*npf*), argtyps, restyp)
+  val tok_id   = token_make_node(loc, T_IDALP(name))
+  val tok_fnk  = token_make_node(loc, T_FUN(FNKfn2))
+  val d2c      = d2cst_make_idtp(tok_fnk, tok_id, list_nil()(*tqas*), sfun)
+  val () = tr12env_add1_d2cst(env, d2c)              // register so a call to `name` resolves
+  val dcdcl    = d2cstdcl_make_args(loc, d2c, list_nil()(*darg*), S2RESnone(), TEQD2EXPnone())
+  val dyncst   = d2ecl_make_node(loc, D2Cdynconst(tok_fnk, list_nil()(*tqas*), list_sing(dcdcl)))
+  val tok_ext  = token_make_node(loc, T_SRP_EXTERN())
+in
+  d2ecl_make_node(loc, D2Cextern(tok_ext, dyncst))
+end
+//
+(* ****** ****** *)
+//
 // ---- M7-import (task #34): the SCOPED module load + merge for a USER `import M` / `from M
 //      import x`. This REPLICATES the stock `f0_staload` SCOPED path (trans12_decl00.dats:2365-
 //      2388) — load the module's d2parsed, build its `f2env`, register it under `$.` (DLRDT_symbl)
@@ -479,6 +622,19 @@ case+ d of
   in
     d2ecl_make_node(loc, D2Cexcptcon(d1ecl_none0(loc), d2cs))
   end
+//
+// ATS-parity: an `abstype Name [tvs]` OPAQUE type -> a D2Cabstype (no sexp). build_abstype
+// registers the s2cst so later decls (and the `assume`) resolve `Name`. SPIKE-PROVEN.
+| PCCabstype(loc, name, tvs, mode) => build_abstype(env, loc, name, tvs, mode)
+//
+// ATS-parity: an `assume Name = T` representation -> a D2Cabsimpl. build_absimpl selects the
+// already-registered abstract s2cst by name + attaches the lowered representation. SPIKE-PROVEN.
+| PCCassume(loc, name, typ) => build_absimpl(env, loc, name, pylower_typ(env, typ))
+//
+// ATS-parity: an `extern def foo(params) -> Ret` FFI bodyless SIGNATURE -> a D2Cextern wrapping
+// a D2Cdynconst whose d2cst carries the function type. build_extern REGISTERS the d2cst so a
+// call to `foo(...)` resolves against the declared signature. SPIKE-PROVEN.
+| PCCextern(loc, name, pnames, ptypes, ret) => build_extern(env, loc, name, pnames, ptypes, ret)
 //
 // an elaboration poison node -> a benign no-op (the diagnostic was already reported by the
 // elaborator; M3 surfaces it via the harness's diagnostics dump, never crashes).

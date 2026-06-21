@@ -206,6 +206,20 @@ case+ d of
     // §5.7 — a `type X = T` alias -> a PCCalias (M5b.5). M3 lowers `T` via pylower_typ and
     // builds the D2Csexpdef. tvs are monomorphic for now (a non-empty list is M5c).
     list_sing(PCCalias(loc, nm, elab_typarams(tps), aliasTyp))
+| PyCabstype(loc, decos, nm, tps) =>
+    // ATS-parity: `abstype Name [tvs]` -> a PCCabstype. The decorator selects the memory/repr
+    // MODE (@boxed/none->boxed tbox, @unboxed->flat tflt; @linear deferred -> boxed at lowering).
+    // No imperative content (opacity is a static fact). M3 builds the OPAQUE s2cst (no sexp).
+    list_sing(PCCabstype(loc, nm, elab_typarams(tps), mode_of_decos(decos)))
+| PyCassume(loc, nm, repTyp) =>
+    // ATS-parity: `assume Name = T` -> a PCCassume carrying the abstract type's NAME + the raw
+    // representation surface type. M3 selects the registered abstract s2cst by name + lowers T.
+    list_sing(PCCassume(loc, nm, repTyp))
+| PyCextern(loc, nm, params, ret) =>
+    // ATS-parity: `extern def foo(params) -> Ret` -> a PCCextern carrying the fun NAME, its param
+    // names + OPTIONAL types (parallel lists, M5a-style), and the OPTIONAL return type. No body.
+    // M3 builds the function type, makes a (registered) d2cst, and emits D2Cextern(D2Cdynconst).
+    list_sing(PCCextern(loc, nm, param_names_d(params), param_types_d(params), ret))
 | PyCexcept(loc, nm, ts) =>
     // EXN: `exception E(T...)` -> a PCCexcept carrying the con name + raw surface arg types.
     // M3 lowers it to a D2Cexcptcon: a d2con of the built-in `exn` type, registered like a

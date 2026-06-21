@@ -304,6 +304,22 @@ pcdecl =
 | PCCimport  of (loctn, strn(*resolved XATSHOME-rel .sats path*), sint(*0=static*), bool(*is_python: defer*))
 | PCCalias   of (loctn, strn, list(pcparam), pytyp)
 | PCCrecord  of (loctn, strn, list(pcparam), list(pcfield), pcmode)
+//   PCCabstype : an `abstype Name [tvs]` OPAQUE type declaration (ATS-parity). Carries the
+//                type NAME, its type-param names, and the decorator-selected MODE (@boxed/none->
+//                boxed tbox, @unboxed->flat tflt; @linear deferred -> boxed with a note). M3
+//                lowers it to D2Cabstype(s2cst, A2TDFsome()): an s2cst with NO sexp attached
+//                (opacity holds at typecheck — a distinct singleton). No imperative content.
+//   PCCassume  : an `assume Name = T` representation (ATS-parity). Carries the abstract type's
+//                NAME + the concrete representation SURFACE type. M3 SELECTS the already-
+//                registered abstract s2cst by name (tr12env_find_s2itm -> SIMPLone1), lowers
+//                T via pylower_typ, and builds D2Cabsimpl(tok, simpl, s2exp).
+//   PCCextern  : an `extern def foo(params) -> Ret` FFI bodyless SIGNATURE (ATS-parity). Carries
+//                the fun NAME, its param names + OPTIONAL types (parallel lists, M5a-style), and
+//                the OPTIONAL return type. M3 builds the function type, makes a d2cst, REGISTERS
+//                it (so calls resolve), and emits D2Cextern(tok, D2Cdynconst(...)). No body.
+| PCCabstype of (loctn, strn, list(pcparam), pcmode)
+| PCCassume  of (loctn, strn, pytyp)
+| PCCextern  of (loctn, strn, list(strn), list(pytypopt), pytypopt)
 //   PCCexcept : `exception E(T...)` (EXN) — an exception CONSTRUCTOR decl. Carries the con
 //               NAME + its surface arg types. M3 lowers it to a D2Cexcptcon: a d2con of the
 //               built-in `exn` type (the_s2cst_excptn), registered like a datatype con so

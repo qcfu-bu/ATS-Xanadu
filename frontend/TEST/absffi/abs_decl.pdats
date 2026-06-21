@@ -1,0 +1,6 @@
+abstype Stack
+
+def id_stack(s: Stack) -> Stack:
+    s
+
+assume Stack = List[Int]

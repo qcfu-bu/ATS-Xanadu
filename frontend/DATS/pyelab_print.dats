@@ -350,6 +350,15 @@ case+ fs of
     pp_typ(out, t); ps(out, ")"); pp_pcfields(out, rest) )
 )
 //
+// print a list of bare names (extern param names).
+fun
+pp_strnlst(out: FILR, ns: list(strn)): void =
+(
+case+ ns of
+| list_nil() => ()
+| list_cons(n, rest) => (ps(out, " "); ps(out, n); pp_strnlst(out, rest))
+)
+//
 fun
 pp_decl(out: FILR, d: pcdecl, ind: sint): void =
 (
@@ -381,6 +390,20 @@ case+ d of
     ps(out, " "); pp_typ(out, typ); ps(out, ")") )
 | PCCexcept(loc, nm, ts) =>
   ( ps(out, "(exception "); ps(out, nm); print_span(out, loc); pp_typlst(out, ts); ps(out, ")") )
+| PCCabstype(loc, nm, tvs, mode) =>
+  ( ps(out, "(abstype "); ps(out, nm); print_span(out, loc);
+    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_pcparams(out, tvs); ps(out, ")")) );
+    ps(out, " mode="); pp_mode(out, mode); ps(out, ")") )
+| PCCassume(loc, nm, typ) =>
+  ( ps(out, "(assume "); ps(out, nm); print_span(out, loc);
+    ps(out, " "); pp_typ(out, typ); ps(out, ")") )
+| PCCextern(loc, nm, pnames, _ptypes, ret) =>
+  ( ps(out, "(extern "); ps(out, nm); print_span(out, loc);
+    ps(out, " (params"); pp_strnlst(out, pnames); ps(out, ")");
+    ( case+ ret of
+      | PyTypNone() => ()
+      | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
+    ps(out, ")") )
 | PCCerror(loc, msg) =>
   (ps(out, "(Cerror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )

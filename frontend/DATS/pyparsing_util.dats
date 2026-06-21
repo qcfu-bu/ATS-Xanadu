@@ -84,6 +84,9 @@ pydecl_loctn(d) =
 case+ d of
 | PyCfun(loc, _, _, _, _, _) => loc | PyCtype(loc, _, _, _, _) => loc
 | PyCenum(loc, _, _, _, _) => loc   | PyCstruct(loc, _, _, _, _) => loc
+| PyCabstype(loc, _, _, _) => loc   | PyCassume(loc, _, _) => loc
+| PyCextern(loc, _, _, _) => loc
+| PyCexcept(loc, _, _) => loc
 | PyCimport(loc, _) => loc          | PyCstmt(loc, _) => loc
 | PyCerror(loc, _) => loc
 )

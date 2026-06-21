@@ -261,6 +261,84 @@ end
 //
 (* ****** ****** *)
 //
+// ---- abstract-type decl (ATS-parity): '[decorators] abstype' UIDENT [typarams] NEWLINE ----
+//      an OPAQUE type declaration: NO `= T` body (opacity is the whole point). Decorators
+//      select the box/flat sort at lowering. Single-line (consumes its trailing NEWLINE via
+//      p_top_item's expect_newline_d, like `type`).
+//
+fun
+p_abstypedecl(st: pstate, decos: list(pydecorator)): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'abstype'
+  val @(nm, st2) =
+    ( case+ ps_peek(st1) of
+      | PT_UIDENT(s) => @(s, ps_advance(st1))
+      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected an abstract-type name (uppercase)")) )
+  val @(tvs, st3) = p_typarams(st2)
+in
+  @(PyCabstype(loc, decos, nm, tvs), st3)
+end
+//
+// ---- assume decl (ATS-parity): 'assume' UIDENT '=' type NEWLINE ----
+//      gives an abstract type its hidden representation. Shape mirrors a `type` alias minus
+//      the type params (the representation is monomorphic in v1). Single-line (NEWLINE via
+//      p_top_item).
+//
+fun
+p_assumedecl(st: pstate): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'assume'
+  val @(nm, st2) =
+    ( case+ ps_peek(st1) of
+      | PT_UIDENT(s) => @(s, ps_advance(st1))
+      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected an abstract-type name (uppercase)")) )
+  val st3 =
+    ( case+ ps_peek(st2) of
+      | PT_EQ() => ps_advance(st2)
+      | _ => ps_diag(st2, ps_peek_loctn(st2), "expected '=' in assume declaration") )
+  val @(t, st4) = parse_type(st3)
+in
+  @(PyCassume(loc, nm, t), st4)
+end
+//
+// ---- extern (FFI) decl (ATS-parity): 'extern' 'def' LIDENT '(' params ')' ['-> type] NEWLINE ----
+//      a foreign function SIGNATURE: NO `:` body suite (it ends after the return type). Calls to
+//      the name typecheck against the declared signature. Mirrors p_def's header parsing exactly,
+//      stopping BEFORE the `:`/body. Single-line (NEWLINE via p_top_item).
+//
+fun
+p_externdecl(st: pstate): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'extern'
+  val st2 =
+    ( case+ ps_peek(st1) of
+      | PT_KW_DEF() => ps_advance(st1)
+      | _ => ps_diag(st1, ps_peek_loctn(st1), "expected 'def' after 'extern'") )
+  val @(nm, st3) =
+    ( case+ ps_peek(st2) of
+      | PT_LIDENT(s) => @(s, ps_advance(st2))
+      | _ => @("?", ps_diag(st2, ps_peek_loctn(st2), "expected a function name")) )
+  val st4 =
+    ( case+ ps_peek(st3) of
+      | PT_LPAREN() => ps_advance(st3)
+      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected '(' after function name") )
+  val @(params, st5) = p_def_params(st4)
+  val st6 =
+    ( case+ ps_peek(st5) of
+      | PT_RPAREN() => ps_advance(st5)
+      | _ => ps_diag(st5, ps_peek_loctn(st5), "expected ')'") )
+  // optional return type — and NO body suite (this is a bodyless signature).
+  val @(ropt, st7) =
+    ( case+ ps_peek(st6) of
+      | PT_ARROW() =>
+        let val @(t, st7) = parse_type(ps_advance(st6)) in @(PyTypSome(t), st7) end
+      | _ => @(PyTypNone(), st6) )
+in
+  @(PyCextern(loc, nm, params, ropt), st7)
+end
+//
+(* ****** ****** *)
+//
 // ---- EXN: exception decl: 'exception' UIDENT [ '(' type {',' type} ')' ] NEWLINE ----
 //      a single exception CONSTRUCTOR (a con of the built-in `exn` type). Shape mirrors a
 //      datacon: UIDENT + optional parenthesized arg types. Nullary `exception Empty` allowed.
@@ -552,6 +630,23 @@ in
   | PT_KW_ENUM()   => p_enumdecl(st0, decos)
   | PT_KW_STRUCT() => p_structdecl(st0, decos)
   | PT_KW_TYPE()   => p_typedecl(st0, decos)
+  | PT_KW_ABSTYPE() => p_abstypedecl(st0, decos)  // abstype takes box/flat decorators (mode->sort)
+  | PT_KW_ASSUME() =>
+    // `assume Name = T` takes NO decorators (the representation is given, not mode-annotated).
+    ( case+ decos of
+      | list_nil() => p_assumedecl(st0)
+      | _ =>
+        let val @(_, st1) = p_assumedecl(st0) in
+          @(PyCerror(locD, "decorators are not allowed on an 'assume'"),
+            ps_diag(st1, locD, "decorators are not allowed on an 'assume'")) end )
+  | PT_KW_EXTERN() =>
+    // `extern def ...` takes NO decorators in v1 (it is a plain FFI signature).
+    ( case+ decos of
+      | list_nil() => p_externdecl(st0)
+      | _ =>
+        let val @(_, st1) = p_externdecl(st0) in
+          @(PyCerror(locD, "decorators are not allowed on an 'extern'"),
+            ps_diag(st1, locD, "decorators are not allowed on an 'extern'")) end )
   | PT_KW_EXCEPTION() =>
     // EXN: `exception E(T...)` takes NO decorators in v1 (it is a single exn constructor,
     // not a mode-bearing type decl). If any precede it, reject for recovery (mirrors def).
@@ -599,6 +694,15 @@ in
     // is a no-op after a block (DEDENT consumed), and consumes the NEWLINE after an alias.
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_TYPE()   =>
+    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+  | PT_KW_ABSTYPE() =>
+    // a single-line `abstype Name [typarams]` decl — consume its trailing NEWLINE, like `type`.
+    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+  | PT_KW_ASSUME() =>
+    // a single-line `assume Name = T` decl — consume its trailing NEWLINE, like `type`.
+    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+  | PT_KW_EXTERN() =>
+    // a single-line `extern def foo(...) -> T` signature — consume its trailing NEWLINE.
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_EXCEPTION() =>
     // EXN: a single-line `exception E(T...)` decl — consume its trailing NEWLINE, like `type`.

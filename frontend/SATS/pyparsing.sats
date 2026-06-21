@@ -371,6 +371,17 @@ pydecl =
 | PyCenum   of (loctn, list(pydecorator), strn, list(pytyparam), list(pydatacon))   // enum: case suite
 | PyCstruct of (loctn, list(pydecorator), strn, list(pytyparam), list(pyfield))     // struct: field suite
 | PyCtype   of (loctn, list(pydecorator), strn, list(pytyparam), pytyp)             // type: ALIAS ONLY
+//   PyCabstype : `[decorators] abstype Name [typarams]` — an OPAQUE type declaration (ATS-parity).
+//                No `= T` body (opacity); decorators select the box/flat sort (@boxed/none->tbox,
+//                @unboxed->tflt; @linear deferred). M3 lowers it to D2Cabstype(s2cst, A2TDFsome()).
+//   PyCassume  : `assume Name = T` — gives an abstract type its hidden representation T (ATS-parity).
+//                M3 selects the abstract s2cst by name, lowers T via pylower_typ -> D2Cabsimpl.
+//   PyCextern  : `extern def foo(params) [-> Ret]` — an FFI bodyless function SIGNATURE (ATS-parity).
+//                No `:` body suite; calls to `foo(...)` typecheck against the declared signature.
+//                M3 lowers it to D2Cextern(tok, <bodyless d2cst signature via D2Cdynconst>).
+| PyCabstype of (loctn, list(pydecorator), strn, list(pytyparam))
+| PyCassume  of (loctn, strn, pytyp)
+| PyCextern  of (loctn, strn, list(pyparam), pytypopt)
 | PyCexcept of (loctn, strn, list(pytyp))   // exception E(T1,T2): an exception constructor (EXN)
 | PyCimport of (loctn, pyimport)
 | PyCstmt   of (loctn, pystmt)
