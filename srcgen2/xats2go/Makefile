@@ -95,6 +95,7 @@ GO_DATS := \
   intrep1_print0.dats \
   intrep1_utils0.dats \
   go1emit_tytab0.dats \
+  go1emit_byref0.dats \
   trxi0i1.dats \
   trxi0i1_myenv0.dats \
   trxi0i1_dynexp.dats \
@@ -552,16 +553,19 @@ SUITE_NAMES := \
   test63_con_guard_xats2go \
   test64_guard_order_xats2go \
   test73_strescape_xats2go \
-  test74_localfun_xats2go
+  test74_localfun_xats2go \
+  test70_jsbk01_xats2go \
+  test71_jsbk02_xats2go
 
 # Self-hosting forcing-function rungs (copies of the JS backend's own test
-# programs).  test73/test74 above are the FOCUSED green proofs of the two
-# self-hosting gaps fixed here (GAP-2 string escaping, GAP-1 local closures);
-# they ARE in the suite (byte-equal-vs-JS).  The JS-test COPIES test70/71/72
-# are kept under TEST/ as rungs but NOT in the green suite -- each is blocked by
-# a SEPARATE feature beyond the two gaps (test70: `&sint` by-reference params;
-# test71: tuple-PATTERN function params `loop@(x,r)`; test72: the list runtime
-# `list_length`/`gseq_folditm` + datacon-tail type assertion + tuple lvalues).
+# programs).  test73/test74 are the FOCUSED green proofs of two earlier
+# self-hosting gaps (GAP-2 string escaping, GAP-1 local closures).  Chunk A
+# made test70 (`&sint` by-REFERENCE params -> Go pointers; GAP A1) and test71
+# (tuple/record-PATTERN function params `loop@(x,r)` -> tuple-projection value
+# nodes I1Vp0rj/I1Vp1rj; GAP A2) byte-equal-vs-JS -- BOTH are now in the green
+# suite above.  test72 remains a rung NOT in the green suite: it needs the list
+# RUNTIME (`xatsgo.Xats_list_length`/`Xats_gseq_folditm` -- Chunk B) plus the
+# M2.7b datacon-tail typed projection + tuple-element lvalues.
 # See BUILD-NOTES "Self-hosting gap-fix" for the precise remaining-blocker list.
 
 # SEQUENTIAL suite — unchanged behavior.  Bundles are built ONCE up front (the

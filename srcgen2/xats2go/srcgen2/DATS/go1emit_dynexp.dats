@@ -61,6 +61,12 @@ and the I1CMPcons result ival as a final  goxtnmX := <ival>; _ = goxtnmX.
 #staload "./../SATS/xats2go.sats"
 #staload "./../SATS/go1emit.sats"
 //
+(*
+GAP A1: the by-REFERENCE-parameter STAMP SET -- read here at the
+read/write/call emit sites to deref (`*p`) / pass (`p`) a `*T` pointer param.
+*)
+#staload "./../SATS/go1emit_byref0.sats"
+//
 (* ****** ****** *)
 (* ****** ****** *)
 //
@@ -583,8 +589,21 @@ ival.node() of
 //
 (* ****** ****** *)
 //
+(*
+I1Vtnm: a temp reference.  GAP A1: if the temp is a by-REFERENCE PARAMETER
+(a Go `*T` pointer -- in the byref set), a plain VALUE use of it must
+DEREFERENCE: `*goxtnm<p>`.  (A read of a `&`-param surfaces wrapped in
+I1INSflat, which forwards to this i1val, so the deref happens here; the
+POINTER itself is needed only at I1Vaddr / call-arg / assignment-LHS sites,
+which special-case the byref param and so never reach this deref path.)
+A non-byref temp is its plain Go name.
+*)
 |I1Vtnm
-( itnm ) => i1tnmgo1(filr, itnm)
+( itnm ) =>
+  (
+  if byref_has(i1tnm_stmp$get(itnm))
+  then (strnfpr(filr, "*"); i1tnmgo1(filr, itnm))
+  else i1tnmgo1(filr, itnm))
 //
 (* ****** ****** *)
 //
@@ -645,15 +664,31 @@ SYNTAX; the value-vs-pointer ROOT (M2.6b) realizes the flat/boxed semantics.
   strnfpr(filr, "."); strnfpr(filr, gofield_of_label(lab0)))
 //
 (*
-M2.6c ADDR / AEXP: a left-value root that is the var/value itself.
-  I1Vaddr(v) : address-of -- in Go a `var` is already addressable, so taking
-               its address for an lvalue path is a no-op at the syntax level
-               (Go's `&` is implicit for field assignment through a value var);
-               we emit the inner expression `<v>`.  (JS: XATSADDR = identity.)
+M2.6c / GAP A1 ADDR: address-of a left-value root.
+//
+GAP A1 (by-reference args): `I1Vaddr(I1Vtnm(v))` is how a `&`-argument is
+passed (the source `&cell` / the onward pass of a `&`-param).  Two cases by
+whether [v] is itself a by-ref POINTER param:
+  - [v] is a by-ref param (already a Go `*T` pointer): emit `goxtnm<v>` (the
+    POINTER itself -- NO `&`, NO deref).  This is the onward pass of a `&`-
+    param to a nested `&`-call (e.g. `auxlp(x, r)` inside `auxlp`'s body), and
+    the value position must NOT deref it here (i1valgo1's I1Vtnm deref is
+    bypassed precisely so the raw pointer flows).
+  - [v] is a plain addressable Go `var` (a source `var x`): emit `&goxtnm<v>`
+    (take its address -> a `*T` to pass by reference).  Go vars are
+    addressable, so `&` yields the cell the callee mutates through.
+For any OTHER inner expression (M2.6c lvalue paths -- a var is already
+addressable in Go) we keep the identity behavior (emit the inner).
 *)
 |I1Vaddr(iv1) =>
   (
-  i1valgo1(filr, iv1))
+  case+ iv1.node() of
+  |I1Vtnm(itnm) =>
+    (
+    if byref_has(i1tnm_stmp$get(itnm))
+    then i1tnmgo1(filr, itnm)            // already a pointer -> pass as-is
+    else (strnfpr(filr, "&"); i1tnmgo1(filr, itnm)))  // &<addressable var>
+  | _(*else*) => i1valgo1(filr, iv1))
 //
 (*
 M2.7 DATACON PROJECTION (sub-pattern variable read).  A datacon sub-pattern
@@ -668,6 +703,27 @@ recursion case), a polymorphic field stays `any` (no assertion).
 *)
 |I1Vp1cn(ipat, iroot, pind) =>
   i1con_proj_go1emit(filr, iroot, pind, goty_of_p1cn(ipat, pind))
+//
+(*
+GAP A2 (tuple-PATTERN function params).  A tuple-pattern parameter
+`fun loop@(x, r) = ...` binds the param's i1tnm to the WHOLE tuple (a Go
+struct), and each destructured field use (`x`, `r`) is inlined by the
+front-end as a TUPLE PROJECTION value node on the param temp -- NOT a fresh
+binding (mirrors the JS backend's `XATSP0RJ`/`XATSP1RJ`).  We emit
+`<root>.F<pind>` (the SAME field-name scheme [gofield_of_label] every
+tuple/record construction + projection uses), so a flat-value-struct or
+boxed-pointer param both project correctly (Go auto-derefs a pointer root).
+  I1Vp0rj(root, pind)        : FLAT  tuple projection -> `<root>.F<pind>`
+  I1Vp1rj(token, root, pind) : BOXED tuple projection -> `<root>.F<pind>`
+*)
+|I1Vp0rj(iroot, pind) =>
+  (
+  i1valgo1(filr, iroot);
+  strnfpr(filr, "."); strnfpr(filr, gofield_of_label(LABint(pind))))
+|I1Vp1rj(_tok, iroot, pind) =>
+  (
+  i1valgo1(filr, iroot);
+  strnfpr(filr, "."); strnfpr(filr, gofield_of_label(LABint(pind))))
 //
 (*
 M2.7 DATACON LEFT-VALUE.  I1Vlpcn(lab, root): a consed-datatype field as an
@@ -898,11 +954,48 @@ syntax correct for both -- the value-vs-pointer choice (made at construction,
 M2.6b) is what realizes the flat/boxed semantic difference.  No path-encoding
 runtime (unlike the JS backend's XATSLPFT/lvget/lvset copy-on-write sim).
 *)
+(*
+GAP A1: an assignment whose LHS is `I1Vaddr(I1Vtnm(p))` where [p] is a
+by-REFERENCE pointer param is a WRITE THROUGH THE POINTER: emit `*p = <rhs>`
+(NOT `p = <rhs>`, which would overwrite the pointer).  The asymmetry vs the
+call-arg site (where the SAME `I1Vaddr(I1Vtnm(p))` passes the bare pointer
+`p`) mirrors the JS backend's `XATS000_assgn(XATSADDR(p), v)` (write the box)
+vs passing `XATSADDR(p)` (pass the box).  Any other LHS keeps the plain
+addressable-Go-lvalue assignment.
+*)
 |I1INSassgn(ilft, irgt) =>
   (
-  i1valgo1(filr, ilft);
-  strnfpr(filr, " = ");
-  i1valgo1(filr, irgt))
+  case+ ilft.node() of
+  |I1Vaddr(ivin) =>
+    (
+    case+ ivin.node() of
+    // GAP A1: write THROUGH a by-ref pointer param: `*p = <rhs>`.
+    |I1Vtnm(itnm) when byref_has(i1tnm_stmp$get(itnm)) =>
+      (
+      strnfpr(filr, "*"); i1tnmgo1(filr, itnm);
+      strnfpr(filr, " = "); i1valgo1(filr, irgt))
+    // M2.5/M2.6c: a direct mutation of an addressable Go `var` (a captured
+    // local, or a `var x`): the LVALUE IS the var itself -- `goxtnm<v> = <rhs>`
+    // (NOT `&goxtnm<v>`, which is not assignable).  We must emit the var NAME
+    // here, NOT route through [i1valgo1] of the I1Vaddr (whose CALL-ARG rule
+    // would prepend `&` -- correct for passing by reference, WRONG for an
+    // assignment target).  This is the assignment-vs-call-arg asymmetry of
+    // I1Vaddr (mirrors the JS backend's XATS000_assgn(XATSADDR(v), .) writing
+    // the box vs passing XATSADDR(v)).
+    |I1Vtnm(itnm) =>
+      (
+      i1tnmgo1(filr, itnm);
+      strnfpr(filr, " = "); i1valgo1(filr, irgt))
+    // any other I1Vaddr inner (an lvalue PATH -- I1Vlpft/I1Vlpbx already
+    // emit `<root>.F<lab>`, addressable in Go) -> emit the inner lvalue.
+    | _(*else*) =>
+      (
+      i1valgo1(filr, ivin);
+      strnfpr(filr, " = "); i1valgo1(filr, irgt)))
+  | _(*else*) =>
+    (
+    i1valgo1(filr, ilft);
+    strnfpr(filr, " = "); i1valgo1(filr, irgt)))
 |I1INSflat(iv1) =>
   (
   i1valgo1(filr, iv1))

@@ -78,6 +78,14 @@ go1emit_tytab0.sats.
 *)
 #staload "./../SATS/go1emit_tytab0.sats"
 //
+(*
+GAP A1: the by-REFERENCE-parameter STAMP SET (a process-global set of the
+i1tnm stamps that are `&T` -> Go `*T` pointer params).  Populated by
+[byref_register_params] (below); read at the read/write/call emit sites
+(go1emit_dynexp.dats).  See go1emit_byref0.sats.
+*)
+#staload "./../SATS/go1emit_byref0.sats"
+//
 (* ****** ****** *)
 (* ****** ****** *)
 //
@@ -849,6 +857,24 @@ case+ t2p0.node() of
 |T2Plft (t2p1) => gotype_of_styp(t2p1)
 |T2Pnone1(t2p1) => gotype_of_styp(t2p1)
 |T2Parg1(_, t2p1) => gotype_of_styp(t2p1)
+//
+// an EXISTENTIAL type variable (T2Pxtv) carries its SOLVED static type once
+// the front-end has resolved it (x2t2p_get_styp).  An unannotated local
+// function's inferred tuple-field types surface as solved existentials, so
+// chasing the solution recovers the concrete scalar (int/...) -- making the
+// PARAMETER tuple struct type match the construction sites' concrete fields
+// (test71's `fun loop@(x, r1, r2)` without annotations).  If chasing the
+// solution loops back to the SAME existential (unsolved), we'd recurse
+// forever; guard by checking the solution is a DIFFERENT node kind (an
+// unsolved xtv solves to itself / another xtv -> we stop at "any").
+|T2Pxtv(xt2p) =>
+  let
+    val sln = x2t2p_get_styp(xt2p)
+  in
+    case+ sln.node() of
+    |T2Pxtv(_) => "any"   // unsolved (or chains to another xtv) -> any
+    | _(*solved to a concrete node*) => gotype_of_styp(sln)
+  end
 //
 // an external $extype directly (rare at this position) -> by its name.
 |T2Ptext(nm, _) => goty_of_text(nm)
@@ -1642,6 +1668,72 @@ its BODY cmp fully returns (i1cmp_tail_returns) -- a let whose body is a
 returning if/case/nested-let, in FUNCTION-BODY (return) position; then the
 let-block emits in return mode (no result temp, no trailing return).
 *)
+(*
+[cmp_terminates]: does this branch/body cmp TERMINATE control flow on every
+path -- i.e. emit a `return`, a TCO loop `continue`, or a panic on every path
+-- so a value-position temp + trailing `return goxtnm<N>` after it would be
+UNREACHABLE (`go vet`: "unreachable code")?  This is the GENERAL return-
+position test the if/case branch-mode decision needs.  True when ANY of:
+  (a) [i1cmp_retq] holds -- the stock predicate: the last let is itself an
+      I1INSrturn (or a trailing if/case whose branches all return as I1LETnew0).
+  (b) the cmp ENDS IN A (TAIL) CALL: its last let is I1LETnew1(tR, I1INSdapp)
+      and the cmp result is exactly I1Vtnm(tR).  In a TCO `for {}` body a SELF
+      tail call emits `continue` (terminating the iteration); a non-self tail
+      call emits `return f(...)`; either way the branch terminates, so a
+      trailing return after it is unreachable.  This is the case [i1cmp_retq]
+      misses for a tuple-PATTERN local loop `loop@(x,..) = if .. then loop@(..)`
+      (the self-call branch is I1LETnew1, not an I1INSrturn) -- test71's fibo2/
+      fibo3/fibo4.
+  (c) the cmp ENDS IN A FULLY-TERMINATING if/case/let: its last let is
+      I1LETnew1(tR, ift0/cas0/let0) all of whose branches terminate (recursively
+      [cmp_terminates]) AND the cmp result is I1Vtnm(tR) -- the nested-if `else
+      (if .. then .. else ..)` arm of fibo2/fibo3/fibo4.
+[cmp_terminates] and [i1ins_fully_returnsq] are mutually recursive (a nested
+if terminates iff both its branches terminate); both are PURE + structurally
+decreasing on the IR, so the recursion is well-founded.
+*)
+fun
+cmp_terminates
+(icmp: i1cmp): bool =
+let
+  val-I1CMPcons(ilts, ival) = icmp
+  //
+  fun
+  lastlet
+  (ilts: i1letlst): optn(i1let) =
+  (
+  case+ ilts of
+  |list_nil() => optn_nil()
+  |list_cons(il1, list_nil()) => optn_cons(il1)
+  |list_cons(_, ilts1) => lastlet(ilts1)
+  )
+  //
+  fun
+  res_is
+  (tnm: i1tnm): bool =
+  (
+  case+ ival.node() of
+  |I1Vtnm(rtnm) => stmp_eq(i1tnm_stmp$get(tnm), i1tnm_stmp$get(rtnm))
+  | _(*else*) => false
+  )
+in//let
+  if i1cmp_retq(icmp) then true else
+  (
+  case+ lastlet(ilts) of
+  |optn_nil() => false
+  |optn_cons(I1LETnew0(_)) => false
+  |optn_cons(I1LETnew1(tnm, iins)) =>
+    (
+    case+ iins of
+    // ends in a (tail) CALL whose result is the cmp result -> terminates.
+    |I1INSdapp(_, _) => res_is(tnm)
+    // ends in a fully-terminating if/case/let whose result is the cmp result.
+    |I1INSift0(_, _, _) => (if i1ins_fully_returnsq(iins) then res_is(tnm) else false)
+    |I1INScas0(_, _, _) => (if i1ins_fully_returnsq(iins) then res_is(tnm) else false)
+    |I1INSlet0(_, _) => (if i1ins_fully_returnsq(iins) then res_is(tnm) else false)
+    | _(*else*) => false))
+end//let//endof[cmp_terminates(icmp)]
+//
 #implfun
 i1ins_fully_returnsq
 (iins) =
@@ -1658,7 +1750,7 @@ case+ iins of
     |optn_nil() => false
     |optn_cons(cels) =>
       (
-      if i1cmp_retq(cthn) then i1cmp_retq(cels) else false)))
+      if cmp_terminates(cthn) then cmp_terminates(cels) else false)))
 //
 |I1INScas0(_, _, icls) =>
   all_clauses_retq(icls)
@@ -1677,8 +1769,8 @@ case+ iins of
 ) where
 {
 //
-// every clause body returns?  (an empty clause list -> vacuously true,
-// but such a case never arises; [i1cmp_retq] over each I1CLScls body.)
+// every clause body terminates (returns / tail-continues / panics)?  (an empty
+// clause list -> vacuously true, but such a case never arises.)
 fun
 all_clauses_retq
 (icls: i1clslst): bool =
@@ -1691,7 +1783,7 @@ case+ icls of
   |I1CLSgpt(_) => all_clauses_retq(ics1)
   |I1CLScls(_, icmp) =>
     (
-    if i1cmp_retq(icmp) then all_clauses_retq(ics1) else false))
+    if cmp_terminates(icmp) then all_clauses_retq(ics1) else false))
 )
 //
 }(*where*)//endof[i1ins_fully_returnsq(iins)]
@@ -2035,7 +2127,16 @@ gotype_of_arg
 (t2p0: s2typ): strn =
 (
 case+ t2p0.node() of
-|T2Parg1(_, t2p1) => gotype_of_arg(t2p1)
+|T2Parg1(knd, t2p1) =>
+  // knd: 0/1/-1 = cbv0/cbv1/by-REFERENCE (statyp2.sats: `~/!/& = 0/1/-1`).
+  // A by-reference (`&T`) parameter becomes a Go POINTER `*<T>` (the call
+  // site passes the cell's address; reads/writes inside the callee deref it).
+  // The byref param STAMP is registered separately at the param-emission site
+  // ([byref_register_params]) so the read/write/call emitters can deref it.
+  (
+  if (knd < 0)
+  then strn_append("*", gotype_of_arg(t2p1))
+  else gotype_of_arg(t2p1))
 |T2Patx2(t2p1, _) => gotype_of_arg(t2p1)
 | _(*otherwise*) => gotype_of_styp(t2p0)
 )
@@ -2063,6 +2164,131 @@ case+ chase_fun(styp) of
     @(gotypes_of_args(args1), gotype_of_styp(res))
   end
 )
+//
+(* ****** ****** *)
+//
+(*
+=======================================================================
+== GAP A1: by-REFERENCE-parameter STAMP registration                 ==
+=======================================================================
+//
+[styp_arg_is_byref]: is this VALUE-arg static type a by-REFERENCE arg
+(`&T` -> Go pointer)?  An `&T` arg surfaces as [T2Parg1(-1, _)] (knd = -1;
+statyp2.sats `~/!/& = 0/1/-1`).  We chase the trivial wrappers the
+front-end may leave AROUND the arg marker (none normally, but be robust),
+and treat a NEGATIVE [T2Parg1] knd as by-ref.  A non-negative knd
+(call-by-value) or any non-arg type is NOT by-ref.
+*)
+fun
+styp_arg_is_byref
+(t2p0: s2typ): bool =
+(
+case+ t2p0.node() of
+|T2Parg1(knd, _) => (knd < 0)
+// a `&(?T) >> T` consumed/type-changing arg is [T2Patx2(bef, aft)] whose
+// [bef] carries the by-ref [T2Parg1] marker (test71's `foo`'s `&(?int)>>int`).
+// Chase into [bef] -- the SAME component [gotype_of_arg] chases to recover the
+// Go type -- so the by-ref detection and the `*T` type agree.
+|T2Patx2(bef, _aft) => styp_arg_is_byref(bef)
+// a wrapper around the arg (defensive -- the arg marker is normally the
+// outermost node on a function arg type).
+|T2Ptop0(t1) => styp_arg_is_byref(t1)
+|T2Ptop1(t1) => styp_arg_is_byref(t1)
+|T2Pnone1(t1) => styp_arg_is_byref(t1)
+| _(*else: not a by-ref arg*) => false
+)//endof[styp_arg_is_byref(t2p0)]
+//
+(*
+[byref_register_binds]: walk a parameter bind-list in parallel with the
+function's VALUE-arg static types; for each bind whose arg type is by-ref
+([styp_arg_is_byref]) register the bind's i1tnm stamp ([byref_add]).  Lists
+desync-safe: a missing arg type stops registration for the rest (treated as
+not-by-ref), which is the conservative choice (a non-registered byref param
+would surface as a `go build` type error -- the oracle catches it -- never a
+silent wrong answer, because the deref/pass logic keys off the SAME set).
+*)
+fun
+byref_register_binds
+(i1bs: i1bndlst, args: s2typlst): void =
+(
+case+ i1bs of
+|list_nil() => ((*void*))
+|list_cons(ibnd, i1bs1) =>
+  (
+  case+ args of
+  |list_nil() => ((*void*))
+  |list_cons(a1, args1) =>
+    let
+      val-I1BNDcons(itnm, _, _) = ibnd
+      val () =
+      (
+      if styp_arg_is_byref(a1)
+      then byref_add(i1tnm_stmp$get(itnm))
+      else ((*void*)))
+    in
+      byref_register_binds(i1bs1, args1)
+    end)
+)//endof[byref_register_binds(i1bs,args)]
+//
+(*
+[byref_register_fjarg]: register the by-ref binds of ONE fjarg (an FJARGdarg
+carries an i1bndlst) against the (already proof-dropped) arg types, returning
+the SUFFIX of the arg-type list past the binds it consumed (so the next fjarg
+continues at the right offset).
+*)
+fun
+byref_register_fjarg
+(fja1: fjarg, args: s2typlst): s2typlst =
+let
+  val-FJARGdarg(i1bs) = fja1.node()
+in
+  byref_register_binds(i1bs, args);
+  drop_n_styp(length_i1bnds(i1bs), args)
+end
+//
+and
+length_i1bnds
+(i1bs: i1bndlst): sint =
+(
+case+ i1bs of
+|list_nil() => 0
+|list_cons(_, i1bs1) => 1 + length_i1bnds(i1bs1)
+)
+//
+and
+drop_n_styp
+(n: sint, args: s2typlst): s2typlst =
+(
+if (n <= 0) then args else
+(
+case+ args of
+|list_nil() => args
+|list_cons(_, args1) => drop_n_styp(n-1, args1))
+)
+//
+fun
+byref_register_fjarglst
+(fjas: fjarglst, args: s2typlst): void =
+(
+case+ fjas of
+|list_nil() => ((*void*))
+|list_cons(fja1, fjas1) =>
+  let
+    val args1 = byref_register_fjarg(fja1, args)
+  in
+    byref_register_fjarglst(fjas1, args1)
+  end
+)//endof[byref_register_fjarglst(fjas,args)]
+//
+#implfun
+byref_register_params
+(fjas, styp) =
+(
+case+ chase_fun(styp) of
+|optn_nil() => ((*void*))
+|optn_cons(@(npf, args, _res)) =>
+  byref_register_fjarglst(fjas, drop_pf(npf, args))
+)//endof[byref_register_params(fjas,styp)]
 //
 (* ****** ****** *)
 //

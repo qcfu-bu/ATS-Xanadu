@@ -215,6 +215,11 @@ fun
 i1val_aexp
 ( iexp: i0exp ): i1val =
 let
+val () = prerrsln("[PROBE i1val_aexp] node=",
+  (case+ iexp.node() of
+   |I0Eannot(_,_,_) => "I0Eannot" |I0Et2ped(_,_) => "I0Et2ped"
+   |I0Evar(_) => "I0Evar" |I0Ecst(_) => "I0Ecst" |I0Eint(_) => "I0Eint"
+   |I0Edapp(_,_,_) => "I0Edapp" | _ => "other"))
 val loc0 = iexp.lctn() in
 i1val_make_node(loc0,I1Vaexp(iexp))
 end//let//end-of-[i1val_aexp(iexp)]
@@ -1663,6 +1668,15 @@ iexp.node() of
 |I0Eannot _ => f0_annot(iexp, env0)
 |I0Et2ped _ => f0_t2ped(iexp, env0)
 //
+// GAP A3 (xats2go): a TYPE CAST `(e :> T)` (I0Et2pck) / a LABEL cast
+// (I0Elabck) is, like a checked annotation (I0Et2ped/f0_t2ped), TYPE-ONLY at
+// runtime in the uniform dynamic model -- the value is just the inner [e].
+// FORWARD to [e]'s lowered value (mirrors f0_t2ped).  Neither this nor the JS
+// backend handled these before, so a `(e:T)`/`(e:>T)` ascription fell into the
+// `_(*otherwise*)` -> an I1Vnone1 node the emitter could not lower (`nil`).
+|I0Et2pck(i0e1, _) => i0exp_trxi0i1(i0e1, env0)
+|I0Elabck(i0e1, _) => i0exp_trxi0i1(i0e1, env0)
+//
 (* ****** ****** *)
 //
 |I0Enone0 _ => f0_none0(iexp, env0)
@@ -3035,6 +3049,18 @@ iexp.node() of
 //
 |
 I0Edp2tr _ => f0_dp2tr(iexp, env0)
+//
+// GAP A3 (xats2go): a TYPE ANNOTATION `(e : T)` / `(e :> T)` reaching the
+// LVALUE-lowering path is TYPE-ONLY -- the runtime value/lvalue is just the
+// inner expression [e].  CHASE into [e] (via [i0lft_trxi0i1], so an annotated
+// lvalue stays an lvalue), mirroring the by-VALUE chokepoint [f0_annot]/
+// [f0_t2ped] (which forward to [i0exp_trxi0i1]).  WITHOUT this, the annotation
+// fell into the [i1val_aexp] fallback -> an [I1Vaexp] node the Go emitter
+// could not lower (`/* UNHANDLED: i1val */ nil`).
+|I0Eannot(i0e1, _, _) => i0lft_trxi0i1(i0e1, env0)
+|I0Et2ped(i0e1, _) => i0lft_trxi0i1(i0e1, env0)
+|I0Et2pck(i0e1, _) => i0lft_trxi0i1(i0e1, env0)
+|I0Elabck(i0e1, _) => i0lft_trxi0i1(i0e1, env0)
 //
 |
 _(*otherwise*) => i1val_aexp( iexp )

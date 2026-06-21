@@ -123,6 +123,18 @@ fun
 gotypes_of_funstyp
 (styp: s2typ): @(list(strn), strn)
 //
+// byref_register_params (GAP A1): mark each by-REFERENCE parameter's i1tnm
+// STAMP in the by-ref set ([byref_add], go1emit_byref0).  Walks the function's
+// parameter binds ([fjas]) in parallel with its static ARG types (chased from
+// the function d2cst/d2var styp); a parameter whose static arg type is
+// T2Parg1(-1, _) (knd = -1 = `&T`) is registered, so the body's read/write/
+// call emitters deref it (`*p`) / pass it (`p`).  Called once at the START of
+// each function/closure body emission, before the body is walked.  When the
+// styp is not a recognizable function type, NOTHING is registered (no byref).
+fun
+byref_register_params
+(fjas: fjarglst, styp: s2typ): void
+//
 // gotype_of_dcon_field (M2.7): the Go type of a datacon's [idx]-th VALUE field
 // (0-based), recovered from the constructor's static type (d2con_get_styp = a
 // function type `fields -> datatype`).  Proof fields (nprg) are already dropped

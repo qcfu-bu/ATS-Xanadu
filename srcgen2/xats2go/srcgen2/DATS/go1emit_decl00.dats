@@ -378,6 +378,16 @@ in//let
         let val (ats, _) = gotypes_of_funstyp(d2cst_get_styp(dcst)) in ats end
       |optn_nil() => gotypes_of_fjarglst(fjas))
       //
+      // GAP A1: register this LOCAL closure's by-REFERENCE params (`&T` -> Go
+      // `*T`) BEFORE emitting its body (so the body's read/write/call emitters
+      // deref/pass each pointer param).  Uses the d2cst styp when present (the
+      // SAME source [argtys] came from); falls back to the fix-var's own styp.
+      val () = byref_register_params
+        (fjas,
+         (case+ dcopt of
+          |optn_cons(dcst) => d2cst_get_styp(dcst)
+          |optn_nil() => d2var_get_styp(dvar)))
+      //
       // `<name> = func(<p0> <T0>, ..) <ret> {`
       val () =
       (
@@ -947,6 +957,17 @@ val (argtys, retty) =
   case+ dcopt of
   |optn_nil() => @(list_nil(), "any")
   |optn_cons(dcst) => gotypes_of_funstyp(d2cst_get_styp(dcst)))
+//
+// GAP A1: register this function's by-REFERENCE params (`&T` -> Go `*T`) in
+// the byref stamp set BEFORE emitting the body, so the body's read/write/
+// call emitters deref (`*p`) / pass (`p`) each pointer param.  Uses the SAME
+// styp the arg types came from (d2cst_get_styp), so a `*T` param type and its
+// byref registration agree.
+val () =
+  (
+  case+ dcopt of
+  |optn_nil() => ((*void*))
+  |optn_cons(dcst) => byref_register_params(fjas, d2cst_get_styp(dcst)))
 //
 // --- signature: func <name>(<params>) <ret> { -------------------------
 val () =
