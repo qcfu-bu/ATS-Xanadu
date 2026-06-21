@@ -422,6 +422,32 @@ case+ d of
 | PCCoverload(loc, nm, impl) =>
   ( ps(out, "(overload "); ps(out, nm); print_span(out, loc);
     ps(out, " with "); ps(out, impl); ps(out, ")") )
+| PCCsortdef(loc, nm, srt) =>
+  ( ps(out, "(sortdef "); ps(out, nm); print_span(out, loc);
+    ps(out, " = "); ps(out, srt); ps(out, ")") )
+| PCCstacst(loc, nm, srt) =>
+  ( ps(out, "(stacst "); ps(out, nm); print_span(out, loc);
+    ps(out, " : "); ps(out, srt); ps(out, ")") )
+| PCCstadef(loc, nm, e) =>
+  ( ps(out, "(stadef "); ps(out, nm); print_span(out, loc);
+    ps(out, " = "); pp_exp(out, e, ind + 1); ps(out, ")") )
+| PCCprfun(loc, _tps, f) =>
+  ( ps(out, "(prfun"); print_span(out, loc);
+    pp_fundclst(out, list_sing(f), ind + 1); ps(out, ")") )
+| PCCprval(loc, p, ann, e) =>
+  ( ps(out, "(prval"); print_span(out, loc); ps(out, " ");
+    pp_pat(out, p);
+    ( case+ ann of
+      | PyTypNone() => ()
+      | PyTypSome(t) => (ps(out, " : "); pp_typ(out, t)) );
+    ps(out, " = "); pp_exp(out, e, ind + 1); ps(out, ")") )
+| PCCpraxi(loc, nm, pnames, _ptypes, ret) =>
+  ( ps(out, "(praxi "); ps(out, nm); print_span(out, loc);
+    ps(out, " (params"); pp_strnlst(out, pnames); ps(out, ")");
+    ( case+ ret of
+      | PyTypNone() => ()
+      | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
+    ps(out, ")") )
 | PCCerror(loc, msg) =>
   (ps(out, "(Cerror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )

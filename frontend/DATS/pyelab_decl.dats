@@ -241,6 +241,35 @@ case+ d of
     // No body / no imperative content. M3 resolves IMPL's d2itm and REGISTERS NAME -> a D2ITMsym
     // bucket so a later use of NAME resolves to IMPL (SPIKE-PROVEN, case 4).
     list_sing(PCCoverload(loc, nm, impl))
+| PyCsortdef(loc, nm, srt) =>
+    // ATS-parity: `sortdef Name = SORT` -> a PCCsortdef carrying the alias name + the RHS sort
+    // reference string. No imperative content. M3 maps the string -> a sort2 and emits D2Csortdef.
+    list_sing(PCCsortdef(loc, nm, srt))
+| PyCstacst(loc, nm, srt) =>
+    // ATS-parity: `stacst Name : SORT` -> a PCCstacst carrying the constant name + its sort
+    // reference string. No imperative content. M3 builds the s2cst at that sort + emits D2Cstacst0.
+    list_sing(PCCstacst(loc, nm, srt))
+| PyCstadef(loc, nm, e) =>
+    // ATS-parity: `stadef Name = <expr>` -> a PCCstadef carrying the name + the ELABORATED static
+    // body (v1: an int literal). M3 lowers the body to an s2exp (s2exp_int) + emits a D2Csexpdef.
+    list_sing(PCCstadef(loc, nm, elab_exp(list_nil(), e)))
+| PyCprfun(loc, nm, tps, params, ret, body) =>
+    // ATS-parity: `prfun NAME(params) -> Ret: <body>` -> a PCCprfun. Structurally a def (the body
+    // is elaborated by elab_func_body EXACTLY like a `def` body); M3 swaps the funkind to FNKprfn1.
+    let
+      val fundcl = PCFundcl(loc, nm, param_names_d(params), param_types_d(params),
+                            ret, elab_func_body(fc_param_names_pub(list_nil(), params), loc, body), false)
+    in
+      list_sing(PCCprfun(loc, elab_typarams(tps), fundcl))
+    end
+| PyCprval(loc, _mut, p, ann, rhs) =>
+    // ATS-parity: `prval pat [: T] = e` -> a PCCprval carrying the pattern + OPTIONAL type annot +
+    // the elaborated RHS. Like a module-level `let`/PCCval; M3 lowers with the VLKprval valkind.
+    list_sing(PCCprval(loc, elab_pat(p), ann, elab_exp(list_nil(), rhs)))
+| PyCpraxi(loc, nm, _tps, params, ret) =>
+    // ATS-parity: `praxi NAME(params) -> Ret` -> a PCCpraxi. Bodyless, like an `extern def` with a
+    // proof funkind. M3 builds the function type + a registered d2cst + emits D2Cstatic(D2Cdynconst).
+    list_sing(PCCpraxi(loc, nm, param_names_d(params), param_types_d(params), ret))
 | PyCimport(loc, imp) =>
     // M7-import (task #34): a USER `import M` / `from M import x` -> a PCCimport carrying the
     // RESOLVED XATSHOME-relative `.sats` path (v1 rule: dotted `a.b` -> `/a/b.sats`). M3

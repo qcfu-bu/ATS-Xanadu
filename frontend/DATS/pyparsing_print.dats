@@ -454,6 +454,37 @@ case+ d of
 | PyCoverload(loc, nm, impl) =>
   ( ps(out, "(overload "); ps(out, nm); print_span(out, loc);
     ps(out, " with "); ps(out, impl); ps(out, ")") )
+| PyCsortdef(loc, nm, srt) =>
+  ( ps(out, "(sortdef "); ps(out, nm); print_span(out, loc);
+    ps(out, " = "); ps(out, srt); ps(out, ")") )
+| PyCstacst(loc, nm, srt) =>
+  ( ps(out, "(stacst "); ps(out, nm); print_span(out, loc);
+    ps(out, " : "); ps(out, srt); ps(out, ")") )
+| PyCstadef(loc, nm, e) =>
+  ( ps(out, "(stadef "); ps(out, nm); print_span(out, loc);
+    ps(out, " = "); pp_exp(out, e); ps(out, ")") )
+| PyCprfun(loc, nm, tvs, params, ropt, body) =>
+  ( ps(out, "(prfun "); ps(out, nm); print_span(out, loc);
+    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
+    ps(out, " (params"); pp_paramlst(out, params); ps(out, ")");
+    ( case+ ropt of
+      | PyTypNone() => ()
+      | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
+    pp_stmtlst(out, body, ind + 1); ps(out, ")") )
+| PyCprval(loc, _, pat, topt, e) =>
+  ( ps(out, "(prval"); print_span(out, loc); ps(out, " "); pp_pat(out, pat);
+    ( case+ topt of
+      | PyTypNone() => ()
+      | PyTypSome(t) => (ps(out, " : "); pp_typ(out, t)) );
+    ps(out, " = "); pp_exp(out, e); ps(out, ")") )
+| PyCpraxi(loc, nm, tvs, params, ropt) =>
+  ( ps(out, "(praxi "); ps(out, nm); print_span(out, loc);
+    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
+    ps(out, " (params"); pp_paramlst(out, params); ps(out, ")");
+    ( case+ ropt of
+      | PyTypNone() => ()
+      | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
+    ps(out, ")") )
 | PyCimport(loc, imp) =>
   (ps(out, "(import"); print_span(out, loc); ps(out, " "); pp_import(out, imp); ps(out, ")"))
 | PyCstmt(loc, s) =>

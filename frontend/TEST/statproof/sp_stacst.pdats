@@ -1,0 +1,4 @@
+stacst maxlen: SInt
+
+def f(x: Int) -> Int:
+    x

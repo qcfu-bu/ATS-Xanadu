@@ -127,6 +127,23 @@ lower_implement
 ( env: !tr12env, loc: loctn, name: strn
 , pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt, body: pcexp): d2ecl
 //
+// PROOF parity (ATS-parity prfun/prval/praxi). All three live in pylower_dynexp (where pl_exp /
+// pl_pat / pl_params_typed / the fun-group machinery are in scope); called from pylower_decl00.
+//   * lower_prfungroup : a `prfun` proof FUNCTION group -> D2Cfundclst with the FNKprfn1 funkind
+//     (the ONLY delta from a value `def` group; reuses the funkind-parameterized fun-group). The
+//     proof body is lowered exactly like a def body. SPIKE-PROVEN (dep-spike P5(A)).
+//   * lower_prval : a `prval` proof VALUE -> D2Cvaldclst with the VLKprval valkind (the only delta
+//     from a `val`); an OPTIONAL `: T` annotation wraps the RHS in D2Eannot. SPIKE-PROVEN (P5(B)).
+//   * lower_praxi : a `praxi` proof AXIOM -> a BODYLESS D2Cstatic(D2Cdynconst(FNKpraxi)) — the
+//     extern-signature recipe with the proof funkind. The d2cst is registered so uses resolve.
+fun lower_prfungroup
+  (env: !tr12env, loc: loctn, tvs: list(pcparam), fdcls: list(pcfundcl)): d2ecl
+fun lower_prval
+  (env: !tr12env, loc: loctn, p: pcpat, ann: pytypopt, rhs: pcexp): d2ecl
+fun lower_praxi
+  ( env: !tr12env, loc: loctn, name: strn
+  , pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt): d2ecl
+//
 (* ****** ****** *)
 //
 // ---- decl00 (declarations) + the module driver -----------------------------

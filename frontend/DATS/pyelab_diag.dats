@@ -120,6 +120,12 @@ case+ d of
 | PCCextern(_, _, _, _, _) => acc // an extern signature carries only types — no poison nodes.
 | PCCimplement(_, _, _, _, _, body) => harv_exp(body, acc) // an implement BODY may carry poison nodes.
 | PCCoverload(_, _, _) => acc    // an overload carries only two bare names — no poison nodes.
+| PCCsortdef(_, _, _) => acc     // a sortdef carries only two names — no poison nodes.
+| PCCstacst(_, _, _) => acc      // a stacst carries only a name + a sort ref — no poison nodes.
+| PCCstadef(_, _, e) => harv_exp(e, acc) // a stadef BODY (an expr) may carry poison nodes.
+| PCCprfun(_, _, PCFundcl(_, _, _, _, _, body, _)) => harv_exp(body, acc) // a prfun BODY may carry poison.
+| PCCprval(_, _, _, e) => harv_exp(e, acc) // a prval RHS (an expr) may carry poison nodes.
+| PCCpraxi(_, _, _, _, _) => acc // a praxi carries only a signature — no poison nodes.
 )
 //
 fun

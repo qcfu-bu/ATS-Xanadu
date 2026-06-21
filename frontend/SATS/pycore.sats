@@ -355,6 +355,32 @@ pcdecl =
 //                  D2ITMsym bucket via tr12env_add0_d2itm (the load-bearing step), emits D2Csymload.
 | PCCimplement of (loctn, strn, list(strn), list(pytypopt), pytypopt, pcexp)
 | PCCoverload  of (loctn, strn(*name*), strn(*impl*))
+//   PCCsortdef : a `sortdef Name = SORT` SORT ALIAS (ATS-parity). Carries the alias NAME +
+//                the RHS SORT-reference NAME (a sort vocab string like SInt/Type/Prop). M3
+//                maps the RHS string to a sort2 (the psort2_of vocab) and emits
+//                D2Csortdef(symbl_make_name(name), S2TEXsrt(<sort2>)) + tr12env_add0_s2tex.
+//   PCCstacst  : a `stacst Name : SORT` STATIC-CONSTANT decl (ATS-parity). Carries the
+//                constant NAME + its SORT-reference NAME. M3 builds an s2cst at that sort via
+//                s2cst_make_idst, registers it (tr12env_add1_s2cst), and emits D2Cstacst0.
+//   PCCstadef  : a `stadef Name = <static-expr>` STATIC-LEVEL DEFINITION (ATS-parity). v1
+//                supports an int-literal body. Carries the NAME + the ELABORATED body (a pcexp;
+//                v1 a PCElit int). M3 lowers the body to an s2exp (the index-lit -> s2exp_int)
+//                and emits a D2Csexpdef via build_sexpdef.
+| PCCsortdef of (loctn, strn(*name*), strn(*sort-ref*))
+| PCCstacst  of (loctn, strn(*name*), strn(*sort-ref*))
+| PCCstadef  of (loctn, strn(*name*), pcexp(*static body*))
+//   PCCprfun : a `prfun` proof FUNCTION (ATS-parity). Structurally PCCfun: carries its §5.7
+//              type/index params + a single elaborated PCFundcl (body present). M3 lowers it
+//              like PCCfun but swaps the funkind token to T_FUN(FNKprfn1).
+//   PCCprval : a `prval` proof VALUE (ATS-parity). Like PCCval but carries an OPTIONAL type
+//              annotation. M3 lowers it like PCCval but with the valkind token T_VAL(VLKprval).
+//   PCCpraxi : a `praxi` proof AXIOM (ATS-parity). Bodyless, structurally PCCextern: carries the
+//              NAME + param names + OPTIONAL types + the OPTIONAL return type. M3 builds the
+//              function type + a registered d2cst + emits D2Cstatic(D2Cdynconst) with the proof
+//              funkind T_FUN(FNKpraxi).
+| PCCprfun  of (loctn, list(pcparam), pcfundcl)
+| PCCprval  of (loctn, pcpat, pytypopt, pcexp)
+| PCCpraxi  of (loctn, strn, list(strn), list(pytypopt), pytypopt)
 //   PCCexcept : `exception E(T...)` (EXN) — an exception CONSTRUCTOR decl. Carries the con
 //               NAME + its surface arg types. M3 lowers it to a D2Cexcptcon: a d2con of the
 //               built-in `exn` type (the_s2cst_excptn), registered like a datatype con so

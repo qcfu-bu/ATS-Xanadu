@@ -410,6 +410,165 @@ end
 //
 (* ****** ****** *)
 //
+// ---- STAT/PROOF parity decls (ATS-parity sortdef/stacst/stadef/prfun/prval/praxi) ----
+//
+// sortdef Name '=' SORT NEWLINE  — a SORT ALIAS. Name is an UIDENT (a sort name); the RHS
+//   is a SORT-reference UIDENT (`SInt`/`Type`/`Prop`/...). Single-line (NEWLINE via p_top_item).
+//
+fun
+p_sortdefdecl(st: pstate): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'sortdef'
+  val @(nm, st2) =
+    ( case+ ps_peek(st1) of
+      | PT_UIDENT(s) => @(s, ps_advance(st1))
+      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a sort name (uppercase)")) )
+  val st3 =
+    ( case+ ps_peek(st2) of
+      | PT_EQ() => ps_advance(st2)
+      | _ => ps_diag(st2, ps_peek_loctn(st2), "expected '=' in sortdef declaration") )
+  val @(srt, st4) =
+    ( case+ ps_peek(st3) of
+      | PT_UIDENT(s) => @(s, ps_advance(st3))
+      | _ => @("?", ps_diag(st3, ps_peek_loctn(st3), "expected a sort (uppercase) after '='")) )
+in
+  @(PyCsortdef(loc, nm, srt), st4)
+end
+//
+// stacst Name ':' SORT NEWLINE  — a STATIC CONSTANT of a sort. Name is an identifier (the
+//   constant; accept LIDENT or UIDENT), the SORT is a UIDENT. Single-line (NEWLINE via p_top_item).
+//
+fun
+p_stacstdecl(st: pstate): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'stacst'
+  val @(nm, st2) =
+    ( case+ ps_peek(st1) of
+      | PT_LIDENT(s) => @(s, ps_advance(st1))
+      | PT_UIDENT(s) => @(s, ps_advance(st1))
+      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a static-constant name")) )
+  val st3 =
+    ( case+ ps_peek(st2) of
+      | PT_COLON() => ps_advance(st2)
+      | _ => ps_diag(st2, ps_peek_loctn(st2), "expected ':' in stacst declaration") )
+  val @(srt, st4) =
+    ( case+ ps_peek(st3) of
+      | PT_UIDENT(s) => @(s, ps_advance(st3))
+      | _ => @("?", ps_diag(st3, ps_peek_loctn(st3), "expected a sort (uppercase) after ':'")) )
+in
+  @(PyCstacst(loc, nm, srt), st4)
+end
+//
+// stadef Name '=' <expr> NEWLINE  — a STATIC-LEVEL DEFINITION. Name is an identifier (accept
+//   LIDENT or UIDENT); the body is an expression (v1: an int literal). Single-line.
+//
+fun
+p_stadefdecl(st: pstate): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'stadef'
+  val @(nm, st2) =
+    ( case+ ps_peek(st1) of
+      | PT_LIDENT(s) => @(s, ps_advance(st1))
+      | PT_UIDENT(s) => @(s, ps_advance(st1))
+      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a static-def name")) )
+  val st3 =
+    ( case+ ps_peek(st2) of
+      | PT_EQ() => ps_advance(st2)
+      | _ => ps_diag(st2, ps_peek_loctn(st2), "expected '=' in stadef declaration") )
+  val @(e, st4) = parse_expr(st3)
+in
+  @(PyCstadef(loc, nm, e), st4)
+end
+//
+// prfun NAME [typarams] '(' params ')' ['-> type] ':' suite  — a proof FUNCTION. Header parses
+//   EXACTLY like a `def`, then a `:` body suite. Block-bodied (consumes its own suite layout).
+//
+fun
+p_prfundecl(st: pstate): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'prfun'
+  val @(nm, st2) =
+    ( case+ ps_peek(st1) of
+      | PT_LIDENT(s) => @(s, ps_advance(st1))
+      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a proof-function name")) )
+  val @(tvs, st3) = p_typarams(st2)
+  val st4 =
+    ( case+ ps_peek(st3) of
+      | PT_LPAREN() => ps_advance(st3)
+      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected '(' after the proof-function name") )
+  val @(params, st5) = p_def_params(st4)
+  val st6 =
+    ( case+ ps_peek(st5) of
+      | PT_RPAREN() => ps_advance(st5)
+      | _ => ps_diag(st5, ps_peek_loctn(st5), "expected ')'") )
+  val @(ropt, st7) =
+    ( case+ ps_peek(st6) of
+      | PT_ARROW() =>
+        let val @(t, st7) = parse_type(ps_advance(st6)) in @(PyTypSome(t), st7) end
+      | _ => @(PyTypNone(), st6) )
+  val st8 =
+    ( case+ ps_peek(st7) of
+      | PT_COLON() => ps_advance(st7)
+      | _ => ps_diag(st7, ps_peek_loctn(st7), "expected ':' before the prfun body") )
+  val @(body, st9) = parse_suite(st8)
+in
+  @(PyCprfun(loc, nm, tvs, params, ropt, body), st9)
+end
+//
+// praxi NAME [typarams] '(' params ')' ['-> type] NEWLINE  — a proof AXIOM. Like prfun BODYLESS
+//   (mirrors `extern def` — stops after the return type). Single-line (NEWLINE via p_top_item).
+//
+fun
+p_praxidecl(st: pstate): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'praxi'
+  val @(nm, st2) =
+    ( case+ ps_peek(st1) of
+      | PT_LIDENT(s) => @(s, ps_advance(st1))
+      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a proof-axiom name")) )
+  val @(tvs, st3) = p_typarams(st2)
+  val st4 =
+    ( case+ ps_peek(st3) of
+      | PT_LPAREN() => ps_advance(st3)
+      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected '(' after the proof-axiom name") )
+  val @(params, st5) = p_def_params(st4)
+  val st6 =
+    ( case+ ps_peek(st5) of
+      | PT_RPAREN() => ps_advance(st5)
+      | _ => ps_diag(st5, ps_peek_loctn(st5), "expected ')'") )
+  val @(ropt, st7) =
+    ( case+ ps_peek(st6) of
+      | PT_ARROW() =>
+        let val @(t, st7) = parse_type(ps_advance(st6)) in @(PyTypSome(t), st7) end
+      | _ => @(PyTypNone(), st6) )
+in
+  @(PyCpraxi(loc, nm, tvs, params, ropt), st7)
+end
+//
+// prval pattern [: type] = expr  — a proof VALUE. Mirrors `let` (minus the `mut` flag).
+//   Single-line (NEWLINE via p_top_item).
+//
+fun
+p_prvaldecl(st: pstate): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'prval'
+  val @(p, st2) = parse_pattern(st1)
+  val @(topt, st3) =
+    ( case+ ps_peek(st2) of
+      | PT_COLON() =>
+        let val @(t, st3) = parse_type(ps_advance(st2)) in @(PyTypSome(t), st3) end
+      | _ => @(PyTypNone(), st2) )
+  val st4 =
+    ( case+ ps_peek(st3) of
+      | PT_EQ() => ps_advance(st3)
+      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected '=' in prval binding") )
+  val @(rhs, st5) = parse_expr(st4)
+in
+  @(PyCprval(loc, false, p, topt, rhs), st5)
+end
+//
+(* ****** ****** *)
+//
 // ---- EXN: exception decl: 'exception' UIDENT [ '(' type {',' type} ')' ] NEWLINE ----
 //      a single exception CONSTRUCTOR (a con of the built-in `exn` type). Shape mirrors a
 //      datacon: UIDENT + optional parenthesized arg types. Nullary `exception Empty` allowed.
@@ -743,6 +902,49 @@ in
         let val @(_, st1) = p_overloaddecl(st0) in
           @(PyCerror(locD, "decorators are not allowed on an 'overload'"),
             ps_diag(st1, locD, "decorators are not allowed on an 'overload'")) end )
+  | PT_KW_SORTDEF() =>
+    // `sortdef Name = SORT` takes NO decorators.
+    ( case+ decos of
+      | list_nil() => p_sortdefdecl(st0)
+      | _ =>
+        let val @(_, st1) = p_sortdefdecl(st0) in
+          @(PyCerror(locD, "decorators are not allowed on a 'sortdef'"),
+            ps_diag(st1, locD, "decorators are not allowed on a 'sortdef'")) end )
+  | PT_KW_STACST() =>
+    ( case+ decos of
+      | list_nil() => p_stacstdecl(st0)
+      | _ =>
+        let val @(_, st1) = p_stacstdecl(st0) in
+          @(PyCerror(locD, "decorators are not allowed on a 'stacst'"),
+            ps_diag(st1, locD, "decorators are not allowed on a 'stacst'")) end )
+  | PT_KW_STADEF() =>
+    ( case+ decos of
+      | list_nil() => p_stadefdecl(st0)
+      | _ =>
+        let val @(_, st1) = p_stadefdecl(st0) in
+          @(PyCerror(locD, "decorators are not allowed on a 'stadef'"),
+            ps_diag(st1, locD, "decorators are not allowed on a 'stadef'")) end )
+  | PT_KW_PRFUN() =>
+    ( case+ decos of
+      | list_nil() => p_prfundecl(st0)
+      | _ =>
+        let val @(_, st1) = p_prfundecl(st0) in
+          @(PyCerror(locD, "decorators are not allowed on a 'prfun'"),
+            ps_diag(st1, locD, "decorators are not allowed on a 'prfun'")) end )
+  | PT_KW_PRVAL() =>
+    ( case+ decos of
+      | list_nil() => p_prvaldecl(st0)
+      | _ =>
+        let val @(_, st1) = p_prvaldecl(st0) in
+          @(PyCerror(locD, "decorators are not allowed on a 'prval'"),
+            ps_diag(st1, locD, "decorators are not allowed on a 'prval'")) end )
+  | PT_KW_PRAXI() =>
+    ( case+ decos of
+      | list_nil() => p_praxidecl(st0)
+      | _ =>
+        let val @(_, st1) = p_praxidecl(st0) in
+          @(PyCerror(locD, "decorators are not allowed on a 'praxi'"),
+            ps_diag(st1, locD, "decorators are not allowed on a 'praxi'")) end )
   | PT_KW_IMPORT() => p_import(st0)
   | PT_KW_FROM()   => p_import(st0)
   | _ =>
@@ -797,6 +999,19 @@ in
   | PT_KW_IMPLEMENT() => parse_decl(st)  // block-bodied: consumes its own suite layout (like `def`)
   | PT_KW_OVERLOAD() =>
     // a single-line `overload NAME with IMPL` decl — consume its trailing NEWLINE.
+    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+  | PT_KW_PRFUN() => parse_decl(st)      // block-bodied: consumes its own suite layout (like `def`)
+  | PT_KW_SORTDEF() =>
+    // a single-line `sortdef Name = SORT` decl — consume its trailing NEWLINE, like `type`.
+    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+  | PT_KW_STACST() =>
+    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+  | PT_KW_STADEF() =>
+    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+  | PT_KW_PRVAL() =>
+    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+  | PT_KW_PRAXI() =>
+    // a single-line `praxi NAME(...) -> T` signature — consume its trailing NEWLINE.
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_IMPORT() =>
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end

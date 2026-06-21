@@ -66,6 +66,10 @@ case+ d of
 | PCCassume(loc, _, _) => loc
 | PCCextern(loc, _, _, _, _) => loc
 | PCCimplement(loc, _, _, _, _, _) => loc | PCCoverload(loc, _, _) => loc
+| PCCsortdef(loc, _, _) => loc | PCCstacst(loc, _, _) => loc
+| PCCstadef(loc, _, _) => loc
+| PCCprfun(loc, _, _) => loc   | PCCprval(loc, _, _, _) => loc
+| PCCpraxi(loc, _, _, _, _) => loc
 | PCCerror(loc, _) => loc
 )
 //

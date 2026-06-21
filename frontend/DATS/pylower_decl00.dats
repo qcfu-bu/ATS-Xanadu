@@ -139,6 +139,43 @@ case+ p of
   )
 )
 //
+// STAT/PROOF parity: map a bare SORT-REFERENCE NAME (a string like `SInt`/`Type`/`Prop`/`SBool`/
+// `Linear`) to its L2 sort2 — the SAME vocab psort2_of uses, but keyed on a plain string (sortdef/
+// stacst carry a sort-name string, not a pcparam). An UNKNOWN name defaults to the_sort2_type (a
+// sort typo must not crash; trans23 surfaces a real error if a use mismatches). Shared by the
+// PCCsortdef + PCCstacst lowering arms.
+fun
+sort2_of_name(sname: strn): sort2 =
+(
+  if strn_eq(sname, "SInt")
+    then the_sort2_int0
+    else if strn_eq(sname, "SBool")
+      then the_sort2_bool
+      else if strn_eq(sname, "Linear")
+        then the_sort2_vwtp
+        else if strn_eq(sname, "Prop")
+          then the_sort2_prop
+          else the_sort2_type     // "Type" / "" / any unknown name -> the default type sort
+)
+//
+// STAT/PROOF parity: extract the static s2exp for a `stadef Name = <body>` RHS. v1 supports an INT
+// LITERAL body — the elaborated pcexp is a `PCElit(_, PCLint(_, raw))`; we parse the lexeme and emit
+// s2exp_int(k) (the SAME index-lit lowering pylower_index_lit uses). Any non-int body (unsupported in
+// v1) degrades to s2exp_int(0) — a benign characterized fallback (build_sexpdef still typechecks; a
+// real static-expr stadef is a follow-up).
+fun
+stadef_body_sexp(body: pcexp): s2exp =
+(
+case+ body of
+| PCElit(_, lit) =>
+  (
+    case+ lit of
+    | PCLint(_, raw) => s2exp_int(gint_parse_sint(raw))
+    | _ => s2exp_int(0)
+  )
+| _ => s2exp_int(0)
+)
+//
 // create one s2var per surface type param, in order, AT ITS DECLARED SORT (psort2_of). These
 // are BOTH the params bound into scope (so a con arg type / record field `A` resolves to
 // s2exp_var) AND the vars the result type is applied to + the con/alias is quantified over.
@@ -703,6 +740,47 @@ case+ d of
 // ATS-parity (`#symload`): an `overload NAME with IMPL` -> a D2Csymload + the env registration that
 // makes NAME resolve to IMPL (build_overload, via tr12env_add0_d2itm). SPIKE-PROVEN.
 | PCCoverload(loc, name, impl) => build_overload(env, loc, name, impl)
+//
+// ATS-parity: a `sortdef Name = SORT` SORT ALIAS -> a D2Csortdef. SPIKE-PROVEN (dep-spike P6(A)):
+// map the RHS sort-reference string to a sort2 (the same SInt/Type/Prop vocab psort2_of uses), wrap
+// it in S2TEXsrt, REGISTER the alias under its name via tr12env_add0_s2tex (so a later `[n: Name]`
+// resolves it), and emit D2Csortdef(symbl_make_name(name), s2tex).
+| PCCsortdef(loc, name, srt) => let
+    val s2tx = S2TEXsrt(sort2_of_name(srt))
+    val () = tr12env_add0_s2tex(env, symbl_make_name(name), s2tx)
+  in
+    d2ecl_make_node(loc, D2Csortdef(symbl_make_name(name), s2tx))
+  end
+//
+// ATS-parity: a `stacst Name : SORT` STATIC-CONSTANT decl -> a D2Cstacst0. SPIKE-PROVEN (P6(B)):
+// build an s2cst at the named sort (s2cst_make_idst), REGISTER it (tr12env_add1_s2cst, so a later
+// static expr resolves `Name`), and emit D2Cstacst0(s2c, sort2).
+| PCCstacst(loc, name, srt) => let
+    val s2t = sort2_of_name(srt)
+    val s2c = s2cst_make_idst(loc, symbl_make_name(name), s2t)
+    val () = tr12env_add1_s2cst(env, s2c)
+  in
+    d2ecl_make_node(loc, D2Cstacst0(s2c, s2t))
+  end
+//
+// ATS-parity: a `stadef Name = <static-expr>` STATIC-LEVEL DEFINITION -> a D2Csexpdef. SPIKE-PROVEN
+// (P6(C)): lower the static body to an s2exp (v1: an int literal -> s2exp_int) and reuse build_sexpdef
+// (the alias mechanism — it sets the s2cst's sexp/styp at the RHS's sort + registers it).
+| PCCstadef(loc, name, body) => build_sexpdef(env, loc, name, stadef_body_sexp(body))
+//
+// ATS-parity: a `prfun NAME(params) -> Ret: body` proof FUNCTION -> a D2Cfundclst with the FNKprfn1
+// funkind. lower_prfungroup (pylower_dynexp) reuses the funkind-parameterized fun-group: the proof
+// body lowers like a def body; only the funkind token differs (FNKprfn1, dep-spike P5(A)).
+| PCCprfun(loc, tvs, fdcl) => lower_prfungroup(env, loc, tvs, list_sing(fdcl))
+//
+// ATS-parity: a `prval pat [: T] = e` proof VALUE -> a D2Cvaldclst with the VLKprval valkind.
+// lower_prval mirrors the PCCval `val` path; only the valkind token differs (VLKprval, P5(B)).
+| PCCprval(loc, p, ann, rhs) => lower_prval(env, loc, p, ann, rhs)
+//
+// ATS-parity: a `praxi NAME(params) -> Ret` proof AXIOM -> a BODYLESS D2Cstatic(D2Cdynconst) with
+// the FNKpraxi funkind. lower_praxi is the extern-signature recipe with the proof funkind; the d2cst
+// is registered so a `prval pf = NAME(...)` resolves.
+| PCCpraxi(loc, name, pnames, ptypes, ret) => lower_praxi(env, loc, name, pnames, ptypes, ret)
 //
 // an elaboration poison node -> a benign no-op (the diagnostic was already reported by the
 // elaborator; M3 surfaces it via the harness's diagnostics dump, never crashes).

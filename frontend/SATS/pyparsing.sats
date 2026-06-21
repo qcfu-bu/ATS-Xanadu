@@ -420,6 +420,32 @@ pydecl =
 //                  later use of NAME resolves to IMPL.
 | PyCimplement of (loctn, strn, list(pyparam), pytypopt, list(pystmt))
 | PyCoverload  of (loctn, strn(*name*), strn(*impl*))
+//   PyCsortdef : `sortdef Name = SORT` — a SORT ALIAS (ATS-parity `sortdef`). Carries the
+//                alias NAME (UIDENT) + the right-hand SORT-reference NAME (a sort vocab
+//                string like `SInt`/`Type`/`Prop`, mapped by lowering via the sort vocab).
+//                M3 lowers it to D2Csortdef(name, S2TEXsrt(<sort2>)) + tr12env_add0_s2tex.
+//   PyCstacst  : `stacst Name : SORT` — a STATIC CONSTANT of a sort (ATS-parity `stacst`).
+//                Carries the constant NAME + its SORT-reference NAME. M3 lowers it to
+//                D2Cstacst0(s2cst_make_idst(...), <sort2>) + tr12env_add1_s2cst.
+//   PyCstadef  : `stadef Name = <static-expr>` — a STATIC-LEVEL DEFINITION (ATS-parity
+//                `stadef`). v1 supports a static INT literal body (`stadef Two = 2`). Carries
+//                the NAME + the body expression. M3 lowers it via build_sexpdef restricted to
+//                a static int (the index-lit lowering -> s2exp_int).
+| PyCsortdef of (loctn, strn(*name*), strn(*sort-ref*))
+| PyCstacst  of (loctn, strn(*name*), strn(*sort-ref*))
+| PyCstadef  of (loctn, strn(*name*), pyexp(*static body*))
+//   PyCprfun : `prfun NAME [typarams] (params) [-> Ret]: <suite>` — a proof FUNCTION
+//              (ATS-parity `prfun`). Block-bodied exactly like `def` (reuses the def parser);
+//              its body is a proof (lowered like a def body). M3 lowers it like PCCfun but
+//              swaps the funkind token to T_FUN(FNKprfn1).
+//   PyCprval : `prval pat [: T] = e` — a proof VALUE (ATS-parity `prval`). Like a module-level
+//              `let`; M3 lowers it like PCCval but swaps the valkind token to T_VAL(VLKprval).
+//   PyCpraxi : `praxi NAME [typarams] (params) [-> Ret]` — a proof AXIOM (ATS-parity `praxi`).
+//              Bodyless, like `extern def` — reuses the extern/signature path. M3 lowers it like
+//              PCCfun but BODYLESS, with the funkind token T_FUN(FNKpraxi).
+| PyCprfun  of (loctn, strn, list(pytyparam), list(pyparam), pytypopt, list(pystmt))
+| PyCprval  of (loctn, bool(*mut: unused, always false*), pypat, pytypopt, pyexp)
+| PyCpraxi  of (loctn, strn, list(pytyparam), list(pyparam), pytypopt)
 | PyCimport of (loctn, pyimport)
 | PyCstmt   of (loctn, pystmt)
 | PyCerror  of (loctn, strn)

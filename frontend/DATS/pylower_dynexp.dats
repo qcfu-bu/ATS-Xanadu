@@ -807,7 +807,17 @@ case+ hd of
 // `while` loop (what the desugared loops rely on). No generic tqas in v1.
 //
 and
-pl_fungroup(env: !tr12env, loc: loctn, tvs: list(pcparam), fdcls: list(pcfundcl)): d2ecl = let
+pl_fungroup(env: !tr12env, loc: loctn, tvs: list(pcparam), fdcls: list(pcfundcl)): d2ecl =
+  pl_fungroup_fnk(env, loc, FNKfn2(*tailrec*), tvs, fdcls)
+//
+// the funkind-parameterized fun-group lowering. Identical to the tailrec path, but the
+// D2Cfundclst's funkind TOKEN is supplied by the caller — a plain `def`/loop group passes
+// FNKfn2 (tailrec; via pl_fungroup), a `prfun` passes FNKprfn1 (a PROOF function group). The
+// funkind is the ONLY delta from a value fun group (the spike P5 recipe; FNKprfn1 cited in
+// srcgen2/SATS/xbasics.sats). trans23 reads the kind off the token, not its lexeme.
+and
+pl_fungroup_fnk(env: !tr12env, loc: loctn, fnk: funkind, tvs: list(pcparam), fdcls: list(pcfundcl)): d2ecl = let
+  val tok_fnk = token_make_node(loc, T_FUN(fnk))
   //
   fun
   names_d2vs(fs: list(pcfundcl)): list(d2var) =
@@ -839,7 +849,7 @@ in
     // NON-generic def (tvs empty): the byte-identical pre-DEP path (no scope push, empty tqas).
     val d2fs = members(d2vs, fdcls)
   in
-    d2ecl_make_node(loc, D2Cfundclst(tok_fun(loc), list_nil()(*tqas*), list_nil()(*d2cs*), d2fs))
+    d2ecl_make_node(loc, D2Cfundclst(tok_fnk, list_nil()(*tqas*), list_nil()(*d2cs*), d2fs))
   end
   else let
     val s2vs = mk_param_s2vars(tvs)               // one s2var per param at its declared sort
@@ -849,7 +859,7 @@ in
     val () = tr12env_poplam0(env)                 // leave the quantifier scope
     val tqas = list_sing(t2qag(loc, s2vs)) : t2qaglst   // the def's universal {A}{n:i0} quantifier
   in
-    d2ecl_make_node(loc, D2Cfundclst(tok_fun(loc), tqas, list_nil()(*d2cs*), d2fs))
+    d2ecl_make_node(loc, D2Cfundclst(tok_fnk, tqas, list_nil()(*d2cs*), d2fs))
   end
 end
 //
@@ -931,6 +941,101 @@ end
 //
 (* ****** ****** *)
 //
+// ---- proof value (ATS-parity): PCCprval -> D2Cvaldclst with the VLKprval valkind ----
+//
+// SPIKE-PROVEN (frontend/DATS/pyfront_dep_spike.dats P5(B); VLKprval cited in srcgen2/SATS/
+// xbasics.sats). Identical to the PCCval `val` path (bind the pattern AFTER its RHS), EXCEPT
+// the valkind TOKEN is T_VAL(VLKprval) (a PROOF value). M5a-style: an OPTIONAL `: T` annotation
+// wraps the RHS in D2Eannot so the proof value typechecks at the stated type. trans23 reads the
+// valkind off the token, not its lexeme.
+fun
+pl_prval(env: !tr12env, loc: loctn, p: pcpat, ann: pytypopt, rhs: pcexp): d2ecl = let
+  val tknd = token_make_node(loc, T_VAL(VLKprval))
+  val d2p = pl_pat(env, p)
+  val d2rhs0 = pl_exp(env, rhs)
+  val d2rhs =
+    (
+    case+ ann of
+    | PyTypNone()  => d2rhs0
+    | PyTypSome(t) => d2exp_make_node(loc, D2Eannot(d2rhs0, s1exp_none0(loc), pylower_typ(env, t)))
+    ): d2exp
+  val () = bind_let_styp(d2p, d2rhs)
+  val () = tr12env_add0_d2pat(env, d2p)
+  val dval = d2valdcl_make_args(loc, d2p, TEQD2EXPsome(tknd, d2rhs), WTHS2EXPnone())
+in
+  d2ecl_make_node(loc, D2Cvaldclst(tknd, list_sing(dval)))
+end
+//
+// ---- proof axiom (ATS-parity): PCCpraxi -> D2Cstatic(D2Cdynconst(FNKpraxi)) ----
+//
+// resolve a (prelude) type NAME to its s2exp (the local `void` fallback for an untyped praxi
+// slot). Mirrors resolve_typ_name in pylower_decl00 (the same S2ITMcst-head pattern); duplicated
+// here because that one is file-local to decl00. DEFINED BEFORE pl_praxi (a plain `fun` cannot
+// forward-reference another standalone `fun`).
+fun
+resolve_typ_name_d(env: !tr12env, name: strn): s2exp = let
+  val sopt = tr12env_find_s2itm(env, symbl_make_name(name))
+in
+  case+ sopt of
+  | ~optn_vt_cons(s2i) =>
+    (
+      case+ s2i of
+      | S2ITMcst(s2cs) => if list_nilq(s2cs) then s2exp_none0() else s2exp_cst(s2cs.head())
+      | S2ITMvar(s2v)  => s2exp_var(s2v)
+      | S2ITMenv(_)    => s2exp_none0()
+    )
+  | ~optn_vt_nil() => s2exp_none0()
+end
+//
+// lower a praxi signature's PARAMETER TYPES (parallel name/type lists) to an s2explst (mirrors
+// extern_argtyps in pylower_decl00). A typed param lowers via pylower_typ; an untyped one -> void.
+fun
+pl_praxi_argtyps(env: !tr12env, tys: list(pytypopt)): s2explst =
+(
+case+ tys of
+| list_nil() => list_nil()
+| list_cons(topt, rest) =>
+    let
+      val s2e =
+        (
+        case+ topt of
+        | PyTypSome(t) => pylower_typ(env, t)
+        | PyTypNone()  => resolve_typ_name_d(env, "void")
+        ): s2exp
+    in
+      list_cons(s2e, pl_praxi_argtyps(env, rest))
+    end
+)
+//
+// A BODYLESS proof-function SIGNATURE — structurally an `extern` (build_extern), but the funkind
+// is FNKpraxi (a proof axiom; cited in srcgen2/SATS/xbasics.sats) and the wrapper is D2Cstatic
+// (the proof/static decl wrapper) rather than D2Cextern. The d2cst carries the function type and
+// is REGISTERED so a `prval pf = axiom(...)` resolves. A missing `-> Ret` defaults to `void`.
+fun
+pl_praxi
+( env: !tr12env, loc: loctn, name: strn
+, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt): d2ecl = let
+  val argtyps = pl_praxi_argtyps(env, ptypes)
+  val restyp =
+    (
+    case+ ret of
+    | PyTypSome(t) => pylower_typ(env, t)
+    | PyTypNone()  => resolve_typ_name_d(env, "void")
+    ): s2exp
+  val sfun     = s2exp_fun1_nil0((-1)(*npf*), argtyps, restyp)
+  val tok_id   = token_make_node(loc, T_IDALP(name))
+  val tok_fnk  = token_make_node(loc, T_FUN(FNKpraxi))
+  val d2c      = d2cst_make_idtp(tok_fnk, tok_id, list_nil()(*tqas*), sfun)
+  val () = tr12env_add1_d2cst(env, d2c)              // register so a use of `name` resolves
+  val dcdcl    = d2cstdcl_make_args(loc, d2c, list_nil()(*darg*), S2RESnone(), TEQD2EXPnone())
+  val dyncst   = d2ecl_make_node(loc, D2Cdynconst(tok_fnk, list_nil()(*tqas*), list_sing(dcdcl)))
+  val tok_sta  = token_make_node(loc, T_SRP_STATIC())
+in
+  d2ecl_make_node(loc, D2Cstatic(tok_sta, dyncst))
+end
+//
+(* ****** ****** *)
+//
 // ---- thin #implfun wrappers for the SATS entries ---------------------------
 //
 #implfun pylower_lit(loc, lit) = pl_lit(loc, lit)
@@ -943,6 +1048,12 @@ end
 #implfun lower_fungroup(env, loc, tvs, fdcls) = pl_fungroup(env, loc, tvs, fdcls)
 #implfun lower_implement(env, loc, name, pnames, ptypes, ret, body) =
   pl_implement(env, loc, name, pnames, ptypes, ret, body)
+// proof-function group (prfun): the funkind-parameterized fun-group with FNKprfn1.
+#implfun lower_prfungroup(env, loc, tvs, fdcls) =
+  pl_fungroup_fnk(env, loc, FNKprfn1, tvs, fdcls)
+#implfun lower_prval(env, loc, p, ann, rhs) = pl_prval(env, loc, p, ann, rhs)
+#implfun lower_praxi(env, loc, name, pnames, ptypes, ret) =
+  pl_praxi(env, loc, name, pnames, ptypes, ret)
 //
 (* ****** ****** *)
 (*

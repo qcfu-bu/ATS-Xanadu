@@ -90,6 +90,10 @@ case+ d of
 | PyCextern(loc, _, _, _) => loc
 | PyCexcept(loc, _, _) => loc
 | PyCimplement(loc, _, _, _, _) => loc | PyCoverload(loc, _, _) => loc
+| PyCsortdef(loc, _, _) => loc      | PyCstacst(loc, _, _) => loc
+| PyCstadef(loc, _, _) => loc
+| PyCprfun(loc, _, _, _, _, _) => loc | PyCprval(loc, _, _, _, _) => loc
+| PyCpraxi(loc, _, _, _, _) => loc
 | PyCimport(loc, _) => loc          | PyCstmt(loc, _) => loc
 | PyCerror(loc, _) => loc
 )

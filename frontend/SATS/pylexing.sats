@@ -126,6 +126,15 @@ ptnode =
 | PT_KW_IMPLEMENT of () // implement (provide a body for an extern/template-declared function; ATS-parity)
 | PT_KW_OVERLOAD of ()  // overload  (a.k.a. `#symload`: overload a name onto an impl; ATS-parity)
 | PT_KW_WITH    of ()   // with (the connective of `overload NAME with IMPL`)
+//
+// ---- static-level & proof declarations (ATS-parity; STAT/PROOF parity slice) ----
+//
+| PT_KW_SORTDEF of ()   // sortdef (a sort ALIAS: `sortdef Nat = SInt`)
+| PT_KW_STACST  of ()   // stacst  (a static CONSTANT of a sort: `stacst c: SInt`)
+| PT_KW_STADEF  of ()   // stadef  (a static-level DEFINITION: `stadef Two = 2`)
+| PT_KW_PRFUN   of ()   // prfun   (a proof FUNCTION; block-bodied like `def`)
+| PT_KW_PRVAL   of ()   // prval   (a proof VALUE; like a module-level `let`)
+| PT_KW_PRAXI   of ()   // praxi   (a proof AXIOM; bodyless, like `extern def`)
 | PT_KW_AND     of ()   // and (keyword operator, §5.6 lvl 2)
 | PT_KW_OR      of ()   // or  (keyword operator, §5.6 lvl 1)
 | PT_KW_NOT     of ()   // not (keyword operator, §5.6 lvl 3)

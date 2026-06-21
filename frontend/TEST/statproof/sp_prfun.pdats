@@ -1,0 +1,6 @@
+prfun id_pf(x: Int) -> Int:
+    x
+
+prval pv = 0
+
+praxi ax(n: Int) -> Int
