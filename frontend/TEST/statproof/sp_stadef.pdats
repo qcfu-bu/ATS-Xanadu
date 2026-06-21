@@ -1,4 +1,5 @@
-stadef Two = 2
+@static
+type Two = 2
 
 def g(x: Int) -> Int:
     x

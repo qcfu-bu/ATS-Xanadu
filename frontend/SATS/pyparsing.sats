@@ -416,15 +416,13 @@ pystmt =
 and
 pydecl =
 | PyCfun    of (loctn, list(pydecorator), strn, list(pytyparam), list(pyparam), pytypopt, list(pystmt))
+//   PyCenum : `[decorators] enum Name [typarams]: <case suite>` — a datatype/ADT (§5.7).
+//   DECORATOR REWORK (slice 2): the @prop / @view decorators turn a plain `enum` into the old
+//   `dataprop` / `dataview` (a PROOF / VIEW datatype) — the elaborator routes them to PCCdata
+//   carrying the PCMprop / PCMview mode, so M3's dt_sort_of picks the_sort2_prop / the_sort2_view
+//   (DEP-spike P4/P9). No dedicated AST node: a `@prop enum` IS a PyCenum (the case-suite shape is
+//   identical to a plain enum); the prop/view kind is selected at elaboration from the decorators.
 | PyCenum   of (loctn, list(pydecorator), strn, list(pytyparam), list(pydatacon))   // enum: case suite
-//   PyCdataprop / PyCdataview : a PROOF / VIEW datatype (ATS-parity `dataprop`/`dataview`). They
-//   parse EXACTLY like `enum` (UIDENT name + optional [typarams] + ':' + a `case` suite of
-//   datacons), so they reuse the enum case-suite parser. The ONLY delta lands at lowering: the
-//   datatype's s2cst RESULT sort is `the_sort2_prop` (dataprop) / `the_sort2_view` (dataview)
-//   instead of `the_sort2_tbox` (DEP-spike P4/P9-proven enum recipe). No decorators (the kind is
-//   fixed by the keyword). M3 routes them through the SAME PCCdata pipeline with a prop/view mode.
-| PyCdataprop of (loctn, strn, list(pytyparam), list(pydatacon))                    // dataprop: case suite
-| PyCdataview of (loctn, strn, list(pytyparam), list(pydatacon))                    // dataview: case suite
 | PyCstruct of (loctn, list(pydecorator), strn, list(pytyparam), list(pyfield))     // struct: field suite
 | PyCtype   of (loctn, list(pydecorator), strn, list(pytyparam), pytyp)             // type: ALIAS ONLY
 //   PyCabstype : `[decorators] abstype Name [typarams]` — an OPAQUE type declaration (ATS-parity).

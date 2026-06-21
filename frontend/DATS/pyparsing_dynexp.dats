@@ -938,10 +938,15 @@ last_loc(es: pyexplst, acc: loctn): loctn =
   | list_nil() => acc
   | list_cons(e, rest) => last_loc(rest, pyexp_loctn(e)) )
 //
-// [@decorators] let [mut] pattern [: type] = expr
+// [@decorators] let [mut] pattern [: type] [= expr]
 //   The `decos` are the prefix decorators parsed by the caller (default `[]` = a plain let).
-//   DECORATOR REWORK: `@proof let p = e` carries `[@proof]` so the elaborator lowers it like
-//   the old `prval` (VLKprval); a plain `let` carries `[]` and lowers like before.
+//   DECORATOR REWORK (slice 1): `@proof let p = e` carries `[@proof]` so the elaborator lowers it
+//   like the old `prval` (VLKprval); a plain `let` carries `[]` and lowers like before.
+//   DECORATOR REWORK (slice 2): `@static let c: SInt` (the old `stacst`) is a BODYLESS let — a
+//   static-constant DECLARATION with a type annotation but NO `= rhs`. So when no `=` follows we
+//   produce a bodyless let, flagged by a sentinel RHS (PyEerror with the "@@stacst@@" marker); the
+//   elaborator routes a `@static` let whose RHS is that sentinel to PyCstacst. `@static let x = e`
+//   (the old `stadef`, WITH a value) keeps a real RHS and routes to PyCstadef.
 and
 p_let_stmt(st: pstate, decos: list(pydecorator)): @(pystmt, pstate) = let
   val loc = ps_peek_loctn(st)            // the 'let'
@@ -956,13 +961,21 @@ p_let_stmt(st: pstate, decos: list(pydecorator)): @(pystmt, pstate) = let
       | PT_COLON() =>
         let val @(t, st4) = parse_type(ps_advance(st3)) in @(PyTypSome(t), st4) end
       | _ => @(PyTypNone(), st3) )
-  val st5 =
-    ( case+ ps_peek(st4) of
-      | PT_EQ() => ps_advance(st4)
-      | _ => ps_diag(st4, ps_peek_loctn(st4), "expected '=' in let binding") )
-  val @(rhs, st6) = p_expr_or_tuple(st5)
 in
-  @(PyDlet(loc_span(loc, pyexp_loctn(rhs)), decos, mut, p, topt, rhs), st6)
+  case+ ps_peek(st4) of
+  | PT_EQ() =>
+    let
+      val st5 = ps_advance(st4)
+      val @(rhs, st6) = p_expr_or_tuple(st5)
+    in
+      @(PyDlet(loc_span(loc, pyexp_loctn(rhs)), decos, mut, p, topt, rhs), st6)
+    end
+  | _ =>
+    // NO `= rhs`. A BODYLESS let is only meaningful as `@static let c: SInt` (-> stacst). Use the
+    // "@@stacst@@" sentinel RHS so the elaborator recognizes it; a bodyless let WITHOUT @static is
+    // still parsed (sentinel) but the elaborator diagnoses it (no `=`), keeping recovery clean.
+    let val sentinel = PyEerror(loc, "@@stacst@@") in
+      @(PyDlet(loc, decos, mut, p, topt, sentinel), st4) end
 end
 //
 // var NAME [: type] = expr  — a MUTABLE CELL declaration (ATS-parity var/mutation).

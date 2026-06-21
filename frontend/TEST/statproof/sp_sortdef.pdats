@@ -1,4 +1,5 @@
-sortdef Nat = SInt
+@sort
+type Nat = SInt
 
 def use_nat[n: Nat](x: SInt) -> SInt:
     x

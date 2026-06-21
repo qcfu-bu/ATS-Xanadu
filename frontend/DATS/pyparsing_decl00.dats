@@ -280,13 +280,28 @@ p_def_params(st: pstate): @(list(pyparam), pstate) =
 //
 (* ****** ****** *)
 //
+// DECORATOR REWORK (slice 2): is `@nm` among the prefix decorators? (LIDENT-named.)
+fun
+decos_has_p(decos: list(pydecorator), name: strn): bool =
+( case+ decos of
+  | list_nil() => false
+  | list_cons(PyDecor(_, nm), rest) =>
+      if strn_eq(nm, name) then true else decos_has_p(rest, name) )
+//
 // ---- type declarations (§5.7): the decorators are parsed by the caller (parse_decl)
-//      and threaded in. Three distinct keywords (no alias-vs-datatype heuristic):
+//      and threaded in. The base keywords are:
 //        enum   Name [typarams] ':' <case suite>     → a datatype/ADT  (PyCenum)
 //        struct Name [typarams] ':' <field suite>    → a record        (PyCstruct)
-//        type   Name [typarams] '=' type NEWLINE     → an alias ONLY   (PyCtype)
+//        type   Name [typarams] '=' type NEWLINE     → an alias         (PyCtype)
 //
-// alias-only `type` decl: 'type' UIDENT [typarams] '=' type NEWLINE.
+// DECORATOR REWORK (slice 2): an ATS-specific `type`/`let` VARIANT is now a @decorator on a plain
+// `type`. p_typedecl dispatches on the prefix decorators to the SAME AST node the dedicated keyword
+// produced (the L2 lowering is reused unchanged):
+//   @abstract type Foo [tvs]      (NO `= rhs`)        -> PyCabstype  (was `abstype`; @unboxed→flat)
+//   @impl     type Foo = T                            -> PyCassume   (was `assume`; hidden repr T)
+//   @sort     type Nat = SInt     (RHS a sort UIDENT) -> PyCsortdef  (was `sortdef`; sort alias)
+//   @static   type X   = <expr>   (RHS a static expr) -> PyCstadef   (was `stadef`; static def)
+//   (no variant deco) type X = T                      -> PyCtype     (a plain alias, unchanged)
 //
 fun
 p_typedecl(st: pstate, decos: list(pydecorator)): @(pydecl, pstate) = let
@@ -296,135 +311,82 @@ p_typedecl(st: pstate, decos: list(pydecorator)): @(pydecl, pstate) = let
     ( case+ ps_peek(st1) of
       | PT_UIDENT(s) => @(s, ps_advance(st1))
       | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a type name (uppercase)")) )
-  val @(tvs, st3) = p_typarams(st2)
-  val st4 =
-    ( case+ ps_peek(st3) of
-      | PT_EQ() => ps_advance(st3)
-      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected '=' in type alias declaration") )
-  val @(t, st5) = parse_type(st4)
 in
-  @(PyCtype(loc, decos, nm, tvs, t), st5)
+  // @abstract type Foo [tvs] — an OPAQUE type; NO `= rhs` body (opacity is the point). The mode
+  // decorators (@unboxed) ride in `decos`; the elaborator's mode_of_decos selects box/flat. Parse
+  // the typarams and STOP (no `=`): PyCabstype, exactly the old `abstype` node.
+  if decos_has_p(decos, "abstract") then
+    let val @(tvs, st3) = p_typarams(st2) in
+      @(PyCabstype(loc, decos, nm, tvs), st3) end
+  // @sort type Nat = SInt — a SORT ALIAS; the RHS is a sort-reference UIDENT (`SInt`/`Type`/...).
+  // No typarams (a sort alias is monomorphic), `= SORT(UIDENT)`. PyCsortdef, the old `sortdef`.
+  else if decos_has_p(decos, "sort") then
+    let
+      val st3 =
+        ( case+ ps_peek(st2) of
+          | PT_EQ() => ps_advance(st2)
+          | _ => ps_diag(st2, ps_peek_loctn(st2), "expected '=' in '@sort type' declaration") )
+      val @(srt, st4) =
+        ( case+ ps_peek(st3) of
+          | PT_UIDENT(s) => @(s, ps_advance(st3))
+          | _ => @("?", ps_diag(st3, ps_peek_loctn(st3), "expected a sort (uppercase) after '='")) )
+    in
+      @(PyCsortdef(loc, nm, srt), st4)
+    end
+  // @static type X = <expr> — a STATIC-LEVEL DEFINITION; the RHS is a static EXPRESSION (v1: an int
+  // literal). No typarams; `= <expr>`. PyCstadef, the old `stadef`.
+  else if decos_has_p(decos, "static") then
+    let
+      val st3 =
+        ( case+ ps_peek(st2) of
+          | PT_EQ() => ps_advance(st2)
+          | _ => ps_diag(st2, ps_peek_loctn(st2), "expected '=' in '@static type' declaration") )
+      val @(e, st4) = parse_expr(st3)
+    in
+      @(PyCstadef(loc, nm, e), st4)
+    end
+  // @impl type Foo = T — gives an abstract type its hidden REPRESENTATION T (monomorphic in v1).
+  // `= T(type)`. PyCassume, the old `assume`.
+  else if decos_has_p(decos, "impl") then
+    let
+      val st3 =
+        ( case+ ps_peek(st2) of
+          | PT_EQ() => ps_advance(st2)
+          | _ => ps_diag(st2, ps_peek_loctn(st2), "expected '=' in '@impl type' declaration") )
+      val @(t, st4) = parse_type(st3)
+    in
+      @(PyCassume(loc, nm, t), st4)
+    end
+  // a plain `type X [tvs] = T` alias — `= type`. PyCtype, unchanged.
+  else
+    let
+      val @(tvs, st3) = p_typarams(st2)
+      val st4 =
+        ( case+ ps_peek(st3) of
+          | PT_EQ() => ps_advance(st3)
+          | _ => ps_diag(st3, ps_peek_loctn(st3), "expected '=' in type alias declaration") )
+      val @(t, st5) = parse_type(st4)
+    in
+      @(PyCtype(loc, decos, nm, tvs, t), st5)
+    end
 end
 //
 (* ****** ****** *)
 //
-// ---- abstract-type decl (ATS-parity): '[decorators] abstype' UIDENT [typarams] NEWLINE ----
-//      an OPAQUE type declaration: NO `= T` body (opacity is the whole point). Decorators
-//      select the box/flat sort at lowering. Single-line (consumes its trailing NEWLINE via
-//      p_top_item's expect_newline_d, like `type`).
-//
-fun
-p_abstypedecl(st: pstate, decos: list(pydecorator)): @(pydecl, pstate) = let
-  val loc = ps_peek_loctn(st)
-  val st1 = ps_advance(st)               // past 'abstype'
-  val @(nm, st2) =
-    ( case+ ps_peek(st1) of
-      | PT_UIDENT(s) => @(s, ps_advance(st1))
-      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected an abstract-type name (uppercase)")) )
-  val @(tvs, st3) = p_typarams(st2)
-in
-  @(PyCabstype(loc, decos, nm, tvs), st3)
-end
-//
-// ---- assume decl (ATS-parity): 'assume' UIDENT '=' type NEWLINE ----
-//      gives an abstract type its hidden representation. Shape mirrors a `type` alias minus
-//      the type params (the representation is monomorphic in v1). Single-line (NEWLINE via
-//      p_top_item).
-//
-fun
-p_assumedecl(st: pstate): @(pydecl, pstate) = let
-  val loc = ps_peek_loctn(st)
-  val st1 = ps_advance(st)               // past 'assume'
-  val @(nm, st2) =
-    ( case+ ps_peek(st1) of
-      | PT_UIDENT(s) => @(s, ps_advance(st1))
-      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected an abstract-type name (uppercase)")) )
-  val st3 =
-    ( case+ ps_peek(st2) of
-      | PT_EQ() => ps_advance(st2)
-      | _ => ps_diag(st2, ps_peek_loctn(st2), "expected '=' in assume declaration") )
-  val @(t, st4) = parse_type(st3)
-in
-  @(PyCassume(loc, nm, t), st4)
-end
-//
-// DECORATOR REWORK: the keyword parsers p_externdecl / p_implementdecl / p_overloaddecl were
-// REMOVED. `extern def` / `implement` / `overload` are now @decorators on a plain `def`
+// DECORATOR REWORK (slice 1): the keyword parsers p_externdecl / p_implementdecl / p_overloaddecl
+// were REMOVED. `extern def` / `implement` / `overload` are now @decorators on a plain `def`
 // (`@extern def` / `@impl def` / `@overload def`), parsed by p_def with the prefix decorators
 // threaded in by parse_decl. The elaborator (pyelab_decl) routes the decorated def to the SAME
 // PyCore variant (PCCextern / PCCimplement / PCCoverload). See parse_decl's PT_KW_DEF arm.
 //
+// DECORATOR REWORK (slice 2): the keyword parsers p_abstypedecl / p_assumedecl / p_sortdefdecl /
+// p_stacstdecl / p_stadefdecl were REMOVED. `abstype` / `assume` / `sortdef` / `stadef` are now
+// @decorators on a plain `type` (`@abstract type` / `@impl type` / `@sort type` / `@static type`),
+// routed by p_typedecl (above) to the SAME AST nodes (PyCabstype / PyCassume / PyCsortdef /
+// PyCstadef). `stacst` is `@static let c: SInt` (a bodyless let), routed by p_let_stmt + the
+// elaborator to PyCstacst. The L2 lowering is reused unchanged.
+//
 (* ****** ****** *)
-//
-// ---- STAT parity decls (ATS-parity sortdef/stacst/stadef) ----
-//
-// sortdef Name '=' SORT NEWLINE  — a SORT ALIAS. Name is an UIDENT (a sort name); the RHS
-//   is a SORT-reference UIDENT (`SInt`/`Type`/`Prop`/...). Single-line (NEWLINE via p_top_item).
-//
-fun
-p_sortdefdecl(st: pstate): @(pydecl, pstate) = let
-  val loc = ps_peek_loctn(st)
-  val st1 = ps_advance(st)               // past 'sortdef'
-  val @(nm, st2) =
-    ( case+ ps_peek(st1) of
-      | PT_UIDENT(s) => @(s, ps_advance(st1))
-      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a sort name (uppercase)")) )
-  val st3 =
-    ( case+ ps_peek(st2) of
-      | PT_EQ() => ps_advance(st2)
-      | _ => ps_diag(st2, ps_peek_loctn(st2), "expected '=' in sortdef declaration") )
-  val @(srt, st4) =
-    ( case+ ps_peek(st3) of
-      | PT_UIDENT(s) => @(s, ps_advance(st3))
-      | _ => @("?", ps_diag(st3, ps_peek_loctn(st3), "expected a sort (uppercase) after '='")) )
-in
-  @(PyCsortdef(loc, nm, srt), st4)
-end
-//
-// stacst Name ':' SORT NEWLINE  — a STATIC CONSTANT of a sort. Name is an identifier (the
-//   constant; accept LIDENT or UIDENT), the SORT is a UIDENT. Single-line (NEWLINE via p_top_item).
-//
-fun
-p_stacstdecl(st: pstate): @(pydecl, pstate) = let
-  val loc = ps_peek_loctn(st)
-  val st1 = ps_advance(st)               // past 'stacst'
-  val @(nm, st2) =
-    ( case+ ps_peek(st1) of
-      | PT_LIDENT(s) => @(s, ps_advance(st1))
-      | PT_UIDENT(s) => @(s, ps_advance(st1))
-      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a static-constant name")) )
-  val st3 =
-    ( case+ ps_peek(st2) of
-      | PT_COLON() => ps_advance(st2)
-      | _ => ps_diag(st2, ps_peek_loctn(st2), "expected ':' in stacst declaration") )
-  val @(srt, st4) =
-    ( case+ ps_peek(st3) of
-      | PT_UIDENT(s) => @(s, ps_advance(st3))
-      | _ => @("?", ps_diag(st3, ps_peek_loctn(st3), "expected a sort (uppercase) after ':'")) )
-in
-  @(PyCstacst(loc, nm, srt), st4)
-end
-//
-// stadef Name '=' <expr> NEWLINE  — a STATIC-LEVEL DEFINITION. Name is an identifier (accept
-//   LIDENT or UIDENT); the body is an expression (v1: an int literal). Single-line.
-//
-fun
-p_stadefdecl(st: pstate): @(pydecl, pstate) = let
-  val loc = ps_peek_loctn(st)
-  val st1 = ps_advance(st)               // past 'stadef'
-  val @(nm, st2) =
-    ( case+ ps_peek(st1) of
-      | PT_LIDENT(s) => @(s, ps_advance(st1))
-      | PT_UIDENT(s) => @(s, ps_advance(st1))
-      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a static-def name")) )
-  val st3 =
-    ( case+ ps_peek(st2) of
-      | PT_EQ() => ps_advance(st2)
-      | _ => ps_diag(st2, ps_peek_loctn(st2), "expected '=' in stadef declaration") )
-  val @(e, st4) = parse_expr(st3)
-in
-  @(PyCstadef(loc, nm, e), st4)
-end
 //
 // DECORATOR REWORK: the keyword parsers p_prfundecl / p_praxidecl / p_prvaldecl were REMOVED.
 // `prfun` / `praxi` / `prval` are now @decorators on a plain `def`/`let`: `@proof def` (prfun),
@@ -568,49 +530,12 @@ p_datacon_types(st: pstate): @(pytyplst, pstate) =
       | _ => @(list_cons(t, list_nil()), st1)
     end )
 //
-// ---- dataprop / dataview decl: '<kw>' UIDENT [typarams] ':' NEWLINE INDENT { casedecl } DEDENT
-//      EXACTLY the enum case-suite shape (reuses p_casedecls). The ONLY difference vs enum is the
-//      emitted node (PyCdataprop / PyCdataview) and that there are NO decorators (the keyword fixes
-//      the sort: prop / view). p_data_suite_after_kw factors the shared name+typarams+case-suite
-//      parse so the two keyword arms differ only in the constructor they wrap the result in.
-and
-p_data_suite_after_kw(st: pstate): @(strn, list(pytyparam), list(pydatacon), pstate) = let
-  val st1 = ps_advance(st)               // past 'dataprop'/'dataview'
-  val @(nm, st2) =
-    ( case+ ps_peek(st1) of
-      | PT_UIDENT(s) => @(s, ps_advance(st1))
-      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a name (uppercase) after the keyword")) )
-  val @(tvs, st3) = p_typarams(st2)
-  val st4 =
-    ( case+ ps_peek(st3) of
-      | PT_COLON() => ps_advance(st3)
-      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected ':' before the body") )
-  val st5 = ( case+ ps_peek(st4) of PT_NEWLINE() => ps_advance(st4) | _ => st4 )
-  val st6 =
-    ( case+ ps_peek(st5) of
-      | PT_INDENT() => ps_advance(st5)
-      | _ => ps_diag(st5, ps_peek_loctn(st5), "expected an indented body") )
-  val @(cases, st7) = p_casedecls(st6)
-  val st8 = ( case+ ps_peek(st7) of PT_DEDENT() => ps_advance(st7) | _ => st7 )
-in
-  @(nm, tvs, cases, st8)
-end
-//
-and
-p_datapropdecl(st: pstate): @(pydecl, pstate) = let
-  val loc = ps_peek_loctn(st)
-  val @(nm, tvs, cases, st1) = p_data_suite_after_kw(st)
-in
-  @(PyCdataprop(loc, nm, tvs, cases), st1)
-end
-//
-and
-p_dataviewdecl(st: pstate): @(pydecl, pstate) = let
-  val loc = ps_peek_loctn(st)
-  val @(nm, tvs, cases, st1) = p_data_suite_after_kw(st)
-in
-  @(PyCdataview(loc, nm, tvs, cases), st1)
-end
+// DECORATOR REWORK (slice 2): the keyword parsers p_data_suite_after_kw / p_datapropdecl /
+// p_dataviewdecl were REMOVED. `dataprop` / `dataview` are now @decorators on a plain `enum`
+// (`@prop enum` / `@view enum`), parsed by p_enumdecl with the prefix decorators threaded in (the
+// case-suite shape is IDENTICAL to a plain enum). The elaborator (pyelab_decl) routes the decorated
+// enum to PCCdata carrying the PROP / VIEW mode (PCMprop / PCMview), so dt_sort_of picks the
+// prop / view sort. The L2 lowering is reused unchanged. See parse_decl's PT_KW_ENUM arm.
 //
 (* ****** ****** *)
 //
@@ -768,35 +693,16 @@ in
     // (a module-level let IS a statement, §5.2). Its trailing NEWLINE is consumed by p_top_item.
     let val @(s, st1) = parse_let_decos(st0, decos) in
       @(PyCstmt(pystmt_loctn(s), s), st1) end
+  // DECORATOR REWORK (slice 2): `@prop enum` / `@view enum` are a plain enum with the prefix
+  // decorators threaded into PyCenum; the elaborator routes them to PCCdata with the PROP/VIEW
+  // mode. An undecorated enum is a plain boxed datatype.
   | PT_KW_ENUM()   => p_enumdecl(st0, decos)
-  // DEP (dataprop/dataview): a PROOF/VIEW datatype — parses EXACTLY like enum but takes NO
-  // decorators (the sort is fixed by the keyword: prop/view). Reject any prefix decorators for
-  // recovery (mirrors def/exception), still parse the suite so the module loop makes progress.
-  | PT_KW_DATAPROP() =>
-    ( case+ decos of
-      | list_nil() => p_datapropdecl(st0)
-      | _ =>
-        let val @(_, st1) = p_datapropdecl(st0) in
-          @(PyCerror(locD, "decorators are not allowed on a 'dataprop'"),
-            ps_diag(st1, locD, "decorators are not allowed on a 'dataprop'")) end )
-  | PT_KW_DATAVIEW() =>
-    ( case+ decos of
-      | list_nil() => p_dataviewdecl(st0)
-      | _ =>
-        let val @(_, st1) = p_dataviewdecl(st0) in
-          @(PyCerror(locD, "decorators are not allowed on a 'dataview'"),
-            ps_diag(st1, locD, "decorators are not allowed on a 'dataview'")) end )
   | PT_KW_STRUCT() => p_structdecl(st0, decos)
+  // DECORATOR REWORK (slice 2): `type` carries the ATS-specific VARIANT decorators (@abstract /
+  // @impl / @sort / @static) — p_typedecl dispatches on them to the right AST node (PyCabstype /
+  // PyCassume / PyCsortdef / PyCstadef); an undecorated `type` is a plain alias (PyCtype). The
+  // mode decorators (@boxed/@unboxed/@linear) also ride here for @abstract.
   | PT_KW_TYPE()   => p_typedecl(st0, decos)
-  | PT_KW_ABSTYPE() => p_abstypedecl(st0, decos)  // abstype takes box/flat decorators (mode->sort)
-  | PT_KW_ASSUME() =>
-    // `assume Name = T` takes NO decorators (the representation is given, not mode-annotated).
-    ( case+ decos of
-      | list_nil() => p_assumedecl(st0)
-      | _ =>
-        let val @(_, st1) = p_assumedecl(st0) in
-          @(PyCerror(locD, "decorators are not allowed on an 'assume'"),
-            ps_diag(st1, locD, "decorators are not allowed on an 'assume'")) end )
   | PT_KW_EXCEPTION() =>
     // EXN: `exception E(T...)` takes NO decorators in v1 (it is a single exn constructor,
     // not a mode-bearing type decl). If any precede it, reject for recovery (mirrors def).
@@ -806,28 +712,6 @@ in
         let val @(_, st1) = p_exceptdecl(st0) in
           @(PyCerror(locD, "decorators are not allowed on an 'exception'"),
             ps_diag(st1, locD, "decorators are not allowed on an 'exception'")) end )
-  | PT_KW_SORTDEF() =>
-    // `sortdef Name = SORT` takes NO decorators.
-    ( case+ decos of
-      | list_nil() => p_sortdefdecl(st0)
-      | _ =>
-        let val @(_, st1) = p_sortdefdecl(st0) in
-          @(PyCerror(locD, "decorators are not allowed on a 'sortdef'"),
-            ps_diag(st1, locD, "decorators are not allowed on a 'sortdef'")) end )
-  | PT_KW_STACST() =>
-    ( case+ decos of
-      | list_nil() => p_stacstdecl(st0)
-      | _ =>
-        let val @(_, st1) = p_stacstdecl(st0) in
-          @(PyCerror(locD, "decorators are not allowed on a 'stacst'"),
-            ps_diag(st1, locD, "decorators are not allowed on a 'stacst'")) end )
-  | PT_KW_STADEF() =>
-    ( case+ decos of
-      | list_nil() => p_stadefdecl(st0)
-      | _ =>
-        let val @(_, st1) = p_stadefdecl(st0) in
-          @(PyCerror(locD, "decorators are not allowed on a 'stadef'"),
-            ps_diag(st1, locD, "decorators are not allowed on a 'stadef'")) end )
   | PT_KW_IMPORT() => p_import(st0)
   | PT_KW_FROM()   => p_import(st0)
   | _ =>
@@ -860,35 +744,21 @@ in
   case+ nod of
   | PT_KW_DEF()    => parse_decl(st)
   | PT_KW_ENUM()   => parse_decl(st)     // block-bodied: consumes its own DEDENT (no trailing NEWLINE)
-  | PT_KW_DATAPROP() => parse_decl(st)   // block-bodied (case suite, like enum): own DEDENT
-  | PT_KW_DATAVIEW() => parse_decl(st)   // block-bodied (case suite, like enum): own DEDENT
   | PT_KW_STRUCT() => parse_decl(st)     // block-bodied: consumes its own DEDENT
   | PT_AT()        =>
     // DECORATOR REWORK: a decorator-prefixed decl. The construct after the decorators may be:
-    //   * enum/struct/def-with-body (`@impl def`, `@proof def`, `@overload def`) — BLOCK-bodied,
-    //     consumes its own DEDENT; expect_newline_d is then a no-op.
-    //   * type alias / abstype / `@extern def` / `@proof @extern def` (praxi) / `@proof let` —
-    //     SINGLE-line; expect_newline_d consumes the trailing NEWLINE.
+    //   * enum/struct/def-with-body (`@impl def`, `@proof def`, `@overload def`, `@prop enum`,
+    //     `@view enum`) — BLOCK-bodied, consumes its own DEDENT; expect_newline_d is then a no-op.
+    //   * type alias / `@abstract type` / `@impl type` / `@sort type` / `@static type` /
+    //     `@extern def` / `@proof @extern def` (praxi) / `@proof let` / `@static let` — SINGLE-line;
+    //     expect_newline_d consumes the trailing NEWLINE.
     // expect_newline_d handles BOTH (consume a NEWLINE iff present), so this one arm covers all
     // decorated forms uniformly.
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_TYPE()   =>
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
-  | PT_KW_ABSTYPE() =>
-    // a single-line `abstype Name [typarams]` decl — consume its trailing NEWLINE, like `type`.
-    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
-  | PT_KW_ASSUME() =>
-    // a single-line `assume Name = T` decl — consume its trailing NEWLINE, like `type`.
-    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_EXCEPTION() =>
     // EXN: a single-line `exception E(T...)` decl — consume its trailing NEWLINE, like `type`.
-    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
-  | PT_KW_SORTDEF() =>
-    // a single-line `sortdef Name = SORT` decl — consume its trailing NEWLINE, like `type`.
-    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
-  | PT_KW_STACST() =>
-    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
-  | PT_KW_STADEF() =>
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_IMPORT() =>
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end

@@ -422,14 +422,6 @@ case+ d of
     pp_decolst(out, decos);
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
     pp_dataconlst(out, dcons, ind + 1); ps(out, ")") )
-| PyCdataprop(loc, nm, tvs, dcons) =>
-  ( ps(out, "(dataprop "); ps(out, nm); print_span(out, loc);
-    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
-    pp_dataconlst(out, dcons, ind + 1); ps(out, ")") )
-| PyCdataview(loc, nm, tvs, dcons) =>
-  ( ps(out, "(dataview "); ps(out, nm); print_span(out, loc);
-    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
-    pp_dataconlst(out, dcons, ind + 1); ps(out, ")") )
 | PyCstruct(loc, decos, nm, tvs, fields) =>
   ( ps(out, "(struct "); ps(out, nm); print_span(out, loc);
     pp_decolst(out, decos);

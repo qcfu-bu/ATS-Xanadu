@@ -179,6 +179,52 @@ case+ decos of
     if strn_eq(nm, name) then true else decos_has(rest, name)
 )
 //
+// DECORATOR REWORK (slice 2): a `@static let` lowers to the old `stadef` (WITH a value) or `stacst`
+// (BODYLESS — a type annotation but no `= rhs`). The parser signals "bodyless" with a sentinel RHS
+// `PyEerror(_, "@@stacst@@")`. These helpers recover the pieces from the surface `let`:
+//
+//   is_stacst_sentinel(rhs) : is the parsed RHS the bodyless-let marker?
+fun
+is_stacst_sentinel(rhs: pyexp): bool =
+( case+ rhs of
+  | PyEerror(_, msg) => strn_eq(msg, "@@stacst@@")
+  | _ => false )
+//
+//   let_binder_name(p) : the bound NAME of a simple `let`-pattern (a plain binder, or a binder
+//     wrapped in an annotation/as). Any non-simple pattern degrades to "?" (a clean characterized
+//     fallback — the lowering still emits a named s2cst that typechecks).
+fun
+let_binder_name(p: pypat): strn =
+( case+ p of
+  | PyPvar(_, nm) => nm
+  | PyPann(_, p1, _) => let_binder_name(p1)
+  | PyPas(_, _, nm) => nm
+  | _ => "?" )
+//
+//   sortref_of_typopt(ann) : the SORT-reference string of a `: SInt`-style annotation (a bare type
+//     constructor name). Used by the `@static let c: SInt` -> stacst path. A missing/complex
+//     annotation degrades to "SInt" (the v1 default index sort), keeping the stacst well-formed.
+fun
+sortref_of_typ(t: pytyp): strn =
+( case+ t of
+  | PyTcon(_, nm, _) => nm
+  | PyTvar(_, nm) => nm
+  | _ => "SInt" )
+fun
+sortref_of_typopt(ann: pytypopt): strn =
+( case+ ann of
+  | PyTypSome(t) => sortref_of_typ(t)
+  | _ => "SInt" )
+//
+//   static_let_decl(...) : route a `@static let` to the static-level PyCore decl. A BODYLESS let
+//     (sentinel RHS) -> PCCstacst (a static CONSTANT decl, the old `stacst`); a let WITH a value ->
+//     PCCstadef (a static DEFINITION, the old `stadef`). Both reuse the proven L2 lowering.
+fun
+static_let_decl(loc: loctn, p: pypat, ann: pytypopt, rhs: pyexp): list(pcdecl) =
+( if is_stacst_sentinel(rhs)
+    then list_sing(PCCstacst(loc, let_binder_name(p), sortref_of_typopt(ann)))
+    else list_sing(PCCstadef(loc, let_binder_name(p), elab_exp(list_nil(), rhs))) )
+//
 (* ****** ****** *)
 //
 // ---- M7-import (task #34): resolve a dotted module path -> an XATSHOME-relative `.sats` path.
@@ -273,18 +319,20 @@ case+ d of
         end
     end
 | PyCenum(loc, decos, nm, tps, dcs) =>
-    // §5.7 enum → a PyCore datatype. M5b.6a: the decorator selects the memory/representation
-    // MODE (@linear->linear, @unboxed/none/@boxed->boxed datatype). tvs are the bare names.
-    list_sing(PCCdata(loc, nm, elab_typarams(tps), elab_datacons(dcs), mode_of_decos(decos)))
-| PyCdataprop(loc, nm, tps, dcs) =>
-    // DEP (dataprop): a PROOF datatype -> the SAME PCCdata pipeline as enum, but carrying the
-    // PROP mode (PCMprop) so M3's dt_sort_of picks the_sort2_prop (DEP-spike P4). The con arg
-    // types may carry index args (`LE[m, n]`) — handled by the index machinery. No decorators.
-    list_sing(PCCdata(loc, nm, elab_typarams(tps), elab_datacons(dcs), PCMprop()))
-| PyCdataview(loc, nm, tps, dcs) =>
-    // DEP (dataview): a VIEW datatype -> PCCdata carrying the VIEW mode (PCMview) so dt_sort_of
-    // picks the_sort2_view (DEP-spike P9). Analogous to dataprop; the sort is the only delta.
-    list_sing(PCCdata(loc, nm, elab_typarams(tps), elab_datacons(dcs), PCMview()))
+    // §5.7 enum → a PyCore datatype. DECORATOR REWORK (slice 2): the SORT/KIND-selecting decorators
+    // @prop / @view turn a plain `enum` into the old `dataprop` / `dataview` (a PROOF / VIEW
+    // datatype) — they route to PCCdata carrying PCMprop / PCMview so M3's dt_sort_of picks
+    // the_sort2_prop / the_sort2_view (DEP-spike P4/P9). Otherwise M5b.6a's mode_of_decos selects
+    // the memory/representation MODE (@linear->linear, @unboxed/none/@boxed->boxed datatype). The
+    // con arg types may carry index args (`LE[m, n]`) — handled by the index machinery.
+    let
+      val mode =
+        if decos_has(decos, "prop") then PCMprop()
+        else if decos_has(decos, "view") then PCMview()
+        else mode_of_decos(decos)
+    in
+      list_sing(PCCdata(loc, nm, elab_typarams(tps), elab_datacons(dcs), mode))
+    end
 | PyCstruct(loc, decos, nm, tps, fields) =>
     // §5.7.1 — a `struct` IS a record-type alias. M5b.6a: emit a PCCrecord carrying the RAW
     // fields + the decorator-selected MODE (@linear->linear record, @unboxed->flat record,
@@ -349,13 +397,21 @@ elab_module_stmt(s: pystmt): list(pcdecl) =
 (
 case+ s of
 | PyDlet(loc, decos, _ismut, p, ann, rhs) =>
-    // DECORATOR REWORK: a module-level `let`. `@proof let p = e` == the old `prval` -> PCCprval
-    // (M3 lowers it with the VLKprval valkind); a plain `let` -> PCCval. M7-closures: at MODULE
-    // level `encl = nil` — module-level names are NOT capturable locals, so a @func lambda may
-    // freely reference them.
-    if decos_has(decos, "proof")
-      then list_sing(PCCprval(loc, elab_pat(p), ann, elab_exp(list_nil(), rhs)))
-      else list_sing(PCCval(loc, elab_pat(p), elab_exp(list_nil(), rhs)))
+    // DECORATOR REWORK (slice 1): a module-level `let`. `@proof let p = e` == the old `prval` ->
+    // PCCprval (M3 lowers it with the VLKprval valkind); a plain `let` -> PCCval. M7-closures: at
+    // MODULE level `encl = nil` — module-level names are NOT capturable locals, so a @func lambda
+    // may freely reference them.
+    //
+    // DECORATOR REWORK (slice 2): `@static let` is a STATIC-level binding -> the old stadef/stacst.
+    //   @static let c: SInt        (BODYLESS — sentinel RHS)  -> PCCstacst (a STATIC CONSTANT decl)
+    //   @static let x = <expr>     (WITH a value)             -> PCCstadef (a STATIC DEFINITION)
+    // (the L2 lowering — D2Cstacst0 / D2Csexpdef — is reused unchanged, exactly the old keyword path).
+    if decos_has(decos, "static") then static_let_decl(loc, p, ann, rhs)
+    else (
+      if decos_has(decos, "proof")
+        then list_sing(PCCprval(loc, elab_pat(p), ann, elab_exp(list_nil(), rhs)))
+        else list_sing(PCCval(loc, elab_pat(p), elab_exp(list_nil(), rhs)))
+    )
 | PySexpr(loc, e) =>
     list_sing(PCCval(loc, PCPwild(loc), elab_exp(list_nil(), e)))
 | _ =>

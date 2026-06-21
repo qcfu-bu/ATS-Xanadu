@@ -113,11 +113,7 @@ ptnode =
 | PT_KW_FROM    of ()   // from
 | PT_KW_TYPE    of ()   // type
 | PT_KW_ENUM    of ()   // enum   (type declaration; SURFACE-GRAMMAR §5.7)
-| PT_KW_DATAPROP of ()  // dataprop (PROOF datatype; ATS-parity — sort prop, enum-shaped suite)
-| PT_KW_DATAVIEW of ()  // dataview (VIEW  datatype; ATS-parity — sort view, enum-shaped suite)
 | PT_KW_STRUCT  of ()   // struct (type declaration; SURFACE-GRAMMAR §5.7)
-| PT_KW_ABSTYPE of ()   // abstype (abstract-type declaration; ATS-parity)
-| PT_KW_ASSUME  of ()   // assume  (abstract-type representation; ATS-parity)
 | PT_KW_EXCEPTION of () // exception (exception-constructor declaration; EXN)
 | PT_KW_RAISE   of ()   // raise  (raise an exception; EXN)
 | PT_KW_TRY     of ()   // try    (try/except expression; EXN)
@@ -131,11 +127,16 @@ ptnode =
 // PT_KW_IMPLEMENT / PT_KW_OVERLOAD / PT_KW_WITH / PT_KW_OP / PT_KW_PRFUN / PT_KW_PRVAL / PT_KW_PRAXI
 // were REMOVED; `extern`/`impl`/`proof`/`overload`/`op`/`with` now lex as ordinary LIDENTs.
 //
-// ---- static-level declarations (ATS-parity; STAT parity slice) ----
+// NOTE (decorator rework, slice 2): the ATS-specific enum/type VARIANTS are NO LONGER keywords
+// either. They are @decorators on a plain `enum`/`type`/`let`:
+//   `@prop enum` / `@view enum`   (was dataprop / dataview),
+//   `@abstract type` (no `= rhs`) (was abstype),  `@impl type T = R` (was assume),
+//   `@sort type N = SInt`         (was sortdef),
+//   `@static type X = e` / `@static let x = e` (was stadef),  `@static let c: SInt` (was stacst).
+// So PT_KW_DATAPROP / PT_KW_DATAVIEW / PT_KW_ABSTYPE / PT_KW_ASSUME / PT_KW_SORTDEF / PT_KW_STACST /
+// PT_KW_STADEF were REMOVED; `prop`/`view`/`abstract`/`impl`/`sort`/`static` now lex as ordinary
+// LIDENTs (decorator names).
 //
-| PT_KW_SORTDEF of ()   // sortdef (a sort ALIAS: `sortdef Nat = SInt`)
-| PT_KW_STACST  of ()   // stacst  (a static CONSTANT of a sort: `stacst c: SInt`)
-| PT_KW_STADEF  of ()   // stadef  (a static-level DEFINITION: `stadef Two = 2`)
 | PT_KW_AND     of ()   // and (keyword operator, §5.6 lvl 2)
 | PT_KW_OR      of ()   // or  (keyword operator, §5.6 lvl 1)
 | PT_KW_NOT     of ()   // not (keyword operator, §5.6 lvl 3)

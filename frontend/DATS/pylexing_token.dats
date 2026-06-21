@@ -155,11 +155,7 @@ kw_of_lident(s: strn): ptnode =
   else if s = "from" then PT_KW_FROM()
   else if s = "type" then PT_KW_TYPE()
   else if s = "enum" then PT_KW_ENUM()
-  else if s = "dataprop" then PT_KW_DATAPROP()
-  else if s = "dataview" then PT_KW_DATAVIEW()
   else if s = "struct" then PT_KW_STRUCT()
-  else if s = "abstype" then PT_KW_ABSTYPE()
-  else if s = "assume" then PT_KW_ASSUME()
   else if s = "exception" then PT_KW_EXCEPTION()
   else if s = "raise" then PT_KW_RAISE()
   else if s = "try" then PT_KW_TRY()
@@ -170,9 +166,12 @@ kw_of_lident(s: strn): ptnode =
   // `def`/`let` (`@extern`/`@impl`/`@overload`/`@proof`), and `op+` became the parenthesized
   // operator form `(+)`. So `extern`/`impl`/`proof`/`overload` lex as ordinary LIDENTs (which is
   // exactly what a `@name` decorator needs), and `op`/`with` are plain identifiers again.
-  else if s = "sortdef" then PT_KW_SORTDEF()
-  else if s = "stacst" then PT_KW_STACST()
-  else if s = "stadef" then PT_KW_STADEF()
+  //
+  // NOTE (decorator rework, slice 2): `dataprop`/`dataview`/`abstype`/`assume`/`sortdef`/`stacst`/
+  // `stadef` are NO LONGER keywords either — the ATS-specific enum/type VARIANTS are now @decorators
+  // on a plain `enum`/`type`/`let` (`@prop enum`/`@view enum`/`@abstract type`/`@impl type`/
+  // `@sort type`/`@static type`/`@static let`). So `prop`/`view`/`abstract`/`sort`/`static` lex as
+  // ordinary LIDENTs (decorator names; `impl` is shared with slice 1's `@impl def`).
   else if s = "and" then PT_KW_AND()
   else if s = "or" then PT_KW_OR()
   else if s = "not" then PT_KW_NOT()
