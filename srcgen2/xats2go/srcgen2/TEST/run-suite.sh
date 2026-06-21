@@ -130,6 +130,23 @@ DEFAULT_SUITE=(
   "$HERE/test51_var_boxed_alias_xats2go.dats"
   "$HERE/test52_var_rec_xats2go.dats"
   "$HERE/test53_var_seq_xats2go.dats"
+  #   M2.7: datatypes (datacons) + datacon pattern matching.  Every datatype
+  #     value is a boxed *xatsgo.XatsCon{Tag int; Args []any}.  Construction
+  #     &XatsCon{Tag, Args}; pattern match v.Tag==ctag + typed projection
+  #     v.Args[i].(T); recursion through *XatsCon.
+  #     test60 option (build Some/None, match to extract/default);
+  #     test61 the HEADLINE recursive int-list SUM (cons/nil built + matched
+  #       recursively; the cons-TAIL projects+asserts to *xatsgo.XatsCon -- the
+  #       recursion case -- and the head to int);
+  #     test62 a binary tree (leaf/node, arity-3 con with TWO recursive fields)
+  #       built + recursively summed;
+  #     test63 a multi-constructor `case` with a GUARD (inline short-circuited
+  #       IIFE) + a wildcard/default clause.  Each byte-equal-vs-JS.
+  "$HERE/test60_option_xats2go.dats"
+  "$HERE/test61_list_sum_xats2go.dats"
+  "$HERE/test62_tree_xats2go.dats"
+  "$HERE/test63_con_guard_xats2go.dats"
+  "$HERE/test64_guard_order_xats2go.dats"
 )
 
 if [ "$#" -gt 0 ]; then

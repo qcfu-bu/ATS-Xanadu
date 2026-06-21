@@ -1,6 +1,7 @@
 # xats2go — Go backend for ATS3 — Architecture & Roadmap
 
-Status: **M2 IN PROGRESS** — M2.0–M2.5 ✅; **M2.6 ✅ (a side-table · b value-typed tuples/records · c lvalues/assignment)** — the pivotal layout milestone DONE · M2.7 (datatypes + datacon pattern matching) **next** · M0/M1 done · Go 1.26.4. **suite = 46/46 GREEN.**
+Status: **M2 IN PROGRESS** — M2.0–M2.6 ✅; **M2.7 ✅ (datatypes + datacon pattern matching — recursive lists/trees/options work)** · M2.8 (exceptions + lazy) **next** · M0/M1 done · Go 1.26.4. **suite = 51/51 GREEN.**
+M2.7 notes: datatypes → a single boxed runtime type `*xatsgo.XatsCon{Tag int; Args []any}` (mirrors the JS tag+array model; nails the LAYOUT = boxed pointer with ZERO per-datatype type-decl infra). Construction `&XatsCon{Tag: ctag, Args: []any{..}}` (`d2con_get_ctag`); matching `v.Tag == ctag` in the `switch{}`; projection `v.Args[i].(<fieldGoType>)` — TYPED assertions recovered from `d2con` field types (`d2con_get_styp`→drop proof prefix→field s2typ; datatype fields → `*xatsgo.XatsCon` for recursion; polymorphic field → `any`, faithful). Headline: recursive list-sum/tree work, byte-equal-vs-JS. **DEFERRED → M2.7b/M3: per-datatype TYPED structs** (`Args` stays `[]any`; interface+ctor-structs or typed tagged struct is the idiomatic refinement) + polymorphic-payload concretization. KEY FIXES found: (1) **datacon GUARDS rewrote** to an inline short-circuited IIFE `case v.Tag==ctag && func()bool{..proj..}():` — M2.3's design pre-ran guard projections unconditionally → panic on a non-matching ctor; adversarially validated (test64: guard clause FIRST, nil flows through safely via `&&`). (2) **`go1emit_tytab0.dats` was missing from `build-go.sh`'s GO_DATS** (legacy path only — the Makefile had it, so `make psuite` milestones were genuinely green); fixed. (3) datacon sub-pattern vars don't bind a temp — accessed via `I1Vp1cn(pat, root, pind)` projections (pind = post-proof-drop value index). `I1Vlpcn` (datacon-field mutation) implemented but untested (needs linear datavtype → M2.8).
 M2.6c notes: lvalues/assignment via DIRECT addressable Go (`p.F0 = v`) — NO path-simulation runtime (Go has real lvalues, cleaner than the JS backend's `XATSLP*`/`lvget`/`lvset`/copy-on-write). KEY semantic finding: an ATS `var` is itself a mutable cell, so the frontend BOXES every var-stored tuple (`I1Vlpbx`, emitted `*struct`) regardless of flat/boxed — mutation is correctly shared, byte-equal-vs-JS (test51: boxed-alias mutation `104/141`). So M2.6b's VALUE structs are for immutable `val`-bound tuples (never mutated → value semantics fine); var-bound → pointer (mutable cell). Self-consistent; oracle-validated. Deferred: `I1Vlpcn` (datacon lvalue) → M2.7. Also fixed: a multi-let return-body (effect lets + trailing `I1INSrturn`) now routes to return-mode. The build's IR-DUMP debug (`i1parsed_fprint`) was disabled — it crashes on lvalue nodes (the build-local `i1val_fprint` lacks lval cases + is errck'd-to-comment in the prebuilt bundle, same defect class as i0varfst/tokenfpr); `intrep1_print0.dats` kept pristine.
 M2.6b notes: KEY IR fact — even a flat `@(..)` lowers to `I1INStup1`/`I1INSrcd2` with a FLAT-kind token; flat-vs-boxed = `trcdknd_fltq(token)` (and the recorded `i0typ` = `I0Tnone1(T2Ptrcd(TRCDflt0/box1,...))`), NOT the tup0/tup1 ctor. Uses ANONYMOUS Go structs (structural typing → no named-type decls/dedup); construction (`<struct>{..}` flat / `&<struct>{..}` boxed), projection (`.F<lab>`), nested, and tuple-typed fn params/results all driven by ONE translator so all sites' struct types agree (Go build = the consistency oracle). **Adversarially reviewed (mine):** non-int (float64) fields + mixed flat-of-boxed nesting (`struct{F0 *struct{...}; F1 int}`) both correct. NOTE: harness now runs `gofmt -w` on output (gofmt always multi-lines inline struct types; cosmetic). Caveat: for READ-only tuples value-vs-pointer gives identical output, so flat/boxed correctness is verified by EMITTED CODE, not the oracle (mutation semantics gated at M2.6c).
 M2.6a notes: side-table built at the `i0exp_trxi0i1` chokepoint (record `iexp.ityp()` under the result temp's stamp; conservative — record only freshly-minted `I1Vtnm`, nothing otherwise); `gotype_of_i0typ` translates → Go (scalars+arrows concrete; aggregates/datatypes still `any` → M2.6b/M2.7); consulted as a BACKSTOP only when local recovery gives `any` (can only ADD concreteness). **Adversarial review (mine, reviewer agent rate-limited) PASSED**: validated correct types on float/char/if-value-float/mixed-chain/**function-value (`func(int)int`)** backstops; design sound (last-write-wins always consistent). Review also caught + FIXED a separate **let0-return-mode unreachable-code** bug (general extension of `i1ins_fully_returnsq`/`i1cmp_tail_returns` into `I1INSlet0`). **TRACKED GAP (pre-existing, not M2.6a): type annotation `(e:T)` lowers to an UNHANDLED `i1val` → `nil` — fix in a follow-up (not needed for M2.6b).**
@@ -405,11 +406,22 @@ are **executable** (something compiles/runs/diffs-clean), never "looks done".
     semantics against `xats2cc/srcgen1/DATS/intrep0_utils0.dats` during M2.2 review. Invest in
     the source fix (rebuild `lib2xats2cc.js`) only if the oracle flags divergence.
 
-- **M3 — Static-typing completeness & monomorphization.** Drive `any` out of the remaining
-  monomorphic code; handle templates (`I1INStimp`/`t1imp`) via monomorphized concrete functions
-  (Go generics as an optimization); concrete function signatures throughout. **Exit:** core suite
-  emits `any`-free Go for monomorphic code; `go vet` clean; allocations/perf within target factor
-  of hand-written Go on benchmarks.
+- **M3 — Static-typing completeness.** *(CORRECTED framing — the backend does NOT monomorphize.)*
+  The ATS frontend ALREADY monomorphizes templates: the template-resolution passes
+  (`trtmp3b`/`trtmp3c`/`t3read0`) resolve each `fun{T}` use to a concrete instance, materialized at
+  intrep1 as **`t1imp = T1IMPall1(d2cst, t2jaglst, i1dclopt)`** — the resolved constant + concrete
+  TYPE ARGUMENTS + the per-instance instantiated BODY (already lowered). So the `$T`-suffixed d2csts
+  (`sint_add$sint`, …) ARE the monomorphic instances; the backend just **emits each resolved
+  instance with its concrete types** (the M2.6a side-table + `d2cst` signatures already do most of
+  this for prelude templates). M3's real work: (1) **emit user-defined template instantiated bodies**
+  (`t1imp_i1cmpq`/`i1dclopt`) as concrete Go funcs — verify, our suite so far only exercises prelude
+  templates that resolve to runtime fns; (2) drive `any` out of remaining recoverable temps. **The
+  genuine residual `any` is `I0Tvar`/`s2var` — universally-quantified polymorphic functions
+  (`fun f{a:type}(x:a)`), which ATS represents UNIFORMLY/BOXED (type var erased). `any` there is
+  FAITHFUL to ATS's own representation, not a defect**; Go generics (`[T any]`) are an OPTIONAL
+  optimization for the cases where a type var maps cleanly, never a correctness requirement. **Exit:**
+  user-template instances emit concrete Go; resolved-monomorphic code is `any`-free; `I0Tvar` code
+  uses `any`/uniform (or opt-in generics); `go vet` clean; perf within target factor of hand-Go.
 
 - **M4 — Runtime completeness & scale.** Flesh out the Go runtime to cover the ATS prelude
   surface (lists, options, arrays, strings, streams, refs, hashmaps, file/IO). Push toward
@@ -507,7 +519,10 @@ helpers), `srcgen2_prelude_node.js` (123 L, node IO). Lval path encoding (`ctag`
 1. Datatype repr: **tagged struct (`Tag int` + typed fields)** per datatype vs interface +
    per-constructor structs. Default tagged-struct (matches IR `ctag`; revisit for M3).
 2. Unused-temp handling: **`_ = x` suppressor in A**, real liveness pass in M3.
-3. Templates: **monomorphized concrete funcs first**, Go generics as an optimization (M4).
+3. Templates: **the FRONTEND already monomorphizes** (resolved `t1imp` instances at intrep1) — the
+   backend emits resolved instances with concrete types, it does NOT monomorphize. Genuine
+   polymorphism (`I0Tvar`/`s2var`, universally-quantified fns) → **`any`/uniform-boxed (faithful to
+   ATS)**; Go generics only as an opt-in optimization. (See M3, corrected.)
 4. Exceptions: **panic/recover** (vs error-return threading).
 5. Module/package layout: **single `package main`** initially; per-module packages later.
 6. Runtime packaging: **a `xatsgo` Go module** imported by emitted code (vs concatenated

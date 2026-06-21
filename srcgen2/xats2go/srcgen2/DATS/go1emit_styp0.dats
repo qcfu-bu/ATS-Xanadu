@@ -586,6 +586,22 @@ case+ nm of
 | "bool_type" => "bool"
 | "char_type" => "rune"
 | "gflt_type" => "float64"
+//
+// M2.7: at a DATACON FIELD (and some other) positions the prelude scalar
+// types surface as their BARE abstype name (e.g. a `sint` field is
+// T2Pcst("sint"), not the gint_type(...) applied form used in fn signatures).
+// Map those bare names directly.  [sint] = signed int, [uint] = unsigned (Go
+// `int` for both, matching the JS backend's single number type), [dflt]/[sflt]
+// = double/single float -> float64.
+| "sint" => "int"
+| "uint" => "int"
+| "lint" => "int"
+| "ulint" => "int"
+| "llint" => "int"
+| "ullint" => "int"
+| "dflt" => "float64"
+| "sflt" => "float64"
+| "ldflt" => "float64"
 | _(*else*) => "any"
 )
 //
@@ -750,13 +766,39 @@ in
   if trcdknd_fltq(knd) then stru else strn_append("*", stru)
 end//endof[gorender_trcd(knd,npf,ltps)]
 //
+(*
+[go_s2cst_is_datatype]: does this [s2cst] name a DATATYPE (have an associated
+constructor list)?  [s2cst_get_d2cs] returns optn_vt_cons(_) for a datatype; the
+result is a LINEAR optn_vt, freed after the boolean test.  Defined BEFORE
+[gotype_of_styp] (an [#implfun]) so the datatype arms there can call it.
+*)
+fun
+go_s2cst_is_datatype
+(s2c0: s2cst): bool =
+let
+  val opt0 = s2cst_get_d2cs(s2c0)
+in//let
+  case+ opt0 of
+  | ~optn_vt_nil() => false
+  | ~optn_vt_cons(_) => true
+end//let//endof[go_s2cst_is_datatype(s2c0)]
+//
 #implfun
 gotype_of_styp
 (t2p0) =
 (
 case+ t2p0.node() of
 |T2Pcst(s2c0) =>
-  gotype_of_symname(symbl_get_name(s2c0.name()))
+  let
+    val gt = gotype_of_symname(symbl_get_name(s2c0.name()))
+  in
+    // M2.7: a bare DATATYPE cst (no scalar mapping) -> the uniform boxed
+    // datatype type "*xatsgo.XatsCon" (so a datatype-typed param/result/field
+    // is a concrete *XatsCon, projectable + recursively matchable, not `any`).
+    if (gt = "any")
+    then (if go_s2cst_is_datatype(s2c0) then "*xatsgo.XatsCon" else "any")
+    else gt
+  end
 //
 // a FUNCTION type -> a Go `func(...)...` type, so a higher-order parameter
 // or a closure-returning result is callable/assignable (not opaque `any`).
@@ -789,7 +831,14 @@ case+ t2p0.node() of
         // gflt KIND also distinguishes float/double, but all -> float64.
         let val gt = goty_of_text_in_args(args)
         in if (gt = "any") then "float64" else gt end)
-      else gotype_of_symname(hdnm)))
+      else
+        // M2.7: a PARAMETERIZED datatype application (e.g. `mylist(sint)`) ->
+        // the uniform boxed datatype "*xatsgo.XatsCon"; else by head name.
+        let val gt = gotype_of_symname(hdnm) in
+          if (gt = "any")
+          then (if go_s2cst_is_datatype(s2c0) then "*xatsgo.XatsCon" else "any")
+          else gt
+        end))
     end
   | _(*else*) => "any")
 //
@@ -2014,6 +2063,96 @@ case+ chase_fun(styp) of
     @(gotypes_of_args(args1), gotype_of_styp(res))
   end
 )
+//
+(* ****** ****** *)
+//
+(*
+[gotype_of_dcon_field]: the Go type of a datacon's [idx]-th VALUE field, from
+its constructor static type [d2con_get_styp] (a `fields -> datatype` function
+type).  We chase to the [T2Pfun1], drop the proof prefix, index the [idx]-th
+value field's [s2typ], and map it via [goty_of_field_styp]:
+//
+  - a SCALAR field (int/bool/char/float/string) -> the concrete Go type (so an
+    `int` payload projects + asserts `.( int )`);
+  - a DATATYPE field (its head [s2cst] HAS constructors -- e.g. a list's
+    cons-tail of type `intlist`, or any recursive/nested datatype) -> the
+    uniform boxed datatype type "*xatsgo.XatsCon" (so recursive traversal /
+    nested matching gets a concretely-typed `*XatsCon`, NOT `any`, which Go
+    would refuse to pass where a `*XatsCon` is expected);
+  - a POLYMORPHIC field (a type variable `a`, T2Pvar) or anything else -> "any"
+    (faithful to ATS's uniform/boxed representation of a type variable; the
+    payload is stored + read as `any`).
+//
+[idx] is the VALUE-field index (proof fields already dropped), matching the IR's
+I1INSpcon / I1Vp1cn [pind] (which the front-end already computed post-drop).
+Out-of-range -> "any".
+*)
+fun
+list_nth_styp
+(xs: s2typlst, n: sint): optn(s2typ) =
+(
+case+ xs of
+|list_nil() => optn_nil()
+|list_cons(x1, xs1) =>
+  (if (n <= 0) then optn_cons(x1) else list_nth_styp(xs1, n-1))
+)
+//
+(*
+[styp_is_datatype]: is this field [s2typ] a DATATYPE application?  Its head is a
+[T2Pcst] (bare datatype like `intlist`) or [T2Papps(T2Pcst, _)] (parameterized,
+like `mylist(sint)`) whose [s2cst] has constructors.  Chases the trivial wrappers
+the front-end leaves on a field type.  ([go_s2cst_is_datatype] is defined before
+[gotype_of_styp] so the styp arm can call it too.)
+*)
+fun
+styp_is_datatype
+(t2p0: s2typ): bool =
+(
+case+ t2p0.node() of
+|T2Pcst(s2c0) => go_s2cst_is_datatype(s2c0)
+|T2Papps(t2hd, _) => styp_is_datatype(t2hd)
+|T2Ptop0(t1) => styp_is_datatype(t1)
+|T2Ptop1(t1) => styp_is_datatype(t1)
+|T2Plft (t1) => styp_is_datatype(t1)
+|T2Pnone1(t1) => styp_is_datatype(t1)
+|T2Parg1(_, t1) => styp_is_datatype(t1)
+| _(*else*) => false
+)
+//
+(*
+[goty_of_field_styp]: a datacon field [s2typ] -> Go type.  Scalar via
+[gotype_of_styp]; if that gives "any" but the field IS a datatype, use the
+uniform boxed datatype type "*xatsgo.XatsCon"; else "any".
+*)
+fun
+goty_of_field_styp
+(t2p0: s2typ): strn =
+let
+  val gt = gotype_of_arg(t2p0)
+in
+  if (gt = "any")
+  then (if styp_is_datatype(t2p0) then "*xatsgo.XatsCon" else "any")
+  else gt
+end//endof[goty_of_field_styp(t2p0)]
+//
+#implfun
+gotype_of_dcon_field
+(dcon, idx) =
+(
+if (idx < 0) then "any" else
+(
+case+ chase_fun(d2con_get_styp(dcon)) of
+|optn_nil() => "any"
+|optn_cons(@(npf, args, _res)) =>
+  let
+    val args1 = drop_pf(npf, args)
+  in
+    case+ list_nth_styp(args1, idx) of
+    |optn_nil() => "any"
+    |optn_cons(t1) => goty_of_field_styp(t1)
+  end
+)
+)//endof[gotype_of_dcon_field(dcon,idx)]
 //
 (* ****** ****** *)
 (* ****** ****** *)

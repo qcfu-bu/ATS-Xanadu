@@ -545,7 +545,12 @@ SUITE_NAMES := \
   test50_var_flat_xats2go \
   test51_var_boxed_alias_xats2go \
   test52_var_rec_xats2go \
-  test53_var_seq_xats2go
+  test53_var_seq_xats2go \
+  test60_option_xats2go \
+  test61_list_sum_xats2go \
+  test62_tree_xats2go \
+  test63_con_guard_xats2go \
+  test64_guard_order_xats2go
 
 # SEQUENTIAL suite — unchanged behavior.  Bundles are built ONCE up front (the
 # GOPATCHED + JSPATCHED prereqs), then each test reuses them.

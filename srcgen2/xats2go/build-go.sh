@@ -91,6 +91,7 @@ GO_DATS=(
   trxi0i1_dynexp.dats
   trxi0i1_decl00.dats
   xats2go_myenv0.dats
+  go1emit_tytab0.dats       # M2.6a: the i1tnm->i0typ side-table (provides go_tytab_put/get/reset)
   go1emit_styp0.dats        # NEW (M2.0): liveness + s2typ->Go-type scaffold
   go1emit_utils0.dats
   go1emit_dynexp.dats

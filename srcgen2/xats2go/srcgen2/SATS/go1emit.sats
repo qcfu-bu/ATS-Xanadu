@@ -123,6 +123,17 @@ fun
 gotypes_of_funstyp
 (styp: s2typ): @(list(strn), strn)
 //
+// gotype_of_dcon_field (M2.7): the Go type of a datacon's [idx]-th VALUE field
+// (0-based), recovered from the constructor's static type (d2con_get_styp = a
+// function type `fields -> datatype`).  Proof fields (nprg) are already dropped
+// by gotypes_of_funstyp, so [idx] is the value-field position the IR uses for
+// I1INSpcon / I1Vp1cn (which already index post-drop).  "any" when the field
+// type is not recoverable (then the projection emits no type assertion).
+//
+fun
+gotype_of_dcon_field
+(dcon: d2con, idx: sint): strn
+//
 // --- control-flow helpers (M2.3) -----------------------------------------
 //
 // gotype_of_ift0type: the Go type to give a VALUE-position if/case/let

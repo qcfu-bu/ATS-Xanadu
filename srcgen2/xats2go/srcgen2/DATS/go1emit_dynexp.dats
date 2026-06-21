@@ -211,6 +211,142 @@ end
 }(*where*)//endof[i1trcd_emit_rcdvals(filr,livs)]
 //
 (*
+=======================================================================
+== M2.7 DATATYPES: datacon CONSTRUCTION                              ==
+=======================================================================
+//
+A datatype value is a single boxed runtime type `*xatsgo.XatsCon`
+(`XatsCon{Tag int; Args []any}`) -- datatypes are uniformly heap-boxed in ATS,
+so a boxed pointer is the layout-correct choice (and mirrors the JS backend's
+[ctag, ...args] array model, easing the differential oracle).
+//
+Construction is an [I1INSdapp(I1Vcon(dcon), vs)] (verified via the IR dump:
+EVEN a nullary constructor like `myNone()` surfaces as a dapp on I1Vcon with an
+EMPTY arg list -- so the SINGLE I1INSdapp/I1Vcon path covers both nullary and
+applied constructors).  We emit
+    &xatsgo.XatsCon{Tag: <d2con_get_ctag dcon>, Args: []any{<v0>, <v1>, ...}}
+SKIPPING the proof args -- but they are ALREADY erased from [vs] at intrep1 (the
+dapp's arg list is value-only, just like a tuple's [i1valist] skips npf), so no
+explicit drop is needed (the JS backend likewise emits all of [vs] after the
+ctag; XATSCAPP("optn_cons", [1, x0]) has no proof slot).  A nullary con emits
+`Args: []any{}` (the empty composite literal -- gofmt-clean; Go treats it the
+same as nil for indexing, which never happens for a 0-field con anyway).
+*)
+(*
+[i0lab_int_go1]: emit a [label] as a Go integer index (for `.Args[<i>]`).  A
+datacon field label is a positional [LABint(i)] -> `i`; a (non-occurring here)
+symbol label falls back to 0 with a stderr note.
+*)
+fun
+i0lab_int_go1
+( filr: FILR
+, lab0: label): void =
+(
+case+ lab0 of
+|LABint(i0) => i0i00go1(filr, i0)
+|LABsym(_) =>
+  (
+  strnfpr(filr, "0");
+  prerrsln("[go1emit] NOTE: datacon lvalue with symbol label (unexpected)"))
+)//endof[i0lab_int_go1(filr,lab0)]
+//
+fun
+i1con_construct_go1emit
+( filr: FILR
+, dcon: d2con
+, i1vs: i1valist): void =
+let
+  val ctag = d2con_get_ctag(dcon)
+in//let
+  strnfpr(filr, "&xatsgo.XatsCon{Tag: ");
+  i0i00go1(filr, ctag);
+  strnfpr(filr, ", Args: []any{");
+  i1valgo1_list(filr, i1vs);
+  strnfpr(filr, "}}")
+end//endof[i1con_construct_go1emit(filr,dcon,i1vs)]
+//
+(*
+=======================================================================
+== M2.7 DATATYPES: datacon PROJECTION (typed field read)            ==
+=======================================================================
+//
+A datacon field read is `<root>.Args[<idx>]` -- the [idx]-th VALUE arg of the
+boxed XatsCon (proof args were never stored).  Because [Args] is `[]any`, the
+result is `any`; we RECOVER the concrete field type from the constructor's
+static type ([gotype_of_dcon_field]) and emit a Go TYPE ASSERTION
+`<root>.Args[<idx>].(<T>)` so the projected value is concretely typed (e.g. a
+list's cons-tail asserts to `*xatsgo.XatsCon` for recursive traversal; an int
+payload to `int`).  When the field type is unrecoverable ("any") we emit NO
+assertion (leaving it `any`) -- a wrong assertion would PANIC at run time, so
+"any" is the type-safe fallback (and the oracle would catch a wrong assertion as
+a panic/mismatch).
+//
+[goty_of_dcon] maps a datatype-typed field to its Go type.  [gotype_of_dcon_field]
+already returns "*xatsgo.XatsCon" for a recursive/datatype field?  -- NO: the
+constructor's static type spells a datatype field as a non-scalar [s2typ] that
+[gotype_of_styp] maps to "any" (datatypes are not in its scalar table).  So we
+POST-PROCESS: a field type of "any" that the source knows is a DATATYPE is
+emitted as `*xatsgo.XatsCon` ONLY when we can prove it (we cannot from "any"
+alone), so the generic rule keeps "any" for non-scalar fields -- EXCEPT we make
+the common recursive case work by recognizing the field type string directly.
+//
+[i1con_proj_go1emit]: emit `<root>.Args[<idx>]` with a `.(T)` assertion iff [gty]
+is a concrete (non-"any") Go type.
+*)
+fun
+i1con_proj_go1emit
+( filr: FILR
+, iroot: i1val
+, idx: sint
+, gty: strn): void =
+(
+i1valgo1(filr, iroot);
+strnfpr(filr, ".Args["); i0i00go1(filr, idx); strnfpr(filr, "]");
+(
+if (gty = "any") then ()
+else (strnfpr(filr, ".("); strnfpr(filr, gty); strnfpr(filr, ")"))))
+//endof[i1con_proj_go1emit(filr,iroot,idx,gty)]
+//
+(*
+[dcon_of_i0pat]: extract the [d2con] from a constructor pattern -- an
+[I0Pcon(dcon)] directly, or the head pattern of an [I0Pdapp]/[I0Pdap1].  Used to
+type an [I1Vp1cn] projection (whose carried [i0pat] is the constructor pattern).
+[optn_nil] when the pattern is not a constructor (then the field type is "any").
+*)
+fun
+dcon_of_i0pat
+(ipat: i0pat): optn(d2con) =
+(
+case+ ipat.node() of
+|I0Pcon(dcon) => optn_cons(dcon)
+|I0Pdap1(ip1) => dcon_of_i0pat(ip1)
+|I0Pdapp(ip1, _, _) => dcon_of_i0pat(ip1)
+| _(*else*) => optn_nil()
+)//endof[dcon_of_i0pat(ipat)]
+//
+(*
+[goty_of_p1cn]: the Go field type for an [I1Vp1cn(i0pat, _, pind)] -- the [pind]-th
+value field of the constructor [i0pat] names.  Returns the scalar Go type when
+recoverable; for a DATATYPE-typed field (the recursive case, e.g. a list's
+cons-tail), [gotype_of_dcon_field] yields "any" (datatypes are not scalars), so a
+caller wanting `*xatsgo.XatsCon` recursion must assert at the use site -- BUT the
+IR projection is consumed positionally and we cannot prove the datatype identity
+here, so we conservatively keep "any" and let the value flow as `any`.  (A
+recursive list-sum still works: the cons-tail flows as `any` into the recursive
+call, whose datatype PARAMETER is typed `*xatsgo.XatsCon`, and Go's assignment
+from `any` to `*xatsgo.XatsCon` is... NOT implicit.  So we DO need the assertion.
+See [goty_of_dcon_field_rec].)
+*)
+fun
+goty_of_p1cn
+(ipat: i0pat, pind: sint): strn =
+(
+case+ dcon_of_i0pat(ipat) of
+|optn_nil() => "any"
+|optn_cons(dcon) => gotype_of_dcon_field(dcon, pind)
+)//endof[goty_of_p1cn(ipat,pind)]
+//
+(*
 i1ins_is_construct: is this ins a tuple/record CONSTRUCTION?  (See the SATS
 doc -- such an ins routes through [i1trcd_construct_go1emit] with its result
 temp, not the generic [i1insgo1].)
@@ -520,11 +656,31 @@ M2.6c ADDR / AEXP: a left-value root that is the var/value itself.
   i1valgo1(filr, iv1))
 //
 (*
-I1Vlpcn (datacon/consed left-value) is DEFERRED to M2.7 (datatypes): emit a
-visible UNHANDLED marker + stderr note rather than a wrong field path.
+M2.7 DATACON PROJECTION (sub-pattern variable read).  A datacon sub-pattern
+variable (e.g. `xs` in `cons(x, xs) => ... xs ...`) does NOT bind a temp -- the
+front-end inlines its access as an [I1Vp1cn(i0pat, root, pind)] projection node
+at EACH use site (verified via the IR dump, mirroring the JS backend's f0_dapp
+-> proj -> I1Vp1cn, where the WHOLE-scrutinee bind is the only `let`).  We emit
+`<root>.Args[<pind>].(<T>)`, recovering the field Go type [T] from the carried
+constructor pattern [i0pat] (its [I0Pcon] d2con's [pind]-th field) -- a scalar
+asserts to its concrete type, a datatype field asserts to `*xatsgo.XatsCon` (the
+recursion case), a polymorphic field stays `any` (no assertion).
 *)
-|I1Vlpcn(_, _) =>
-  unhandled_val(filr, "I1Vlpcn(datacon-lval -> M2.7)", ival)
+|I1Vp1cn(ipat, iroot, pind) =>
+  i1con_proj_go1emit(filr, iroot, pind, goty_of_p1cn(ipat, pind))
+//
+(*
+M2.7 DATACON LEFT-VALUE.  I1Vlpcn(lab, root): a consed-datatype field as an
+ASSIGNABLE lvalue (datacon field mutation, `v.Args[<lab>] = rhs`).  In Go the
+boxed XatsCon's [Args] slice is addressable, so `<root>.Args[<lab>]` is a valid
+assignment target; the value is stored as `any` (the slot type), so NO type
+assertion is emitted on the LVALUE side (a `.(T)` is not addressable in Go).
+[lab] is a LABint(i) -- the value-field index.
+*)
+|I1Vlpcn(lab0, iroot) =>
+  (
+  i1valgo1(filr, iroot);
+  strnfpr(filr, ".Args["); i0lab_int_go1(filr, lab0); strnfpr(filr, "]"))
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -577,6 +733,15 @@ no boxed runtime call).  Otherwise emit a plain Go call `<f>(<args>)`
 *)
 |I1INSdapp
 (i1f0, i1vs) =>
+(
+// M2.7 DATACON CONSTRUCTION: an I1INSdapp whose callee is an I1Vcon (the
+// constructor value) builds a `*xatsgo.XatsCon{Tag, Args}` -- this covers BOTH
+// applied (`mySome(42)`) and nullary (`myNone()`) constructors (the IR lowers
+// both to a dapp on I1Vcon).  Checked FIRST so a constructor is never mistaken
+// for a native op / plain call.
+case+ i1f0.node() of
+|I1Vcon(dcon) => i1con_construct_go1emit(filr, dcon, i1vs)
+| _(*non-con callee*) =>
 let
 val gop = i1binop_of_dapp(i1f0, i1vs, scp)
 in//let
@@ -627,6 +792,7 @@ case+ i1f0.node() of
   i1valgo1_list(filr, i1vs);
   strnfpr(filr, ")")))
 end//let
+)//endof[I1INSdapp(i1f0,i1vs) -- datacon vs op vs call dispatch]
 //
 (* ****** ****** *)
 //
@@ -648,6 +814,20 @@ projection form is correct for both layouts.)
   (
   i1valgo1(filr, i1v1);
   strnfpr(filr, "."); strnfpr(filr, gofield_of_label(lab0)))
+//
+(*
+M2.7 DATACON PROJECTION as an instruction: I1INSpcon(lab, v) -> `v.Args[<lab>]`.
+Unlike the I1Vp1cn value node (which carries the constructor pattern, so the
+field type is recoverable), I1INSpcon carries ONLY the label, so we cannot
+recover the field's concrete type here -> emit NO type assertion (the value
+flows as `any`).  [lab] is the value-field index (proof args erased).  On the
+M2.7 surface sub-pattern reads surface as I1Vp1cn (typed); I1INSpcon is the
+generic/untyped projection form kept for totality.
+*)
+|I1INSpcon(lab0, i1v1) =>
+  (
+  i1valgo1(filr, i1v1);
+  strnfpr(filr, ".Args["); i0lab_int_go1(filr, lab0); strnfpr(filr, "]"))
 //
 (* ****** ****** *)
 //
@@ -761,17 +941,53 @@ declarations -- exactly as the original four cmp/let emitters did.
 (* ****** ****** *)
 //
 (*
+[drop_pf_i0p]: drop the leading [npf] proof sub-patterns of a constructor
+pattern (erased -- no runtime field).  [npf] = -1 (the "no proof prefix"
+sentinel) or <= 0 drops nothing.  Mirrors the JS f0_dapp/f0_tup1 [f1_drop].
+A standalone [fun] (no back-reference to the [i0pckgo1] group).
+*)
+fun
+drop_pf_i0p
+(npf: sint, i0ps: i0patlst): i0patlst =
+(
+if (npf <= 0) then i0ps else
+(
+case+ i0ps of
+|list_nil() => i0ps
+|list_cons(_, i0ps1) => drop_pf_i0p(npf-1, i0ps1))
+)
+//
+(*
+[i0pck_con_tag]: emit the TAG test `<casval>.Tag == <ctag>` for constructor
+[dcon].  The Go analog of the JS backend's `XATS000_ctgeq(v, XATSCTAG(name,
+ctag))` (which tests `v[0] == ctag`); here the tag is a separate field, so it is
+`<casval>.Tag == <ctag>`.  A standalone [fun] defined BEFORE [i0pckgo1] (which
+references it).
+*)
+fun
+i0pck_con_tag
+( filr: FILR
+, casval: i1val
+, dcon: d2con): void =
+(
+i1valgo1(filr, casval);
+strnfpr(filr, ".Tag == ");
+i0i00go1(filr, d2con_get_ctag(dcon)))
+//
+(*
 i0pckgo1: emit a pattern as a Go BOOLEAN TEST against [casval].  Mirrors
-js1emit's i0pckjs1 but for SIMPLE patterns only (M2.3 scope):
+js1emit's i0pckjs1:
   - I0Pany / I0Pvar          -> "true"  (always matches; bind happens later)
   - I0Pint / I0Pchr / I0Pbtf -> `<casval> == <literal>` (native scalar ==)
   - I0Pbang/flat/free(p)     -> recurse into p (transparent wrappers)
-DATACON patterns (I0Pcon / I0Pdapp / tuple / record) are DEFERRED to M2.7;
-they emit a `false` test + a stderr NOTE so the clause is skipped rather
-than silently mis-matched (the case still falls through to its default).
-Because [casval] is a concretely-typed scalar (the case scrutinee), the
-== is a native Go comparison -- the same semantics XATS000_inteq/chreq/
-btfeq give in the JS backend (the oracle verifies byte-equality).
+  - I0Pcon / I0Pdap1 / I0Pdapp -> DATACON tag test `<casval>.Tag == <ctag>`
+    (M2.7), with non-trivial value sub-patterns recursively AND-tested against
+    the projected `<casval>.Args[i]` (via [i0pck_args], mutual-recursion below).
+Because a SCALAR [casval] is concretely typed, the == is a native Go comparison
+-- the same semantics XATS000_inteq/chreq/btfeq give in the JS backend (the
+oracle verifies byte-equality).  [i0pckgo1] and [i0pck_args] form a [fun]...[and]
+MUTUAL-RECURSION group (a nested-constructor sub-pattern test re-roots [i0pckgo1]
+on the projected sub-value).
 *)
 fun
 i0pckgo1
@@ -806,13 +1022,88 @@ case+ ipat.node() of
 |I0Pflat(ip1) => i0pckgo1(filr, casval, ip1)
 |I0Pfree(ip1) => i0pckgo1(filr, casval, ip1)
 //
-// DATACON / structural patterns -> M2.7.  Emit `false` (never matches) and
-// a loud stderr NOTE, so the clause is skipped, never silently wrong.
+// M2.7 DATACON patterns.  A constructor pattern tests the scrutinee's TAG and
+// (for an applied con) recursively tests each non-trivial VALUE sub-pattern
+// against the corresponding `<scrut>.Args[i]` projection -- mirroring the JS
+// backend's f0_dapp (XATS000_ctgeq + f0_ipatlst).  See [i0pck_con] below.
+//   I0Pcon(dcon)            : nullary con           -> `<scrut>.Tag == <ctag>`
+//   I0Pdap1(I0Pcon)         : con with no sub-pats  -> `<scrut>.Tag == <ctag>`
+//   I0Pdapp(I0Pcon, npf, ps): con with sub-patterns -> tag test && sub-tests
+|I0Pcon(dcon) =>
+  i0pck_con_tag(filr, casval, dcon)
+|I0Pdap1(ip1) =>
+  (
+  case+ dcon_of_i0pat(ip1) of
+  |optn_cons(dcon) => i0pck_con_tag(filr, casval, dcon)
+  |optn_nil() =>
+    (
+    strnfpr(filr, "false /* UNHANDLED I0Pdap1 (non-con head) */");
+    prerrsln("[go1emit] UNHANDLED I0Pdap1 with non-con head")))
+|I0Pdapp(i0f0, npf1, i0ps) =>
+  (
+  case+ dcon_of_i0pat(i0f0) of
+  |optn_cons(dcon) =>
+    (
+    // `<scrut>.Tag == <ctag>` then `&& <subtest_i>` for each non-trivial value
+    // sub-pattern.  [npf1] proof sub-patterns are dropped (value index resets to
+    // 0 post-drop), matching the IR's I1Vp1cn [pind].  Sub-pattern tests project
+    // `<scrut>.Args[i]` (typed via the con's field type) and recurse.  [i0f0]
+    // (the I0Pcon pattern) is passed so the sub-root I1Vp1cn carries it for the
+    // field-type recovery (goty_of_p1cn).
+    i0pck_con_tag(filr, casval, dcon);
+    i0pck_args(filr, casval, i0f0, 0, drop_pf_i0p(npf1, i0ps)))
+  |optn_nil() =>
+    (
+    strnfpr(filr, "false /* UNHANDLED I0Pdapp (non-con head) */");
+    prerrsln("[go1emit] UNHANDLED I0Pdapp with non-con head")))
+//
+// any OTHER structural pattern (tuple/record pattern in a case -- the M2.6
+// surface uses `val`-pattern destructuring, not case) -> deferred.
 | _(*deferred*) =>
   (
-  strnfpr(filr, "false /* UNHANDLED pat: datacon -> M2.7 */");
-  prerrsln("[go1emit] UNHANDLED case pattern (datacon -> M2.7)"))
+  strnfpr(filr, "false /* UNHANDLED pat: non-datacon structural -> later */");
+  prerrsln("[go1emit] UNHANDLED case pattern (non-datacon structural)"))
 )//endof[i0pckgo1(filr,casval,ipat)]
+//
+(*
+[i0pck_args]: recursively AND-in each VALUE sub-pattern's test.  A trivial
+sub-pattern (var/wildcard -- [i0pat_allq]) matches unconditionally and is
+SKIPPED (no `&& true` noise); a non-trivial one (a literal, or a NESTED
+constructor) emits ` && (...test of scrut.Args[i].(T)...)`.  The projected
+sub-root is an [I1Vp1cn(i0f0, casval, i0)] i1val -- the SAME node the front-end
+inlines for a sub-pattern variable -- so re-rooting [i0pckgo1] on it makes a
+literal sub-pattern test `scrut.Args[i].(T) == lit` and a nested constructor
+sub-pattern test that asserts the field to a boxed XatsCon pointer and then tests
+its .Tag (recursing through the boxed datatype).  [i0f0] is the constructor
+pattern (carries the [d2con] for the field type); [i0] is the VALUE-field index
+(proof sub-patterns already dropped).  This is the [and] continuation of
+[i0pckgo1] above (one mutual-recursion group).
+*)
+and
+i0pck_args
+( filr: FILR
+, casval: i1val
+, i0f0: i0pat
+, i0: sint
+, i0ps: i0patlst): void =
+(
+case+ i0ps of
+|list_nil() => ((*void*))
+|list_cons(ip1, i0ps1) =>
+  (
+  if i0pat_allq(ip1)
+  then i0pck_args(filr, casval, i0f0, i0+1, i0ps1)
+  else
+    let
+      val loc0 = i1val_lctn$get(casval)
+      val subroot = i1val_make_node(loc0, I1Vp1cn(i0f0, casval, i0))
+      val () = strnfpr(filr, " && (")
+      val () = i0pckgo1(filr, subroot, ip1)
+      val () = strnfpr(filr, ")")
+    in
+      i0pck_args(filr, casval, i0f0, i0+1, i0ps1)
+    end)
+)//endof[i0pck_args(...)]
 //
 (* ****** ****** *)
 //
@@ -846,49 +1137,81 @@ end//let//endof[i1bnd_bind_go1(...)]
 (* ****** ****** *)
 //
 (*
-i1gua_emit_lets: emit ONE guard's let-bindings (the comparison computation)
-and return its boolean RESULT i1val.  A guard I1GUAexp(icmp) has the shape
-I1CMPcons(lets, resultBool).  We emit [lets] inside the clause arm and use
-[resultBool] as the gate (joined with the pattern via [f0_guards_cond]).
+NOTE (M2.7): the M2.3 [i1gua_emit_lets]/[i1gualst_emit_lets] (which pre-emitted a
+guard's lets ABOVE the switch and returned its result i1val) were REMOVED.  A
+guard is now emitted INLINE as a short-circuited IIFE in the case condition (see
+[emit_guard_iife]), so its lets -- and any datacon-field projections -- run only
+when the clause's tag test already held.
+*)
+(*
+[i1letlst_go1emit_inline]: emit a guard cmp's lets as `;`-separated Go statements
+on ONE line (for the IIFE body).  Mirrors [i1let_go1emit]'s single-expression
+rule (live tnm -> `goxtnm := <expr>; `, dead -> `_ = <expr>; `), but with no
+indentation/newlines.  The guard surface is op-resolve timps + a comparison dapp
+(all single-expression), so this stays a flat statement list.  Defined BEFORE
+[emit_guard_iife] (which calls it).
 *)
 fun
-i1gua_emit_lets
-( env0: !envx2go
-, igua: i1gua): i1val =
-(
-case+ igua.node() of
-|I1GUAexp(icmp) =>
-  let
-    val-I1CMPcons(ilts, ival) = icmp
-    val () = i1letlst_go1emit(ilts, icmp, env0)
-  in
-    ival
-  end
-|I1GUAmat(icmp, _) =>
-  let
-    val-I1CMPcons(ilts, ival) = icmp
-    val () = i1letlst_go1emit(ilts, icmp, env0)
-    val () = prerrsln("[go1emit] NOTE: I1GUAmat guard (M2.3 best-effort)")
-  in
-    ival
-  end
-)//endof[i1gua_emit_lets(env0,igua)]
+i1letlst_go1emit_inline
+( ilts: i1letlst
+, scp: i1cmp
+, env0: !envx2go): void =
+let
+  val filr = env0.filr()
+in//let
+  case+ ilts of
+  |list_nil() => ((*void*))
+  |list_cons(ilt1, ilts1) =>
+    (
+    (case+ ilt1 of
+     |I1LETnew1(itnm, iins) =>
+       (
+       if i1tnm_used_in_cmp(itnm, scp)
+       then (i1tnmgo1(filr, itnm); strnfpr(filr, " := "))
+       else strnfpr(filr, "_ = ");
+       i1insgo1(filr, scp, iins); strnfpr(filr, "; "))
+     |I1LETnew0(iins) =>
+       (i1insgo1(filr, scp, iins); strnfpr(filr, "; ")));
+    i1letlst_go1emit_inline(ilts1, scp, env0))
+end//let//endof[i1letlst_go1emit_inline(...)]
 //
+(*
+[emit_guard_iife]: emit a guard (the head [i1gua] of a guarded clause) as an
+INLINE Go IIFE `func() bool { <guard lets>; return <guard result> }()` -- so it
+appears in the case condition after `&& ` and Go's short-circuit makes it run
+ONLY when the tag test already held (datacon guard projections are then safe).
+The IIFE body emits the guard cmp's lets then `return <result>`; the lets
+reference the clause's pre-emitted scrutinee bind (captured lexically).  A
+multi-guard clause uses its FIRST guard (reported; the rest are a follow-up).
+*)
 fun
-i1gualst_emit_lets
-( iguas: i1gualst
-, env0: !envx2go): i1valist =
-(
-case+ iguas of
-|list_nil() => list_nil()
-|list_cons(ig1, igs1) =>
-  let
-    val v1 = i1gua_emit_lets(env0, ig1)
-    val vs1 = i1gualst_emit_lets(igs1, env0)
-  in
-    list_cons(v1, vs1)
-  end
-)//endof[i1gualst_emit_lets(...)]
+emit_guard_iife
+( env0: !envx2go
+, iguas: i1gualst): void =
+let
+  val filr = env0.filr()
+in//let
+  case+ iguas of
+  |list_nil() => strnfpr(filr, "true")
+  |list_cons(ig1, igs1) =>
+    let
+      val () =
+        (case+ igs1 of
+         |list_nil() => ()
+         |list_cons _ => prerrsln("[go1emit] NOTE: multi-guard clause -- using first guard"))
+      val icmp =
+        (case+ ig1.node() of
+         |I1GUAexp(c) => c
+         |I1GUAmat(c, _) => (prerrsln("[go1emit] NOTE: I1GUAmat guard (best-effort)"); c))
+      val-I1CMPcons(ilts, ival) = icmp
+    in
+      // func() bool { <lets>; return <result> }()
+      strnfpr(filr, "func() bool { ");
+      i1letlst_go1emit_inline(ilts, icmp, env0);
+      strnfpr(filr, "return "); i1valgo1(filr, ival);
+      strnfpr(filr, " }()")
+    end
+end//let//endof[emit_guard_iife(env0,iguas)]
 //
 (* ****** ****** *)
 //
@@ -929,87 +1252,135 @@ A guarded clause `| p when g => body` must, on a FAILED guard, retry the
 NEXT clause -- exactly Go's `case <cond>:` fall-through when <cond> is false.
 So we FOLD the guard into the case CONDITION: `case <patcond> && <g>:`.  The
 catch: a guard `g` is a CMP (op-resolution timps + a comparison dapp), not a
-bare expression.  But its lets are side-effect-free and (for the M2.3 native-
-scalar surface) compute op-temps that the native-op path renders INLINE -- so
-the guard RESULT i1val (e.g. I1Vtnm bound to the comparison) renders as
-`(n > 0)` with the op-temps dropping to dead `_ = ...`.  We therefore PRE-EMIT
-every guarded clause's guard-lets ABOVE the switch and fold the result i1val
-into the case condition.  The guard references the SCRUTINEE temp directly
-(verified in the IR: `dapp(op, [I1Vtnm(scrutinee), ...])`), already in scope,
-so no pre-switch pattern bind is needed.
+bare expression; AND -- crucially for DATACON guards (M2.7) -- the guard PROJECTS
+fields (`scrut.Args[i]`) that exist ONLY for the matching constructor, so the
+guard MUST NOT run for a non-matching scrutinee (else an out-of-range Args panic).
 //
-[i1clslst_emit_guards] does the pre-pass: it emits each guarded clause's
-guard-lets (in clause order, BEFORE `switch {`) and returns a parallel list of
-`optn(i1val)` -- the &&-joined guard result for each clause (optn_nil for an
-unguarded clause).  [i1clslst_go1emit] then consumes that list to emit each
-`case <patcond>[ && <guard>]:` arm.
+SOLUTION: emit the guard as an INLINE IIFE in the case condition:
+    case <patcond> && func() bool { <guard lets>; return <guard result> }():
+Go's `&&` SHORT-CIRCUITS, so the IIFE (hence the field projections) runs ONLY
+when `<patcond>` (the tag test) already held -- safe.  The IIFE captures the
+clause's whole-scrutinee bind temp lexically, so that bind is emitted ABOVE the
+switch (iff the guard references it; see [i1bnd_bind_go1_guard]).  A failed guard
+makes the case condition false -> Go falls through to the next clause (matching
+the JS backend's retry-next-clause).
+//
+[i1clslst_emit_guards] does the pre-pass: it emits ONLY each guarded clause's
+pre-switch scrutinee BIND (so the IIFE can capture it); the guard COMPUTATION
+itself is emitted inline as the IIFE by [i1cls_go1emit_g] from the clause's own
+guard cmp.  (The earlier M2.3 design pre-emitted the guard lets above the switch
+and used a temp -- correct for a SCALAR guard on the scrutinee, but UNSOUND for a
+datacon guard whose projections would then run unconditionally.)
 *)
+//
+(*
+[i1tnm_used_in_guards]: is the clause-bind temp [itnm] referenced anywhere in the
+guard cmp list?  Wraps each guard's cmp in [i1tnm_used_in_cmp] (the liveness walk,
+which descends into I1Vp1cn roots).  Used to decide whether to emit the pre-switch
+bind for a guarded clause.  Defined BEFORE the guard-emit group (which calls it).
+*)
+fun
+i1tnm_used_in_guards
+( itnm: i1tnm
+, iguas: i1gualst): bool =
+(
+case+ iguas of
+|list_nil() => false
+|list_cons(ig1, igs1) =>
+  let
+    val u1 =
+    (
+    case+ ig1.node() of
+    |I1GUAexp(icmp) => i1tnm_used_in_cmp(itnm, icmp)
+    |I1GUAmat(icmp, _) => i1tnm_used_in_cmp(itnm, icmp))
+  in
+    if u1 then true else i1tnm_used_in_guards(itnm, igs1)
+  end
+)//endof[i1tnm_used_in_guards(itnm,iguas)]
+//
+(*
+[i1bnd_bind_go1_guard]: bind a guarded clause's whole-scrutinee temp [itnm] to
+[casval] ABOVE the switch, iff the guard cmp(s) reference [itnm] (so a datacon
+guard's I1Vp1cn projections -- rooted at [itnm] -- resolve).  Skipped when the
+guard does not use the bind temp (Go errors on a declared-but-unused local).
+*)
+fun
+i1bnd_bind_go1_guard
+( env0: !envx2go
+, casval: i1val
+, ibnd: i1bnd
+, iguas: i1gualst): void =
+let
+  val filr = env0.filr()
+  val nind = envx2go_nind$get(env0)
+  val-I1BNDcons(itnm, _, _) = ibnd
+in//let
+  if i1tnm_used_in_guards(itnm, iguas)
+  then
+  (
+  nindfpr(filr, nind);
+  i1tnmgo1(filr, itnm); strnfpr(filr, " := ");
+  i1valgo1(filr, casval); fprintln(filr))
+  else ((*unused -- skip*))
+end//let//endof[i1bnd_bind_go1_guard(...)]
 //
 fun
 i1cls_guard_emit
-( icl0: i1cls
-, env0: !envx2go): optn(i1val) =
+( casval: i1val
+, icl0: i1cls
+, env0: !envx2go): void =
 (
 case+ icl0.node() of
-|I1CLSgpt(igpt) => i1gpt_guard_emit(igpt, env0)
-|I1CLScls(igpt, _) => i1gpt_guard_emit(igpt, env0)
+|I1CLSgpt(igpt) => i1gpt_guard_emit(casval, igpt, env0)
+|I1CLScls(igpt, _) => i1gpt_guard_emit(casval, igpt, env0)
 )
 //
 and
 i1gpt_guard_emit
-( igpt: i1gpt
-, env0: !envx2go): optn(i1val) =
+( casval: i1val
+, igpt: i1gpt
+, env0: !envx2go): void =
 (
 case+ igpt.node() of
-|I1GPTpat(_) => optn_nil()
-|I1GPTgua(_, iguas) =>
-  let
-    // emit the guard lets (above the switch); the result i1val drives the
-    // case condition (`case <pat> && <g>:`).  M2.3 guards are a single
-    // comparison, so we use the head guard's result; a (rare) multi-guard
-    // clause uses its first guard and is reported (the others are conjuncts
-    // that would need &&-joining at the case site -- a small M2.x follow-up).
-    val gvals = i1gualst_emit_lets(iguas, env0)
-  in
-    (
-    case+ gvals of
-    |list_nil() => optn_nil()
-    |list_cons(g1, list_nil()) => optn_cons(g1)
-    |list_cons(g1, _) =>
-      (
-      prerrsln("[go1emit] NOTE: multi-guard clause -- using first guard (M2.3)");
-      optn_cons(g1)))
-  end
-)//endof[i1gpt_guard_emit(igpt,env0)]
+|I1GPTpat(_) => ((*unguarded -- nothing to pre-emit*))
+|I1GPTgua(ibnd, iguas) =>
+  // M2.7: a datacon guard `rect(w,h) when w = h` reads `w`/`h` as I1Vp1cn
+  // projections ROOTED at the clause's whole-scrutinee bind temp.  The guard
+  // itself is emitted INLINE (as an IIFE in the case condition, see
+  // [i1cls_go1emit_g]) so its projections short-circuit safely; but the IIFE
+  // captures the bind temp LEXICALLY, so we emit that bind ABOVE the switch
+  // here (iff the guard references it -- an unused bind is skipped).
+  i1bnd_bind_go1_guard(env0, casval, ibnd, iguas)
+)//endof[i1gpt_guard_emit(casval,igpt,env0)]
 //
 fun
 i1clslst_emit_guards
-( icls: i1clslst
-, env0: !envx2go): list(optn(i1val)) =
+( casval: i1val
+, icls: i1clslst
+, env0: !envx2go): void =
 (
 case+ icls of
-|list_nil() => list_nil()
+|list_nil() => ((*void*))
 |list_cons(ic1, ics1) =>
-  let
-    val g1 = i1cls_guard_emit(ic1, env0)
-    val gs1 = i1clslst_emit_guards(ics1, env0)
-  in
-    list_cons(g1, gs1)
-  end
+  (
+  i1cls_guard_emit(casval, ic1, env0);
+  i1clslst_emit_guards(casval, ics1, env0))
 )//endof[i1clslst_emit_guards(...)]
 //
 (* ****** ****** *)
 //
 (*
-i1cls_go1emit_g: the guard-aware clause emitter ([gopt] = this clause's
-pre-emitted guard result, optn_nil if unguarded).  A guarded clause emits
-`case <patcond> && <gresult>:`; the pattern test is [i0pckgo1] ("true" for
-var/wildcard).
+i1cls_go1emit_g: the guard-aware clause emitter.  A guarded clause emits
+`case <patcond> && <guard-IIFE>:` -- the pattern test [i0pckgo1] ("true" for
+var/wildcard) AND, for a guarded clause, an inline `func() bool {...}()` IIFE so
+the guard runs (and its datacon-field projections are reached) ONLY when the tag
+test already held (Go `&&` short-circuit).  An unguarded clause emits just
+`case <patcond>:`.
 *)
 fun
 i1cls_go1emit_g
 ( retq: bool, live: bool, itnm: i1tnm
-, casval: i1val, icl0: i1cls, gopt: optn(i1val)
+, casval: i1val, icl0: i1cls
 , params: i1tnmlst, bnds: i1bndlst, env0: !envx2go): void =
 let
   val filr = env0.filr()
@@ -1025,25 +1396,25 @@ case+ icl0.node() of
 //
 |I1CLScls(igpt, body) =>
   let
-    // the bind is whatever I1GPTpat/I1GPTgua carries.
-    val ibnd =
+    // the bind + (optional) guard come from I1GPTpat / I1GPTgua.
+    val (ibnd, guaopt) =
     (
     case+ igpt.node() of
-    |I1GPTpat(ibnd) => ibnd
-    |I1GPTgua(ibnd, _) => ibnd)
+    |I1GPTpat(ibnd) => @(ibnd, optn_nil(): optn(i1gualst))
+    |I1GPTgua(ibnd, iguas) => @(ibnd, optn_cons(iguas)))
     val-I1BNDcons(_, ipat, _) = ibnd
     //
-    // `case <patcond>[ && <guardresult>]:`
+    // `case <patcond>[ && <guard-IIFE>]:`
     val () =
     (
     nindfpr(filr, nind); strnfpr(filr, "case ");
     i0pckgo1(filr, casval, ipat);
     (
-    case+ gopt of
+    case+ guaopt of
     |optn_nil() => ()
-    |optn_cons(gv) =>
+    |optn_cons(iguas) =>
       (
-      strnfpr(filr, " && "); i1valgo1(filr, gv)));
+      strnfpr(filr, " && "); emit_guard_iife(env0, iguas)));
     strnfpr(filr, ":"); fprintln(filr))
     //
     val () = envx2go_incnind(env0, 1)
@@ -1064,38 +1435,31 @@ end//let//endof[i1cls_go1emit_g(...)]
 fun
 i1clslst_go1emit_g
 ( retq: bool, live: bool, itnm: i1tnm
-, casval: i1val, icls: i1clslst, gopts: list(optn(i1val))
+, casval: i1val, icls: i1clslst
 , params: i1tnmlst, bnds: i1bndlst, env0: !envx2go): void =
 (
 case+ icls of
 |list_nil() => ((*void*))
 |list_cons(ic1, ics1) =>
-  let
-    val (g1, gs1) =
-    (
-    case+ gopts of
-    |list_nil() => @(optn_nil(), list_nil())
-    |list_cons(g1, gs1) => @(g1, gs1))
-  in
-    i1cls_go1emit_g(retq, live, itnm, casval, ic1, g1, params, bnds, env0);
-    i1clslst_go1emit_g(retq, live, itnm, casval, ics1, gs1, params, bnds, env0)
-  end
+  (
+  i1cls_go1emit_g(retq, live, itnm, casval, ic1, params, bnds, env0);
+  i1clslst_go1emit_g(retq, live, itnm, casval, ics1, params, bnds, env0))
 )//endof[i1clslst_go1emit_g(...)]
 //
 (*
-The SATS-declared clause entries (i1cls_go1emit / i1clslst_go1emit) delegate
-to the guard-aware variants with an empty guard list -- they are the entries
-the rest of the emitter / a future caller would use without the pre-pass.
+The SATS-declared clause entries (i1cls_go1emit / i1clslst_go1emit) delegate to
+the guard-aware variants -- each clause's guard (if any) is emitted inline as an
+IIFE from its own [igpt], so no separate guard-result list is threaded.
 *)
 #implfun
 i1cls_go1emit
 (retq, live, itnm, casval, icl0, params, bnds, env0) =
-  i1cls_go1emit_g(retq, live, itnm, casval, icl0, optn_nil(), params, bnds, env0)
+  i1cls_go1emit_g(retq, live, itnm, casval, icl0, params, bnds, env0)
 //
 #implfun
 i1clslst_go1emit
 (retq, live, itnm, casval, icls, params, bnds, env0) =
-  i1clslst_go1emit_g(retq, live, itnm, casval, icls, list_nil(), params, bnds, env0)
+  i1clslst_go1emit_g(retq, live, itnm, casval, icls, params, bnds, env0)
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -1279,19 +1643,21 @@ case+ iins of
       fprintln(filr))
       else ())
     //
-    // GUARD pre-pass: emit each guarded clause's guard-lets ABOVE the switch
-    // (so the guard result is in scope for the case condition); collect the
-    // per-clause guard results (optn_nil for unguarded clauses).  Folding the
-    // guard into `case <pat> && <g>:` makes a failed guard fall through to the
-    // NEXT clause -- matching the JS backend's retry-next-clause semantics.
-    val gopts = i1clslst_emit_guards(icls, env0)
+    // GUARD pre-pass: emit ONLY each guarded clause's pre-switch scrutinee BIND
+    // (so the inline guard IIFE -- emitted in the case condition -- can capture
+    // it lexically).  The guard COMPUTATION itself is emitted inline as a
+    // short-circuited `&& func() bool {...}()` IIFE per clause (so a datacon
+    // guard's field projections run only when its tag test held).  A failed
+    // guard makes the case condition false -> Go falls through to the next
+    // clause (matching the JS backend's retry-next-clause).
+    val () = i1clslst_emit_guards(casval, icls, env0)
     //
     // expression-less switch == if-else chain with implicit break.
     val () =
     (
     nindfpr(filr, nind); strnfpr(filr, "switch {"); fprintln(filr))
     //
-    val () = i1clslst_go1emit_g(retq, live, itnm, casval, icls, gopts, params, bnds, env0)
+    val () = i1clslst_go1emit_g(retq, live, itnm, casval, icls, params, bnds, env0)
     //
     // a `default:` arm for match failure, mirroring the JS backend's
     // XATS000_cfail() fall-through.  We emit a literal `panic(...)` -- a Go

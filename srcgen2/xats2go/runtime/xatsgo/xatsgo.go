@@ -88,6 +88,28 @@ func XATSSTR0(cs string) string { return cs }
 // XATSNIL is the unit value (ATS `()` / I1Vnil). Represented as nil `any`.
 func XATSNIL() any { return nil }
 
+// ===========================================================================
+// M2.7 — DATATYPES (datacons)
+// ===========================================================================
+//
+// Every datatype value is a single boxed runtime type: a *XatsCon (datatypes
+// are uniformly heap-boxed in ATS, so the layout-correct choice is a boxed
+// pointer). This mirrors the JS backend's tag+array model (XATSCAPP stores
+// [ctag, arg0, arg1, ...]) but separates the tag from the args:
+//   - Tag  is the constructor's ctag (d2con_get_ctag); the JS backend keeps it
+//     at slot 0 of the array, here it is its own field.
+//   - Args holds ONLY the value arguments (proof args are erased upstream, like
+//     tuples skip npf), in source order. A nullary constructor has Args == nil.
+//
+// Construction  I1INSdapp(I1Vcon(dcon), vs) -> &XatsCon{Tag: ctag, Args: ...}.
+// Tag test      (case clause)               -> v.Tag == ctag.
+// Projection    I1INSpcon(lab, v)/I1Vp1cn   -> v.Args[lab] (typed via .(T)).
+// Field set     I1Vlpcn(lab, v) = rhs       -> v.Args[lab] = rhs (mutation).
+type XatsCon struct {
+	Tag  int
+	Args []any
+}
+
 // Xats_cfail mirrors XATS2JS_XATS000_cfail: the match-failure sentinel for a
 // non-exhaustive case/switch. The M2.3 emitter inlines a literal
 // `panic("xats2go: XATS000_cfail")` in a switch's `default:` arm instead of
