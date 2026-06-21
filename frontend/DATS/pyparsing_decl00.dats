@@ -905,6 +905,9 @@ end
 //
 #implfun
 pyparse_tokens(toks) = let
+  // ROBUSTNESS (Bug #41): re-arm the module-local bracket-recursion DEPTH guard at the start of
+  // every file parse (the parser is one-shot per file; this keeps the counter re-entrant-safe).
+  val () = ps_depth_reset()
   val st0 = PState(toks, list_nil())
   val @(decls, st1) = p_module_loop(st0, list_nil())
   val+ PState(_, rdiag) = st1

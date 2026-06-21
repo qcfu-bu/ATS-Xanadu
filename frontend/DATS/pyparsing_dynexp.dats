@@ -145,8 +145,31 @@ set_lam_func(e: pyexp): pyexp =
   | PyElam(loc, _, prms, body) => PyElam(loc, true(*@func*), prms, body)
   | _ => e )
 //
+// ROBUSTNESS (Bug #41): the EXPRESSION grammar is mutually recursive — every nested bracket
+// payload (`@inst[ e ]`, a call `f( e )`, a subscript `e[ e ]`, a paren/list `( e )`/`[ e ]`)
+// re-enters p_expr one native-stack frame deeper. With no bound, a pathologically nested input
+// (`@inst[@inst[@inst[…`, `foo(@inst[@inst[…`, `a[a[a[…`) overflows the JS native stack and
+// SEGFAULTS (EXIT 139) before V8's "Maximum call stack" guard fires under --stack-size. p_expr
+// is the ONE chokepoint every such descent passes through, so we bound it HERE: on crossing the
+// cap, emit a clean diagnostic + a survivable PyEerror + resync (NEVER crash), exactly like every
+// other parse-error arm. ps_depth_leave() runs on the way back out, so the counter tracks TRUE
+// nesting depth (sequential, non-nested p_expr calls each return to depth 0).
 fun
-p_expr(st: pstate): @(pyexp, pstate) = let
+p_expr(st: pstate): @(pyexp, pstate) =
+  if ps_depth_enter() then
+    let
+      val loc = ps_peek_loctn(st)
+      val st1 = ps_diag(st, loc, "expression nesting too deep (malformed); recovering")
+      val st2 = ps_resync(st1)
+      val () = ps_depth_leave()
+    in
+      @(PyEerror(loc, "expression nesting too deep"), st2)
+    end
+  else
+    let val @(e, st1) = p_expr0(st) val () = ps_depth_leave() in @(e, st1) end
+//
+and
+p_expr0(st: pstate): @(pyexp, pstate) = let
   val nod = ps_peek(st)
 in
   case+ nod of

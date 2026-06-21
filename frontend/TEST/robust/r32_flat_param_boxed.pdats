@@ -1,0 +1,11 @@
+# Bug #32 NEGATIVE fixture: a FLAT (`@unboxed`) Type param on a BOXED `enum`, then a BOXED
+# instantiation (`Box[Int]`). The flat (tflt) param vs boxed (tbox) datatype is a latent sort
+# inconsistency our lowering used to emit. The frontend now NORMALIZES the flat Type param to
+# boxed on a boxed datatype (matching the pinned "@unboxed enum lowers boxed" policy), so the
+# emitted L2 is consistently sorted and the TYPECHECKER handles it gracefully (no crash; it
+# reaches the nerror line). Asserts: the frontend does NOT crash the type passes on this shape.
+enum Box[A: Type @unboxed]:
+    case Mk(A)
+
+def f(b: Box[Int]) -> Int:
+    0

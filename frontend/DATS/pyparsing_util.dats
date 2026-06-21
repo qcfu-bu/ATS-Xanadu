@@ -191,6 +191,52 @@ case+ ps_peek(st) of
 )
 //
 (* ****** ****** *)
+//
+// ---- recursion-DEPTH guard for the nested-bracket grammar (Bug #41) ----------
+//
+// The recursive-descent type/expr parser recurses once per nested `[ … ]` payload
+// (type-application `List[List[…`, decorator type-args `@inst[@inst[…`, call-arg
+// `foo(@inst[@inst[…`). With no bound, a deeply/badly nested input overflows the JS
+// NATIVE stack and SEGFAULTS (EXIT 139) before V8's "Maximum call stack" guard fires
+// under --stack-size. The counter below caps the bracket-descent depth; on crossing the
+// cap the entry points emit a clean diagnostic + a survivable error node + resync (exactly
+// how the parser reports any other parse error — it NEVER throws/crashes).
+//
+// The cap (PS_DEPTH_MAX) is chosen WELL below the native-stack ceiling observed empirically
+// (segfault appears ~2000 nestings at --stack-size=8801; survives ~1000) yet far above any
+// realistic source nesting, so legitimate inputs are never rejected.
+//
+#define PS_DEPTH_MAX 600
+//
+// module-local sint ref, template-free (the proven a0ref_make_1val(0) pattern — xglobal.dats:170
+// `the_ntime`). The parser is one-shot per file; ps_depth_reset() re-arms it at each entry, so a
+// module-local counter is re-entrant-safe across files (no global parser STATE leaks).
+local
+  val the_ps_depth = a0ref_make_1val(0)
+in
+  #implfun
+  ps_depth_reset((*void*)) = (the_ps_depth[] := 0)
+  //
+  // increment the depth; return true IFF we have just CROSSED the cap (so the caller bails out
+  // with a diagnostic instead of recursing). Once over, every further enter also returns true
+  // (the counter keeps climbing but the callers stop recursing, so it never runs away).
+  #implfun
+  ps_depth_enter((*void*)) = let
+    val d = the_ps_depth[]
+    val () = (the_ps_depth[] := d + 1)
+  in
+    d >= PS_DEPTH_MAX
+  end
+  //
+  #implfun
+  ps_depth_leave((*void*)) = let
+    val d = the_ps_depth[]
+  in
+    if d > 0 then (the_ps_depth[] := d - 1) else ()
+  end
+end // end of [local: the_ps_depth]
+//
+(* ****** ****** *)
 (*
 end of [frontend/DATS/pyparsing_util.dats]
 *)

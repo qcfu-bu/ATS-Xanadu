@@ -688,6 +688,23 @@ fun ps_skip_newlines(st: pstate): pstate
 // stop at a DEDENT/EOF (do NOT consume those — they close the enclosing suite).
 fun ps_resync(st: pstate): pstate
 //
+// ROBUSTNESS (Bug #41): a module-local recursion-DEPTH guard for the nested-bracket grammar
+// (the `[ … ]` type-application / decorator type-arg / @inst expression payloads). The
+// recursive-descent type/expr parser has NO native-stack bound, so a deeply/badly nested
+// payload (`@inst[@inst[@inst[…`, `List[List[List[…`, `foo(@inst[@inst[…`) overflows the JS
+// native stack and SEGFAULTS (EXIT 139) instead of producing a clean diagnostic. These three
+// primitives bound the descent:
+//   ps_depth_reset() : zero the counter at the top-level parse entry (pyparse_tokens).
+//   ps_depth_enter() : increment + return true IFF we have just CROSSED the limit (the caller
+//                      must then emit a diagnostic + a survivable error node + NOT recurse).
+//   ps_depth_leave() : decrement on the way back out of a bracketed descent.
+// The guard is a template-free module-local sint ref (the proven `a0ref_make_1val(0)` pattern,
+// xglobal.dats:170 `the_ntime`); the parser is one-shot per file so a module-local counter is
+// re-entrant-safe across files via ps_depth_reset() at the entry.
+fun ps_depth_reset((*void*)): void
+fun ps_depth_enter((*void*)): bool
+fun ps_depth_leave((*void*)): void
+//
 // combine two spans into one covering both (min pbeg .. max pend) — the span-merge
 // the task calls `loc1 + loc2`. Wraps the verified `add_loctn_loctn` (locinfo.sats)
 // by name (avoids any `+`-overload-resolution risk in a standalone DATS).

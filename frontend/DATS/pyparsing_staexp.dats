@@ -210,11 +210,27 @@ p_type_app_loop(t0: pytyp, st: pstate): @(pytyp, pstate) =
 (
 case+ ps_peek(st) of
 | PT_LBRACK() =>
+  // ROBUSTNESS (Bug #41): each nested `[ … ]` type-arg payload is one native-stack DESCENT
+  // (p_type_args -> p_index -> p_type -> p_type_app -> here, recursively). Bound that descent
+  // so a pathologically nested input (`List[List[List[…`) emits a clean diagnostic + a
+  // survivable PyTerror + resyncs to NEWLINE, instead of overflowing the JS native stack
+  // (SEGFAULT EXIT 139). Mirrors every other parse error: ps_diag + an error node, no crash.
+  if ps_depth_enter() then
+    let
+      val loc = ps_peek_loctn(st)
+      val st1 = ps_diag(st, loc, "type nesting too deep (malformed '[...]'); recovering")
+      val st2 = ps_resync(st1)
+      val () = ps_depth_leave()
+    in
+      @(PyTerror(loc, "type nesting too deep"), st2)
+    end
+  else
   let
     val locL = pytyp_loctn(t0)
     val @(args, st1) = p_type_args(ps_advance(st))
     val locR = ps_peek_loctn(st1)
     val st2 = expect_rbrack(st1, locR)
+    val () = ps_depth_leave()
     val t1 =
       ( case+ t0 of
         | PyTcon(_, nm, prev) => PyTcon(loc_span(locL, locR), nm, list_append(prev, args))

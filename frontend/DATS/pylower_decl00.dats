@@ -143,6 +143,92 @@ case+ p of
   )
 )
 //
+// ROBUSTNESS (Bug #32): is this param a FLAT *Type*-sorted param (`[A: Type @unboxed]` /
+// `[A @unboxed]`, sort name "Type" or "" + @unboxed -> the_sort2_tflt)? Such a param is FLAT
+// (tflt). On a BOXED-family DATATYPE (`enum`, whose result sort is `the_sort2_tbox` — see
+// dt_sort_of's `PCMbox`/`PCMflat` -> tbox boxed fallback) a flat *type* param is INTERNALLY
+// INCONSISTENT: a boxed datatype stores its con args by pointer, so `Box[Int]` instantiates the
+// flat slot with a BOXED `Int`. The stock typechecker tolerates the tflt/tbox difference (nerror=0),
+// so the inconsistent L2 slips through to codegen. (We do NOT touch the LINEAR case: a
+// `Linear @unboxed` param is `the_sort2_vtft` (flat viewtype) and rides on a `@linear` vtbx
+// datatype CONSISTENTLY — the documented, supported `@linear enum Tree[A: Linear @unboxed]`.)
+fun
+param_is_flat_type(p: pcparam): bool =
+(
+case+ p of
+| PCParam(_, _, sname, unboxed) =>
+    // (no `orelse` in this dialect — compose with a nested if, the codebase idiom.)
+    if unboxed
+      then (if strn_eq(sname, "Type") then true else strn_eq(sname, ""))
+      else false
+)
+//
+// ROBUSTNESS (Bug #32): the param sort to use INSIDE a DATATYPE (enum) of the given mode. A
+// datatype's RESULT sort (dt_sort_of) is BOXED for both PCMbox AND PCMflat (the pinned "@unboxed
+// enum lowers as boxed — no unboxed-datatype primitive" decision), and LINEAR for PCMlin. So:
+//   * boxed datatype (PCMbox / PCMflat -> tbox result): a flat `Type` param (tflt) is INCONSISTENT
+//     with the boxed result -> NORMALIZE it to the BOXED `the_sort2_type`. This emits consistently-
+//     sorted L2 (boxed param in a boxed datatype), so `Box[Int]` instantiates a boxed slot with a
+//     boxed arg, instead of the latent tflt-in-tbox shape the stock typechecker silently tolerated.
+//   * linear datatype (PCMlin -> vtbx result): a `Linear @unboxed` param (vtft) rides CONSISTENTLY
+//     (the documented `@linear enum Tree[A: Linear @unboxed]`) -> KEEP the declared sort.
+// Every OTHER param/sort (Linear, index sorts, plain `[A]`) is BYTE-IDENTICAL to psort2_of.
+fun
+psort2_of_dt(p: pcparam, mode: pcmode): sort2 =
+(
+case+ mode of
+| PCMbox()  => (if param_is_flat_type(p) then the_sort2_type else psort2_of(p))
+| PCMflat() => (if param_is_flat_type(p) then the_sort2_type else psort2_of(p))
+| _ => psort2_of(p)   // linear / prop / view: the declared sort is already consistent.
+)
+//
+// ROBUSTNESS (Bug #32): the param sort to use INSIDE a RECORD (struct) of the given mode. Unlike a
+// datatype, a RECORD has a real FLAT representation (rcd_kind_sort_of: PCMflat -> (TRCDflt0, tflt)),
+// so on a `@unboxed struct` a flat `Type` param is CONSISTENT (flat param in a flat record) and is
+// KEPT. Only a BOXED struct (PCMbox -> tbox body) with a flat `Type` param is inconsistent ->
+// NORMALIZE to boxed. (PCMlin keeps its declared sort; vtft in a vtbx record is consistent.)
+fun
+psort2_of_rcd(p: pcparam, mode: pcmode): sort2 =
+(
+case+ mode of
+| PCMbox()  => (if param_is_flat_type(p) then the_sort2_type else psort2_of(p))
+| _ => psort2_of(p)   // flat / linear record: the declared sort is already consistent.
+)
+//
+// mode-aware variants of mk_param_s2vars for the DATATYPE (enum) + RECORD (struct) paths — identical
+// to mk_param_s2vars except each param sort goes through the mode-aware sort selector.
+fun
+mk_param_s2vars_dt(params: list(pcparam), mode: pcmode): s2varlst =
+(
+case+ params of
+| list_nil() => list_nil()
+| list_cons(p, rest) =>
+    let
+      val+ PCParam(_, name, _, _) = p
+      val s2v = s2var_make_idst(symbl_make_name(name), psort2_of_dt(p, mode))
+    in list_cons(s2v, mk_param_s2vars_dt(rest, mode)) end
+)
+//
+fun
+mk_type_sorts_dt(params: list(pcparam), mode: pcmode): sort2lst =
+(
+case+ params of
+| list_nil() => list_nil()
+| list_cons(p, rest) => list_cons(psort2_of_dt(p, mode), mk_type_sorts_dt(rest, mode))
+)
+//
+fun
+mk_param_s2vars_rcd(params: list(pcparam), mode: pcmode): s2varlst =
+(
+case+ params of
+| list_nil() => list_nil()
+| list_cons(p, rest) =>
+    let
+      val+ PCParam(_, name, _, _) = p
+      val s2v = s2var_make_idst(symbl_make_name(name), psort2_of_rcd(p, mode))
+    in list_cons(s2v, mk_param_s2vars_rcd(rest, mode)) end
+)
+//
 // STAT/PROOF parity: map a bare SORT-REFERENCE NAME (a string like `SInt`/`Type`/`Prop`/`SBool`/
 // `Linear`) to its L2 sort2 — the SAME vocab psort2_of uses, but keyed on a plain string (sortdef/
 // stacst carry a sort-name string, not a pcparam). An UNKNOWN name defaults to the_sort2_type (a
@@ -749,8 +835,11 @@ case+ d of
     // ---- PARAMETRIC enum (tvs non-empty): M5b.3b, SPIKE-PROVEN (LOWERING-MAP §3.3c). -------
     // (1) one s2var per param; the type's sort is a FUNCTION sort (type)->...->RESULT (arity N).
     //     M5b.6a: the RESULT sort is mode-selected (tbox boxed / vtbx linear) via dt_sort_of.
-    val s2vs   = mk_param_s2vars(tvs)
-    val s2t    = S2Tfun1(mk_type_sorts(tvs), dt_sort_of(mode))
+    // ROBUSTNESS (Bug #32): the param sorts go through the MODE-aware mk_*_dt — on a BOXED-family
+    // datatype a flat `Type` param (tflt) is NORMALIZED to boxed (the_sort2_type), so the result-sort
+    // arrow + the bound s2vars are CONSISTENT with the boxed result (no latent tflt-in-tbox shape).
+    val s2vs   = mk_param_s2vars_dt(tvs, mode)
+    val s2t    = S2Tfun1(mk_type_sorts_dt(tvs, mode), dt_sort_of(mode))
     val s2c    = s2cst_make_idst(loc, symbl_make_name(name), s2t)
     val () = tr12env_add1_s2cst(env, s2c)               // register the TYPE first (recursion)
     // (2) push a param lam-scope + bind the s2vars BEFORE building the cons (so an arg type `A`
@@ -815,7 +904,9 @@ case+ d of
   else let
     // ---- PARAMETRIC struct (tvs non-empty): bind the param s2vars while lowering the field
     //      types (a field `A` resolves via resolve_typ's S2ITMvar arm), wrap in s2exp_lam1. ---
-    val s2vs = mk_param_s2vars(tvs)
+    // ROBUSTNESS (Bug #32): mode-aware param sorts — a flat `Type` param on a BOXED struct is
+    // normalized to boxed (a flat param on a flat `@unboxed` struct stays flat — consistent).
+    val s2vs = mk_param_s2vars_rcd(tvs, mode)
     val () = tr12env_pshlam0(env)
     val () = bind_param_s2vars(env, s2vs)
     val body = build_record_sexp(env, mode, fields)
