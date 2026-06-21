@@ -215,11 +215,6 @@ fun
 i1val_aexp
 ( iexp: i0exp ): i1val =
 let
-val () = prerrsln("[PROBE i1val_aexp] node=",
-  (case+ iexp.node() of
-   |I0Eannot(_,_,_) => "I0Eannot" |I0Et2ped(_,_) => "I0Et2ped"
-   |I0Evar(_) => "I0Evar" |I0Ecst(_) => "I0Ecst" |I0Eint(_) => "I0Eint"
-   |I0Edapp(_,_,_) => "I0Edapp" | _ => "other"))
 val loc0 = iexp.lctn() in
 i1val_make_node(loc0,I1Vaexp(iexp))
 end//let//end-of-[i1val_aexp(iexp)]

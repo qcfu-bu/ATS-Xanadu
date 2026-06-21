@@ -88,6 +88,71 @@ func XATSSTR0(cs string) string { return cs }
 // XATSNIL is the unit value (ATS `()` / I1Vnil). Represented as nil `any`.
 func XATSNIL() any { return nil }
 
+// XATSTOP0 is the "topmost"/omitted value (ATS `_` in value position, I1Vtop).
+// The JS backend defines `XATSTOP0 = undefined`; the Go analog is the unit/nil
+// `any`. It is a placeholder the type checker filled; reading it is only valid
+// where ATS proved the value is never demanded, so nil is the faithful image.
+func XATSTOP0() any { return nil }
+
+// ===========================================================================
+// LAZY — call-by-need (memoized) and call-by-name thunks
+// ===========================================================================
+//
+// Mirrors the JS runtime combinators (xats2js_js1emit.js):
+//
+//	XATS000_l0azy(lfun) = [0, lfun]                       // unforced memo cell
+//	XATS000_dl0az(l0az) = force-once-then-cache(l0az)     // $eval / `!lz`
+//	XATS000_l1azy(lfun) = lfun                            // call-by-name (no memo)
+//	XATS000_dl1az(l1az) = l1az(1)                         // call the thunk
+//
+// l0azy = a MEMOIZED thunk: the thunk runs at most ONCE; its result is cached
+// and every later force returns the cached value (the observable: a side-effect
+// in the thunk fires exactly once even when forced repeatedly).  l1azy = plain
+// call-by-name: the thunk is re-run on every force (no caching).
+//
+// Linear cleanup (the [frees] of l1azy / the $free of lazy_vt_free) is a no-op
+// under Go's GC, exactly as the JS backend treats XATS000_free as a no-op.
+
+// XatsLazy is a memoized (call-by-need) thunk cell. Once forced, [forced] is
+// set and [val] holds the cached result; [thunk] is the deferred computation.
+type XatsLazy struct {
+	forced bool
+	val    any
+	thunk  func() any
+}
+
+// Xats_l0azy wraps a thunk into an unforced memo cell (I1INSl0azy). Mirrors
+// XATS000_l0azy: the thunk is NOT run here, only captured.
+func Xats_l0azy(thunk func() any) *XatsLazy { return &XatsLazy{thunk: thunk} }
+
+// Xats_dl0az forces a memo cell (I1INSdl0az / `$eval` / `!lz`): runs the thunk
+// the FIRST time and caches the result; later forces return the cache. Mirrors
+// XATS000_dl0az (memoization).
+func Xats_dl0az(l *XatsLazy) any {
+	if !l.forced {
+		l.val = l.thunk()
+		l.forced = true
+	}
+	return l.val
+}
+
+// Xats_l1azy is call-by-name (I1INSl1azy): the thunk itself is the lazy value;
+// it is NOT memoized. Mirrors XATS000_l1azy = identity.
+func Xats_l1azy(thunk func() any) func() any { return thunk }
+
+// Xats_dl1az calls a call-by-name thunk (I1INSdl1az): re-runs it every time.
+// Mirrors XATS000_dl1az = l1az(1).
+func Xats_dl1az(f func() any) any { return f() }
+
+// Xats_fold is the open-constructor folding no-op (I1INSfold). The JS runtime
+// XATS000_fold returns null; here we yield the argument's value unchanged (a
+// fold is a static/representation operation with no runtime effect).
+func Xats_fold(v any) any { return v }
+
+// Xats_free is the malloc-free no-op (I1INSfree). Irrelevant under Go's GC,
+// exactly as the JS runtime XATS000_free is a no-op returning null.
+func Xats_free(v any) any { return nil }
+
 // ===========================================================================
 // M2.7 — DATATYPES (datacons)
 // ===========================================================================

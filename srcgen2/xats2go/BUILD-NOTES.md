@@ -2321,3 +2321,54 @@ the inner handler swallow ErrmsgExn → "inner caught ErrorExn (WRONG)" instead 
   tests but wired through `i1cls_go1emit_goxret`). (4) A tail self-call inside a
   recover handler is NOT loop-optimized (handlers emit value-mode, no `params`
   threaded) — correct, just not TCO'd; not in the test surface.
+
+---
+
+## intrep1 node coverage (final pass — lazy / fold / free / dp2tr / top / p2rj / extnam / env / aexp)
+
+This pass FINISHED the i1ins/i1val node coverage. Key finding: several target
+nodes are **not producible from surface syntax in this frontend build**, because
+the `trxd3i0` → `intrep0` stage does NOT lower the surface lazy constructs.
+
+### Reachability map (verified by IR dump of the JS *and* Go pipelines)
+
+| node | kind | reachable from surface? | why |
+|---|---|---|---|
+| `I1Vtop` | i1val | **YES** — handled+tested | `_` wildcard in value position (`val x = _`) → `I1Vtop` → `xatsgo.XATSTOP0()`. test90, byte-equal-vs-JS. |
+| `I1Vextnam` | i1val | reachable in IR, **not on emit surface** | only inside `$extnam` **impl bodies**, which the Go decl emitter SKIPS (prelude/extern funcs are runtime-provided; a user `myid(5)` call resolves via the d2cst path, not `I1Vextnam`). Handler emits the inner resolved value if ever reached. |
+| `I1Vaexp` | i1val | reachable in IR, **not on emit surface** | only the lvalue-path fallback (`i0lft_trxi0i1`'s `_ => i1val_aexp`). No i0exp emitter at the i1val level → documented `// UNHANDLED` (specific note). |
+| `I1Venv` | i1val | reachable in IR, **bypassed** | closure-capture env slot; the Go backend captures lexically (M2.5 divergence) so env slots never reach a value-emit site → documented `// UNHANDLED` (specific note). |
+| `I1Vp2rj` | i1val | **NOT produced** | defined in intrep1 but NO constructor call anywhere. Emit case ready (`<root>.F<lab>`). |
+| `I1INSl0azy`/`l1azy` | i1ins | **NOT produced** | upstream `intrep0` has no `I0El0azy`/`I0El1azy`; `trxd3i0` does NOT lower `$lazy`/`$llazy` → surfaces as `I1Vnone1(I0Enone2(D3El0azy..))` error node. `i1val_l0azy`/`l1azy` are dead code. Emit + runtime ready. |
+| `I1INSdl0az`/`dl1az` | i1ins | **NOT produced** | `!`/`$eval` → `D3Edl0az` is NOT lowered either (same error-node path); no dispatch arm for `I0Edl0az`/`I0Edl1az`. Emit + runtime ready. |
+| `I1INSfold`/`free` | i1ins | **NOT produced** | producer funcs `i1val_fold`/`i1val_free` defined but never called; no dispatch arm. Emit + runtime ready. |
+| `I1INSdp2tr` | i1ins | **NOT produced** | `f0_dp2tr` FORWARDS to the inner value (never builds `I1INSdp2tr`). Emit case ready (`&<var>` / by-ref passthrough). |
+
+The JS backend's own `js1emit` handlers for these are **equally dead in this
+build** (the JS reference renders `$lazy`/`!` as the SAME `I1Vnone1` error node),
+so there is no JS oracle to diff against for lazy — hence the validation split:
+
+### Validation
+- `I1Vtop`: surface-reachable → **byte-equal-vs-JS oracle** (test90_top_xats2go).
+- lazy/fold/free: not surface-reachable → the **runtime** is proven by
+  `runtime/xatsgo/lazy_test.go` (`go test`): `l0azy`/`dl0az` MEMOIZE (side-effect
+  fires once across two forces, cached result), `l1azy`/`dl1az` are call-by-name
+  (re-run), `fold` yields its arg, `free` is a GC no-op; plus `TestEmitterShapeAnyBoxed`
+  reproduces the EXACT emitted Go (the `cell.(*xatsgo.XatsLazy)` /
+  `th.(func() any)` assertion shapes through an `any` slot). The **emit cases**
+  compile into the bundle (syntactically + type-checked by the ATS transpiler).
+
+### Runtime additions (`runtime/xatsgo/xatsgo.go`)
+`XATSTOP0()`; `XatsLazy{forced,val,thunk}` + `Xats_l0azy`/`Xats_dl0az` (memoized),
+`Xats_l1azy`/`Xats_dl1az` (call-by-name), `Xats_fold` (yields arg), `Xats_free`
+(GC no-op). All mirror the JS `XATS000_*` observable semantics.
+
+### Tally
+- **i1ins targets (8):** 0 produced-on-surface; 8/8 **handled-and-ready** (real
+  emit + runtime, validated by Go unit tests / compile). 0 remain `UNHANDLED`.
+- **i1val targets (5):** `I1Vtop` handled+oracle-tested; `I1Vextnam`/`I1Vp2rj`
+  handled-and-ready (emit cases real, unreachable on emit surface);
+  `I1Vaexp`/`I1Venv` documented `// UNHANDLED` with specific notes (genuinely
+  off the Go value-emit surface — flat-expr lvalue / lexically-captured env).
+- `I1Vnone0`/`I1Vnone1` remain the error-marker fallthrough (un-lowered nodes),
+  as intended.

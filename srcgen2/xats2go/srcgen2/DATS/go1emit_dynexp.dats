@@ -779,6 +779,61 @@ assertion is emitted on the LVALUE side (a `.(T)` is not addressable in Go).
 (* ****** ****** *)
 (* ****** ****** *)
 //
+(*
+I1Vtop(sym): the "topmost"/omitted value `_` in value position (isTOP =
+WCARD_symbl).  The JS backend emits the constant `XATSTOP0` (= undefined); the
+Go analog is `xatsgo.XATSTOP0()` (returns nil/unit -- a placeholder the type
+checker filled, only valid where ATS proved the value is never demanded).
+*)
+|I1Vtop(_sym) => strnfpr(filr, "xatsgo.XATSTOP0()")
+//
+(*
+I1Vextnam(token, innerVal, g1nam): a `$extnam(..)` external-name reference.
+The carried [innerVal] is the RESOLVED i1val for the external name (from
+[envi0i1_exnm$search]); the [g1nam] is the FFI name spec.  The JS backend does
+NOT special-case this in value position (it only appears inside a prelude
+`$extnam` function impl, which the Go decl emitter skips -- prelude functions are
+runtime-provided).  When it DOES reach value position we emit the inner resolved
+value (the same name the impl would bind), which is the observable content.
+*)
+|I1Vextnam(_tk, ivin, _gnam) => i1valgo1(filr, ivin)
+//
+(*
+I1Vp2rj(token, root, label): a labelled BOXED projection variant.  Like the
+other p*rj projections (I1Vp0rj/I1Vp1rj), this reads `<root>.F<label>` (Go
+auto-derefs a boxed *struct root).  NOT produced by the current trxi0i1 (no
+constructor call exists -- it is defined in intrep1 but never built), so this
+case is here for completeness/totality and the layout-correct shape.
+*)
+|I1Vp2rj(_tok, iroot, lab2) =>
+  (
+  i1valgo1(filr, iroot);
+  strnfpr(filr, "."); strnfpr(filr, gofield_of_label(lab2)))
+//
+(*
+I1Vaexp(i0exp): a FLAT expression value -- arises ONLY as the lvalue-path
+fallback ([i0lft_trxi0i1]'s `_ => i1val_aexp`), i.e. for an inner expression the
+lvalue machinery did not otherwise lower (e.g. a type-ascribed lvalue).  The JS
+backend emits `XATSAEXP(<i0exp>)`.  Go has no generic i0exp emitter at the i1val
+level, so this remains UNHANDLED (a documented gap: a flat-expr lvalue is not on
+the value-emit surface).  Kept distinct from the generic fallthrough so the note
+is specific.
+*)
+|I1Vaexp(_iexp) => unhandled_val(filr, "I1Vaexp(flat-expr lvalue)", ival)
+//
+(*
+I1Venv(i1env): an environment-slot value (a captured-env record).  Produced
+during closure capture ([envi0i1_i0ws$insert]), but the Go backend DIVERGES on
+closures -- Go func literals capture lexically, so the env-slot threading is
+bypassed entirely (see the I1Vfenv / M2.5 capture notes).  An I1Venv therefore
+never reaches a Go value-emit site on the supported surface; mark UNHANDLED with
+a specific note rather than emit a meaningless env handle.
+*)
+|I1Venv(_ienv) => unhandled_val(filr, "I1Venv(env-slot; Go captures lexically)", ival)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
 | _(*otherwise*) =>
 unhandled_val(filr, "i1val", ival)
 //
@@ -1037,6 +1092,68 @@ addressable-Go-lvalue assignment.
 |I1INSflat(iv1) =>
   (
   i1valgo1(filr, iv1))
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
+LAZY FORCE / no-ops (single-expression instructions).
+//
+NOTE (reachability): NONE of these five are produced by the current trxi0i1 on
+the supported surface -- the upstream intrep0 has no I0El0azy/I0El1azy
+constructor (so `$lazy` lowers to an ERROR node, not a lazy ins), and the
+dl0az/dl1az/fold/free producer funcs ([i1val_dl0az] etc.) are defined but never
+called (no dispatch arm for I0Edl0az/I0Edl1az/I0Efold/I0Efree in
+[i0exp_trxi0i1]).  These cases are therefore COMPILE-CORRECT-READY: they emit
+real, runnable Go matching the JS runtime's observable semantics, so the day the
+front-end lowers lazy/fold/free they are handled (no UNHANDLED).
+//
+  I1INSdl0az(v) : force a MEMOIZED cell -> Xats_dl0az(<v> asserted to the lazy
+                  pointer type); the cell forces once + caches.
+  I1INSdl1az(v) : call a call-by-name thunk -> Xats_dl1az(<v> asserted to a thunk).
+  I1INSfold(v)  : open-con folding no-op -> just the value <v> (mirrors the JS
+                  XATS000_fold whose only observable is yielding v's slot;
+                  emitting <v> keeps the bound temp well-typed).
+  I1INSfree(v)  : malloc-free no-op -> Xats_free(<v>) (GC makes it a no-op
+                  returning nil, exactly as XATS000_free).
+*)
+|I1INSdl0az(iv1) =>
+  (
+  strnfpr(filr, "xatsgo.Xats_dl0az(");
+  i1valgo1(filr, iv1);
+  strnfpr(filr, ".(*xatsgo.XatsLazy))"))
+|I1INSdl1az(iv1) =>
+  (
+  strnfpr(filr, "xatsgo.Xats_dl1az(");
+  i1valgo1(filr, iv1);
+  strnfpr(filr, ".(func() any))"))
+|I1INSfold(iv1) =>
+  (
+  i1valgo1(filr, iv1))
+|I1INSfree(iv1) =>
+  (
+  strnfpr(filr, "xatsgo.Xats_free(");
+  i1valgo1(filr, iv1);
+  strnfpr(filr, ")"))
+//
+(*
+I1INSdp2tr(v): address-of (`&`) / p2tr-dereference.  The JS backend emits
+`XATS000_dp2tr(v)` (= XATS000_lvget(v), reading the box).  Go has REAL pointers
+(GAP A1's by-ref module), so the address/deref is the SAME form the I1Vaddr
+call-arg site uses: a by-ref pointer param flows as-is, an addressable var is
+`&<var>`, otherwise the inner value.  NOT produced on the current surface
+([f0_dp2tr] FORWARDS to the inner value instead of building I1INSdp2tr), so this
+is completeness/totality -- but compile-correct if it ever surfaces.
+*)
+|I1INSdp2tr(iv1) =>
+  (
+  case+ iv1.node() of
+  |I1Vtnm(itnm) =>
+    (
+    if byref_has(i1tnm_stmp$get(itnm))
+    then i1tnmgo1(filr, itnm)            // already a *T pointer -> pass as-is
+    else (strnfpr(filr, "&"); i1tnmgo1(filr, itnm)))  // &<addressable var>
+  | _(*else*) => i1valgo1(filr, iv1))
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -2227,6 +2344,67 @@ named return + both assignments agree).  The handler clauses run in VALUE mode
     val () =
     (
     nindfpr(filr, nind); strnfpr(filr, "}()"); fprintln(filr))
+  in
+    ((*void*))
+  end
+//
+(* ----- I1INSl0azy / I1INSl1azy : lazy thunk constructors ------------- *)
+(*
+LAZY CONSTRUCTION (block form -- the thunk body is a CMP emitted as a Go func
+literal, mirroring the JS backend's `XATS000_l0azy(function(){ ... })`).
+//
+  I1INSl0azy(dknd, thunkCmp) : a MEMOIZED cell ->
+      goxtnm<itnm> := xatsgo.Xats_l0azy(func() any { <thunkCmp in return mode> })
+  I1INSl1azy(dknd, thunkCmp, frees) : a CALL-BY-NAME thunk ->
+      goxtnm<itnm> := xatsgo.Xats_l1azy(func() any { <thunkCmp in return mode> })
+The [frees] of l1azy is the linear-cleanup list -- IGNORED (Go is GC'd, exactly
+as the JS backend treats free as a no-op).  The thunk body is emitted in RETURN
+mode (params=list_nil() so no TCO loop is generated inside the thunk), so it
+`return`s the thunk's result value -- the SAME f0_i1cmpret shape the JS backend
+uses.  A dead [itnm] binds to `_` (Go's unused-var rule).
+//
+NOTE (reachability): NOT produced on the current surface -- the upstream intrep0
+has NO I0El0azy/I0El1azy constructor, so `$lazy` lowers to an error node and
+[i1val_l0azy]/[i1val_l1azy] are dead code.  These cases are compile-correct-ready
+(real Go matching the runtime), handled the day the front-end lowers lazy.
+*)
+|I1INSl0azy(_dknd, thunkCmp) =>
+  let
+    val nind = envx2go_nind$get(env0)
+    val live = i1tnm_used_in_cmp(itnm, scp)
+    val () =
+    (
+    nindfpr(filr, nind);
+    if live
+      then (i1tnmgo1(filr, itnm); strnfpr(filr, " := xatsgo.Xats_l0azy(func() any {"))
+      else strnfpr(filr, "_ = xatsgo.Xats_l0azy(func() any {");
+    fprintln(filr))
+    val () = envx2go_incnind(env0, 1)
+    val () = i1cmp_go1emit_ret(thunkCmp, list_nil(), bnds, env0)
+    val () = envx2go_decnind(env0, 1)
+    val () =
+    (
+    nindfpr(filr, nind); strnfpr(filr, "})"); fprintln(filr))
+  in
+    ((*void*))
+  end
+|I1INSl1azy(_dknd, thunkCmp, _frees) =>
+  let
+    val nind = envx2go_nind$get(env0)
+    val live = i1tnm_used_in_cmp(itnm, scp)
+    val () =
+    (
+    nindfpr(filr, nind);
+    if live
+      then (i1tnmgo1(filr, itnm); strnfpr(filr, " := xatsgo.Xats_l1azy(func() any {"))
+      else strnfpr(filr, "_ = xatsgo.Xats_l1azy(func() any {");
+    fprintln(filr))
+    val () = envx2go_incnind(env0, 1)
+    val () = i1cmp_go1emit_ret(thunkCmp, list_nil(), bnds, env0)
+    val () = envx2go_decnind(env0, 1)
+    val () =
+    (
+    nindfpr(filr, nind); strnfpr(filr, "})"); fprintln(filr))
   in
     ((*void*))
   end

@@ -1832,6 +1832,13 @@ case+ iins of
 // in [last_let_returns]/[cmp_terminates] below).
 |I1INStry0(_, _, _, _) => true
 |I1INSraise(_, _) => true
+// LAZY: a `$lazy`/`$llazy` constructor emits as a MULTI-LINE Go func literal
+// `goxtnm := xatsgo.Xats_l0azy(func() any { <thunk> })`, so it routes through the
+// block emitter (which controls the thunk body's indentation + return-mode emit).
+// NOT produced on the current surface (no upstream I0El0azy), but the routing is
+// ready.  l0azy = memoized, l1azy = call-by-name.
+|I1INSl0azy(_, _) => true
+|I1INSl1azy(_, _, _) => true
 | _(*else*) => false
 )
 //
