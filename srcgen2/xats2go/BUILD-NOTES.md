@@ -1,5 +1,40 @@
 # xats2go — BUILD NOTES (durable runbook)
 
+## ⚡ AGENT WORKFLOW — READ THIS FIRST (the Makefile is canonical)
+
+**ALWAYS build and test via the Makefile** (`srcgen2/xats2go/Makefile`) — it is the
+fast, incremental, single-source-of-truth build+test system. Do NOT use the slower
+legacy `build-go.sh` standalone path.
+
+```
+make run/NAME      # one test through the differential-vs-JS oracle (~3s)
+make -j psuite     # full conformance suite, parallel (~10s)
+make               # rebuild the emitter bundle, incremental (~1.7s)
+make TEST=path test   # one test by an explicit path
+```
+
+**KEEP THE MAKEFILE IN SYNC — two lists, ONE place each:**
+- **Adding a new emitter source `go1emit_*.dats`** → add it to the Makefile's
+  **`GO_DATS`** variable (in dependency/concat order; emitter files go after
+  `xats2go_myenv0` and before `xats2go_tmplib`). This list also fixes the per-file
+  namespace index, so position matters. (A file dropped from `GO_DATS` →
+  `ReferenceError: <name>_NNNN is not defined` at runtime.)
+- **Adding a new test** → add it to the Makefile's **`SUITE_NAMES`** variable. That
+  is the ONLY test list. `run-suite.sh` is now a thin wrapper over `make -j psuite`
+  (it has no list of its own), so the two cannot drift (a real bug before M2.7,
+  where a test was added to run-suite.sh but not the Makefile and silently went
+  unrun by `make psuite`).
+
+**SATS-stamp-shift gotcha:** editing ANY `.sats` shifts every file's stamps; an
+incremental `make` then leaves inconsistent stamps → `ReferenceError`. After a
+`.sats` edit you MUST `make clean && make` (re-transpile all `GO_DATS` with
+consistent stamps). DATS-only edits are incrementally safe.
+
+`build-go.sh` is DEPRECATED-for-daily-use (kept as a reference fallback; it has its
+own separate transpile path and caches and has drifted from the Makefile before).
+
+---
+
 Status after **M1**: walking skeleton ("Hello World") GREEN + reproducible. The
 real emitter `go1emit` now TRAVERSES the intrep1 IR for a top-level
 `val () = strn_print("...")` + `the_print_store_log()` program and emits real

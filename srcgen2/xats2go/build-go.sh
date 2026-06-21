@@ -2,6 +2,16 @@
 ########################################################################
 # xats2go — REUSABLE DIFFERENTIAL HARNESS  (milestone M2.0)
 #
+# ⚠ DEPRECATED for day-to-day use — PREFER THE MAKEFILE (the canonical, fast,
+#   incremental build+test system):
+#       make run/NAME        one test through the oracle (~3s)
+#       make -j psuite       full suite, parallel (~10s)
+#       make                 rebuild the emitter bundle (~1.7s incremental)
+#   This standalone script has its OWN source/transpile path and is kept only
+#   as a reference fallback; it does NOT share the Makefile's caches and has
+#   drifted before (it once dropped go1emit_tytab0.dats). New emitter files go
+#   in the Makefile's GO_DATS; new tests go in the Makefile's SUITE_NAMES.
+#
 #   build-go.sh <source.dats> [--force]
 #
 # Compiles ANY ATS3 source through BOTH backends and asserts the two
