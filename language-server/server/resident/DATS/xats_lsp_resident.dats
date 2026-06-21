@@ -39,6 +39,13 @@ pretty-print), §8 (def loc), §9 (traversal), §10.5 (compiler-linking build).
 // bundled headers; staload it directly (same SATS the compiler's *_myenv0 use).
 #staload "srcgen2/SATS/xsymmap.sats"
 //
+// M6a: the Python-surface front-end's TYPECHECK-ONLY LSP entry (lex/parse/elab/
+// lower -> trans2a/trsym2b/t2read0 -> trans23 -> tread3a). pyfront_d3parsed_of_
+// fname/fpath return a d3parsed the SHARED harvest_d3parsed reads identically to
+// the stock .sats/.dats path. (The relative path mirrors libxatsopt_resident.hats:
+// DATS -> resident -> server -> language-server -> ATS-Xanadu -> frontend.)
+#staload "./../../../../frontend/SATS/pyfront_lsp.sats"
+//
 (* ****** ****** *)
 (* ====================================================================== *)
 (*                    FFI bindings (impl in the .cats)                     *)
@@ -373,6 +380,21 @@ fpath_is_dats(fp: string): bool = let
 in regex_test(re, fp)
 end
 //
+// M6a: Python-surface suffixes. `.*[.]dats$` requires a literal `.` before `dats`,
+// so `foo.pdats` does NOT match fpath_is_dats (verified). We still test these
+// BEFORE the .dats/.sats predicates in the validators for clarity + safety.
+fun
+fpath_is_pdats(fp: string): bool = let
+  val re = regex_make(".*[.]pdats$")
+in regex_test(re, fp)
+end
+//
+fun
+fpath_is_psats(fp: string): bool = let
+  val re = regex_make(".*[.]psats$")
+in regex_test(re, fp)
+end
+//
 (* ****** ****** *)
 //
 // IN-MEMORY (unsaved-buffer) PARSE — the live-on-change path.
@@ -596,7 +618,13 @@ harvest_with_deps
     // cache; evict any stale dep (+ cascade) so the check below re-translates it.
     val () = precheck(dp, fwd, key)
     val dpar =
-      if fpath_is_dats(path)
+      // M6: Python-surface dispatch — .pdats/.psats run the pyfront typecheck
+      // pipeline (which reads the file itself); else the stock .dats/.sats path.
+      if fpath_is_pdats(path)
+      then pyfront_d3parsed_of_fname(1(*dyn*), path)
+      else if fpath_is_psats(path)
+      then pyfront_d3parsed_of_fname(0(*sta*), path)
+      else if fpath_is_dats(path)
       then d3parsed_of_fildats(path)
       else d3parsed_of_filsats(path)
     val () = harvest_with_deps(dp, fwd, key, path, dpar)
@@ -625,9 +653,19 @@ harvest_with_deps
     // R2a: validate the closure's on-disk drift (the buffer's DEPS still come from
     // disk; the target buffer itself is the in-memory `text`, never disk).
     val () = precheck(dp, fwd, key)
-    val stadyn = if fpath_is_dats(path) then 1(*dyn*) else 0(*sta*)
-    val dpar0 = d0parsed_from_atext_named(stadyn, text, path)
-    val dpar = d3parsed_of_trans03(d0parsed_of_pread00(dpar0))
+    val dpar =
+      // M6: Python-surface dispatch — .pdats/.psats run the pyfront typecheck
+      // pipeline DIRECTLY on the in-memory buffer `text` (source identity = the
+      // document's REAL path, so spans/diagnostics map back to the uri); else the
+      // stock in-memory parse + trans03 path.
+      if fpath_is_pdats(path)
+      then pyfront_d3parsed_of_fpath(1(*dyn*), LCSRCsome1(path), text)
+      else if fpath_is_psats(path)
+      then pyfront_d3parsed_of_fpath(0(*sta*), LCSRCsome1(path), text)
+      else let
+        val stadyn = if fpath_is_dats(path) then 1(*dyn*) else 0(*sta*)
+        val dpar0 = d0parsed_from_atext_named(stadyn, text, path)
+      in d3parsed_of_trans03(d0parsed_of_pread00(dpar0)) end
     val () = harvest_with_deps(dp, fwd, key, path, dpar)
   in
     let val _ = ds in () end

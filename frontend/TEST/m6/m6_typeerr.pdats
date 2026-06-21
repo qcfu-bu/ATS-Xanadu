@@ -1,0 +1,2 @@
+def bad(x: Int) -> Int:
+    x + "s"
