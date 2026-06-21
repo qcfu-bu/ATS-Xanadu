@@ -1,0 +1,33 @@
+# FFI #impltmp pattern: a TEMPLATE declaration + a generic IMPLEMENT whose body is a FOREIGN
+# (`@extern`) function reference. This is the corpus per-backend dispatch shape, e.g.
+# xatslib/libcats/DATS/CATS/PY/gbas000.dats:
+#
+#   #impltmp g_stdin<>() = (XATS2PY_g_stdin()) where {
+#     #extern fun XATS2PY_g_stdin(): FILR = $extnam()
+#   }
+#
+# i.e. a generic operation `bar` declared as a template (whose concrete signature matches the
+# backend), then IMPLEMENTED with a body that calls a separately-declared foreign FFI signature
+# `XATS000_bar`. Our pipeline:
+#   * @extern def XATS000_bar  -> build_extern: a bodyless, env-registered FOREIGN d2cst. The name
+#       is UPPERCASE-initial (the corpus convention: XATS000_/XATS2PY_/XATSOPT_) — the parser now
+#       accepts a UIDENT function name (the one FFI gap), so the foreign signature is declared and
+#       its UIDENT-headed call resolves to the d2cst via pl_var's D2ITMcst arm.
+#   * @template[A] def bar     -> build_template_extern: a TEMPLATE d2cst (non-empty tqas = the
+#       template marker, the corpus `<>`/`<a>`).
+#   * @impl[Int] def bar(x): XATS000_bar(x) -> pl_implement: resolves the template d2cst, carries
+#       the @impl[Int] instantiation as `tias`, and lowers the body — an ORDINARY call to the
+#       foreign extern (pl_app's con-head arm -> pl_exp -> pl_con_value -> pl_var).
+# The #impltmp foreign-ref body is just an @impl body that references an @extern — no new shape.
+
+@extern
+def XATS000_bar(x: Int) -> Int
+
+@template[A]
+def bar(x: Int) -> Int
+
+@impl[Int]
+def bar(x): XATS000_bar(x)
+
+def use_bar() -> Int:
+    @inst[Int] bar(7)

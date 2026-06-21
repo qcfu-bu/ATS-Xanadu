@@ -260,10 +260,18 @@ fun
 p_def(st: pstate, decos: list(pydecorator)): @(pydecl, pstate) = let
   val loc = ps_peek_loctn(st)
   val st1 = ps_advance(st)               // past 'def'
-  // name (LIDENT)
+  // name: a LIDENT (ordinary def) OR a UIDENT. FFI (bootstrap P1, feature 3): the corpus's
+  // foreign-binding functions are ALL uppercase-initial (`XATS000_foo`, `XATS2PY_g_stdin`,
+  // `XATSOPT_a0ref_set`), so `@extern def XATS000_foo(...)` / `@impl def XATS000_bar(...)` must
+  // accept an UPPERCASE function name. A UIDENT name is otherwise byte-identical to a LIDENT one:
+  // the elaborator routes it the same (PCCextern/PCCimplement/PCCfun), and the lowering resolves
+  // a UIDENT-headed call to the registered d2cst via pl_var's D2ITMcst arm (pl_app's con-head arm
+  // already lowers a PCEcon head through pl_exp -> pl_con_value -> pl_var). Lowercase still lexes
+  // as the usual function/variable name; only the parser's name slot is widened.
   val @(nm, st2) =
     ( case+ ps_peek(st1) of
       | PT_LIDENT(s) => @(s, ps_advance(st1))
+      | PT_UIDENT(s) => @(s, ps_advance(st1))   // FFI: an uppercase-initial foreign function name
       | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a function name")) )
   val @(tvs, st3) = p_typarams(st2)
   // '(' params ')'
