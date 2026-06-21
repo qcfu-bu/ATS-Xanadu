@@ -122,6 +122,16 @@ func Xats_list_length(xs *XatsCon) int {
 	return n
 }
 
+// Xats_list_reverse: a fresh list with the cons cells in reverse order.
+func Xats_list_reverse(xs *XatsCon) *XatsCon {
+	acc := &XatsCon{Tag: 0}
+	for xs != nil && xs.Tag != 0 {
+		acc = &XatsCon{Tag: 1, Args: []any{xs.Args[0], acc}}
+		xs = xs.Args[1].(*XatsCon)
+	}
+	return acc
+}
+
 // Xats_cfail mirrors XATS2JS_XATS000_cfail: the match-failure sentinel for a
 // non-exhaustive case/switch. The M2.3 emitter inlines a literal
 // `panic("xats2go: XATS000_cfail")` in a switch's `default:` arm instead of
