@@ -133,6 +133,15 @@ case+ t of
   (ps(out, "(Ttup"); print_span(out, loc); pp_typlst(out, ts); ps(out, ")"))
 | PyTrec(loc, fs) =>
   (ps(out, "(Trec"); print_span(out, loc); pp_tfields(out, fs); ps(out, ")"))
+// A-QUANT: a quantified type `forall[..]/exists[..] T` — print the kind, binders, optional guard, body.
+| PyTquant(loc, kind, binders, gopt, body) =>
+  ( ps(out, "(Tquant ");
+    ps(out, (if kind = 0 then "forall" else "exists")); print_span(out, loc);
+    ps(out, " "); pp_quant_binders(out, binders);
+    ( case+ gopt of
+      | PyGuardSome(_, g) => (ps(out, " (guard "); pp_typ(out, g); ps(out, ")"))
+      | PyGuardNone() => () );
+    ps(out, " (body "); pp_typ(out, body); ps(out, "))") )
 | PyTerror(loc, msg) =>
   (ps(out, "(Terror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )
@@ -153,6 +162,23 @@ case+ fs of
 | list_cons(PyTField(loc, nm, t), rest) =>
   ( ps(out, " ("); ps(out, nm); ps(out, ": "); pp_typ(out, t); ps(out, ")");
     pp_tfields(out, rest) )
+)
+//
+// A-QUANT: a minimal binder printer LOCAL to the type-printer group (the full pp_typaramlst lives
+// in a separate, later `and`-group, so we print the binders + their optional sort here to stay
+// within this group). " (b a : SInt)".
+and
+pp_quant_binders(out: FILR, tps: list(pytyparam)): void =
+(
+case+ tps of
+| list_nil() => ()
+| list_cons(PyTyParam(loc, nm, sopt, _decos, _gopt), rest) =>
+  ( ps(out, " (b "); ps(out, nm); print_span(out, loc);
+    ( case+ sopt of
+      | PySortNone() => ()
+      | PySortSome(_, srt) => (ps(out, " : "); ps(out, srt)) );
+    ps(out, ")");
+    pp_quant_binders(out, rest) )
 )
 //
 (* ****** ****** *)
@@ -449,6 +475,10 @@ case+ d of
 | PyCsortdef(loc, nm, srt) =>
   ( ps(out, "(sortdef "); ps(out, nm); print_span(out, loc);
     ps(out, " = "); ps(out, srt); ps(out, ")") )
+| PyCsortsub(loc, nm, binder, guards) =>
+  ( ps(out, "(sortsub "); ps(out, nm); print_span(out, loc);
+    ps(out, " = {"); pp_typaramlst(out, list_cons(binder, list_nil()));
+    ps(out, " |"); pp_typlst(out, guards); ps(out, " })") )
 | PyCstacst(loc, nm, srt) =>
   ( ps(out, "(stacst "); ps(out, nm); print_span(out, loc);
     ps(out, " : "); ps(out, srt); ps(out, ")") )

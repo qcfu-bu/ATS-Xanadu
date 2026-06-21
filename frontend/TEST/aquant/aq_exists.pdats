@@ -1,0 +1,6 @@
+enum Vec[A, n: SInt]:
+    case VNil
+    case VCons(A, Vec[A, n])
+
+def some_vec[A](x: A) -> exists[m: SInt] Vec[A, m]:
+    VNil

@@ -65,6 +65,7 @@ case+ t of
 | PyTidx(loc, _) => loc       | PyTbin(loc, _, _, _) => loc
 | PyTfun(loc, _, _) => loc    | PyTtup(loc, _) => loc
 | PyTrec(loc, _) => loc       | PyTerror(loc, _) => loc
+| PyTquant(loc, _, _, _, _) => loc
 )
 //
 #implfun
@@ -89,6 +90,7 @@ case+ d of
 | PyCabstype(loc, _, _, _) => loc   | PyCassume(loc, _, _) => loc
 | PyCexcept(loc, _, _) => loc
 | PyCsortdef(loc, _, _) => loc      | PyCstacst(loc, _, _) => loc
+| PyCsortsub(loc, _, _, _) => loc
 | PyCstadef(loc, _, _) => loc
 | PyCimport(loc, _) => loc          | PyCstmt(loc, _) => loc
 | PyCerror(loc, _) => loc

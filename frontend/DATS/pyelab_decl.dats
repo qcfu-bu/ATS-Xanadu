@@ -414,6 +414,19 @@ case+ d of
     // ATS-parity: `sortdef Name = SORT` -> a PCCsortdef carrying the alias name + the RHS sort
     // reference string. No imperative content. M3 maps the string -> a sort2 and emits D2Csortdef.
     list_sing(PCCsortdef(loc, nm, srt))
+| PyCsortsub(loc, nm, binder, guards) =>
+    // A-QUANT: `@sort type Nat = {a: SInt | a >= 0}` -> a PCCsortsub carrying the alias name, the
+    // ELABORATED binder (a pcparam — its psort2_of sort is the carrier) + the raw guard `pytyp`s.
+    // No imperative content. M3 lowers it to D2Csortdef(name, S2TEXsub(<binder s2var>, [guards])).
+    let
+      val binders_pc = elab_typarams(list_sing(binder))
+      val binder_pc =
+        ( case+ binders_pc of
+          | list_cons(p, _) => p
+          | list_nil() => PCParam(loc, nm, "SInt", false) )  // unreachable; defensive default
+    in
+      list_sing(PCCsortsub(loc, nm, binder_pc, guards))
+    end
 | PyCstacst(loc, nm, srt) =>
     // ATS-parity: `stacst Name : SORT` -> a PCCstacst carrying the constant name + its sort
     // reference string. No imperative content. M3 builds the s2cst at that sort + emits D2Cstacst0.

@@ -1,0 +1,5 @@
+@sort
+type Nat = {a: SInt | a >= 0}
+
+def f[n: Nat](x: SInt[n]) -> SInt:
+    0

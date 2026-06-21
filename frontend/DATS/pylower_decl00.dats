@@ -176,6 +176,16 @@ case+ body of
 | _ => s2exp_int(0)
 )
 //
+// A-QUANT: lower a SUBSET-sort GUARD list (`{a | g1, g2}`) to an s2explst. Each guard is a
+// bool-index `pytyp` (a PyTbin comparison); pylower_typ routes it through pylower_index_binop ->
+// an s2exp at sort bool — exactly the prop slot S2TEXsub expects (a-quant SX-SUB-proven, the
+// f0_sortdef/S1TDFtsub recipe: guards lowered at the_sort2_bool inside the binder scope).
+fun
+lower_sub_guards(env: !tr12env, guards: list(pytyp)): s2explst =
+( case+ guards of
+  | list_nil() => list_nil()
+  | list_cons(g, rest) => list_cons(pylower_typ(env, g), lower_sub_guards(env, rest)) )
+//
 // create one s2var per surface type param, in order, AT ITS DECLARED SORT (psort2_of). These
 // are BOTH the params bound into scope (so a con arg type / record field `A` resolves to
 // s2exp_var) AND the vars the result type is applied to + the con/alias is quantified over.
@@ -868,6 +878,28 @@ case+ d of
 // resolves it), and emit D2Csortdef(symbl_make_name(name), s2tex).
 | PCCsortdef(loc, name, srt) => let
     val s2tx = S2TEXsrt(sort2_of_name(srt))
+    val () = tr12env_add0_s2tex(env, symbl_make_name(name), s2tx)
+  in
+    d2ecl_make_node(loc, D2Csortdef(symbl_make_name(name), s2tx))
+  end
+//
+// A-QUANT: a `@sort type Nat = {a: SInt | a >= 0}` SUBSET (refined) SORT -> a D2Csortdef carrying
+// S2TEXsub. SPIKE-PROVEN (a-quant SX-SUB; the exact f0_sortdef/S1TDFtsub recipe @ trans12_decl00:
+// 1291): build the binder s2var at its psort2_of carrier sort (mk_param_s2vars on the singleton),
+// push a lam-scope + bind it so the guards resolve `a`, lower each guard via pylower_typ (sort
+// bool), pop, assemble S2TEXsub(s2v, [guards]), REGISTER the sort under its name (tr12env_add0_s2tex
+// — so a later `[n: Nat]` resolves it), and emit D2Csortdef(symbl_make_name(name), s2tex).
+| PCCsortsub(loc, name, binder, guards) => let
+    val s2vs = mk_param_s2vars(list_sing(binder))
+    val s2v1 =
+      ( case+ s2vs of
+        | list_cons(v, _) => v
+        | list_nil() => s2var_make_idst(symbl_make_name(name), the_sort2_int0) )  // defensive
+    val () = tr12env_pshlam0(env)
+    val () = bind_param_s2vars(env, s2vs)
+    val s2ps = lower_sub_guards(env, guards)
+    val () = tr12env_poplam0(env)
+    val s2tx = S2TEXsub(s2v1, s2ps)
     val () = tr12env_add0_s2tex(env, symbl_make_name(name), s2tx)
   in
     d2ecl_make_node(loc, D2Csortdef(symbl_make_name(name), s2tx))

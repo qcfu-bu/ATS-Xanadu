@@ -63,6 +63,8 @@ case+ nod of
 | PT_KW_TRY() => "KW_TRY"
 | PT_KW_EXCEPT() => "KW_EXCEPT"
 | PT_KW_AS() => "KW_AS"
+| PT_KW_FORALL() => "KW_FORALL"
+| PT_KW_EXISTS() => "KW_EXISTS"
 | PT_KW_AND() => "KW_AND"
 | PT_KW_OR() => "KW_OR"
 | PT_KW_NOT() => "KW_NOT"

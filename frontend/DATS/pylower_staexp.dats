@@ -214,6 +214,57 @@ end
 //
 (* ****** ****** *)
 //
+// A-QUANT: convert a SURFACE typaram (`a: SInt`) to a PyCore `pcparam` so the SHARED
+// mk_param_s2vars/psort2_of (the def-param + data/alias generics' ONE source of truth) build its
+// s2var at the declared index/type sort. Mirrors pyelab_decl's elab_typarams (sort name = the
+// `: SORT` annotation, "" = default Type; @unboxed flattens). PyTquant's binders arrive as RAW
+// surface typarams (a TYPE annotation is lowered straight from the AST), so we convert here.
+fun
+quant_binder_to_pcparam(tp: pytyparam): pcparam =
+( case+ tp of
+  | PyTyParam(ploc, nm, sortopt, decos, _gopt) =>
+    let
+      val sname = (case+ sortopt of PySortSome(_, s) => s | PySortNone() => "")
+      val unboxed = quant_decos_has_unboxed(decos)
+    in
+      PCParam(ploc, nm, sname, unboxed)
+    end )
+//
+and
+quant_decos_has_unboxed(decos: list(pydecorator)): bool =
+( case+ decos of
+  | list_nil() => false
+  | list_cons(PyDecor(_, nm, _), rest) =>
+      if strn_eq(nm, "unboxed") then true else quant_decos_has_unboxed(rest) )
+//
+fun
+quant_binders_to_pcparams(tps: list(pytyparam)): list(pcparam) =
+( case+ tps of
+  | list_nil() => list_nil()
+  | list_cons(tp, rest) =>
+      list_cons(quant_binder_to_pcparam(tp), quant_binders_to_pcparams(rest)) )
+//
+// A-QUANT: push the quantifier's bound s2vars into the current lam-scope so the body type + the
+// guards resolve them (the resolve_typ S2ITMvar arm yields s2exp_var). Caller brackets pshlam0/
+// poplam0. (A pylower_staexp-local twin of pylower_decl00's file-local bind_param_s2vars.)
+fun
+bind_quant_s2vars(env: !tr12env, s2vs: s2varlst): void =
+( case+ s2vs of
+  | list_nil() => ()
+  | list_cons(s2v, rest) =>
+      let val () = tr12env_add0_s2var(env, s2v) in bind_quant_s2vars(env, rest) end )
+//
+// A-QUANT: lower the quantifier GUARD list — each guard is a bool-index `pytyp` (a PyTbin
+// comparison), lowered via pylower_typ (-> pylower_index_binop, sort bool). These become the
+// uni0/exi0 s2ps (DEP-spike P3-proven for uni0; a-quant SX-EXI keeps exi0 collapsing gracefully).
+fun
+lower_quant_guards(env: !tr12env, gopt: pyguardopt): s2explst =
+( case+ gopt of
+  | PyGuardNone() => list_nil()
+  | PyGuardSome(_, g) => list_sing(pylower_typ(env, g)) )
+//
+(* ****** ****** *)
+//
 // M5b.4 — lower a record-type field suite `{ name: T, ... }` to an `l2s2elst` of label/s2exp
 // pairs (S2LAB(LABsym(name), <lowered T>)). The field type goes through the EXISTING
 // pylower_typ, so a primitive field (`x: Int`) inherits the M5a `resolve_typ` mitigation
@@ -317,6 +368,27 @@ case+ t of
 | PyTrec(loc, flds) =>                // M5b.4: a boxed (default) record type — S2Etrcd.
     let val l2flds = pylower_tfields(env, flds) in
       s2exp_make_node(the_sort2_tbox, S2Etrcd(TRCDbox0, (-1)(*npf*), l2flds))
+    end
+// A-QUANT: an EXPLICIT quantified type `forall[n: SInt | g] T` / `exists[m: SInt] T`. Mirror the
+// def-param quantifier dance (pl_fungroup_fnk / dep-spike P2/P3, a-quant SX-EXI): build one s2var
+// per binder at its psort2_of sort (mk_param_s2vars), push a lam-scope + bind them so the BODY
+// type + the GUARDS resolve them, lower the body (recursive) + guards WITHIN the scope, pop, then
+// s2exp_uni0 (kind=0 forall) / s2exp_exi0 (kind=1 exists) over (s2vs, guards, body). Both collapse
+// gracefully on empty binders+guards (== the body), matching stock; index/guard obligations are
+// not solver-checked (no constraint solver — same as stock past stpize).
+| PyTquant(loc, kind, binders, gopt, body) =>
+    let
+      val pcps  = quant_binders_to_pcparams(binders)
+      val s2vs  = mk_param_s2vars(pcps)
+      val () = tr12env_pshlam0(env)
+      val () = bind_quant_s2vars(env, s2vs)
+      val s2e_body = pylower_typ(env, body)
+      val s2ps     = lower_quant_guards(env, gopt)
+      val () = tr12env_poplam0(env)
+    in
+      if kind = 0
+        then s2exp_uni0(s2vs, s2ps, s2e_body)   // forall (DEP-spike P2/P3-proven)
+        else s2exp_exi0(s2vs, s2ps, s2e_body)   // exists (a-quant SX-EXI-proven)
     end
 | PyTerror(loc, _)  => s2exp_none0()
 )

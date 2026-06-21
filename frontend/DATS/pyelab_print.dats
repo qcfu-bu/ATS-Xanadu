@@ -446,6 +446,10 @@ case+ d of
 | PCCsortdef(loc, nm, srt) =>
   ( ps(out, "(sortdef "); ps(out, nm); print_span(out, loc);
     ps(out, " = "); ps(out, srt); ps(out, ")") )
+| PCCsortsub(loc, nm, binder, guards) =>
+  ( ps(out, "(sortsub "); ps(out, nm); print_span(out, loc);
+    ps(out, " = {"); pp_pcparams(out, list_cons(binder, list_nil()));
+    ps(out, " |"); pp_typlst(out, guards); ps(out, " })") )
 | PCCstacst(loc, nm, srt) =>
   ( ps(out, "(stacst "); ps(out, nm); print_span(out, loc);
     ps(out, " : "); ps(out, srt); ps(out, ")") )

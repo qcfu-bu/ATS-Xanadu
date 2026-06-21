@@ -110,25 +110,78 @@ case+ ps_peek(st) of
 //
 (* ****** ****** *)
 //
+// A-QUANT: HOIST the quantifier GUARD out of the binder list into a standalone pyguardopt. The
+// shared `p_typarams` grammar parks a `[binders | g]` guard on the LAST binder (PyGuardSome); for
+// a `forall`/`exists` type-quantifier we want it as the quantifier's OWN guard slot, with the
+// binders themselves guard-free. We scan for the first (and only) PyGuardSome, strip it to
+// PyGuardNone on that binder, and return it. No guard => PyGuardNone + the binders unchanged.
+fun
+hoist_quant_guard
+(binders: list(pytyparam)): @(list(pytyparam), pyguardopt) =
+(
+case+ binders of
+| list_nil() => @(list_nil(), PyGuardNone())
+| list_cons(tp, rest) =>
+  (
+    case+ tp of
+    | PyTyParam(loc, nm, sopt, decos, PyGuardSome(gloc, g)) =>
+        // found the guard: strip it here, keep the rest as-is (p_typarams only guards the last).
+        @(list_cons(PyTyParam(loc, nm, sopt, decos, PyGuardNone()), rest), PyGuardSome(gloc, g))
+    | PyTyParam(_, _, _, _, PyGuardNone()) =>
+        let val @(rest1, gopt) = hoist_quant_guard(rest) in
+          @(list_cons(tp, rest1), gopt) end
+  )
+)
+//
+(* ****** ****** *)
+//
 // ==================================================================
 //  TYPE PARSER (internal recursion group: p_type / p_type_*)
 // ==================================================================
 //
 // p_type: type_app { '->' type_app } — function type, right-assoc.
+// A-QUANT: a leading `forall`/`exists` opens an EXPLICIT quantified type — `forall[binders|g] T`
+// / `exists[binders|g] T`. It binds the WHOLE following type (so the body may itself be an arrow
+// `forall[n] (Vec[A,n]) -> SInt`), hence dispatched at the TOP of p_type (loosest level), before
+// the application/arrow grammar. The binder list + optional guard reuse the def-param `p_typarams`
+// grammar (`[n: SInt | g]`); the guard `p_typarams` attaches to the last binder is HOISTED into the
+// PyTquant's own guard slot (binders stay guard-free).
 //
 fun
-p_type(st: pstate): @(pytyp, pstate) = let
-  val @(t0, st1) = p_type_app(st)
+p_type(st: pstate): @(pytyp, pstate) =
+(
+case+ ps_peek(st) of
+| PT_KW_FORALL() => p_type_quant(st, 0(*forall*))
+| PT_KW_EXISTS() => p_type_quant(st, 1(*exists*))
+| _ =>
+  let
+    val @(t0, st1) = p_type_app(st)
+  in
+    case+ ps_peek(st1) of
+    | PT_ARROW() =>
+      let
+        val @(rhs, st2) = p_type(ps_advance(st1))    // right-assoc
+        val span = loc_span(pytyp_loctn(t0), pytyp_loctn(rhs))
+      in
+        @(PyTfun(span, list_cons(t0, list_nil()), rhs), st2)
+      end
+    | _ => @(t0, st1)
+  end
+)
+//
+// A-QUANT: `forall`/`exists` already consumed-as-keyword by the caller's peek; parse the binder
+// bracket via the SHARED p_typarams (`[n: SInt | g]`) then the body type. HOIST the guard the
+// binder grammar parked on the last binder into the quantifier's own `pyguardopt` slot.
+and
+p_type_quant(st: pstate, kind: int): @(pytyp, pstate) = let
+  val locK = ps_peek_loctn(st)
+  val st1 = ps_advance(st)                       // consume `forall`/`exists`
+  val @(binders0, st2) = parse_typarams(st1)     // the SHARED `[ binders | guard ]` parser (decl00)
+  val @(binders, gopt) = hoist_quant_guard(binders0)
+  val @(body, st3) = p_type(st2)                 // the quantified body type (recursive)
+  val span = loc_span(locK, pytyp_loctn(body))
 in
-  case+ ps_peek(st1) of
-  | PT_ARROW() =>
-    let
-      val @(rhs, st2) = p_type(ps_advance(st1))    // right-assoc
-      val span = loc_span(pytyp_loctn(t0), pytyp_loctn(rhs))
-    in
-      @(PyTfun(span, list_cons(t0, list_nil()), rhs), st2)
-    end
-  | _ => @(t0, st1)
+  @(PyTquant(span, kind, binders, gopt, body), st3)
 end
 //
 // type_app: atom { '[' type {, type} ']' } — left-assoc application of [..] args.

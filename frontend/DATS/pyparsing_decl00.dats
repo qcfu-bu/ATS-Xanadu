@@ -173,6 +173,10 @@ p_inline_decorators(st: pstate): @(list(pydecorator), pstate) =
     end
   | _ => @(list_nil(), st) )
 //
+// A-QUANT: the SATS-exported wrapper over the typaram-bracket parser, so staexp's `forall`/`exists`
+// type-quantifier production can reuse the SAME `[ binders | guard ]` grammar a `def foo[A]` uses.
+#implfun parse_typarams(st) = p_typarams(st)
+//
 (* ****** ****** *)
 //
 // A-TEMPLATE: parse a decorator's OPTIONAL `[…]` ARG PAYLOAD, dispatched by the decorator NAME:
@@ -350,20 +354,26 @@ in
   if decos_has_p(decos, "abstract") then
     let val @(tvs, st3) = p_typarams(st2) in
       @(PyCabstype(loc, decos, nm, tvs), st3) end
-  // @sort type Nat = SInt — a SORT ALIAS; the RHS is a sort-reference UIDENT (`SInt`/`Type`/...).
-  // No typarams (a sort alias is monomorphic), `= SORT(UIDENT)`. PyCsortdef, the old `sortdef`.
+  // @sort type Nat = <rhs> — a SORT declaration. The RHS is EITHER:
+  //   * a sort-reference UIDENT (`SInt`/`Type`/...)        -> PyCsortdef (the old `sortdef` alias), OR
+  //   * A-QUANT: a SUBSET `{ a: SInt | a >= 0 }`           -> PyCsortsub (the refined sortdef).
+  // No typarams (a sort decl is monomorphic). The leading `{` after `=` selects the subset form.
   else if decos_has_p(decos, "sort") then
     let
       val st3 =
         ( case+ ps_peek(st2) of
           | PT_EQ() => ps_advance(st2)
           | _ => ps_diag(st2, ps_peek_loctn(st2), "expected '=' in '@sort type' declaration") )
-      val @(srt, st4) =
-        ( case+ ps_peek(st3) of
-          | PT_UIDENT(s) => @(s, ps_advance(st3))
-          | _ => @("?", ps_diag(st3, ps_peek_loctn(st3), "expected a sort (uppercase) after '='")) )
     in
-      @(PyCsortdef(loc, nm, srt), st4)
+      case+ ps_peek(st3) of
+      // A-QUANT subset sort: `{ binder | guard {, guard} }`.
+      | PT_LBRACE() => p_sort_subset(ps_advance(st3), loc, nm)
+      // plain sort alias: a sort-reference UIDENT.
+      | PT_UIDENT(s) => @(PyCsortdef(loc, nm, s), ps_advance(st3))
+      | _ =>
+        let val stE = ps_diag(st3, ps_peek_loctn(st3),
+                              "expected a sort name or a '{binder | guard}' subset after '='") in
+          @(PyCsortdef(loc, nm, "?"), stE) end
     end
   // @static type X = <expr> — a STATIC-LEVEL DEFINITION; the RHS is a static EXPRESSION (v1: an int
   // literal). No typarams; `= <expr>`. PyCstadef, the old `stadef`.
@@ -402,6 +412,46 @@ in
       @(PyCtype(loc, decos, nm, tvs, t), st5)
     end
 end
+//
+// A-QUANT: parse a SUBSET-sort RHS body `{ binder | guard {, guard} }` (the opening `{` already
+// consumed). The binder is ONE typaram (`a: SInt` — its sort is the subset's carrier sort), then a
+// mandatory `|`, then one or more comma-separated bool-index GUARDS (parse_index_type — the same
+// binop grammar a def-param guard uses), then `}`. Builds a PyCsortsub. A malformed body recovers
+// to a PyCsortsub with whatever was parsed (errors already reported via ps_diag).
+// (chained into p_typedecl's group via `and` so p_typedecl can forward-call it.)
+and
+p_sort_subset(st: pstate, loc: loctn, nm: strn): @(pydecl, pstate) = let
+  val @(binder, st1) = p_typaram(st)                 // the carrier binder `a: SInt`
+  val st2 =
+    ( case+ ps_peek(st1) of
+      | PT_BAR() => ps_advance(st1)
+      | _ => ps_diag(st1, ps_peek_loctn(st1), "expected '|' after the binder in a subset sort") )
+  val @(guards, st3) = p_sort_guards(st2)
+  val st4 =
+    ( case+ ps_peek(st3) of
+      | PT_RBRACE() => ps_advance(st3)
+      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected '}' to close a subset sort") )
+in
+  @(PyCsortsub(loc, nm, binder, guards), st4)
+end
+//
+// the comma-separated guard list inside a subset sort `{a | g1, g2}` — each guard is a bool-index
+// expression (parse_index_type). Stops at `}` / EOF; recovers on anything else.
+and
+p_sort_guards(st: pstate): @(list(pytyp), pstate) =
+(
+case+ ps_peek(st) of
+| PT_RBRACE() => @(list_nil(), st)
+| PT_EOF() => @(list_nil(), st)
+| _ =>
+  let val @(g, st1) = parse_index_type(st) in
+    case+ ps_peek(st1) of
+    | PT_COMMA() =>
+      let val @(gs, st2) = p_sort_guards(ps_advance(st1)) in
+        @(list_cons(g, gs), st2) end
+    | _ => @(list_cons(g, list_nil()), st1)
+  end
+)
 //
 (* ****** ****** *)
 //

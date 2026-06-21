@@ -161,6 +161,11 @@ kw_of_lident(s: strn): ptnode =
   else if s = "try" then PT_KW_TRY()
   else if s = "except" then PT_KW_EXCEPT()
   else if s = "as" then PT_KW_AS()
+  // A-QUANT: `forall`/`exists` are NEW keywords — EXPLICIT quantifiers inside a TYPE
+  // (`forall[n: SInt | g] T`, `exists[m: SInt] T`). They are GENUINE binders (not decorator-
+  // izable), so they are reserved words, NOT LIDENTs.
+  else if s = "forall" then PT_KW_FORALL()
+  else if s = "exists" then PT_KW_EXISTS()
   // NOTE (decorator rework): `extern`/`implement`/`overload`/`prfun`/`prval`/`praxi`/`op`/`with`
   // are NO LONGER keywords — the ATS-specific def/let variants are now @decorators on a plain
   // `def`/`let` (`@extern`/`@impl`/`@overload`/`@proof`), and `op+` became the parenthesized

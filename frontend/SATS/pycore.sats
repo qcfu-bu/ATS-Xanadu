@@ -400,7 +400,13 @@ pcdecl =
 //                supports an int-literal body. Carries the NAME + the ELABORATED body (a pcexp;
 //                v1 a PCElit int). M3 lowers the body to an s2exp (the index-lit -> s2exp_int)
 //                and emits a D2Csexpdef via build_sexpdef.
+//   PCCsortsub : a `@sort type Nat = {a: SInt | a >= 0}` SUBSET (refined) SORT (ATS-parity
+//                `sortdef Nat = {a:int | a>=0}`). Carries the alias NAME, the BINDER (a pcparam —
+//                its psort2_of sort is the carrier sort) + the guard list (raw `pytyp` bool-index
+//                predicates, lowered like def-param guards). M3 emits D2Csortdef(name,
+//                S2TEXsub(<binder s2var>, [<lowered guards>])) + tr12env_add0_s2tex (SX-SUB-proven).
 | PCCsortdef of (loctn, strn(*name*), strn(*sort-ref*))
+| PCCsortsub of (loctn, strn(*name*), pcparam(*binder*), list(pytyp)(*guards*))
 | PCCstacst  of (loctn, strn(*name*), strn(*sort-ref*))
 | PCCstadef  of (loctn, strn(*name*), pcexp(*static body*))
 //   PCCprfun : a `prfun` proof FUNCTION (ATS-parity). Structurally PCCfun: carries its §5.7

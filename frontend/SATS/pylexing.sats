@@ -119,6 +119,8 @@ ptnode =
 | PT_KW_TRY     of ()   // try    (try/except expression; EXN)
 | PT_KW_EXCEPT  of ()   // except (an except clause of a try; EXN)
 | PT_KW_AS      of ()   // as  (pattern alias; SURFACE-GRAMMAR §5.5)
+| PT_KW_FORALL  of ()   // forall (EXPLICIT universal quantifier in a type; A-QUANT, §A)
+| PT_KW_EXISTS  of ()   // exists (EXPLICIT existential quantifier in a type; A-QUANT, §A)
 //
 // NOTE (decorator rework): the ATS-specific def/let variants are NO LONGER keywords. They are
 // expressed as @decorators on a plain `def`/`let` — `@proof def`/`@proof let`/`@proof @extern def`

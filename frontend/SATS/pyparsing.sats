@@ -161,6 +161,13 @@ pytyp =
 | PyTfun   of (loctn, list(pytyp), pytyp)
 | PyTtup   of (loctn, list(pytyp))
 | PyTrec   of (loctn, list(pytfield))
+// A-QUANT: an EXPLICIT quantified type — `forall[n: SInt | g] <type>` (universal) or
+// `exists[m: SInt | m <= n] <type>` (existential). The `int` tag is 0=forall / 1=exists.
+// The binder list `list(pytyparam)` + the OPTIONAL guard `pyguardopt` reuse the EXISTING
+// def-param quantifier grammar (`[n: SInt | g]`); the body is a recursive `pytyp`. Lowers to
+// s2exp_uni0 (forall) / s2exp_exi0 (exists) — both proven structurally (dep-spike P2/P3 for
+// uni0/guards; a-quant SX-EXI for exi0).
+| PyTquant of (loctn, int(*0=forall,1=exists*), list(pytyparam), pyguardopt, pytyp)
 | PyTerror of (loctn, strn)
 //
 // a record-type field `name: type`
@@ -471,7 +478,14 @@ pydecl =
 //                `stadef`). v1 supports a static INT literal body (`stadef Two = 2`). Carries
 //                the NAME + the body expression. M3 lowers it via build_sexpdef restricted to
 //                a static int (the index-lit lowering -> s2exp_int).
+//   PyCsortsub : `@sort type Nat = {a: SInt | a >= 0}` — a SUBSET (refined) SORT (ATS-parity
+//                `sortdef Nat = {a:int | a >= 0}`). Carries the alias NAME (UIDENT), the BINDER
+//                (a `pytyparam`, e.g. `a: SInt` — its sort is the carrier) + the guard list (a
+//                `list(pytyp)` of bool-index predicates). M3 lowers it to D2Csortdef(name,
+//                S2TEXsub(<binder s2var>, [<lowered guards>])) + tr12env_add0_s2tex (a-quant
+//                SX-SUB-proven). The plain sort-alias form stays PyCsortdef (byte-identical).
 | PyCsortdef of (loctn, strn(*name*), strn(*sort-ref*))
+| PyCsortsub of (loctn, strn(*name*), pytyparam(*binder*), list(pytyp)(*guards*))
 | PyCstacst  of (loctn, strn(*name*), strn(*sort-ref*))
 | PyCstadef  of (loctn, strn(*name*), pyexp(*static body*))
 //   DECORATOR REWORK: the former PyCprfun / PyCprval / PyCpraxi (the keyword `prfun` / `prval` /
@@ -600,6 +614,11 @@ fun parse_type(st: pstate): @(pytyp, pstate)
 // parser and at a quantifier GUARD (`[n: SInt | n >= 0]`) via the decl parser. (staexp; used by
 // decl00 for the guard.)
 fun parse_index_type(st: pstate): @(pytyp, pstate)
+// A-QUANT: parse a `[ binder {, binder} [ '|' guard ] ]` TYPE-PARAMETER bracket — the SAME grammar
+// a `def foo[A, n: SInt | g]` quantifier uses (p_typarams). Lives in decl00 (where p_typaram is in
+// scope); used by staexp's `forall`/`exists` type-quantifier production. Empty if the bracket is
+// absent. The guard, if present, rides on the LAST binder (PyGuardSome) — the caller hoists it.
+fun parse_typarams(st: pstate): @(list(pytyparam), pstate)
 fun parse_pattern(st: pstate): @(pypat, pstate)
 // A-TEMPLATE: parse a decorator's `[ type {, type} ]` TYPE-ARG payload (the `@impl[Int, Bool]` /
 // `@inst[Int, ..]` brackets — type USES, NOT binders). The lookahead MUST be PT_LBRACK; we consume
