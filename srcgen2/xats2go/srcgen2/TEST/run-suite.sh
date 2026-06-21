@@ -126,6 +126,10 @@ DEFAULT_SUITE=(
   "$HERE/test47_tup_fun_xats2go.dats"
   "$HERE/test48_tup_float_xats2go.dats"
   "$HERE/test49_tup_mixed_xats2go.dats"
+  "$HERE/test50_var_flat_xats2go.dats"
+  "$HERE/test51_var_boxed_alias_xats2go.dats"
+  "$HERE/test52_var_rec_xats2go.dats"
+  "$HERE/test53_var_seq_xats2go.dats"
 )
 
 if [ "$#" -gt 0 ]; then

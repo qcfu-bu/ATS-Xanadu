@@ -87,6 +87,13 @@ dcl0.node() of
 (
   f0_valdclst(dcl0, env0))
 //
+// M2.6c: a MUTABLE local `var x = init` -> a Go `var goxtnm<x> <T> = <init>`
+// (addressable, so its fields are assignable).  Surfaces as a local decl
+// inside an I1INSlet0 block (verified: `let var p = @(1,2) in ... end`).
+|I1Dvardclst _ =>
+(
+  f0_vardclst(dcl0, env0))
+//
 // I1Dfundclst is emitted at PACKAGE level in PASS 1 (i1dcl_go1emit_fun);
 // the in-main pass skips it (no Go output) so it is not duplicated.
 |I1Dfundclst _ => ((*void*))
@@ -125,6 +132,21 @@ val () =
 //
 in//let
 ((*void*)) end//endof[f0_valdclst(dcl0,env0)]
+//
+(* ****** ****** *)
+//
+fun
+f0_vardclst
+(
+dcl0: i1dcl,
+env0: !envx2go): void =
+let
+val-
+I1Dvardclst
+(tknd, i1vs) = dcl0.node()
+in//let
+  i1vardclist_go1emit(i1vs, env0)
+end//endof[f0_vardclst(dcl0,env0)]
 //
 (* ****** ****** *)
 //
@@ -236,6 +258,145 @@ case+ ipat.node() of
 ))
 //
 end//let//endof[i1valdcl_go1emit(idcl,env0)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
+=======================================================================
+== MUTABLE LOCAL VARIABLES  (milestone M2.6c)                        ==
+=======================================================================
+//
+A `var x = init` (an I1Dvardclst -> i1vardcl) becomes a Go
+    var goxtnm<x> <T> = <init>
+where [T] is the var's Go type and [init] is the init cmp's RESULT.  A Go
+`var` is ADDRESSABLE, so its fields are valid lvalues: for a FLAT tuple/record
+[T] is a value struct and `goxtnm<x>.F0 = v` mutates the local IN PLACE (ATS
+value semantics -- a copy is unaffected); for a BOXED one [T] is a `*struct`
+and the assignment mutates through the pointer (ATS shared semantics).  This is
+the addressable ROOT every I1Vlpft/I1Vlpbx lvalue path bottoms out at.
+//
+The var's own i1tnm (the dpid bind's i1tnm) IS the Go var name (goxtnm<stamp>),
+and the body references the var through that SAME i1tnm (a read is
+I1INSflat(I1Vtnm(x)) -> emitted as just `goxtnm<x>`), so decl and use agree by
+construction -- no XATSVAR box indirection (unlike the JS backend's
+`XATSVAR1(...)` runtime box).
+*)
+#implfun
+i1vardclist_go1emit
+(i1vs, env0) =
+(
+list_foritm$e1nv<x0><e1>(i1vs, env0)
+) where
+{
+#vwtpdef e1 = envx2go
+#typedef x0 = i1vardcl
+#impltmp
+foritm$e1nv$work
+<x0><e1>(idcl, env0) =
+(
+  i1vardcl_go1emit(idcl, env0))
+}(*where*)//endof[i1vardclist_go1emit(i1vs,env0)]
+//
+#implfun
+i1vardcl_go1emit
+(idcl, env0) =
+let
+//
+val filr = env0.filr()
+val nind = env0.nind()
+//
+val dpid = i1vardcl_dpid$get(idcl)
+val tdxp = i1vardcl_dini$get(idcl)
+//
+val itnm =
+(
+case+ dpid of
+|I1BNDcons(itnm, _, _) => itnm)
+//
+in//let
+//
+case+ tdxp of
+//
+// `var x` WITHOUT initialization -> a zero-valued Go var.  We cannot recover
+// the type from an init here, so emit `var goxtnm<x> any` (the body's first
+// assignment / use pins the dynamic value).  (Not in the M2.6c test surface;
+// included for totality.)
+|TEQI1CMPnone() =>
+  (
+  nindfpr(filr, nind);
+  strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
+  strnfpr(filr, " any"); fprintln(filr);
+  prerrsln("[go1emit] NOTE: var without initializer -> `var goxtnm<x> any` (M2.6c)"))
+//
+// `var x = init` -> emit the init cmp's lets, then
+//   `var goxtnm<x> <T> = <init-result>`
+//
+// MUTATION SEMANTICS (the M2.6c crux): the ATS var-box gives a tuple/record
+// REFERENCE semantics -- reading the var (`I1INSflat`) and then mutating a
+// field is visible on every subsequent read of the SAME var (the JS oracle's
+// `XATSVAR1` box + reference-array model; verified: `p.0:=10` then `p.0` reads
+// 10).  A Go VALUE struct would give COPY semantics (a read copies; mutating
+// the copy is invisible) -- WRONG vs the oracle.  So a tuple/record var is
+// stored as a Go POINTER (`*struct{...}`): reading it (`I1INSflat` -> the
+// pointer) ALIASES the var's storage, and `<deref>.F<lab> = v` mutates the
+// shared struct -- matching the box.  We therefore:
+//   - if the init's recovered type is a flat VALUE struct (`struct{...}`),
+//     store a POINTER to it: `var goxtnm<x> *struct{...} = &(<init>)`
+//     (the init result is an addressable temp / a composite literal, both
+//     addressable with `&` in Go);
+//   - if it is already a boxed POINTER (`*struct{...}`), keep it as-is
+//     (the init is already a heap pointer -- shared by construction);
+//   - a non-aggregate (scalar) var keeps its value type (no `&`): a scalar
+//     var's mutation is a whole-var reassignment, not a field path, so value
+//     storage is correct (and matches the JS number-by-value box).
+|TEQI1CMPsome(_, icmp) =>
+  let
+    val-I1CMPcons(ilts, ival) = icmp
+    val () = i1letlst_go1emit(ilts, icmp, env0)
+    //
+    // Is the init a tuple/record?  Recover (isFlat, structBody) from the init
+    // RESULT temp's recorded type (the SAME side-table lookup the construction
+    // used), so the var's pointer type matches the constructed struct exactly.
+    val trcdopt =
+    (
+    case+ ival.node() of
+    |I1Vtnm(rtnm) => gotrcd_of_tnm(i1tnm_stmp$get(rtnm))
+    | _(*else*) => optn_nil())
+  in
+    case+ trcdopt of
+    //
+    // TUPLE/RECORD var -> store a Go POINTER (`*struct{body}`) so reads ALIAS
+    // and field mutations are shared (matches the ATS var-box reference
+    // semantics / the JS oracle).  A FLAT init is a value struct -> prefix the
+    // value with `&` to get an addressable pointer; a BOXED init is ALREADY a
+    // `*struct` pointer -> use it directly (no extra `&`).  Either way the var
+    // TYPE is `*<body>`.
+    |optn_cons(@(isFlat, body)) =>
+      (
+      nindfpr(filr, nind);
+      strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
+      strnfpr(filr, " *"); strnfpr(filr, body);
+      strnfpr(filr, " = ");
+      (if isFlat then strnfpr(filr, "&"));   // &<value-struct> -> *struct
+      i1valgo1(filr, ival); fprintln(filr))
+    //
+    // NON-aggregate (scalar / unrecoverable) var -> keep the value type.  A
+    // scalar var's mutation is a whole-var reassignment (`x = v`), not a field
+    // path, so value storage is correct (matches the JS number-by-value box).
+    |optn_nil() =>
+      let
+        val goty = gotype_of_init_cmp(icmp)
+      in
+        nindfpr(filr, nind);
+        strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
+        strnfpr(filr, " "); strnfpr(filr, goty);
+        strnfpr(filr, " = ");
+        i1valgo1(filr, ival); fprintln(filr)
+      end
+  end
+//
+end//let//endof[i1vardcl_go1emit(idcl,env0)]
 //
 (* ****** ****** *)
 (* ****** ****** *)

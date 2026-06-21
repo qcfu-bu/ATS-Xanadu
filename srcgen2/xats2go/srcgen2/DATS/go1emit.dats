@@ -164,16 +164,28 @@ prerrsln("[go1emit] i1parsed: stadyn=", stadyn)
 val () =
 prerrsln("[go1emit] i1parsed: nerror=", nerror)
 //
-// M1 IR-DUMP (debug aid): print the whole i1parsed to stderr so the
-// emitted Go can be checked against the EXACT IR nodes it came from.
-// Harmless (stderr only); leave on -- it is the emitter's spec.
+// M1 IR-DUMP (debug aid): print the whole i1parsed to stderr so the emitted
+// Go can be checked against the EXACT IR nodes it came from.  DISABLED as of
+// M2.6c: [i1parsed_fprint] routes through this build's LOCAL [i1val_fprint]
+// (intrep1_print0.dats), which (a) has NO case for the M2.6c lvalue nodes
+// [I1Vlpft]/[I1Vlpbx]/[I1Vlpcn] -> falls through to XATS000_cfail, and (b) is
+// errck'd-to-a-comment in the prebuilt bundle so a fix that adds a directly-
+// reachable call to it surfaces as an unbound reference (a pre-existing
+// libbundle defect, same class as i0varfst/tokenfpr).  So the dump crashed on
+// EVERY `var`+`:=` program -- which is exactly the M2.6c surface.  The dump is
+// a debug nicety, NOT part of the emit contract; turning it off keeps the
+// emitter working for mutation programs.  (Re-enable for a non-`var` program
+// by uncommenting if you need the spec dump.)
 //
+val () = prerrsln("[go1emit] IR-DUMP-DISABLED (M2.6c: var/lvalue programs crash the copied i1parsed_fprint)")
+(*
 val () = prerrsln("[go1emit] IR-DUMP-BEGIN")
 val () =
 let
 val out0 = g_stderr((*0*))
 in i1parsed_fprint(ipar, out0); prerrsln("") end
 val () = prerrsln("[go1emit] IR-DUMP-END")
+*)
 //
 val env0 = envx2go_make_out(filr)
 //

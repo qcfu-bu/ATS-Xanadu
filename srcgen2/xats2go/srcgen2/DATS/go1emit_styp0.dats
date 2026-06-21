@@ -1556,6 +1556,21 @@ fun
 gotype_of_cmp
 (icmp: i1cmp): strn = gotype_of_cmp2(icmp, list_nil())
 //
+(*
+[gotype_of_init_cmp] (M2.6c): the Go type to declare a mutable `var x = init`
+with -- the type of the init CMP's result.  Identical to [gotype_of_cmp] (no
+in-scope binds: a var initializer is a closed value-position cmp), but exported
+through the SATS so the var-decl emitter (go1emit_decl00.dats) can call it.  For
+a tuple/record init the result temp's recorded type is a struct (flat VALUE
+`struct{...}` / boxed POINTER `*struct{...}`, with the `*` for boxed coming from
+[goty_of_i0trcd]), so the var is value-typed for flat and pointer-typed for
+boxed -- which is precisely what makes `goxtnm<x>.F0 = v` realize flat=value vs
+boxed=shared mutation semantics.
+*)
+#implfun
+gotype_of_init_cmp
+(icmp) = gotype_of_cmp2(icmp, list_nil())
+//
 #implfun
 gotype_of_ift0type
 (iins) = gotype_of_ift0type2(iins, list_nil())

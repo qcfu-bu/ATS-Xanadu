@@ -1671,3 +1671,188 @@ of its surface via local recovery; test38 is the case ONLY the table fixes).
   intermediates was required (done; cold `make -j psuite` reproducible).
 - The chokepoint also re-records on a variable USE (`I0Evar` returns the producer
   temp's `I1Vtnm`); harmless -- the use carries the same static type as the def.
+
+---
+
+# M2.6c — lvalues & assignment (mutation of var-stored tuples/records)
+
+Status after **M2.6c**: ATS mutation of a mutable local (`var p = @(..)`; `p.0 :=
+v`; `!r := v`; record `p.x := v`) emits as **idiomatic, direct, addressable Go
+assignment** (`<deref>.F<lab> = <rhs>`) -- NOT the JS backend's path-encoding
+copy-on-write runtime (`XATSLPFT`/`lvget`/`lvset`).  `make -j psuite` = **46/46
+GREEN** (42 prior + 4 mutation tests), each byte-equal-vs-JS, gofmt-clean, `go
+vet` OK.  All additive under `srcgen2/xats2go/`.  **A `.sats` edit (3 new decls)
+was made -> a clean `make clean && make` rebuild was run (reproducible 46/46).**
+
+## How to run (M2.6c)
+
+```bash
+cd srcgen2/xats2go
+make -j psuite                              # 46 GREEN (42 prior + 4 mutation)
+make run/test50_var_flat_xats2go            # flat tuple field mutation in a var
+make run/test51_var_boxed_alias_xats2go     # boxed mutation through an ALIAS (sharing)
+make run/test52_var_rec_xats2go             # record field mutation
+make run/test53_var_seq_xats2go             # read-after-write mutation chain
+```
+
+## THE IR a `var`+`:=` mutation lowers to (the shapes we keyed on)
+
+For `fun f() = let var p = @(1,2) in (p.0 := 10; p.0 + p.1) end` the IR (recovered
+via a TEMPORARY emitter-side probe -- see "IR-DUMP disabled" below) is:
+
+```
+I1Dvardclst(T_VAR(VAKvar); [ I1VARDCL(
+   I1BNDcons(I1TNM(2); I0Pvar(p); <freevars>);              // the var: i1tnm = 2
+   TEQI1CMPsome(_; I1CMPcons(
+     [ I1LETnew1(I1TNM(1); I1INStup1(T_TRCD10(0); [1,2])) ] // @(1,2): FLAT tuple, temp 1
+   ; I1Vtnm(I1TNM(1))))) ])                                 // init result = temp 1
+...let-in body...
+[ I1LETnew1(I1TNM(3); I1INSflat(I1Vtnm(I1TNM(2))))          // READ p   (de-leftval the var)
+, I1LETnew0(I1INSassgn( I1Vlpbx(LABint(0); I1Vtnm(I1TNM(3))) // p.0 :=   (LEFT = lvalue)
+                      , I1Vint(10) ))                        //          (RIGHT = new value)
+, ...pflt/proj lets for p.0 + p.1...
+, I1LETnew0(I1INSrturn(ical, <p.0+p.1 cmp>)) ]               // the return value
+```
+
+KEY findings (all verified):
+1. `var p = @(t)` is `I1Dvardclst` -> `i1vardcl` (`dpid` = the var bind whose
+   i1tnm IS the Go var name; `dini` = `TEQI1CMPsome(_, initcmp)`).  It surfaces as
+   a LOCAL decl inside an `I1INSlet0` block.
+2. **The mutation's left is `I1Vlpbx`, NOT `I1Vlpft`** -- even for a FLAT tuple
+   `@(..)`.  Because a `var` is itself a mutable CELL (a box/pointer), a field of
+   the var-stored tuple is reached "through the box" = `I1Vlpbx`.  Verified: BOTH
+   `@(..)` and `#(..)` var tuples produce `I1Vlpbx`.  (`I1Vlpft` arises only for a
+   flat field of a non-var addressable aggregate -- not in the var surface.)
+3. **The lvalue ROOT is the DE-LEFTVAL temp, NOT the var temp.**  `p.0 := v`
+   lowers to `I1Vlpbx(0, I1Vtnm(3))` where `I1TNM(3) = I1INSflat(I1Vtnm(var))` --
+   i.e. the assignment mutates *through the read-out value of the var*.  This is
+   the crux that forces the Go representation (below): if `I1INSflat` COPIED the
+   tuple (a Go value struct), `<copy>.F0 = v` would mutate the copy, not the var.
+4. `I1INSflat(v)` = de-leftval (read an lvalue's current value); `I1INSassgn(l,r)`
+   is an EFFECT (always an `I1LETnew0`, never bound).
+
+## Go representation -- the decision: a var-stored tuple/record is a POINTER
+
+The JS backend models a `var` as `XATSVAR1(init) = [0,[init]]` (a reference box);
+`XATSFLAT(var) = lvget(var)` returns the SAME tuple object (JS arrays are
+references), so a later re-read sees a field mutation.  **The ATS var gives a
+tuple REFERENCE semantics.**  A Go VALUE struct would give COPY semantics (the
+`I1INSflat` read copies; mutating the copy is invisible) -- WRONG vs the oracle
+(the read-only M2.6b could not catch this; mutation finally does).
+
+So a tuple/record stored in a `var` is emitted as a Go **`*struct{...}` pointer**:
+- `i1vardcl_go1emit` (go1emit_decl00.dats): recover `(isFlat, structBody)` from
+  the init result temp via `gotrcd_of_tnm` (the SAME side-table lookup the
+  construction used).  Emit `var goxtnm<x> *<body> = <ptr>` where the pointer is
+  `&<init>` for a FLAT init (a value struct -> take its address; the init result
+  is an addressable temp / composite literal) and `<init>` for a BOXED init
+  (already a `*struct` heap pointer).  A non-aggregate (scalar) var keeps its
+  value type (its mutation is a whole-var reassign, not a field path).
+- `I1INSflat(v)` (i1insgo1) -> just `<v>` (reading the var = the pointer; a
+  `goxtnm3 := goxtnm2` is a POINTER copy = an ALIAS, not a deep copy).
+- `I1Vlpft(lab, root)` / `I1Vlpbx(lab, root)` (i1valgo1) -> `<root>.F<lab>` (Go
+  auto-derefs the pointer for field access/assignment); `I1Vaddr(v)` -> `<v>`
+  (a var is already addressable; `&` is implicit).
+- `I1INSassgn(left, right)` (i1insgo1) -> the Go STATEMENT `<left> = <right>`.
+
+Emitted Go (test50 FLAT vs test51 BOXED -- the layout payoff made observable):
+```go
+// FLAT var (test50):                       // BOXED var (test51):
+goxtnm10 := struct{F0 int; F1 int}{n, n+1}   goxtnm10 := &struct{F0 int; F1 int}{n, n+1}
+var goxtnm11 *struct{...} = &goxtnm10        var goxtnm11 *struct{...} = goxtnm10
+goxtnm12 := goxtnm11   // alias               goxtnm12 := goxtnm11  // q = p  (alias)
+goxtnm12.F0 = 10       // p.0 := 10           goxtnm14.F0 = 100     // p.0 := 100 (via p)
+... goxtnm20.F0 reads 10 ...                  ... goxtnm13.F0 reads 100 (via q -> SHARED) ...
+```
+No path-encoding runtime; direct addressable `p.F0 = v`.  (Go's pointer
+auto-deref unifies the `<root>.F<lab>` SYNTAX for `I1Vlpft`/`I1Vlpbx`; the
+value-vs-pointer ROOT chosen at construction realizes the semantics.)
+
+## flat-vs-boxed mutation semantics -- the M2.6b validation result (HONEST)
+
+The oracle now DISTINGUISHES read-vs-mutate (M2.6b read-only could not), and the
+finding is: **a var-stored tuple is REFERENCE-shared regardless of flat/boxed.**
+A controlled probe `var p = @(1,2); val q = p; p.0 := 10; q.0 + q.1` -- with a
+FLAT `@` tuple -- prints **12** (q sees the mutation), byte-equal-vs-JS.  The same
+with a BOXED `#` tuple also prints 12.  So the front-end's var-box lowering gives
+BOTH layouts reference semantics *for a var*; the flat/boxed VALUE-vs-pointer
+distinction (M2.6b) does NOT change a var-tuple's mutation visibility here -- the
+var-box is the shared cell either way.  This is the honest oracle answer: M2.6c
+confirms BOTH flat and boxed var mutations are byte-equal-vs-JS (the pointer-var
+realizes the box correctly), but it does NOT exhibit a flat=value / boxed=shared
+SPLIT for var-stored tuples, because the IR makes a var a box for both.  (A
+flat=value vs boxed=shared split would need a non-var value binding that is then
+copied vs aliased -- the surface for that -- `val`-bound tuple patterns + copy --
+is M2.7-adjacent and not exercised here.)  The value-vs-pointer M2.6b choice is
+still validated as CORRECT: each construction's flat/boxed token drives the
+right `struct{}` vs `*struct{}` and the mutation is byte-equal-vs-JS in both.
+
+## The multi-let return-body fix (needed by let-in-with-mutation)
+
+A let-in body `(p.0 := 10; p.0 + p.1)` is a SEQUENCE: its lets (the assignment
+effect + the final-value computation) PRECEDE a trailing `I1LETnew0(I1INSrturn
+(ical, <p.0+p.1>))`.  `i1cmp_go1emit_ret` only unwrapped the SINGLE-let canonical
+function body, so in a MULTI-let body the trailing `I1LETnew0(I1INSrturn)` reached
+the single-expression `i1insgo1` -> `// UNHANDLED: I1INSrturn` + an unused `nil`
+(go vet fail).  FIX (go1emit_dynexp.dats, `i1let_go1emit_p`): an
+`I1LETnew0(I1INSrturn(ical, innercmp))` now routes to `i1cmp_go1emit_ret(innercmp,
+params, bnds, env0)` -- emit the inner cmp in return mode (its lets + `return` /
+TCO continue), threading `params`/`bnds` so a tail self-call in this position
+still becomes a loop continue.  (This generalizes the canonical-body unwrap to a
+trailing rturn after preceding effect lets.)
+
+## IR-DUMP disabled (a pre-existing libbundle defect, surfaced by `var`)
+
+`i1parsed_go1emit` used to print `i1parsed_fprint(ipar)` to stderr (the "spec
+dump").  That routes through this build's LOCAL `i1val_fprint`
+(intrep1_print0.dats), which (a) had NO case for the M2.6c lvalue nodes
+`I1Vlpft`/`I1Vlpbx`/`I1Vlpcn` -> `case+` fell through to XATS000_cfail, and (b) is
+errck'd-to-a-comment in the prebuilt bundle (same defect class as the M1
+`i0varfst` / M2.1 `tokenfpr` issues), so a fix that adds a directly-reachable call
+to it surfaces as an unbound `i1val_fprint_<stamp> is not defined`.  So the dump
+crashed the emitter on EVERY `var`+`:=` program -- exactly the M2.6c surface.  The
+dump is a DEBUG nicety, not part of the emit contract, so it is **commented out**
+in go1emit.dats (a one-line `IR-DUMP-DISABLED` marker remains; the block is
+preserved in a comment for a non-`var` program if the spec dump is ever needed).
+The IR shapes above were instead recovered via a temporary emitter-side probe
+(an `i1val` node-kind tagger), since intrep1_print0.dats was kept PRISTINE.
+
+## Files changed (all under srcgen2/xats2go/, additive)
+
+- `SATS/go1emit.sats`: + `gotype_of_init_cmp`, `i1vardclist_go1emit`,
+  `i1vardcl_go1emit` (3 decls -> SATS edit -> CLEAN REBUILD required).
+- `DATS/go1emit_decl00.dats`: `i1dcl_go1emit` handles `I1Dvardclst`;
+  `i1vardclist_go1emit`/`i1vardcl_go1emit` (the var = pointer logic).
+- `DATS/go1emit_dynexp.dats`: `i1valgo1` handles `I1Vlpft`/`I1Vlpbx`/`I1Vaddr`
+  (+ `I1Vlpcn` -> UNHANDLED M2.7); `i1insgo1` handles `I1INSassgn`/`I1INSflat`;
+  `i1let_go1emit_p` routes a trailing `I1LETnew0(I1INSrturn)` to return mode.
+- `DATS/go1emit_styp0.dats`: + `gotype_of_init_cmp` (delegates to `gotype_of_cmp2`).
+- `DATS/go1emit.dats`: IR-DUMP commented out (see above).
+- `Makefile` `SUITE_NAMES` + `TEST/run-suite.sh` `DEFAULT_SUITE`: + test50-53.
+- `TEST/test5{0,1,2,3}_*.dats` (new): flat-mut / boxed-alias / record-mut / seq.
+
+## Honest coverage / real-vs-stub (M2.6c)
+
+- **REAL (oracle-validated, byte-equal-vs-JS):** `I1Dvardclst`/`i1vardcl`
+  (`var x = init` -> `var goxtnm<x> *<struct> = &|<init>`); `I1INSflat` (de-leftval
+  read -> the pointer expr); `I1Vlpft`/`I1Vlpbx` (addressable field lvalue
+  `<root>.F<lab>`); `I1Vaddr` (identity); `I1INSassgn` (Go `<lval> = <rhs>`
+  statement); flat tuple field mutation, boxed mutation through an alias (SHARED),
+  record field mutation, and a read-after-write mutation chain -- all
+  byte-equal-vs-JS, gofmt-clean, go vet OK.  Emitted Go uses DIRECT addressable
+  assignment (`p.F0 = v`), NOT a path-simulation runtime.
+- **DEFERRED (reported, not silently wrong):** `I1Vlpcn` (datacon/consed
+  left-value) -> M2.7 (datatypes): `i1valgo1` emits `// UNHANDLED: I1Vlpcn(...)` +
+  a stderr note (kept per the brief).  `I1Vcon`/`I1INSpcon` likewise stay M2.7.
+  A `var` WITHOUT an initializer -> `var goxtnm<x> any` + a NOTE (not in the test
+  surface).  A loop that mutates a var via a LOCAL recursive closure capturing the
+  var (`fun loop() = ... p.0 := ...`) is NOT covered: the closure hoists to
+  package level (the M2.2 `I1Dfundclst` hoisting) and loses the capture (`go vet:
+  undefined loop_<stamp>`) -- a M2.5/M2.6c closure-over-mutable-var interaction,
+  tangential to the lvalue/assign core; the "var mutated in a loop" test is
+  therefore DEFERRED (the surface for it does not compile cleanly yet).  Nested
+  flat-of-flat field mutation (`p.1.0 := v`) does not typecheck in this surface
+  (both backends drop the function) -> not testable.
+- **Real-vs-stub:** the var/lvalue/assign emission is REAL (direct Go addressable
+  assignment, oracle-gated).  The only stubs are the documented M2.7 deferrals
+  (`I1Vlpcn`/datacon) and the no-init-var `any` fallback.

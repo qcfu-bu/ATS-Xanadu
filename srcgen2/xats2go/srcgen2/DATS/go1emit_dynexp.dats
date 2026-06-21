@@ -479,6 +479,56 @@ list carries no information the emitted Go needs.
 (* ****** ****** *)
 (* ****** ****** *)
 //
+(*
+M2.6c LEFT-VALUES: an addressable Go lvalue expression `<root>.F<lab>`.
+//
+  I1Vlpft(lab, root) : FLAT field of an addressable value (a `var` holding a
+                       value struct, or a flat sub-field of one).  In Go the
+                       lvalue is `<root>.F<lab>` and `<root>` is itself
+                       addressable, so the field assignment mutates IN PLACE
+                       (ATS flat / VALUE semantics).
+  I1Vlpbx(lab, root) : BOXED field -- `<root>` is a pointer (`*struct`).  Go
+                       auto-derefs for field assignment, so the SAME
+                       `<root>.F<lab>` lvalue mutates the pointed-to struct =
+                       SHARED (every alias sees it; ATS boxed semantics).
+//
+A `var p = @(t)` makes `p` a Go `var` (addressable), so `p.F0` is a valid
+lvalue root; a field of a boxed tuple is a pointer field.  The field NAME
+[gofield_of_label] is the SAME scheme the struct TYPE used at construction and
+that every READ projection (I1INSpflt/proj) uses, so the lvalue resolves.  Both
+flat and boxed render as `<root>.F<lab>` -- Go's pointer auto-deref unifies the
+SYNTAX; the value-vs-pointer ROOT (M2.6b) realizes the flat/boxed semantics.
+*)
+|I1Vlpft(lab0, iroot) =>
+  (
+  i1valgo1(filr, iroot);
+  strnfpr(filr, "."); strnfpr(filr, gofield_of_label(lab0)))
+|I1Vlpbx(lab0, iroot) =>
+  (
+  i1valgo1(filr, iroot);
+  strnfpr(filr, "."); strnfpr(filr, gofield_of_label(lab0)))
+//
+(*
+M2.6c ADDR / AEXP: a left-value root that is the var/value itself.
+  I1Vaddr(v) : address-of -- in Go a `var` is already addressable, so taking
+               its address for an lvalue path is a no-op at the syntax level
+               (Go's `&` is implicit for field assignment through a value var);
+               we emit the inner expression `<v>`.  (JS: XATSADDR = identity.)
+*)
+|I1Vaddr(iv1) =>
+  (
+  i1valgo1(filr, iv1))
+//
+(*
+I1Vlpcn (datacon/consed left-value) is DEFERRED to M2.7 (datatypes): emit a
+visible UNHANDLED marker + stderr note rather than a wrong field path.
+*)
+|I1Vlpcn(_, _) =>
+  unhandled_val(filr, "I1Vlpcn(datacon-lval -> M2.7)", ival)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
 | _(*otherwise*) =>
 unhandled_val(filr, "i1val", ival)
 //
@@ -645,6 +695,37 @@ rather than emit a half-formed func literal inline.
   unhandled_ins(filr, "I1INSlam0(non-block-ctx)", iins)
 |I1INSfix0(_, _, _, _) =>
   unhandled_ins(filr, "I1INSfix0(non-block-ctx)", iins)
+//
+(*
+M2.6c MUTATION: assignment to an addressable lvalue + de-leftval (read).
+//
+  I1INSassgn(left, right) : Go statement `<lvalue-of-left> = <right>`.
+                            The left is an lvalue i1val (I1Vlpft / I1Vlpbx /
+                            a root I1Vtnm var); the right is the new value.
+                            Emitted as a single Go assignment STATEMENT (it has
+                            no value), so it always reaches i1insgo1 via an
+                            I1LETnew0 (an effect let), never an I1LETnew1.
+  I1INSflat(v)            : read an lvalue's CURRENT value -- in Go that is
+                            simply the Go expression `<v>` (reading a var / a
+                            field is the same expression).  So we emit `<v>`.
+//
+Go gives us REAL addressable lvalues: a flat tuple/record in a Go `var` is an
+addressable value-struct (`p.F0 = v` mutates the local in place = ATS flat /
+VALUE semantics -- a copy is unaffected); a boxed one is a `*struct` pointer
+(`p.F0 = v` mutates through the pointer = ATS boxed / SHARED semantics, visible
+through every alias).  Go's auto-deref makes the SAME `<root>.F<lab>` lvalue
+syntax correct for both -- the value-vs-pointer choice (made at construction,
+M2.6b) is what realizes the flat/boxed semantic difference.  No path-encoding
+runtime (unlike the JS backend's XATSLPFT/lvget/lvset copy-on-write sim).
+*)
+|I1INSassgn(ilft, irgt) =>
+  (
+  i1valgo1(filr, ilft);
+  strnfpr(filr, " = ");
+  i1valgo1(filr, irgt))
+|I1INSflat(iv1) =>
+  (
+  i1valgo1(filr, iv1))
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -1463,6 +1544,21 @@ case+ ilet of
 //
 |I1LETnew0(iins) =>
   (
+  // M2.6c: a trailing (or any) I1LETnew0(I1INSrturn(ical, innercmp)) is the
+  // canonical RETURN computation -- it appears as the LAST let of a function /
+  // let-in BODY whose value is `return <innercmp result>`.  In the SINGLE-let
+  // case [i1cmp_go1emit_ret] unwraps it directly, but a MULTI-let body (e.g. a
+  // let-in `(p.0 := 10; p.0 + p.1)` -- a sequence whose lets PRECEDE the return)
+  // reaches it HERE, where it must still emit in return mode (its own lets +
+  // `return`/TCO continue), NOT via the single-expression [i1insgo1] (which has
+  // no return context and marks rturn UNHANDLED).  Routing it through
+  // [i1cmp_go1emit_ret] threads [params]/[bnds] so a tail self-call in this
+  // position still becomes a loop continue.
+  case+ iins of
+  |I1INSrturn(ical, innercmp) =>
+    i1cmp_go1emit_ret(innercmp, params, bnds, env0)
+  | _(*else*) =>
+  (
   if i1ins_is_blockform(iins)
   then
     // a block-form in statement position (no binding): drive it as a value-
@@ -1483,7 +1579,7 @@ case+ ilet of
   else
   (
   nindfpr(filr, nind);
-  i1insgo1(filr, scp, iins); fprintln(filr)))
+  i1insgo1(filr, scp, iins); fprintln(filr))))
 //
 end//let//endof[i1let_go1emit_p(ilet,scp,params,env0)]
 //

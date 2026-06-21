@@ -133,6 +133,17 @@ fun
 gotype_of_ift0type
 (iins: i1ins): strn
 //
+// gotype_of_init_cmp (M2.6c): the Go type to DECLARE a mutable `var x = init`
+// with -- the type of the init cmp's RESULT.  A tuple/record init yields its
+// recorded struct type (flat VALUE `struct{...}` / boxed POINTER `*struct{...}`),
+// so the var is value-typed for flat / pointer-typed for boxed -- which is what
+// makes a field assignment realize flat=value vs boxed=shared semantics.  "any"
+// when the init result's type is unrecoverable.
+//
+fun
+gotype_of_init_cmp
+(icmp: i1cmp): strn
+//
 // i1ins_fully_returnsq: true iff this if/case instruction is in RETURN
 // position -- every present branch body ends in an I1INSrturn
 // (i1cmp_retq).  Then branches emit their own `return` and no result temp
@@ -387,6 +398,17 @@ i1valdclist_go1emit
 fun
 i1valdcl_go1emit
 (ival: i1valdcl, env0: !envx2go): void
+//
+// i1vardclist_go1emit / i1vardcl_go1emit (M2.6c): emit a mutable-local group
+// `var x = init` as Go `var goxtnm<x> <T> = <init>` (addressable -> its fields
+// are assignable lvalues).  See go1emit_decl00.dats.
+//
+fun
+i1vardclist_go1emit
+(i1vs: i1vardclist, env0: !envx2go): void
+fun
+i1vardcl_go1emit
+(ivar: i1vardcl, env0: !envx2go): void
 //
 (* ****** ****** *)
 //
