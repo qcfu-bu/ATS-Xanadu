@@ -183,10 +183,14 @@ export function activate(context: ExtensionContext): void {
     documentSelector: [
       { scheme: "file", language: "ats" },
       { scheme: "file", language: "ats3" },
+      // M6b: Python-surface
+      { scheme: "file", language: "pyats-static" },
+      { scheme: "file", language: "pyats-dynamic" },
     ],
     synchronize: {
       // Watch ATS source files so the server is notified of on-disk changes.
-      fileEvents: workspace.createFileSystemWatcher("**/*.{sats,hats,dats}"),
+      // M6b: Python-surface — also watch .psats/.pdats.
+      fileEvents: workspace.createFileSystemWatcher("**/*.{sats,hats,dats,psats,pdats}"),
     },
     outputChannel: channel,
   };

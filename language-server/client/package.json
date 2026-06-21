@@ -15,7 +15,9 @@
   "main": "./dist/extension.js",
   "activationEvents": [
     "onLanguage:ats",
-    "onLanguage:ats3"
+    "onLanguage:ats3",
+    "onLanguage:pyats-static",
+    "onLanguage:pyats-dynamic"
   ],
   "contributes": {
     "languages": [
@@ -39,6 +41,28 @@
         ],
         "extensions": [
           ".dats"
+        ],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "pyats-static",
+        "aliases": [
+          "Python-surface ATS (static)",
+          "pyats-static"
+        ],
+        "extensions": [
+          ".psats"
+        ],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "pyats-dynamic",
+        "aliases": [
+          "Python-surface ATS (dynamic)",
+          "pyats-dynamic"
+        ],
+        "extensions": [
+          ".pdats"
         ],
         "configuration": "./language-configuration.json"
       }
