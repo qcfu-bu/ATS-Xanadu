@@ -104,9 +104,10 @@ case+ d of
 | PCCerror(loc, msg) => list_append(acc, list_sing(PCDiag(loc, msg)))
 | PCCfun(_, fs) => harv_fundcls(fs, acc)
 | PCCval(_, _, e) => harv_exp(e, acc)
-| PCCdata(_, _, _, _) => acc
+| PCCdata(_, _, _, _, _) => acc
 | PCCstaload(_, _) => acc
-| PCCalias(_, _, _, _) => acc  // a type/struct alias carries only a surface type — no poison nodes.
+| PCCalias(_, _, _, _) => acc   // a type alias carries only a surface type — no poison nodes.
+| PCCrecord(_, _, _, _, _) => acc // a struct record carries only field types — no poison nodes.
 )
 //
 fun

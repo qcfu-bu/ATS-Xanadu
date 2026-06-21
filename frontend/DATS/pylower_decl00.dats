@@ -140,6 +140,71 @@ case+ s2vs of
 //
 (* ****** ****** *)
 //
+// ---- M5b.6a mode-selection helpers (SPIKE-PROVEN, build-m5b6-spike.sh @ ca3e14377) ---------
+//
+// the DATATYPE (enum) sort for a mode: boxed/flat -> `the_sort2_tbox`, linear -> `the_sort2_vtbx`.
+// PCMflat (@unboxed enum) falls back to BOXED: there is NO stock unboxed-datatype primitive
+// (a pinned M5b.6a decision — only RECORDS have a flat representation, TRCDflt0). Threaded into
+// BOTH the monomorphic s2cst sort AND the parametric S2Tfun1 result sort.
+//
+fun
+dt_sort_of(m: pcmode): sort2 =
+(
+case+ m of
+| PCMbox()  => the_sort2_tbox
+| PCMlin()  => the_sort2_vtbx
+| PCMflat() => the_sort2_tbox   // no unboxed-datatype primitive — boxed fallback (pinned).
+)
+//
+// the RECORD (struct) (trcdknd, sort) pair for a mode: boxed -> (TRCDbox0, tbox), linear ->
+// (TRCDbox1, vtbx), flat -> (TRCDflt0, tflt). The S2Etrcd `knd` + the alias's own sort.
+//
+fun
+rcd_kind_sort_of(m: pcmode): @(trcdknd, sort2) =
+(
+case+ m of
+| PCMbox()  => @(TRCDbox0, the_sort2_tbox)
+| PCMlin()  => @(TRCDbox1, the_sort2_vtbx)
+| PCMflat() => @(TRCDflt0, the_sort2_tflt)
+)
+//
+// lower a PyCore record-field list `name: T, ...` to an `l2s2elst` of label/s2exp pairs
+// (S2LAB(LABsym(name), <lowered T>)). Each field type goes through pylower_typ, so a primitive
+// field (`x: Int`) inherits the M5a resolve_typ mitigation (direct T2Pcst the_s2exp_*0). A bare
+// type-param `A` resolves via resolve_typ's S2ITMvar arm when the param s2vars are in scope.
+// (Mirrors pylower_tfields in pylower_staexp.dats, over the PyCore pcfield instead of pytfield.)
+//
+fun
+pylower_pcfields(env: !tr12env, fs: list(pcfield)): l2s2elst =
+(
+case+ fs of
+| list_nil() => list_nil()
+| list_cons(PCField(floc, fname, ftyp), rest) =>
+    let
+      val lab = LABsym(symbl_make_name(fname))
+      val s2e = pylower_typ(env, ftyp)
+    in
+      list_cons(S2LAB(lab, s2e), pylower_pcfields(env, rest))
+    end
+)
+//
+// build the record s2exp for a struct: select the (trcdknd, sort) from the mode, lower the
+// fields, and assemble S2Etrcd. Used by BOTH the monomorphic and parametric PCCrecord paths
+// (the parametric path calls this with the param s2vars already in scope, then wraps the result
+// in s2exp_lam1 before build_sexpdef).
+//
+fun
+build_record_sexp(env: !tr12env, m: pcmode, fields: list(pcfield)): s2exp = let
+  val ks = rcd_kind_sort_of(m)
+  val knd = ks.0
+  val srt = ks.1
+  val l2flds = pylower_pcfields(env, fields)
+in
+  s2exp_make_node(srt, S2Etrcd(knd, (-1)(*npf*), l2flds))
+end
+//
+(* ****** ****** *)
+//
 // ---- type alias / struct lowering: PCCalias -> D2Csexpdef (M5b.4/.5; SPIKE-PROVEN,
 //      LOWERING-MAP §3.3b). A `type X = T` and a `struct S { f: T ... }` (= a record-type
 //      alias, §5.7.1) both collapse to ONE mechanism: a static type-definition `s2cst`.
@@ -195,10 +260,11 @@ case+ d of
 // (3) the type's own s2exp. (4) build the cons (con-function types, ctags = list index).
 // (5) wire the cons onto the s2cst + register them in the env. (6) the D2Cdatatype decl — its
 // FIRST field is a level-1 d1ecl, VESTIGIAL for typecheck, so d1ecl_none0(loc) is safe.
-| PCCdata(loc, name, tvs, dcs) =>
+| PCCdata(loc, name, tvs, dcs, mode) =>
   if list_nilq(tvs) then let
-    // ---- MONOMORPHIC enum (tvs empty): the M5b.3 path, BYTE-IDENTICAL behavior. ------------
-    val s2c = s2cst_make_idst(loc, symbl_make_name(name), the_sort2_tbox)
+    // ---- MONOMORPHIC enum (tvs empty): the M5b.3 path. M5b.6a: the sort is mode-selected
+    //      (boxed tbox by default, linear vtbx for @viewtype) via dt_sort_of. ----------------
+    val s2c = s2cst_make_idst(loc, symbl_make_name(name), dt_sort_of(mode))
     val () = tr12env_add1_s2cst(env, s2c)               // register the TYPE first (recursion)
     val s2e_self = s2exp_cst(s2c)                        // the datatype's own s2exp
     // NB: do NOT name this `cons` — that collides with the prelude list-constructor overload
@@ -211,9 +277,10 @@ case+ d of
   end
   else let
     // ---- PARAMETRIC enum (tvs non-empty): M5b.3b, SPIKE-PROVEN (LOWERING-MAP §3.3c). -------
-    // (1) one s2var per param; the type's sort is a FUNCTION sort (type)->...->tbox (arity N).
+    // (1) one s2var per param; the type's sort is a FUNCTION sort (type)->...->RESULT (arity N).
+    //     M5b.6a: the RESULT sort is mode-selected (tbox boxed / vtbx linear) via dt_sort_of.
     val s2vs   = mk_param_s2vars(tvs)
-    val s2t    = S2Tfun1(mk_type_sorts(tvs), the_sort2_tbox)
+    val s2t    = S2Tfun1(mk_type_sorts(tvs), dt_sort_of(mode))
     val s2c    = s2cst_make_idst(loc, symbl_make_name(name), s2t)
     val () = tr12env_add1_s2cst(env, s2c)               // register the TYPE first (recursion)
     // (2) push a param lam-scope + bind the s2vars BEFORE building the cons (so an arg type `A`
@@ -234,16 +301,15 @@ case+ d of
     d2ecl_make_node(loc, D2Cdatatype(d1ecl_none0(loc), list_sing(s2c)))
   end
 //
-// a `type`/`struct` alias -> a D2Csexpdef (M5b.4/.5; SPIKE-PROVEN, see build_sexpdef above).
-// Lower the surface RHS via pylower_typ (a primitive RHS/field inherits the M5a `resolve_typ`
+// a plain `type X = T` alias -> a D2Csexpdef (M5b.5; SPIKE-PROVEN, see build_sexpdef above).
+// Lower the surface RHS via pylower_typ (a primitive RHS inherits the M5a `resolve_typ`
 // mitigation — direct T2Pcst, NOT the prelude sexpdef — so the alias does not crash unify when
-// used), then build the sexpdef. MONOMORPHIC scope: `tvs` is ignored here (a non-empty list is
-// M5c parametric aliases — it does NOT crash; we just build the alias without binding params).
+// used), then build the sexpdef. (A `struct` now lowers via PCCrecord below, NOT here.)
 // Decl-ordering works: the module driver threads `env` left-to-right, so an alias declared
 // before its use registers first.
 | PCCalias(loc, name, tvs, typ) =>
   if list_nilq(tvs) then let
-    // ---- MONOMORPHIC alias/struct (tvs empty): the M5b.4/.5 path, BYTE-IDENTICAL behavior. --
+    // ---- MONOMORPHIC alias (tvs empty): the M5b.5 path, BYTE-IDENTICAL behavior. -----------
     val rhs = pylower_typ(env, typ)
   in
     build_sexpdef(env, loc, name, rhs)
@@ -251,12 +317,38 @@ case+ d of
   else let
     // ---- PARAMETRIC alias (tvs non-empty): M5b.3b, SPIKE-PROVEN (LOWERING-MAP §3.3c, P2). ---
     // Build the params as s2vars in a lam-scope, lower the RHS referencing them (a bare param
-    // `A` / a field `A` resolves via resolve_typ's S2ITMvar arm), wrap once in s2exp_lam1(s2vs,
-    // body). build_sexpdef's rhs.sort() then auto-derives the (type)->...->tbox arrow sort.
+    // `A` resolves via resolve_typ's S2ITMvar arm), wrap once in s2exp_lam1(s2vs, body).
+    // build_sexpdef's rhs.sort() then auto-derives the (type)->...->tbox arrow sort.
     val s2vs = mk_param_s2vars(tvs)
     val () = tr12env_pshlam0(env)
     val () = bind_param_s2vars(env, s2vs)
     val body = pylower_typ(env, typ)
+    val () = tr12env_poplam0(env)
+    val rhs = s2exp_lam1(s2vs, body)
+  in
+    build_sexpdef(env, loc, name, rhs)
+  end
+//
+// a `struct` -> a record-type D2Csexpdef carrying its MODE (M5b.6a; SPIKE-PROVEN, see
+// build_record_sexp + rcd_kind_sort_of above). The decorator selects the S2Etrcd `trcdknd` +
+// the alias's own sort: @boxed/none -> (TRCDbox0, tbox), @viewtype -> (TRCDbox1, vtbx, linear),
+// @unboxed -> (TRCDflt0, tflt, flat). Otherwise SAME shape as the alias path: build the record
+// s2exp, then build_sexpdef. Parametric structs wrap the record body in s2exp_lam1 exactly like
+// the parametric alias path (the field types reference params via resolve_typ's S2ITMvar arm).
+| PCCrecord(loc, name, tvs, fields, mode) =>
+  if list_nilq(tvs) then let
+    // ---- MONOMORPHIC struct (tvs empty). ---------------------------------------------------
+    val rhs = build_record_sexp(env, mode, fields)
+  in
+    build_sexpdef(env, loc, name, rhs)
+  end
+  else let
+    // ---- PARAMETRIC struct (tvs non-empty): bind the param s2vars while lowering the field
+    //      types (a field `A` resolves via resolve_typ's S2ITMvar arm), wrap in s2exp_lam1. ---
+    val s2vs = mk_param_s2vars(tvs)
+    val () = tr12env_pshlam0(env)
+    val () = bind_param_s2vars(env, s2vs)
+    val body = build_record_sexp(env, mode, fields)
     val () = tr12env_poplam0(env)
     val rhs = s2exp_lam1(s2vs, body)
   in

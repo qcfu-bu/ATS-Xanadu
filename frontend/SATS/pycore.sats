@@ -235,10 +235,12 @@ pcfundcl =
 // ==================================================================
 //  pcdatacon / pcdecl — top-level PyCore DECLARATIONS.
 //
-//   PCCdata  : a datatype `type Name[tvs] = Con | Con(types) ...`. Carried through to M3
-//              verbatim from the surface `type ... = <datatype>`; the elaborator does not
-//              transform it (no imperative content). Constructor arg TYPES are kept as
-//              surface `pytyp` (M3 owns type lowering, same split as the PyAST).
+//   PCCdata  : a datatype `enum Name[tvs]: case Con | case Con(types) ...`. Carried through to
+//              M3 verbatim from the surface `enum`; the elaborator does not transform it (no
+//              imperative content). Constructor arg TYPES are kept as surface `pytyp` (M3 owns
+//              type lowering, same split as the PyAST). The trailing `pcmode` (M5b.6a) is the
+//              decorator-selected datatype sort: @boxed/none->boxed tbox, @viewtype->linear vtbx
+//              (@unboxed has no stock unboxed-datatype primitive -> pinned to BOXED tbox).
 //   PCCfun   : a top-level (possibly recursive) `fun` group from one or more surface
 //              `def`s — its members are elaborated function bodies (§5.4). Adjacency =
 //              mutual recursion (M3's grouping concern, mirrored by order; PYTHON-FRONTEND
@@ -249,28 +251,54 @@ pcfundcl =
 //              `PCCstaload("pyrt")` at the head of any module whose elaboration referenced
 //              the `flow`/iterator/fold machinery, so the desugared output `staload`s the
 //              prelude it depends on (LOOP-DESUGARING §9). M3 turns it into the L2 staload.
-//   PCCalias : a `type`/`struct` alias -> a D2Csexpdef (struct = record-type alias, §5.7.1).
-//              Carries the alias NAME, its type-param names (monomorphic for now — a non-empty
-//              list is M5c), and the aliased SURFACE type (`pytyp`). A surface `type X = T`
-//              keeps `T` directly; a `struct S: f: T ...` desugars to an alias to a record type
-//              `PyTrec([f: T, ...])`. M3 lowers the surface type via `pylower_typ` (inheriting
-//              the M5a primitive mitigation) and builds the `D2Csexpdef`.
+//   PCCalias : a plain `type X = T` alias -> a D2Csexpdef. Carries the alias NAME, its
+//              type-param names (a non-empty list is the parametric path), and the aliased
+//              SURFACE type (`pytyp`). M3 lowers the surface type via `pylower_typ` (inheriting
+//              the M5a primitive mitigation) and builds the `D2Csexpdef`. Mode-agnostic (boxed):
+//              a plain alias carries no decorator; `struct` carries its mode via PCCrecord.
+//   PCCrecord: a `struct` -> a record-type alias (D2Csexpdef + S2Etrcd) carrying its MODE
+//              (M5b.6a). Unlike PCCalias, it keeps the RAW field list (`list(pcfield)`) plus a
+//              `pcmode`, so M3 selects the S2Etrcd `trcdknd` + the alias sort from the decorator
+//              (@boxed/none->boxed TRCDbox0/tbox, @viewtype->linear TRCDbox1/vtbx, @unboxed->flat
+//              TRCDflt0/tflt). Parametric structs wrap the body in s2exp_lam1 exactly as PCCalias.
 //   PCCerror : an elaboration-error placeholder at decl level (recovery).
 // ==================================================================
 //
 and
 pcdecl =
-| PCCdata    of (loctn, strn, list(strn), list(pcdatacon))
+| PCCdata    of (loctn, strn, list(strn), list(pcdatacon), pcmode)
 | PCCfun     of (loctn, list(pcfundcl))
 | PCCval     of (loctn, pcpat, pcexp)
 | PCCstaload of (loctn, strn)
 | PCCalias   of (loctn, strn, list(strn), pytyp)
+| PCCrecord  of (loctn, strn, list(strn), list(pcfield), pcmode)
 | PCCerror   of (loctn, strn)
+//
+// the memory/representation MODE selected by a §5.7 type-declaration decorator:
+//   @boxed / none -> PCMbox  (boxed datatype `the_sort2_tbox` / record S2Etrcd(TRCDbox0)),
+//   @viewtype     -> PCMlin  (linear  datatype `the_sort2_vtbx` / record S2Etrcd(TRCDbox1)),
+//   @unboxed      -> PCMflat (flat record S2Etrcd(TRCDflt0); a flat DATATYPE has no stock
+//                             primitive — M5b.6a pins it to BOXED with a code comment).
+// M5b.6a: only the DECL-level decorators on `enum`/`struct` select a mode here; the type-PARAM
+// sort annotations (`[A: VType @unboxed]`) are a separate later slice (M5b.6b).
+and
+pcmode =
+| PCMbox  of ()
+| PCMlin  of ()
+| PCMflat of ()
 //
 // a data constructor in a PyCore datatype: UIDENT + arg types (surface `pytyp`).
 and
 pcdatacon =
 | PCDataCon of (loctn, strn, list(pytyp))
+//
+// a `struct` field `name: T` (M5b.6a). A `struct` -> a record-type alias (D2Csexpdef +
+// S2Etrcd) carrying its mode; PCCrecord keeps the RAW fields (not a desugared PyTrec) so the
+// mode threads to the S2Etrcd `trcdknd`/sort at lowering. (Distinct from the surface PyField
+// so the PyCore layer is self-contained; same shape.)
+and
+pcfield =
+| PCField of (loctn, strn, pytyp)
 //
 (* ****** ****** *)
 //

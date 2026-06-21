@@ -82,19 +82,45 @@ case+ dcs of
     list_cons(PCDataCon(loc, nm, ts), elab_datacons(rest))
 )
 //
-// M5b.4: a `struct` field `name: T` (pyfield) becomes a record-type field `name: T`
-// (pytfield), so a `struct` desugars to an alias to a record type `PyTrec([...])`.
+// M5b.6a: a `struct` field `name: T` (surface pyfield) becomes a PyCore record field `name: T`
+// (pcfield). A `struct` lowers to a PCCrecord carrying these RAW fields + its mode (NOT a
+// desugared PyTrec alias), so the decorator's S2Etrcd `trcdknd`/sort selection threads through.
 fun
-field_to_tfield(f: pyfield): pytfield =
-( case+ f of PyField(floc, fname, ftyp) => PyTField(floc, fname, ftyp) )
+field_to_pcfield(f: pyfield): pcfield =
+( case+ f of PyField(floc, fname, ftyp) => PCField(floc, fname, ftyp) )
 //
 fun
-fields_to_tfields(fs: list(pyfield)): list(pytfield) =
+fields_to_pcfields(fs: list(pyfield)): list(pcfield) =
 (
 case+ fs of
 | list_nil() => list_nil()
-| list_cons(f, rest) => list_cons(field_to_tfield(f), fields_to_tfields(rest))
+| list_cons(f, rest) => list_cons(field_to_pcfield(f), fields_to_pcfields(rest))
 )
+//
+// M5b.6a: map a §5.7 decorator list to the memory/representation MODE. Decorator NAMES come
+// from `@<name>` (`pydecorator = PyDecor of (loctn, strn)`). LAST-WINS: scan left-to-right
+// carrying the current verdict; each RECOGNIZED decorator overrides it (so `@boxed @viewtype`
+// is linear), an UNRECOGNIZED one is ignored. `viewtype`->PCMlin (linear), `unboxed`->PCMflat
+// (flat), `boxed`->PCMbox. The seed (no/only-unknown decorators) is PCMbox (boxed default).
+fun
+mode_of_decos_go(decos: list(pydecorator), cur: pcmode): pcmode =
+(
+case+ decos of
+| list_nil() => cur
+| list_cons(PyDecor(_, nm), rest) =>
+    let
+      val cur1 =
+        if strn_eq(nm, "viewtype") then PCMlin()
+        else if strn_eq(nm, "unboxed") then PCMflat()
+        else if strn_eq(nm, "boxed") then PCMbox()
+        else cur                              // unknown decorator: keep the current verdict
+    in
+      mode_of_decos_go(rest, cur1)
+    end
+)
+//
+fun
+mode_of_decos(decos: list(pydecorator)): pcmode = mode_of_decos_go(decos, PCMbox())
 //
 (* ****** ****** *)
 //
@@ -115,17 +141,16 @@ case+ d of
     in
       list_sing(PCCfun(loc, list_sing(fundcl)))
     end
-| PyCenum(loc, _decos, nm, tps, dcs) =>
-    // §5.7 enum → a PyCore datatype. Decorators/sorts are IGNORED for now (boxed default);
-    // M5b.6 wires the memory/representation modes through. tvs are the bare param names.
-    list_sing(PCCdata(loc, nm, typaram_names(tps), elab_datacons(dcs)))
-| PyCstruct(loc, _decos, nm, tps, fields) =>
-    // §5.7.1 — a `struct` IS a record-type alias: desugar the field suite to a record type
-    // `PyTrec([name: T, ...])` and emit a PCCalias to it (M5b.4). Decorators IGNORED for now
-    // (boxed default; M5b.6 wires the memory/representation modes). tvs are the bare names.
-    let val tflds = fields_to_tfields(fields) in
-      list_sing(PCCalias(loc, nm, typaram_names(tps), PyTrec(loc, tflds)))
-    end
+| PyCenum(loc, decos, nm, tps, dcs) =>
+    // §5.7 enum → a PyCore datatype. M5b.6a: the decorator selects the memory/representation
+    // MODE (@viewtype->linear, @unboxed/none/@boxed->boxed datatype). tvs are the bare names.
+    list_sing(PCCdata(loc, nm, typaram_names(tps), elab_datacons(dcs), mode_of_decos(decos)))
+| PyCstruct(loc, decos, nm, tps, fields) =>
+    // §5.7.1 — a `struct` IS a record-type alias. M5b.6a: emit a PCCrecord carrying the RAW
+    // fields + the decorator-selected MODE (@viewtype->linear record, @unboxed->flat record,
+    // none/@boxed->boxed record). M3 selects the S2Etrcd trcdknd + alias sort from the mode.
+    // tvs are the bare names (parametric structs wrap in s2exp_lam1 at lowering).
+    list_sing(PCCrecord(loc, nm, typaram_names(tps), fields_to_pcfields(fields), mode_of_decos(decos)))
 | PyCtype(loc, _decos, nm, tps, aliasTyp) =>
     // §5.7 — a `type X = T` alias -> a PCCalias (M5b.5). M3 lowers `T` via pylower_typ and
     // builds the D2Csexpdef. tvs are monomorphic for now (a non-empty list is M5c).

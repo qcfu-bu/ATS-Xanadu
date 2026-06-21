@@ -305,15 +305,43 @@ case+ dcs of
     pp_dataconlst(out, rest, ind) )
 )
 //
+// M5b.6a: render the memory/representation MODE word so a golden/dump PROVES the decorator was
+// honored (nerror=0 alone can't distinguish modes — linearity is erased downstream).
+fun
+pp_mode(out: FILR, m: pcmode): void =
+(
+case+ m of
+| PCMbox()  => ps(out, "boxed")
+| PCMlin()  => ps(out, "linear")
+| PCMflat() => ps(out, "flat")
+)
+//
+// M5b.6a: render a struct record-field list `(field name <typ>) ...`.
+fun
+pp_pcfields(out: FILR, fs: list(pcfield)): void =
+(
+case+ fs of
+| list_nil() => ()
+| list_cons(PCField(loc, nm, t), rest) =>
+  ( ps(out, " (field "); ps(out, nm); print_span(out, loc); ps(out, " ");
+    pp_typ(out, t); ps(out, ")"); pp_pcfields(out, rest) )
+)
+//
 fun
 pp_decl(out: FILR, d: pcdecl, ind: sint): void =
 (
 nl(out); print_indent(out, ind);
 case+ d of
-| PCCdata(loc, nm, tvs, dcs) =>
+| PCCdata(loc, nm, tvs, dcs, mode) =>
   ( ps(out, "(data "); ps(out, nm); print_span(out, loc);
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_strlst(out, tvs); ps(out, ")")) );
+    ps(out, " mode="); pp_mode(out, mode);
     pp_dataconlst(out, dcs, ind + 1); ps(out, ")") )
+| PCCrecord(loc, nm, tvs, fields, mode) =>
+  ( ps(out, "(record "); ps(out, nm); print_span(out, loc);
+    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_strlst(out, tvs); ps(out, ")")) );
+    ps(out, " mode="); pp_mode(out, mode);
+    pp_pcfields(out, fields); ps(out, ")") )
 | PCCfun(loc, fs) =>
   ( ps(out, "(fungroup"); print_span(out, loc);
     pp_fundclst(out, fs, ind + 1); ps(out, ")") )
