@@ -1,6 +1,10 @@
-prfun id_pf(x: Int) -> Int:
+@proof
+def id_pf(x: Int) -> Int:
     x
 
-prval pv = 0
+@proof
+let pv = 0
 
-praxi ax(n: Int) -> Int
+@proof
+@extern
+def ax(n: Int) -> Int

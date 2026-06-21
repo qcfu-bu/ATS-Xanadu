@@ -80,6 +80,7 @@ VALID=(
   "dep_index_var"    # vec_id[A, n: SInt](v: Vec[A, n]) -> Vec[A, n]       (index-VAR quantifier)
   "dep_sint"         # len_index[A, n: SInt](v: Vec[A, n]) -> SInt          (bare SInt return)
   "dep_sint_index"   # zero_idx() -> SInt[0] ; same_idx[n: SInt](x: SInt[n]) -> SInt[n] (the_s2exp_sint1)
+  "dep_arith"        # grow[A, n: SInt](v: Vec[A,n]) -> Vec[A, n+1] (ARITH index) + a {n | n>=0} GUARD
 )
 for base in "${VALID[@]}"; do
   py="$TESTDIR/${base}.pdats"

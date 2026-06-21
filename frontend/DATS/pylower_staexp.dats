@@ -111,6 +111,27 @@ fun
 pylower_index_lit(loc: loctn, raw: strn): s2exp =
   s2exp_int(gint_parse_sint(raw))
 //
+// DEP (static arithmetic): map a surface index-binop tag (pybop) to its PRELUDE static const NAME
+// — the `*_i0_i0` operator on the int index sort (prelude/basics0.sats:266-409, the SAME ops the
+// DEP-spike build_binop resolved). Arithmetic yields sort i0; comparisons yield sort bool. An op
+// with no static int form (`/`, `%`, `//`, `**`, `and`/`or` — which can't reach an index position)
+// maps to "" (unbound -> trans23 reports it; never a crash). Parallel to the M3 dynamic op_remap.
+fun
+static_op_name(bop: pybop): strn =
+(
+case+ bop of
+| PyBadd() => "add_i0_i0"
+| PyBsub() => "sub_i0_i0"
+| PyBmul() => "mul_i0_i0"
+| PyBlt()  => "lt_i0_i0"
+| PyBle()  => "lte_i0_i0"
+| PyBgt()  => "gt_i0_i0"
+| PyBge()  => "gte_i0_i0"
+| PyBeq()  => "eq_i0_i0"
+| PyBne()  => "neq_i0_i0"
+| _ => ""    // /, %, //, **, and, or, not — not valid in an index position (unbound, no crash)
+)
+//
 (* ****** ****** *)
 //
 // DEP: resolve a RAW (prelude) static name to its head s2cst s2exp, with NO surface aliasing —
@@ -169,6 +190,27 @@ pytcon_head(env: !tr12env, name: strn): s2exp =
   else if strn_eq(name, "SBool") then resolve_typ_name(env, "the_s2exp_bool1")
   else resolve_typ(env, loctn_dummy(), name)
 )
+//
+// DEP (static arithmetic): lower an INDEX BINOP `a <op> b` to the L2 static application
+// `s2exp_apps(s2exp_cst(<prelude *_i0_i0 const>), [a', b'])` (DEP-spike P1/P3/P4 recipe). The
+// const is resolved BY NAME from the env (the SAME tr12env fall-through that resolves any prelude
+// name) via resolve_typ_name (head s2cst). The operands lower recursively via pylower_typ (so a
+// nested `n+1` / `i*2` / a var / a literal all flow). On an UNBOUND op (resolve -> none0, e.g. the
+// "" name for a non-index op), we degrade to s2exp_none0 (trans23 reports it; never a crash) — but
+// for the supported arithmetic/comparison set the const resolves and the application typechecks.
+// Defined BEFORE pylower_typ; the forward call to the #implfun pylower_typ resolves (same pattern
+// pytcon_head uses to forward-call pylower_typlst).
+fun
+pylower_index_binop(env: !tr12env, loc: loctn, bop: pybop, a: pytyp, b: pytyp): s2exp = let
+  val opname = static_op_name(bop)
+  val s2c_head = resolve_typ_name(env, opname)
+  val s2e_a = pylower_typ(env, a)
+  val s2e_b = pylower_typ(env, b)
+in
+  case+ s2c_head.node() of
+  | S2Enone0() => s2exp_none0()   // unbound op (or "" name): benign placeholder
+  | _ => s2exp_apps(loc, s2c_head, list_cons(s2e_a, list_sing(s2e_b)))
+end
 //
 (* ****** ****** *)
 //
@@ -240,6 +282,11 @@ case+ t of
 // index variable `n` arrives as PyTvar, not PyTidx — the lexer emits PT_LIDENT for a lowercase
 // name; PyTvar's resolve_typ S2ITMvar arm yields s2exp_var. So PyTidx is ONLY the literal case.)
 | PyTidx(loc, raw)  => pylower_index_lit(loc, raw)
+// DEP (static arithmetic): an INDEX BINOP (`n+1`, `i<n`, `n*2`, `n>=0`, `n==m`) -> a static const
+// application `s2exp_apps(<*_i0_i0 const>, [a, b])` (pylower_index_binop). Reachable inside a
+// type-arg bracket (`Vec[A, n+1]`) or a guard (`{n | n>=0}`). Arithmetic yields sort i0;
+// comparisons yield sort bool — exactly what an index arg / a guard prop expects.
+| PyTbin(loc, bop, a, b) => pylower_index_binop(env, loc, bop, a, b)
 // M7 (B): a surface function type `(A, B) -> R` lowers to the L2 con-function type S2Efun1.
 // We mirror the PROVEN con-type maker `s2exp_fun1_nil0(npf, argSexps, resSexp)` (M5b.3 con
 // types, pylower_decl00.dats:73; staexp2.dats:1037 shows nil0 = fun1_full(F2CLfun, ...)) — the

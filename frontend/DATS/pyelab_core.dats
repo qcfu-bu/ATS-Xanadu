@@ -401,8 +401,9 @@ case+ ss of
 | list_cons(s, rest) =>
   (
   case+ s of
-  | PyDlet(_, _, p, _, rhs) =>
-      // RHS sees the OLD bnd; later stmts see the binder.
+  | PyDlet(_, _, _, p, _, rhs) =>
+      // RHS sees the OLD bnd; later stmts see the binder. (DECORATOR REWORK: the new decorator
+      // field — index 2 — is irrelevant to free-variable analysis; ignored.)
       fc_fv_stmts(fc_pat_names(bnd, p), fc_fv_exp(bnd, fv, rhs), rest)
   | PySvar(_, nm, _, rhs) =>
       // a `var` cell: the init RHS sees the OLD bnd; the cell NAME is bound for later stmts
@@ -437,7 +438,7 @@ case+ ss of
       // an inner `def` binds its NAME for later stmts; its body's FV are collected with its
       // own params bound (its params are NOT free in the enclosing scope).
       (case+ d of
-       | PyCfun(_, nm, _, params, _, fbody) =>
+       | PyCfun(_, _, nm, _, params, _, fbody) =>
            let val fv1 = fc_fv_stmts(fc_param_names(bnd, params), fv, fbody) in
              fc_fv_stmts(nameset_add(bnd, nm), fv1, rest) end
        | _ => fc_fv_stmts(bnd, fv, rest))
@@ -663,10 +664,12 @@ case+ ss of
 | list_cons(s, rest) =>
   (
   case+ s of
-  | PyDlet(loc, ismut, p, ann, rhs) =>
+  | PyDlet(loc, _decos, ismut, p, ann, rhs) =>
       // M5a: an annotated `let p : T = e` carries its annotation onto the binding (PCElet).
       // A `let mut x : T` ALSO records the annotation in `mts` so a synthesized loop that
-      // accumulates `x` is typed (the M16 untyped-loop-var fix).
+      // accumulates `x` is typed (the M16 untyped-loop-var fix). (DECORATOR REWORK: the new
+      // decorator field — a `@proof let` inside a body — is irrelevant to control-flow
+      // elaboration here; a proof let in a function body lowers as an ordinary let-binding.)
       let
         val newmuts = (if ismut then el_add_pat_names(muts, p) else muts)
         val newmts = (if ismut then el_add_mut_types(mts, p, ann) else mts)
@@ -747,9 +750,10 @@ and
 el_local_decl(encl: nameset, loc: loctn, d: pydecl, kont: pcexp): pcexp =
 (
 case+ d of
-| PyCfun(floc, nm, _, params, ret, body) =>
+| PyCfun(floc, _decos, nm, _, params, ret, body) =>
     // an inner `def` binds its NAME (a function-local for later stmts: el_decl_name handles that);
-    // its OWN params seed the inner body's enclosing-locals.
+    // its OWN params seed the inner body's enclosing-locals. (DECORATOR REWORK: a decorated inner
+    // def — rare — is lowered as a plain inner def here; the proof/extern variants are top-level.)
     PCEletfun(loc,
       list_sing(PCFundcl(floc, nm, el_param_names(params), el_param_types(params),
                          ret, el_func_body(fc_param_names(encl, params), floc, body), false)),
@@ -762,7 +766,7 @@ and
 el_decl_name(encl: nameset, d: pydecl): nameset =
 (
 case+ d of
-| PyCfun(_, nm, _, _, _, _) => nameset_add(encl, nm)
+| PyCfun(_, _, nm, _, _, _, _) => nameset_add(encl, nm)
 | _ => encl
 )
 //

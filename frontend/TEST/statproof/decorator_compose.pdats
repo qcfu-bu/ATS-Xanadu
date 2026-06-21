@@ -1,0 +1,23 @@
+# DECORATOR REWORK — decorator composition on a plain `def`/`let`.
+#   @proof def        == prfun  (proof FUNCTION, block-bodied)
+#   @proof let        == prval  (proof VALUE)
+#   @proof @extern def== praxi  (proof AXIOM: proof + bodyless, decorators compose)
+#   @extern def       == extern def (FFI bodyless SIGNATURE)
+# Each must LOWER + TYPECHECK to nerror=0 — proving the surface rework reuses the proven lowering.
+
+@proof
+def pf_id(x: Int) -> Int:
+    x
+
+@proof
+let pf_zero = 0
+
+@proof
+@extern
+def pf_axiom(n: Int) -> Int
+
+@extern
+def ext_strlen(s: String) -> Int
+
+def use_compose(s: String) -> Int:
+    ext_strlen(s)

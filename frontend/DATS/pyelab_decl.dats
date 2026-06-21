@@ -82,7 +82,11 @@ elab_typarams(tps: list(pytyparam)): list(pcparam) =
 (
 case+ tps of
 | list_nil() => list_nil()
-| list_cons(PyTyParam(ploc, nm, sortopt, decos), rest) =>
+| list_cons(PyTyParam(ploc, nm, sortopt, decos, _gopt), rest) =>
+    // DEP (guards): the `_gopt` quantifier GUARD is intentionally DROPPED here. A def quantifier
+    // lowers via t2qag (no prop slot) and guards are dropped at stpize regardless (matching stock
+    // ATS); carrying it to PyCore would be vestigial. It is PARSE-only (kept on the surface AST for
+    // diagnostics/printing). See pl_fungroup_fnk: the def's guard is parse-only-dropped.
     let
       val sname = (case+ sortopt of PySortSome(_, s) => s | PySortNone() => "")
       val unboxed = decos_has_unboxed(decos)
@@ -143,6 +147,40 @@ mode_of_decos(decos: list(pydecorator)): pcmode = mode_of_decos_go(decos, PCMbox
 //
 (* ****** ****** *)
 //
+// ---- DECORATOR REWORK: the def/let VARIANT decorators -----------------------------------------
+//
+// The ATS-specific def/let variants that used to be dedicated keywords are now @decorators on a
+// plain `def`/`let`. The elaborator inspects the decorator names and routes the decorated node to
+// the SAME PyCore variant the keyword version produced (the L2 lowering is unchanged):
+//
+//   @proof def        -> PCCprfun     (was prfun)
+//   @proof let        -> PCCprval     (was prval)
+//   @proof @extern def-> PCCpraxi     (was praxi — proof + bodyless)
+//   @extern def       -> PCCextern    (was extern def — bodyless)
+//   @impl def         -> PCCimplement (was implement)
+//   @overload def     -> PCCfun + PCCoverload(NAME, NAME)  (was overload — see note below)
+//   (no variant deco) -> PCCfun / PCCval (a plain def/let)
+//
+// @overload SEMANTICS (architect decision): `@overload def NAME(...): body` means "define NAME's
+// implementation AND register NAME as an overload-resolvable symbol that resolves to itself". The
+// def's OWN name is the overloaded name. We emit BOTH (in order): the PCCfun (the body, which
+// registers NAME's d2cst FIRST) THEN a PCCoverload(NAME, NAME) (which resolves the just-registered
+// NAME as the impl and seeds the overload bucket under the same NAME). This reuses the proven
+// build_overload lowering with impl==name. (The keyword form took a SEPARATE target `overload NAME
+// with IMPL`; the decorator form's cleanest reading is self-overload — the def IS the impl.)
+//
+// `decos_has(decos, nm)`: is `@nm` among the decorators? (LIDENT-named, e.g. "proof"/"extern".)
+fun
+decos_has(decos: list(pydecorator), name: strn): bool =
+(
+case+ decos of
+| list_nil() => false
+| list_cons(PyDecor(_, nm), rest) =>
+    if strn_eq(nm, name) then true else decos_has(rest, name)
+)
+//
+(* ****** ****** *)
+//
 // ---- M7-import (task #34): resolve a dotted module path -> an XATSHOME-relative `.sats` path.
 //
 // THE v1 RESOLUTION RULE (SIMPLE + documented): a dotted module path `a.b.c` resolves to the
@@ -180,25 +218,73 @@ fun
 elab_decl(d: pydecl): list(pcdecl) =
 (
 case+ d of
-| PyCfun(loc, nm, tps, params, ret, body) =>
+| PyCfun(loc, decos, nm, tps, params, ret, body) =>
+    // DECORATOR REWORK: a `def` with its decorator list. Route to the SAME PyCore variant the
+    // keyword version produced, based on the decorators (the L2 lowering is reused unchanged):
+    //   @proof @extern  -> PCCpraxi    (proof + bodyless = the old `praxi`)
+    //   @extern         -> PCCextern   (bodyless FFI signature = the old `extern def`)
+    //   @proof          -> PCCprfun    (proof function = the old `prfun`)
+    //   @impl           -> PCCimplement(the old `implement`)
+    //   @overload       -> PCCfun + PCCoverload(NAME, NAME) (define + self-overload)
+    //   (none)          -> PCCfun      (a plain def)
     let
-      // M5a: thread the param types + the return annotation into the PCFundcl (typed def).
-      // M7-closures: seed `encl` with the def's OWN params — they are the first enclosing
-      // FUNCTION-LOCALS a @func lambda in this body may NOT capture (make_bad(n)'s `n`).
-      val fundcl = PCFundcl(loc, nm, param_names_d(params), param_types_d(params),
-                            ret, elab_func_body(fc_param_names_pub(list_nil(), params), loc, body), false)
-      // DEP (Stages 1–2): the def's §5.7 type/INDEX params (`def f[A, n: SInt](...)`) are now
-      // THREADED onto the PCCfun group (was dropped here). elab_typarams keeps each param's sort
-      // name + @unboxed flag, so M3 builds an int-sorted s2var for a `[n: SInt]` (via psort2_of's
-      // SInt->the_sort2_int0) and quantifies the def over it (the t2qag mechanism). A non-generic
-      // def has `tps = []` => `[]` => byte-identical lowering to before this slice.
+      val is_proof    = decos_has(decos, "proof")
+      val is_extern   = decos_has(decos, "extern")
+      val is_impl     = decos_has(decos, "impl")
+      val is_overload = decos_has(decos, "overload")
     in
-      list_sing(PCCfun(loc, elab_typarams(tps), list_sing(fundcl)))
+      // NOTE: this dialect has no `andalso`; boolean composition is via nested `if`. An @extern def
+      // is BODYLESS either way; within the @extern branch, @proof selects praxi vs a plain extern.
+      if is_extern then
+        ( if is_proof then
+            // @proof @extern def NAME(...) -> T  ==  praxi (proof AXIOM, bodyless). Body is ignored.
+            list_sing(PCCpraxi(loc, nm, param_names_d(params), param_types_d(params), ret))
+          else
+            // @extern def NAME(...) -> T  ==  extern def (FFI bodyless SIGNATURE). No body.
+            list_sing(PCCextern(loc, nm, param_names_d(params), param_types_d(params), ret)) )
+      else if is_proof then
+        // @proof def NAME(...) -> T: body  ==  prfun (proof FUNCTION; body elaborated like a def).
+        let
+          val fundcl = PCFundcl(loc, nm, param_names_d(params), param_types_d(params),
+                                ret, elab_func_body(fc_param_names_pub(list_nil(), params), loc, body), false)
+        in
+          list_sing(PCCprfun(loc, elab_typarams(tps), fundcl))
+        end
+      else if is_impl then
+        // @impl def NAME(...) -> T: body  ==  implement (body for a pre-declared fun). The suite is
+        // folded to a function-epilogue expr by elab_func_body, EXACTLY like a `def` body.
+        list_sing(PCCimplement(loc, nm, param_names_d(params), param_types_d(params), ret,
+                               elab_func_body(fc_param_names_pub(list_nil(), params), loc, body)))
+      else
+        // a plain `def` (no variant decorator) OR an @overload def. Either way the def itself is a
+        // PCCfun group. M5a: thread the param types + return annotation into the PCFundcl (typed
+        // def). M7-closures: seed `encl` with the def's OWN params (the first enclosing locals a
+        // @func lambda may NOT capture). DEP: thread the §5.7 type/INDEX params onto the PCCfun.
+        let
+          val fundcl = PCFundcl(loc, nm, param_names_d(params), param_types_d(params),
+                                ret, elab_func_body(fc_param_names_pub(list_nil(), params), loc, body), false)
+          val pccfun = PCCfun(loc, elab_typarams(tps), list_sing(fundcl))
+        in
+          // @overload def NAME  ==>  the def PLUS a self-overload registration (NAME -> NAME). The
+          // PCCfun MUST come first so build_overload finds NAME's d2cst already registered as the impl.
+          if is_overload
+            then list_cons(pccfun, list_sing(PCCoverload(loc, nm, nm)))
+            else list_sing(pccfun)
+        end
     end
 | PyCenum(loc, decos, nm, tps, dcs) =>
     // §5.7 enum → a PyCore datatype. M5b.6a: the decorator selects the memory/representation
     // MODE (@linear->linear, @unboxed/none/@boxed->boxed datatype). tvs are the bare names.
     list_sing(PCCdata(loc, nm, elab_typarams(tps), elab_datacons(dcs), mode_of_decos(decos)))
+| PyCdataprop(loc, nm, tps, dcs) =>
+    // DEP (dataprop): a PROOF datatype -> the SAME PCCdata pipeline as enum, but carrying the
+    // PROP mode (PCMprop) so M3's dt_sort_of picks the_sort2_prop (DEP-spike P4). The con arg
+    // types may carry index args (`LE[m, n]`) — handled by the index machinery. No decorators.
+    list_sing(PCCdata(loc, nm, elab_typarams(tps), elab_datacons(dcs), PCMprop()))
+| PyCdataview(loc, nm, tps, dcs) =>
+    // DEP (dataview): a VIEW datatype -> PCCdata carrying the VIEW mode (PCMview) so dt_sort_of
+    // picks the_sort2_view (DEP-spike P9). Analogous to dataprop; the sort is the only delta.
+    list_sing(PCCdata(loc, nm, elab_typarams(tps), elab_datacons(dcs), PCMview()))
 | PyCstruct(loc, decos, nm, tps, fields) =>
     // §5.7.1 — a `struct` IS a record-type alias. M5b.6a: emit a PCCrecord carrying the RAW
     // fields + the decorator-selected MODE (@linear->linear record, @unboxed->flat record,
@@ -218,29 +304,11 @@ case+ d of
     // ATS-parity: `assume Name = T` -> a PCCassume carrying the abstract type's NAME + the raw
     // representation surface type. M3 selects the registered abstract s2cst by name + lowers T.
     list_sing(PCCassume(loc, nm, repTyp))
-| PyCextern(loc, nm, params, ret) =>
-    // ATS-parity: `extern def foo(params) -> Ret` -> a PCCextern carrying the fun NAME, its param
-    // names + OPTIONAL types (parallel lists, M5a-style), and the OPTIONAL return type. No body.
-    // M3 builds the function type, makes a (registered) d2cst, and emits D2Cextern(D2Cdynconst).
-    list_sing(PCCextern(loc, nm, param_names_d(params), param_types_d(params), ret))
 | PyCexcept(loc, nm, ts) =>
     // EXN: `exception E(T...)` -> a PCCexcept carrying the con name + raw surface arg types.
     // M3 lowers it to a D2Cexcptcon: a d2con of the built-in `exn` type, registered like a
     // datatype con so `raise E` / `except E` resolve. No imperative content to elaborate.
     list_sing(PCCexcept(loc, nm, ts))
-| PyCimplement(loc, nm, params, ret, body) =>
-    // ATS-parity: `implement foo(params) -> Ret: <body>` -> a PCCimplement carrying the fun NAME,
-    // its param names + OPTIONAL types (parallel lists, M5a-style), the OPTIONAL return type, and
-    // the ELABORATED body (a pcexp — the suite folded to a function-epilogue expr EXACTLY like a
-    // `def` body, via elab_func_body). M3 resolves the pre-declared d2cst by NAME and emits a
-    // D2Cimplmnt0 binding the params + the body (SPIKE-PROVEN, pyfront_surf1_spike.dats case 3).
-    list_sing(PCCimplement(loc, nm, param_names_d(params), param_types_d(params), ret,
-                           elab_func_body(fc_param_names_pub(list_nil(), params), loc, body)))
-| PyCoverload(loc, nm, impl) =>
-    // ATS-parity (`#symload`): `overload NAME with IMPL` -> a PCCoverload carrying both bare names.
-    // No body / no imperative content. M3 resolves IMPL's d2itm and REGISTERS NAME -> a D2ITMsym
-    // bucket so a later use of NAME resolves to IMPL (SPIKE-PROVEN, case 4).
-    list_sing(PCCoverload(loc, nm, impl))
 | PyCsortdef(loc, nm, srt) =>
     // ATS-parity: `sortdef Name = SORT` -> a PCCsortdef carrying the alias name + the RHS sort
     // reference string. No imperative content. M3 maps the string -> a sort2 and emits D2Csortdef.
@@ -253,23 +321,6 @@ case+ d of
     // ATS-parity: `stadef Name = <expr>` -> a PCCstadef carrying the name + the ELABORATED static
     // body (v1: an int literal). M3 lowers the body to an s2exp (s2exp_int) + emits a D2Csexpdef.
     list_sing(PCCstadef(loc, nm, elab_exp(list_nil(), e)))
-| PyCprfun(loc, nm, tps, params, ret, body) =>
-    // ATS-parity: `prfun NAME(params) -> Ret: <body>` -> a PCCprfun. Structurally a def (the body
-    // is elaborated by elab_func_body EXACTLY like a `def` body); M3 swaps the funkind to FNKprfn1.
-    let
-      val fundcl = PCFundcl(loc, nm, param_names_d(params), param_types_d(params),
-                            ret, elab_func_body(fc_param_names_pub(list_nil(), params), loc, body), false)
-    in
-      list_sing(PCCprfun(loc, elab_typarams(tps), fundcl))
-    end
-| PyCprval(loc, _mut, p, ann, rhs) =>
-    // ATS-parity: `prval pat [: T] = e` -> a PCCprval carrying the pattern + OPTIONAL type annot +
-    // the elaborated RHS. Like a module-level `let`/PCCval; M3 lowers with the VLKprval valkind.
-    list_sing(PCCprval(loc, elab_pat(p), ann, elab_exp(list_nil(), rhs)))
-| PyCpraxi(loc, nm, _tps, params, ret) =>
-    // ATS-parity: `praxi NAME(params) -> Ret` -> a PCCpraxi. Bodyless, like an `extern def` with a
-    // proof funkind. M3 builds the function type + a registered d2cst + emits D2Cstatic(D2Cdynconst).
-    list_sing(PCCpraxi(loc, nm, param_names_d(params), param_types_d(params), ret))
 | PyCimport(loc, imp) =>
     // M7-import (task #34): a USER `import M` / `from M import x` -> a PCCimport carrying the
     // RESOLVED XATSHOME-relative `.sats` path (v1 rule: dotted `a.b` -> `/a/b.sats`). M3
@@ -297,10 +348,14 @@ and
 elab_module_stmt(s: pystmt): list(pcdecl) =
 (
 case+ s of
-| PyDlet(loc, _ismut, p, _ann, rhs) =>
-    // M7-closures: at MODULE level `encl = nil` — module-level names are NOT capturable locals,
-    // so a @func lambda may freely reference them.
-    list_sing(PCCval(loc, elab_pat(p), elab_exp(list_nil(), rhs)))
+| PyDlet(loc, decos, _ismut, p, ann, rhs) =>
+    // DECORATOR REWORK: a module-level `let`. `@proof let p = e` == the old `prval` -> PCCprval
+    // (M3 lowers it with the VLKprval valkind); a plain `let` -> PCCval. M7-closures: at MODULE
+    // level `encl = nil` — module-level names are NOT capturable locals, so a @func lambda may
+    // freely reference them.
+    if decos_has(decos, "proof")
+      then list_sing(PCCprval(loc, elab_pat(p), ann, elab_exp(list_nil(), rhs)))
+      else list_sing(PCCval(loc, elab_pat(p), elab_exp(list_nil(), rhs)))
 | PySexpr(loc, e) =>
     list_sing(PCCval(loc, PCPwild(loc), elab_exp(list_nil(), e)))
 | _ =>

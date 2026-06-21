@@ -1,0 +1,9 @@
+enum Vec[A, n: SInt]:
+    case VNil
+    case VCons(A, Vec[A, n])
+
+def grow[A, n: SInt](v: Vec[A, n]) -> Vec[A, n + 1]:
+    VNil
+
+def safe[A, n: SInt | n >= 0](v: Vec[A, n]) -> A:
+    safe(v)

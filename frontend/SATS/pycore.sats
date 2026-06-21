@@ -402,11 +402,19 @@ pcparam =
 //                             primitive — M5b.6a pins it to BOXED with a code comment).
 // M5b.6a: only the DECL-level decorators on `enum`/`struct` select a mode here; the type-PARAM
 // sort annotations (`[A: Linear @unboxed]`) are a separate later slice (M5b.6b).
+//
+// DEP (dataprop/dataview): two PROOF/VIEW datatype modes carry the prop/view sort through the SAME
+// PCCdata pipeline (DEP-spike P4/P9). They are emitted ONLY for a `dataprop`/`dataview` decl (a
+// keyword fixes the kind — no decorator selects them), and consumed ONLY by dt_sort_of (the
+// datatype sort): PCMprop -> the_sort2_prop, PCMview -> the_sort2_view. The record/abstype mode
+// helpers never see them (those decls can't be prop/view); a defensive fallback keeps them total.
 and
 pcmode =
 | PCMbox  of ()
 | PCMlin  of ()
 | PCMflat of ()
+| PCMprop of ()
+| PCMview of ()
 //
 // a data constructor in a PyCore datatype: UIDENT + arg types (surface `pytyp`).
 and

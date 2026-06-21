@@ -57,6 +57,19 @@ expect_newline_d(st: pstate): pstate =
 //
 (* ****** ****** *)
 //
+// DEP (guards): attach a parsed quantifier GUARD `g` (a bool-index-expr pytyp) to a typaram. The
+// guard rides on the AST node (PyGuardSome); it is PARSE-ONLY for a def (the t2qag quantifier has
+// no prop slot) but threads cleanly so the lowering can drop it without crashing. Local helper.
+fun
+typaram_set_guard(tp: pytyparam, gloc: loctn, g: pytyp): pytyparam =
+( case+ tp of
+  | PyTyParam(loc, nm, sopt, decos, _) =>
+      PyTyParam(loc, nm, sopt, decos, PyGuardSome(gloc, g)) )
+//
+// DEP: parse one index-expr GUARD (delegates to the staexp index-binop grammar `parse_index_type`).
+fun
+p_index_type(st: pstate): @(pytyp, pstate) = parse_index_type(st)
+//
 // ---- typarams: '[' typaram { ',' typaram } ']' → a list(pytyparam). Empty if absent. ----
 //   typaram ::= UIDENT [ ':' SORT(UIDENT) ] { '@' LIDENT }   (§5.7)
 // The optional sort is `: UIDENT`; inline decorators are `@ LIDENT` with NO newline between
@@ -82,6 +95,10 @@ p_tyvar_seq(st: pstate): @(list(pytyparam), pstate) =
       @(list_nil(), st1) end )
 //
 // parse one typaram then the trailing ',' / ']' (shared by the UIDENT + LIDENT entry arms).
+// DEP (guards): a `|` after a binder opens a quantifier GUARD `{... | <bool-index-expr>}` — we
+// parse the guard as an index-expr type (p_index_type: the binop grammar, so `n >= 0` / `i < n`),
+// attach it to THIS (the last) typaram via PyGuardSome, then expect ']'. The guard rides on the
+// AST but is PARSE-ONLY for a def (the t2qag quantifier has no prop slot); it lowers w/o crashing.
 and
 p_tyvar_seq_one(st: pstate): @(list(pytyparam), pstate) =
   let val @(tp, st1) = p_typaram(st) in
@@ -90,8 +107,20 @@ p_tyvar_seq_one(st: pstate): @(list(pytyparam), pstate) =
       let val @(rest, st2) = p_tyvar_seq(ps_advance(st1)) in
         @(list_cons(tp, rest), st2) end
     | PT_RBRACK() => @(list_cons(tp, list_nil()), ps_advance(st1))
+    | PT_BAR() =>
+      let
+        val locG = ps_peek_loctn(st1)
+        val @(g, st2) = p_index_type(ps_advance(st1))   // the bool-index guard expression
+        val tpG = typaram_set_guard(tp, locG, g)
+      in
+        case+ ps_peek(st2) of
+        | PT_RBRACK() => @(list_cons(tpG, list_nil()), ps_advance(st2))
+        | _ =>
+          let val st3 = ps_diag(st2, ps_peek_loctn(st2), "expected ']' after a quantifier guard") in
+            @(list_cons(tpG, list_nil()), st3) end
+      end
     | _ =>
-      let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected ',' or ']' in type params") in
+      let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected ',', '|' or ']' in type params") in
         @(list_cons(tp, list_nil()), st2) end
   end
 //
@@ -120,7 +149,7 @@ p_typaram(st: pstate): @(pytyparam, pstate) = let
   // zero or more inline decorators: '@' LIDENT
   val @(decos, st3) = p_inline_decorators(st2)
 in
-  @(PyTyParam(loc, nm, sopt, decos), st3)
+  @(PyTyParam(loc, nm, sopt, decos, PyGuardNone()), st3)
 end
 //
 // inline decorators on a type param: { '@' LIDENT } with no NEWLINE between (open bracket).
@@ -176,10 +205,18 @@ p_decorators(st: pstate): @(list(pydecorator), pstate) =
 //
 (* ****** ****** *)
 //
-// ---- def: 'def' LIDENT [typarams] '(' [params] ')' ['->' type] ':' suite ----
+// ---- def: [@decorators] 'def' LIDENT [typarams] '(' [params] ')' ['->' type] [':' suite] ----
 //
+// The leading `decos` are the PREFIX decorators parsed by the caller (parse_decl) and threaded
+// in (default `[]` = a plain def). DECORATOR REWORK: an `@extern def` / `@proof @extern def`
+// (praxi-shaped) is BODYLESS — there is NO `:` body suite, the decl ends after the return type.
+// p_def detects this from `is_bodyless` (the elaborator decides bodyless-ness by decorators, but
+// the PARSER must also know whether to consume a `:` suite). To keep the surface uniform and
+// recovery-robust, p_def parses a body iff a `:` actually follows; otherwise it leaves an empty
+// suite. So `@extern def f(...) -> T` (no colon) parses with an empty body, and the elaborator's
+// decorator dispatch (which never reads the body of an @extern/praxi def) is correct.
 fun
-p_def(st: pstate): @(pydecl, pstate) = let
+p_def(st: pstate, decos: list(pydecorator)): @(pydecl, pstate) = let
   val loc = ps_peek_loctn(st)
   val st1 = ps_advance(st)               // past 'def'
   // name (LIDENT)
@@ -204,14 +241,14 @@ p_def(st: pstate): @(pydecl, pstate) = let
       | PT_ARROW() =>
         let val @(t, st7) = parse_type(ps_advance(st6)) in @(PyTypSome(t), st7) end
       | _ => @(PyTypNone(), st6) )
-  // ':' then the body suite
-  val st8 =
+  // OPTIONAL ':' body suite — a plain/@proof/@impl/@overload def HAS one; an @extern (or
+  // @proof @extern = praxi) def is BODYLESS (no ':'). Parse a body iff a ':' follows; else empty.
+  val @(body, st9) =
     ( case+ ps_peek(st7) of
-      | PT_COLON() => ps_advance(st7)
-      | _ => ps_diag(st7, ps_peek_loctn(st7), "expected ':' before the def body") )
-  val @(body, st9) = parse_suite(st8)
+      | PT_COLON() => parse_suite(ps_advance(st7))
+      | _ => @(list_nil(), st7) )
 in
-  @(PyCfun(loc, nm, tvs, params, ropt, body), st9)
+  @(PyCfun(loc, decos, nm, tvs, params, ropt, body), st9)
 end
 //
 // def params: param { ',' param } until ')'. param ::= LIDENT [ ':' type ].
@@ -311,106 +348,15 @@ in
   @(PyCassume(loc, nm, t), st4)
 end
 //
-// ---- extern (FFI) decl (ATS-parity): 'extern' 'def' LIDENT '(' params ')' ['-> type] NEWLINE ----
-//      a foreign function SIGNATURE: NO `:` body suite (it ends after the return type). Calls to
-//      the name typecheck against the declared signature. Mirrors p_def's header parsing exactly,
-//      stopping BEFORE the `:`/body. Single-line (NEWLINE via p_top_item).
-//
-fun
-p_externdecl(st: pstate): @(pydecl, pstate) = let
-  val loc = ps_peek_loctn(st)
-  val st1 = ps_advance(st)               // past 'extern'
-  val st2 =
-    ( case+ ps_peek(st1) of
-      | PT_KW_DEF() => ps_advance(st1)
-      | _ => ps_diag(st1, ps_peek_loctn(st1), "expected 'def' after 'extern'") )
-  val @(nm, st3) =
-    ( case+ ps_peek(st2) of
-      | PT_LIDENT(s) => @(s, ps_advance(st2))
-      | _ => @("?", ps_diag(st2, ps_peek_loctn(st2), "expected a function name")) )
-  val st4 =
-    ( case+ ps_peek(st3) of
-      | PT_LPAREN() => ps_advance(st3)
-      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected '(' after function name") )
-  val @(params, st5) = p_def_params(st4)
-  val st6 =
-    ( case+ ps_peek(st5) of
-      | PT_RPAREN() => ps_advance(st5)
-      | _ => ps_diag(st5, ps_peek_loctn(st5), "expected ')'") )
-  // optional return type — and NO body suite (this is a bodyless signature).
-  val @(ropt, st7) =
-    ( case+ ps_peek(st6) of
-      | PT_ARROW() =>
-        let val @(t, st7) = parse_type(ps_advance(st6)) in @(PyTypSome(t), st7) end
-      | _ => @(PyTypNone(), st6) )
-in
-  @(PyCextern(loc, nm, params, ropt), st7)
-end
-//
-// ---- implement decl (ATS-parity): 'implement' LIDENT '(' params ')' ['-> type] ':' suite ----
-//      provide a BODY for a pre-declared (extern/template) function. Header parses EXACTLY like a
-//      `def` (minus typarams — monomorphic in v1), then a `:` body suite. Block-bodied: consumes
-//      its own suite layout (NOT a trailing NEWLINE), like a `def`.
-//
-fun
-p_implementdecl(st: pstate): @(pydecl, pstate) = let
-  val loc = ps_peek_loctn(st)
-  val st1 = ps_advance(st)               // past 'implement'
-  val @(nm, st2) =
-    ( case+ ps_peek(st1) of
-      | PT_LIDENT(s) => @(s, ps_advance(st1))
-      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected an implemented function name")) )
-  val st3 =
-    ( case+ ps_peek(st2) of
-      | PT_LPAREN() => ps_advance(st2)
-      | _ => ps_diag(st2, ps_peek_loctn(st2), "expected '(' after the implemented name") )
-  val @(params, st4) = p_def_params(st3)
-  val st5 =
-    ( case+ ps_peek(st4) of
-      | PT_RPAREN() => ps_advance(st4)
-      | _ => ps_diag(st4, ps_peek_loctn(st4), "expected ')'") )
-  val @(ropt, st6) =
-    ( case+ ps_peek(st5) of
-      | PT_ARROW() =>
-        let val @(t, st6) = parse_type(ps_advance(st5)) in @(PyTypSome(t), st6) end
-      | _ => @(PyTypNone(), st5) )
-  val st7 =
-    ( case+ ps_peek(st6) of
-      | PT_COLON() => ps_advance(st6)
-      | _ => ps_diag(st6, ps_peek_loctn(st6), "expected ':' before the implement body") )
-  val @(body, st8) = parse_suite(st7)
-in
-  @(PyCimplement(loc, nm, params, ropt, body), st8)
-end
-//
-// ---- overload decl (ATS-parity, `#symload`): 'overload' NAME 'with' IMPL NEWLINE ----
-//      overload NAME onto IMPL (an already-declared def/extern). NAME and IMPL are bare identifiers
-//      (LIDENT — operator overloading is a later slice; the proven mechanism is identical). Single-
-//      line (NEWLINE via p_top_item).
-//
-fun
-p_overloaddecl(st: pstate): @(pydecl, pstate) = let
-  val loc = ps_peek_loctn(st)
-  val st1 = ps_advance(st)               // past 'overload'
-  val @(nm, st2) =
-    ( case+ ps_peek(st1) of
-      | PT_LIDENT(s) => @(s, ps_advance(st1))
-      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a name to overload")) )
-  val st3 =
-    ( case+ ps_peek(st2) of
-      | PT_KW_WITH() => ps_advance(st2)
-      | _ => ps_diag(st2, ps_peek_loctn(st2), "expected 'with' in overload declaration") )
-  val @(impl, st4) =
-    ( case+ ps_peek(st3) of
-      | PT_LIDENT(s) => @(s, ps_advance(st3))
-      | _ => @("?", ps_diag(st3, ps_peek_loctn(st3), "expected an implementation name after 'with'")) )
-in
-  @(PyCoverload(loc, nm, impl), st4)
-end
+// DECORATOR REWORK: the keyword parsers p_externdecl / p_implementdecl / p_overloaddecl were
+// REMOVED. `extern def` / `implement` / `overload` are now @decorators on a plain `def`
+// (`@extern def` / `@impl def` / `@overload def`), parsed by p_def with the prefix decorators
+// threaded in by parse_decl. The elaborator (pyelab_decl) routes the decorated def to the SAME
+// PyCore variant (PCCextern / PCCimplement / PCCoverload). See parse_decl's PT_KW_DEF arm.
 //
 (* ****** ****** *)
 //
-// ---- STAT/PROOF parity decls (ATS-parity sortdef/stacst/stadef/prfun/prval/praxi) ----
+// ---- STAT parity decls (ATS-parity sortdef/stacst/stadef) ----
 //
 // sortdef Name '=' SORT NEWLINE  — a SORT ALIAS. Name is an UIDENT (a sort name); the RHS
 //   is a SORT-reference UIDENT (`SInt`/`Type`/`Prop`/...). Single-line (NEWLINE via p_top_item).
@@ -480,92 +426,11 @@ in
   @(PyCstadef(loc, nm, e), st4)
 end
 //
-// prfun NAME [typarams] '(' params ')' ['-> type] ':' suite  — a proof FUNCTION. Header parses
-//   EXACTLY like a `def`, then a `:` body suite. Block-bodied (consumes its own suite layout).
-//
-fun
-p_prfundecl(st: pstate): @(pydecl, pstate) = let
-  val loc = ps_peek_loctn(st)
-  val st1 = ps_advance(st)               // past 'prfun'
-  val @(nm, st2) =
-    ( case+ ps_peek(st1) of
-      | PT_LIDENT(s) => @(s, ps_advance(st1))
-      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a proof-function name")) )
-  val @(tvs, st3) = p_typarams(st2)
-  val st4 =
-    ( case+ ps_peek(st3) of
-      | PT_LPAREN() => ps_advance(st3)
-      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected '(' after the proof-function name") )
-  val @(params, st5) = p_def_params(st4)
-  val st6 =
-    ( case+ ps_peek(st5) of
-      | PT_RPAREN() => ps_advance(st5)
-      | _ => ps_diag(st5, ps_peek_loctn(st5), "expected ')'") )
-  val @(ropt, st7) =
-    ( case+ ps_peek(st6) of
-      | PT_ARROW() =>
-        let val @(t, st7) = parse_type(ps_advance(st6)) in @(PyTypSome(t), st7) end
-      | _ => @(PyTypNone(), st6) )
-  val st8 =
-    ( case+ ps_peek(st7) of
-      | PT_COLON() => ps_advance(st7)
-      | _ => ps_diag(st7, ps_peek_loctn(st7), "expected ':' before the prfun body") )
-  val @(body, st9) = parse_suite(st8)
-in
-  @(PyCprfun(loc, nm, tvs, params, ropt, body), st9)
-end
-//
-// praxi NAME [typarams] '(' params ')' ['-> type] NEWLINE  — a proof AXIOM. Like prfun BODYLESS
-//   (mirrors `extern def` — stops after the return type). Single-line (NEWLINE via p_top_item).
-//
-fun
-p_praxidecl(st: pstate): @(pydecl, pstate) = let
-  val loc = ps_peek_loctn(st)
-  val st1 = ps_advance(st)               // past 'praxi'
-  val @(nm, st2) =
-    ( case+ ps_peek(st1) of
-      | PT_LIDENT(s) => @(s, ps_advance(st1))
-      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a proof-axiom name")) )
-  val @(tvs, st3) = p_typarams(st2)
-  val st4 =
-    ( case+ ps_peek(st3) of
-      | PT_LPAREN() => ps_advance(st3)
-      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected '(' after the proof-axiom name") )
-  val @(params, st5) = p_def_params(st4)
-  val st6 =
-    ( case+ ps_peek(st5) of
-      | PT_RPAREN() => ps_advance(st5)
-      | _ => ps_diag(st5, ps_peek_loctn(st5), "expected ')'") )
-  val @(ropt, st7) =
-    ( case+ ps_peek(st6) of
-      | PT_ARROW() =>
-        let val @(t, st7) = parse_type(ps_advance(st6)) in @(PyTypSome(t), st7) end
-      | _ => @(PyTypNone(), st6) )
-in
-  @(PyCpraxi(loc, nm, tvs, params, ropt), st7)
-end
-//
-// prval pattern [: type] = expr  — a proof VALUE. Mirrors `let` (minus the `mut` flag).
-//   Single-line (NEWLINE via p_top_item).
-//
-fun
-p_prvaldecl(st: pstate): @(pydecl, pstate) = let
-  val loc = ps_peek_loctn(st)
-  val st1 = ps_advance(st)               // past 'prval'
-  val @(p, st2) = parse_pattern(st1)
-  val @(topt, st3) =
-    ( case+ ps_peek(st2) of
-      | PT_COLON() =>
-        let val @(t, st3) = parse_type(ps_advance(st2)) in @(PyTypSome(t), st3) end
-      | _ => @(PyTypNone(), st2) )
-  val st4 =
-    ( case+ ps_peek(st3) of
-      | PT_EQ() => ps_advance(st3)
-      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected '=' in prval binding") )
-  val @(rhs, st5) = parse_expr(st4)
-in
-  @(PyCprval(loc, false, p, topt, rhs), st5)
-end
+// DECORATOR REWORK: the keyword parsers p_prfundecl / p_praxidecl / p_prvaldecl were REMOVED.
+// `prfun` / `praxi` / `prval` are now @decorators on a plain `def`/`let`: `@proof def` (prfun),
+// `@proof @extern def` (praxi — proof + bodyless), `@proof let` (prval). The elaborator routes
+// the decorated def/let to the SAME PyCore variant (PCCprfun / PCCpraxi / PCCprval). See
+// parse_decl's PT_KW_DEF / PT_KW_LET arms.
 //
 (* ****** ****** *)
 //
@@ -703,6 +568,50 @@ p_datacon_types(st: pstate): @(pytyplst, pstate) =
       | _ => @(list_cons(t, list_nil()), st1)
     end )
 //
+// ---- dataprop / dataview decl: '<kw>' UIDENT [typarams] ':' NEWLINE INDENT { casedecl } DEDENT
+//      EXACTLY the enum case-suite shape (reuses p_casedecls). The ONLY difference vs enum is the
+//      emitted node (PyCdataprop / PyCdataview) and that there are NO decorators (the keyword fixes
+//      the sort: prop / view). p_data_suite_after_kw factors the shared name+typarams+case-suite
+//      parse so the two keyword arms differ only in the constructor they wrap the result in.
+and
+p_data_suite_after_kw(st: pstate): @(strn, list(pytyparam), list(pydatacon), pstate) = let
+  val st1 = ps_advance(st)               // past 'dataprop'/'dataview'
+  val @(nm, st2) =
+    ( case+ ps_peek(st1) of
+      | PT_UIDENT(s) => @(s, ps_advance(st1))
+      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a name (uppercase) after the keyword")) )
+  val @(tvs, st3) = p_typarams(st2)
+  val st4 =
+    ( case+ ps_peek(st3) of
+      | PT_COLON() => ps_advance(st3)
+      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected ':' before the body") )
+  val st5 = ( case+ ps_peek(st4) of PT_NEWLINE() => ps_advance(st4) | _ => st4 )
+  val st6 =
+    ( case+ ps_peek(st5) of
+      | PT_INDENT() => ps_advance(st5)
+      | _ => ps_diag(st5, ps_peek_loctn(st5), "expected an indented body") )
+  val @(cases, st7) = p_casedecls(st6)
+  val st8 = ( case+ ps_peek(st7) of PT_DEDENT() => ps_advance(st7) | _ => st7 )
+in
+  @(nm, tvs, cases, st8)
+end
+//
+and
+p_datapropdecl(st: pstate): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val @(nm, tvs, cases, st1) = p_data_suite_after_kw(st)
+in
+  @(PyCdataprop(loc, nm, tvs, cases), st1)
+end
+//
+and
+p_dataviewdecl(st: pstate): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val @(nm, tvs, cases, st1) = p_data_suite_after_kw(st)
+in
+  @(PyCdataview(loc, nm, tvs, cases), st1)
+end
+//
 (* ****** ****** *)
 //
 // ---- struct decl: 'struct' UIDENT [typarams] ':' NEWLINE INDENT { fielddecl } DEDENT ----
@@ -835,11 +744,15 @@ p_import_names(st: pstate): @(list(strn), pstate) =
 //
 (* ****** ****** *)
 //
-// ---- the SATS `parse_decl` entry: a type decl may be prefixed by decorators (§5.7), so
-//      FIRST parse zero-or-more prefix decorators, THEN dispatch on the next keyword. The
-//      decorators are threaded into the enum/struct/type node. A `def` takes NO decorators
-//      in v1 — if any precede a `def` we REJECT with a clear PyCerror (the def body is still
-//      consumed for recovery so the module loop makes progress).
+// ---- the SATS `parse_decl` entry: a decl may be prefixed by decorators (§5.7), so FIRST parse
+//      zero-or-more prefix decorators, THEN dispatch on the next keyword. The decorators are
+//      threaded into the node:
+//        * enum/struct/type/abstype : the MODE decorators (@boxed/@unboxed/@linear).
+//        * def  : DECORATOR REWORK — `@proof`/`@extern`/`@impl`/`@overload` select the def VARIANT
+//                 (the elaborator routes a decorated def to PCCprfun/PCCextern/PCCpraxi/...). An
+//                 undecorated `def` is a plain def. We ALWAYS thread the decorators into PyCfun.
+//        * let  : DECORATOR REWORK — `@proof let` (was `prval`); threaded into PyDlet, wrapped as
+//                 a PyCstmt decl so the module loop and statement position both see it.
 //
 #implfun
 parse_decl(st) = let
@@ -848,16 +761,31 @@ parse_decl(st) = let
   val nod = ps_peek(st0)
 in
   case+ nod of
-  | PT_KW_DEF()    =>
-    ( case+ decos of
-      | list_nil() => p_def(st0)
-      | _ =>
-        // decorators on a `def` are not supported in v1: reject, but still parse the def
-        // for recovery and discard it, returning a PyCerror at the decorator span.
-        let val @(_, st1) = p_def(st0) in
-          @(PyCerror(locD, "decorators are not allowed on a 'def' (§5.7)"),
-            ps_diag(st1, locD, "decorators are not allowed on a 'def'")) end )
+  | PT_KW_DEF()    => p_def(st0, decos)   // decorators select the def variant (proof/extern/impl/overload)
+  | PT_KW_LET()    =>
+    // DECORATOR REWORK: a `@... let p = e` at module level (e.g. `@proof let`). parse_let_decos
+    // (dynexp) parses the binding with the prefix decorators threaded in; we wrap it as PyCstmt
+    // (a module-level let IS a statement, §5.2). Its trailing NEWLINE is consumed by p_top_item.
+    let val @(s, st1) = parse_let_decos(st0, decos) in
+      @(PyCstmt(pystmt_loctn(s), s), st1) end
   | PT_KW_ENUM()   => p_enumdecl(st0, decos)
+  // DEP (dataprop/dataview): a PROOF/VIEW datatype — parses EXACTLY like enum but takes NO
+  // decorators (the sort is fixed by the keyword: prop/view). Reject any prefix decorators for
+  // recovery (mirrors def/exception), still parse the suite so the module loop makes progress.
+  | PT_KW_DATAPROP() =>
+    ( case+ decos of
+      | list_nil() => p_datapropdecl(st0)
+      | _ =>
+        let val @(_, st1) = p_datapropdecl(st0) in
+          @(PyCerror(locD, "decorators are not allowed on a 'dataprop'"),
+            ps_diag(st1, locD, "decorators are not allowed on a 'dataprop'")) end )
+  | PT_KW_DATAVIEW() =>
+    ( case+ decos of
+      | list_nil() => p_dataviewdecl(st0)
+      | _ =>
+        let val @(_, st1) = p_dataviewdecl(st0) in
+          @(PyCerror(locD, "decorators are not allowed on a 'dataview'"),
+            ps_diag(st1, locD, "decorators are not allowed on a 'dataview'")) end )
   | PT_KW_STRUCT() => p_structdecl(st0, decos)
   | PT_KW_TYPE()   => p_typedecl(st0, decos)
   | PT_KW_ABSTYPE() => p_abstypedecl(st0, decos)  // abstype takes box/flat decorators (mode->sort)
@@ -869,14 +797,6 @@ in
         let val @(_, st1) = p_assumedecl(st0) in
           @(PyCerror(locD, "decorators are not allowed on an 'assume'"),
             ps_diag(st1, locD, "decorators are not allowed on an 'assume'")) end )
-  | PT_KW_EXTERN() =>
-    // `extern def ...` takes NO decorators in v1 (it is a plain FFI signature).
-    ( case+ decos of
-      | list_nil() => p_externdecl(st0)
-      | _ =>
-        let val @(_, st1) = p_externdecl(st0) in
-          @(PyCerror(locD, "decorators are not allowed on an 'extern'"),
-            ps_diag(st1, locD, "decorators are not allowed on an 'extern'")) end )
   | PT_KW_EXCEPTION() =>
     // EXN: `exception E(T...)` takes NO decorators in v1 (it is a single exn constructor,
     // not a mode-bearing type decl). If any precede it, reject for recovery (mirrors def).
@@ -886,22 +806,6 @@ in
         let val @(_, st1) = p_exceptdecl(st0) in
           @(PyCerror(locD, "decorators are not allowed on an 'exception'"),
             ps_diag(st1, locD, "decorators are not allowed on an 'exception'")) end )
-  | PT_KW_IMPLEMENT() =>
-    // `implement NAME(params): body` takes NO decorators in v1 (it is a plain function body).
-    ( case+ decos of
-      | list_nil() => p_implementdecl(st0)
-      | _ =>
-        let val @(_, st1) = p_implementdecl(st0) in
-          @(PyCerror(locD, "decorators are not allowed on an 'implement'"),
-            ps_diag(st1, locD, "decorators are not allowed on an 'implement'")) end )
-  | PT_KW_OVERLOAD() =>
-    // `overload NAME with IMPL` takes NO decorators.
-    ( case+ decos of
-      | list_nil() => p_overloaddecl(st0)
-      | _ =>
-        let val @(_, st1) = p_overloaddecl(st0) in
-          @(PyCerror(locD, "decorators are not allowed on an 'overload'"),
-            ps_diag(st1, locD, "decorators are not allowed on an 'overload'")) end )
   | PT_KW_SORTDEF() =>
     // `sortdef Name = SORT` takes NO decorators.
     ( case+ decos of
@@ -924,27 +828,6 @@ in
         let val @(_, st1) = p_stadefdecl(st0) in
           @(PyCerror(locD, "decorators are not allowed on a 'stadef'"),
             ps_diag(st1, locD, "decorators are not allowed on a 'stadef'")) end )
-  | PT_KW_PRFUN() =>
-    ( case+ decos of
-      | list_nil() => p_prfundecl(st0)
-      | _ =>
-        let val @(_, st1) = p_prfundecl(st0) in
-          @(PyCerror(locD, "decorators are not allowed on a 'prfun'"),
-            ps_diag(st1, locD, "decorators are not allowed on a 'prfun'")) end )
-  | PT_KW_PRVAL() =>
-    ( case+ decos of
-      | list_nil() => p_prvaldecl(st0)
-      | _ =>
-        let val @(_, st1) = p_prvaldecl(st0) in
-          @(PyCerror(locD, "decorators are not allowed on a 'prval'"),
-            ps_diag(st1, locD, "decorators are not allowed on a 'prval'")) end )
-  | PT_KW_PRAXI() =>
-    ( case+ decos of
-      | list_nil() => p_praxidecl(st0)
-      | _ =>
-        let val @(_, st1) = p_praxidecl(st0) in
-          @(PyCerror(locD, "decorators are not allowed on a 'praxi'"),
-            ps_diag(st1, locD, "decorators are not allowed on a 'praxi'")) end )
   | PT_KW_IMPORT() => p_import(st0)
   | PT_KW_FROM()   => p_import(st0)
   | _ =>
@@ -977,10 +860,17 @@ in
   case+ nod of
   | PT_KW_DEF()    => parse_decl(st)
   | PT_KW_ENUM()   => parse_decl(st)     // block-bodied: consumes its own DEDENT (no trailing NEWLINE)
+  | PT_KW_DATAPROP() => parse_decl(st)   // block-bodied (case suite, like enum): own DEDENT
+  | PT_KW_DATAVIEW() => parse_decl(st)   // block-bodied (case suite, like enum): own DEDENT
   | PT_KW_STRUCT() => parse_decl(st)     // block-bodied: consumes its own DEDENT
   | PT_AT()        =>
-    // a decorator-prefixed type decl (enum/struct = block; type = alias). expect_newline_d
-    // is a no-op after a block (DEDENT consumed), and consumes the NEWLINE after an alias.
+    // DECORATOR REWORK: a decorator-prefixed decl. The construct after the decorators may be:
+    //   * enum/struct/def-with-body (`@impl def`, `@proof def`, `@overload def`) — BLOCK-bodied,
+    //     consumes its own DEDENT; expect_newline_d is then a no-op.
+    //   * type alias / abstype / `@extern def` / `@proof @extern def` (praxi) / `@proof let` —
+    //     SINGLE-line; expect_newline_d consumes the trailing NEWLINE.
+    // expect_newline_d handles BOTH (consume a NEWLINE iff present), so this one arm covers all
+    // decorated forms uniformly.
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_TYPE()   =>
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
@@ -990,28 +880,15 @@ in
   | PT_KW_ASSUME() =>
     // a single-line `assume Name = T` decl — consume its trailing NEWLINE, like `type`.
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
-  | PT_KW_EXTERN() =>
-    // a single-line `extern def foo(...) -> T` signature — consume its trailing NEWLINE.
-    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_EXCEPTION() =>
     // EXN: a single-line `exception E(T...)` decl — consume its trailing NEWLINE, like `type`.
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
-  | PT_KW_IMPLEMENT() => parse_decl(st)  // block-bodied: consumes its own suite layout (like `def`)
-  | PT_KW_OVERLOAD() =>
-    // a single-line `overload NAME with IMPL` decl — consume its trailing NEWLINE.
-    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
-  | PT_KW_PRFUN() => parse_decl(st)      // block-bodied: consumes its own suite layout (like `def`)
   | PT_KW_SORTDEF() =>
     // a single-line `sortdef Name = SORT` decl — consume its trailing NEWLINE, like `type`.
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_STACST() =>
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_STADEF() =>
-    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
-  | PT_KW_PRVAL() =>
-    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
-  | PT_KW_PRAXI() =>
-    // a single-line `praxi NAME(...) -> T` signature — consume its trailing NEWLINE.
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_IMPORT() =>
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end

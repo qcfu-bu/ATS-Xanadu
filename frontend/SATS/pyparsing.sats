@@ -142,6 +142,11 @@ pyuop =
 //             s2exp_var of WHATEVER s2var the name is bound to (type-sorted or int/bool-sorted).
 //   PyTidx  : an INT index LITERAL in a dependent type (e.g. `Vec[A, 0]` size). DEP: the parser
 //             emits this for a bare digit in a type-arg list (PT_INT); lowering -> s2exp_int(k).
+//   PyTbin  : a STATIC-ARITHMETIC index binop in a dependent type (DEP follow-up): `n+1`, `i-1`,
+//             `n*2`, and the comparisons `i<n`, `n>=0`, `n==m` (carries a `pybop` tag + the two
+//             index operands). Reachable ONLY inside a type-arg bracket `Vec[A, n+1]` or a
+//             quantifier guard `{n | n>=0}`. Lowering maps the tag to a prelude STATIC `*_i0_i0`
+//             const (add_i0_i0/lt_i0_i0/...) and emits `s2exp_apps(<const>, [a, b])`.
 //   PyTfun  : function type `(A, B) -> C` — args ++ result, right-assoc at parse.
 //   PyTtup  : tuple type `(A, B)`.
 //   PyTrec  : record type `{ x: Int, y: Int }` — fields use ':'.
@@ -152,6 +157,7 @@ pytyp =
 | PyTcon   of (loctn, strn, list(pytyp))
 | PyTvar   of (loctn, strn)
 | PyTidx   of (loctn, strn)
+| PyTbin   of (loctn, pybop, pytyp, pytyp)
 | PyTfun   of (loctn, list(pytyp), pytyp)
 | PyTtup   of (loctn, list(pytyp))
 | PyTrec   of (loctn, list(pytfield))
@@ -275,11 +281,13 @@ pyexp =
 //              like a match `case`). Lowers to D2Etry0(body, clauses-over-exn).
 | PyEraise of (loctn, pyexp)
 | PyEtry   of (loctn, list(pystmt)(*body*), list(pyarm)(*except handlers over exn*))
-//   PyEop    : `op+` / `op<` — an OPERATOR used as a first-class VALUE (ATS `op+`). The strn is the
-//              operator's symbol ("+", "<", ...), the SAME name `bop_sym`/`uop_sym` give the call-head
-//              path; the elaborator maps it to `PCEvar(loc, name)` so M3's `pl_var` resolves it (the
-//              operator's prelude overload symbol -> a d2exp_sym0 value). So `reduce(xs, op+)` passes
-//              `+` as a `(Int,Int)->Int` value; `let f = op+` then `f(1,2)` works.
+//   PyEop    : `(+)` / `(<)` — an OPERATOR used as a first-class VALUE (Scala/Haskell parenthesized-
+//              operator form; was the removed `op+` keyword syntax). The strn is the operator's symbol
+//              ("+", "<", ...), the SAME name `bop_sym`/`uop_sym` give the call-head path; the
+//              elaborator maps it to `PCEvar(loc, name)` so M3's `pl_var` resolves it (the operator's
+//              prelude overload symbol -> a d2exp_sym0 value). So `reduce(xs, (+))` passes `+` as a
+//              `(Int,Int)->Int` value; `let f = (+)` then `f(1,2)` works. The parser disambiguates
+//              `(+)` (an OPERATOR token between the parens) from a parenthesized expression `(e)`.
 | PyEop    of (loctn, strn)
 | PyEerror of (loctn, strn)
 //
@@ -309,7 +317,13 @@ and pydecorator = PyDecor of (loctn, strn)
 // the optional sort annotation on a type param (Type/Linear/Prop/… — OPEN vocab, kept as strn)
 and pysortopt   = PySortNone of () | PySortSome of (loctn, strn)
 // a type parameter:  UIDENT [ ':' SORT ] { DECORATOR }   (§5.7)
-and pytyparam    = PyTyParam of (loctn, strn, pysortopt, list(pydecorator))
+//   DEP (guards): a quantifier `[A, n: SInt | n >= 0]` may carry an OPTIONAL bool-index GUARD
+//   after the binder(s) (a `pytyp` built from PyTbin comparisons). The `pyguardopt` slot rides on
+//   the typaram the `|` follows (we attach it to the binder immediately before the `|`). The guard
+//   is PARSE-ONLY for a def (the def quantifier `t2qag` has NO prop slot; guards are dropped at
+//   stpize — matching stock) but is CHECKED-or-dropped uniformly; it must lower without crashing.
+and pyguardopt  = PyGuardNone of () | PyGuardSome of (loctn, pytyp)
+and pytyparam    = PyTyParam of (loctn, strn, pysortopt, list(pydecorator), pyguardopt)
 // a struct field:  LIDENT ':' type   (§5.7)
 and pyfield      = PyField of (loctn, strn, pytyp)
 //
@@ -319,8 +333,10 @@ and pyfield      = PyField of (loctn, strn, pytyp)
 //  pystmt — the surface STATEMENT language (§5.3). KEPT FAITHFUL for M2.5.
 // ==================================================================
 //
-//   PyDlet      : `let [mut] pat [: T] = e` — the `bool` is the MUT FLAG (true = mut).
-//                 This is the linchpin M2.5 keys on (LOOP-DESUGARING §1).
+//   PyDlet      : `[@decorators] let [mut] pat [: T] = e` — the `bool` is the MUT FLAG (true = mut).
+//                 This is the linchpin M2.5 keys on (LOOP-DESUGARING §1). DECORATOR REWORK: a
+//                 `list(pydecorator)` rides on the front (default `[]` = a plain `let`); `@proof let`
+//                 carries `[@proof]` so the elaborator lowers it like the old `prval` (VLKprval).
 //   PySvar      : `var NAME [: T] = e` — a MUTABLE CELL declaration (ATS-parity var/
 //                 mutation). DISTINCT from `PyDlet(mut=true)`: `let mut` is an SSA-
 //                 rebindable functional binding the loop elaborator THREADS as an
@@ -354,7 +370,7 @@ and pyfield      = PyField of (loctn, strn, pytyp)
 //
 and
 pystmt =
-| PyDlet      of (loctn, bool, pypat, pytypopt, pyexp)
+| PyDlet      of (loctn, list(pydecorator), bool, pypat, pytypopt, pyexp)
 | PySvar      of (loctn, strn, pytypopt, pyexp)
 | PySassign   of (loctn, pyexp(*lval*), pyexp(*rval*))
 | PySreassign of (loctn, pyexp, pyexp)
@@ -375,11 +391,18 @@ pystmt =
 //  pydecl — top-level / structural DECLARATIONS (§5.2)
 // ==================================================================
 //
-//   PyCfun  : `def name [typarams] (params) [-> Ret]: <suite>`. Carries the name
-//             (LIDENT), optional type params (rich pytyparam list — §5.7), value params,
-//             optional return type, and the body suite. Recursion grouping (adjacent defs
-//             = one mutually-recursive group, §5.2) is M3's concern; M2 emits one PyCfun
-//             per def and preserves adjacency via order in the module decl list.
+//   PyCfun  : `[@decorators] def name [typarams] (params) [-> Ret]: <suite>`. Carries the
+//             decorator list (default `[]` = a plain def), the name (LIDENT), optional type
+//             params (rich pytyparam list — §5.7), value params, optional return type, and the
+//             body suite. Recursion grouping (adjacent defs = one mutually-recursive group, §5.2)
+//             is M3's concern; M2 emits one PyCfun per def and preserves adjacency via order in
+//             the module decl list. DECORATOR REWORK: the ATS-specific def VARIANTS that used to
+//             be dedicated keywords are now decorators on this base node — `@proof def` (was
+//             `prfun`), `@extern def` (was `extern def`), `@proof @extern def` (was `praxi`),
+//             `@impl def` (was `implement`), `@overload def` (was `overload`). The elaborator
+//             (pyelab_decl) inspects the decorators and routes to the SAME PyCore variant the
+//             keyword version produced (PCCprfun/PCCextern/PCCpraxi/PCCimplement/PCCoverload).
+//             An undecorated `def` is a plain PCCfun.
 //   PyCenum : `[decorators] enum Name [typarams]: <case suite>` — a datatype/ADT (§5.7).
 //             Each `case` line is a pydatacon. Decorators select the memory/repr mode.
 //   PyCstruct : `[decorators] struct Name [typarams]: <field suite>` — a record (§5.7).
@@ -392,8 +415,16 @@ pystmt =
 //
 and
 pydecl =
-| PyCfun    of (loctn, strn, list(pytyparam), list(pyparam), pytypopt, list(pystmt))
+| PyCfun    of (loctn, list(pydecorator), strn, list(pytyparam), list(pyparam), pytypopt, list(pystmt))
 | PyCenum   of (loctn, list(pydecorator), strn, list(pytyparam), list(pydatacon))   // enum: case suite
+//   PyCdataprop / PyCdataview : a PROOF / VIEW datatype (ATS-parity `dataprop`/`dataview`). They
+//   parse EXACTLY like `enum` (UIDENT name + optional [typarams] + ':' + a `case` suite of
+//   datacons), so they reuse the enum case-suite parser. The ONLY delta lands at lowering: the
+//   datatype's s2cst RESULT sort is `the_sort2_prop` (dataprop) / `the_sort2_view` (dataview)
+//   instead of `the_sort2_tbox` (DEP-spike P4/P9-proven enum recipe). No decorators (the kind is
+//   fixed by the keyword). M3 routes them through the SAME PCCdata pipeline with a prop/view mode.
+| PyCdataprop of (loctn, strn, list(pytyparam), list(pydatacon))                    // dataprop: case suite
+| PyCdataview of (loctn, strn, list(pytyparam), list(pydatacon))                    // dataview: case suite
 | PyCstruct of (loctn, list(pydecorator), strn, list(pytyparam), list(pyfield))     // struct: field suite
 | PyCtype   of (loctn, list(pydecorator), strn, list(pytyparam), pytyp)             // type: ALIAS ONLY
 //   PyCabstype : `[decorators] abstype Name [typarams]` — an OPAQUE type declaration (ATS-parity).
@@ -401,25 +432,15 @@ pydecl =
 //                @unboxed->tflt; @linear deferred). M3 lowers it to D2Cabstype(s2cst, A2TDFsome()).
 //   PyCassume  : `assume Name = T` — gives an abstract type its hidden representation T (ATS-parity).
 //                M3 selects the abstract s2cst by name, lowers T via pylower_typ -> D2Cabsimpl.
-//   PyCextern  : `extern def foo(params) [-> Ret]` — an FFI bodyless function SIGNATURE (ATS-parity).
-//                No `:` body suite; calls to `foo(...)` typecheck against the declared signature.
-//                M3 lowers it to D2Cextern(tok, <bodyless d2cst signature via D2Cdynconst>).
+//
+//   DECORATOR REWORK: the former PyCextern / PyCimplement / PyCoverload (the keyword `extern def` /
+//   `implement` / `overload` surface nodes) were REMOVED. Those variants are now @decorators on a
+//   plain `def` (PyCfun): `@extern def` / `@impl def` / `@overload def`. The elaborator inspects the
+//   def's decorators and routes to the SAME PyCore variant they used to (PCCextern / PCCimplement /
+//   PCCoverload), so the PROVEN L2 lowering is reused unchanged.
 | PyCabstype of (loctn, list(pydecorator), strn, list(pytyparam))
 | PyCassume  of (loctn, strn, pytyp)
-| PyCextern  of (loctn, strn, list(pyparam), pytypopt)
 | PyCexcept of (loctn, strn, list(pytyp))   // exception E(T1,T2): an exception constructor (EXN)
-//   PyCimplement : `implement NAME(params) [-> Ret]: <suite>` — provide a BODY for an extern/template-
-//                  declared function (ATS-parity `implement f(x) = e`). Carries the implemented fun
-//                  NAME (LIDENT), its value params, an OPTIONAL return type, and the body suite. M3
-//                  resolves the pre-declared d2cst by NAME and attaches the elaborated body
-//                  (-> D2Cimplmnt0). Monomorphic in v1 (no template/quantifier args).
-//   PyCoverload  : `overload NAME with IMPL` — overload a NAME onto an IMPL (ATS-parity `#symload NAME
-//                  with IMPL`). Carries the overloaded NAME (the symbol that gets the new meaning; a
-//                  LIDENT or an operator symbol) + the IMPL NAME (an already-declared def/extern). M3
-//                  resolves IMPL's d2itm and REGISTERS NAME -> a D2ITMsym bucket (-> D2Csymload), so a
-//                  later use of NAME resolves to IMPL.
-| PyCimplement of (loctn, strn, list(pyparam), pytypopt, list(pystmt))
-| PyCoverload  of (loctn, strn(*name*), strn(*impl*))
 //   PyCsortdef : `sortdef Name = SORT` — a SORT ALIAS (ATS-parity `sortdef`). Carries the
 //                alias NAME (UIDENT) + the right-hand SORT-reference NAME (a sort vocab
 //                string like `SInt`/`Type`/`Prop`, mapped by lowering via the sort vocab).
@@ -434,18 +455,11 @@ pydecl =
 | PyCsortdef of (loctn, strn(*name*), strn(*sort-ref*))
 | PyCstacst  of (loctn, strn(*name*), strn(*sort-ref*))
 | PyCstadef  of (loctn, strn(*name*), pyexp(*static body*))
-//   PyCprfun : `prfun NAME [typarams] (params) [-> Ret]: <suite>` — a proof FUNCTION
-//              (ATS-parity `prfun`). Block-bodied exactly like `def` (reuses the def parser);
-//              its body is a proof (lowered like a def body). M3 lowers it like PCCfun but
-//              swaps the funkind token to T_FUN(FNKprfn1).
-//   PyCprval : `prval pat [: T] = e` — a proof VALUE (ATS-parity `prval`). Like a module-level
-//              `let`; M3 lowers it like PCCval but swaps the valkind token to T_VAL(VLKprval).
-//   PyCpraxi : `praxi NAME [typarams] (params) [-> Ret]` — a proof AXIOM (ATS-parity `praxi`).
-//              Bodyless, like `extern def` — reuses the extern/signature path. M3 lowers it like
-//              PCCfun but BODYLESS, with the funkind token T_FUN(FNKpraxi).
-| PyCprfun  of (loctn, strn, list(pytyparam), list(pyparam), pytypopt, list(pystmt))
-| PyCprval  of (loctn, bool(*mut: unused, always false*), pypat, pytypopt, pyexp)
-| PyCpraxi  of (loctn, strn, list(pytyparam), list(pyparam), pytypopt)
+//   DECORATOR REWORK: the former PyCprfun / PyCprval / PyCpraxi (the keyword `prfun` / `prval` /
+//   `praxi` surface nodes) were REMOVED. Those PROOF variants are now @decorators on a plain
+//   `def`/`let`: `@proof def` (was prfun), `@proof let` (was prval), `@proof @extern def` (was
+//   praxi — proof + bodyless). The elaborator inspects the decorators and routes to the SAME
+//   PyCore variant they used to (PCCprfun / PCCprval / PCCpraxi), reusing the proven L2 lowering.
 | PyCimport of (loctn, pyimport)
 | PyCstmt   of (loctn, pystmt)
 | PyCerror  of (loctn, strn)
@@ -561,6 +575,12 @@ pstate =
 //                 import — used by dynexp when a stmt is actually a decl).
 //
 fun parse_type(st: pstate): @(pytyp, pstate)
+// DEP (static arithmetic + guards): parse ONE index-expression (the binop grammar over index
+// literals/vars + `+ - * < <= > >= == !=`, with the usual precedence) into a `pytyp` (PyTbin /
+// PyTidx / PyTvar / PyTcon). Reachable inside type-arg brackets (`Vec[A, n+1]`) via the type
+// parser and at a quantifier GUARD (`[n: SInt | n >= 0]`) via the decl parser. (staexp; used by
+// decl00 for the guard.)
+fun parse_index_type(st: pstate): @(pytyp, pstate)
 fun parse_pattern(st: pstate): @(pypat, pstate)
 fun parse_expr(st: pstate): @(pyexp, pstate)
 fun parse_suite(st: pstate): @(pystmtlst, pstate)
@@ -570,6 +590,12 @@ fun parse_decl(st: pstate): @(pydecl, pstate)
 // stmt is terminated by NEWLINE). Used at module top level (decl00) and inside suites
 // (dynexp's own loop). Implemented in dynexp.
 fun parse_stmt(st: pstate): @(pystmt, pstate)
+//
+// DECORATOR REWORK: parse a `let [mut] pat [: T] = e` binding with the given PREFIX decorators
+// already consumed by the caller (decl00's parse_decl, which parses the `@proof` etc.). The
+// lookahead MUST be PT_KW_LET. Implemented in dynexp (it owns the let-binding grammar); used by
+// decl00 to build a `@... let` decl (wrapped as PyCstmt). NO trailing NEWLINE is consumed.
+fun parse_let_decos(st: pstate, decos: list(pydecorator)): @(pystmt, pstate)
 //
 // ---- shared token-stream + recovery utilities (pyparsing_util.dats) ----------
 //
@@ -626,8 +652,8 @@ pyparse_tokens
 //  `@span` on every node so the goldens PROVE real spans flow everywhere.
 // ==================================================================
 //
-fun pybop_fprint(out: FILR, op: pybop): void
-fun pyuop_fprint(out: FILR, op: pyuop): void
+fun pybop_fprint(out: FILR, b: pybop): void
+fun pyuop_fprint(out: FILR, u: pyuop): void
 fun pylit_fprint(out: FILR, lit: pylit): void
 fun pytyp_fprint(out: FILR, t: pytyp): void
 fun pypat_fprint(out: FILR, p: pypat): void

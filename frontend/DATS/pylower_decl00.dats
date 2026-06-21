@@ -242,6 +242,11 @@ case+ m of
 | PCMbox()  => the_sort2_tbox
 | PCMlin()  => the_sort2_vtbx
 | PCMflat() => the_sort2_tbox   // no unboxed-datatype primitive — boxed fallback (pinned).
+// DEP (dataprop/dataview): the PROOF/VIEW datatype sorts (DEP-spike P4/P9). The s2cst RESULT sort
+// is the_sort2_prop (dataprop) / the_sort2_view (dataview); the con-building + parametric S2Tfun1
+// result reuse this so a `dataprop LE[m,n: SInt]` yields `LE : (i0,i0) -> prop`.
+| PCMprop() => the_sort2_prop
+| PCMview() => the_sort2_view
 )
 //
 // the RECORD (struct) (trcdknd, sort) pair for a mode: boxed -> (TRCDbox0, tbox), linear ->
@@ -254,6 +259,10 @@ case+ m of
 | PCMbox()  => @(TRCDbox0, the_sort2_tbox)
 | PCMlin()  => @(TRCDbox1, the_sort2_vtbx)
 | PCMflat() => @(TRCDflt0, the_sort2_tflt)
+// DEP: PCMprop/PCMview are emitted ONLY for a datatype (dataprop/dataview), never for a struct —
+// a defensive boxed fallback keeps this match TOTAL (it is unreachable in practice).
+| PCMprop() => @(TRCDbox0, the_sort2_tbox)
+| PCMview() => @(TRCDbox0, the_sort2_tbox)
 )
 //
 // lower a PyCore record-field list `name: T, ...` to an `l2s2elst` of label/s2exp pairs
@@ -333,6 +342,9 @@ case+ m of
 | PCMbox()  => the_sort2_tbox
 | PCMflat() => the_sort2_tflt   // a flat abstract type (abstract types DO have a flat repr).
 | PCMlin()  => the_sort2_tbox   // @linear abstype DEFERRED -> boxed (linearity erased; v1).
+// DEP: PCMprop/PCMview never reach an abstype — a defensive boxed fallback keeps the match TOTAL.
+| PCMprop() => the_sort2_tbox
+| PCMview() => the_sort2_tbox
 )
 //
 // build a `D2Cabstype` for an OPAQUE type `name`. Mirrors f0_abstype's tail: s2cst_make_idst

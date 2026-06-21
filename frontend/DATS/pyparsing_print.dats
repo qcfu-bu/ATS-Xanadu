@@ -122,6 +122,9 @@ case+ t of
   (ps(out, "(Tvar "); ps(out, nm); print_span(out, loc); ps(out, ")"))
 | PyTidx(loc, s) =>
   (ps(out, "(Tidx "); ps(out, s); print_span(out, loc); ps(out, ")"))
+| PyTbin(loc, bop, a, b) =>
+  ( ps(out, "(Tbin "); pybop_fprint(out, bop); print_span(out, loc);
+    ps(out, " "); pp_typ(out, a); ps(out, " "); pp_typ(out, b); ps(out, ")") )
 | PyTfun(loc, ps0, res) =>
   ( ps(out, "(Tfun"); print_span(out, loc);
     ps(out, " (params"); pp_typlst(out, ps0); ps(out, ")");
@@ -328,8 +331,9 @@ pp_stmt(out: FILR, s: pystmt, ind: sint): void =
 (
 nl(out); print_indent(out, ind);
 case+ s of
-| PyDlet(loc, mut, p, topt, rhs) =>
+| PyDlet(loc, decos, mut, p, topt, rhs) =>
   ( ps(out, "(let "); ps(out, (if mut then "mut" else "imm")); print_span(out, loc);
+    pp_decolst(out, decos);   // DECORATOR REWORK: prints " (deco ...)" only when non-empty (no golden drift for a plain let)
     ps(out, " "); pp_pat(out, p);
     ( case+ topt of
       | PyTypNone() => ()
@@ -404,8 +408,9 @@ pp_decl(out: FILR, d: pydecl, ind: sint): void =
 (
 nl(out); print_indent(out, ind);
 case+ d of
-| PyCfun(loc, nm, tvs, params, ropt, body) =>
+| PyCfun(loc, decos, nm, tvs, params, ropt, body) =>
   ( ps(out, "(def "); ps(out, nm); print_span(out, loc);
+    pp_decolst(out, decos);   // DECORATOR REWORK: prints " (deco ...)" only when non-empty (no golden drift for a plain def)
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
     ps(out, " (params"); pp_paramlst(out, params); ps(out, ")");
     ( case+ ropt of
@@ -415,6 +420,14 @@ case+ d of
 | PyCenum(loc, decos, nm, tvs, dcons) =>
   ( ps(out, "(enum "); ps(out, nm); print_span(out, loc);
     pp_decolst(out, decos);
+    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
+    pp_dataconlst(out, dcons, ind + 1); ps(out, ")") )
+| PyCdataprop(loc, nm, tvs, dcons) =>
+  ( ps(out, "(dataprop "); ps(out, nm); print_span(out, loc);
+    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
+    pp_dataconlst(out, dcons, ind + 1); ps(out, ")") )
+| PyCdataview(loc, nm, tvs, dcons) =>
+  ( ps(out, "(dataview "); ps(out, nm); print_span(out, loc);
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
     pp_dataconlst(out, dcons, ind + 1); ps(out, ")") )
 | PyCstruct(loc, decos, nm, tvs, fields) =>
@@ -435,25 +448,8 @@ case+ d of
 | PyCassume(loc, nm, t) =>
   ( ps(out, "(assume "); ps(out, nm); print_span(out, loc);
     ps(out, " (rep "); pp_typ(out, t); ps(out, ")"); ps(out, ")") )
-| PyCextern(loc, nm, params, ropt) =>
-  ( ps(out, "(extern "); ps(out, nm); print_span(out, loc);
-    ps(out, " (params"); pp_paramlst(out, params); ps(out, ")");
-    ( case+ ropt of
-      | PyTypNone() => ()
-      | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
-    ps(out, ")") )
 | PyCexcept(loc, nm, ts) =>
   ( ps(out, "(exception "); ps(out, nm); print_span(out, loc); pp_typlst(out, ts); ps(out, ")") )
-| PyCimplement(loc, nm, params, ropt, body) =>
-  ( ps(out, "(implement "); ps(out, nm); print_span(out, loc);
-    ps(out, " (params"); pp_paramlst(out, params); ps(out, ")");
-    ( case+ ropt of
-      | PyTypNone() => ()
-      | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
-    pp_stmtlst(out, body, ind + 1); ps(out, ")") )
-| PyCoverload(loc, nm, impl) =>
-  ( ps(out, "(overload "); ps(out, nm); print_span(out, loc);
-    ps(out, " with "); ps(out, impl); ps(out, ")") )
 | PyCsortdef(loc, nm, srt) =>
   ( ps(out, "(sortdef "); ps(out, nm); print_span(out, loc);
     ps(out, " = "); ps(out, srt); ps(out, ")") )
@@ -463,28 +459,6 @@ case+ d of
 | PyCstadef(loc, nm, e) =>
   ( ps(out, "(stadef "); ps(out, nm); print_span(out, loc);
     ps(out, " = "); pp_exp(out, e); ps(out, ")") )
-| PyCprfun(loc, nm, tvs, params, ropt, body) =>
-  ( ps(out, "(prfun "); ps(out, nm); print_span(out, loc);
-    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
-    ps(out, " (params"); pp_paramlst(out, params); ps(out, ")");
-    ( case+ ropt of
-      | PyTypNone() => ()
-      | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
-    pp_stmtlst(out, body, ind + 1); ps(out, ")") )
-| PyCprval(loc, _, pat, topt, e) =>
-  ( ps(out, "(prval"); print_span(out, loc); ps(out, " "); pp_pat(out, pat);
-    ( case+ topt of
-      | PyTypNone() => ()
-      | PyTypSome(t) => (ps(out, " : "); pp_typ(out, t)) );
-    ps(out, " = "); pp_exp(out, e); ps(out, ")") )
-| PyCpraxi(loc, nm, tvs, params, ropt) =>
-  ( ps(out, "(praxi "); ps(out, nm); print_span(out, loc);
-    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
-    ps(out, " (params"); pp_paramlst(out, params); ps(out, ")");
-    ( case+ ropt of
-      | PyTypNone() => ()
-      | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
-    ps(out, ")") )
 | PyCimport(loc, imp) =>
   (ps(out, "(import"); print_span(out, loc); ps(out, " "); pp_import(out, imp); ps(out, ")"))
 | PyCstmt(loc, s) =>
@@ -516,12 +490,15 @@ pp_typaramlst(out: FILR, tps: list(pytyparam)): void =
 (
 case+ tps of
 | list_nil() => ()
-| list_cons(PyTyParam(loc, nm, sopt, decos), rest) =>
+| list_cons(PyTyParam(loc, nm, sopt, decos, gopt), rest) =>
   ( ps(out, " (tyvar "); ps(out, nm); print_span(out, loc);
     ( case+ sopt of
       | PySortNone() => ()
       | PySortSome(locS, srt) => (ps(out, " : "); ps(out, srt); print_span(out, locS)) );
     pp_decolst(out, decos);
+    ( case+ gopt of
+      | PyGuardNone() => ()
+      | PyGuardSome(locG, g) => (ps(out, " (guard "); pp_typ(out, g); print_span(out, locG); ps(out, ")")) );
     ps(out, ")");
     pp_typaramlst(out, rest) )
 )

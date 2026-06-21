@@ -166,13 +166,92 @@ case+ ps_peek(st) of
 | PT_RBRACK() => @(list_nil(), st)
 | PT_EOF() => @(list_nil(), st)
 | _ =>
-  let val @(t, st1) = p_type(st) in
+  // DEP (static arithmetic): a type-arg may be an INDEX EXPRESSION (`n+1`, `i<n`, `n*2`) — parse
+  // via p_index (the binop grammar over the type atom), not the bare p_type. A plain type/index
+  // arg (`A`, `Int`, `0`, `n`, `Vec[A,n]`) is the no-operator base case of p_index, so this is a
+  // strict SUPERSET of the old behavior (byte-identical when no index operator follows the atom).
+  let val @(t, st1) = p_index(st) in
     case+ ps_peek(st1) of
     | PT_COMMA() =>
       let val @(ts, st2) = p_type_args(ps_advance(st1)) in
         @(list_cons(t, ts), st2) end
     | _ => @(list_cons(t, list_nil()), st1)
   end
+)
+//
+// ==================================================================
+//  INDEX-EXPRESSION grammar (DEP static arithmetic) — a small precedence-climbing parser over
+//  the STATIC arithmetic/comparison operators, with `p_type` (the FULL type, incl. application
+//  `Vec[A,n]` and arrows) as the ATOM. Precedence (loosest first), mirroring §5.6:
+//    p_index      ::= p_index_add [ CMP p_index_add ]            CMP = < <= > >= == !=  (non-assoc)
+//    p_index_add  ::= p_index_mul { ('+'|'-') p_index_mul }      (left-assoc)
+//    p_index_mul  ::= p_type      { '*' p_type }                 (left-assoc)
+//  A bare atom with NO trailing operator falls straight through (so a plain type arg is unchanged).
+//  Each binop builds a `PyTbin(span, <pybop>, a, b)`; lowering maps the tag to a prelude static
+//  `*_i0_i0` const (DEP-spike P1/P3/P4 recipe: add_i0_i0/lt_i0_i0/...). Reused by the guard parser.
+// ==================================================================
+//
+and
+p_index(st: pstate): @(pytyp, pstate) = let
+  val @(a, st1) = p_index_add(st)
+in
+  case+ ps_peek(st1) of
+  | PT_LT()   => p_index_cmp(a, PyBlt(), ps_advance(st1))
+  | PT_LTE()  => p_index_cmp(a, PyBle(), ps_advance(st1))
+  | PT_GT()   => p_index_cmp(a, PyBgt(), ps_advance(st1))
+  | PT_GTE()  => p_index_cmp(a, PyBge(), ps_advance(st1))
+  | PT_EQEQ() => p_index_cmp(a, PyBeq(), ps_advance(st1))
+  | PT_NEQ()  => p_index_cmp(a, PyBne(), ps_advance(st1))
+  | _ => @(a, st1)
+end
+//
+// one (non-assoc) comparison: a CMP b — build the PyTbin over the already-parsed lhs.
+and
+p_index_cmp(a: pytyp, bop: pybop, st: pstate): @(pytyp, pstate) = let
+  val @(b, st1) = p_index_add(st)
+  val span = loc_span(pytyp_loctn(a), pytyp_loctn(b))
+in
+  @(PyTbin(span, bop, a, b), st1)
+end
+//
+and
+p_index_add(st: pstate): @(pytyp, pstate) = let
+  val @(a, st1) = p_index_mul(st)
+in
+  p_index_add_loop(a, st1)
+end
+//
+and
+p_index_add_loop(a: pytyp, st: pstate): @(pytyp, pstate) =
+(
+case+ ps_peek(st) of
+| PT_PLUS()  =>
+  let val @(b, st1) = p_index_mul(ps_advance(st))
+      val span = loc_span(pytyp_loctn(a), pytyp_loctn(b)) in
+    p_index_add_loop(PyTbin(span, PyBadd(), a, b), st1) end
+| PT_MINUS() =>
+  let val @(b, st1) = p_index_mul(ps_advance(st))
+      val span = loc_span(pytyp_loctn(a), pytyp_loctn(b)) in
+    p_index_add_loop(PyTbin(span, PyBsub(), a, b), st1) end
+| _ => @(a, st)
+)
+//
+and
+p_index_mul(st: pstate): @(pytyp, pstate) = let
+  val @(a, st1) = p_type(st)   // the ATOM = a full type-app (Vec[A,n]) / index literal / var
+in
+  p_index_mul_loop(a, st1)
+end
+//
+and
+p_index_mul_loop(a: pytyp, st: pstate): @(pytyp, pstate) =
+(
+case+ ps_peek(st) of
+| PT_STAR() =>
+  let val @(b, st1) = p_type(ps_advance(st))
+      val span = loc_span(pytyp_loctn(a), pytyp_loctn(b)) in
+    p_index_mul_loop(PyTbin(span, PyBmul(), a, b), st1) end
+| _ => @(a, st)
 )
 //
 // type_atom: UIDENT | LIDENT | INT | '(' ... ')' | '{' ... '}'
@@ -381,6 +460,7 @@ case+ ps_peek(st) of
 // ---- the public wrappers (SATS entries) ------------------------------------
 //
 #implfun parse_type(st) = p_type(st)
+#implfun parse_index_type(st) = p_index(st)
 #implfun parse_pattern(st) = p_pat(st)
 //
 (* ****** ****** *)

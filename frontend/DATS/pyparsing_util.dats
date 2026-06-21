@@ -62,16 +62,16 @@ pytyp_loctn(t) =
 (
 case+ t of
 | PyTcon(loc, _, _) => loc    | PyTvar(loc, _) => loc
-| PyTidx(loc, _) => loc       | PyTfun(loc, _, _) => loc
-| PyTtup(loc, _) => loc       | PyTrec(loc, _) => loc
-| PyTerror(loc, _) => loc
+| PyTidx(loc, _) => loc       | PyTbin(loc, _, _, _) => loc
+| PyTfun(loc, _, _) => loc    | PyTtup(loc, _) => loc
+| PyTrec(loc, _) => loc       | PyTerror(loc, _) => loc
 )
 //
 #implfun
 pystmt_loctn(s) =
 (
 case+ s of
-| PyDlet(loc, _, _, _, _) => loc | PySreassign(loc, _, _) => loc
+| PyDlet(loc, _, _, _, _, _) => loc | PySreassign(loc, _, _) => loc
 | PySvar(loc, _, _, _) => loc    | PySassign(loc, _, _) => loc
 | PySexpr(loc, _) => loc         | PySif(loc, _, _) => loc
 | PySwhile(loc, _, _, _) => loc  | PySfor(loc, _, _, _, _) => loc
@@ -84,16 +84,13 @@ case+ s of
 pydecl_loctn(d) =
 (
 case+ d of
-| PyCfun(loc, _, _, _, _, _) => loc | PyCtype(loc, _, _, _, _) => loc
+| PyCfun(loc, _, _, _, _, _, _) => loc | PyCtype(loc, _, _, _, _) => loc
 | PyCenum(loc, _, _, _, _) => loc   | PyCstruct(loc, _, _, _, _) => loc
+| PyCdataprop(loc, _, _, _) => loc  | PyCdataview(loc, _, _, _) => loc
 | PyCabstype(loc, _, _, _) => loc   | PyCassume(loc, _, _) => loc
-| PyCextern(loc, _, _, _) => loc
 | PyCexcept(loc, _, _) => loc
-| PyCimplement(loc, _, _, _, _) => loc | PyCoverload(loc, _, _) => loc
 | PyCsortdef(loc, _, _) => loc      | PyCstacst(loc, _, _) => loc
 | PyCstadef(loc, _, _) => loc
-| PyCprfun(loc, _, _, _, _, _) => loc | PyCprval(loc, _, _, _, _) => loc
-| PyCpraxi(loc, _, _, _, _) => loc
 | PyCimport(loc, _) => loc          | PyCstmt(loc, _) => loc
 | PyCerror(loc, _) => loc
 )

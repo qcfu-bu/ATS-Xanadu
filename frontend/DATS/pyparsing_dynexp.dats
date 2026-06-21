@@ -442,22 +442,32 @@ in
   | PT_LIDENT(s) => @(PyEvar(loc, s), ps_advance(st))
   | PT_UIDENT(s) => @(PyEcon(loc, s), ps_advance(st))
   | PT_USCORE()  => @(PyEwild(loc), ps_advance(st))
-  | PT_KW_OP()   =>
-    // `op<operator>` — an operator used as a first-class VALUE (ATS `op+`). The next token MUST be
-    // an operator; map it to its symbol string (the SAME name bop_sym/uop_sym give the call-head
-    // path) and emit a PyEop. (We accept the §5.6 binary/comparison/arith operators; `op(` and
-    // bracket/punctuation are NOT operators-as-values.) Span covers `op` + the operator token.
+  | PT_LPAREN()  =>
+    // DECORATOR REWORK: `(<operator>)` — the Scala/Haskell parenthesized-operator form of an
+    // operator used as a first-class VALUE (replaces the removed `op+` keyword syntax). We
+    // DISAMBIGUATE it from a parenthesized expression by EXACT 3-token lookahead WITHOUT consuming:
+    // `(` then an OPERATOR token then `)` is the operator-value (-> PyEop). It is CRITICAL that we
+    // only commit to the operator path when the `)` is ALSO present — a `(-1, -1)` or `(- x)` starts
+    // with an operator token that is a UNARY PREFIX of a normal parenthesized expression, NOT an
+    // operator-value; consuming the `-` there mis-parses (and, on a deep nesting, recurses without
+    // progress). So: after `(`, peek the op candidate (ps_peek st1) AND the token after it
+    // (ps_peek2 st1); take PyEop ONLY when both an operator and a following `)` match; otherwise
+    // fall straight through to p_paren_expr with the stream UNTOUCHED (still right after `(`).
     let
-      val st1 = ps_advance(st)              // past 'op'
-      val locO = ps_peek_loctn(st1)
+      val st1 = ps_advance(st)              // past '('
       val @(opnm, ok) = op_symbol_of_node(ps_peek(st1))
     in
-      if ok
-        then @(PyEop(loc_span(loc, locO), opnm), ps_advance(st1))
-        else let val st2 = ps_diag(st1, locO, "expected an operator after 'op'") in
-               @(PyEerror(loc_span(loc, locO), "expected an operator after 'op'"), st2) end
+      case+ (ok, ps_peek2(st1)) of
+      | (true, PT_RPAREN()) =>              // exactly `( <op> )` -> the operator-as-value
+        let
+          val locO = ps_peek_loctn(st1)
+          val st2  = ps_advance(st1)         // past the operator token
+          val st3  = ps_advance(st2)         // past ')'
+        in
+          @(PyEop(loc_span(loc, locO), opnm), st3)
+        end
+      | _ => p_paren_expr(st1, loc)         // a normal `(e)` group / `(a,b)` tuple / `()` unit / `(-e)`
     end
-  | PT_LPAREN()  => p_paren_expr(ps_advance(st), loc)
   | PT_LBRACK()  => p_list_expr(ps_advance(st), loc)
   | PT_LBRACE()  => p_record_expr(ps_advance(st), loc)
   | _ =>
@@ -804,6 +814,18 @@ in
   | PT_KW_IF()    => p_if_stmt(st)
   | PT_KW_WHILE() => p_while_stmt(st)
   | PT_KW_FOR()   => p_for_stmt(st)
+  | PT_AT()       =>
+    // DECORATOR REWORK: a `@decorator` in STATEMENT position prefixes a `def` or a `let`. We route
+    // to `parse_decl` (the decorator dispatcher: it parses the prefix decorators, then a `@... def`
+    // -> a PyCfun pydecl, a `@... let` -> a PyCstmt-wrapped PyDlet pydecl). A `@... let` decl
+    // unwraps back to its inner PyDlet statement (it is block-bodyless, a simple stmt — so consume
+    // its trailing NEWLINE); a `@... def` decl wraps as PySdecl. (A `@func` lambda in EXPRESSION
+    // position is handled by p_expr, NOT here — a statement never starts with a lambda-only line.)
+    let val @(d, st1) = parse_decl(st) in
+      case+ d of
+      | PyCstmt(_, s) => @(s, expect_newline(st1))   // a decorated `let` -> its inner stmt
+      | _             => @(PySdecl(loc, d), st1)      // a decorated `def`
+    end
   | PT_KW_MATCH() =>
     // a match used as a statement: parse the match-EXPR, wrap as an expr-stmt.
     let val @(e, st1) = p_match_expr(st) in
@@ -843,7 +865,7 @@ p_simple_stmt(st: pstate): @(pystmt, pstate) = let
   val loc = ps_peek_loctn(st)
 in
   case+ nod of
-  | PT_KW_LET()      => p_let_stmt(st)
+  | PT_KW_LET()      => p_let_stmt(st, list_nil())
   | PT_KW_VAR()      => p_var_stmt(st)
   | PT_KW_BREAK()    => @(PySbreak(loc), ps_advance(st))
   | PT_KW_CONTINUE() => @(PyScontinue(loc), ps_advance(st))
@@ -916,9 +938,12 @@ last_loc(es: pyexplst, acc: loctn): loctn =
   | list_nil() => acc
   | list_cons(e, rest) => last_loc(rest, pyexp_loctn(e)) )
 //
-// let [mut] pattern [: type] = expr
+// [@decorators] let [mut] pattern [: type] = expr
+//   The `decos` are the prefix decorators parsed by the caller (default `[]` = a plain let).
+//   DECORATOR REWORK: `@proof let p = e` carries `[@proof]` so the elaborator lowers it like
+//   the old `prval` (VLKprval); a plain `let` carries `[]` and lowers like before.
 and
-p_let_stmt(st: pstate): @(pystmt, pstate) = let
+p_let_stmt(st: pstate, decos: list(pydecorator)): @(pystmt, pstate) = let
   val loc = ps_peek_loctn(st)            // the 'let'
   val st1 = ps_advance(st)               // past 'let'
   val @(mut, st2) =
@@ -937,7 +962,7 @@ p_let_stmt(st: pstate): @(pystmt, pstate) = let
       | _ => ps_diag(st4, ps_peek_loctn(st4), "expected '=' in let binding") )
   val @(rhs, st6) = p_expr_or_tuple(st5)
 in
-  @(PyDlet(loc_span(loc, pyexp_loctn(rhs)), mut, p, topt, rhs), st6)
+  @(PyDlet(loc_span(loc, pyexp_loctn(rhs)), decos, mut, p, topt, rhs), st6)
 end
 //
 // var NAME [: type] = expr  — a MUTABLE CELL declaration (ATS-parity var/mutation).
@@ -1068,6 +1093,8 @@ expect_newline(st: pstate): pstate =
 #implfun parse_expr(st) = p_expr(st)
 #implfun parse_suite(st) = p_suite(st)
 #implfun parse_stmt(st) = p_stmt(st)
+// DECORATOR REWORK: a `@... let` binding (the prefix decorators already consumed by the caller).
+#implfun parse_let_decos(st, decos) = p_let_stmt(st, decos)
 //
 (* ****** ****** *)
 (*

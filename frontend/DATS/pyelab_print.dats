@@ -345,6 +345,8 @@ case+ m of
 | PCMbox()  => ps(out, "boxed")
 | PCMlin()  => ps(out, "linear")
 | PCMflat() => ps(out, "flat")
+| PCMprop() => ps(out, "prop")
+| PCMview() => ps(out, "view")
 )
 //
 // M5b.6a: render a struct record-field list `(field name <typ>) ...`.

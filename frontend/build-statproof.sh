@@ -75,10 +75,11 @@ nerror_of() {
 
 # ---- VALID programs: each must LOWER + TYPECHECK to nerror=0 -----------------
 VALID=(
-  "sp_sortdef"   # sortdef Nat = SInt + def use_nat[n: Nat](...)  (a SORT ALIAS)
-  "sp_stacst"    # stacst maxlen: SInt                            (a STATIC CONSTANT)
-  "sp_stadef"    # stadef Two = 2                                 (a STATIC int DEFINITION)
-  "sp_prfun"     # prfun id_pf / prval pv / praxi ax              (PROOF fn / val / axiom)
+  "sp_sortdef"          # sortdef Nat = SInt + def use_nat[n: Nat](...)  (a SORT ALIAS)
+  "sp_stacst"           # stacst maxlen: SInt                            (a STATIC CONSTANT)
+  "sp_stadef"           # stadef Two = 2                                 (a STATIC int DEFINITION)
+  "sp_prfun"            # @proof def / @proof let / @proof @extern def   (PROOF fn / val / axiom)
+  "decorator_compose"   # @proof def, @proof let, @proof @extern def (praxi), @extern def — composition
 )
 for base in "${VALID[@]}"; do
   py="$TESTDIR/${base}.pdats"

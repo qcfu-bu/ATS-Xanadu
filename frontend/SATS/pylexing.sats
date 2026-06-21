@@ -113,28 +113,29 @@ ptnode =
 | PT_KW_FROM    of ()   // from
 | PT_KW_TYPE    of ()   // type
 | PT_KW_ENUM    of ()   // enum   (type declaration; SURFACE-GRAMMAR §5.7)
+| PT_KW_DATAPROP of ()  // dataprop (PROOF datatype; ATS-parity — sort prop, enum-shaped suite)
+| PT_KW_DATAVIEW of ()  // dataview (VIEW  datatype; ATS-parity — sort view, enum-shaped suite)
 | PT_KW_STRUCT  of ()   // struct (type declaration; SURFACE-GRAMMAR §5.7)
 | PT_KW_ABSTYPE of ()   // abstype (abstract-type declaration; ATS-parity)
 | PT_KW_ASSUME  of ()   // assume  (abstract-type representation; ATS-parity)
-| PT_KW_EXTERN  of ()   // extern  (FFI bodyless function signature; ATS-parity)
 | PT_KW_EXCEPTION of () // exception (exception-constructor declaration; EXN)
 | PT_KW_RAISE   of ()   // raise  (raise an exception; EXN)
 | PT_KW_TRY     of ()   // try    (try/except expression; EXN)
 | PT_KW_EXCEPT  of ()   // except (an except clause of a try; EXN)
 | PT_KW_AS      of ()   // as  (pattern alias; SURFACE-GRAMMAR §5.5)
-| PT_KW_OP      of ()   // op  (operator-as-value: `op+` -> the `+` operator as a first-class value)
-| PT_KW_IMPLEMENT of () // implement (provide a body for an extern/template-declared function; ATS-parity)
-| PT_KW_OVERLOAD of ()  // overload  (a.k.a. `#symload`: overload a name onto an impl; ATS-parity)
-| PT_KW_WITH    of ()   // with (the connective of `overload NAME with IMPL`)
 //
-// ---- static-level & proof declarations (ATS-parity; STAT/PROOF parity slice) ----
+// NOTE (decorator rework): the ATS-specific def/let variants are NO LONGER keywords. They are
+// expressed as @decorators on a plain `def`/`let` — `@proof def`/`@proof let`/`@proof @extern def`
+// (was prfun/prval/praxi), `@extern def` (was extern), `@impl def` (was implement), `@overload def`
+// (was overload) — and `op+` became the parenthesized operator form `(+)`. So PT_KW_EXTERN /
+// PT_KW_IMPLEMENT / PT_KW_OVERLOAD / PT_KW_WITH / PT_KW_OP / PT_KW_PRFUN / PT_KW_PRVAL / PT_KW_PRAXI
+// were REMOVED; `extern`/`impl`/`proof`/`overload`/`op`/`with` now lex as ordinary LIDENTs.
+//
+// ---- static-level declarations (ATS-parity; STAT parity slice) ----
 //
 | PT_KW_SORTDEF of ()   // sortdef (a sort ALIAS: `sortdef Nat = SInt`)
 | PT_KW_STACST  of ()   // stacst  (a static CONSTANT of a sort: `stacst c: SInt`)
 | PT_KW_STADEF  of ()   // stadef  (a static-level DEFINITION: `stadef Two = 2`)
-| PT_KW_PRFUN   of ()   // prfun   (a proof FUNCTION; block-bodied like `def`)
-| PT_KW_PRVAL   of ()   // prval   (a proof VALUE; like a module-level `let`)
-| PT_KW_PRAXI   of ()   // praxi   (a proof AXIOM; bodyless, like `extern def`)
 | PT_KW_AND     of ()   // and (keyword operator, §5.6 lvl 2)
 | PT_KW_OR      of ()   // or  (keyword operator, §5.6 lvl 1)
 | PT_KW_NOT     of ()   // not (keyword operator, §5.6 lvl 3)

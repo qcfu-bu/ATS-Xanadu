@@ -148,8 +148,9 @@ case+ ss of
       in flow_app(loc, "flow_return", rexp) end
   | PySbreak(loc) => flow_app(loc, "flow_break", accs_tuple_exp(loc, accs))
   | PyScontinue(loc) => flow_app(loc, "flow_cont", accs_tuple_exp(loc, accs))
-  | PyDlet(loc, ismut, p, ann, rhs) =>
+  | PyDlet(loc, _decos, ismut, p, ann, rhs) =>
       // M5a: thread the binding annotation onto PCElet; a `let mut x : T` also records it in mts.
+      // (DECORATOR REWORK: the new decorator field is irrelevant to loop-accumulator analysis.)
       let
         val newmuts = (if ismut then add_pat_names(muts, p) else muts)
         val newmts = (if ismut then mt_add(mts, p, ann) else mts)
@@ -194,7 +195,7 @@ case+ ss of
   | PySblock(loc, body) => fl_suite(encl, list_append(body, rest), accs, muts, mts)
   | PySdecl(loc, d) =>
       (case+ d of
-       | PyCfun(floc, nm, _, params, ret, fbody) =>
+       | PyCfun(floc, _decos, nm, _, params, ret, fbody) =>
            PCEletfun(loc,
              list_sing(PCFundcl(floc, nm, param_names_l(params), param_types_l(params),
                                 ret, elab_func_body(fc_param_names_pub(encl, params), floc, fbody), false)),
