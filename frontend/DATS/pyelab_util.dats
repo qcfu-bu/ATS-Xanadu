@@ -56,6 +56,7 @@ pcdecl_loctn(d) =
 case+ d of
 | PCCdata(loc, _, _, _, _) => loc | PCCfun(loc, _) => loc
 | PCCval(loc, _, _) => loc     | PCCstaload(loc, _) => loc
+| PCCimport(loc, _, _, _) => loc
 | PCCalias(loc, _, _, _) => loc
 | PCCrecord(loc, _, _, _, _) => loc
 | PCCerror(loc, _) => loc

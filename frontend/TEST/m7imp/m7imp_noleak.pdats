@@ -1,0 +1,9 @@
+# M7-import (task #34) — the NO-LEAK re-entrancy test (the CRITICAL gate).
+#
+# This file does NOT import lib, yet references `lib_double`. When checked in the SAME process
+# AFTER m7imp_use.pdats (which DID import lib), `lib_double` MUST be UNRESOLVED here.
+#
+# EXPECT: nerror (after tread3a) > 0 — `lib_double` is unbound. If it RESOLVES, the scoped merge
+# leaked into the global pervasive env (the pervasive bug) and the implementation is WRONG.
+def g(x: Int) -> Int:
+    lib_double(x)

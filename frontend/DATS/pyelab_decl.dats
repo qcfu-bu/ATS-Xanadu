@@ -143,8 +143,38 @@ mode_of_decos(decos: list(pydecorator)): pcmode = mode_of_decos_go(decos, PCMbox
 //
 (* ****** ****** *)
 //
+// ---- M7-import (task #34): resolve a dotted module path -> an XATSHOME-relative `.sats` path.
+//
+// THE v1 RESOLUTION RULE (SIMPLE + documented): a dotted module path `a.b.c` resolves to the
+// XATSHOME-relative file path `/a/b/c.sats`. We join the segments with "/", prepend a leading
+// "/" (so it is XATSHOME-RELATIVE, exactly the convention `filpath_pvsload`/`f0_pvsload` use —
+// they prepend `the_XATSHOME()`), and append ".sats". A v1 import thus always names an ATS
+// `.sats` INTERFACE; e.g. `from frontend.TEST.m7imp.lib import lib_double`
+//   -> "/frontend/TEST/m7imp/lib.sats".
+//
+// (No source-relative resolution in v1: the lowering env `tr12env` does not carry the importing
+// file's directory, and DATS dirname-string math is fragile — deferred. The XATSHOME-relative
+// rule matches the proven spike mechanism exactly.)
+//
+fun
+modpath_join(segs: list(strn)): strn =
+(
+case+ segs of
+| list_nil() => ""
+| list_cons(s, list_nil()) => s
+| list_cons(s, rest) => strn_append(s, strn_append("/", modpath_join(rest)))
+)
+//
+// resolve segments -> the XATSHOME-relative `.sats` path. ("" segments -> a "/.sats" that will
+// fail the load with a clean diagnostic at M3, not a crash.)
+fun
+modpath_to_sats(segs: list(strn)): strn =
+  strn_append("/", strn_append(modpath_join(segs), ".sats"))
+//
+(* ****** ****** *)
+//
 // elaborate one surface decl into zero-or-one PyCore decls (a statement decl may produce a
-// PCCval; a def -> PCCfun; a type -> PCCdata or nothing for an alias; import -> nothing in v1).
+// PCCval; a def -> PCCfun; a type -> PCCdata or nothing for an alias; import -> a PCCimport).
 //
 fun
 elab_decl(d: pydecl): list(pcdecl) =
@@ -174,7 +204,22 @@ case+ d of
     // §5.7 — a `type X = T` alias -> a PCCalias (M5b.5). M3 lowers `T` via pylower_typ and
     // builds the D2Csexpdef. tvs are monomorphic for now (a non-empty list is M5c).
     list_sing(PCCalias(loc, nm, elab_typarams(tps), aliasTyp))
-| PyCimport(loc, _) => list_nil()      // imports resolved by M3 staloads (v1).
+| PyCimport(loc, imp) =>
+    // M7-import (task #34): a USER `import M` / `from M import x` -> a PCCimport carrying the
+    // RESOLVED XATSHOME-relative `.sats` path (v1 rule: dotted `a.b` -> `/a/b.sats`). M3
+    // (pylower_decl00) LOADS the module + SCOPED-merges its exports into THIS file's tr12env, so
+    // subsequent decls resolve them — per-file, NO global leak. We do NOT yet act on the imported
+    // NAMES list of `from M import x, y` (a bare staload promotes the WHOLE module's namespace,
+    // which is a sound superset; selective filtering is a follow-up). knd0=0 (STATIC `.sats`).
+    // is_python=false: v1 imports an ATS `.sats`; a Python-surface module needs recursing OUR
+    // frontend (deferred — see PCCimport doc + the M3 lowering's graceful diagnostic).
+    (
+      case+ imp of
+      | PyImpModule(iloc, segs) =>
+          list_sing(PCCimport(iloc, modpath_to_sats(segs), 0(*static*), false(*is_python*)))
+      | PyImpFrom(iloc, segs, _star, _names) =>
+          list_sing(PCCimport(iloc, modpath_to_sats(segs), 0(*static*), false(*is_python*)))
+    )
 | PyCstmt(loc, s) => elab_module_stmt(s)
 | PyCerror(loc, msg) => list_sing(PCCerror(loc, msg))
 )

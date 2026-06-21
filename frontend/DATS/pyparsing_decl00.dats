@@ -441,22 +441,28 @@ in
       @(PyCerror(loc, "expected an import"), st1) end
 end
 //
-// modpath ::= LIDENT { '.' LIDENT } | STRING
+// modpath ::= IDENT { '.' IDENT } | STRING   where IDENT is LIDENT *or* UIDENT.
+// A dotted module-path SEGMENT is a FILESYSTEM directory/file name (M7-import, task #34), which
+// may be upper- or lower-case (e.g. `frontend.TEST.m7imp.lib`). So we accept BOTH PT_LIDENT and
+// PT_UIDENT segments here (unlike a value/type identifier, the case carries no meaning for a path).
 and
 p_modpath(st: pstate): @(list(strn), pstate) =
 ( case+ ps_peek(st) of
   | PT_STRING(s) => @(list_cons(s, list_nil()), ps_advance(st))   // a path literal
-  | PT_LIDENT(s) =>
-    let val st1 = ps_advance(st) in
-      case+ ps_peek(st1) of
-      | PT_DOT() =>
-        let val @(rest, st2) = p_modpath(ps_advance(st1)) in
-          @(list_cons(s, rest), st2) end
-      | _ => @(list_cons(s, list_nil()), st1)
-    end
+  | PT_LIDENT(s) => p_modpath_seg(s, ps_advance(st))
+  | PT_UIDENT(s) => p_modpath_seg(s, ps_advance(st))
   | _ =>
     let val st1 = ps_diag(st, ps_peek_loctn(st), "expected a module path") in
       @(list_nil(), st1) end )
+//
+// after consuming segment `s`, continue the dotted path iff a '.' follows.
+and
+p_modpath_seg(s: strn, st1: pstate): @(list(strn), pstate) =
+( case+ ps_peek(st1) of
+  | PT_DOT() =>
+    let val @(rest, st2) = p_modpath(ps_advance(st1)) in
+      @(list_cons(s, rest), st2) end
+  | _ => @(list_cons(s, list_nil()), st1) )
 //
 and
 p_import_names(st: pstate): @(list(strn), pstate) =

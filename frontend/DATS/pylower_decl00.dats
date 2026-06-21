@@ -33,6 +33,16 @@
 // pull in (it staloads only staexp2/dynexp2). Staload it here for the datatype lowering.
 #staload "./../../srcgen2/SATS/dynexp1.sats"
 //
+// M7-import (task #34): the SCOPED module-load path needs these — `d0parsed_from_fpath`
+// (parsing.sats: parse a `.sats` to L0), `g1exp_make_node`/`G1Eid0` (staexp1.sats: build the
+// D2Cstaload `gsrc`), `fpath_make_absolute` (filpath.sats: the D2Cstaload `fpathopt` for the
+// LSP dep-graph), and `DLRDT_symbl` (xsymbol.sats: the "$." key a BARE staload registers its
+// f2env under — so the module's names resolve by bare-name fall-through, scoped to THIS env).
+#staload "./../../srcgen2/SATS/parsing.sats"
+#staload "./../../srcgen2/SATS/staexp1.sats"
+#staload "./../../srcgen2/SATS/filpath.sats"
+#staload "./../../srcgen2/SATS/xsymbol.sats"
+//
 #staload "./../SATS/pylexing.sats"
 #staload "./../SATS/pyparsing.sats"
 #staload "./../SATS/pycore.sats"
@@ -254,6 +264,68 @@ end
 //
 (* ****** ****** *)
 //
+// ---- M7-import (task #34): the SCOPED module load + merge for a USER `import M` / `from M
+//      import x`. This REPLICATES the stock `f0_staload` SCOPED path (trans12_decl00.dats:2365-
+//      2388) — load the module's d2parsed, build its `f2env`, register it under `$.` (DLRDT_symbl)
+//      in THIS file's `env` via `tr12env_add1_f2env` — WITHOUT the GLOBAL pervasive merge that
+//      `filpath_pvsload`/`f0_pvsload` (xglobal.dats:799-801, `the_*env_pvsmrgw`) do. The global
+//      merge LEAKS across every later file in the resident LSP (the pervasive bug); the scoped
+//      `env` merge lives only in this file's tr12env (a fresh `tr12env_make_nil()` per file), so a
+//      later file that did NOT import M does NOT see M's names — the no-leak re-entrancy invariant.
+//
+//      HOW BARE-NAME RESOLUTION WORKS (no extra promotion needed): a bare staload registers the
+//      f2env under `$.`; `tr12env_find_d2itm` (trans12_myenv0.dats:1693) falls through to
+//      `tr12env_ofind_d2itm` (:2286) which looks up the `$.` S2ITMenv and searches its f2env list
+//      via `f2envlst_find_d2itm`. So `lib_double` resolves by BARE name once its module's f2env is
+//      under `$.` in THIS env — exactly the spike's resolved case, but scoped.
+//
+//      We emit a REAL `D2Cstaload` (NOT D2Cnone0) carrying the resolved `fpath` (for the LSP
+//      dep-graph `dependency_d3ecl`, which reads `fopt.fnm2()`) + `S2TALOADfenv(fenv)` (trans23's
+//      f0_staload maps it to S3TALOADnone for a static load — harmless; the dep edge is in fopt).
+//
+// `path` is the XATSHOME-RELATIVE `.sats` path (e.g. "/frontend/TEST/m7imp/lib.sats"); we prepend
+// `the_XATSHOME()` exactly as `f0_pvsload` does (xglobal.dats:741-748). `knd0`=0 (static `.sats`).
+fun
+lower_import(env: !tr12env, loc: loctn, path: strn, knd0: sint, is_python: bool): d2ecl =
+  if is_python then
+    // DEFERRED: a Python-surface `.psats`/`.pdats` module needs recursing OUR frontend (lex/parse/
+    // elab/lower) — the stock `d0parsed_from_fpath` only parses ATS surface, so we CANNOT load it
+    // here. Emit a benign no-op (NOT a crash). The using-decls that referenced its exports will
+    // errck as unresolved names — a graceful, characterized failure. (Python-module import is a
+    // clean follow-up: thread OUR pipeline as the loader.)
+    d2ecl_make_node(loc, D2Cnone0())
+  else let
+    // the absolute path: prepend XATSHOME (mirrors f0_pvsload's `strn_append(XATSHOME, fnam)`).
+    val abspath = strn_append(the_XATSHOME(), path)
+    // (1) LOAD: parse the `.sats` to L0, then trans01 -> L1, then trans12 -> L2 (a d2parsed whose
+    //     `t2penv` is the module's D2TOPENV). SAME three steps `f0_pvsload` runs (xglobal.dats:
+    //     756-762), but we do NOT call the global `the_*env_pvsmrgw`.
+    val dpar0 = d0parsed_from_fpath(knd0, abspath)
+    val dpar1 = d1parsed_of_trans01(dpar0)
+    val dpar2 = d2parsed_of_trans12(dpar1)
+    // (2) build the module's f2env straight from its D2TOPENV (dynexp2.dats:404 `f2env_of_d2parsed`
+    //     = F2ENV(lcsrc, g1mac, s2tex, s2itm, d2itm) from `dpar.t2penv()` — the EXACT value the
+    //     stock bare-staload path passes to `tr12env_add1_f2env` (trans12_decl00.dats:2374)).
+    val fenv = f2env_of_d2parsed(dpar2)
+    // (3) SCOPED MERGE: register the f2env under `$.` in THIS file's env (NOT global). After this,
+    //     the module's exports resolve by bare name in `env` for all SUBSEQUENT decls.
+    val () = tr12env_add1_f2env(env, DLRDT_symbl, fenv)
+    // (4) the emitted node: a real D2Cstaload carrying the resolved fpath (LSP dep-graph) + the
+    //     f2env. `gsrc` = a minimal G1Eid0(path-as-symbol) src (vestigial for typecheck; the
+    //     dep-graph reads `fopt`, not `gsrc`). tknd = a T_STALOAD-ish token is not required by
+    //     trans23/tread3a/the LSP reader — they only read knd0/fopt/dopt — so a benign T_VAL token
+    //     suffices for the node's `token` slot.
+    val tok  = token_make_node(loc, T_VAL(VLKval))
+    val gsrc = g1exp_make_node(loc, G1Eid0(symbl_make_name(path)))
+    val fpth = fpath_make_absolute(abspath)
+    val fopt = optn_cons(fpth) : fpathopt
+    val dres = S2TALOADfenv(fenv) : s2taloadopt
+  in
+    d2ecl_make_node(loc, D2Cstaload(knd0, tok, gsrc, fopt, dres))
+  end
+//
+(* ****** ****** *)
+//
 #implfun
 pylower_decl(env, d) =
 (
@@ -279,6 +351,12 @@ case+ d of
 // resolve via the env's global fall-through with no explicit staload (probe-verified). A real
 // pyrt staload (for flow/iterator names) is wired with the loop lowering in M4/M5.
 | PCCstaload(loc, _) => d2ecl_make_node(loc, D2Cnone0())
+//
+// a USER `import M` / `from M import x` (M7-import, task #34) -> LOAD the module + SCOPED-merge
+// its f2env into THIS file's `env` (per-file, NO global leak) + emit a real D2Cstaload (for the
+// LSP dep-graph). The module driver threads `env` left-to-right, so an import declared before its
+// uses registers FIRST — its exports are then visible to the following decls. See lower_import.
+| PCCimport(loc, path, knd0, is_python) => lower_import(env, loc, path, knd0, is_python)
 //
 // a datatype (enum) -> a real D2Cdatatype (M5b.3; SPIKE-PROVEN, see lower_datacon above).
 // (1) create the type s2cst (boxed datatype — the §5.7 default; decorators/sorts are a later

@@ -367,6 +367,8 @@ case+ d of
     pp_pat(out, p); ps(out, " = "); pp_exp(out, e, ind + 1); ps(out, ")") )
 | PCCstaload(loc, nm) =>
   (ps(out, "(staload "); ps(out, nm); print_span(out, loc); ps(out, ")"))
+| PCCimport(loc, path, _knd, _py) =>
+  (ps(out, "(import "); ps(out, path); print_span(out, loc); ps(out, ")"))
 | PCCalias(loc, nm, tvs, typ) =>
   ( ps(out, "(alias "); ps(out, nm); print_span(out, loc);
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_pcparams(out, tvs); ps(out, ")")) );

@@ -106,6 +106,7 @@ case+ d of
 | PCCval(_, _, e) => harv_exp(e, acc)
 | PCCdata(_, _, _, _, _) => acc
 | PCCstaload(_, _) => acc
+| PCCimport(_, _, _, _) => acc  // a USER import carries only a module path — no poison nodes.
 | PCCalias(_, _, _, _) => acc   // a type alias carries only a surface type — no poison nodes.
 | PCCrecord(_, _, _, _, _) => acc // a struct record carries only field types — no poison nodes.
 )

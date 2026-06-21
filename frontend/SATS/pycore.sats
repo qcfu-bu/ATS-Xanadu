@@ -253,10 +253,23 @@ pcfundcl =
 //              §5.2). A single `def` is a one-member group.
 //   PCCval   : a top-level immutable binding `val p = e` (a module-level `let`/expr-stmt
 //              that produced a value/effect). Module-init statements thread here.
-//   PCCstaload: a `staload` of `pyrt` (or an imported module). The elaborator EMITS one
+//   PCCstaload: an AUTO `staload` of `pyrt`. The elaborator EMITS one
 //              `PCCstaload("pyrt")` at the head of any module whose elaboration referenced
 //              the `flow`/iterator/fold machinery, so the desugared output `staload`s the
-//              prelude it depends on (LOOP-DESUGARING §9). M3 turns it into the L2 staload.
+//              prelude it depends on (LOOP-DESUGARING §9). M3 turns it into a NO-OP — pyrt is
+//              loaded out-of-band (globally) by the driver's `pyrt_pvsload()`, so this auto node
+//              needs no per-file work. DO NOT route user imports here (they must NOT be global).
+//   PCCimport: a USER `import M` / `from M import x` (M7-import; task #34). Carries the RESOLVED
+//              XATSHOME-relative `.sats` path (e.g. `/frontend/TEST/m7imp/lib.sats`), the
+//              static/dynamic load kind (0=static `.sats` interface — the only supported case),
+//              and an `is_python` flag set when the module path pointed at a Python-surface
+//              `.psats`/`.pdats` (DEFERRED — those need recursing OUR frontend, which the stock
+//              `d0parsed_from_fpath` cannot parse; M3 emits a graceful diagnostic, not a crash).
+//              M3 (pylower_decl00) LOADS the module via parse+trans01+trans12, then SCOPED-merges
+//              its `f2env` into THIS file's `tr12env` via `tr12env_add1_f2env(env, DLRDT_symbl,
+//              fenv)` — per-file, NO global pervasive leak (contrast `filpath_pvsload`, which
+//              merges into the GLOBAL pervasive env and would pollute every later check). It emits
+//              a real `D2Cstaload` (for the LSP dep-graph), NOT a `D2Cnone0`.
 //   PCCalias : a plain `type X = T` alias -> a D2Csexpdef. Carries the alias NAME, its
 //              type-param names (a non-empty list is the parametric path), and the aliased
 //              SURFACE type (`pytyp`). M3 lowers the surface type via `pylower_typ` (inheriting
@@ -276,6 +289,7 @@ pcdecl =
 | PCCfun     of (loctn, list(pcfundcl))
 | PCCval     of (loctn, pcpat, pcexp)
 | PCCstaload of (loctn, strn)
+| PCCimport  of (loctn, strn(*resolved XATSHOME-rel .sats path*), sint(*0=static*), bool(*is_python: defer*))
 | PCCalias   of (loctn, strn, list(pcparam), pytyp)
 | PCCrecord  of (loctn, strn, list(pcparam), list(pcfield), pcmode)
 | PCCerror   of (loctn, strn)

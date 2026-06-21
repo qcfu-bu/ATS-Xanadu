@@ -1,0 +1,12 @@
+# M7-import (task #34) — the IMPORT-RESOLVE test.
+#
+# `from <modpath> import lib_double` LOADS the ATS module frontend/TEST/m7imp/lib.sats and
+# SCOPED-merges its exports into THIS file's tr12env, so `lib_double` RESOLVES + typechecks at
+# the call site below. v1 module-path rule: dotted `a.b.c` -> XATSHOME-relative `/a/b/c.sats`,
+# so `frontend.TEST.m7imp.lib` -> "/frontend/TEST/m7imp/lib.sats".
+#
+# EXPECT: nerror (after tread3a) = 0 — the export resolves via the SCOPED merge.
+from frontend.TEST.m7imp.lib import lib_double
+
+def f(x: Int) -> Int:
+    lib_double(x)
