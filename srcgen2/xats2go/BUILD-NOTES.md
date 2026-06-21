@@ -1534,3 +1534,140 @@ golden was already present (it also byte-equals JS).
   let0 value-mode path too (a small follow-up; no current test needs it).
 - **Untouched (per the brief):** `trxi0i1_myenv0.dats` (capture lowering -- it
   is correct) and the JS backend.
+
+---
+
+# M2.6a — the [i1tnm stamp -> i0typ] SIDE-TABLE (Regime-B enabler)
+
+Status after **M2.6a**: a PROCESS-GLOBAL side-table records, for each computed
+ANF temp, the static type of the intrep0 expression it was bound from (a
+carry-through captured during `trxi0i1` lowering, NOT re-inference); the Go
+emitter consults it to concretely type computed SCALAR temps that the local
+intrep1-level recovery could only type as `any`. `make -j psuite` = **31/31
+GREEN**, `go vet` clean, gofmt-clean, no regression. All additive under
+`srcgen2/xats2go/`.
+
+## How to run (M2.6a)
+
+```bash
+cd srcgen2/xats2go
+make -j psuite                         # 31 GREEN (30 prior + test38)
+make run/test38_tytab_xats2go          # the M2.6a headline (side-table win)
+```
+
+## What the table stores + WHY (the mint-site investigation)
+
+It stores **`i0typ`** (intrep0's per-expression static type), keyed by the
+temp's **stamp**. The mint chokepoint is `i0exp_trxi0i1` (in
+`trxi0i1_dynexp.dats`): every computed temp flows OUT of that function as the
+`i1val` of its producing `iexp` (each `i1val_*` mint helper returns
+`i1val_tnm(loc0, itnm)`), and `iexp.ityp()` = `i0exp_ityp$get(iexp)` gives the
+clean type form RIGHT THERE in scope. So a SINGLE record site
+(`go_tytab_record(iexp, ival)` wrapping the dispatch) covers ALL producers
+(dapp/timp/proj/if/case/let/tuple/record/...). `i0typ` (not `s2typ`) because:
+(a) it is the type already on `iexp` -> zero conversion at lowering time; (b) it
+carries the layout-bearing `I0Tcst`/`I0Ttcon`/`I0Ttrcd` nodes M2.6b/M2.7 will
+need; (c) the Go translation happens lazily at EMIT time, only for queried temps.
+
+## How the global table is structured / populated / read (+ ordering)
+
+- **Structure** (`SATS/go1emit_tytab0.sats` + `DATS/go1emit_tytab0.dats`): a
+  module-level `a0ref(list(@(stamp, i0typ)))` behind the exact mutable-ref idiom
+  used for `the_drpth_ref` (filpath_drpth0.dats) / `the_i1tnm_stamp_new`'s
+  `stamper` (intrep1.dats) -- transpiler-safe (the JS the emitter runs on already
+  supports `a0ref_make_1val`/`get`/`set`). API: `go_tytab_put(stamp,i0typ)`,
+  `go_tytab_get(stamp):optn(i0typ)`, `go_tytab_reset()`. Assoc list (write-many,
+  read-few; per-file temp count small); a stamp-keyed hashmap is a drop-in opt
+  with no SATS change.
+- **Populated** during lowering at the `i0exp_trxi0i1` chokepoint -- ONLY when the
+  result `i1val` is `I1Vtnm` (a freshly minted computed temp); everything else
+  (literals, leaf `I1Vcst`/`I1Vcon`/`I1Vfenv`, left-value paths, unit `I1Vnil`)
+  records NOTHING, so temps `trxi0i1` invents with no source `i0exp` stay absent.
+- **Read** by the emitter (`go1emit_styp0.dats`: `gotype_of_tnm_from_tytab`) as a
+  BACKSTOP in `gotype_of_tnm_in_lets2` -- local recovery runs FIRST; the table is
+  consulted only when local yields `"any"` (so a concrete native-op/literal/nested
+  answer is always preferred and the table can only ADD concreteness, never override).
+- **Ordering argument**: the driver (`xats2go_goemit01.dats`) runs
+  `i1parsed_of_trxi0i1(ipar)` to COMPLETION (fully populating the table) and ONLY
+  THEN `i1parsed_go1emit(ipar, filr)` (reads it), in the SAME process / bundle. One
+  source file per run -> no cross-file staleness. So every entry the emitter could
+  query is already present.
+
+## BEFORE / AFTER (emitted Go -- the measurable win)
+
+`test38`'s `g(n) = (let val a = sq(n) in a end) + 1` -- the value-position let
+result `a` is bound from `sq(n)`, a USER-FUNCTION call the intrep1 recovery
+cannot type:
+
+```go
+// BEFORE (table forced to "any"):  go vet FAIL
+//   var goxtnm20 any
+//   ... goxtnm20 = sq_970(...) ...
+//   goxtnm21 := (goxtnm20 + 1)   // vet: invalid operation: mismatched types any and untyped int
+// AFTER (M2.6a side-table):       go vet OK, go build OK, byte-equal-vs-JS
+   var goxtnm20 int               // <- recovered from sq's result type via the table
+   ... goxtnm20 = sq_970(...) ...
+   goxtnm21 := (goxtnm20 + 1)
+```
+
+Proven by a controlled probe: temporarily forcing `gotype_of_tnm_from_tytab` to
+return `"any"` reproduces the `var goxtnm20 any` + the exact `go vet` type-mismatch
+failure; the real impl emits `int` and builds clean. Across all 31 emitted
+programs there are now **0 `any` tokens** (the prior suite already drove `any` out
+of its surface via local recovery; test38 is the case ONLY the table fixes).
+
+## The i0typ -> Go translator (gotype_of_i0typ)
+
+`go1emit_styp0.dats` gained `gotype_of_i0typ(i0typ): strn` (parallel to
+`gotype_of_styp` but on `i0typ_node`):
+- `I0Tcst(s2cst)` -> by name (`gotype_of_symname`); `I0Tapps(I0Tcst(nm),args)` ->
+  the prelude scalar abstype family (`gint_type`/`gflt_type` width from the KIND
+  `I0Ttext` arg, `bool_type`/`char_type` by head) -> int/float64/bool/rune;
+  `I0Ttext(nm,_)` -> by `$extype` name; wrappers `I0Tlft/top0/top1/exi0/uni0/lam1`
+  -> chase through; `I0Tnone1(s2typ)` -> delegate to the proven `gotype_of_styp`.
+- **Deferred to `"any"`** (would break `go build` if guessed): `I0Ttrcd`
+  (tuples/records -> M2.6b), `I0Ttcon` (datatypes -> M2.7), `I0Tvar` (polymorphic),
+  `I0Tnone0`/unknown.
+
+## Honest coverage / real-vs-stub (M2.6a)
+
+- **REAL (oracle-validated):** the side-table populate/read; the `i0typ -> Go`
+  scalar translator; the value-position `var goxtnm<N> <T>` win for a result temp
+  bound from a user-function call (test38). 31/31 byte-equal/golden-vs-JS, go vet OK.
+- **Now CONCRETE (was `any`):** value-position if/let/case result temps whose
+  producer is a `dapp` the local recovery can't type (user-fn call, opaque-callee
+  result) but whose `i0typ` is a recognized SCALAR (int/bool/rune/float64/string).
+- **STILL `any` (genuinely deferred, recording-nothing/return-any-when-unsure):**
+  temps whose recorded `i0typ` is an AGGREGATE (`I0Ttrcd` tuple/record -> M2.6b) or
+  DATATYPE (`I0Ttcon` -> M2.7) or polymorphic (`I0Tvar`); temps `trxi0i1` invents
+  with no source `i0exp` (never recorded). These are NOT wrong -- they fall back
+  exactly as before. **What M2.6b needs from this table:** the SAME entries, but
+  `gotype_of_i0typ` extended so `I0Ttrcd(trcdknd,npf,l0i0tlst)` emits a Go value
+  struct (flat) / pointer (boxed) with per-field types from the `l0i0tlst` (the
+  field `i0typ`s are already in the stored type), and `I0Ttcon` (M2.7) a typed
+  tagged struct via the `d2con`. The plumbing (capture at mint, read at emit) is
+  done; only the translator's aggregate arms remain.
+
+## Correctness guards (this is risky infra)
+
+- **Record-nothing-when-unsure**: only `I1Vtnm` results are recorded; a wrong
+  entry is the only way to break `go build`, so the populator never guesses.
+- **Translate-to-any-when-unsure**: `gotype_of_i0typ` returns a concrete Go type
+  ONLY for proven scalars; aggregates/datatypes/polymorphic/unknown -> `"any"`.
+- **Backstop-only consultation**: the table is read only where local recovery
+  already gave up (`"any"`), so it can never override a concrete local answer ->
+  it can only ADD concreteness, never introduce a conflicting type.
+- **The oracle proves it**: a wrong concrete type -> `go vet`/`go build` failure
+  or a stdout mismatch; 31/31 byte-equal-vs-JS + go vet clean is the proof.
+
+## Deviations
+
+- The table lives in a DEDICATED new SATS/DATS pair (`go1emit_tytab0.*`) rather
+  than in the backend-agnostic `intrep1.{sats,dats}`, so the shared IR files stay
+  untouched; both the populator (`trxi0i1_dynexp.dats`) and the reader
+  (`go1emit_styp0.dats`) `#staload` the new SATS. `go1emit_tytab0.dats` is inserted
+  into `GO_DATS` right after the intrep1 group (before the trxi0i1 group), which
+  SHIFTS the namespace index of later files -> a one-time clean rebuild of the JS
+  intermediates was required (done; cold `make -j psuite` reproducible).
+- The chokepoint also re-records on a variable USE (`I0Evar` returns the producer
+  temp's `I1Vtnm`); harmless -- the use carries the same static type as the def.

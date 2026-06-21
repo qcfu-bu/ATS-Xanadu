@@ -91,6 +91,24 @@ DEFAULT_SUITE=(
   "$HERE/test35_const_xats2go.dats"
   "$HERE/test36_cap_float_xats2go.dats"
   "$HERE/test37_nest3_xats2go.dats"
+  #   M2.6a: the [i1tnm -> i0typ] SIDE-TABLE.  test38 exercises a VALUE-POSITION
+  #     result temp bound from a USER-FUNCTION CALL (`(let val a = sq(n) in a
+  #     end) + 1`) -- typed concretely (`var goxtnm<N> int`) ONLY via the side-
+  #     table; before M2.6a it was `any` and `(goxtnm<N> + 1)` failed `go vet`.
+  #     Byte-equal-vs-JS.
+  "$HERE/test38_tytab_xats2go.dats"
+  #   M2.6a side-table backstops (anti-overfit) + the I1INSlet0 return-mode fix.
+  #     test39 a FLOAT-returning user-fn result temp typed float64 via the side-
+  #     table (`(let val a = sqf(n) in a end) + 1.0`); test40 a BOOL-returning
+  #     user-fn result temp as an if-test (`let val b = isPos(n) in (if b then 1
+  #     else 0) end`) -- a let whose body is a returning `if` in a FUNCTION BODY;
+  #     before the fix the value-mode let scaffold left an UNREACHABLE trailing
+  #     `return` (`go vet` fail).  test41 the GENERAL fix: a let whose body is a
+  #     returning `case` (`let val k = n in case k of 0 => 10 | _ => 20 end`).
+  #     Each byte-equal-vs-JS, `go vet` clean.
+  "$HERE/test39_tytab_float_xats2go.dats"
+  "$HERE/test40_tytab_bool_xats2go.dats"
+  "$HERE/test41_let_case_xats2go.dats"
 )
 
 if [ "$#" -gt 0 ]; then

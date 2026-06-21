@@ -68,6 +68,15 @@ XATSOPT "./../../.."
 #staload "./../SATS/intrep1.sats"
 #staload "./../SATS/trxi0i1.sats"
 //
+(*
+M2.6a: the [i1tnm stamp -> i0typ] side-table.  POPULATED here (the lowering),
+at the single chokepoint [i0exp_trxi0i1] -- where the typed source [i0exp] is
+in scope and every computed temp flows out as that expression's [i1val].  Read
+later by the Go emitter ([go1emit_styp0.dats]) to concretely type computed
+temps that would otherwise fall back to "any".  See go1emit_tytab0.sats.
+*)
+#staload "./../SATS/go1emit_tytab0.sats"
+//
 (* ****** ****** *)
 (* ****** ****** *)
 //
@@ -1501,9 +1510,55 @@ prerrsln("i0bnd_trxi0i1: ival = ", ival)
 (* ****** ****** *)
 (* ****** ****** *)
 //
+(*
+M2.6a SIDE-TABLE POPULATION.  [go_tytab_record(iexp, ival)] records the
+static type of [iexp] ([i0exp_ityp$get], a carry-through -- NOT a re-
+inference) under the stamp of the temp it lowered to, BUT ONLY when [ival]
+is exactly an [I1Vtnm(itnm)] -- i.e. [iexp] minted a fresh computed temp
+(every [i1val_*] mint helper returns [i1val_tnm(loc0, itnm)]).  This is the
+SINGLE chokepoint: every computed temp flows out of [i0exp_trxi0i1] as the
+[i1val] of its producing [iexp], so one record site covers all producers
+(dapp / timp / proj / if / case / let / tuple / record / ...), and [iexp] is
+EXACTLY the typed source expression.
+//
+CONSERVATIVE BY CONSTRUCTION: when [ival] is anything OTHER than [I1Vtnm]
+(a bare literal, a variable lookup [I1Vtnm-from-env], a leaf [I1Vcst]/
+[I1Vcon]/[I1Vfenv], a left-value path, or a unit [I1Vnil] from an effecting
+form), NOTHING is recorded -- so a temp [trxi0i1] later invents with no
+source [i0exp] (the M2.6a "still-any" set) is simply absent from the table
+and the emitter falls back exactly as before.  Recording-nothing-when-unsure
+is the key correctness guard (a WRONG entry would break [go build]).
+//
+NB: a variable reference ([I0Evar]) ALSO returns an [I1Vtnm] (the temp the
+variable's defining binding minted), so this re-records that producer temp's
+type from the USE site's [i0exp].  That is harmless: both the def and the use
+carry the SAME static type (the variable's type), so the (idempotent-in-value)
+re-record stores the same Go-relevant type -- it can never be wrong.
+*)
+fun
+go_tytab_record
+(iexp: i0exp, ival: i1val): void =
+(
+case+ ival.node() of
+|I1Vtnm(itnm) =>
+  go_tytab_put(i1tnm_stmp$get(itnm), iexp.ityp())
+| _(*not a freshly-minted computed temp*) => ((*skip*))
+)//endof[go_tytab_record(iexp,ival)]
+//
+(* ****** ****** *)
+//
 #implfun
 i0exp_trxi0i1
 ( iexp, env0 ) =
+let
+//
+// compute the lowered [i1val] exactly as before, then (M2.6a) carry the
+// source expression's static type into the side-table keyed by the temp it
+// produced.  Wrapping the dispatch in a [let] (vs the bare [case+]) is the
+// ONLY structural change; the per-node [f0_*] workers in the [where] block
+// below are untouched.
+//
+val ival =
 (
 case+
 iexp.node() of
@@ -1623,7 +1678,13 @@ I0Eextnam _ => f0_extnam(iexp, env0)
 (* ****** ****** *)
 (* ****** ****** *)
 //
-) where
+)
+//
+val () = go_tytab_record(iexp, ival)
+//
+in//let
+  ival
+end (*let*) where
 {
 //
 (* ****** ****** *)

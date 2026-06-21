@@ -94,6 +94,7 @@ GO_DATS := \
   intrep1.dats \
   intrep1_print0.dats \
   intrep1_utils0.dats \
+  go1emit_tytab0.dats \
   trxi0i1.dats \
   trxi0i1_myenv0.dats \
   trxi0i1_dynexp.dats \
@@ -527,7 +528,11 @@ SUITE_NAMES := \
   test34_cap_timing_xats2go \
   test35_const_xats2go \
   test36_cap_float_xats2go \
-  test37_nest3_xats2go
+  test37_nest3_xats2go \
+  test38_tytab_xats2go \
+  test39_tytab_float_xats2go \
+  test40_tytab_bool_xats2go \
+  test41_let_case_xats2go
 
 # SEQUENTIAL suite — unchanged behavior.  Bundles are built ONCE up front (the
 # GOPATCHED + JSPATCHED prereqs), then each test reuses them.

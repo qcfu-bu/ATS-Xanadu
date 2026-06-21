@@ -948,19 +948,30 @@ case+ iins of
 (* ----- I1INSlet0 : Go local-decl block ------------------------------- *)
 |I1INSlet0(dcls, icmp) =>
   let
+    // RETURN position iff the let BODY [icmp] fully returns (its inner if/
+    // case branches end in I1INSrturn) -- i1ins_fully_returnsq(I1INSlet0) =
+    // i1cmp_tail_returns(icmp).  This is the SAME return-vs-value decision the
+    // M2.3 if/case use, now threaded through I1INSlet0's body (the bug fix):
+    // in return mode the body emits its OWN returns (via i1cmp_go1emit_ret),
+    // so NO result temp is pre-declared and NO trailing `return goxtnm<N>` is
+    // appended -- which would be UNREACHABLE (`go vet`: "unreachable code").
+    val retq = i1ins_fully_returnsq(iins)
     val live = i1tnm_used_in_cmp(itnm, scp)
     val nind = envx2go_nind$get(env0)
     //
-    // a let-in result is always a VALUE (never an rturn): pre-declare the
-    // result var, then a `{ <local decls>; goxtnm = <cmp result> }` block.
+    // VALUE mode (body does NOT fully return): pre-declare the result var
+    // [goxtnm<itnm>], then a `{ <local decls>; goxtnm = <cmp result> }`
+    // block.  In RETURN mode NO result var is pre-declared.
     val () =
+      if retq then () else
+      (
       if live then
       (
       nindfpr(filr, nind);
       strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
       strnfpr(filr, " "); strnfpr(filr, gotype_of_ift0type(iins));
       fprintln(filr))
-      else ()
+      else ())
     //
     val () =
     (
@@ -970,11 +981,19 @@ case+ iins of
     // emit the inner LOCAL declarations (reuse the decl walk).
     val () = i1dclist_go1emit(dcls, env0)
     //
-    // then assign the inner cmp's result to the binding temp (or discard).
+    // emit the let BODY:
+    //  - RETURN mode -> i1cmp_go1emit_ret (the body's inner if/case branches
+    //    emit their own `return`; [params]/[bnds] threaded so a tail self-call
+    //    inside a branch still becomes a loop `continue`, and a nested lambda
+    //    recovers its return type -- exactly the if/case branch contract).
+    //  - VALUE mode  -> assign the inner cmp's result to [itnm] (or discard).
     val () =
+      if retq then i1cmp_go1emit_ret(icmp, params, bnds, env0)
+      else
+      (
       if live
       then i1cmp_go1emit_tnm(itnm, icmp, env0)
-      else i1cmp_go1emit(icmp, env0)
+      else i1cmp_go1emit(icmp, env0))
     //
     val () = envx2go_decnind(env0, 1)
     val () =

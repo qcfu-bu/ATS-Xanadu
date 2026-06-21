@@ -68,10 +68,19 @@ go1emit_styp0 — milestone M2.0 — two scaffolds for the Go backend:
 #staload "./../SATS/xats2go.sats"
 #staload "./../SATS/go1emit.sats"
 //
+(*
+M2.6a: the [i1tnm stamp -> i0typ] side-table, populated during lowering
+([trxi0i1_dynexp.dats]) and consulted here (the emitter) to concretely type
+computed temps that the local intrep1-level recovery cannot type.  See
+go1emit_tytab0.sats.
+*)
+#staload "./../SATS/go1emit_tytab0.sats"
+//
 (* ****** ****** *)
 (* ****** ****** *)
 //
 #symload node with i1val_node$get
+#symload node with i0typ_node$get
 #symload node with s2typ_get_node
 #symload name with s2cst_get_name
 #symload name with d2cst_get_name
@@ -759,6 +768,139 @@ case+ ival.node() of
 //
 (*
 =======================================================================
+== (2a) i0typ -> Go type  (milestone M2.6a -- the SIDE-TABLE reader)  ==
+=======================================================================
+//
+[gotype_of_i0typ] translates a stored [i0typ] (the carry-through type the
+side-table recorded at the temp's mint site) to a CONCRETE Go scalar type
+where it can prove one, "any" otherwise.  This is the EMIT-time half of the
+M2.6a side-table: the lowering stored [i0exp_ityp$get] verbatim; here we map
+it -- lazily, only for the temps the emitter queries.
+//
+[i0typ] (intrep0.sats) is a near-mirror of [s2typ], so the SCALAR cases map
+the same way [gotype_of_styp] maps [s2typ]:
+  - I0Tcst(s2cst)            : a bare scalar type constant  -> by its name
+  - I0Tapps(I0Tcst(nm), as)  : an APPLIED abstract type-ctor; the prelude
+                               scalars are gint_type(KIND,i)/gflt_type(KIND)/
+                               bool_type(b)/char_type(c) -> width from the
+                               KIND [I0Ttext] for the gint/gflt family, else
+                               by the head name.  (Same shape gotype_of_styp
+                               handles for T2Papps.)
+  - I0Ttext(nm, _)           : an external $extype name directly -> by name
+  - I0Tlft/top0/top1/none1/  : trivial wrappers the front-end leaves on a
+    exi0/uni0/apps-of-quant.   scalar -> chase through to the carried type
+  - I0Tnone1(s2typ)          : carries an [s2typ] verbatim -> delegate to the
+                               proven [gotype_of_styp]
+//
+DEFERRED to "any" (M2.6b/M2.7 make these value-typed -- recording a wrong
+concrete type here would break [go build], so we are deliberately conservative):
+  - I0Ttrcd(trcdknd, npf, _) : flat/boxed tuples + records (M2.6b)
+  - I0Ttcon(d2con, _)        : datatype-constructor applications (M2.7)
+  - I0Tvar(s2var)            : a polymorphic type variable (pre-monomorphization)
+  - I0Tnone0 / anything else : unknown
+//
+[gotype_of_i0typ] is a top-level [fun] defined BEFORE the recovery
+[and]-chain so [gotype_of_ins_local] (which consults it via the side-table)
+can call it; it forward-references the SATS-declared [gotype_of_styp]
+([#implfun]), which resolves.
+*)
+fun
+goty_of_i0t_apps
+( hd: i0typ
+, args: i0typlst): strn =
+(
+case+ hd.node() of
+|I0Tcst(s2c0) =>
+  let
+    val hdnm = symbl_get_name(s2c0.name())
+  in
+    (
+    if (hdnm = "gint_type")
+    then goty_of_i0text_in_args(args)
+    else
+    (
+    if (hdnm = "gflt_type")
+    then
+      (
+      // gflt KIND distinguishes float/double, but both -> float64.
+      let val gt = goty_of_i0text_in_args(args)
+      in if (gt = "any") then "float64" else gt end)
+    else gotype_of_symname(hdnm)))
+  end
+| _(*non-cst head*) => "any"
+)//endof[goty_of_i0t_apps(hd,args)]
+//
+and
+(*
+[goty_of_i0text_in_args]: find the FIRST [I0Ttext] among [args] (the gint/gflt
+KIND, carried as an external type name) and map it via [goty_of_text]; "any"
+if none present.  Parallel to [goty_of_text_in_args] on [s2typlst].
+*)
+goty_of_i0text_in_args
+(args: i0typlst): strn =
+(
+case+ args of
+|list_nil() => "any"
+|list_cons(a1, args1) =>
+  (
+  case+ a1.node() of
+  |I0Ttext(nm, _) => goty_of_text(nm)
+  | _(*else*) => goty_of_i0text_in_args(args1))
+)//endof[goty_of_i0text_in_args(args)]
+//
+and
+gotype_of_i0typ
+(ityp: i0typ): strn =
+(
+case+ ityp.node() of
+//
+// a bare scalar type constant (the s2cst NAME is the ATS type symbol).
+|I0Tcst(s2c0) =>
+  gotype_of_symname(symbl_get_name(s2c0.name()))
+//
+// an applied abstract type-ctor: the prelude scalars (gint_type/gflt_type/
+// bool_type/char_type/...) -- map by head + KIND-arg (see goty_of_i0t_apps).
+|I0Tapps(hd, args) => goty_of_i0t_apps(hd, args)
+//
+// an external $extype name directly (rare at this position) -> by its name.
+|I0Ttext(nm, _) => goty_of_text(nm)
+//
+// trivial wrappers the front-end leaves around a scalar -> chase through.
+|I0Tlft(t1) => gotype_of_i0typ(t1)
+|I0Ttop0(t1) => gotype_of_i0typ(t1)
+|I0Ttop1(t1) => gotype_of_i0typ(t1)
+|I0Texi0(_, t1) => gotype_of_i0typ(t1)
+|I0Tuni0(_, t1) => gotype_of_i0typ(t1)
+|I0Tlam1(_, t1) => gotype_of_i0typ(t1)
+//
+// an [i0typ] that just wraps an [s2typ] -> reuse the proven s2typ translator.
+|I0Tnone1(t2p0) => gotype_of_styp(t2p0)
+//
+// AGGREGATES / DATATYPES / POLYMORPHIC / UNKNOWN -> "any" (M2.6b/M2.7).  A
+// wrong concrete type here would break [go build]; deferring is the safe choice.
+| _(*otherwise*) => "any"
+)//endof[gotype_of_i0typ(ityp)]
+//
+(*
+[gotype_of_tnm_from_tytab]: the SIDE-TABLE entry point the emitter's fallback
+calls -- look up the temp's recorded [i0typ] by stamp and translate it.  "any"
+when the temp was never recorded (a [trxi0i1]-invented temp with no source
+[i0exp]) OR when its recorded type is an aggregate/datatype/unknown (M2.6b/M2.7).
+*)
+fun
+gotype_of_tnm_from_tytab
+(stmp: stamp): strn =
+(
+case+ go_tytab_get(stmp) of
+|optn_nil() => "any"
+|optn_cons(ityp) => gotype_of_i0typ(ityp)
+)//endof[gotype_of_tnm_from_tytab(stmp)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
+=======================================================================
 == CONTROL-FLOW HELPERS  (milestone M2.3)                            ==
 =======================================================================
 //
@@ -984,14 +1126,36 @@ gotype_of_tnm_in_lets2
 (stmp: stamp, full: i1letlst, search: i1letlst, bnds: i1bndlst): strn =
 (
 case+ search of
-|list_nil() => gotype_of_capture_bnd(stmp, bnds)
+//
+// [stmp] is NOT bound in this cmp's lets -> it is a free parameter / capture.
+// Try the in-scope param binds first (M2.5); if THOSE don't type it, fall back
+// to the M2.6a SIDE-TABLE (the temp's source [i0exp] type carried at lowering).
+|list_nil() =>
+  let
+    val tyb = gotype_of_capture_bnd(stmp, bnds)
+  in
+    if (tyb = "any") then gotype_of_tnm_from_tytab(stmp) else tyb
+  end
 |list_cons(ilt1, ilts1) =>
   (
   case+ ilt1 of
   |I1LETnew1(itnm, iins) =>
     (
     if stmp_eq(stmp, i1tnm_stmp$get(itnm))
-    then gotype_of_ins_local(full, iins, bnds)
+    then
+      // type the producing instruction locally (native-op result, nested
+      // block, nested lambda, ...).  When the LOCAL recovery yields "any" (the
+      // M2.6 debt: a [dapp] to a user function / an opaque-callee result), fall
+      // back to the SIDE-TABLE -- the temp's stamp keys the source [i0exp]'s
+      // recorded static type, which types user-function-call results that the
+      // intrep1-level recovery cannot.  (Local recovery FIRST so an
+      // already-concrete answer -- e.g. native-op bool/int -- is preferred and
+      // the table is only a backstop; the two agree where both fire.)
+      let
+        val tyl = gotype_of_ins_local(full, iins, bnds)
+      in
+        if (tyl = "any") then gotype_of_tnm_from_tytab(stmp) else tyl
+      end
     else gotype_of_tnm_in_lets2(stmp, full, ilts1, bnds))
   |I1LETnew0(_) => gotype_of_tnm_in_lets2(stmp, full, ilts1, bnds))
 )
@@ -1116,8 +1280,10 @@ it is in VALUE position: pre-declare a temp, branches assign to it.
 A missing branch (optn_nil for if; an empty clause-list for case) counts
 as NOT-fully-returning, conservatively keeping the value-position path
 (safe: a pre-declared zero temp + assign in the present branches is always
-correct, just less idiomatic).  For [I1INSlet0] this is always false (a
-let-in result is a plain value, not a return).
+correct, just less idiomatic).  For [I1INSlet0] this is true exactly when
+its BODY cmp fully returns (i1cmp_tail_returns) -- a let whose body is a
+returning if/case/nested-let, in FUNCTION-BODY (return) position; then the
+let-block emits in return mode (no result temp, no trailing return).
 *)
 #implfun
 i1ins_fully_returnsq
@@ -1139,6 +1305,16 @@ case+ iins of
 //
 |I1INScas0(_, _, icls) =>
   all_clauses_retq(icls)
+//
+// A let-in in RETURN position: its body cmp already returns on every path
+// (its inner if/case branches end in I1INSrturn) -- so the let-block needs
+// NO result temp + NO trailing return (the value-mode scaffold's trailing
+// `return goxtnm<N>` would be UNREACHABLE -> `go vet`: "unreachable code").
+// i1cmp_tail_returns(body) is the SAME fully-returns decision used for the
+// trailing if/case recursion crux, now extended through I1INSlet0's body
+// (so a let whose body is a returning if OR case OR nested let all qualify).
+|I1INSlet0(_, body) =>
+  i1cmp_tail_returns(body)
 //
 | _(*else*) => false
 ) where
