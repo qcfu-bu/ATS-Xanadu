@@ -1,0 +1,19 @@
+# xats2go — generated build artifacts (NEVER commit; was 6 GB of scratch).
+# Everything under BUILD/ is regenerable: per-`.dats` transpiles, the ~200 MB
+# emitter/JS-oracle bundles, sed-namespaced cached fixed libs, per-test work
+# dirs (emitted .go, go.mod, compiled binaries), and the V8 compile cache.
+srcgen2/BUILD/
+
+# Defensive: stray bundles/transpiles if a legacy build-go-m*.sh ever writes
+# outside BUILD/.
+*_ats3.js
+*-bundle*.js
+*-ref*.js
+.v8cache/
+
+# Go build scratch in the runtime module.
+runtime/xatsgo/*.test
+runtime/xatsgo/xatsgo.bin
+
+# macOS noise.
+.DS_Store
