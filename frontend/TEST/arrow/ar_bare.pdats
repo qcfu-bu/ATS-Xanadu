@@ -1,0 +1,11 @@
+# ARROW-EFFECTS — regression: a BARE `(Int) -> Int` HOF param (no tag) still typechecks.
+# Lowers to F2CLfun (cloref) exactly as before (byte-identical s2exp path). `double` is a
+# top-level def (also cloref), so passing it to `apply` unifies cleanly.
+def apply(f: (Int) -> Int, x: Int) -> Int:
+    f(x)
+
+def double(x: Int) -> Int:
+    x + x
+
+def go() -> Int:
+    apply(double, 5)

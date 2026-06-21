@@ -312,6 +312,34 @@ case+ ts of
 //
 (* ****** ****** *)
 //
+// ARROW-EFFECTS (bootstrap P1): map a surface arrow tag STRING (verbatim CamelCase from the
+// `->[Tag]` grammar) to its L2 function class f2clknd. Only the CLASS PREFIX matters — the effect
+// digit (`0`/`1`) is erased at the s2exp level (the fun1 maker has no effect slot; nil0==all1), so
+// `CloRef0`/`CloRef1` both map to F2CLfun and `CloPtr1` (the only linear class) to F2CLclo(1).
+//   ""        -> F2CLfun     bare `->`  (byte-identical to the prior s2exp_fun1_nil0 path)
+//   CloRef0/1 -> F2CLfun     boxed nonlinear closure (cloref)
+//   Fun0/1    -> F2CLfun     code-ptr / nonlinear — collapses to cloref at this level (the flat
+//                            `fun` code-pointer distinction is erased in f2clknd; nonlinearity
+//                            preserved by F2CLfun, sort tbox — NOT the linear F2CLclo(0))
+//   CloPtr0/1 -> F2CLclo(1)  LINEAR closure (cloptr), sort vtbx — STRUCTURALLY distinct (arrow-
+//                            spike AR-DIST: an F2CLclo(1) value is rejected at an F2CLfun param)
+// An UNKNOWN tag falls back to F2CLfun (the bare default) — same benign fall-through the type-name
+// resolver uses (no diagnostic sink at the lowering layer). `loc` is unused for now (reserved).
+fun
+pylower_arrow_f2cl(env: !tr12env, loc: loctn, tag: strn): f2clknd =
+(
+  if strn_eq(tag, "") then F2CLfun()
+  else if strn_eq(tag, "CloRef0") then F2CLfun()
+  else if strn_eq(tag, "CloRef1") then F2CLfun()
+  else if strn_eq(tag, "Fun0") then F2CLfun()
+  else if strn_eq(tag, "Fun1") then F2CLfun()
+  else if strn_eq(tag, "CloPtr0") then F2CLclo(1)
+  else if strn_eq(tag, "CloPtr1") then F2CLclo(1)
+  else F2CLfun()    // unknown tag: fall back to the bare cloref default (benign)
+)
+//
+(* ****** ****** *)
+//
 #implfun
 pylower_typ(env, t) =
 (
@@ -341,20 +369,24 @@ case+ t of
 // type-arg bracket (`Vec[A, n+1]`) or a guard (`{n | n>=0}`). Arithmetic yields sort i0;
 // comparisons yield sort bool — exactly what an index arg / a guard prop expects.
 | PyTbin(loc, bop, a, b) => pylower_index_binop(env, loc, bop, a, b)
-// M7 (B): a surface function type `(A, B) -> R` lowers to the L2 con-function type S2Efun1.
-// We mirror the PROVEN con-type maker `s2exp_fun1_nil0(npf, argSexps, resSexp)` (M5b.3 con
-// types, pylower_decl00.dats:73; staexp2.dats:1037 shows nil0 = fun1_full(F2CLfun, ...)) — the
-// SAME maker the frontend already uses to build constructor function types, and the same
-// flat-fun arrow the internal `def` lowering's S2Efun1 carries. Arg types lower via
-// pylower_typlst, the result via pylower_typ (each inheriting the M5a primitive mitigation).
-// M7: surface `(A)->B` uses the flat-fun arrow F2CLfun for now; the fun-vs-cloref (closure)
-// arrow kind is being workshopped (task #38) and may change to cloref for capturing-lambda args.
-| PyTfun(loc, args, res) =>
+// M7 (B) + ARROW-EFFECTS (bootstrap P1): a surface function type `(A) -> R` (bare) or
+// `(A) ->[Tag] R` lowers to the L2 con-function type S2Efun1 via the CLASS-AWARE maker
+// `s2exp_fun1_full(f2cl, npf, args, res)` (staexp2.dats:1060). The tag's CLASS part selects f2cl:
+//   ""/CloRef*/Fun*  -> F2CLfun   (cloref; nonlinear boxed; = bare `->`, byte-identical to before
+//                                  since s2exp_fun1_nil0 itself pins F2CLfun, staexp2.dats:1044)
+//   CloPtr*          -> F2CLclo(1) (cloptr; LINEAR boxed closure, sort vtbx)
+// The effect DIGIT (`0`/`1`/`Exn`/...) is COSMETIC — erased at the s2exp level (nil0==all1; the
+// fun1 maker has no effect slot), so we only read the class prefix. The arrow-spike proved all
+// classes reach nerror=0 as a HOF param AND that the class is structurally enforced (AR-DIST: an
+// F2CLclo(1) value is rejected at an F2CLfun param). Arg types lower via pylower_typlst, the result
+// via pylower_typ (each inheriting the M5a primitive mitigation).
+| PyTfun(loc, args, res, tag) =>
     let
       val argSexps = pylower_typlst(env, args)
       val resSexp  = pylower_typ(env, res)
+      val f2cl     = pylower_arrow_f2cl(env, loc, tag)
     in
-      s2exp_fun1_nil0((-1)(*npf*), argSexps, resSexp)
+      s2exp_fun1_full(f2cl, (-1)(*npf*), argSexps, resSexp)
     end
 // M7 (A): a surface tuple type `(A, B)` is a FLAT tuple = a record with INTEGER labels
 // 0..n-1. CRUCIALLY it must mirror what a surface tuple VALUE `(1, 2)` lowers to so an

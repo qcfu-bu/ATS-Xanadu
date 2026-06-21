@@ -135,9 +135,11 @@ case+ t of
 | PyTbin(loc, bop, a, b) =>
   ( ps(out, "(Tbin "); pybop_fprint(out, bop); print_span(out, loc);
     ps(out, " "); pp_typ(out, a); ps(out, " "); pp_typ(out, b); ps(out, ")") )
-| PyTfun(loc, ps0, res) =>
+| PyTfun(loc, ps0, res, tag) =>
   ( ps(out, "(Tfun"); print_span(out, loc);
     ps(out, " (params"); pp_typlst(out, ps0); ps(out, ")");
+    // ARROW-EFFECTS: round-trip the verbatim arrow tag (empty = bare `->`).
+    ps(out, " (tag "); ps(out, tag); ps(out, ")");
     ps(out, " (res "); pp_typ(out, res); ps(out, "))") )
 | PyTtup(loc, ts) =>
   (ps(out, "(Ttup"); print_span(out, loc); pp_typlst(out, ts); ps(out, ")"))

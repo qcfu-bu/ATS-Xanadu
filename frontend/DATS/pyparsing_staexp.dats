@@ -173,13 +173,50 @@ case+ ps_peek(st) of
     case+ ps_peek(st1) of
     | PT_ARROW() =>
       let
-        val @(rhs, st2) = p_type(ps_advance(st1))    // right-assoc
+        // ARROW-EFFECTS: after `->`, an OPTIONAL `[Tag]` arrow tag (CamelCase UIDENT —
+        // `CloRef1`, `Fun0`, `CloPtr1`, ...). UNAMBIGUOUS: no type production starts with a bare
+        // `[` (p_type_atom accepts only UIDENT/LIDENT/INT/`(`/`{`; existentials open with the
+        // `exists` keyword; list types are `List[..]` = UIDENT-prefixed). So a `[` right after
+        // `->` is always the tag. The bare `->` carries `""`.
+        val st1b = ps_advance(st1)                   // consume `->`
+        val @(tag, st1c) = p_arrow_tag(st1b)
+        val @(rhs, st2) = p_type(st1c)               // right-assoc
         val span = loc_span(pytyp_loctn(t0), pytyp_loctn(rhs))
       in
-        @(PyTfun(span, list_cons(t0, list_nil()), rhs), st2)
+        @(PyTfun(span, list_cons(t0, list_nil()), rhs, tag), st2)
       end
     | _ => @(t0, st1)
   end
+)
+//
+// ARROW-EFFECTS: parse the OPTIONAL `[Tag]` after a `->`. `[` UIDENT `]` -> the UIDENT string;
+// no `[` -> `""` (the bare arrow). A malformed bracket (no UIDENT / no `]`) diagnoses and yields
+// `""` so the surrounding type still parses.
+and
+p_arrow_tag(st: pstate): @(strn, pstate) =
+(
+case+ ps_peek(st) of
+| PT_LBRACK() =>
+  let
+    val locL = ps_peek_loctn(st)
+    val st1 = ps_advance(st)                         // consume `[`
+  in
+    case+ ps_peek(st1) of
+    | PT_UIDENT(s) =>
+      let
+        val st2 = ps_advance(st1)                    // consume the tag UIDENT
+      in
+        case+ ps_peek(st2) of
+        | PT_RBRACK() => @(s, ps_advance(st2))       // consume `]`
+        | _ =>
+          let val st3 = ps_diag(st2, ps_peek_loctn(st2), "expected `]` after arrow tag") in
+            @(s, st3) end
+      end
+    | _ =>
+      let val st2 = ps_diag(st1, locL, "expected a CamelCase arrow tag after `->[`") in
+        @("", st2) end
+  end
+| _ => @("", st)
 )
 //
 // A-QUANT: `forall`/`exists` already consumed-as-keyword by the caller's peek; parse the binder

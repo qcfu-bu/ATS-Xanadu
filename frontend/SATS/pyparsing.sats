@@ -158,7 +158,13 @@ pytyp =
 | PyTvar   of (loctn, strn)
 | PyTidx   of (loctn, strn)
 | PyTbin   of (loctn, pybop, pytyp, pytyp)
-| PyTfun   of (loctn, list(pytyp), pytyp)
+// ARROW-EFFECTS (bootstrap P1): a function type `(A) -> B` (bare) or `(A) ->[Tag] B`. The
+// trailing `strn` carries the VERBATIM CamelCase arrow tag (`CloRef1`, `Fun0`, `CloPtr1`, ...) for
+// round-trip; the EMPTY string `""` = the bare `->` (unchanged). The tag's CLASS part drives the
+// lowered f2clknd (CloRef/Fun -> F2CLfun cloref ; CloPtr -> F2CLclo linear) — the effect digit is
+// cosmetic (erased at the s2exp level). See pylower_staexp PyTfun arm + the arrow-spike (AR-DIST
+// proved the class IS structurally enforced: an F2CLclo(1) value is rejected at an F2CLfun param).
+| PyTfun   of (loctn, list(pytyp), pytyp, strn(*arrow tag; ""=bare*))
 | PyTtup   of (loctn, list(pytyp))
 | PyTrec   of (loctn, list(pytfield))
 // A-QUANT: an EXPLICIT quantified type — `forall[n: SInt | g] <type>` (universal) or

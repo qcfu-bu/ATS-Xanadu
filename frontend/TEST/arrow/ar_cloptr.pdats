@@ -1,0 +1,8 @@
+# ARROW-EFFECTS — `(Int) ->[CloPtr1] Int`: a LINEAR closure (cloptr) HOF param. CloPtr1 lowers
+# to F2CLclo(1) (sort vtbx, linear) — STRUCTURALLY distinct from cloref (arrow-spike AR-DIST
+# proved a cloptr value is rejected at a cloref param). NOTE: a top-level `def` lowers to cloref
+# (F2CLfun), which does NOT unify with a cloptr param — so this fixture only DECLARES the HOF and
+# APPLIES its linear param inside (the minimal context that typechecks for the linear class), with
+# no external caller feeding it a (mismatched) cloref def.
+def use_linear(f: (Int) ->[CloPtr1] Int, x: Int) -> Int:
+    f(x)

@@ -1,0 +1,11 @@
+# ARROW-EFFECTS — `(Int) ->[CloRef1] Int`: an explicit boxed-nonlinear-closure (cloref) HOF
+# param. CloRef1 lowers to F2CLfun — the SAME class as the bare `->`. `double` (a top-level
+# def, also cloref) passes cleanly to `apply`.
+def apply(f: (Int) ->[CloRef1] Int, x: Int) -> Int:
+    f(x)
+
+def double(x: Int) -> Int:
+    x + x
+
+def go() -> Int:
+    apply(double, 5)
