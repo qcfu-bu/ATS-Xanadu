@@ -31,7 +31,7 @@ Mirrors xats2js/srcgen2/DATS/xats2js_myenv0.dats.
 (* ****** ****** *)
 //
 #staload ".\
-/../../../xats2cc\
+/../../xats2cc\
 /srcgen1/SATS/intrep0.sats"//...
 //
 #staload "./../SATS/intrep1.sats"

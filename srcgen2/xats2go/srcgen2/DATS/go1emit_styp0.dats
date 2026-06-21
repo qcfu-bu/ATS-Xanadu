@@ -63,7 +63,7 @@ go1emit_styp0 — milestone M2.0 — two scaffolds for the Go backend:
 (* ****** ****** *)
 //
 #staload ".\
-/../../../xats2cc\
+/../../xats2cc\
 /srcgen1/SATS/intrep0.sats"//...
 //
 #staload "./../SATS/intrep1.sats"

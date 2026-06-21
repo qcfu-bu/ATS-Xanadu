@@ -50,7 +50,7 @@ last-writer-wins on lookup.
 "./../../../SATS/xstamp0.sats"
 //
 #staload ".\
-/../../../xats2cc\
+/../../xats2cc\
 /srcgen1/SATS/intrep0.sats"//for[i0typ]
 //
 #staload "./../SATS/go1emit_tytab0.sats"

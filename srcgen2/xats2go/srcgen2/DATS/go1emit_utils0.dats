@@ -53,7 +53,7 @@ Naming (PLAN.md §5.9, mirrors js1emit):
 (* ****** ****** *)
 //
 #staload ".\
-/../../../xats2cc\
+/../../xats2cc\
 /srcgen1/SATS/intrep0.sats"//...
 //
 #staload "./../SATS/intrep1.sats"

@@ -41,7 +41,7 @@ dispatch, emitting Go. Only the constructors the M1 walking skeleton
 (* ****** ****** *)
 //
 #staload ".\
-/../../../xats2cc\
+/../../xats2cc\
 /srcgen1/SATS/intrep0.sats"//...
 //
 #staload "./../SATS/intrep1.sats"

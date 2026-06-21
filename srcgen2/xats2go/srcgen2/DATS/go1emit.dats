@@ -42,7 +42,7 @@ go1emit_utils0.dats (mirroring the js1emit file split).
 (* ****** ****** *)
 //
 #staload ".\
-/../../../xats2cc\
+/../../xats2cc\
 /srcgen1/SATS/intrep0.sats"//...
 //
 #staload "./../SATS/intrep1.sats"

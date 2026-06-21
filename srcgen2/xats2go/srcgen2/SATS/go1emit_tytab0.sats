@@ -60,7 +60,7 @@ ONLY for the SCALAR cases it can prove (int/bool/rune/float64/string) and
 //
 #staload
 ".\
-/../../../xats2cc\
+/../../xats2cc\
 /srcgen1/SATS/intrep0.sats"//for[i0typ]
 //
 (* ****** ****** *)

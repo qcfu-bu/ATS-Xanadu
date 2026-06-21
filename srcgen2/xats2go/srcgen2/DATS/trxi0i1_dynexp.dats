@@ -62,7 +62,7 @@ XATSOPT "./../../.."
 (* ****** ****** *)
 //
 #staload ".\
-/../../../xats2cc\
+/../../xats2cc\
 /srcgen1/SATS/intrep0.sats"//...
 //
 #staload "./../SATS/intrep1.sats"
@@ -1661,6 +1661,17 @@ iexp.node() of
 //
 (* ****** ****** *)
 //
+// xats2go MIGRATION: dispatch the exception nodes the frontend now produces
+// (since the local extended intrep0/trxd3i0 lowers D3Etry0/D3Eraise to
+// I0Etry0/I0Eraise).  Before, these hit [_(*otherwise*)] -> [i1val_none1] ->
+// an un-lowerable I1Vnone1.  Now they lower to [I1INStry0]/[I1INSraise] via the
+// (pre-existing) [i1val_try0]/[i1val_raise] producers.  Mirrors xats2js/srcgen1.
+//
+|I0Etry0 _ => f0_try0(iexp, env0)
+|I0Eraise _ => f0_raise(iexp, env0)
+//
+(* ****** ****** *)
+//
 |I0Erturn _ => f0_rturn(iexp, env0)
 //
 (* ****** ****** *)
@@ -2722,6 +2733,71 @@ prerrsln(
 *)
 //
 }(*where*)//end-of-[f0_assgn(iexp,env0)]
+//
+(* ****** ****** *)
+//
+// xats2go MIGRATION: lower [I0Etry0] -> [I1INStry0] via [i1val_try0].  The try
+// BODY is lowered as a BLOCK ([i0blk_trxi0i1] -> i1cmp), a fresh temp-name is
+// the exception binder ([iexn]), and the HANDLER clauses are lowered with
+// [i0clslst_trxi0i1].  Mirrors xats2js/srcgen1's [f0_try0] dispatch.
+//
+fun
+f0_try0
+(
+iexp: i0exp,
+env0: !envi0i1): i1val =
+let
+//
+val loc0 = iexp.lctn()
+//
+val-
+I0Etry0
+(tknd
+,i0e1, icls) = iexp.node()
+//
+val icmp =
+(
+  i0blk_trxi0i1(i0e1, env0))
+//
+val iexn =
+i1val_tnm(loc0, i1tnm_new0())
+//
+val icls =
+(
+  i0clslst_trxi0i1(icls, env0))
+//
+in//let
+(
+  i1val_try0
+  (env0, loc0, tknd, icmp, iexn, icls))
+end(*let*)//end-of-[f0_try0(iexp,env0)]
+//
+(* ****** ****** *)
+//
+// xats2go MIGRATION: lower [I0Eraise] -> [I1INSraise] via [i1val_raise].  The
+// exception value is lowered with [i0exp_trxi0i1].  Mirrors xats2js/srcgen1.
+//
+fun
+f0_raise
+(
+iexp: i0exp,
+env0: !envi0i1): i1val =
+let
+//
+val loc0 = iexp.lctn()
+//
+val-
+I0Eraise
+(tknd, i0e1) = iexp.node()
+//
+val i1v1 =
+(
+  i0exp_trxi0i1(i0e1, env0))
+//
+in//let
+(
+  i1val_raise(env0, loc0, tknd, i1v1))
+end(*let*)//end-of-[f0_raise(iexp,env0)]
 //
 (* ****** ****** *)
 (* ****** ****** *)

@@ -2089,3 +2089,76 @@ two gaps (so they are honest rungs, not the gap proofs):
   refs / tuple-pattern params / list runtime, so the SUITE proofs are the
   focused test73/test74 (which isolate exactly the two gaps and ARE byte-equal-
   vs-JS), with test70/71/72 kept as documented rungs.
+
+---
+
+# EXCEPTIONS MIGRATION — D3→intrep0 rebased to a LOCAL extended xats2cc stage
+
+**Goal of this chunk:** make a `$raise`/`try…with` program LOWER to
+`I1INStry0`/`I1INSraise` reaching the emitter (the emitter still prints
+`UNHANDLED` for them — panic/recover emission is the NEXT chunk).
+
+**Root cause fixed:** the build sourced D3→intrep0 from `frontend/BUILD/lib2xats2cc.js`
+(built from `xats2cc/srcgen1`), whose intrep0 has `I0Eraise` but **no `I0Etry0`**,
+and whose `trxd3i0` never lowers try/raise — so `$raise`/`try` fell through to the
+un-lowered `I0Enone1`/`I1Vnone1`.
+
+**Why NOT just point at `xats2js/srcgen1`'s intrep0 (the literal brief):** our Go
+backend (`go1emit` tytab0/styp0 + trxi0i1) depends on **26 intrep0 identifiers that
+`xats2js/srcgen1`'s intrep0 lacks**, including the ENTIRE `i0typ` static-type family
+(`I0Tvar`/`I0Ttcon`/`I0Ttrcd`/`I0Tapps`/… + `I0CALfun`/`I0CALfix`) which
+`xats2js/srcgen1`'s intrep0 does not have AT ALL. Swapping would break the Go
+type-emission machinery and all 58 tests.
+
+**What we did instead (self-consistent reconciliation):**
+- A LOCAL, self-owned copy of the xats2cc D3→intrep0 stage lives at
+  `srcgen2/xats2go/xats2cc/srcgen1/{SATS,DATS,HATS}` (one level deeper than the
+  global `xats2cc`, so all internal `./../../../{SATS,HATS}` includes were bumped
+  `+1` level to `./../../../../`). We do **not** modify the global xats2cc/xats2js.
+- **`I0Etry0 of (token, i0exp, i0clslst)` is APPENDED as the LAST `i0exp_node`
+  constructor** (intrep0.sats) — so every pre-existing datacon TAG is preserved
+  (verified: new `lib2xats2cc` has `I0Etry0=56` added and ZERO existing tags
+  shifted; `I0Eraise` still `45`).
+- `trxd3i0_dynexp.dats`: added `D3Etry0=>f0_try0` / `D3Eraise=>f0_raise` dispatch
+  + the two `f0_*` (ported from `xats2js/srcgen1`, adapted to xats2cc's TYPED
+  `i0exp(loc, i0typ, node)`).
+- `tryd3i0_dynexp.dats`: added `I0Etry0`/`I0Eraise` PASS-THROUGH arms (recursing
+  into sub-exprs) so the tryd3i0 normalization does NOT clobber them into
+  `I0Enone2` via its `_(*otherwise*)` arm. (tryd3i0 is KEPT in the driver.)
+- `intrep0_print0.dats`: an `I0Etry0` print arm (the i0exp_node fprint is
+  exhaustive, no catch-all).
+- OUR backend: `srcgen2/DATS/trxi0i1_dynexp.dats` gained `I0Etry0=>f0_try0` /
+  `I0Eraise=>f0_raise` dispatch arms + the `f0_try0`/`f0_raise` that call the
+  (pre-existing) `i1val_try0`/`i1val_raise` → `I1INStry0`/`I1INSraise`.
+- All 21 OUR-file staloads repointed from the global xats2cc
+  (`./../../../xats2cc/…`) to the LOCAL copy (`./../../xats2cc/…`).
+
+**Makefile:**
+- `lib2xats2cc.js` is now BUILT (real cached target `$(LIB2CC_C)`) from the LOCAL
+  stage (`XATS2CC_DATS`, mirroring build-m0b.sh's build_backend_lib), NOT reused
+  from `frontend/BUILD`.
+- **JS-oracle stamp coordination:** appending `I0Etry0` shifts the GLOBAL
+  declaration-stamp counter (e.g. `i0parsed_of_trxd3i0` `1598→1601`). The Go
+  bundle is fully consistent (its driver + lib2xats2go are re-transpiled against
+  the local intrep0 → `1601`). The JS-oracle DRIVER (`xats2js/srcgen2` → global
+  xats2cc) + `lib2xats2js` are stamp-`1598`, so they'd crash against the new cc.
+  FIX: the two bundles are independent, so the `js2` (cc) slot need NOT be shared.
+  The Go bundle uses the NEW local cc (`$(CC_JS2)`); the JS-oracle bundle uses the
+  OLD frontend cc (`$(CC_JS2_OLD)`, stamp-`1598`) — internally consistent with the
+  OLD JS driver + lib2xats2js. The 58 tests use no try/raise, so the JS reference
+  is byte-identical to before → the differential oracle stays VALID.
+
+**Result:** `make -j psuite` = **58/58 GREEN** (48 byte-equal-vs-JS + 10
+golden-fallback — the SAME breakdown as before; the 10 are a pre-existing
+JS-oracle `$RUNJS`-step limitation for closure/list programs, NOT a regression;
+all 10 Go outputs are byte-identical to the committed goldens). A `$raise`/`try`
+program's IR (verified via the temporarily-re-enabled go1emit dump, now
+re-disabled) shows `I1INStry0(…; I1INSraise(…); …; I1CLScls(handler))` — NO
+`I1Vnone1`/`I0Enone1` — and the emitter prints `[go1emit] UNHANDLED i1ins` (the
+EXPECTED handoff).
+
+**LEFT FOR THE NEXT CHUNK:** the emitter's panic/recover emission for
+`I1INStry0`/`I1INSraise` in `go1emit_dynexp.dats`'s `i1ins` dispatch (currently
+`UNHANDLED`). The nodes now REACH the emitter with the full structure (try-body
+i1cmp, raise value, exn binder tnm, handler i1clslst) ready to emit Go
+`func(){ defer/recover }()` + `panic(...)`.

@@ -34,7 +34,7 @@ M0 [go1emit] stub needs. (No IR-traversal entrypoints yet.)
 //
 #staload
 ".\
-/../../../xats2cc\
+/../../xats2cc\
 /srcgen1/SATS/intrep0.sats"
 //
 (* ****** ****** *)

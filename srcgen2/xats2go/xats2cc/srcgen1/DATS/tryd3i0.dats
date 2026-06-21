@@ -31,12 +31,11 @@
 (*
 Author: Hongwei Xi
 //
-Sat Apr 18 06:17:19 PM EDT 2026
+Mon Apr  6 12:38:23 AM EDT 2026
 //
 Authoremail: gmhwxiATgmailDOTcom
 *)
 //
-(* ****** ****** *)
 (* ****** ****** *)
 (*
 #define
@@ -44,169 +43,198 @@ XATSOPT "./../../.."
 *)
 (* ****** ****** *)
 #include
-"./../../..\
+"./../../../..\
 /HATS/xatsopt_sats.hats"
 #include
-"./../../..\
+"./../../../..\
 /HATS/xatsopt_dpre.hats"
 (* ****** ****** *)
+#staload
+"./../../../../SATS/staexp2.sats"
+#staload
+"./../../../../SATS/statyp2.sats"
+#staload
+"./../../../../SATS/dynexp2.sats"
+#staload
+"./../../../../SATS/dynexp3.sats"
 (* ****** ****** *)
 //
-#staload ".\
-/../../xats2cc\
-/srcgen1/SATS/intrep0.sats"//...
-//
-#staload "./../SATS/intrep1.sats"
-#staload "./../SATS/trxi0i1.sats"
+#staload "./../SATS/intrep0.sats"
+#staload "./../SATS/tryd3i0.sats"
 //
 (* ****** ****** *)
 (* ****** ****** *)
 //
 #implfun
-i1parsed_of_trxi0i1
-  (   dpar   ) =
+i0parsed_of_tryd3i0
+  (  ipar  ) =
 let
 //
 val stadyn =
-i0parsed_stadyn$get(dpar)
+i0parsed_stadyn$get(ipar)
 //
 val nerror =
-i0parsed_nerror$get(dpar)
+i0parsed_nerror$get(ipar)
 //
 val source =
-i0parsed_source$get(dpar)
+i0parsed_source$get(ipar)
 //
 val parsed =
-i0parsed_parsed$get(dpar)
+i0parsed_parsed$get(ipar)
 //
-val env0 = envi0i1_make_nil()
+val enw0 = enwd3i0_make_nil()
 //
 val parsed =
-i0dclistopt_trxi0i1(parsed, env0)
+i0dclistopt_tryd3i0(parsed, enw0)
 //
 in//let
+//
 let
-val ((*0*)) = envi0i1_free_nil(env0)
+val ((*0*)) = enwd3i0_free_nil(enw0)
 in//let
 (
-  i1parsed(stadyn,nerror,source,parsed))
+  i0parsed(stadyn,nerror,source,parsed))
 end//let
-end (*let*) // end of [i1parsed_trxi0i1(dpar)]
+//
+end(*let*)//end-of-[i0parsed_of_tryd3i0(ipar)]
 //
 (* ****** ****** *)
 (* ****** ****** *)
 //
 #impltmp
 <x0><y0>
-list_trxi0i1_fnp
+list_tryd3i0_fnp
 ( xs, e1, fopr ) =
 (
 list_map$e1nv<x0><y0><e1>(xs, e1)) where
 {
-#vwtpdef e1 = envi0i1
+#vwtpdef e1 = enwd3i0
 #impltmp
 map$e1nv$fopr<x0><y0><e1> = fopr(*x0, e1*)
-}(*where*)//end-of-[list_trxi0i1_fnp(xs,e1,fopr)]
+}(*where*)//end-of-[list_tryd3i0_fnp(xs,e1,fopr)]
 //
 (* ****** ****** *)
 //
 #impltmp
 <x0><y0>
-optn_trxi0i1_fnp
+optn_tryd3i0_fnp
 ( xs, e1, fopr ) =
 (
 optn_map$e1nv<x0><y0><e1>(xs, e1)) where
 {
-#vwtpdef e1 = envi0i1
+#vwtpdef e1 = enwd3i0
 #impltmp
 map$e1nv$fopr<x0><y0><e1> = fopr(*x0, e1*)
-}(*where*)//end-of-[optn_trxi0i1_fnp(xs,e1,fopr)]
+}(*where*)//end-of-[optn_tryd3i0_fnp(xs,e1,fopr)]
 //
 (* ****** ****** *)
 (* ****** ****** *)
 //
 #implfun
-i0patlst_trxi0i1
-( i0ps, env0 ) =
+i0patlst_tryd3i0
+( enw0, i0ps ) =
 (
-  list_trxi0i1_fnp(i0ps, env0, i0pat_trxi0i1))
+  list_tryd3i0_fnp(enw0, i0ps, i0pat_tryd3i0))
+//
+(* ****** ****** *)
+//
+#implfun
+l0i0plst_tryd3i0
+( enw0, ldps ) =
+(
+  list_tryd3i0_fnp(enw0, ldps, l0i0p_tryd3i0))
 //
 (* ****** ****** *)
 (* ****** ****** *)
 //
 #implfun
-i0explst_trxi0i1
-( i0es, env0 ) =
+i0explst_tryd3i0
+( enw0, i0es ) =
 (
-  list_trxi0i1_fnp(i0es, env0, i0exp_trxi0i1))
+  list_tryd3i0_fnp(enw0, i0es, i0exp_tryd3i0))
+//
+#implfun
+i0expopt_tryd3i0
+( enw0, iopt ) =
+(
+  optn_tryd3i0_fnp(enw0, iopt, i0exp_tryd3i0))
 //
 (* ****** ****** *)
 //
 #implfun
-l0i0elst_trxi0i1
-( lies, env0 ) =
+l0i0elst_tryd3i0
+( enw0, ldes ) =
 (
-  list_trxi0i1_fnp(lies, env0, l0i0e_trxi0i1))
-//
-(* ****** ****** *)
-(* ****** ****** *)
-//
-#implfun
-i0gualst_trxi0i1
-( i0gs, env0 ) =
-(
-  list_trxi0i1_fnp(i0gs, env0, i0gua_trxi0i1))
-//
-#implfun
-i0clslst_trxi0i1
-( icls, env0 ) =
-(
-  list_trxi0i1_fnp(icls, env0, i0cls_trxi0i1))
+  list_tryd3i0_fnp(enw0, ldes, l0i0e_tryd3i0))
 //
 (* ****** ****** *)
 (* ****** ****** *)
 //
 #implfun
-i0dclist_trxi0i1
-( dcls, env0 ) =
+fiarglst_tryd3i0
+( enw0, f3as) =
 (
-  list_trxi0i1_fnp(dcls, env0, i0dcl_trxi0i1))
+  list_tryd3i0_fnp(enw0, f3as, fiarg_tryd3i0))
 //
 (* ****** ****** *)
 (* ****** ****** *)
 //
 #implfun
-i0valdclist_trxi0i1
-  ( i0vs, env0 ) =
+i0gualst_tryd3i0
+( enw0, i0gs) =
 (
-  list_trxi0i1_fnp(i0vs, env0, i0valdcl_trxi0i1))
+  list_tryd3i0_fnp(enw0, i0gs, i0gua_tryd3i0))
 //
 #implfun
-i0vardclist_trxi0i1
-  ( i0vs, env0 ) =
+i0clslst_tryd3i0
+( enw0, icls) =
 (
-  list_trxi0i1_fnp(i0vs, env0, i0vardcl_trxi0i1))
-//
-(* ****** ****** *)
-//
-#implfun
-i0fundclist_trxi0i1
-  ( i0fs, env0 ) =
-(
-  list_trxi0i1_fnp(i0fs, env0, i0fundcl_trxi0i1))
+  list_tryd3i0_fnp(enw0, icls, i0cls_tryd3i0))
 //
 (* ****** ****** *)
 (* ****** ****** *)
 //
 #implfun
-i0dclistopt_trxi0i1
-  ( dopt, env0 ) =
+i0dclist_tryd3i0
+( enw0, dcls ) =
 (
-  optn_trxi0i1_fnp(dopt, env0, i0dclist_trxi0i1))
+  list_tryd3i0_fnp(enw0, dcls, i0dcl_tryd3i0))
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+#implfun
+i0valdclist_tryd3i0
+( enw0, i0vs ) =
+(
+  list_tryd3i0_fnp(enw0, i0vs, i0valdcl_tryd3i0))
+//
+#implfun
+i0vardclist_tryd3i0
+( enw0, i0vs ) =
+(
+  list_tryd3i0_fnp(enw0, i0vs, i0vardcl_tryd3i0))
+//
+(* ****** ****** *)
+//
+#implfun
+i0fundclist_tryd3i0
+( enw0, i0fs ) =
+(
+  list_tryd3i0_fnp(enw0, i0fs, i0fundcl_tryd3i0))
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+#implfun
+i0dclistopt_tryd3i0
+( enw0, i0fs ) =
+(
+  optn_tryd3i0_fnp(enw0, i0fs, i0dclist_tryd3i0))
 //
 (* ****** ****** *)
 (* ****** ****** *)
 //
 (***********************************************************************)
-(* end of [ATS3/XANADU_srcgen2_xats2js_srcgen2_DATS_trxi0i1.dats] *)
+(* end of [ATS3/XANADU_srcgen2_xats2cc_srcgen1_DATS_tryd3i0.dats] *)
 (***********************************************************************)

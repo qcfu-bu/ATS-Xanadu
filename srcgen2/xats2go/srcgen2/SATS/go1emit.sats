@@ -43,7 +43,7 @@ file split (utils0/dynexp/decl00). Nodes outside test01's needs emit
 //
 #staload
 ".\
-/../../../xats2cc\
+/../../xats2cc\
 /srcgen1/SATS/intrep0.sats"
 //
 (* ****** ****** *)

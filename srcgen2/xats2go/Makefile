@@ -121,6 +121,43 @@ XATS2JS_DATS := \
   js1emit.dats js1emit_utils0.dats js1emit_dynexp.dats js1emit_decl00.dats \
   xats2js_tmplib.dats
 
+########################################################################
+# xats2go MIGRATION (exceptions): the LOCAL, SELF-OWNED copy of the xats2cc
+# D3->intrep0 stage, EXTENDED with [I0Etry0] + the D3Etry0/D3Eraise lowering
+# (trxd3i0) + the tryd3i0 pass-throughs.  We BUILD lib2xats2cc.js from THIS set
+# (instead of reusing the INCOMPLETE frontend/BUILD/lib2xats2cc.js, whose
+# intrep0 has no I0Etry0 and whose trxd3i0 never lowers try/raise).  [I0Etry0]
+# is APPENDED as the last i0exp_node constructor, so every pre-existing datacon
+# stamp (the JS XATSCTAG tags) is preserved -> the JS-oracle lib2xats2js.js
+# (compiled against the old tags) stays tag-compatible.  Source order mirrors
+# xats2cc/srcgen1/Makefile_xjsemit SRCDATS (build-m0b.sh's build_backend_lib).
+########################################################################
+# NB: the local stage lives at srcgen2/xats2go/xats2cc/ (a sibling of the inner
+# "srcgen2" dir, NOT under it), so it is $(SRCGEN2)/xats2go/xats2cc — do NOT use
+# $(XATS2GO) here ($(XATS2GO) = $(SRCGEN2)/xats2go/srcgen2, one level too deep).
+XATS2CC_ROOT  := $(SRCGEN2)/xats2go/xats2cc/srcgen1
+XATS2CC_LOCAL := $(XATS2CC_ROOT)/DATS
+XATS2CC_DATS := \
+  intrep0.dats \
+  intrep0_print0.dats \
+  intrep0_utils0.dats \
+  trxd3i0.dats \
+  trxd3i0_print0.dats \
+  trxd3i0_myenv0.dats \
+  trxd3i0_statyp.dats \
+  trxd3i0_dynexp.dats \
+  trxd3i0_decl00.dats \
+  tryd3i0.dats \
+  tryd3i0_myenv0.dats \
+  tryd3i0_dynexp.dats \
+  tryd3i0_decl00.dats \
+  xats2cc_tmplib.dats
+# All .sats/.dats/.hats in the local stage — prerequisites so an edit to ANY of
+# them rebuilds lib2xats2cc.js (and thus the bundle).
+XATS2CC_SRCALL := $(wildcard $(XATS2CC_ROOT)/SATS/*.sats) \
+                  $(wildcard $(XATS2CC_ROOT)/DATS/*.dats) \
+                  $(wildcard $(XATS2CC_ROOT)/HATS/*.hats)
+
 # Per-file transpile (out0) and per-file namespaced fragment (ns) targets.
 OUT0 := $(patsubst %.dats, $(JSDIR)/%_dats_out0.js, $(GO_DATS))
 NSJS := $(patsubst %.dats, $(JSDIR)/%_dats_ns.js,   $(GO_DATS))
@@ -148,6 +185,24 @@ JSPATCHED := $(BUILD)/xats2js-ref.patched.js
 # tokens; the inputs never change → built ONCE, reused on every relink/oracle).
 OPT_JS1 := $(BUILD)/lib2xatsopt.js1.js
 CC_JS2  := $(BUILD)/lib2xats2cc.js2.js
+
+# xats2go MIGRATION (JS-oracle stamp coordination): adding [I0Etry0] to intrep0
+# shifts the GLOBAL declaration-stamp counter, so EVERY function in the NEW
+# lib2xats2cc gets a +N stamp (e.g. i0parsed_of_trxd3i0 1598 -> 1601).  The Go
+# bundle is fully consistent (its driver + lib2xats2go are RE-transpiled against
+# the local extended intrep0, so they reference the new stamps).  But the
+# JS-oracle's driver (JDRV, from xats2js/srcgen2 -> global xats2cc) and its
+# lib2xats2js were built against the OLD stamps -> they would crash against the
+# new lib2xats2cc ("i0parsed_of_trxd3i0_1598 is not defined").
+#
+# RESOLUTION: the two bundles are INDEPENDENT, so the js2 slot need not be
+# shared.  The Go bundle uses the NEW local cc ($(CC_JS2)); the JS-oracle bundle
+# uses the OLD frontend cc ($(CC_JS2_OLD)) — internally consistent with the OLD
+# JS driver + lib2xats2js (all stamp-1598).  The 58 conformance tests use no
+# try/raise, so the JS reference is byte-identical to before; the differential
+# oracle stays valid.  (try/raise lowering is a GO-only concern this chunk.)
+LIB2CC_OLD := $(FRONTEND)/BUILD/lib2xats2cc.js
+CC_JS2_OLD := $(BUILD)/lib2xats2cc.old.js2.js
 
 # CACHED i0varfst(+tokenfpr) shims.  The shim resolves ONLY names from FIXED libs
 # (the 6 i0varfst_* + i0var_dvar$get/d2var_get_stmp/stamp_get_uint from
@@ -274,10 +329,25 @@ $(DRV_GO): $(DRIVER) | dirs
 # the cached copy is missing/stale vs the prebuilt source.  NEVER rebuilt on a
 # normal emitter edit (the emitter `.dats` are not prerequisites here).
 ########################################################################
-# lib2xats2cc.js: reuse the prebuilt frontend/BUILD copy.
-$(LIB2CC_C): $(LIB2CC) | dirs
-	@echo ">> cache lib2xats2cc.js (reuse frontend/BUILD)"
-	@ln -sf $(LIB2CC) $@ 2>/dev/null || cp $(LIB2CC) $@
+# lib2xats2cc.js: BUILD from the LOCAL extended D3->intrep0 stage (with I0Etry0
+# + try/raise lowering).  This REPLACES the old "reuse frontend/BUILD" recipe:
+# the prebuilt frontend lib2xats2cc.js is INCOMPLETE (no I0Etry0, no try/raise
+# lowering) so a $raise/try program never reaches the emitter.  Mirrors the
+# build-m0b.sh build_backend_lib: transpile each .dats via jsemit00, sed the
+# per-file namespace jsxtnm -> jsx<NNN>tnm (3-digit, from 100), then concat.
+# Real cached target: rebuilds only when a local-stage source changes.
+$(LIB2CC_C): $(XATS2CC_SRCALL) | dirs
+	@echo ">> build lib2xats2cc.js from LOCAL extended stage ($(words $(XATS2CC_DATS)) files; +I0Etry0/try-raise)"
+	@: > $@; idx=100; \
+	for f in $(XATS2CC_DATS); do \
+	  t="$(BUILD)/xcc__$${f%.dats}_dats_out0.js"; \
+	  $(NODE) $(JSEMIT) "$(XATS2CC_LOCAL)/$$f" > "$$t" 2>"$$t.err"; \
+	  if [ "$$(wc -l < "$$t")" -lt $(MINLINES) ]; then \
+	    echo "!! xats2cc(local) transpile FAILED for $$f (see $$t.err)" >&2; tail -30 "$$t.err" >&2; rm -f $@; exit 1; \
+	  fi; \
+	  sed -e "s/jsxtnm/jsx$${idx}tnm/g" "$$t" >> $@; idx=$$((idx+1)); \
+	done; \
+	echo "   -> $@ ($$(wc -l < $@) lines, built from local stage)"
 
 # lib2xats2js.js: reuse the prebuilt frontend/BUILD JS-oracle lib.  If the
 # prebuilt is absent the recipe falls back to building it once from the
@@ -316,10 +386,20 @@ $(OPT_JS1): $(LIB2OPT) | dirs
 	@sed -E 's/jsx(...)tnm/js1\1tnm/g' $(LIB2OPT) > $@
 	@echo "   -> $@"
 
-# js2 · lib2xats2cc.js  (16 MB → cached once).  Source: the cached cc copy.
+# js2 · lib2xats2cc.js  (16 MB → cached once).  Source: the NEW LOCAL cc (with
+# I0Etry0) — used by the GO bundle.
 $(CC_JS2): $(LIB2CC_C) | dirs
-	@echo ">> cache js2·lib2xats2cc.js (one-time sed)"
+	@echo ">> cache js2·lib2xats2cc.js (NEW local, one-time sed)"
 	@sed -E 's/jsx(...)tnm/js2\1tnm/g' $(LIB2CC_C) > $@
+	@echo "   -> $@"
+
+# js2 · OLD lib2xats2cc.js — used by the JS-ORACLE bundle (stamp-matched to the
+# OLD JS driver + lib2xats2js).  Source: the prebuilt frontend lib (NOT the
+# local one).  See the CC_JS2_OLD note above for why the JS oracle must use the
+# OLD cc.
+$(CC_JS2_OLD): $(LIB2CC_OLD) | dirs
+	@echo ">> cache js2·lib2xats2cc.OLD.js (frontend prebuilt, for JS oracle)"
+	@sed -E 's/jsx(...)tnm/js2\1tnm/g' $(LIB2CC_OLD) > $@
 	@echo "   -> $@"
 
 ########################################################################
@@ -357,10 +437,11 @@ $(GO_SHIM): $(CC_JS2) $(SHIMNAMES) $(JSSHIM) | dirs
 	@rm -f $@.scan.tmp
 
 # JS shim: same scan plus the JS-oracle lib so the tokenfpr no-op block is
-# emitted (the JS reference references tokenfpr).
-$(JS_SHIM): $(CC_JS2) $(SHIMNAMES) $(LIB2JS_C) $(JSSHIM) | dirs
-	@echo ">> cache i0varfst shim (JS oracle; scans cc.js2 + opt-names + lib2xats2js)"
-	@cat $(CC_JS2) $(SHIMNAMES) $(LIB2JS_C) > $@.scan.tmp
+# emitted (the JS reference references tokenfpr).  Scans the OLD cc ($(CC_JS2_OLD))
+# because the JS-oracle bundle uses the OLD cc (stamp-matched).
+$(JS_SHIM): $(CC_JS2_OLD) $(SHIMNAMES) $(LIB2JS_C) $(JSSHIM) | dirs
+	@echo ">> cache i0varfst shim (JS oracle; scans cc.OLD.js2 + opt-names + lib2xats2js)"
+	@cat $(CC_JS2_OLD) $(SHIMNAMES) $(LIB2JS_C) > $@.scan.tmp
 	@bash $(JSSHIM) $@.scan.tmp $@ >/dev/null \
 	  || { echo "!! JS shim gen failed" >&2; rm -f $@.scan.tmp; exit 1; }
 	@rm -f $@.scan.tmp
@@ -389,10 +470,13 @@ $(GOPATCHED): $(GO_SHIM) $(OPT_JS1) $(CC_JS2) $(LIB2GO) $(DRV_GO) | dirs
 # being rebuilt per test.  Same cached pieces as the Go bundle except js3 (the JS
 # oracle lib) and the driver; only lib2xats2js.js is re-sed'd, and that too only
 # when the (FIXED) oracle lib changes.  Byte-order:
-#   js-shim ++ RUNTIME ++ js1·opt ++ js2·cc ++ js3·JS ++ JS-driver.
-$(JSPATCHED): $(JS_SHIM) $(OPT_JS1) $(CC_JS2) $(LIB2JS_C) $(JDRV) | dirs
-	@echo ">> link JS-oracle reference bundle (single-pass; cached, test-independent)"
-	@cat $(JS_SHIM) $(RUNTIME) $(OPT_JS1) $(CC_JS2) \
+#   js-shim ++ RUNTIME ++ js1·opt ++ js2·cc(OLD) ++ js3·JS ++ JS-driver.
+# Uses $(CC_JS2_OLD) (the OLD frontend cc) so its stamps match the OLD JS driver
+# + lib2xats2js — see the CC_JS2_OLD note.  The GO bundle ($(GOPATCHED)) uses the
+# NEW local cc; the two bundles are independent.
+$(JSPATCHED): $(JS_SHIM) $(OPT_JS1) $(CC_JS2_OLD) $(LIB2JS_C) $(JDRV) | dirs
+	@echo ">> link JS-oracle reference bundle (single-pass; cached, test-independent; OLD cc)"
+	@cat $(JS_SHIM) $(RUNTIME) $(OPT_JS1) $(CC_JS2_OLD) \
 	     <(sed -E 's/jsx(...)tnm/js3\1tnm/g' $(LIB2JS_C)) \
 	     $(JDRV) > $@
 	@echo "   -> $@"
@@ -658,5 +742,6 @@ clean:
 cleanall: clean
 	@echo ">> cleanall: also removing cached fixed libs + namespaced caches + shims (NOT lib2xatsopt.js)"
 	@rm -f $(LIB2CC_C) $(LIB2JS_C) $(JDRV) \
-	       $(OPT_JS1) $(CC_JS2) $(GO_SHIM) $(JS_SHIM) $(SHIMNAMES) \
+	       $(OPT_JS1) $(CC_JS2) $(CC_JS2_OLD) $(GO_SHIM) $(JS_SHIM) $(SHIMNAMES) \
+	       $(BUILD)/xcc__*_dats_out0.js $(BUILD)/xcc__*_dats_out0.js.err \
 	       $(BUILD)/transpile_godrv.err $(BUILD)/transpile_jsdrv.err

@@ -54,7 +54,7 @@ and the I1CMPcons result ival as a final  goxtnmX := <ival>; _ = goxtnmX.
 (* ****** ****** *)
 //
 #staload ".\
-/../../../xats2cc\
+/../../xats2cc\
 /srcgen1/SATS/intrep0.sats"//...
 //
 #staload "./../SATS/intrep1.sats"

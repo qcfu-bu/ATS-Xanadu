@@ -55,7 +55,7 @@ XATSOPT/xats2cc/srcgen1"
 //
 #staload
 ".\
-/../../../xats2cc\
+/../../xats2cc\
 /srcgen1/SATS/intrep0.sats"
 //
 (* ****** ****** *)
