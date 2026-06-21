@@ -46,6 +46,8 @@ and the I1CMPcons result ival as a final  goxtnmX := <ival>; _ = goxtnmX.
 //
 #staload // LEX =
 "./../../../SATS/lexing0.sats"
+#staload // LAB =
+"./../../../SATS/xlabel0.sats"
 #staload // D2E =
 "./../../../SATS/dynexp2.sats"
 //
@@ -64,6 +66,7 @@ and the I1CMPcons result ival as a final  goxtnmX := <ival>; _ = goxtnmX.
 //
 #symload filr with envx2go_filr$get
 #symload nind with envx2go_nind$get
+#symload node with token_get_node
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -144,6 +147,257 @@ closure is called with its plain args ONLY -- there is no env-passing
 calling convention to append values for (the [I1INSdapp]/[I1Vfenv] paths
 now ignore [envs] and use [i1valgo1_list]).  See the I1INSdapp doc above.
 *)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
+=======================================================================
+== M2.6b LAYOUT-AWARE TUPLES / RECORDS: construction (READ path)     ==
+=======================================================================
+//
+A flat tuple/record is a Go VALUE struct literal `struct{...}{v0, v1}`; a
+boxed one is a HEAP POINTER `&struct{...}{v0, v1}`.  The struct TYPE is
+recovered from the construction's RESULT temp via the M2.6a side-table
+([gotrcd_of_tnm]: the temp's recorded [I0Ttrcd] -> (isFlat, structBody)) --
+the SAME translation a projection root gets from [gotype_of_i0typ], so the
+constructed value's Go type matches every `v.F<lab>` use exactly.
+//
+CRUCIAL: flat-vs-boxed is decided by the [trcdknd] in the recorded type
+(NOT by the [I1INStup0] vs [I1INStup1] constructor split -- the front-end
+lowers even a FLAT `@(..)` to [I1INStup1] with a flat-kind token, verified
+via the IR dump).  So [isFlat] from [gotrcd_of_tnm] is the authority.
+//
+[i1trcd_construct_go1emit]: emit a tuple/record construction bound to result
+temp [otnm].  Drives the struct type from [otnm]'s side-table entry; emits
+the values via [i1valgo1] (tuple = positional [i1valist]; record = the
+[l1i1vlst] field values in declaration order, which the front-end already
+ordered to match the struct fields).  Falls back to [i1valgo1] of the raw
+ctor only if the type is somehow unrecoverable (documented; the oracle would
+catch a wrong layout).
+*)
+fun
+i1trcd_emit_litvals
+( filr: FILR
+, i1vs: i1valist): void =
+(
+list_iforitm(i1vs)) where
+{
+#typedef x0 = i1val
+#typedef xs = i1valist
+#impltmp
+iforitm$work<x0>(i0, x0) =
+(
+if (i0 >= 1) then strnfpr(filr, ", ");
+i1valgo1(filr, x0))
+}(*where*)//endof[i1trcd_emit_litvals(filr,i1vs)]
+//
+fun
+i1trcd_emit_rcdvals
+( filr: FILR
+, livs: l1i1vlst): void =
+(
+list_iforitm(livs)) where
+{
+#typedef x0 = l1i1v
+#typedef xs = l1i1vlst
+#impltmp
+iforitm$work<x0>(i0, lv0) =
+let
+  val-I1LAB(_, iv1) = lv0
+in
+  (if (i0 >= 1) then strnfpr(filr, ", "); i1valgo1(filr, iv1))
+end
+}(*where*)//endof[i1trcd_emit_rcdvals(filr,livs)]
+//
+(*
+i1ins_is_construct: is this ins a tuple/record CONSTRUCTION?  (See the SATS
+doc -- such an ins routes through [i1trcd_construct_go1emit] with its result
+temp, not the generic [i1insgo1].)
+*)
+#implfun
+i1ins_is_construct
+(iins) =
+(
+case+ iins of
+|I1INStup0(_) => true
+|I1INStup1(_, _) => true
+|I1INSrcd2(_, _) => true
+| _(*else*) => false
+)//endof[i1ins_is_construct(iins)]
+//
+(* ****** ****** *)
+//
+(*
+FALLBACK struct-type construction (side-table MISS).
+//
+When the result temp's recorded [i0typ] is NOT a tuple/record (the temp had
+no source [i0exp], or the type is otherwise unrecoverable), we STILL must emit
+a correctly-SHAPED struct literal -- flat (VALUE) vs boxed (POINTER) per the
+token's [trcdknd], with the right field COUNT/NAMES -- so the construction is
+not a `nil` guess.  We recover the per-field Go TYPE from each field VALUE
+([gotype_of_ival]: a literal carries its type; a temp falls back to `any`).
+The flat/boxed flag comes from the token int payload ([T_TRCD10]/[T_TRCD20]:
+0 = flat `@(/@{`, nonzero = boxed `#(/#{`), verified in the IR dump.
+//
+[gotok_is_flat]: the token int payload -> isFlat (0 == flat).
+*)
+fun
+gotok_is_flat
+(tok: token): bool =
+(
+case+ tok.node() of
+|T_TRCD10(i0) => (i0 = 0)
+|T_TRCD20(i0) => (i0 = 0)
+| _(*else: be conservative -> flat (value)*) => true
+)//endof[gotok_is_flat(tok)]
+//
+(*
+[gostruct_body_of_tupvals]: build `struct{F0 T0; F1 T1; ...}` for a positional
+TUPLE from its value list -- field names are positional (F0,F1,...), field
+types from each value via [gotype_of_ival] (any-fallback).  Used ONLY on the
+side-table miss path; the hit path uses the recorded [i0typ]'s precise types.
+*)
+fun
+gostruct_body_of_tupvals
+(i1vs: i1valist): strn =
+let
+  fun
+  fields
+  (i0: sint, vs: i1valist): strn =
+  (
+  case+ vs of
+  |list_nil() => ""
+  |list_cons(v1, vs1) =>
+    let
+      val fnm = gofield_of_label(LABint(i0))
+      val fty = gotype_of_ival(v1)
+      val one = strn_append(strn_append(fnm, " "), fty)
+      val sep = (if (i0 >= 1) then "; " else "")
+    in
+      strn_append(strn_append(sep, one), fields(i0+1, vs1))
+    end
+  )
+in
+  strn_append(strn_append("struct{", fields(0, i1vs)), "}")
+end//endof[gostruct_body_of_tupvals(i1vs)]
+//
+(*
+[gostruct_body_of_rcdvals]: build `struct{Fx Tx; Fy Ty; ...}` for a RECORD
+from its labelled value list -- field names from each [I1LAB] label via
+[gofield_of_label], field types from each value via [gotype_of_ival].
+*)
+fun
+gostruct_body_of_rcdvals
+(livs: l1i1vlst): strn =
+let
+  fun
+  fields
+  (i0: sint, vs: l1i1vlst): strn =
+  (
+  case+ vs of
+  |list_nil() => ""
+  |list_cons(lv1, vs1) =>
+    let
+      val-I1LAB(lab1, v1) = lv1
+      val fnm = gofield_of_label(lab1)
+      val fty = gotype_of_ival(v1)
+      val one = strn_append(strn_append(fnm, " "), fty)
+      val sep = (if (i0 >= 1) then "; " else "")
+    in
+      strn_append(strn_append(sep, one), fields(i0+1, vs1))
+    end
+  )
+in
+  strn_append(strn_append("struct{", fields(0, livs)), "}")
+end//endof[gostruct_body_of_rcdvals(livs)]
+//
+(*
+[i1trcd_emit_fallback]: emit the construction from the TOKEN (flat/boxed) +
+value-derived field types, when the side-table had no tuple/record type.  The
+struct SHAPE (flat value vs boxed pointer, field count/names) is always correct
+per the [trcdknd]; only an unrecoverable field TYPE degrades to `any` (the
+documented fallback, not a layout error).
+*)
+fun
+i1trcd_emit_fallback
+( filr: FILR
+, iins: i1ins): void =
+let
+  val () = prerrsln("[go1emit] NOTE: tuple/record construct typed from token+values (side-table miss; any-field fallback possible)")
+in
+  case+ iins of
+  |I1INStup0(i1vs) =>
+    (
+    // a bare flat tuple (no token) -> VALUE struct.
+    strnfpr(filr, gostruct_body_of_tupvals(i1vs));
+    strnfpr(filr, "{"); i1trcd_emit_litvals(filr, i1vs); strnfpr(filr, "}"))
+  |I1INStup1(tok, i1vs) =>
+    let
+      val isFlat = gotok_is_flat(tok)
+      val () = (if isFlat then () else strnfpr(filr, "&"))
+    in
+      strnfpr(filr, gostruct_body_of_tupvals(i1vs));
+      strnfpr(filr, "{"); i1trcd_emit_litvals(filr, i1vs); strnfpr(filr, "}")
+    end
+  |I1INSrcd2(tok, livs) =>
+    let
+      val isFlat = gotok_is_flat(tok)
+      val () = (if isFlat then () else strnfpr(filr, "&"))
+    in
+      strnfpr(filr, gostruct_body_of_rcdvals(livs));
+      strnfpr(filr, "{"); i1trcd_emit_rcdvals(filr, livs); strnfpr(filr, "}")
+    end
+  | _(*unreachable: only construction ins reach here*) =>
+    (
+    strnfpr(filr, "/* UNHANDLED: trcd-construct (non-construction ins) */ nil");
+    prerrsln("[go1emit] UNHANDLED tuple/record construct (non-construction ins)"))
+end//endof[i1trcd_emit_fallback(filr,iins)]
+//
+(*
+[i1trcd_construct_go1emit]: emit a tuple/record construction `[&]<body>{...}`
+bound to result temp [otnm] -- a flat value struct literal `struct{...}{...}`
+or a boxed heap pointer `&struct{...}{...}`, per [isFlat] (the layout payoff
+made visible: same field values, value-vs-pointer per the [trcdknd]).
+*)
+#implfun
+i1trcd_construct_go1emit
+( filr, otnm, iins ) =
+let
+  val ostmp = i1tnm_stmp$get(otnm)
+in//let
+  case+ gotrcd_of_tnm(ostmp) of
+  //
+  // GOT the struct type from the side-table -> emit the typed value/pointer
+  // struct literal (the Regime-B layout payoff: NOT a []any).  `&` prefix iff
+  // boxed; then `<body>{ <values> }`.  This is the PRIMARY path -- the struct
+  // type is byte-identical to what every projection root computes from the
+  // SAME recorded [i0typ], so Go's structural typing accepts both sites.
+  |optn_cons(@(isFlat, body)) =>
+    let
+      val () = (if isFlat then () else strnfpr(filr, "&"))
+      val () = strnfpr(filr, body)
+      val () = strnfpr(filr, "{")
+      val () =
+      (
+      case+ iins of
+      |I1INStup0(i1vs)    => i1trcd_emit_litvals(filr, i1vs)
+      |I1INStup1(_, i1vs) => i1trcd_emit_litvals(filr, i1vs)
+      |I1INSrcd2(_, livs) => i1trcd_emit_rcdvals(filr, livs)
+      | _(*unreachable: only construction ins reach here*) => ())
+      val () = strnfpr(filr, "}")
+    in
+      ((*void*))
+    end
+  //
+  // side-table miss (the result temp was not recorded, or its type is not a
+  // tuple/record) -> FALL BACK to a token + value-typed struct (shape always
+  // correct per [trcdknd]; an unrecoverable field type degrades to `any`).
+  // Not expected on the READ-path surface (every tuple/record construction's
+  // result temp IS recorded at its mint site), but robust if it ever happens.
+  |optn_nil() =>
+    i1trcd_emit_fallback(filr, iins)
+end//let//endof[i1trcd_construct_go1emit(filr,otnm,iins)]
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -323,6 +577,43 @@ case+ i1f0.node() of
   i1valgo1_list(filr, i1vs);
   strnfpr(filr, ")")))
 end//let
+//
+(* ****** ****** *)
+//
+(*
+M2.6b PROJECTION: read one field of a tuple/record.
+  I1INSpflt(lab, v) : FLAT  tuple/record field -> `v.F<lab>` (value field).
+  I1INSproj(lab, v) : BOXED tuple/record field -> `v.F<lab>` (Go auto-derefs
+                      the *struct pointer, so the SAME `.F<lab>` syntax works).
+The field name [gofield_of_label] is the SAME scheme the struct TYPE used at
+construction, so `.F<lab>` resolves.  (Both flat and boxed render identically
+here -- Go's pointer auto-deref unifies them -- which is exactly why a single
+projection form is correct for both layouts.)
+*)
+|I1INSpflt(lab0, i1v1) =>
+  (
+  i1valgo1(filr, i1v1);
+  strnfpr(filr, "."); strnfpr(filr, gofield_of_label(lab0)))
+|I1INSproj(lab0, i1v1) =>
+  (
+  i1valgo1(filr, i1v1);
+  strnfpr(filr, "."); strnfpr(filr, gofield_of_label(lab0)))
+//
+(* ****** ****** *)
+//
+(*
+M2.6b CONSTRUCTION reaching [i1insgo1] without a result temp (an [I1LETnew0]
+throwaway, or a construction nested as a sub-expression).  A tuple/record
+construction needs its result temp's recorded type for the struct literal,
+which is unavailable here -- the [I1LETnew1] path routes it to
+[i1trcd_construct_go1emit] (which HAS the temp).  Reaching here means a
+construction surfaced in a context M2.6b does not yet type; mark UNHANDLED
+(never an untyped guess).  On the READ-path surface every construction is
+[val p = @(..)] -> [I1LETnew1], so this is not hit.
+*)
+|I1INStup0(_) => unhandled_ins(filr, "I1INStup0(no-result-temp)", iins)
+|I1INStup1(_, _) => unhandled_ins(filr, "I1INStup1(no-result-temp)", iins)
+|I1INSrcd2(_, _) => unhandled_ins(filr, "I1INSrcd2(no-result-temp)", iins)
 //
 (* ****** ****** *)
 //
@@ -1142,6 +1433,23 @@ case+ ilet of
   if i1ins_is_blockform(iins)
   then i1ins_go1emit_block(scp, itnm, iins, params, bnds, env0)
   else
+  if i1ins_is_construct(iins)
+  then
+    // M2.6b: a tuple/record CONSTRUCTION emits as a single-line struct literal
+    // whose TYPE comes from THIS binding temp [itnm] (its recorded i0typ) --
+    // so we route to [i1trcd_construct_go1emit] (which has the temp) for the
+    // RHS, after emitting the live/dead binding prefix as usual.
+    let
+      val live = i1tnm_used_in_cmp(itnm, scp)
+    in
+    (
+    nindfpr(filr, nind);
+    if live
+      then (i1tnmgo1(filr, itnm); strnfpr(filr, " := "))
+      else strnfpr(filr, "_ = ");
+    i1trcd_construct_go1emit(filr, itnm, iins); fprintln(filr))
+    end
+  else
   let
     val live = i1tnm_used_in_cmp(itnm, scp)
   in
@@ -1160,6 +1468,18 @@ case+ ilet of
     // a block-form in statement position (no binding): drive it as a value-
     // position block with a throwaway temp (its result is unit/discarded).
     let val tmp = i1tnm_new0() in i1ins_go1emit_block(scp, tmp, iins, params, bnds, env0) end
+  else
+  if i1ins_is_construct(iins)
+  then
+    // a construction whose result is discarded -- mint a throwaway temp for the
+    // (unused) struct type lookup, emit it as `_ = <struct literal>`.
+    let
+      val tmp = i1tnm_new0()
+    in
+    (
+    nindfpr(filr, nind); strnfpr(filr, "_ = ");
+    i1trcd_construct_go1emit(filr, tmp, iins); fprintln(filr))
+    end
   else
   (
   nindfpr(filr, nind);

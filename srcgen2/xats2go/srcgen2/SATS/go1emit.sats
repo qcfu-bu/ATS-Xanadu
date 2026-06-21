@@ -70,6 +70,28 @@ fun
 gotype_of_ival
 (ival: i1val): strn
 //
+// gofield_of_label: the Go FIELD NAME for a tuple/record label (M2.6b).  A
+// positional tuple label LABint(i) -> "F<i>"; a record label LABsym(s) ->
+// "F<s>".  This is the SINGLE definition of the field-name scheme, shared by
+// the type translation (gotype_of_i0typ/styp's struct arm) and the emitter's
+// projection sites (v.F<lab>), so a construction site's struct type and every
+// projection cannot disagree.
+//
+fun
+gofield_of_label
+(lab0: label): strn
+//
+// gotrcd_of_tnm: the construction-site side-table lookup (M2.6b).  Given a
+// result temp's STAMP, if its recorded i0typ is a tuple/record, return
+// optn_cons(@(isFlat, structBody)) where [structBody] is the Go `struct{...}`
+// type WITHOUT the leading `*` (the construction emitter writes a flat value
+// literal `struct{...}{...}` or a boxed pointer literal `&struct{...}{...}`),
+// and [isFlat] = trcdknd_fltq.  optn_nil when not recorded / not a tuple.
+//
+fun
+gotrcd_of_tnm
+(stmp: stamp): optn(@(bool, strn))
+//
 // i1binop_of_dapp: given an I1INSdapp's callee + args + the enclosing cmp
 // (op-resolution scope), return the native Go binary operator string
 // ("+","-","<","==",...) iff the call should be emitted as native infix
@@ -130,6 +152,29 @@ i1ins_fully_returnsq
 fun
 i1ins_is_blockform
 (iins: i1ins): bool
+//
+// i1ins_is_construct (M2.6b): true iff this instruction is a tuple/record
+// CONSTRUCTION (I1INStup0 / I1INStup1 / I1INSrcd2).  Such an ins emits as a
+// single-line Go struct literal `<structtype>{...}` (flat VALUE) or
+// `&<structtype>{...}` (boxed POINTER), but the struct TYPE is recovered from
+// the BINDING result temp's side-table entry -- so the I1LETnew1 emitter must
+// route it to [i1trcd_construct_go1emit] (which has the temp), NOT to the
+// generic [i1insgo1] (which has no temp and would emit `UNHANDLED nil`).
+//
+fun
+i1ins_is_construct
+(iins: i1ins): bool
+//
+// i1trcd_construct_go1emit (M2.6b): emit a tuple/record construction's RHS
+// expression -- a flat VALUE struct literal `<structtype>{v0, v1, ...}` or a
+// boxed POINTER literal `&<structtype>{v0, v1, ...}` -- where [otnm] is the
+// BINDING result temp (its recorded i0typ supplies the struct type, via the
+// M2.6a side-table, identical to what every projection root computes).  Emits
+// ONLY the RHS (the caller emits the `goxtnm := ` / `_ = ` binding prefix).
+//
+fun
+i1trcd_construct_go1emit
+(filr: FILR, otnm: i1tnm, iins: i1ins): void
 //
 // i1cmp_tail_returns: does the cmp already return on every path, so a
 // result-mode emitter must NOT append a trailing `return`/`= result`?

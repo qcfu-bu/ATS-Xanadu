@@ -109,6 +109,23 @@ DEFAULT_SUITE=(
   "$HERE/test39_tytab_float_xats2go.dats"
   "$HERE/test40_tytab_bool_xats2go.dats"
   "$HERE/test41_let_case_xats2go.dats"
+  #   M2.6b: layout-aware tuples/records.  A FLAT tuple/record is a Go VALUE
+  #     struct `struct{...}{...}`; a BOXED one is a `&struct{...}{...}` POINTER
+  #     (provably tracking the trcdknd).  Construction + projection + a tuple
+  #     passed-to/returned-from a function all drive the SAME struct type from
+  #     the M2.6a side-table.  test42 flat tuple build+proj; test43 boxed tuple
+  #     (POINTER); test44 flat record (named fields); test45 boxed record;
+  #     test46 a NESTED tuple (struct-typed field); test47 a tuple PASSED TO +
+  #     RETURNED FROM a function (struct param/result signature).  Each
+  #     byte-equal-vs-JS, gofmt-clean, `go vet` OK.
+  "$HERE/test42_tup_flat_xats2go.dats"
+  "$HERE/test43_tup_boxed_xats2go.dats"
+  "$HERE/test44_rec_flat_xats2go.dats"
+  "$HERE/test45_rec_boxed_xats2go.dats"
+  "$HERE/test46_nested_xats2go.dats"
+  "$HERE/test47_tup_fun_xats2go.dats"
+  "$HERE/test48_tup_float_xats2go.dats"
+  "$HERE/test49_tup_mixed_xats2go.dats"
 )
 
 if [ "$#" -gt 0 ]; then

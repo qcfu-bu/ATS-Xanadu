@@ -49,6 +49,8 @@ go1emit_styp0 — milestone M2.0 — two scaffolds for the Go backend:
 "./../../../SATS/xstamp0.sats"
 #staload // BAS =
 "./../../../SATS/xbasics.sats"
+#staload // LAB =
+"./../../../SATS/xlabel0.sats"
 #staload // SYM =
 "./../../../SATS/xsymbol.sats"
 #staload // S2E =
@@ -685,6 +687,69 @@ in
   strn_append(strn_append(strn_append("func(", sargs), ") "), sres)
 end//endof[gorender_funty(npf,args,res)]
 //
+(*
+[gorender_trcd]: render a tuple/record STATIC type ([T2Ptrcd(knd,npf,ltps)]) as
+a Go anonymous struct -- flat = a VALUE `struct{...}`, boxed = a `*struct{...}`
+POINTER -- with per-field Go types via [gotype_of_styp].  The [s2typ] analog of
+[goty_of_i0trcd] (the [i0typ] version), used so a function whose PARAMETER or
+RESULT type is a tuple/record gets a concrete struct signature (not `any`).
+Field names come from [gofield_of_label], matching every construction /
+projection site.  Proof fields ([npf]) are dropped; [npf] = -1 drops nothing.
+*)
+(*
+[gorender_trcd_body]: the bare Go `struct{F0 T0; ...}` BODY (no leading `*`)
+of a tuple/record [s2typ] field list, proof prefix [npf] dropped.  Split out
+of [gorender_trcd] so the construction-site companion ([gotrcd_struct_body_styp])
+can return the SAME body WITHOUT slicing a `*` off a rendered string.
+*)
+fun
+gorender_trcd_body
+( npf: sint, ltps: l2t2plst): strn =
+let
+  fun
+  drop1
+  (n: sint, xs: l2t2plst): l2t2plst =
+  (
+  if (n <= 0) then xs else
+  (
+  case+ xs of
+  |list_nil() => xs
+  |list_cons(_, xs1) => drop1(n-1, xs1)))
+  //
+  fun
+  fields
+  (i0: sint, xs: l2t2plst): strn =
+  (
+  case+ xs of
+  |list_nil() => ""
+  |list_cons(lt1, xs1) =>
+    let
+      val-S2LAB(lab1, t2p1) = lt1
+      val fnm = gofield_of_label(lab1)
+      val fty = gotype_of_styp(t2p1)
+      val one = strn_append(strn_append(fnm, " "), fty)
+      val sep = (if (i0 >= 1) then "; " else "")
+    in
+      strn_append(strn_append(sep, one), fields(i0+1, xs1))
+    end
+  )
+  //
+  val ltps1 = drop1(npf, ltps)
+  val body  = fields(0, ltps1)
+in
+  strn_append(strn_append("struct{", body), "}")
+end//endof[gorender_trcd_body(npf,ltps)]
+//
+fun
+gorender_trcd
+( knd: trcdknd
+, npf: sint, ltps: l2t2plst): strn =
+let
+  val stru = gorender_trcd_body(npf, ltps)
+in
+  if trcdknd_fltq(knd) then stru else strn_append("*", stru)
+end//endof[gorender_trcd(knd,npf,ltps)]
+//
 #implfun
 gotype_of_styp
 (t2p0) =
@@ -696,6 +761,11 @@ case+ t2p0.node() of
 // a FUNCTION type -> a Go `func(...)...` type, so a higher-order parameter
 // or a closure-returning result is callable/assignable (not opaque `any`).
 |T2Pfun1(_, npf, args, res) => gorender_funty(npf, args, res)
+//
+// M2.6b: a TUPLE / RECORD type -> a Go anonymous struct (flat=value,
+// boxed=pointer) so a tuple/record-typed parameter or result is concretely
+// typed -- matching what the construction / projection sites emit.
+|T2Ptrcd(knd, npf, ltps) => gorender_trcd(knd, npf, ltps)
 //
 // an APPLIED type-constructor:  gint_type(KIND, i) / gflt_type(KIND) /
 // bool_type(b) / char_type(c) / string(...).  Map by the head cst name;
@@ -804,6 +874,74 @@ concrete type here would break [go build], so we are deliberately conservative):
 can call it; it forward-references the SATS-declared [gotype_of_styp]
 ([#implfun]), which resolves.
 *)
+//
+(* ****** ****** *)
+//
+(*
+=======================================================================
+== (2c) LAYOUT-AWARE TUPLES / RECORDS  (milestone M2.6b)             ==
+=======================================================================
+//
+A flat tuple/record (trcdknd_fltq) is a Go VALUE struct
+`struct{F0 T0; F1 T1; ...}`; a boxed one is a `*struct{...}` POINTER.  The
+field TYPES come from the [i0typ]'s own field list ([l0i0tlst] inside
+[I0Ttrcd]); the field NAMES are positional [F0,F1,...] for an integer label
+([LABint]) and [F<sym>] for a record symbol label ([LABsym]).  The SAME
+type-translation drives BOTH the construction site (the struct literal's
+type) and every projection (`v.F<lab>`), so the anonymous struct is
+identical everywhere (Go's structural typing then makes them assignable).
+//
+[gostr_of_uint]: a non-negative integer -> its decimal Go string.  Needed
+to build positional field names ([F0],[F1],...) for tuple structs.  Built
+from single-digit string literals + [ndiv]/[nmod] (no char arithmetic), so
+it is dialect-safe.
+*)
+fun
+godigit_str
+(d: sint): strn =
+(
+case+ d of
+| 0 => "0" | 1 => "1" | 2 => "2" | 3 => "3" | 4 => "4"
+| 5 => "5" | 6 => "6" | 7 => "7" | 8 => "8" | _(*9*) => "9"
+)
+//
+fun
+gostr_of_uint
+(n: sint): strn =
+(
+if (n < 10) then godigit_str(n)
+else strn_append(gostr_of_uint(n / 10), godigit_str(n % 10))
+)
+//
+(*
+[gofield_of_label]: the Go FIELD NAME for a tuple/record label.  A positional
+tuple label [LABint(i)] -> "F<i>" (F0, F1, ...); a record label [LABsym(s)] ->
+"F<sanitized-s>" (the leading `F` keeps it a Go-EXPORTED identifier -- harmless
+in the single `package main` -- and avoids clashing with Go keywords; the
+symbol chars are sanitized to a valid Go identifier the same way [xsymgo1]
+does so the field name a record projection emits matches its construction).
+This is the ONE place the field-name scheme is defined, so type-translation,
+construction, and projection cannot disagree.
+*)
+#implfun
+gofield_of_label
+(lab0) =
+(
+case+ lab0 of
+|LABint(i0) => strn_append("F", gostr_of_uint(i0))
+|LABsym(sym) => strn_append("F", symbl_get_name(sym))
+)//endof[gofield_of_label(lab0)]
+//
+// NOTE: a record label symbol ([LABsym]) is an ordinary ATS identifier
+// (letters/digits/underscore), so [symbl_get_name] is already a valid Go
+// identifier fragment -- prefixing "F" keeps it a single, collision-free,
+// Go-EXPORTED field name (harmless in the single `package main`).  A label
+// with a non-identifier char would need the [xsymgo1]-style sanitization the
+// FILR emitters apply; the READ-path surface here never produces one (the
+// oracle would catch any divergence as a `go build` failure).
+//
+(* ****** ****** *)
+//
 fun
 goty_of_i0t_apps
 ( hd: i0typ
@@ -876,10 +1014,79 @@ case+ ityp.node() of
 // an [i0typ] that just wraps an [s2typ] -> reuse the proven s2typ translator.
 |I0Tnone1(t2p0) => gotype_of_styp(t2p0)
 //
-// AGGREGATES / DATATYPES / POLYMORPHIC / UNKNOWN -> "any" (M2.6b/M2.7).  A
-// wrong concrete type here would break [go build]; deferring is the safe choice.
+// M2.6b: a TUPLE / RECORD (the layout-bearing node) -> a Go anonymous struct
+// (flat = a VALUE struct, boxed = a *struct POINTER), with per-field Go types
+// from the field list.  Driving construction + projection from this SAME
+// translation makes the anonymous struct identical at every site (Go's
+// structural typing then makes them assignable).
+|I0Ttrcd(knd, npf, fields) => goty_of_i0trcd(knd, npf, fields)
+//
+// DATATYPES / POLYMORPHIC / UNKNOWN -> "any" (M2.7).  A wrong concrete type
+// here would break [go build]; deferring is the safe choice.
 | _(*otherwise*) => "any"
 )//endof[gotype_of_i0typ(ityp)]
+//
+(*
+[goty_of_i0trcd]: translate a tuple/record [i0typ] -> a Go anonymous struct.
+  flat (trcdknd_fltq)  -> `struct{F<l0> T0; F<l1> T1; ...}`     (VALUE)
+  boxed                -> `*struct{F<l0> T0; F<l1> T1; ...}`    (POINTER)
+The leading [npf] PROOF fields are erased (dropped, like a d2con's nprg), so
+only the VALUE fields become struct fields.  Each field's Go type recurses
+through [gotype_of_i0typ] (so a NESTED tuple/record field is itself a struct).
+The field NAMES come from each field's own [label] via [gofield_of_label], so
+they MATCH the projection sites' `v.F<lab>` exactly.
+//
+[npf] may be -1 (the front-end's "no proof prefix" sentinel) -- [drop_pf_i0t]
+treats any n<=0 as "drop nothing", so -1 and 0 behave identically.
+*)
+and
+goty_of_i0trcd
+( knd: trcdknd
+, npf: sint, fields: l0i0tlst): strn =
+let
+  val flds1 = drop_pf_i0t(npf, fields)
+  val body  = goty_of_i0t_fields(0, flds1)
+  val stru  = strn_append(strn_append("struct{", body), "}")
+in
+  if trcdknd_fltq(knd) then stru else strn_append("*", stru)
+end
+//
+(*
+[drop_pf_i0t]: drop the leading [npf] proof fields (erased) from a field list.
+*)
+and
+drop_pf_i0t
+(npf: sint, fields: l0i0tlst): l0i0tlst =
+(
+if (npf <= 0) then fields else
+(
+case+ fields of
+|list_nil() => fields
+|list_cons(_, flds1) => drop_pf_i0t(npf-1, flds1))
+)
+//
+(*
+[goty_of_i0t_fields]: render the `F<lab> <goty>; ...` body of a struct from a
+field list ([I0LAB(label, i0typ)] each).  [i0] is just a separator counter so
+fields are `; `-joined.  Each field type recurses through [gotype_of_i0typ].
+*)
+and
+goty_of_i0t_fields
+(i0: sint, fields: l0i0tlst): strn =
+(
+case+ fields of
+|list_nil() => ""
+|list_cons(f1, flds1) =>
+  let
+    val-I0LAB(lab1, ity1) = f1
+    val fnm = gofield_of_label(lab1)
+    val fty = gotype_of_i0typ(ity1)
+    val one = strn_append(strn_append(fnm, " "), fty)
+    val sep = (if (i0 >= 1) then "; " else "")
+  in
+    strn_append(strn_append(sep, one), goty_of_i0t_fields(i0+1, flds1))
+  end
+)//endof[goty_of_i0t_fields(i0,fields)]
 //
 (*
 [gotype_of_tnm_from_tytab]: the SIDE-TABLE entry point the emitter's fallback
@@ -895,6 +1102,92 @@ case+ go_tytab_get(stmp) of
 |optn_nil() => "any"
 |optn_cons(ityp) => gotype_of_i0typ(ityp)
 )//endof[gotype_of_tnm_from_tytab(stmp)]
+//
+(* ****** ****** *)
+//
+(*
+[gotrcd_struct_body]: if [ityp] is (or wraps) a tuple/record [I0Ttrcd], return
+[optn_cons(@(isFlat, structBody))] where [structBody] is the Go `struct{...}`
+type (WITHOUT the leading `*` -- the caller decides value-vs-pointer literal
+syntax) and [isFlat] = [trcdknd_fltq(knd)].  [optn_nil] when [ityp] is not a
+tuple/record.  This is the construction-site companion to [goty_of_i0trcd]
+(which returns the full type with `*`): a flat literal is `struct{...}{...}`, a
+boxed literal is `&struct{...}{...}`, both over the SAME [structBody], so the
+constructed value's Go type is exactly what [gotype_of_i0typ] gives a projection
+root -- the two sites cannot disagree.
+*)
+fun
+gotrcd_struct_body
+(ityp: i0typ): optn(@(bool, strn)) =
+(
+case+ ityp.node() of
+|I0Ttrcd(knd, npf, fields) =>
+  let
+    val flds1 = drop_pf_i0t(npf, fields)
+    val body  = goty_of_i0t_fields(0, flds1)
+    val stru  = strn_append(strn_append("struct{", body), "}")
+  in
+    optn_cons(@(trcdknd_fltq(knd), stru))
+  end
+// chase the trivial wrappers (a tuple/record's recorded type is normally a
+// bare I0Ttrcd, but be robust to a wrapper the front-end might leave).
+|I0Tlft(t1) => gotrcd_struct_body(t1)
+|I0Ttop0(t1) => gotrcd_struct_body(t1)
+|I0Ttop1(t1) => gotrcd_struct_body(t1)
+|I0Texi0(_, t1) => gotrcd_struct_body(t1)
+|I0Tuni0(_, t1) => gotrcd_struct_body(t1)
+|I0Tlam1(_, t1) => gotrcd_struct_body(t1)
+// IMPORTANT (verified via the IR dump): a tuple/record's recorded type is
+// NOT a native [I0Ttrcd] -- the side-table stores [I0Tnone1(s2typ)] where the
+// [s2typ] is the layout-bearing [T2Ptrcd(knd,npf,ltps)].  So delegate to the
+// [s2typ] companion, which recognizes [T2Ptrcd] (and uses the SAME field-name
+// scheme + per-field translation as [goty_of_i0trcd]/[gorender_trcd], so the
+// construction-site struct type is byte-identical to a projection root's).
+|I0Tnone1(t2p0) => gotrcd_struct_body_styp(t2p0)
+| _(*non-trcd*) => optn_nil()
+)//endof[gotrcd_struct_body(ityp)]
+//
+(*
+[gotrcd_struct_body_styp]: the [s2typ] companion of [gotrcd_struct_body].  If
+[t2p0] is (or wraps) a tuple/record [T2Ptrcd(knd,npf,ltps)], return
+[optn_cons(@(isFlat, structBody))] where [structBody] is the Go `struct{...}`
+type WITHOUT the leading `*` and [isFlat] = [trcdknd_fltq(knd)].  Built from
+[gorender_trcd]'s field renderer so the construction site's struct type is the
+SAME text a projection root gets from [gotype_of_styp]'s [T2Ptrcd] arm.  Chases
+the trivial [s2typ] wrappers the front-end leaves on a value's type.
+*)
+and
+gotrcd_struct_body_styp
+(t2p0: s2typ): optn(@(bool, strn)) =
+(
+case+ t2p0.node() of
+|T2Ptrcd(knd, npf, ltps) =>
+  // the bare `struct{...}` body (no `*`) -- the caller writes the value-vs-
+  // pointer literal syntax (`x{}` vs `&x{}`) from [isFlat].
+  optn_cons(@(trcdknd_fltq(knd), gorender_trcd_body(npf, ltps)))
+|T2Ptop0(t1) => gotrcd_struct_body_styp(t1)
+|T2Ptop1(t1) => gotrcd_struct_body_styp(t1)
+|T2Plft (t1) => gotrcd_struct_body_styp(t1)
+|T2Pnone1(t1) => gotrcd_struct_body_styp(t1)
+|T2Parg1(_, t1) => gotrcd_struct_body_styp(t1)
+| _(*non-trcd*) => optn_nil()
+)//endof[gotrcd_struct_body_styp(t2p0)]
+//
+(*
+[gotrcd_of_tnm]: the construction-site SIDE-TABLE entry point -- look up the
+result temp's recorded [i0typ] by stamp and, if it is a tuple/record, return
+its (isFlat, structBody).  [optn_nil] when the temp was not recorded or its type
+is not a tuple/record (then the construction emitter falls back to a token- +
+value-typed struct, see the emitter).
+*)
+#implfun
+gotrcd_of_tnm
+(stmp) =
+(
+case+ go_tytab_get(stmp) of
+|optn_nil() => optn_nil()
+|optn_cons(ityp) => gotrcd_struct_body(ityp)
+)//endof[gotrcd_of_tnm(stmp)]
 //
 (* ****** ****** *)
 (* ****** ****** *)

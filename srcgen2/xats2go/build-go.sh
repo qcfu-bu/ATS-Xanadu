@@ -234,6 +234,17 @@ EOF
 cp "$EMIT" "$GOMOD/$NAME.go"
 ( cd "$GOMOD" && go mod tidy >/dev/null 2>&1 || true )
 
+# M2.6b: gofmt-CANONICALIZE the assembled file in place (PLAN Sec.5.8 -- "run
+# gofmt on output as a convenience").  The emitter writes a single-line
+# anonymous struct type `struct{F0 T0; F1 T1}` for tuples/records; gofmt
+# expands a MULTI-FIELD inline struct type to multi-line (its fixed behavior),
+# so the emitted text, while semantically identical (Go is whitespace-
+# insensitive -- it still builds/vets/runs/byte-matches), is not gofmt-canonical
+# as written.  Formatting it here makes the CHECKED + BUILT file gofmt-clean
+# without changing behavior.  (A future M2.6c/M3 may hoist named `type`
+# declarations so the emitter is canonical at the source.)
+gofmt -w "$GOMOD/$NAME.go" 2>/dev/null || true
+
 echo "-- gofmt -l (empty == canonical) --"
 if [ -z "$(gofmt -l "$GOMOD/$NAME.go")" ]; then
   echo ">> gofmt: clean"

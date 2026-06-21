@@ -458,6 +458,7 @@ _oracle:
 	printf 'module xats2go_%s\n\ngo 1.26\n\nrequire xatsgo v0.0.0\nreplace xatsgo => %s\n' "$$NAME" "$(RUNTIMEGO)" > "$$GOMOD/go.mod"; \
 	cp "$$EMIT" "$$GOMOD/$$NAME.go"; \
 	( cd "$$GOMOD" && go mod tidy >/dev/null 2>&1 || true ); \
+	gofmt -w "$$GOMOD/$$NAME.go" 2>/dev/null || true; \
 	if [ -z "$$(gofmt -l "$$GOMOD/$$NAME.go")" ]; then echo "   gofmt: clean"; \
 	  else echo "!! gofmt would reformat $$NAME.go:" >&2; gofmt -d "$$GOMOD/$$NAME.go" >&2; echo "   (cosmetic; continuing)"; fi; \
 	( cd "$$GOMOD" && go vet ./... ) && echo "   go vet: OK" || { echo "!! go vet FAILED" >&2; exit 1; }; \
@@ -532,7 +533,15 @@ SUITE_NAMES := \
   test38_tytab_xats2go \
   test39_tytab_float_xats2go \
   test40_tytab_bool_xats2go \
-  test41_let_case_xats2go
+  test41_let_case_xats2go \
+  test42_tup_flat_xats2go \
+  test43_tup_boxed_xats2go \
+  test44_rec_flat_xats2go \
+  test45_rec_boxed_xats2go \
+  test46_nested_xats2go \
+  test47_tup_fun_xats2go \
+  test48_tup_float_xats2go \
+  test49_tup_mixed_xats2go
 
 # SEQUENTIAL suite — unchanged behavior.  Bundles are built ONCE up front (the
 # GOPATCHED + JSPATCHED prereqs), then each test reuses them.
