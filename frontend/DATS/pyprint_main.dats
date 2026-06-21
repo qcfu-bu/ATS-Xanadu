@@ -25,6 +25,7 @@
 //
 #extern fun PYPP_log(s: strn): void = $extnam()
 #extern fun PYPP_argv_path((*0*)): strn = $extnam()
+#extern fun PYPP_argv_stadyn((*0*)): sint = $extnam()
 //
 (* ****** ****** *)
 //
@@ -37,12 +38,14 @@ val _ = the_tr12env_pvsl00d()
 // argv[2] if given, else the default tracer target.
 val arg = PYPP_argv_path()
 val fpath = if arg = "" then "srcgen2/SATS/xstamp0.sats" else arg
+// argv[3] if given: stadyn flag (0 = static .sats, 1 = dynamic .dats).
+val stadyn = PYPP_argv_stadyn()
 //
 val () = (PYPP_log("[pyprint] L0->pythonic for: "); PYPP_log(fpath))
 //
 val out = g_stdout<>()
-// stadyn=0: a STATIC .sats interface file.
-val () = pyprint_of_fpath(0(*static*), fpath, out)
+// stadyn: 0 = a STATIC .sats interface file, 1 = a DYNAMIC .dats file.
+val () = pyprint_of_fpath(stadyn, fpath, out)
 //
 in
   PYPP_log("[pyprint] done (pythonic written to stdout)")
