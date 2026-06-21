@@ -49,14 +49,16 @@ index/proof checking = building the solver inside the compiler (the unstarted `x
 research project that EXCEEDS the canonical compiler — OUT OF SCOPE for "parity".** Stages 1–3
 below = surface parity (Stage-0 spike required to navigate the erasure + the M5a `T2Pbas` hazard).
 
-## Batch D — dependent types & proofs (the ATS depth) — STAGES 1–3 = syntax parity; Stage 4 (solver) out of scope
-- ⬜ **Dependent indices** — `list(a, n)`, `int(i)` + the **index sub-language** (sort `int`/`bool`, arithmetic, comparisons) (`S2Eint` `staexp2.sats:579`, `PyTidx`). The largest gap.
-- ⬜ **Quantifiers** — `{n:int}` universal, `[n:int | g]` existential + guards (`S2Euni0` `:636`, `S2Eexi0` `:632`; `s1qua` guard/var split `staexp1.sats:749`).
-- ⬜ **Templates** — `{..}`/`<..>` on functions, `$`-implicit instantiation (`t1qag`/`t1iag` `dynexp1.sats:696/759`).
-- ⬜ **`dataprop` / `dataview` / `datasort`** — proof/view/sort datatypes.
-- ⬜ **Proofs** — `prfun`/`prval`/`praxi` (`FNKpr*`/`VLKprval`).
-- ⏸ **Views** — `view` sort, at-views `a @ l`, linear patterns `!p`/`~p`/`@p` (the linear-memory frontier).
-- ⏸ **Termination metrics** — `.<m>.` (totality proofs).
+## Batch D — dependent types & proofs (the ATS depth) — SYNTAX PARITY ACHIEVED (Stage 4 solver still out of scope)
+All express + lower + STRUCTURALLY typecheck (nerror=0, matching stock); index/proof/view
+obligations are NOT solver-verified — the constraint solver is unbuilt in stock too. See
+`ADVANCED-SURFACE.md` for the full settled surface.
+- ✅ **Dependent indices** — `SInt`/`SBool` index sorts, index args (`Vec[A,n]`/`SInt[n]`), arithmetic (`n+1`), guards (`{n|g}`) (DEP, DEP2). `the_s2exp_sint1`/static-op map.
+- ✅ **Quantifiers** — `def f[n: SInt | g]` universal sugar + explicit `forall[n|g] T` / `exists[m|g] T` in types (`s2exp_uni0`/`s2exp_exi0`) + **subset sorts** `@sort type Nat = {a|g}` (`S2TEXsub`) (A-quant, `d8002a68a`).
+- ✅ **Templates** — `@template[A] def foo[C]` (decl, `tqas` via `t2qag_make_s2vs`) / `@impl[Int] def` (`tias`) / `@inst[Int] foo(…)` (`d2exp_tapp`); resolution deferred to trtmp3b/3c (after tread3a), so all reach nerror=0 (A-template, `29d3794d5`). Negative control proves the instantiation is really typechecked.
+- ✅ **`dataprop` / `dataview`** — `@prop`/`@view enum` (DEP2). `@sort enum` datasort ⏸ (needs L1; no-op past trans12 — low priority).
+- ✅ **Proofs** — `@proof def`=prfun / `@proof let`=prval / `@proof @extern def`=praxi (STAT/PROOF). `@terminates[n]` totality metric (`F2ARGmets`) + `VCons{n}(…)` existential-unpack (`d2pat_sapp`) (C-proof, `9e9ae3906`). `@with` on case arms ⏸ DEFERRED (no per-clause withtype slot in `D2CLScls`).
+- ✅ **Views / linear** — `A at l` at-views (`S2Eatx2`), `~p` consume (`D2Pfree`), `&x`/`!p` (`D2Eaddr`/`D2Eeval`), `:=>`/`:=:` move/swap (`D2Exazgn`/`D2Exchng`) (B-linear, `4094aa171`). Proof-linked bare-ptr deref ⏸ DEFERRED (needs view solver); `!p`-unfold + `@p` flat patterns ⏸ out of scope.
 
 ## Sort-vocabulary note (for Batch D naming)
 Static `int`/`bool` are SORTS (index terms), NOT runtime types — name them **`SInt`/`SBool`**
