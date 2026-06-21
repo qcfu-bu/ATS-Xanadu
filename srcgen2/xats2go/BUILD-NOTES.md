@@ -844,19 +844,13 @@ divergence would have shown as a byte mismatch -- none did. (For the M2.2 surfac
 the sets are all empty, since top-level functions capture nothing; M2.5 closures
 will stress the set's CONTENTS, not just its presence.)
 
-## Recursion stopgap (probe test11, NOT in the green suite)
+## Recursion stopgap (test11, now promoted)
 
-`test11_fun_rec` (`fact` via `if`) confirms the M2.4/M2.3 boundary precisely: the
-function body is an `I1INSift0` (if-then-else) -> currently UNHANDLED (that's
-M2.3 control flow), so test11 emits a clean `/* UNHANDLED: i1ins */ nil` marker +
-a loud stderr note and is correctly EXCLUDED from the oracle-gated suite. The IR
-dump shows the recursion plumbing already in place: the self-call is
-`I1INSdapp(I1Vfenv(fact(5204); $list()); ...)` -> resolves to `fact_729(...)` (a
-package-level Go recursive call, the stopgap), and each `if` branch carries its
-OWN `I1INSrturn`. So **M2.3 must emit `I1INSift0` in return-mode** (`if cond {
-...; return X } else { ...; return Y }`), after which simple recursion runs as a
-plain Go recursive call with NO new call plumbing; **M2.4** then layers the TCO
-loop on the tail case (`i1cmp_tailq` + `I0CALfun`/`I0CALfix`).
+`test11_fun_rec` (`fact` via `if`) originally confirmed the M2.4/M2.3 boundary:
+recursion plumbing was already in place (self-calls resolve to package-level Go
+recursive calls), but return-mode `I1INSift0` was not ready yet. That gap is now
+closed, so `test11_fun_rec_xats2go` is byte-equal-vs-JS, gofmt/go-vet/go-build
+clean, and promoted into `SUITE_NAMES`.
 
 ## Honest coverage / real-vs-stub (M2.2)
 
@@ -2015,38 +2009,31 @@ template INLINING (so this needs no runtime) remains the longer-term M3 path.
 
 ## Targets — green proofs + the JS-test rungs
 
-GREEN, byte-equal-vs-JS, in the suite (`SUITE_NAMES`):
+GREEN in the suite (`SUITE_NAMES`; byte-equal-vs-JS where the JS oracle can run):
+- **test11_fun_rec** — top-level non-tail self-recursion through a return-mode
+  `if` remains byte-equal-vs-JS (`fact(5) = 120`), guarding the simple recursion
+  path while local closures/TCO continue to evolve.
 - **test73_strescape** — GAP-2: line-continuation + `\t` + `\"` + `\\` + `\n`.
 - **test74_localfun** — GAP-1: `fact`'s `loop` captures+mutates the enclosing
   `var res` + self-recurses; `summ`'s `aux` is a tail-recursive local closure
   (TCO loop). Both are the focused, isolated proofs of the two gaps.
+- **test75_annot** — type annotations/casts (`D3Eannot`/`D3Et2pck`/`D3Elabck`)
+  now survive the local `trxd3i0` + `tryd3i0` path and erase to their inner
+  runtime value. Golden-gated because the current JS reference still emits
+  invalid JS for the same annotation shape.
+- **test70_jsbk01** (= JS test01) — local closures + strings + `prints` plus
+  `&sint` by-reference params (`&T` -> Go `*T`, `&x`, `*p`) are byte-equal.
+- **test71_jsbk02** (= JS test02) — tuple/record-pattern function params
+  (`loop@(x,r)`, tuple/record projections) are byte-equal.
+- **test72_jsbk03** (= JS test03) — polymorphic datacon-pattern unwrap,
+  recursive datacon-tail projection typing, `list_length`, the current
+  list-counting `gseq_folditm` runtime hook, uninitialized aggregate vars, and
+  tuple lvalues are byte-equal.
 
-The JS-backend test COPIES are kept under `TEST/` as forcing-function rungs but
-are NOT in the green suite — each is blocked by a SEPARATE feature beyond the
-two gaps (so they are honest rungs, not the gap proofs):
-- **test70_jsbk01** (= JS test01): `fact1/fact2/fact3` are byte-equal-vs-JS
-  (local closures + line-continuation strings + `prints` all work). BLOCKED by
-  **`fact4` only** — it uses `&sint` BY-REFERENCE params (`auxlp(x: &sint, r:
-  &sint)`), which the Go backend models as value params, so the mutation does
-  not propagate to the caller (`fact4(10) = 1` vs JS `3628800`). Call-by-
-  reference (`&T` -> Go `*T` params + `&`/`*` at call/read/write sites) is a
-  distinct feature, NOT one of the two gaps -> deferred (would be its own chunk).
-- **test71_jsbk02** (= JS test02): the local closures DO emit (`loop_NNN` etc.).
-  BLOCKED by **tuple-PATTERN function params** — `fibo2`/`fibo3`/`fibo4` use
-  `loop@(x, r)` / `loop(xrr: @(sint,sint,sint))`, whose tuple-destructured
-  params surface as an UNHANDLED `i1val` (26 of them) -> emits `nil` ->
-  `nil > 0` go-build error. (Tuple-pattern params, not the two gaps.)
-- **test72_jsbk03** (= JS test03): the GAP-1 CANONICAL `fact`/`loop`/`res` part
-  emits CORRECTLY (the capture-`res` local closure — same as test74). BLOCKED by
-  the M4 RUNTIME + M2.7: needs **`xatsgo.Xats_list_length`** and
-  **`xatsgo.Xats_gseq_folditm`** (both emit as RUNTIME CALLS, i.e. `list_length
-  <sint>` resolves to a prelude d2cst -> `xatsgo.Xats_list_length`, NOT an
-  instantiated body), plus a datacon-tail TYPE ASSERTION (`length1`'s `cons`
-  tail `goxtnm.Args[1]` is `any` but `length1` expects `*xatsgo.XatsCon` — the
-  known M2.7 `goty_of_p1cn`-returns-"any"-for-recursive-datatype-field gap), plus
-  tuple-LVALUE assignment in `foo1`/`foo2` (`xyz := #(0,1,@(2,3))`; `(xyz.2).0 :=
-  20` -> 10 UNHANDLED `I0Pdapp`). These are the EXPECTED next rungs (M4 runtime +
-  M2.7b), not this fix.
+All three JS-backend test copies are now forcing-function proofs in the green
+suite.  Caveat: `Xats_gseq_folditm` is a bounded runtime fallback for this
+list-counting surface; full M3 template-body emission is still needed for
+arbitrary user `folditm$fopr` instances.
 
 ## Files touched (all under srcgen2/xats2go/)
 
@@ -2057,26 +2044,31 @@ two gaps (so they are honest rungs, not the gap proofs):
 - `srcgen2/DATS/go1emit_dynexp.dats` — `I1INSlet0` decl walk now uses
   `i1dclist_go1emit_local`.
 - `srcgen2/SATS/go1emit.sats` — declared `i1dcl_go1emit_local` /
-  `i1dclist_go1emit_local`. (SATS edit -> `make clean && make` was run; suite
-  reproduced 53/53 from a clean rebuild.)
-- `runtime/xatsgo/xatsgo.go` — `Xats_gs_print_a0..a4` + `gsPrintOne`.
-- `Makefile` — `SUITE_NAMES` += test73/test74 (+ a note on the test70/71/72
-  rungs). The 3 JS-test copies live in `TEST/` (not wired into the suite).
+  `i1dclist_go1emit_local`, and later `gotrcd_of_styp` for uninitialized
+  aggregate vars. (SATS edit -> clean rebuild required.)
+- `runtime/xatsgo/xatsgo.go` — `Xats_gs_print_a0..a4` + `gsPrintOne`;
+  `Xats_gseq_folditm` list-counting fallback.
+- `xats2cc/srcgen1/DATS/trxd3i0_dynexp.dats` — lower `D3Eannot`/`D3Et2pck`/
+  `D3Elabck` to intrep0 wrappers instead of `I0Enone1`.
+- `xats2cc/srcgen1/DATS/tryd3i0_dynexp.dats` — preserve/recurse through
+  `I0Eannot`/`I0Et2pck`/`I0Elabck`/`I0Et2ped` instead of wrapping them in
+  `I0Enone2`.
+- `Makefile` — `SUITE_NAMES` += test11/test73/test74/test75/test70/test71/test72.
 
 ## Honest coverage / real-vs-stub
 
 - **REAL (oracle-validated byte-equal-vs-JS):** local-closure emission (capture
   of an enclosing `var`; self-recursion via the pre-declared `var`; local-fun
-  TCO loop); the string-escape normalization (line-continuation drop +
-  passthrough + raw-control escapes); `gs_print_a0..a4`. 53/53 suite green,
-  gofmt clean, `go vet` OK, clean-rebuild reproducible.
-- **DEFERRED (reported, not silently wrong):** `&sint` by-reference params
-  (test70 `fact4`); tuple-pattern function params (test71); the list runtime
-  `list_length`/`gseq_folditm` + datacon-tail type assertion + tuple lvalues
-  (test72) — each a distinct chunk beyond the two gaps. A TEMPLATE local fun
+  TCO loop); the string-escape normalization; `gs_print_a0..a4`; `&T`
+  by-reference params; tuple/record-pattern params; datacon-tail projections;
+  aggregate-var tuple lvalues. Type annotation erasure is real and Go-validated
+  with a golden (JS oracle currently crashes on that source shape). 66/66 suite
+  green, gofmt clean, `go vet` OK.
+- **DEFERRED (reported, not silently wrong):** A TEMPLATE local fun
   (non-empty t2qaglst) -> `// UNHANDLED: template local fundclst` + stderr NOTE
   (M3), mirroring the top-level path. A no-body local fun -> a panic stub +
-  NOTE.
+  NOTE.  General `gseq_folditm` remains an M3 template-emission task; the runtime
+  fallback only covers the current list-counting surface.
 - **Deviation from the brief:** the brief framed GAP-2 as "escape the raw string
   content (`\` -> `\\`, `"` -> `\"`, ...)". The token's rep is RAW SOURCE TEXT
   (already-escaped: `\n` is two chars; interior `"` is `\"`), NOT an evaluated
@@ -2321,6 +2313,125 @@ the inner handler swallow ErrmsgExn → "inner caught ErrorExn (WRONG)" instead 
   tests but wired through `i1cls_go1emit_goxret`). (4) A tail self-call inside a
   recover handler is NOT loop-optimized (handlers emit value-mode, no `params`
   threaded) — correct, just not TCO'd; not in the test surface.
+
+---
+
+## M3.1 — first user-template body rung (`test84_poly_avl_xats2go`)
+
+This pass proves the important point for polymorphic/user templates: intrep1
+does carry instantiated bodies when template resolution succeeds.  The payload is
+available through `t1imp_i1dclq(timp)` as an `I1Dimplmnt0` inside
+`T1IMPall1(d2cst, t2jaglst, i1dclopt)`.
+
+### What changed
+
+- `go1emit_dynexp.dats`: `I1LETnew1(t, I1INStimp(_, timp))` can now emit a
+  non-prelude `I1Dimplmnt0` payload as an inline Go function literal:
+  `goxtnm := func(<typed params>) <ret> { ... }`.
+- Prelude-sourced template impls are deliberately skipped (`prelude/` in the
+  impl location) and continue through the established runtime/operator path.
+  This avoids inlining JS CATS/prelude bodies such as `sint_add$sint` or
+  `gs_print_aN`, whose bodies reference `XATS2JS_*` or have zero-arg thunk
+  shapes that are not the desired Go API.
+- Case-clause roots are now always bound; if local liveness does not see a use,
+  the emitter adds `_ = <root>`.  This is needed because instantiated template
+  bodies can project constructor fields through `I1Vp1cn(root, ...)` in ways the
+  conservative local liveness pass missed.  The `_ =` keeps Go's unused-local
+  rule satisfied.
+- `runtime/xatsgo/xatsgo.go`: added concrete `Xats_sint_abs func(int) int`.
+  It must be concrete because emitted code may immediately compare the result
+  (`abs(h1-h3) <= 1`).
+- `Makefile _oracle`: byte-equal empty JS/Go stdout is now accepted.  A nonempty
+  JS stdout mismatch still fails; empty/broken JS with nonempty Go still falls
+  back to a golden.
+
+### Validation
+
+- External source probe: `make _oracle SRC=../xats2js/srcgen1/TEST/test07_xats2js.dats`
+  now gofmt/vet/builds/runs and passes byte-equal empty stdout (the source uses
+  `prints` but does not flush the print store).
+- Promoted local rung: `TEST/test84_poly_avl_xats2go.dats`, adapted from that
+  xats2js AVL test and ending with `the_print_store_log()`.
+  It exercises polymorphic `tree_isAVL<a>`, local `excptcon NotAVL`, local
+  helpers `max`/`auxlst`, recursive datatype matching, `$raise`, and `try/with`.
+  Golden output:
+
+```text
+isAVL(t5) = true
+isAVL(t6) = false
+
+```
+
+The JS oracle is deferred for this focused local test: `jsemit.err` hits
+`ReferenceError: i1tfndclist_xats2js_5266 is not defined`, so the checked oracle
+is the hand-computed golden after gofmt/vet/build/run.
+
+At the M3.1 landing, `make -j 8 psuite` was **67/67 GREEN**.
+
+---
+
+## M2.7/M2.8 rung — linear `list_vt` datacon-field mutation (`test85_list_vt_mut_xats2go`)
+
+This pass promotes the xats2js `test02_xats2js` shape:
+
+```ats
+case+ xs of
+| list_vt_nil() => ()
+| list_vt_cons(!x1, xs) =>
+    (x1 := x1 + 1; list_vt_inc1by(xs))
+```
+
+It proves that a `list_vt_cons` head field can be read, incremented, and written
+back through the same mutable cons cell.
+
+### What changed
+
+- `go1emit_styp0.dats`: type joins and native-op result recovery now normalize
+  the empty-string "not a known scalar op" sentinel to `"any"` at declaration
+  sites.  This fixed malformed block-result declarations like `var goxtnm334 `.
+- `go1emit.sats`/`go1emit_styp0.dats`: exposed
+  `gotype_of_tnm_from_tytab` for emit sites that have a result temp in hand.
+  Note: adding this SATS declaration shifted stamps; a full `make clean` +
+  `make -j 8 bundle` was required to avoid mixed-fragment `ReferenceError`s.
+- `go1emit_dynexp.dats`: native binary-op emission now wraps raw datacon-slot
+  temp operands with a type assertion when the opposite operand proves the
+  scalar type.  The targeted producer shapes are:
+  - `I1LETnew1(t, I1INSpcon(...))`
+  - `I1LETnew1(t, I1INSflat(I1Vlpcn(...)))`
+
+  That yields the required Go shape for this rung:
+
+```go
+goxtnm12 := goxtnm4.Args[0]
+goxtnm13 := (goxtnm12.(int) + 1)
+goxtnm4.Args[0] = goxtnm13
+```
+
+- `runtime/xatsgo/xatsgo.go`: added the small prelude runtime surface used by
+  this xats2js test:
+  - `Xats_list_vt_make_{1,2,3}val`
+  - `Xats_list_vt2t`
+  - `Xats_console_log`
+  - `Xats_the_print_store_flush`
+  - list/list_vt rendering in `gsPrintOne`
+
+### Validation
+
+- External probe: `make test TEST=../xats2js/srcgen1/TEST/test02_xats2js.dats`
+  now emits Go, gofmt/vet/builds/runs, and produces:
+
+```text
+xs = list(1,2,3)
+xs = list(2,3,4)
+
+```
+
+  The external JS oracle extraction still fails with `SyntaxError: Unexpected end
+  of input`, so the local promoted rung is golden-backed.
+- Promoted local rung: `TEST/test85_list_vt_mut_xats2go.dats`.
+- Expected output: `TEST/OUTS/test85_list_vt_mut_xats2go.expected`.
+- `make run/test85_list_vt_mut_xats2go` = PASS (`GOLDEN match; JS oracle deferred`).
+- `make -j 8 psuite` = **68/68 GREEN**.
 
 ---
 

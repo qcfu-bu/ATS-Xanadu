@@ -1169,9 +1169,9 @@ calls -- look up the temp's recorded [i0typ] by stamp and translate it.  "any"
 when the temp was never recorded (a [trxi0i1]-invented temp with no source
 [i0exp]) OR when its recorded type is an aggregate/datatype/unknown (M2.6b/M2.7).
 *)
-fun
+#implfun
 gotype_of_tnm_from_tytab
-(stmp: stamp): strn =
+(stmp) =
 (
 case+ go_tytab_get(stmp) of
 |optn_nil() => "any"
@@ -1245,6 +1245,14 @@ case+ t2p0.node() of
 |T2Plft (t1) => gotrcd_struct_body_styp(t1)
 |T2Pnone1(t1) => gotrcd_struct_body_styp(t1)
 |T2Parg1(_, t1) => gotrcd_struct_body_styp(t1)
+|T2Pxtv(xt2p) =>
+  let
+    val sln = x2t2p_get_styp(xt2p)
+  in
+    case+ sln.node() of
+    |T2Pxtv(_) => optn_nil()
+    | _(*solved to a concrete node*) => gotrcd_struct_body_styp(sln)
+  end
 | _(*non-trcd*) => optn_nil()
 )//endof[gotrcd_struct_body_styp(t2p0)]
 //
@@ -1263,6 +1271,13 @@ case+ go_tytab_get(stmp) of
 |optn_nil() => optn_nil()
 |optn_cons(ityp) => gotrcd_struct_body(ityp)
 )//endof[gotrcd_of_tnm(stmp)]
+//
+(* ****** ****** *)
+//
+#implfun
+gotrcd_of_styp
+(t2p0) =
+  gotrcd_struct_body_styp(t2p0)
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -1289,7 +1304,12 @@ fun
 goty_join
 (t1: strn, t2: strn): strn =
 (
-  if (t1 = "any") then t2 else t1)
+  if (t1 = "") then
+    (if (t2 = "") then "any" else t2)
+  else
+    (if (t1 = "any") then
+      (if (t2 = "") then "any" else t2)
+     else t1))
 //
 (*
 [op_result_goty]: the Go RESULT type of a native scalar op, by name.
@@ -1413,7 +1433,12 @@ case+ iins of
       val opnm = name_of_op_tnm_in_lets(i1tnm_stmp$get(opt), ilts)
     in
       if (strn_length(opnm) = 0) then "any"
-      else op_result_goty(opnm, gotype_of_dapp_args(args))
+      else
+        let
+          val goty = op_result_goty(opnm, gotype_of_dapp_args(args))
+        in
+          if (goty = "") then "any" else goty
+        end
     end
   | _(*else*) => "any")
 |I1INSift0(_, _, _) => gotype_of_ift0type2(iins, bnds)

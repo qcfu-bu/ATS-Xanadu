@@ -70,6 +70,15 @@ fun
 gotype_of_ival
 (ival: i1val): strn
 //
+// gotype_of_tnm_from_tytab: recover the Go type recorded for an ANF temp by
+// the intrep0->intrep1 lowering side-table.  "any" means either no entry or an
+// unrecoverable type.  Used at emission sites that have the result temp in hand
+// but the i1ins itself no longer carries enough type context.
+//
+fun
+gotype_of_tnm_from_tytab
+(stmp: stamp): strn
+//
 // gofield_of_label: the Go FIELD NAME for a tuple/record label (M2.6b).  A
 // positional tuple label LABint(i) -> "F<i>"; a record label LABsym(s) ->
 // "F<s>".  This is the SINGLE definition of the field-name scheme, shared by
@@ -91,6 +100,16 @@ gofield_of_label
 fun
 gotrcd_of_tnm
 (stmp: stamp): optn(@(bool, strn))
+//
+// gotrcd_of_styp: the static-type companion to gotrcd_of_tnm.  Given an s2typ,
+// if it is a tuple/record, return the same optn_cons(@(isFlat, structBody))
+// shape.  This lets uninitialized mutable vars (`var x`) recover their
+// aggregate cell type from the declared/inferred variable type, before any
+// initializer temp exists.
+//
+fun
+gotrcd_of_styp
+(t2p0: s2typ): optn(@(bool, strn))
 //
 // i1binop_of_dapp: given an I1INSdapp's callee + args + the enclosing cmp
 // (op-resolution scope), return the native Go binary operator string

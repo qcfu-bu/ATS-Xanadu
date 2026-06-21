@@ -1,13 +1,13 @@
 # xats2go — Go backend for ATS3 — Architecture & Roadmap
 
-Status: **M2 IN PROGRESS** — M2.0–M2.6 ✅; **M2.7 ✅ (datatypes + datacon pattern matching — recursive lists/trees/options work)** · M2.8 (exceptions + lazy) **next** · M0/M1 done · Go 1.26.4. **suite = 51/51 GREEN.**
-M2.7 notes: datatypes → a single boxed runtime type `*xatsgo.XatsCon{Tag int; Args []any}` (mirrors the JS tag+array model; nails the LAYOUT = boxed pointer with ZERO per-datatype type-decl infra). Construction `&XatsCon{Tag: ctag, Args: []any{..}}` (`d2con_get_ctag`); matching `v.Tag == ctag` in the `switch{}`; projection `v.Args[i].(<fieldGoType>)` — TYPED assertions recovered from `d2con` field types (`d2con_get_styp`→drop proof prefix→field s2typ; datatype fields → `*xatsgo.XatsCon` for recursion; polymorphic field → `any`, faithful). Headline: recursive list-sum/tree work, byte-equal-vs-JS. **DEFERRED → M2.7b/M3: per-datatype TYPED structs** (`Args` stays `[]any`; interface+ctor-structs or typed tagged struct is the idiomatic refinement) + polymorphic-payload concretization. KEY FIXES found: (1) **datacon GUARDS rewrote** to an inline short-circuited IIFE `case v.Tag==ctag && func()bool{..proj..}():` — M2.3's design pre-ran guard projections unconditionally → panic on a non-matching ctor; adversarially validated (test64: guard clause FIRST, nil flows through safely via `&&`). (2) **`go1emit_tytab0.dats` was missing from `build-go.sh`'s GO_DATS** (legacy path only — the Makefile had it, so `make psuite` milestones were genuinely green); fixed. (3) datacon sub-pattern vars don't bind a temp — accessed via `I1Vp1cn(pat, root, pind)` projections (pind = post-proof-drop value index). `I1Vlpcn` (datacon-field mutation) implemented but untested (needs linear datavtype → M2.8).
-M2.6c notes: lvalues/assignment via DIRECT addressable Go (`p.F0 = v`) — NO path-simulation runtime (Go has real lvalues, cleaner than the JS backend's `XATSLP*`/`lvget`/`lvset`/copy-on-write). KEY semantic finding: an ATS `var` is itself a mutable cell, so the frontend BOXES every var-stored tuple (`I1Vlpbx`, emitted `*struct`) regardless of flat/boxed — mutation is correctly shared, byte-equal-vs-JS (test51: boxed-alias mutation `104/141`). So M2.6b's VALUE structs are for immutable `val`-bound tuples (never mutated → value semantics fine); var-bound → pointer (mutable cell). Self-consistent; oracle-validated. Deferred: `I1Vlpcn` (datacon lvalue) → M2.7. Also fixed: a multi-let return-body (effect lets + trailing `I1INSrturn`) now routes to return-mode. The build's IR-DUMP debug (`i1parsed_fprint`) was disabled — it crashes on lvalue nodes (the build-local `i1val_fprint` lacks lval cases + is errck'd-to-comment in the prebuilt bundle, same defect class as i0varfst/tokenfpr); `intrep1_print0.dats` kept pristine.
+Status: **M2/M3 IN PROGRESS** — M2.0–M2.7 ✅; M2.8 underway (exceptions green; lazy runtime scaffold present; linear `list_vt` datacon-field mutation green); first M3 user-template body rung ✅ · M0/M1 done · Go 1.26.4. **suite = 68/68 GREEN.**
+M2.7 notes: datatypes → a single boxed runtime type `*xatsgo.XatsCon{Tag int; Args []any}` (mirrors the JS tag+array model; nails the LAYOUT = boxed pointer with ZERO per-datatype type-decl infra). Construction `&XatsCon{Tag: ctag, Args: []any{..}}` (`d2con_get_ctag`); matching `v.Tag == ctag` in the `switch{}`; projection `v.Args[i].(<fieldGoType>)` — TYPED assertions recovered from `d2con` field types (`d2con_get_styp`→drop proof prefix→field s2typ; datatype fields → `*xatsgo.XatsCon` for recursion; polymorphic field → `any`, faithful). Headline: recursive list-sum/tree work, byte-equal-vs-JS. **DEFERRED → M2.7b/M3: per-datatype TYPED structs** (`Args` stays `[]any`; interface+ctor-structs or typed tagged struct is the idiomatic refinement) + polymorphic-payload concretization. KEY FIXES found: (1) **datacon GUARDS rewrote** to an inline short-circuited IIFE `case v.Tag==ctag && func()bool{..proj..}():` — M2.3's design pre-ran guard projections unconditionally → panic on a non-matching ctor; adversarially validated (test64: guard clause FIRST, nil flows through safely via `&&`). (2) **`go1emit_tytab0.dats` was missing from `build-go.sh`'s GO_DATS** (legacy path only — the Makefile had it, so `make psuite` milestones were genuinely green); fixed. (3) datacon sub-pattern vars don't bind a temp — accessed via `I1Vp1cn(pat, root, pind)` projections (pind = post-proof-drop value index). (4) `I1Vlpcn` datacon-field mutation is now proven by **test85_list_vt_mut_xats2go** (`list_vt_cons(!x1,xs)` then `x1 := x1 + 1`).
+M2.6c notes: lvalues/assignment via DIRECT addressable Go (`p.F0 = v`) — NO path-simulation runtime (Go has real lvalues, cleaner than the JS backend's `XATSLP*`/`lvget`/`lvset`/copy-on-write). KEY semantic finding: an ATS `var` is itself a mutable cell, so the frontend BOXES every var-stored tuple (`I1Vlpbx`, emitted `*struct`) regardless of flat/boxed — mutation is correctly shared, byte-equal-vs-JS (test51: boxed-alias mutation `104/141`). So M2.6b's VALUE structs are for immutable `val`-bound tuples (never mutated → value semantics fine); var-bound → pointer (mutable cell). Self-consistent; oracle-validated. Datacon lvalues (`I1Vlpcn`) are now green for linear list_vt mutation (test85). Also fixed: a multi-let return-body (effect lets + trailing `I1INSrturn`) now routes to return-mode. The build's IR-DUMP debug (`i1parsed_fprint`) was disabled — it crashes on lvalue nodes (the build-local `i1val_fprint` lacks lval cases + is errck'd-to-comment in the prebuilt bundle, same defect class as i0varfst/tokenfpr); `intrep1_print0.dats` kept pristine.
 M2.6b notes: KEY IR fact — even a flat `@(..)` lowers to `I1INStup1`/`I1INSrcd2` with a FLAT-kind token; flat-vs-boxed = `trcdknd_fltq(token)` (and the recorded `i0typ` = `I0Tnone1(T2Ptrcd(TRCDflt0/box1,...))`), NOT the tup0/tup1 ctor. Uses ANONYMOUS Go structs (structural typing → no named-type decls/dedup); construction (`<struct>{..}` flat / `&<struct>{..}` boxed), projection (`.F<lab>`), nested, and tuple-typed fn params/results all driven by ONE translator so all sites' struct types agree (Go build = the consistency oracle). **Adversarially reviewed (mine):** non-int (float64) fields + mixed flat-of-boxed nesting (`struct{F0 *struct{...}; F1 int}`) both correct. NOTE: harness now runs `gofmt -w` on output (gofmt always multi-lines inline struct types; cosmetic). Caveat: for READ-only tuples value-vs-pointer gives identical output, so flat/boxed correctness is verified by EMITTED CODE, not the oracle (mutation semantics gated at M2.6c).
-M2.6a notes: side-table built at the `i0exp_trxi0i1` chokepoint (record `iexp.ityp()` under the result temp's stamp; conservative — record only freshly-minted `I1Vtnm`, nothing otherwise); `gotype_of_i0typ` translates → Go (scalars+arrows concrete; aggregates/datatypes still `any` → M2.6b/M2.7); consulted as a BACKSTOP only when local recovery gives `any` (can only ADD concreteness). **Adversarial review (mine, reviewer agent rate-limited) PASSED**: validated correct types on float/char/if-value-float/mixed-chain/**function-value (`func(int)int`)** backstops; design sound (last-write-wins always consistent). Review also caught + FIXED a separate **let0-return-mode unreachable-code** bug (general extension of `i1ins_fully_returnsq`/`i1cmp_tail_returns` into `I1INSlet0`). **TRACKED GAP (pre-existing, not M2.6a): type annotation `(e:T)` lowers to an UNHANDLED `i1val` → `nil` — fix in a follow-up (not needed for M2.6b).**
+M2.6a notes: side-table built at the `i0exp_trxi0i1` chokepoint (record `iexp.ityp()` under the result temp's stamp; conservative — record only freshly-minted `I1Vtnm`, nothing otherwise); `gotype_of_i0typ` translates → Go (scalars+arrows concrete; aggregates/datatypes still `any` → M2.6b/M2.7); consulted as a BACKSTOP only when local recovery gives `any` (can only ADD concreteness). **Adversarial review (mine, reviewer agent rate-limited) PASSED**: validated correct types on float/char/if-value-float/mixed-chain/**function-value (`func(int)int`)** backstops; design sound (last-write-wins always consistent). Review also caught + FIXED a separate **let0-return-mode unreachable-code** bug (general extension of `i1ins_fully_returnsq`/`i1cmp_tail_returns` into `I1INSlet0`). **FOLLOW-UP DONE:** type annotation `(e:T)` now erases to the inner runtime value (test75).
 M2.5 notes: capture relies on Go lexical capture (NO closure conversion) via a sound divergence in our copy of `trxi0i1_myenv0.dats` (captured var → outer Go local, not `I1Venv` env-slot). **Adversarial review caught a compile-breaking lambda-return-type-`any` bug** (all 4 initial closure tests dodged it); fixed generally (param/capture type via `d2var_get_styp`, nested-lambda recursion). **Capturing-closure tests are golden-validated (hand-computed), NOT byte-equal-vs-JS — the JS backend itself is broken for `I1INSlam0` capture (`env1` undefined).** TODO: fixing the JS backend's closure conversion would restore the differential oracle for capture (currently the one class without it).
 History: v1 arch → decisions (layout-aware; emitter in ATS3) → M0 → Go installed → M1 (byte-equal-vs-JS) → M2.0 (harness+liveness+type findings) → M2.1 (scalars/primops, native Go ops) → M2.2 (functions; 10 tests green) → Makefile separate-compilation build (cold `make -j` ~24s, incremental ~15s, byte-identical lib) → M2.3 next.
-Build (OPTIMIZED): `make` (incremental relink **~1.7s**) · `make run/NAME` (**~3s**) · `make suite` (47s) · `make -j psuite` (**~10s, 16/16**). Cached sed-namespaced fixed libs (opt.js1/cc.js2/shim) + JS-oracle bundle built once + `NODE_COMPILE_CACHE`; emitter bundle md5-identical to pre-opt (output provably unchanged). Legacy `build-go.sh`/`run-suite.sh` still work.
+Build (OPTIMIZED): `make` (incremental relink **~1.7s**) · `make run/NAME` (**~3s**) · `make suite` (47s historical) · `make -j 8 psuite` (**68/68 GREEN**). Cached sed-namespaced fixed libs (opt.js1/cc.js2/shim) + JS-oracle bundle built once + `NODE_COMPILE_CACHE`; emitter bundle md5-identical to pre-opt (output provably unchanged). Legacy `build-go.sh`/`run-suite.sh` still work.
 Owner/architect: (you) — implementation delegated to subagents.
 Reference backend: `srcgen2/xats2js/srcgen2` (the IR-based JS emitter with TCO).
 
@@ -414,8 +414,11 @@ are **executable** (something compiles/runs/diffs-clean), never "looks done".
   (`sint_add$sint`, …) ARE the monomorphic instances; the backend just **emits each resolved
   instance with its concrete types** (the M2.6a side-table + `d2cst` signatures already do most of
   this for prelude templates). M3's real work: (1) **emit user-defined template instantiated bodies**
-  (`t1imp_i1cmpq`/`i1dclopt`) as concrete Go funcs — verify, our suite so far only exercises prelude
-  templates that resolve to runtime fns; (2) drive `any` out of remaining recoverable temps. **The
+  (`t1imp_i1dclq`/`i1dclopt`) as concrete Go funcs; first proof is now green via **test84**
+  (the xats2js AVL `tree_isAVL<a>` template body: local exception, local helper functions,
+  recursive datatype matching, raise/catch). Prelude template bodies are intentionally NOT inlined
+  yet; they stay on the runtime/operator path to avoid JS-CATS/prelude-body leakage. (2) drive `any`
+  out of remaining recoverable temps. **The
   genuine residual `any` is `I0Tvar`/`s2var` — universally-quantified polymorphic functions
   (`fun f{a:type}(x:a)`), which ATS represents UNIFORMLY/BOXED (type var erased). `any` there is
   FAITHFUL to ATS's own representation, not a defect**; Go generics (`[T any]`) are an OPTIONAL
@@ -468,6 +471,13 @@ ATS3 code* and fix whatever breaks. The failure set IS the prioritized work list
   passes through (valid Go); a RAW control byte -> the Go escape. (The previous code copied the rep
   verbatim -> `\<NL>` -> `string literal not terminated`, +16 more.) PROVEN byte-equal-vs-JS by
   **test73** (line-continuation + tab + escaped quote/backslash + `\n`) and test70.
+- **[lang] Type annotations/casts — ✅ DONE (M-selfhost.2).** `D3Eannot`/`D3Et2pck`/
+  `D3Elabck` now lower to real intrep0 wrapper nodes instead of `I0Enone1`, and `tryd3i0`
+  recurses through `I0Eannot`/`I0Et2pck`/`I0Elabck`/`I0Et2ped` instead of clobbering them
+  to `I0Enone2`. `trxi0i1` then erases the type-only wrapper to the inner value. PROVEN by
+  **test75** (`(x : sint)`, `(1 : sint)`, annotated call args, annotated compound exprs);
+  JS oracle is deferred because the current JS reference still emits invalid JS for this D3
+  annotation shape, so test75 uses a golden.
 - **[runtime] variadic `prints`/`gs_print_aN` — ✅ ADDED (bounded, required for ALL three rungs).**
   `prints(..)` resolves to `gs_print_aN` (a template whose body is `g_print<x_i>(x_i)` per arg).
   The Go backend resolves the whole call to ONE runtime fn; added `Xats_gs_print_a0..a4` to
@@ -479,24 +489,36 @@ ATS3 code* and fix whatever breaks. The failure set IS the prioritized work list
   `srcgen2_prelude.js`/`precats.js`/`xatslib.js` for the contract). Also: `list_length<sint>` is a
   *template* instantiation — verify whether its instantiated body emits (then needs no runtime) or
   resolves to a prelude d2cst (then needs a runtime fn). This ties into M3 (emit user-template bodies).
-- **[rung-1 RESULT — the 3 real JS-backend programs are NOT green yet]** test73/74 (isolated proofs
-  of the two fixes) are byte-equal-vs-JS and in the suite, but the REAL programs test70/71/72 (= JS
-  backend test01/02/03, kept under TEST/ as rungs, NOT in the green suite) each hit MORE gaps the
-  oracle caught — **the next-rung work list (priority order):**
-  1. **[lang] `&` by-reference params** — test70 `fact4(10)` COMPILES+RUNS but gives the WRONG answer
-     (`1` vs `3628800`): a `&res`-style by-ref arg's mutation doesn't propagate. (Go fix: pass a
-     pointer / addressable cell for `&`-params.) Silent-wrong → caught only by the differential oracle.
-  2. **[lang] Tuple-pattern function params** — test71 `fun loop@(x,r) = …` → `UNHANDLED: i1val`
-     (destructuring a tuple param). Needs param-pattern destructuring in the arg emit.
-  3. **[M2.7b] Datacon-tail typed projection** — test72 `length1`: a recursive datatype field
-     (`cons`-tail) is typed `any` (`goty_of_p1cn`/`I1Vp1cn` → "any") but a fn wants `*xatsgo.XatsCon`
-     → `cannot use … need type assertion`. Fix = the M2.7b typed-projection for `I1Vp1cn`.
-  4. **[runtime/M4] Prelude list ops** — test72 `undefined: xatsgo.Xats_list_length`,
-     `Xats_gseq_folditm`.
-  5. **[lang] Tuple-element lvalue** — test72 `foo1`/`foo2` (`p.k := v` on a tuple position).
-- **[lang] Still owed for self-hosting:** M2.8 (exceptions/lazy — the compiler uses try/raise for
-  error handling), type annotation `(e:T)` (still `UNHANDLED nil`, tracked since M2.6a), modules/
-  `staload`, abstract types (`abstype`/`assume`), FFI/`extern`, the full pattern language,
+- **[lang] User `#impltmp` template body emission — ✅ FIRST RUNG (M3.1).** `I1INStimp`'s
+  `t1imp` really does carry the instantiated body (`T1IMPall1(..., i1dclopt)`); the Go emitter now
+  emits a non-prelude `I1Dimplmnt0` payload as an inline Go function literal at the temp-binding site.
+  Guardrails: skip prelude-sourced impls (runtime/operator path remains authoritative), always bind
+  datacon clause roots so `I1Vp1cn` projections in instantiated bodies have a Go local, and add
+  concrete `Xats_sint_abs`. PROVEN by **test84_poly_avl_xats2go** (adapted from xats2js
+  `test07_xats2js`: polymorphic `tree_isAVL<a>`, local `NotAVL`, local `max`/`auxlst`, recursive
+  datatype case, `$raise`/`try`). Golden output: `isAVL(t5) = true\nisAVL(t6) = false\n\n`.
+- **[lang/runtime] Linear `list_vt` datacon-field mutation — ✅ DONE (M2.7/M2.8 rung).**
+  The xats2js `test02` shape `list_vt_cons(!x1, xs)` followed by `x1 := x1 + 1` now compiles:
+  `I1INSflat(I1Vlpcn(...))` raw `Args[i]` reads are asserted when a native scalar op supplies the
+  concrete type (`goxtnm.(int) + 1`), and `I1Vlpcn` assignment writes back to the same cons cell.
+  Runtime support added `list_vt_make_{1,2,3}val`, `list_vt2t`, direct
+  `console_log(the_print_store_flush())` names, and list/list_vt printing. PROVEN by
+  **test85_list_vt_mut_xats2go**: `xs = list(1,2,3)\nxs = list(2,3,4)\n\n`.
+- **[rung-1 RESULT — ✅ GREEN]** the three real JS-backend programs copied as
+  `test70/71/72_jsbk*_xats2go` are now byte-equal-vs-JS and live in the Makefile suite:
+  1. **test70**: by-reference params (`&sint`) map to Go pointers (`*T`, `&x`, `*p`), so `fact4(10)`
+     mutates the caller cells and matches JS.
+  2. **test71**: tuple/record-pattern function params emit `I1Vp0rj`/`I1Vp1rj` projections, so
+     `loop@(x,r)`-style local recursion compiles and runs.
+  3. **test72**: polymorphic datacon patterns unwrap `I0Ptapq`; recursive datacon-tail projections
+     assert to `*xatsgo.XatsCon`; prelude `list_length` and the current list-counting
+     `gseq_folditm` runtime hooks resolve; uninitialized aggregate vars recover tuple/record static
+     types and tuple-element lvalues compile.
+  **Caveat:** `Xats_gseq_folditm` is still a bounded runtime fallback for this list-counting surface.
+  The general solution is broader M3: emit more resolved template bodies / user `#impltmp` instances
+  as concrete Go, not a single runtime hook for every possible `folditm$fopr`.
+- **[lang] Still owed for self-hosting:** M2.8 (lazy — exceptions are green; the compiler uses try/raise for
+  error handling), modules/`staload`, abstract types (`abstype`/`assume`), FFI/`extern`, the full pattern language,
   polymorphic-function uniform repr. Discover the rest via the forcing function.
 
 **Methodology:** keep `xats2js/.../TEST/*.dats` (and a growing real-program corpus) as conformance

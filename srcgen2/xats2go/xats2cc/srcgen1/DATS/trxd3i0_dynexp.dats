@@ -1001,6 +1001,15 @@ d3e0.node() of
 //
 (* ****** ****** *)
 //
+|D3Eannot _ =>
+(
+  f0_annot(d3e0, env0))
+|D3Elabck _ =>
+(
+  f0_labck(d3e0, env0))
+|D3Et2pck _ =>
+(
+  f0_t2pck(d3e0, env0))
 |D3Et2ped _ =>
 (
   f0_t2ped(d3e0, env0))
@@ -2268,6 +2277,96 @@ i0exp(loc0,
 end(*let*)//end-of-[f0_raise(d3e0,env0)]
 //
 (* ****** ****** *)
+(* ****** ****** *)
+//
+fun
+f0_annot
+(d3e0: d3exp
+,env0: !envd3i0): i0exp =
+let
+//
+val-
+D3Eannot
+(d3e1, s1e2, s2e2) = d3e0.node()
+//
+val loc0 = d3e0.lctn((*0*))
+val t2p0 = d3e0.styp((*0*))
+val i0t0 =
+(
+  s2typ_trxd3i0(t2p0, env0))
+//
+val i0e1 =
+(
+  d3exp_trxd3i0(d3e1, env0))
+//
+in//let
+//
+(
+i0exp(
+loc0, i0t0, I0Eannot(i0e1, s1e2, s2e2)))
+//
+end(*let*)//end-of-[f0_annot(d3e0,env0)]
+//
+(* ****** ****** *)
+//
+fun
+f0_labck
+(d3e0: d3exp
+,env0: !envd3i0): i0exp =
+let
+//
+val-
+D3Elabck
+(d3e1, lab2) = d3e0.node()
+//
+val loc0 = d3e0.lctn((*0*))
+val t2p0 = d3e0.styp((*0*))
+val i0t0 =
+(
+  s2typ_trxd3i0(t2p0, env0))
+//
+val i0e1 =
+(
+  d3exp_trxd3i0(d3e1, env0))
+//
+in//let
+//
+(
+i0exp(
+loc0, i0t0, I0Elabck(i0e1, lab2)))
+//
+end(*let*)//end-of-[f0_labck(d3e0,env0)]
+//
+(* ****** ****** *)
+//
+fun
+f0_t2pck
+(d3e0: d3exp
+,env0: !envd3i0): i0exp =
+let
+//
+val-
+D3Et2pck
+(d3e1, t2p2) = d3e0.node()
+//
+val loc0 = d3e0.lctn((*0*))
+val t2p0 = d3e0.styp((*0*))
+val i0t0 =
+(
+  s2typ_trxd3i0(t2p0, env0))
+//
+val i0e1 =
+(
+  d3exp_trxd3i0(d3e1, env0))
+//
+in//let
+//
+(
+i0exp(
+loc0, i0t0, I0Et2pck(i0e1, t2p2)))
+//
+end(*let*)//end-of-[f0_t2pck(d3e0,env0)]
+//
 (* ****** ****** *)
 //
 fun

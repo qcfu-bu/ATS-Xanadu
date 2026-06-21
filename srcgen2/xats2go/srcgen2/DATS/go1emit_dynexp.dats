@@ -46,8 +46,16 @@ and the I1CMPcons result ival as a final  goxtnmX := <ival>; _ = goxtnmX.
 //
 #staload // LEX =
 "./../../../SATS/lexing0.sats"
+#staload // LOC =
+"./../../../SATS/locinfo.sats"
+#staload // FP0 =
+"./../../../SATS/filpath.sats"
 #staload // LAB =
 "./../../../SATS/xlabel0.sats"
+#staload // SYM =
+"./../../../SATS/xsymbol.sats"
+#staload // STMP =
+"./../../../SATS/xstamp0.sats"
 #staload // D2E =
 "./../../../SATS/dynexp2.sats"
 //
@@ -365,6 +373,12 @@ case+ ipat.node() of
 |I0Pcon(dcon) => optn_cons(dcon)
 |I0Pdap1(ip1) => dcon_of_i0pat(ip1)
 |I0Pdapp(ip1, _, _) => dcon_of_i0pat(ip1)
+// a POLYMORPHIC con pattern (e.g. prelude [list_cons]/[list_nil]) wraps the
+// [I0Pcon] in a template-application-with-type-args node [I0Ptapq]; unwrap it
+// transparently (the type args are runtime-erased -- they do not affect the
+// tag test or the field projection).  Without this, every prelude-datatype
+// case collapsed to `false /* UNHANDLED I0Pdapp (non-con head) */`.
+|I0Ptapq(ip1, _) => dcon_of_i0pat(ip1)
 | _(*else*) => optn_nil()
 )//endof[dcon_of_i0pat(ipat)]
 //
@@ -842,6 +856,259 @@ unhandled_val(filr, "i1val", ival)
 (* ****** ****** *)
 (* ****** ****** *)
 //
+fun
+tnm_bound_by_pconq
+(stmp: stamp, ilts: i1letlst): bool =
+(
+case+ ilts of
+|list_nil() => false
+|list_cons(ilt1, ilts1) =>
+  (
+  case+ ilt1 of
+  |I1LETnew1(itnm, iins) =>
+    (
+    if
+    (stamp_cmp(stmp, i1tnm_stmp$get(itnm)) = 0)
+    then
+      (
+      case+ iins of
+      |I1INSpcon(_, _) => true
+      |I1INSflat(iv1) =>
+        (
+        case+ iv1.node() of
+        |I1Vlpcn(_, _) => true
+        | _(*else*) => false)
+      | _(*else*) => false)
+    else tnm_bound_by_pconq(stmp, ilts1))
+  |I1LETnew0(_) => tnm_bound_by_pconq(stmp, ilts1))
+)
+//
+fun
+i1val_pcon_tempq
+(ival: i1val, scp: i1cmp): bool =
+(
+case+ ival.node() of
+|I1Vtnm(itnm) =>
+  let val-I1CMPcons(ilts, _) = scp in
+    tnm_bound_by_pconq(i1tnm_stmp$get(itnm), ilts)
+  end
+| _(*else*) => false
+)
+//
+fun
+i1valgo1_binop_arg
+(filr: FILR, scp: i1cmp, ival: i1val, goty: strn): void =
+(
+  i1valgo1(filr, ival);
+  if (goty = "") then ((*void*)) else
+  (
+  if (goty = "any") then ((*void*)) else
+  (
+  if i1val_pcon_tempq(ival, scp)
+  then
+    (
+    strnfpr(filr, ".("); strnfpr(filr, goty); strnfpr(filr, ")"))
+  else ((*void*))))
+)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+fun
+i1valgo1_varrhs
+(filr: FILR, irgt: i1val): void =
+(
+case+ irgt.node() of
+|I1Vtnm(rtnm) =>
+  (
+  case+ gotrcd_of_tnm(i1tnm_stmp$get(rtnm)) of
+  |optn_cons(@(isFlat, _body)) =>
+    (
+    // A mutable aggregate var is stored as a pointer cell.  Assigning a flat
+    // tuple/record value into that cell needs its address; boxed values are
+    // already pointers and flow through unchanged.
+    if isFlat then strnfpr(filr, "&") else ((*void*));
+    i1valgo1(filr, irgt))
+  |optn_nil() => i1valgo1(filr, irgt))
+| _(*else*) => i1valgo1(filr, irgt)
+)//endof[i1valgo1_varrhs(filr,irgt)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
+M3 rung: [I1INStimp] may carry the already-resolved user [#impltmp] body in
+its [t1imp].  When that payload is an [I1Dimplmnt0], emit it as an inline Go
+function literal instead of falling back to a runtime d2cst name.  This keeps
+the existing ANF shape:
+
+    goxtnmF := func(...) ... { ... }
+    goxtnmR := goxtnmF(args...)
+
+and proves that intrep1 does carry enough information for at least this class
+of polymorphic/user-template instantiation.
+*)
+fun
+t1imp_paramlst_go1emit
+( filr: FILR
+, fjas: fjarglst
+, ptys: list(strn)): void =
+let
+  val ptnms = params_of_fjarglst(fjas)
+  //
+  fun
+  loop
+  (i0: sint, ts: i1tnmlst, gs: list(strn)): void =
+  (
+  case+ ts of
+  |list_nil() => ((*void*))
+  |list_cons(p1, ts1) =>
+    let
+      val (goty, gs1) =
+      (
+      case+ gs of
+      |list_nil() => @("any", list_nil())
+      |list_cons(g1, gs1) => @(g1, gs1))
+      val () =
+      (
+      if (i0 >= 1) then strnfpr(filr, ", ");
+      i1tnmgo1(filr, p1); strnfpr(filr, " "); strnfpr(filr, goty))
+    in
+      loop(i0+1, ts1, gs1)
+    end
+  )
+in
+  loop(0, ptnms, ptys)
+end//endof[t1imp_paramlst_go1emit(filr,fjas,ptys)]
+//
+fun
+t1imp_xats2js_runtimeq
+(timp: t1imp): bool =
+let
+  val dcst = t1imp_dcst$get(timp)
+  val name = symbl_get_name(d2cst_get_name(dcst))
+in//let
+  if
+  (strn_length(name) >= 8)
+  then
+    (
+    if name[0] != 'X' then false else
+    if name[1] != 'A' then false else
+    if name[2] != 'T' then false else
+    if name[3] != 'S' then false else
+    if name[4] != '2' then false else
+    if name[5] != 'J' then false else
+    if name[6] != 'S' then false else
+    (name[7] = '_'))
+  else false
+end//endof[t1imp_xats2js_runtimeq(timp)]
+//
+fun
+strn_contains_go1
+(hay: strn, needle: strn): bool =
+let
+  val nhay = strn_length(hay)
+  val nndl = strn_length(needle)
+  //
+  fun
+  match_at
+  (i0: sint, j0: sint): bool =
+  (
+  if
+  (j0 >= nndl)
+  then true
+  else
+    let
+      val c1: cgtz = hay[i0+j0]
+      val c2: cgtz = needle[j0]
+    in
+    (
+    if
+    (c1 = c2)
+    then match_at(i0, j0+1) else false)
+    end)
+  //
+  fun
+  loop
+  (i0: sint): bool =
+  (
+  if
+  (nndl <= 0)
+  then true
+  else
+  if
+  (i0 + nndl > nhay)
+  then false
+  else
+    (
+    if match_at(i0, 0) then true else loop(i0+1)))
+in//let
+  loop(0)
+end//endof[strn_contains_go1(hay,needle)]
+//
+fun
+i1dcl_preludeq
+(idcl: i1dcl): bool =
+let
+  val loc0 = idcl.lctn()
+  val lsrc = loctn_get_lsrc(loc0)
+in//let
+  case+ lsrc of
+  |LCSRCsome1(path) =>
+    strn_contains_go1(path, "prelude/")
+  |LCSRCfpath(fpx) =>
+    strn_contains_go1(fpath_get_fnm1(fpx), "prelude/")
+  |_(*else*) => false
+end//endof[i1dcl_preludeq(idcl)]
+//
+fun
+t1imp_func_literal_go1emit
+( filr: FILR
+, timp: t1imp
+, env0: !envx2go): bool =
+(
+if
+t1imp_xats2js_runtimeq(timp)
+then false
+else
+case+ t1imp_i1dclq(timp) of
+|optn_nil() => false
+|optn_cons(idcl) =>
+  if
+  i1dcl_preludeq(idcl)
+  then false
+  else
+  (
+  case+ idcl.node() of
+  |I1Dimplmnt0(_, _, _, _, fjas, icmp) =>
+    let
+      val bnds = binds_of_fjarglst(fjas)
+      val argtys = gotypes_of_fjarglst(fjas)
+      val retty = gotype_of_lam_ret(icmp, bnds)
+      val () =
+      (
+      strnfpr(filr, "func(");
+      t1imp_paramlst_go1emit(filr, fjas, argtys);
+      strnfpr(filr, ") ");
+      strnfpr(filr, retty);
+      strnfpr(filr, " {\n"))
+      val () = envx2go_incnind(env0, 1(*++*))
+      val () = i1cmp_go1emit_ret(icmp, list_nil(), bnds, env0)
+      val () = envx2go_decnind(env0, 1(*--*))
+      val () =
+      (
+      nindfpr(filr, envx2go_nind$get(env0));
+      strnfpr(filr, "}"))
+    in
+      true
+    end
+  | _(*not a direct impl body*) => false
+  )
+)//endof[t1imp_func_literal_go1emit(...)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
 #implfun
 i1insgo1
 (filr, scp, iins) =
@@ -862,7 +1129,7 @@ higher-order) use; the inlined-call case routes through I1INSdapp below
 and never touches the d2cst, so the op-temp drops to `_ = <this>`.
 *)
 |I1INStimp
-(i0f1, timp) =>
+(_, timp) =>
 let
 val dcst = t1imp_dcst$get(timp)
 in//let
@@ -901,11 +1168,15 @@ then
 let
   val-list_cons(a0, ar1) = i1vs
   val-list_cons(a1, _) = ar1
+  val goty0 = gotype_of_ival(a0)
+  val goty1 = gotype_of_ival(a1)
+  val targ0 = (if (goty0 = "any") then goty1 else goty0)
+  val targ1 = (if (goty1 = "any") then goty0 else goty1)
 in
   strnfpr(filr, "(");
-  i1valgo1(filr, a0);
+  i1valgo1_binop_arg(filr, scp, a0, targ0);
   strnfpr(filr, " "); strnfpr(filr, gop); strnfpr(filr, " ");
-  i1valgo1(filr, a1);
+  i1valgo1_binop_arg(filr, scp, a1, targ1);
   strnfpr(filr, ")")
 end)
 else
@@ -1078,7 +1349,7 @@ addressable-Go-lvalue assignment.
     |I1Vtnm(itnm) =>
       (
       i1tnmgo1(filr, itnm);
-      strnfpr(filr, " = "); i1valgo1(filr, irgt))
+      strnfpr(filr, " = "); i1valgo1_varrhs(filr, irgt))
     // any other I1Vaddr inner (an lvalue PATH -- I1Vlpft/I1Vlpbx already
     // emit `<root>.F<lab>`, addressable in Go) -> emit the inner lvalue.
     | _(*else*) =>
@@ -1377,8 +1648,11 @@ case+ i0ps of
 i1bnd_bind_go1: bind the pattern's temp [itnm] to [casval] before a clause
 body runs, so the body's references to the bound variable resolve.  Mirrors
 js1emit's `let jsxtnm<itnm> = <ival>` in f0_i1valgpt.  Emitted only when the
-body actually USES the bind temp (Go errors on a declared-but-unused local);
-a wildcard / unused bind is skipped.
+body actually USES the bind temp?  Older code skipped unused binds, but some
+template-instantiated bodies project through the clause root in a way the local
+liveness walk can miss.  So we always bind, and add `_ = <itnm>` when the walk
+does not see a use; this keeps Go's unused-local rule happy without losing the
+root needed by I1Vp1cn projections.
 *)
 fun
 i1bnd_bind_go1
@@ -1390,14 +1664,16 @@ let
   val filr = env0.filr()
   val nind = envx2go_nind$get(env0)
   val-I1BNDcons(itnm, _, _) = ibnd
+  val used = i1tnm_used_in_cmp(itnm, body)
 in//let
-  if i1tnm_used_in_cmp(itnm, body)
-  then
   (
   nindfpr(filr, nind);
   i1tnmgo1(filr, itnm); strnfpr(filr, " := ");
-  i1valgo1(filr, casval); fprintln(filr))
-  else ((*unused bind -- skip*))
+  i1valgo1(filr, casval); fprintln(filr);
+  if used then ((*void*)) else
+    (
+    nindfpr(filr, nind);
+    strnfpr(filr, "_ = "); i1tnmgo1(filr, itnm); fprintln(filr)))
 end//let//endof[i1bnd_bind_go1(...)]
 //
 (* ****** ****** *)
@@ -2417,6 +2693,104 @@ end//let//endof[i1ins_go1emit_block(scp,itnm,iins,env0)]
 (* ****** ****** *)
 (* ****** ****** *)
 //
+fun
+i1tnm_same
+(t1: i1tnm, t2: i1tnm): bool =
+(
+  stamp_cmp(i1tnm_stmp$get(t1), i1tnm_stmp$get(t2)) = 0)
+//
+fun
+lvalue_field_on_tnm
+(ilft: i1val): optn(@(i1tnm, label)) =
+(
+case+ ilft.node() of
+|I1Vlpft(lab0, iroot) =>
+  (
+  case+ iroot.node() of
+  |I1Vtnm(itnm) => optn_cons(@(itnm, lab0))
+  | _(*else*) => optn_nil())
+|I1Vlpbx(lab0, iroot) =>
+  (
+  case+ iroot.node() of
+  |I1Vtnm(itnm) => optn_cons(@(itnm, lab0))
+  | _(*else*) => optn_nil())
+|I1Vaddr(iv1) => lvalue_field_on_tnm(iv1)
+| _(*else*) => optn_nil()
+)//endof[lvalue_field_on_tnm(ilft)]
+//
+fun
+proj_binding
+(ilt: i1let): optn(@(i1tnm, i1val, label)) =
+(
+case+ ilt of
+|I1LETnew1(itnm, iins) =>
+  (
+  case+ iins of
+  |I1INSpflt(lab0, iroot) => optn_cons(@(itnm, iroot, lab0))
+  |I1INSproj(lab0, iroot) => optn_cons(@(itnm, iroot, lab0))
+  | _(*else*) => optn_nil())
+| _(*else*) => optn_nil()
+)//endof[proj_binding(ilt)]
+//
+fun
+try_emit_proj_lvalue_assign
+( ilt1: i1let
+, ilt2: i1let
+, rest: i1letlst
+, env0: !envx2go): bool =
+(
+case+ proj_binding(ilt1) of
+|optn_nil() => false
+|optn_cons(@(ptnm, proot, plab)) =>
+  (
+  case+ ilt2 of
+  |I1LETnew0(I1INSassgn(ilft, irgt)) =>
+    (
+    case+ lvalue_field_on_tnm(ilft) of
+    |optn_nil() => false
+    |optn_cons(@(ltnm, llab)) =>
+      (
+      if
+      i1tnm_same(ptnm, ltnm)
+      then
+        let
+          val used_after =
+            i1tnm_used_in_cmp(ptnm, I1CMPcons(rest, irgt))
+        in
+          if used_after
+          then false
+          else
+            let
+              val filr = env0.filr()
+              val nind = envx2go_nind$get(env0)
+              val () = nindfpr(filr, nind)
+              val () = i1valgo1(filr, proot)
+              val () = (strnfpr(filr, "."); strnfpr(filr, gofield_of_label(plab)))
+              val () = (strnfpr(filr, "."); strnfpr(filr, gofield_of_label(llab)))
+              val () = strnfpr(filr, " = ")
+              val () = i1valgo1(filr, irgt)
+              val () = fprintln(filr)
+            in
+              true
+            end
+        end
+      else false)
+    )
+  | _(*else*) => false)
+)//endof[try_emit_proj_lvalue_assign(...)]
+//
+(*
+A nested flat lvalue like `(xyz.2).0 := 20` can lower as two adjacent lets:
+  tmp := xyz.F2      // flat field read would copy the struct
+  tmp.F0 = 20        // mutating the copy is semantically wrong
+When the projection temp is used only as the root of the immediately following
+assignment, emit the addressable path directly (`xyz.F2.F0 = 20`) and skip the
+copy temp.  Boxed fields still work through Go's automatic pointer dereference.
+*)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
 (*
 i1letlst_go1emit / i1let_go1emit: walk a flat let-list.  An I1LETnew1
 binding to a BLOCK-FORM instruction (if/case/let-in) routes to
@@ -2443,6 +2817,15 @@ i1letlst_go1emit_p
 (
 case+ ilts of
 |list_nil() => ((*void*))
+|list_cons(ilt1, list_cons(ilt2, ilts2)) =>
+  (
+  if try_emit_proj_lvalue_assign(ilt1, ilt2, ilts2, env0)
+  then i1letlst_go1emit_p(ilts2, scp, params, bnds, env0)
+  else
+    (
+    i1let_go1emit_p(ilt1, scp, params, bnds, env0);
+    i1letlst_go1emit_p(list_cons(ilt2, ilts2), scp, params, bnds, env0))
+  )
 |list_cons(ilt1, ilts1) =>
   (
   i1let_go1emit_p(ilt1, scp, params, bnds, env0);
@@ -2480,6 +2863,24 @@ case+ ilet of
     i1trcd_construct_go1emit(filr, itnm, iins); fprintln(filr))
     end
   else
+  (
+  case+ iins of
+  |I1INStimp(_, timp) =>
+    let
+      val live = i1tnm_used_in_cmp(itnm, scp)
+    in
+    (
+    nindfpr(filr, nind);
+    if live
+      then (i1tnmgo1(filr, itnm); strnfpr(filr, " := "))
+      else strnfpr(filr, "_ = ");
+    if
+    t1imp_func_literal_go1emit(filr, timp, env0)
+    then ((*void*))
+    else i1insgo1(filr, scp, iins);
+    fprintln(filr))
+    end
+  | _(*ordinary single-expression instruction*) =>
   let
     val live = i1tnm_used_in_cmp(itnm, scp)
   in
@@ -2488,8 +2889,21 @@ case+ ilet of
   if live
     then (i1tnmgo1(filr, itnm); strnfpr(filr, " := "))
     else strnfpr(filr, "_ = ");
-  i1insgo1(filr, scp, iins); fprintln(filr))
+  case+ iins of
+  |I1INSpcon(_, _) =>
+    let
+      val goty = gotype_of_tnm_from_tytab(i1tnm_stmp$get(itnm))
+    in
+      i1insgo1(filr, scp, iins);
+      if (goty = "any") then ((*void*)) else
+        (
+        strnfpr(filr, ".("); strnfpr(filr, goty); strnfpr(filr, ")"))
+    end
+  | _(*otherwise*) =>
+      i1insgo1(filr, scp, iins);
+  fprintln(filr))
   end)
+  )
 //
 |I1LETnew0(iins) =>
   (

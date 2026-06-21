@@ -665,20 +665,59 @@ val itnm =
 case+ dpid of
 |I1BNDcons(itnm, _, _) => itnm)
 //
+fun
+trcdopt_of_dpid
+(dpid: i1bnd): optn(@(bool, strn)) =
+(
+case+ dpid of
+|I1BNDcons(_, ipat, _) =>
+  (
+  case+ ipat.node() of
+  |I0Pvar(dvar) => gotrcd_of_styp(d2var_get_styp(dvar))
+  | _(*else*) => optn_nil())
+)
+//
+fun
+goty_of_dpid
+(dpid: i1bnd): strn =
+(
+case+ dpid of
+|I1BNDcons(_, ipat, _) =>
+  (
+  case+ ipat.node() of
+  |I0Pvar(dvar) => gotype_of_styp(d2var_get_styp(dvar))
+  | _(*else*) => "any")
+)
+//
 in//let
 //
 case+ tdxp of
 //
-// `var x` WITHOUT initialization -> a zero-valued Go var.  We cannot recover
-// the type from an init here, so emit `var goxtnm<x> any` (the body's first
-// assignment / use pins the dynamic value).  (Not in the M2.6c test surface;
-// included for totality.)
+// `var x` WITHOUT initialization -> a zero-valued Go var.  When the variable's
+// inferred/static type is a tuple/record, store a POINTER cell (`*struct{...}`)
+// just like the initialized aggregate-var path below; the later assignment of
+// a flat value will take its address, and assignment of an already boxed value
+// stores the pointer directly.  If no aggregate type is recoverable, fall back
+// to the declared scalar/static Go type, then `any`.
 |TEQI1CMPnone() =>
   (
-  nindfpr(filr, nind);
-  strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
-  strnfpr(filr, " any"); fprintln(filr);
-  prerrsln("[go1emit] NOTE: var without initializer -> `var goxtnm<x> any` (M2.6c)"))
+  case+ trcdopt_of_dpid(dpid) of
+  |optn_cons(@(_, body)) =>
+    (
+    nindfpr(filr, nind);
+    strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
+    strnfpr(filr, " *"); strnfpr(filr, body); fprintln(filr))
+  |optn_nil() =>
+    let
+      val goty = goty_of_dpid(dpid)
+    in
+      nindfpr(filr, nind);
+      strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
+      strnfpr(filr, " "); strnfpr(filr, goty); fprintln(filr);
+      if (goty = "any")
+      then prerrsln("[go1emit] NOTE: var without initializer -> `var goxtnm<x> any`")
+      else ((*void*))
+    end)
 //
 // `var x = init` -> emit the init cmp's lets, then
 //   `var goxtnm<x> <T> = <init-result>`

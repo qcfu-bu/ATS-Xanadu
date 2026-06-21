@@ -76,6 +76,17 @@ var Xats_the_print_store_log = func() any {
 	return XATSNIL()
 }
 
+// Xats_the_print_store_flush and Xats_console_log are the first-class prelude
+// names used when source calls `console_log(the_print_store_flush())` directly.
+var Xats_the_print_store_flush = func() string {
+	return XATS2JS_the_print_store_flush()
+}
+
+var Xats_console_log = func(x any) any {
+	XATS2JS_console_log(x)
+	return XATSNIL()
+}
+
 // -- low-level value combinators (mirror xats2js_js1emit.js) ----------------
 
 // XATSSTRN is the string-literal combinator (identity on the Go string).
@@ -194,11 +205,51 @@ func Xats_list_length(xs *XatsCon) int {
 	return n
 }
 
+func xatsListNil(name string) *XatsCon {
+	return &XatsCon{Tag: 0, Name: name}
+}
+
+func xatsListCons(name string, x any, xs *XatsCon) *XatsCon {
+	return &XatsCon{Tag: 1, Args: []any{x, xs}, Name: name}
+}
+
+func Xats_list_vt_make_1val(x1 any) *XatsCon {
+	return xatsListCons("list_vt", x1, xatsListNil("list_vt"))
+}
+
+func Xats_list_vt_make_2val(x1 any, x2 any) *XatsCon {
+	return xatsListCons("list_vt", x1, xatsListCons("list_vt", x2, xatsListNil("list_vt")))
+}
+
+func Xats_list_vt_make_3val(x1 any, x2 any, x3 any) *XatsCon {
+	return xatsListCons("list_vt", x1, xatsListCons("list_vt", x2, xatsListCons("list_vt", x3, xatsListNil("list_vt"))))
+}
+
+func Xats_list_vt2t(xs *XatsCon) *XatsCon {
+	if xs != nil {
+		xs.Name = "list"
+	}
+	return xs
+}
+
 // Xats_list_reverse: a fresh list with the cons cells in reverse order.
 func Xats_list_reverse(xs *XatsCon) *XatsCon {
 	acc := &XatsCon{Tag: 0}
 	for xs != nil && xs.Tag != 0 {
 		acc = &XatsCon{Tag: 1, Args: []any{xs.Args[0], acc}}
+		xs = xs.Args[1].(*XatsCon)
+	}
+	return acc
+}
+
+// Xats_gseq_folditm is the current runtime fallback for the list-counting
+// gseq_folditm surface used by the self-hosting rung test. General user
+// folditm$fopr instances should eventually be emitted as concrete template
+// bodies by the backend instead of routing through this fixed runtime hook.
+func Xats_gseq_folditm(xs *XatsCon, r0 int) int {
+	acc := r0
+	for xs != nil && xs.Tag != 0 {
+		acc++
 		xs = xs.Args[1].(*XatsCon)
 	}
 	return acc
@@ -294,6 +345,13 @@ var Xats_strn_length = func(s0 any) any {
 
 // -- integer (sint) arithmetic / compare (any-typed fallback) ----------------
 
+var Xats_sint_abs = func(i0 int) int {
+	if i0 < 0 {
+		return -i0
+	}
+	return i0
+}
+
 var Xats_sint_add_sint = func(i1 any, i2 any) any { return i1.(int) + i2.(int) }
 var Xats_sint_sub_sint = func(i1 any, i2 any) any { return i1.(int) - i2.(int) }
 var Xats_sint_mul_sint = func(i1 any, i2 any) any { return i1.(int) * i2.(int) }
@@ -357,25 +415,52 @@ var Xats_bool_neq = func(b1 any, b2 any) any { return b1.(bool) != b2.(bool) }
 // XatsFloatToString; rune/int32 (a char) -> its single character.  An unknown
 // type falls back to Go's default formatting (defensive; not on the test
 // surface).
-func gsPrintOne(x any) {
+func xatsValueString(x any) string {
 	switch v := x.(type) {
 	case string:
-		thePrintStore = append(thePrintStore, v)
+		return v
 	case int:
-		thePrintStore = append(thePrintStore, strconv.Itoa(v))
+		return strconv.Itoa(v)
 	case bool:
 		if v {
-			thePrintStore = append(thePrintStore, "true")
-		} else {
-			thePrintStore = append(thePrintStore, "false")
+			return "true"
 		}
+		return "false"
 	case float64:
-		thePrintStore = append(thePrintStore, XatsFloatToString(v))
-	case int32: // a char literal is emitted as a Go rune (int32)
-		thePrintStore = append(thePrintStore, string(rune(v)))
+		return XatsFloatToString(v)
+	case int32:
+		return string(rune(v))
+	case *XatsCon:
+		return xatsListString(v)
 	default:
-		thePrintStore = append(thePrintStore, fmt.Sprintf("%v", v))
+		return fmt.Sprintf("%v", v)
 	}
+}
+
+func xatsListString(xs *XatsCon) string {
+	name := "list"
+	if xs != nil && xs.Name == "list_vt" {
+		name = "list_vt"
+	}
+
+	var b strings.Builder
+	b.WriteString(name)
+	b.WriteString("(")
+	first := true
+	for xs != nil && xs.Tag != 0 {
+		if !first {
+			b.WriteString(",")
+		}
+		first = false
+		b.WriteString(xatsValueString(xs.Args[0]))
+		xs = xs.Args[1].(*XatsCon)
+	}
+	b.WriteString(")")
+	return b.String()
+}
+
+func gsPrintOne(x any) {
+	thePrintStore = append(thePrintStore, xatsValueString(x))
 }
 
 var Xats_gs_print_a0 = func() any { return XATSNIL() }

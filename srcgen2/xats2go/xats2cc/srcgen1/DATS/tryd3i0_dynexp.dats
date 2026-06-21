@@ -189,8 +189,10 @@ I0Eassgn _ => f0_assgn(i0e0, enw0)
 //
 (* ****** ****** *)
 //
-|
-I0Et2ped _ => f0_t2ped(i0e0, enw0)
+|I0Eannot _ => f0_annot(i0e0, enw0)
+|I0Elabck _ => f0_labck(i0e0, enw0)
+|I0Et2pck _ => f0_t2pck(i0e0, enw0)
+|I0Et2ped _ => f0_t2ped(i0e0, enw0)
 //
 (* ****** ****** *)
 //
@@ -1162,6 +1164,96 @@ i0exp(
 end(*let*)//end-of-[f0_assgn(i0e0,enw0)]
 //
 (* ****** ****** *)
+(* ****** ****** *)
+//
+fun
+f0_annot
+(
+i0e0: i0exp,
+enw0: !enwd3i0): i0exp =
+let
+//
+val
+loc0 = i0e0.lctn((*0*))
+val
+i0t0 = i0e0.ityp((*0*))
+//
+val-
+I0Eannot
+(i0e1, s1e2, s2e2) = i0e0.node()
+//
+val i0e1 =
+(
+  i0exp_tryd3i0(i0e1, enw0))
+//
+in//let
+//
+(
+i0exp(
+loc0, i0t0, I0Eannot(i0e1, s1e2, s2e2)))
+//
+end(*let*)//end-of-[f0_annot(i0e0,enw0)]
+//
+(* ****** ****** *)
+//
+fun
+f0_labck
+(
+i0e0: i0exp,
+enw0: !enwd3i0): i0exp =
+let
+//
+val
+loc0 = i0e0.lctn((*0*))
+val
+i0t0 = i0e0.ityp((*0*))
+//
+val-
+I0Elabck
+(i0e1, lab2) = i0e0.node()
+//
+val i0e1 =
+(
+  i0exp_tryd3i0(i0e1, enw0))
+//
+in//let
+//
+(
+i0exp(
+loc0, i0t0, I0Elabck(i0e1, lab2)))
+//
+end(*let*)//end-of-[f0_labck(i0e0,enw0)]
+//
+(* ****** ****** *)
+//
+fun
+f0_t2pck
+(
+i0e0: i0exp,
+enw0: !enwd3i0): i0exp =
+let
+//
+val
+loc0 = i0e0.lctn((*0*))
+val
+i0t0 = i0e0.ityp((*0*))
+//
+val-
+I0Et2pck
+(i0e1, t2p2) = i0e0.node()
+//
+val i0e1 =
+(
+  i0exp_tryd3i0(i0e1, enw0))
+//
+in//let
+//
+(
+i0exp(
+loc0, i0t0, I0Et2pck(i0e1, t2p2)))
+//
+end(*let*)//end-of-[f0_t2pck(i0e0,enw0)]
+//
 (* ****** ****** *)
 //
 fun

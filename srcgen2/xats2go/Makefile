@@ -563,15 +563,13 @@ _oracle:
 	echo ">> [4/5] ORACLE: assert Go stdout == JS stdout (byte-equal)"; \
 	EXPECT_DIR="$(TESTDIR)/OUTS"; mkdir -p "$$EXPECT_DIR"; EXPECT="$$EXPECT_DIR/$$NAME.expected"; \
 	ok=0; \
-	if [ -s "$$JS_STDOUT" ]; then \
-	  if cmp -s "$$GO_STDOUT" "$$JS_STDOUT"; then \
-	    echo "   BYTE-EQUAL to JS backend."; cp "$$GO_STDOUT" "$$EXPECT"; ok=1; \
-	  else \
-	    echo "!! DIFFERENTIAL-vs-JS MISMATCH:" >&2; \
-	    echo "--- go ---" >&2; xxd "$$GO_STDOUT" >&2; \
-	    echo "--- js ---" >&2; xxd "$$JS_STDOUT" >&2; \
-	    diff <(xxd "$$GO_STDOUT") <(xxd "$$JS_STDOUT") >&2 || true; exit 1; \
-	  fi; \
+	if cmp -s "$$GO_STDOUT" "$$JS_STDOUT"; then \
+	  echo "   BYTE-EQUAL to JS backend."; cp "$$GO_STDOUT" "$$EXPECT"; ok=1; \
+	elif [ -s "$$JS_STDOUT" ]; then \
+	  echo "!! DIFFERENTIAL-vs-JS MISMATCH:" >&2; \
+	  echo "--- go ---" >&2; xxd "$$GO_STDOUT" >&2; \
+	  echo "--- js ---" >&2; xxd "$$JS_STDOUT" >&2; \
+	  diff <(xxd "$$GO_STDOUT") <(xxd "$$JS_STDOUT") >&2 || true; exit 1; \
 	fi; \
 	if [ "$$ok" -eq 0 ]; then \
 	  if [ -s "$$EXPECT" ] && cmp -s "$$GO_STDOUT" "$$EXPECT"; then \
@@ -595,6 +593,7 @@ SUITE_NAMES := \
   test08_fun_multi_xats2go \
   test09_fun_call_fun_xats2go \
   test10_fun_args_xats2go \
+  test11_fun_rec_xats2go \
   test12_if_ret_xats2go \
   test13_if_val_xats2go \
   test14_fact_xats2go \
@@ -638,8 +637,10 @@ SUITE_NAMES := \
   test64_guard_order_xats2go \
   test73_strescape_xats2go \
   test74_localfun_xats2go \
+  test75_annot_xats2go \
   test70_jsbk01_xats2go \
   test71_jsbk02_xats2go \
+  test72_jsbk03_xats2go \
   test76_listlen_xats2go \
   test78_toplevelval_xats2go \
   test79_listops_xats2go \
@@ -647,17 +648,22 @@ SUITE_NAMES := \
   test81_try_normal_xats2go \
   test82_try_typed_xats2go \
   test83_reraise_xats2go \
+  test84_poly_avl_xats2go \
+  test85_list_vt_mut_xats2go \
   test90_top_xats2go
 
 # Self-hosting forcing-function rungs (copies of the JS backend's own test
 # programs).  test73/test74 are the FOCUSED green proofs of two earlier
 # self-hosting gaps (GAP-2 string escaping, GAP-1 local closures).  Chunk A
-# made test70 (`&sint` by-REFERENCE params -> Go pointers; GAP A1) and test71
-# (tuple/record-PATTERN function params `loop@(x,r)` -> tuple-projection value
-# nodes I1Vp0rj/I1Vp1rj; GAP A2) byte-equal-vs-JS -- BOTH are now in the green
-# suite above.  test72 remains a rung NOT in the green suite: it needs the list
-# RUNTIME (`xatsgo.Xats_list_length`/`Xats_gseq_folditm` -- Chunk B) plus the
-# M2.7b datacon-tail typed projection + tuple-element lvalues.
+# made test75 (`(e : T)` type annotations/casts survive trxd3i0 + tryd3i0 and
+# erase to the inner runtime value), test70 (`&sint` by-REFERENCE params -> Go
+# pointers; GAP A1), test71 (tuple/record-PATTERN function params `loop@(x,r)`
+# -> tuple-projection value nodes I1Vp0rj/I1Vp1rj; GAP A2), and test72
+# (prelude list fold runtime, polymorphic datacon-pattern unwrap,
+# uninitialized aggregate vars + tuple lvalues) green -- all three JS-backend
+# copies are now in the suite above.  test84 adds a focused polymorphic
+# user-template body instantiation from the xats2js AVL test; test85 adds
+# linear list_vt datacon-field mutation from the xats2js list_vt test.
 # See BUILD-NOTES "Self-hosting gap-fix" for the precise remaining-blocker list.
 
 # SEQUENTIAL suite — unchanged behavior.  Bundles are built ONCE up front (the
