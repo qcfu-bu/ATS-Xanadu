@@ -110,6 +110,18 @@ type XatsCon struct {
 	Args []any
 }
 
+// Xats_list_length: a prelude `list` is a *XatsCon — list_nil = Tag 0 (no
+// args), list_cons = Tag 1 with Args[0]=head, Args[1]=tail. Walk the tail
+// counting cons cells. (Mirrors XATS2JS_list_length.)
+func Xats_list_length(xs *XatsCon) int {
+	n := 0
+	for xs != nil && xs.Tag != 0 {
+		n++
+		xs = xs.Args[1].(*XatsCon)
+	}
+	return n
+}
+
 // Xats_cfail mirrors XATS2JS_XATS000_cfail: the match-failure sentinel for a
 // non-exhaustive case/switch. The M2.3 emitter inlines a literal
 // `panic("xats2go: XATS000_cfail")` in a switch's `default:` arm instead of
