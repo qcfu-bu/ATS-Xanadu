@@ -71,6 +71,7 @@ pystmt_loctn(s) =
 (
 case+ s of
 | PyDlet(loc, _, _, _, _) => loc | PySreassign(loc, _, _) => loc
+| PySvar(loc, _, _, _) => loc    | PySassign(loc, _, _) => loc
 | PySexpr(loc, _) => loc         | PySif(loc, _, _) => loc
 | PySwhile(loc, _, _, _) => loc  | PySfor(loc, _, _, _, _) => loc
 | PySbreak(loc) => loc           | PyScontinue(loc) => loc

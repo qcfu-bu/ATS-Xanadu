@@ -802,12 +802,17 @@ p_simple_stmt(st: pstate): @(pystmt, pstate) = let
 in
   case+ nod of
   | PT_KW_LET()      => p_let_stmt(st)
+  | PT_KW_VAR()      => p_var_stmt(st)
   | PT_KW_BREAK()    => @(PySbreak(loc), ps_advance(st))
   | PT_KW_CONTINUE() => @(PyScontinue(loc), ps_advance(st))
   | PT_KW_RETURN()   => p_return_stmt(st)
   | _ =>
-    // an expression statement OR a reassignment (expr '=' expr). Parse an expr; if a
-    // bare '=' follows, it is a reassignment with that expr as the lvalue.
+    // an expression statement OR a reassignment. Parse an expr; then disambiguate the
+    // following token:
+    //   '='  -> PySreassign (the SSA reassign path; `let mut`-style rebind).
+    //   ':=' -> PySassign   (a CELL assignment to a `var` lvalue; lowers to D2Eassgn).
+    // The two are DISTINCT statement nodes: `:=` is one token (PT_COLONEQ) so there is no
+    // ambiguity with `=` (PT_EQ) nor with a `:`-annotation.
     let
       val @(e, st1) = p_expr_or_tuple(st)
     in
@@ -818,6 +823,13 @@ in
           val @(rhs, st3) = p_expr_or_tuple(st2)
         in
           @(PySreassign(loc_span(pyexp_loctn(e), pyexp_loctn(rhs)), e, rhs), st3)
+        end
+      | PT_COLONEQ() =>
+        let
+          val st2 = ps_advance(st1)
+          val @(rhs, st3) = p_expr_or_tuple(st2)
+        in
+          @(PySassign(loc_span(pyexp_loctn(e), pyexp_loctn(rhs)), e, rhs), st3)
         end
       | _ => @(PySexpr(pyexp_loctn(e), e), st1)
     end
@@ -884,6 +896,33 @@ p_let_stmt(st: pstate): @(pystmt, pstate) = let
   val @(rhs, st6) = p_expr_or_tuple(st5)
 in
   @(PyDlet(loc_span(loc, pyexp_loctn(rhs)), mut, p, topt, rhs), st6)
+end
+//
+// var NAME [: type] = expr  — a MUTABLE CELL declaration (ATS-parity var/mutation).
+// DISTINCT from `let mut` (the SSA-rebind path above): the binder is a bare NAME (LIDENT,
+// NOT a full pattern — field/index/tuple binders are a later slice), and the node is
+// PySvar (NOT PyDlet), so the loop elaborator does NOT thread it as an accumulator.
+and
+p_var_stmt(st: pstate): @(pystmt, pstate) = let
+  val loc = ps_peek_loctn(st)            // the 'var'
+  val st1 = ps_advance(st)               // past 'var'
+  // the cell NAME: an LIDENT. (Recovery: a non-LIDENT records a diag + a synthetic name.)
+  val @(nm, st2) =
+    ( case+ ps_peek(st1) of
+      | PT_LIDENT(s) => @(s, ps_advance(st1))
+      | _ => @("_", ps_diag(st1, ps_peek_loctn(st1), "expected a name after 'var'")) )
+  val @(topt, st3) =
+    ( case+ ps_peek(st2) of
+      | PT_COLON() =>
+        let val @(t, st3) = parse_type(ps_advance(st2)) in @(PyTypSome(t), st3) end
+      | _ => @(PyTypNone(), st2) )
+  val st4 =
+    ( case+ ps_peek(st3) of
+      | PT_EQ() => ps_advance(st3)
+      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected '=' in var declaration") )
+  val @(rhs, st5) = p_expr_or_tuple(st4)
+in
+  @(PySvar(loc_span(loc, pyexp_loctn(rhs)), nm, topt, rhs), st5)
 end
 //
 // return [exprs]

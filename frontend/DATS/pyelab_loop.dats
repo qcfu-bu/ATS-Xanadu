@@ -157,6 +157,19 @@ case+ ss of
       in
         PCElet(loc, elab_pat(p), ann, elab_exp(encl, rhs), fl_suite(encl2, rest, accs, newmuts, newmts))
       end
+  | PySvar(loc, nm, ann, rhs) =>
+      // a MUTABLE CELL declared INSIDE a loop body. CRITICAL: a `var` is NEVER a loop
+      // accumulator — it does NOT enter `accs`/`muts`/`mts`. It is an in-place cell scoping
+      // the rest of THIS loop-body suite (PCEvarcell's body); it extends `encl` only.
+      let val encl1 = nameset_add(encl, nm) in
+        PCEvarcell(loc, nm, ann, elab_exp(encl, rhs), fl_suite(encl1, rest, accs, muts, mts))
+      end
+  | PySassign(loc, lv, rhs) =>
+      // a CELL ASSIGNMENT inside a loop body -> PCEassign (D2Eassgn), in place. DISTINCT from
+      // `=` reassign (which SSA-rebinds an accumulator in `muts`): a var cell is mutated where
+      // it lives — captured from the enclosing scope, not threaded through the loop's accs.
+      PCEseq(loc, PCEassign(loc, elab_exp(encl, lv), elab_exp(encl, rhs)),
+             fl_suite(encl, rest, accs, muts, mts))
   | PySreassign(loc, lv, rhs) =>
       let val nm = lvalue_name(lv) in
         if strn_eq(nm, "")

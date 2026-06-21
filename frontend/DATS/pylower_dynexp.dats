@@ -52,6 +52,9 @@
 fun tok_val(loc: loctn): token = token_make_node(loc, T_VAL(VLKval))
 fun tok_lam(loc: loctn): token = token_make_node(loc, T_LAM(0(*lam0*)))
 fun tok_fun(loc: loctn): token = token_make_node(loc, T_FUN(FNKfn2(*tailrec*)))
+// the `var` kind-token for D2Cvardclst (ATS-parity var/mutation). VRKvar is the only var
+// kind (xbasics.sats:184). trans23 only destructures the token's kind, not its lexeme.
+fun tok_var(loc: loctn): token = token_make_node(loc, T_VAR(VRKvar))
 // the `case` kind-token for D2Ecas0: CSKcas0 = warning-only on non-exhaustiveness (suits the
 // desugared-loop flow dispatch, which is not exhaustive over all flow ctors).
 fun tok_case(loc: loctn): token = token_make_node(loc, T_CASE(CSKcas0))
@@ -299,8 +302,16 @@ pl_loop_params
 (env: !tr12env, loc: loctn, params: list(strn), ptypes: list(pytypopt)): f2arglst =
 (
 case+ params of
-// 0 or 1 accumulator: the same flat shape the call uses (unit / bare var) — unchanged.
-| list_nil() => list_sing(f2arg_make_node(loc, F2ARGdapp(0(*npf*), list_nil())))
+// 0 accumulators (a `while`/`for` with NO `let mut` — e.g. a var-only loop): the call
+// passes ONE unit argument `()` (accs_tuple_exp on the empty set is PCEunit), so the loop
+// must take ONE unit PARAMETER to match — a `()` tuple pattern (D2Ptup0(-1,[])). A bare
+// zero-param `F2ARGdapp(0,[])` here would receive the `()` arg against NO param (arity +
+// void-type mismatch — the var-in-loop failure). (Pre-var, a 0-acc loop never typechecked
+// meaningfully — there was nothing to thread — so this path was never exercised.)
+| list_nil() =>
+    let val unitp = d2pat_make_node(loc, D2Ptup0((-1), list_nil())) in
+      list_sing(f2arg_make_node(loc, F2ARGdapp(0(*npf*), list_sing(unitp))))
+    end
 | list_cons(_, list_nil()) =>
     list_sing(f2arg_make_node(loc, F2ARGdapp(0(*npf*), pl_param_pats(env, loc, params, ptypes))))
 // 2+ accumulators: a SINGLE tuple parameter `(a, b, ...)` matching the tuple call argument.
@@ -488,6 +499,48 @@ case+ e of
     val () = tr12env_poplet0(env)
   in
     d2exp_make_node(loc, D2Elet0(list_sing(decl), d2body))
+  end
+//
+// PCEvarcell : `var nm [: T] = init in body` — a MUTABLE CELL (ATS-parity var/mutation).
+// Lowers to a `D2Cvardclst` (one d2vardcl, vpid=None) wrapped in `D2Elet0` over `body`,
+// mirroring the SPIKE-PROVEN recipe (pyfront_var_spike.dats build_var_cell / case1):
+//   * d2var_new2_name(loc, nm)         — the cell's dpid (a plain d2var; trans2a's
+//     f0_vardclst types it as a LEFT-VALUE of T via dpid.styp(s2typ_lft(tres))).
+//   * d2vardcl_make_args(loc, d2v, optn_nil()(*vpid*), sres, TEQD2EXPsome(=, init)) —
+//     vpid OPTIONAL (the view-proof id; views are threaded but NOT enforced at typecheck,
+//     so a plain cell needs no view plumbing). sres = the annotation (Some T) or None.
+//   * tr12env_add0_d2var(env, d2v)     — REGISTER the cell so a later `PCEvar nm` (read OR
+//     the LHS of an assignment) resolves to it (mirrors trans12 f1_add0_d2vs).
+//   * The init RHS is lowered in the SAME let-scope BEFORE the binder is registered
+//     (a `var x = ...x...` self-reference is not valid; init sees the OUTER scope).
+// A `var` is NEVER a loop accumulator (the elaborator never put nm in `muts`/`accs`).
+| PCEvarcell(loc, nm, ann, init, body) => let
+    val () = tr12env_pshlet0(env)
+    val d2init = pl_exp(env, init)
+    val sres =
+      (
+      case+ ann of
+      | PyTypNone() => optn_nil()
+      | PyTypSome(t) => optn_cons(pylower_typ(env, t))
+      ): s2expopt
+    val d2v = d2var_new2_name(loc, symbl_make_name(nm))
+    val dvar = d2vardcl_make_args(loc, d2v, optn_nil()(*vpid*), sres, TEQD2EXPsome(tok_val(loc), d2init))
+    val () = tr12env_add0_d2var(env, d2v)          // register AFTER the init is lowered
+    val decl = d2ecl_make_node(loc, D2Cvardclst(tok_var(loc), list_sing(dvar)))
+    val d2body = pl_exp(env, body)
+    val () = tr12env_poplet0(env)
+  in
+    d2exp_make_node(loc, D2Elet0(list_sing(decl), d2body))
+  end
+//
+// PCEassign : `lval := rval` -> D2Eassgn(lval, rval). trans23 f0_assgn typechecks rval
+// against lval's type and returns void (no view consumption). `lval` is a `PCEvar nm`
+// (resolves to the registered cell d2var); field/index lvalues are a later slice.
+| PCEassign(loc, lv, rv) => let
+    val d2lv = pl_exp(env, lv)
+    val d2rv = pl_exp(env, rv)
+  in
+    d2exp_make_node(loc, D2Eassgn(d2lv, d2rv))
   end
 //
 // template F (local form) : `let fun f(..)=.. and g(..)=.. in body`.

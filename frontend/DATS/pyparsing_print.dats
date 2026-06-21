@@ -333,6 +333,15 @@ case+ s of
       | PyTypNone() => ()
       | PyTypSome(t) => (ps(out, " : "); pp_typ(out, t)) );
     ps(out, " = "); pp_exp(out, rhs); ps(out, ")") )
+| PySvar(loc, nm, topt, rhs) =>
+  ( ps(out, "(var"); print_span(out, loc); ps(out, " "); ps(out, nm);
+    ( case+ topt of
+      | PyTypNone() => ()
+      | PyTypSome(t) => (ps(out, " : "); pp_typ(out, t)) );
+    ps(out, " = "); pp_exp(out, rhs); ps(out, ")") )
+| PySassign(loc, lv, rhs) =>
+  ( ps(out, "(assign"); print_span(out, loc); ps(out, " ");
+    pp_exp(out, lv); ps(out, " := "); pp_exp(out, rhs); ps(out, ")") )
 | PySreassign(loc, lv, rhs) =>
   ( ps(out, "(reassign"); print_span(out, loc); ps(out, " ");
     pp_exp(out, lv); ps(out, " = "); pp_exp(out, rhs); ps(out, ")") )

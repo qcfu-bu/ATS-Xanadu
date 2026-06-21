@@ -218,6 +218,14 @@ case+ e of
     pp_pat(out, p); pp_anncolon(out, ann); ps(out, " = "); pp_exp(out, rhs, ind);
     nl(out); print_indent(out, ind + 1); ps(out, "in ");
     pp_exp(out, body, ind + 1); ps(out, ")") )
+| PCEvarcell(loc, nm, ann, init, body) =>
+  ( ps(out, "(Evarcell"); print_span(out, loc); ps(out, " "); ps(out, nm);
+    pp_anncolon(out, ann); ps(out, " := "); pp_exp(out, init, ind);
+    nl(out); print_indent(out, ind + 1); ps(out, "in ");
+    pp_exp(out, body, ind + 1); ps(out, ")") )
+| PCEassign(loc, lv, rv) =>
+  ( ps(out, "(Eassign"); print_span(out, loc); ps(out, " ");
+    pp_exp(out, lv, ind); ps(out, " := "); pp_exp(out, rv, ind); ps(out, ")") )
 | PCEletfun(loc, fs, body) =>
   ( ps(out, "(Eletfun"); print_span(out, loc);
     pp_fundclst(out, fs, ind + 1);

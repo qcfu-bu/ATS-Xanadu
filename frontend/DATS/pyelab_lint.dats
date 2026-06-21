@@ -86,6 +86,10 @@ case+ e of
     in lint_exp(f, tail, a2) end
 | PCEcase(_, scrut, arms) => lint_arms(arms, tail, lint_exp(scrut, false, acc))
 | PCElet(_, _, _, rhs, body) => lint_exp(body, tail, lint_exp(rhs, false, acc))
+// a var cell: the init is NOT tail; the body inherits the enclosing tail context (the cell
+// scopes the rest exactly like a `let`). A cell assignment is void-valued — neither side tail.
+| PCEvarcell(_, _, _, init, body) => lint_exp(body, tail, lint_exp(init, false, acc))
+| PCEassign(_, lv, rv) => lint_exp(rv, false, lint_exp(lv, false, acc))
 // a nested `Eletfun` that REBINDS the name `loop` (every generated loop is named
 // "loop") opens a fresh `loop` scope: inside BOTH its members AND its body, `loop`
 // refers to the INNER loop, governed by its OWN tail-lint (driven from
@@ -158,6 +162,10 @@ case+ e of
 | PCEapp(_, hd, args) => lint_loops_explst(args, lint_loops_exp(hd, acc))
 | PCElam(_, _, _, _, body) => lint_loops_exp(body, acc)
 | PCElet(_, _, _, rhs, body) => lint_loops_exp(body, lint_loops_exp(rhs, acc))
+// a var cell scopes its body — a generated loop nested inside (the var-in-loop case) MUST
+// be reached by the loop-lint, so recurse into BOTH the init and the body.
+| PCEvarcell(_, _, _, init, body) => lint_loops_exp(body, lint_loops_exp(init, acc))
+| PCEassign(_, lv, rv) => lint_loops_exp(rv, lint_loops_exp(lv, acc))
 | PCEif(_, c, t, f) => lint_loops_exp(f, lint_loops_exp(t, lint_loops_exp(c, acc)))
 | PCEcase(_, scrut, arms) => lint_loops_arms(arms, lint_loops_exp(scrut, acc))
 | PCEtup(_, es) => lint_loops_explst(es, acc)

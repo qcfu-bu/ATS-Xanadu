@@ -185,6 +185,20 @@ pcexp =
 | PCEapp    of (loctn, pcexp, list(pcexp))
 | PCElam    of (loctn, bool(*@func*), list(strn), list(pytypopt), pcexp)
 | PCElet    of (loctn, pcpat, pytypopt, pcexp, pcexp)
+//   PCEvarcell : a MUTABLE CELL binding `var name [: T] = init in body` (ATS-parity
+//                var/mutation). DISTINCT from `PCElet`: the elaborator emits this for a
+//                surface `var` (PySvar), NEVER for a `let`/`let mut`/SSA-rebind. It is a
+//                real in-place cell — its name is NOT a loop accumulator (it never enters
+//                the loop `muts`/`accs` set; LOOP-DESUGARING). M3 lowers it to a
+//                `D2Cvardclst` (via d2vardcl_make_args, vpid=None — views are threaded but
+//                not enforced at typecheck) wrapped in a `D2Elet0` over `body`; a later
+//                `PCEvar name` reads the cell (typed T, as an lvalue of T).
+//   PCEassign  : a CELL ASSIGNMENT `lval := rval` (ATS-parity `:=`). DISTINCT from the
+//                SSA-rebind `PCElet` the `=` path emits. M3 lowers it to L2 `D2Eassgn`
+//                (typecheck checks rval against lval's type, returns void). The `lval` is a
+//                `PCEvar name` for v1 (field/index later).
+| PCEvarcell of (loctn, strn, pytypopt, pcexp(*init*), pcexp(*body*))
+| PCEassign of (loctn, pcexp(*lval*), pcexp(*rval*))
 | PCEletfun of (loctn, list(pcfundcl), pcexp)
 | PCEif     of (loctn, pcexp, pcexp, pcexp)
 | PCEcase   of (loctn, pcexp, list(pcarm))

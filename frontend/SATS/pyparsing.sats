@@ -308,6 +308,16 @@ and pyfield      = PyField of (loctn, strn, pytyp)
 //
 //   PyDlet      : `let [mut] pat [: T] = e` — the `bool` is the MUT FLAG (true = mut).
 //                 This is the linchpin M2.5 keys on (LOOP-DESUGARING §1).
+//   PySvar      : `var NAME [: T] = e` — a MUTABLE CELL declaration (ATS-parity var/
+//                 mutation). DISTINCT from `PyDlet(mut=true)`: `let mut` is an SSA-
+//                 rebindable functional binding the loop elaborator THREADS as an
+//                 accumulator; a `var` is an aliasable IN-PLACE cell that is NOT threaded.
+//                 Binder is a bare NAME (LIDENT; field/index lvalues are a later slice),
+//                 with an optional type annotation and a mandatory init expression.
+//   PySassign   : `lvalue := e` — a CELL ASSIGNMENT (the `:=` operator). DISTINCT from
+//                 `PySreassign` (the `=` SSA reassign). The lvalue is a `pyexp` (a var
+//                 NAME for v1; field/index later) so the elaborator inspects it; it lowers
+//                 to L2 `D2Eassgn` and returns void.
 //   PySreassign : `lvalue = e` reassignment — a DISTINCT node (NOT a let). M2.5 turns
 //                 a valid one into an SSA shadowing rebind; an invalid one (immutable
 //                 / undeclared target) is an elaboration error THERE (not M2's job).
@@ -332,6 +342,8 @@ and pyfield      = PyField of (loctn, strn, pytyp)
 and
 pystmt =
 | PyDlet      of (loctn, bool, pypat, pytypopt, pyexp)
+| PySvar      of (loctn, strn, pytypopt, pyexp)
+| PySassign   of (loctn, pyexp(*lval*), pyexp(*rval*))
 | PySreassign of (loctn, pyexp, pyexp)
 | PySexpr     of (loctn, pyexp)
 | PySif       of (loctn, list(pyguard), pystmtlstopt)

@@ -138,6 +138,7 @@ kw_of_lident(s: strn): ptnode =
 (
   if s = "let" then PT_KW_LET()
   else if s = "mut" then PT_KW_MUT()
+  else if s = "var" then PT_KW_VAR()
   else if s = "def" then PT_KW_DEF()
   else if s = "if" then PT_KW_IF()
   else if s = "elif" then PT_KW_ELIF()
@@ -330,6 +331,8 @@ else if band(b0 = 47, b1 = 47) then emit(PT_SLASH2(), 2) // //
 else if band(b0 = 42, b1 = 42) then emit(PT_STAR2(), 2)  // **
 else if band(b0 = 61, b1 = 62) then emit(PT_FATARROW(), 2)// =>
 else if band(b0 = 45, b1 = 62) then emit(PT_ARROW(), 2)  // ->
+else if band(b0 = 58, b1 = 61) then emit(PT_COLONEQ(), 2) // := (var-cell assign; MUST
+                                                          //    precede the 1-byte `:`)
 // one-byte operators / punctuation
 else if (b0 = 43) then emit(PT_PLUS(), 1)              // +
 else if (b0 = 45) then emit(PT_MINUS(), 1)             // -

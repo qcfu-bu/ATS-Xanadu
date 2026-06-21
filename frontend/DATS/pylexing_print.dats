@@ -40,6 +40,7 @@ ptnode_name(nod: ptnode): strn =
 case+ nod of
 | PT_KW_LET() => "KW_LET"
 | PT_KW_MUT() => "KW_MUT"
+| PT_KW_VAR() => "KW_VAR"
 | PT_KW_DEF() => "KW_DEF"
 | PT_KW_IF() => "KW_IF"
 | PT_KW_ELIF() => "KW_ELIF"
@@ -94,6 +95,7 @@ case+ nod of
 | PT_GT() => "GT"
 | PT_GTE() => "GTE"
 | PT_EQ() => "EQ"
+| PT_COLONEQ() => "COLONEQ"
 | PT_FATARROW() => "FATARROW"
 | PT_ARROW() => "ARROW"
 | PT_COLON() => "COLON"

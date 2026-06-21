@@ -403,6 +403,15 @@ case+ ss of
   | PyDlet(_, _, p, _, rhs) =>
       // RHS sees the OLD bnd; later stmts see the binder.
       fc_fv_stmts(fc_pat_names(bnd, p), fc_fv_exp(bnd, fv, rhs), rest)
+  | PySvar(_, nm, _, rhs) =>
+      // a `var` cell: the init RHS sees the OLD bnd; the cell NAME is bound for later stmts
+      // (a function-local, exactly like a `let` binder — so a later @func lambda referencing
+      // it is caught as a capture).
+      fc_fv_stmts(nameset_add(bnd, nm), fc_fv_exp(bnd, fv, rhs), rest)
+  | PySassign(_, lv, rhs) =>
+      // a cell assignment `lv := rhs`: lvalue + rhs both referenced under the current bnd
+      // (it binds NO new name — the cell already exists).
+      fc_fv_stmts(bnd, fc_fv_exp(bnd, fc_fv_exp(bnd, fv, lv), rhs), rest)
   | PySreassign(_, lv, rhs) =>
       // lvalue + rhs both referenced under the current bnd (a reassign does not bind a NEW name).
       fc_fv_stmts(bnd, fc_fv_exp(bnd, fc_fv_exp(bnd, fv, lv), rhs), rest)
@@ -661,6 +670,20 @@ case+ ss of
       in
         PCElet(loc, el_pat(p), ann, el_exp(encl, rhs), el_pure(encl1, rest, newmuts, newmts, tail))
       end
+  | PySvar(loc, nm, ann, rhs) =>
+      // a MUTABLE CELL `var nm [: T] = rhs`. CRITICAL: a `var` is an IN-PLACE cell, NOT a
+      // `let mut` SSA accumulator — it does NOT enter `muts`/`mts` (so the loop desugaring
+      // never threads it). It DOES extend `encl` (a function-local for the capture check)
+      // and scopes the rest of the suite via PCEvarcell's body.
+      let val encl1 = nameset_add(encl, nm) in
+        PCEvarcell(loc, nm, ann, el_exp(encl, rhs), el_pure(encl1, rest, muts, mts, tail))
+      end
+  | PySassign(loc, lv, rhs) =>
+      // a CELL ASSIGNMENT `lv := rhs` -> PCEassign (lowers to D2Eassgn). DISTINCT from the
+      // `=` SSA-reassign path below (which rebinds in `muts`). A var cell is mutated in place;
+      // there is no SSA shadowing here, so `muts`/`mts`/`encl` are unchanged for the rest.
+      PCEseq(loc, PCEassign(loc, el_exp(encl, lv), el_exp(encl, rhs)),
+             el_pure(encl, rest, muts, mts, tail))
   | PySreassign(loc, lv, rhs) =>
       let val nm = lv_name(lv) in
         if strn_eq(nm, "")

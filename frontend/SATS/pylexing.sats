@@ -94,6 +94,9 @@ ptnode =
 //
 | PT_KW_LET     of ()   // let
 | PT_KW_MUT     of ()   // mut  (only meaningful right after `let`; lexed as a kw)
+| PT_KW_VAR     of ()   // var  (ATS-parity mutable CELL declaration; distinct from
+                        //       `let mut` SSA rebinding — `var` is an aliasable
+                        //       in-place cell, NOT a loop accumulator.)
 | PT_KW_DEF     of ()   // def
 | PT_KW_IF      of ()   // if
 | PT_KW_ELIF    of ()   // elif
@@ -154,6 +157,9 @@ ptnode =
 | PT_GT      of ()  // >
 | PT_GTE     of ()  // >=
 | PT_EQ      of ()  // =    (bind / reassign)
+| PT_COLONEQ of ()  // :=   (var-cell assignment; ATS-parity var/mutation — distinct
+                    //       from `=` SSA reassign. Lexed as ONE token when `:` is
+                    //       IMMEDIATELY followed by `=` (no intervening space).)
 | PT_FATARROW of () // =>   (lambda arrow)
 | PT_ARROW   of ()  // ->   (type / return arrow)
 | PT_COLON   of ()  // :    (annotation / block-header)
