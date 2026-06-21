@@ -72,6 +72,20 @@ case+ xs of
 | list_cons(x, rest) => (ps(out, " "); ps(out, x); pp_strlst(out, rest))
 )
 //
+// M5b.6b: render a type-param list `A`, or `A:VType` / `A@unboxed` when annotated, so a golden
+// can SEE the sort the param carries (a plain `[A]` still prints as just `A` — unchanged).
+fun
+pp_pcparams(out: FILR, ps0: list(pcparam)): void =
+(
+case+ ps0 of
+| list_nil() => ()
+| list_cons(PCParam(_, nm, sname, unboxed), rest) =>
+  ( ps(out, " "); ps(out, nm);
+    ( if strn_eq(sname, "") then () else (ps(out, ":"); ps(out, sname)) );
+    ( if unboxed then ps(out, "@unboxed") else () );
+    pp_pcparams(out, rest) )
+)
+//
 (* ****** ****** *)
 //
 // ---- type printer (reuse the PyAST surface-type printer; PyCore keeps surface types) --
@@ -334,12 +348,12 @@ nl(out); print_indent(out, ind);
 case+ d of
 | PCCdata(loc, nm, tvs, dcs, mode) =>
   ( ps(out, "(data "); ps(out, nm); print_span(out, loc);
-    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_strlst(out, tvs); ps(out, ")")) );
+    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_pcparams(out, tvs); ps(out, ")")) );
     ps(out, " mode="); pp_mode(out, mode);
     pp_dataconlst(out, dcs, ind + 1); ps(out, ")") )
 | PCCrecord(loc, nm, tvs, fields, mode) =>
   ( ps(out, "(record "); ps(out, nm); print_span(out, loc);
-    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_strlst(out, tvs); ps(out, ")")) );
+    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_pcparams(out, tvs); ps(out, ")")) );
     ps(out, " mode="); pp_mode(out, mode);
     pp_pcfields(out, fields); ps(out, ")") )
 | PCCfun(loc, fs) =>
@@ -352,7 +366,7 @@ case+ d of
   (ps(out, "(staload "); ps(out, nm); print_span(out, loc); ps(out, ")"))
 | PCCalias(loc, nm, tvs, typ) =>
   ( ps(out, "(alias "); ps(out, nm); print_span(out, loc);
-    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_strlst(out, tvs); ps(out, ")")) );
+    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_pcparams(out, tvs); ps(out, ")")) );
     ps(out, " "); pp_typ(out, typ); ps(out, ")") )
 | PCCerror(loc, msg) =>
   (ps(out, "(Cerror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))

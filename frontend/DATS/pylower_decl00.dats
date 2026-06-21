@@ -92,17 +92,41 @@ case+ dcs of
 //
 // ---- M5b.3b parametric-generics helpers (SPIKE-PROVEN, LOWERING-MAP §3.3c) ------------------
 //
-// create one s2var (of sort `type`) per surface type-param name, in order. These are BOTH the
-// params bound into scope (so a con arg type / record field `A` resolves to s2exp_var) AND the
-// vars the result type is applied to + the con/alias is quantified over.
+// M5b.6b: map a pcparam's SURFACE sort name (+ @unboxed flag) to its L2 `sort2` (SURFACE-
+// GRAMMAR §5.7.1): `VType` -> the_sort2_vwtp (linear/non-linear viewtype), +@unboxed ->
+// the_sort2_vtft (flat viewtype); `Prop` -> the_sort2_prop; `Type` or "" (default) ->
+// the_sort2_type, +@unboxed -> the_sort2_tflt (flat type). An UNKNOWN sort name defaults to
+// the_sort2_type (a sort typo must not crash — trans23 surfaces a real error if the
+// instantiation mismatches). Plain `[A]` (sname="", unboxed=false) -> the_sort2_type, so the
+// monomorphic-and-plain-parametric path is BYTE-IDENTICAL to before this slice.
+fun
+psort2_of(p: pcparam): sort2 =
+(
+case+ p of
+| PCParam(_, _, sname, unboxed) =>
+  (
+    // "Type" OR "" (default) OR any unknown name => the_sort2_type / the_sort2_tflt.
+    if strn_eq(sname, "VType")
+      then (if unboxed then the_sort2_vtft else the_sort2_vwtp)
+      else if strn_eq(sname, "Prop")
+        then the_sort2_prop
+        else (if unboxed then the_sort2_tflt else the_sort2_type)
+  )
+)
+//
+// create one s2var per surface type param, in order, AT ITS DECLARED SORT (psort2_of). These
+// are BOTH the params bound into scope (so a con arg type / record field `A` resolves to
+// s2exp_var) AND the vars the result type is applied to + the con/alias is quantified over.
 //
 fun
-mk_param_s2vars(tvs: list(strn)): s2varlst =
+mk_param_s2vars(params: list(pcparam)): s2varlst =
 (
-case+ tvs of
+case+ params of
 | list_nil() => list_nil()
-| list_cons(tv, rest) =>
-    let val s2v = s2var_make_idst(symbl_make_name(tv), the_sort2_type)
+| list_cons(p, rest) =>
+    let
+      val+ PCParam(_, name, _, _) = p
+      val s2v = s2var_make_idst(symbl_make_name(name), psort2_of(p))
     in list_cons(s2v, mk_param_s2vars(rest)) end
 )
 //
@@ -118,14 +142,16 @@ case+ s2vs of
     let val () = tr12env_add0_s2var(env, s2v) in bind_param_s2vars(env, rest) end
 )
 //
-// one `the_sort2_type` per param (the arg-sort list for the type's FUNCTION sort S2Tfun1).
+// M5b.6b: one DECLARED sort per param (the arg-sort list for the type's FUNCTION sort S2Tfun1)
+// — psort2_of each param instead of forcing the_sort2_type. A plain `[A]` still yields
+// the_sort2_type (byte-identical to before this slice).
 //
 fun
-mk_type_sorts(tvs: list(strn)): sort2lst =
+mk_type_sorts(params: list(pcparam)): sort2lst =
 (
-case+ tvs of
+case+ params of
 | list_nil() => list_nil()
-| list_cons(_, rest) => list_cons(the_sort2_type, mk_type_sorts(rest))
+| list_cons(p, rest) => list_cons(psort2_of(p), mk_type_sorts(rest))
 )
 //
 // the list of s2exp_var(s2v) (the type-constructor's params, for s2exp_apps on the result type).

@@ -61,15 +61,34 @@ case+ ps0 of
 fun
 tvars_of(ts: list(strn)): list(strn) = ts
 //
-// extract the bare names of the §5.7 type params (the PyCore datatype layer keeps tvs as
-// a plain list(strn); sorts/decorators are recorded in the surface AST and consumed later
-// by lowering — M5b.6 wires the memory/representation modes).
+// M5b.6b: elaborate the §5.7 type params to PyCore `pcparam`s, each CARRYING its surface
+// sort name + an @unboxed flag (so M3 can select the s2var sort, not force the_sort2_type):
+//   * name      = the PyTyParam name.
+//   * sort name = the `[A: SORT]` annotation if present ("" = none ⇒ default Type).
+//   * unboxed   = whether any param decorator is `@unboxed` (`PyDecor(_, "unboxed")`). Only
+//                 @unboxed flattens the sort; @boxed/@viewtype on a PARAM are not meaningful
+//                 for the sort selection (they pick a DECL mode, not a param sort) — ignored.
 fun
-typaram_names(tps: list(pytyparam)): list(strn) =
+decos_has_unboxed(decos: list(pydecorator)): bool =
+(
+case+ decos of
+| list_nil() => false
+| list_cons(PyDecor(_, nm), rest) =>
+    if strn_eq(nm, "unboxed") then true else decos_has_unboxed(rest)
+)
+//
+fun
+elab_typarams(tps: list(pytyparam)): list(pcparam) =
 (
 case+ tps of
 | list_nil() => list_nil()
-| list_cons(PyTyParam(_, nm, _, _), rest) => list_cons(nm, typaram_names(rest))
+| list_cons(PyTyParam(ploc, nm, sortopt, decos), rest) =>
+    let
+      val sname = (case+ sortopt of PySortSome(_, s) => s | PySortNone() => "")
+      val unboxed = decos_has_unboxed(decos)
+    in
+      list_cons(PCParam(ploc, nm, sname, unboxed), elab_typarams(rest))
+    end
 )
 //
 // elaborate a surface datatype RHS to PyCore data constructors.
@@ -144,17 +163,17 @@ case+ d of
 | PyCenum(loc, decos, nm, tps, dcs) =>
     // §5.7 enum → a PyCore datatype. M5b.6a: the decorator selects the memory/representation
     // MODE (@viewtype->linear, @unboxed/none/@boxed->boxed datatype). tvs are the bare names.
-    list_sing(PCCdata(loc, nm, typaram_names(tps), elab_datacons(dcs), mode_of_decos(decos)))
+    list_sing(PCCdata(loc, nm, elab_typarams(tps), elab_datacons(dcs), mode_of_decos(decos)))
 | PyCstruct(loc, decos, nm, tps, fields) =>
     // §5.7.1 — a `struct` IS a record-type alias. M5b.6a: emit a PCCrecord carrying the RAW
     // fields + the decorator-selected MODE (@viewtype->linear record, @unboxed->flat record,
     // none/@boxed->boxed record). M3 selects the S2Etrcd trcdknd + alias sort from the mode.
     // tvs are the bare names (parametric structs wrap in s2exp_lam1 at lowering).
-    list_sing(PCCrecord(loc, nm, typaram_names(tps), fields_to_pcfields(fields), mode_of_decos(decos)))
+    list_sing(PCCrecord(loc, nm, elab_typarams(tps), fields_to_pcfields(fields), mode_of_decos(decos)))
 | PyCtype(loc, _decos, nm, tps, aliasTyp) =>
     // §5.7 — a `type X = T` alias -> a PCCalias (M5b.5). M3 lowers `T` via pylower_typ and
     // builds the D2Csexpdef. tvs are monomorphic for now (a non-empty list is M5c).
-    list_sing(PCCalias(loc, nm, typaram_names(tps), aliasTyp))
+    list_sing(PCCalias(loc, nm, elab_typarams(tps), aliasTyp))
 | PyCimport(loc, _) => list_nil()      // imports resolved by M3 staloads (v1).
 | PyCstmt(loc, s) => elab_module_stmt(s)
 | PyCerror(loc, msg) => list_sing(PCCerror(loc, msg))

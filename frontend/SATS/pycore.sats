@@ -266,13 +266,20 @@ pcfundcl =
 //
 and
 pcdecl =
-| PCCdata    of (loctn, strn, list(strn), list(pcdatacon), pcmode)
+| PCCdata    of (loctn, strn, list(pcparam), list(pcdatacon), pcmode)
 | PCCfun     of (loctn, list(pcfundcl))
 | PCCval     of (loctn, pcpat, pcexp)
 | PCCstaload of (loctn, strn)
-| PCCalias   of (loctn, strn, list(strn), pytyp)
-| PCCrecord  of (loctn, strn, list(strn), list(pcfield), pcmode)
+| PCCalias   of (loctn, strn, list(pcparam), pytyp)
+| PCCrecord  of (loctn, strn, list(pcparam), list(pcfield), pcmode)
 | PCCerror   of (loctn, strn)
+//
+// M5b.6b: a type param carries its surface sort name (Type/VType/Prop, "" = none ⇒ default
+// Type) + an @unboxed flag; M3 maps these to the s2var sort. (The names are still all that
+// the monomorphic path needs; the parametric path now reads the sort.)
+and
+pcparam =
+| PCParam of (loctn, strn(*name*), strn(*sort name, "" if none*), bool(*unboxed*))
 //
 // the memory/representation MODE selected by a §5.7 type-declaration decorator:
 //   @boxed / none -> PCMbox  (boxed datatype `the_sort2_tbox` / record S2Etrcd(TRCDbox0)),
