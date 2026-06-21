@@ -334,6 +334,19 @@ pcdecl =
 | PCCabstype of (loctn, strn, list(pcparam), pcmode)
 | PCCassume  of (loctn, strn, pytyp)
 | PCCextern  of (loctn, strn, list(strn), list(pytypopt), pytypopt)
+//   PCCimplement : an `implement NAME(params) [-> Ret]: <body>` body for a pre-declared function
+//                  (ATS-parity). Carries the implemented fun NAME, its param names + OPTIONAL types
+//                  (parallel lists, M5a-style), the OPTIONAL return type, and the ELABORATED body
+//                  (a pcexp — the suite was folded by el_func_body, like a def). M3 (SPIKE-PROVEN
+//                  recipe, pyfront_surf1_spike.dats; mirrors stock f0_implmnt0_dimp @
+//                  trans12_decl00.dats:3373) RESOLVES the pre-declared d2cst by NAME (DIMPLone1),
+//                  binds the params in a lam scope, lowers the body, and emits D2Cimplmnt0.
+//   PCCoverload  : an `overload NAME with IMPL` (ATS-parity `#symload`). Carries the overloaded NAME +
+//                  the IMPL NAME (an already-registered def/extern). M3 (SPIKE-PROVEN; mirrors stock
+//                  f0_symload @ trans12_decl00.dats:2056) resolves IMPL's d2itm, REGISTERS NAME -> a
+//                  D2ITMsym bucket via tr12env_add0_d2itm (the load-bearing step), emits D2Csymload.
+| PCCimplement of (loctn, strn, list(strn), list(pytypopt), pytypopt, pcexp)
+| PCCoverload  of (loctn, strn(*name*), strn(*impl*))
 //   PCCexcept : `exception E(T...)` (EXN) — an exception CONSTRUCTOR decl. Carries the con
 //               NAME + its surface arg types. M3 lowers it to a D2Cexcptcon: a d2con of the
 //               built-in `exn` type (the_s2cst_excptn), registered like a datatype con so

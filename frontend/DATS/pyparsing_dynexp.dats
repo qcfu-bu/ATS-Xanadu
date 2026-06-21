@@ -60,6 +60,33 @@ case+ nod of
 | _ => @(false, PyLbool(loc, false))
 )
 //
+// ---- operator-as-value: node → @(symbol-string, is-operator) for `op<operator>` ----
+//
+// Maps an operator TOKEN to its symbol string (the SAME names bop_sym/uop_sym give the call-head
+// path, so `op+` resolves identically to a head `+`). Arithmetic/comparison/the §5.6 operators are
+// accepted; non-operator tokens return @("", false). `op-`/`op+` resolve to the BINARY operator
+// symbol (the common HOF use, e.g. reduce(xs, op+)); unary negation is not an operator-value in v1.
+//
+fun
+op_symbol_of_node(nod: ptnode): @(strn, bool) =
+(
+case+ nod of
+| PT_PLUS()    => @("+", true)
+| PT_MINUS()   => @("-", true)
+| PT_STAR()    => @("*", true)
+| PT_SLASH()   => @("/", true)
+| PT_SLASH2()  => @("//", true)
+| PT_PERCENT() => @("%", true)
+| PT_STAR2()   => @("**", true)
+| PT_EQEQ()    => @("==", true)
+| PT_NEQ()     => @("!=", true)
+| PT_LT()      => @("<", true)
+| PT_LTE()     => @("<=", true)
+| PT_GT()      => @(">", true)
+| PT_GTE()     => @(">=", true)
+| _            => @("", false)
+)
+//
 // ---- binary-operator classification: node → @(is_binop, tag, left-bp, right-bp) ----
 //
 // left-bp = the level's binding power; right-bp encodes associativity:
@@ -415,6 +442,21 @@ in
   | PT_LIDENT(s) => @(PyEvar(loc, s), ps_advance(st))
   | PT_UIDENT(s) => @(PyEcon(loc, s), ps_advance(st))
   | PT_USCORE()  => @(PyEwild(loc), ps_advance(st))
+  | PT_KW_OP()   =>
+    // `op<operator>` — an operator used as a first-class VALUE (ATS `op+`). The next token MUST be
+    // an operator; map it to its symbol string (the SAME name bop_sym/uop_sym give the call-head
+    // path) and emit a PyEop. (We accept the §5.6 binary/comparison/arith operators; `op(` and
+    // bracket/punctuation are NOT operators-as-values.) Span covers `op` + the operator token.
+    let
+      val st1 = ps_advance(st)              // past 'op'
+      val locO = ps_peek_loctn(st1)
+      val @(opnm, ok) = op_symbol_of_node(ps_peek(st1))
+    in
+      if ok
+        then @(PyEop(loc_span(loc, locO), opnm), ps_advance(st1))
+        else let val st2 = ps_diag(st1, locO, "expected an operator after 'op'") in
+               @(PyEerror(loc_span(loc, locO), "expected an operator after 'op'"), st2) end
+    end
   | PT_LPAREN()  => p_paren_expr(ps_advance(st), loc)
   | PT_LBRACK()  => p_list_expr(ps_advance(st), loc)
   | PT_LBRACE()  => p_record_expr(ps_advance(st), loc)

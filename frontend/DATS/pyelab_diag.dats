@@ -118,6 +118,8 @@ case+ d of
 | PCCabstype(_, _, _, _) => acc  // an abstract type carries only a name/params — no poison nodes.
 | PCCassume(_, _, _) => acc      // an assume carries only a name + a surface type — no poison nodes.
 | PCCextern(_, _, _, _, _) => acc // an extern signature carries only types — no poison nodes.
+| PCCimplement(_, _, _, _, _, body) => harv_exp(body, acc) // an implement BODY may carry poison nodes.
+| PCCoverload(_, _, _) => acc    // an overload carries only two bare names — no poison nodes.
 )
 //
 fun

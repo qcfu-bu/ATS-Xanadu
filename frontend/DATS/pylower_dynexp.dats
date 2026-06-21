@@ -846,6 +846,56 @@ end
 //
 (* ****** ****** *)
 //
+// ---- implement (ATS-parity): PCCimplement -> D2Cimplmnt0 -------------------
+//
+// SPIKE-PROVEN recipe (frontend/DATS/pyfront_surf1_spike.dats case 3; mirrors stock
+// f0_implmnt0_dimp @ srcgen2/DATS/trans12_decl00.dats:3373-3463):
+//   * RESOLVE the pre-declared d2cst by NAME (the extern/template `def` already registered it via
+//     tr12env_add1_d2cst) -> a `dimpl(loc, DIMPLone1(d2c))`. (No registration here — the d2cst is
+//     pre-existing; building the impl does NOT re-register anything.)
+//   * BIND the (typed) params in a pshlam0/add0_f2as scope, lower the body, poplam0 — EXACTLY the
+//     fun-body scope dance (pl_one_fundcl). The f2arglst rides on the D2Cimplmnt0 node and the body
+//     references the bound params.
+//   * ASSEMBLE D2Cimplmnt0(tknd, [], [], dimp, [], f2as, sres, body) — all quantifier/template-arg
+//     lists EMPTY (MONOMORPHIC v1; the resolved d2cst already carries the function type). tknd =
+//     T_IMPLMNT(IMPLfun()). An UNRESOLVABLE name (no matching d2cst) -> a benign D2Cnone0 (recovery;
+//     trans23 already reported any use-site mismatch).
+fun
+pl_implement
+( env: !tr12env, loc: loctn, name: strn
+, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt, body: pcexp): d2ecl = let
+  // resolve the pre-declared d2cst by name (mirror f1_dqid: find_d2itm -> D2ITMcst head).
+  val d2copt =
+    (
+    case+ tr12env_find_d2itm(env, symbl_make_name(name)) of
+    | ~optn_vt_cons(d2i) =>
+      (case+ d2i of
+       | D2ITMcst(d2cs) => (if list_nilq(d2cs) then optn_nil() else optn_cons(d2cs.head()))
+       | _ => optn_nil())
+    | ~optn_vt_nil() => optn_nil()
+    ): optn(d2cst)
+in
+  case+ d2copt of
+  | ~optn_cons(d2c) => let
+      val dimp = dimpl_make_node(loc, DIMPLone1(d2c))
+      val tknd = token_make_node(loc, T_IMPLMNT(IMPLfun()))
+      // build + bind the (typed) params, lower the body, pop — the fun-body scope dance.
+      val f2as = pl_params_typed(env, loc, pnames, ptypes)
+      val sres = pl_sres(env, ret)
+      val () = tr12env_pshlam0(env)
+      val () = tr12env_add0_f2arglst(env, f2as)
+      val d2body = pl_exp(env, body)
+      val () = tr12env_poplam0(env)
+    in
+      d2ecl_make_node
+        (loc, D2Cimplmnt0(tknd, list_nil()(*sqas*), list_nil()(*tqas*),
+                          dimp, list_nil()(*tias*), f2as, sres, d2body))
+    end
+  | ~optn_nil() => d2ecl_make_node(loc, D2Cnone0())   // unresolvable name: benign no-op (recovery)
+end
+//
+(* ****** ****** *)
+//
 // ---- thin #implfun wrappers for the SATS entries ---------------------------
 //
 #implfun pylower_lit(loc, lit) = pl_lit(loc, lit)
@@ -856,6 +906,8 @@ end
 #implfun pylower_explst(env, es) = pl_explst(env, es)
 #implfun params_to_f2arglst(env, loc, params) = pl_params(loc, params)
 #implfun lower_fungroup(env, loc, fdcls) = pl_fungroup(env, loc, fdcls)
+#implfun lower_implement(env, loc, name, pnames, ptypes, ret, body) =
+  pl_implement(env, loc, name, pnames, ptypes, ret, body)
 //
 (* ****** ****** *)
 (*

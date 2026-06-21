@@ -351,6 +351,7 @@ case+ e of
 // patterns bind names in their own handlers — fc_fv_arms handles that subtraction).
 | PyEraise(_, e1) => fc_fv_exp(bnd, fv, e1)
 | PyEtry(_, body, hs) => fc_fv_arms(bnd, fc_fv_stmts(bnd, fv, body), hs)
+| PyEop(_, _)     => fv     // an operator-as-value names no LOCAL — contributes no free vars
 | PyEerror(_, _)  => fv
 )
 and
@@ -522,6 +523,10 @@ case+ e of
 // def/branch body). The except clauses reuse el_arms (the match-arm elaborator) — each
 // `except <pat>:` is a case-arm over the caught exn; its pattern binders scope its handler.
 | PyEtry(loc, body, hs) => PCEtry(loc, el_func_body(encl, loc, body), el_arms(encl, hs))
+// `op+` (operator-as-value): the operator's symbol name as a BARE value reference -> PCEvar. M3's
+// pl_var resolves the operator name (the prelude overload symbol) to a d2exp_sym0 VALUE, exactly as
+// the call-head path resolves a head `+` — so `op+` IS the `+` function value (e.g. reduce(xs, op+)).
+| PyEop(loc, nm) => PCEvar(loc, nm)
 | PyEerror(loc, msg) => PCEerror(loc, msg)
 )
 //

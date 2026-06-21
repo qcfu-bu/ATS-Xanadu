@@ -259,6 +259,8 @@ case+ e of
 | PyEtry(loc, body, hs) =>
   ( ps(out, "(Etry"); print_span(out, loc);
     pp_stmtlst(out, body, 1); pp_armlst(out, hs, 1); ps(out, ")") )
+| PyEop(loc, nm) =>
+  (ps(out, "(Eop "); ps(out, nm); print_span(out, loc); ps(out, ")"))
 | PyEerror(loc, msg) =>
   (ps(out, "(Eerror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )
@@ -442,6 +444,16 @@ case+ d of
     ps(out, ")") )
 | PyCexcept(loc, nm, ts) =>
   ( ps(out, "(exception "); ps(out, nm); print_span(out, loc); pp_typlst(out, ts); ps(out, ")") )
+| PyCimplement(loc, nm, params, ropt, body) =>
+  ( ps(out, "(implement "); ps(out, nm); print_span(out, loc);
+    ps(out, " (params"); pp_paramlst(out, params); ps(out, ")");
+    ( case+ ropt of
+      | PyTypNone() => ()
+      | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
+    pp_stmtlst(out, body, ind + 1); ps(out, ")") )
+| PyCoverload(loc, nm, impl) =>
+  ( ps(out, "(overload "); ps(out, nm); print_span(out, loc);
+    ps(out, " with "); ps(out, impl); ps(out, ")") )
 | PyCimport(loc, imp) =>
   (ps(out, "(import"); print_span(out, loc); ps(out, " "); pp_import(out, imp); ps(out, ")"))
 | PyCstmt(loc, s) =>

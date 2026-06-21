@@ -1,0 +1,3 @@
+def use_op() -> Int:
+    let f = op+
+    f(1, 2)

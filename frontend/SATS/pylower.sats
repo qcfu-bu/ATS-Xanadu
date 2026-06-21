@@ -101,6 +101,16 @@ fun bind_let_styp(d2p: d2pat, d2rhs: d2exp): void
 // (PCEletfun, in pylower_dynexp) and the top-level form (PCCfun, in pylower_decl00).
 fun lower_fungroup(env: !tr12env, loc: loctn, fdcls: list(pcfundcl)): d2ecl
 //
+// lower an `implement NAME(params) [-> Ret]: body` (PCCimplement) to a D2Cimplmnt0 (ATS-parity).
+// RESOLVES the pre-declared d2cst by NAME (DIMPLone1), binds the (typed) params in a lam scope,
+// lowers the body, and assembles D2Cimplmnt0 with empty quantifier lists (MONOMORPHIC v1). Lives
+// in pylower_dynexp (where pl_exp / pl_params_typed / pl_sres are in scope); called from decl00.
+// SPIKE-PROVEN (frontend/DATS/pyfront_surf1_spike.dats case 3; mirrors stock f0_implmnt0_dimp).
+fun
+lower_implement
+( env: !tr12env, loc: loctn, name: strn
+, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt, body: pcexp): d2ecl
+//
 (* ****** ****** *)
 //
 // ---- decl00 (declarations) + the module driver -----------------------------

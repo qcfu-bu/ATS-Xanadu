@@ -412,6 +412,16 @@ case+ d of
       | PyTypNone() => ()
       | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
     ps(out, ")") )
+| PCCimplement(loc, nm, pnames, _ptypes, ret, body) =>
+  ( ps(out, "(implement "); ps(out, nm); print_span(out, loc);
+    ps(out, " (params"); pp_strnlst(out, pnames); ps(out, ")");
+    ( case+ ret of
+      | PyTypNone() => ()
+      | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
+    ps(out, " = "); pp_exp(out, body, ind + 1); ps(out, ")") )
+| PCCoverload(loc, nm, impl) =>
+  ( ps(out, "(overload "); ps(out, nm); print_span(out, loc);
+    ps(out, " with "); ps(out, impl); ps(out, ")") )
 | PCCerror(loc, msg) =>
   (ps(out, "(Cerror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )

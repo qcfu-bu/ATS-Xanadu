@@ -407,6 +407,46 @@ end
 //
 (* ****** ****** *)
 //
+// ---- OVERLOAD (ATS-parity, `#symload`): PCCoverload -> D2Csymload + env registration.
+//      SPIKE-PROVEN recipe (frontend/DATS/pyfront_surf1_spike.dats case 4; mirrors stock
+//      f0_symload @ trans12_decl00.dats:2056-2154):
+//        * RESOLVE the IMPL d2itm by name (tr12env_find_d2itm),
+//        * wrap it as a `d2ptm = D2PTMsome(0(*pval*), ditm)`,
+//        * MERGE with any existing overload bucket under NAME (so multiple `overload NAME with ...`
+//          accumulate; a non-sym existing binding is seeded as one impl),
+//        * REGISTER `NAME -> D2ITMsym(NAME, dptm::bucket)` via tr12env_add0_d2itm — THE load-bearing
+//          step that makes a later use of NAME resolve to IMPL,
+//        * emit D2Csymload(tknd, NAME, dptm) (the node is a record for the LSP; resolution is the env
+//          binding). An UNRESOLVABLE IMPL -> a benign D2Cnone0 (recovery).
+fun
+build_overload(env: !tr12env, loc: loctn, name: strn, impl: strn): d2ecl = let
+  val sym_nm  = symbl_make_name(name)
+  val implopt = tr12env_find_d2itm(env, symbl_make_name(impl))
+in
+  case+ implopt of
+  | ~optn_vt_cons(ditm_impl) => let
+      val dptm = D2PTMsome(0(*pval*), ditm_impl)
+      // merge with any existing overload bucket under NAME.
+      val d2ps =
+        (
+        case+ tr12env_find_d2itm(env, sym_nm) of
+        | ~optn_vt_nil() => list_nil()
+        | ~optn_vt_cons(other) =>
+          (case+ other of
+           | D2ITMsym(_, ps) => ps
+           | _ => list_sing(D2PTMsome(0, other)))
+        ): list(d2ptm)
+      val ditm_nm = D2ITMsym(sym_nm, list_cons(dptm, d2ps))
+      val () = tr12env_add0_d2itm(env, sym_nm, ditm_nm)   // *** makes NAME resolve to IMPL ***
+      val tknd = token_make_node(loc, T_VAL(VLKval))       // a benign token slot (node is a record)
+    in
+      d2ecl_make_node(loc, D2Csymload(tknd, sym_nm, dptm))
+    end
+  | ~optn_vt_nil() => d2ecl_make_node(loc, D2Cnone0())     // unresolvable impl: benign no-op
+end
+//
+(* ****** ****** *)
+//
 // ---- M7-import (task #34): the SCOPED module load + merge for a USER `import M` / `from M
 //      import x`. This REPLICATES the stock `f0_staload` SCOPED path (trans12_decl00.dats:2365-
 //      2388) — load the module's d2parsed, build its `f2env`, register it under `$.` (DLRDT_symbl)
@@ -635,6 +675,16 @@ case+ d of
 // a D2Cdynconst whose d2cst carries the function type. build_extern REGISTERS the d2cst so a
 // call to `foo(...)` resolves against the declared signature. SPIKE-PROVEN.
 | PCCextern(loc, name, pnames, ptypes, ret) => build_extern(env, loc, name, pnames, ptypes, ret)
+//
+// ATS-parity: an `implement NAME(params) -> Ret: body` -> a D2Cimplmnt0. lower_implement (in
+// pylower_dynexp, where pl_exp/pl_params_typed are in scope) RESOLVES the pre-declared d2cst by
+// name, binds the params, lowers the body, and assembles the node (MONOMORPHIC). SPIKE-PROVEN.
+| PCCimplement(loc, name, pnames, ptypes, ret, body) =>
+    lower_implement(env, loc, name, pnames, ptypes, ret, body)
+//
+// ATS-parity (`#symload`): an `overload NAME with IMPL` -> a D2Csymload + the env registration that
+// makes NAME resolve to IMPL (build_overload, via tr12env_add0_d2itm). SPIKE-PROVEN.
+| PCCoverload(loc, name, impl) => build_overload(env, loc, name, impl)
 //
 // an elaboration poison node -> a benign no-op (the diagnostic was already reported by the
 // elaborator; M3 surfaces it via the harness's diagnostics dump, never crashes).

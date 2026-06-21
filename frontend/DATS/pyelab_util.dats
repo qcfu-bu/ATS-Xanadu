@@ -65,6 +65,7 @@ case+ d of
 | PCCabstype(loc, _, _, _) => loc
 | PCCassume(loc, _, _) => loc
 | PCCextern(loc, _, _, _, _) => loc
+| PCCimplement(loc, _, _, _, _, _) => loc | PCCoverload(loc, _, _) => loc
 | PCCerror(loc, _) => loc
 )
 //

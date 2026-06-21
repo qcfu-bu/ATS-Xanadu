@@ -1,0 +1,6 @@
+extern def dbl(x: Int) -> Int
+
+implement dbl(x): x + x
+
+def use_dbl() -> Int:
+    dbl(5)

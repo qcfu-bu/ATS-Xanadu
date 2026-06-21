@@ -337,6 +337,67 @@ in
   @(PyCextern(loc, nm, params, ropt), st7)
 end
 //
+// ---- implement decl (ATS-parity): 'implement' LIDENT '(' params ')' ['-> type] ':' suite ----
+//      provide a BODY for a pre-declared (extern/template) function. Header parses EXACTLY like a
+//      `def` (minus typarams — monomorphic in v1), then a `:` body suite. Block-bodied: consumes
+//      its own suite layout (NOT a trailing NEWLINE), like a `def`.
+//
+fun
+p_implementdecl(st: pstate): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'implement'
+  val @(nm, st2) =
+    ( case+ ps_peek(st1) of
+      | PT_LIDENT(s) => @(s, ps_advance(st1))
+      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected an implemented function name")) )
+  val st3 =
+    ( case+ ps_peek(st2) of
+      | PT_LPAREN() => ps_advance(st2)
+      | _ => ps_diag(st2, ps_peek_loctn(st2), "expected '(' after the implemented name") )
+  val @(params, st4) = p_def_params(st3)
+  val st5 =
+    ( case+ ps_peek(st4) of
+      | PT_RPAREN() => ps_advance(st4)
+      | _ => ps_diag(st4, ps_peek_loctn(st4), "expected ')'") )
+  val @(ropt, st6) =
+    ( case+ ps_peek(st5) of
+      | PT_ARROW() =>
+        let val @(t, st6) = parse_type(ps_advance(st5)) in @(PyTypSome(t), st6) end
+      | _ => @(PyTypNone(), st5) )
+  val st7 =
+    ( case+ ps_peek(st6) of
+      | PT_COLON() => ps_advance(st6)
+      | _ => ps_diag(st6, ps_peek_loctn(st6), "expected ':' before the implement body") )
+  val @(body, st8) = parse_suite(st7)
+in
+  @(PyCimplement(loc, nm, params, ropt, body), st8)
+end
+//
+// ---- overload decl (ATS-parity, `#symload`): 'overload' NAME 'with' IMPL NEWLINE ----
+//      overload NAME onto IMPL (an already-declared def/extern). NAME and IMPL are bare identifiers
+//      (LIDENT — operator overloading is a later slice; the proven mechanism is identical). Single-
+//      line (NEWLINE via p_top_item).
+//
+fun
+p_overloaddecl(st: pstate): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'overload'
+  val @(nm, st2) =
+    ( case+ ps_peek(st1) of
+      | PT_LIDENT(s) => @(s, ps_advance(st1))
+      | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a name to overload")) )
+  val st3 =
+    ( case+ ps_peek(st2) of
+      | PT_KW_WITH() => ps_advance(st2)
+      | _ => ps_diag(st2, ps_peek_loctn(st2), "expected 'with' in overload declaration") )
+  val @(impl, st4) =
+    ( case+ ps_peek(st3) of
+      | PT_LIDENT(s) => @(s, ps_advance(st3))
+      | _ => @("?", ps_diag(st3, ps_peek_loctn(st3), "expected an implementation name after 'with'")) )
+in
+  @(PyCoverload(loc, nm, impl), st4)
+end
+//
 (* ****** ****** *)
 //
 // ---- EXN: exception decl: 'exception' UIDENT [ '(' type {',' type} ')' ] NEWLINE ----
@@ -656,6 +717,22 @@ in
         let val @(_, st1) = p_exceptdecl(st0) in
           @(PyCerror(locD, "decorators are not allowed on an 'exception'"),
             ps_diag(st1, locD, "decorators are not allowed on an 'exception'")) end )
+  | PT_KW_IMPLEMENT() =>
+    // `implement NAME(params): body` takes NO decorators in v1 (it is a plain function body).
+    ( case+ decos of
+      | list_nil() => p_implementdecl(st0)
+      | _ =>
+        let val @(_, st1) = p_implementdecl(st0) in
+          @(PyCerror(locD, "decorators are not allowed on an 'implement'"),
+            ps_diag(st1, locD, "decorators are not allowed on an 'implement'")) end )
+  | PT_KW_OVERLOAD() =>
+    // `overload NAME with IMPL` takes NO decorators.
+    ( case+ decos of
+      | list_nil() => p_overloaddecl(st0)
+      | _ =>
+        let val @(_, st1) = p_overloaddecl(st0) in
+          @(PyCerror(locD, "decorators are not allowed on an 'overload'"),
+            ps_diag(st1, locD, "decorators are not allowed on an 'overload'")) end )
   | PT_KW_IMPORT() => p_import(st0)
   | PT_KW_FROM()   => p_import(st0)
   | _ =>
@@ -706,6 +783,10 @@ in
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_EXCEPTION() =>
     // EXN: a single-line `exception E(T...)` decl — consume its trailing NEWLINE, like `type`.
+    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+  | PT_KW_IMPLEMENT() => parse_decl(st)  // block-bodied: consumes its own suite layout (like `def`)
+  | PT_KW_OVERLOAD() =>
+    // a single-line `overload NAME with IMPL` decl — consume its trailing NEWLINE.
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_IMPORT() =>
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end

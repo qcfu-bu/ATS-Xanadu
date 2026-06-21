@@ -226,6 +226,7 @@ lint_decl(d: pcdecl, acc: list(pcdiag)): list(pcdiag) =
 case+ d of
 | PCCfun(_, fs) => lint_loops_fundcls(fs, acc)
 | PCCval(_, _, e) => lint_loops_exp(e, acc)
+| PCCimplement(_, _, _, _, _, body) => lint_loops_exp(body, acc) // an implement body is a fun body — lint its loops.
 | _ => acc
 )
 //

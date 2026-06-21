@@ -225,6 +225,19 @@ case+ d of
     // M3 lowers it to a D2Cexcptcon: a d2con of the built-in `exn` type, registered like a
     // datatype con so `raise E` / `except E` resolve. No imperative content to elaborate.
     list_sing(PCCexcept(loc, nm, ts))
+| PyCimplement(loc, nm, params, ret, body) =>
+    // ATS-parity: `implement foo(params) -> Ret: <body>` -> a PCCimplement carrying the fun NAME,
+    // its param names + OPTIONAL types (parallel lists, M5a-style), the OPTIONAL return type, and
+    // the ELABORATED body (a pcexp — the suite folded to a function-epilogue expr EXACTLY like a
+    // `def` body, via elab_func_body). M3 resolves the pre-declared d2cst by NAME and emits a
+    // D2Cimplmnt0 binding the params + the body (SPIKE-PROVEN, pyfront_surf1_spike.dats case 3).
+    list_sing(PCCimplement(loc, nm, param_names_d(params), param_types_d(params), ret,
+                           elab_func_body(fc_param_names_pub(list_nil(), params), loc, body)))
+| PyCoverload(loc, nm, impl) =>
+    // ATS-parity (`#symload`): `overload NAME with IMPL` -> a PCCoverload carrying both bare names.
+    // No body / no imperative content. M3 resolves IMPL's d2itm and REGISTERS NAME -> a D2ITMsym
+    // bucket so a later use of NAME resolves to IMPL (SPIKE-PROVEN, case 4).
+    list_sing(PCCoverload(loc, nm, impl))
 | PyCimport(loc, imp) =>
     // M7-import (task #34): a USER `import M` / `from M import x` -> a PCCimport carrying the
     // RESOLVED XATSHOME-relative `.sats` path (v1 rule: dotted `a.b` -> `/a/b.sats`). M3

@@ -164,6 +164,10 @@ kw_of_lident(s: strn): ptnode =
   else if s = "try" then PT_KW_TRY()
   else if s = "except" then PT_KW_EXCEPT()
   else if s = "as" then PT_KW_AS()
+  else if s = "op" then PT_KW_OP()
+  else if s = "implement" then PT_KW_IMPLEMENT()
+  else if s = "overload" then PT_KW_OVERLOAD()
+  else if s = "with" then PT_KW_WITH()
   else if s = "and" then PT_KW_AND()
   else if s = "or" then PT_KW_OR()
   else if s = "not" then PT_KW_NOT()
@@ -430,6 +434,42 @@ else if b = 35 then   // '#' line comment: skip to (not past) end-of-line; keep 
       let val bb = cur_byte(c) in
         if bor(bb < 0, bb = 10) then c else skip(cur_adv(c)) end
   in scan_loop(src, skip(c), bol, acc) end
+//
+else if band(b = 40, cur_byte_at(c, 1) = 42) then
+  // '(*' opens a NESTABLE block comment (ATS-parity). Skip the WHOLE comment body
+  // (tracking nesting depth: each inner `(*` bumps depth, each `*)` drops it; the
+  // comment ends when depth returns to 0). EOF inside an open comment -> a PT_ERROR
+  // over the opening `(*` (the lexer never throws; recovery is M2's). A block comment
+  // may span newlines; we DROP the comment but must keep the cursor's row/col exact
+  // (cur_adv tracks '\n'). `bol` is preserved (a comment carries no real token), so a
+  // comment-only / leading-whitespace block comment keeps the line "at line start".
+  //
+  // Note `//` line comments are DEFERRED: `//` is already the int-division op
+  // (PT_SLASH2). ATS uses `//` for line comments but we keep our existing int-div role
+  // (a parity-vs-existing-choice conflict; flagged in the report). Only `(* *)` is added.
+  let
+    // skip from just-AFTER the opening `(*`; `depth` is the count of still-open `(*`.
+    // returns (cursor-after-the-close, closed?) — closed=false means EOF before close.
+    fun
+    skipblk(c: cur, depth: sint): @(cur, bool) =
+      let val bb = cur_byte(c) in
+        if bb < 0 then @(c, false)                       // EOF inside an open comment
+        else if band(bb = 40, cur_byte_at(c, 1) = 42)    // a nested `(*` -> depth+1
+          then skipblk(cur_advn(c, 2), depth + 1)
+        else if band(bb = 42, cur_byte_at(c, 1) = 41)    // a `*)` -> depth-1
+          then (if depth <= 1 then @(cur_advn(c, 2), true)  // outermost close: done
+                else skipblk(cur_advn(c, 2), depth - 1))
+        else skipblk(cur_adv(c), depth)                  // any other byte (incl. '\n')
+      end
+    val @(c1, closed) = skipblk(cur_advn(c, 2), 1)
+  in
+    if closed
+      then scan_loop(src, c1, bol, acc)                  // comment skipped; keep bol
+      else // unterminated block comment: a PT_ERROR over the opening `(*` (recover).
+        let val cerr = cur_advn(c, 2)
+            val tk = mk_tok(src, PT_ERROR(PYL_slice(c.0, cerr.0)), c, cerr)
+        in scan_loop(src, c1, false, list_cons(tk, acc)) end
+  end
 //
 else if is_idstart(b) then
   let val @(tk, c1) = scan_ident(src, c) in scan_loop(src, c1, false, list_cons(tk, acc)) end

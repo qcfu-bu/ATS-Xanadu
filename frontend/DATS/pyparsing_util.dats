@@ -42,6 +42,7 @@ case+ e of
 | PyEfield(loc, _, _) => loc  | PyEindex(loc, _, _) => loc
 | PyElam(loc, _, _, _) => loc | PyEann(loc, _, _) => loc
 | PyEraise(loc, _) => loc     | PyEtry(loc, _, _) => loc
+| PyEop(loc, _) => loc
 | PyEerror(loc, _) => loc
 )
 //
@@ -88,6 +89,7 @@ case+ d of
 | PyCabstype(loc, _, _, _) => loc   | PyCassume(loc, _, _) => loc
 | PyCextern(loc, _, _, _) => loc
 | PyCexcept(loc, _, _) => loc
+| PyCimplement(loc, _, _, _, _) => loc | PyCoverload(loc, _, _) => loc
 | PyCimport(loc, _) => loc          | PyCstmt(loc, _) => loc
 | PyCerror(loc, _) => loc
 )

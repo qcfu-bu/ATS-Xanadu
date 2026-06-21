@@ -268,6 +268,12 @@ pyexp =
 //              like a match `case`). Lowers to D2Etry0(body, clauses-over-exn).
 | PyEraise of (loctn, pyexp)
 | PyEtry   of (loctn, list(pystmt)(*body*), list(pyarm)(*except handlers over exn*))
+//   PyEop    : `op+` / `op<` — an OPERATOR used as a first-class VALUE (ATS `op+`). The strn is the
+//              operator's symbol ("+", "<", ...), the SAME name `bop_sym`/`uop_sym` give the call-head
+//              path; the elaborator maps it to `PCEvar(loc, name)` so M3's `pl_var` resolves it (the
+//              operator's prelude overload symbol -> a d2exp_sym0 value). So `reduce(xs, op+)` passes
+//              `+` as a `(Int,Int)->Int` value; `let f = op+` then `f(1,2)` works.
+| PyEop    of (loctn, strn)
 | PyEerror of (loctn, strn)
 //
 // a record-literal field `name = expr`
@@ -395,6 +401,18 @@ pydecl =
 | PyCassume  of (loctn, strn, pytyp)
 | PyCextern  of (loctn, strn, list(pyparam), pytypopt)
 | PyCexcept of (loctn, strn, list(pytyp))   // exception E(T1,T2): an exception constructor (EXN)
+//   PyCimplement : `implement NAME(params) [-> Ret]: <suite>` — provide a BODY for an extern/template-
+//                  declared function (ATS-parity `implement f(x) = e`). Carries the implemented fun
+//                  NAME (LIDENT), its value params, an OPTIONAL return type, and the body suite. M3
+//                  resolves the pre-declared d2cst by NAME and attaches the elaborated body
+//                  (-> D2Cimplmnt0). Monomorphic in v1 (no template/quantifier args).
+//   PyCoverload  : `overload NAME with IMPL` — overload a NAME onto an IMPL (ATS-parity `#symload NAME
+//                  with IMPL`). Carries the overloaded NAME (the symbol that gets the new meaning; a
+//                  LIDENT or an operator symbol) + the IMPL NAME (an already-declared def/extern). M3
+//                  resolves IMPL's d2itm and REGISTERS NAME -> a D2ITMsym bucket (-> D2Csymload), so a
+//                  later use of NAME resolves to IMPL.
+| PyCimplement of (loctn, strn, list(pyparam), pytypopt, list(pystmt))
+| PyCoverload  of (loctn, strn(*name*), strn(*impl*))
 | PyCimport of (loctn, pyimport)
 | PyCstmt   of (loctn, pystmt)
 | PyCerror  of (loctn, strn)
