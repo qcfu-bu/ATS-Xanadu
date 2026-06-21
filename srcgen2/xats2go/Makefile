@@ -642,7 +642,11 @@ SUITE_NAMES := \
   test71_jsbk02_xats2go \
   test76_listlen_xats2go \
   test78_toplevelval_xats2go \
-  test79_listops_xats2go
+  test79_listops_xats2go \
+  test80_try_catch_xats2go \
+  test81_try_normal_xats2go \
+  test82_try_typed_xats2go \
+  test83_reraise_xats2go
 
 # Self-hosting forcing-function rungs (copies of the JS backend's own test
 # programs).  test73/test74 are the FOCUSED green proofs of two earlier

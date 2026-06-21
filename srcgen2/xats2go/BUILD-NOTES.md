@@ -2162,3 +2162,162 @@ EXPECTED handoff).
 `UNHANDLED`). The nodes now REACH the emitter with the full structure (try-body
 i1cmp, raise value, exn binder tnm, handler i1clslst) ready to emit Go
 `func(){ defer/recover }()` + `panic(...)`.
+
+---
+
+# EXCEPTIONS EMITTER (step 2/2) — `$raise` → `panic`, `try…with` → IIFE+defer/recover
+
+Status: `$raise`/`try…with` now emit idiomatic Go (`panic(...)` + an IIFE with a
+named return and `defer func(){ if r := recover(); ... }()` whose handler is a
+M2.7 datacon switch). `make -j psuite` = **62/62 GREEN** (58 prior + 4 new
+exception tests), `go vet` OK, gofmt-clean, clean-rebuild reproducible, **NO
+regression**. All additive under `srcgen2/xats2go/`; **DATS-ONLY emitter edits +
+one runtime field** (NO `.sats` change → no stamp-shift).
+
+## How to run
+
+```bash
+cd srcgen2/xats2go
+make -j psuite                         # 62 GREEN (58 prior + test80-83)
+make run/test80_try_catch_xats2go      # HEADLINE catch (caught: boom)
+make run/test83_reraise_xats2go        # re-raise (default: panic -> outer try)
+```
+
+## Emit shapes (verified by RUNNING the emitted Go)
+
+**`I1INSraise(tk, excval)` → `panic(<excval>)`** — a Go TERMINATING statement.
+The raise is made BLOCK-FORM (`i1ins_is_blockform`), so a `I1LETnew1(t,
+I1INSraise(..))` routes to `i1ins_go1emit_block`, which emits a BARE
+`panic(<excval>)` — NO `goxtnm<t> := ` prefix, NO `var` decl (the bound temp is
+unreachable). The trailing cmp result that would have read `t` is SUPPRESSED:
+`cmp_last_let_raises` was added to `i1cmp_tail_returns` + `cmp_terminates` (in
+`go1emit_styp0.dats`), so all three cmp emitters (`_ret`/`_tnm`/effect/`_goxret`)
+drop their `return <r>`/`goxret = <r>`/`_ = <r>` when the last let is a raise —
+keeping `go vet` clean of "unreachable code"/"missing return" (the SAME
+discipline as the M2.3 `default: panic(...)`). `excval` is the datacon i1val
+(e.g. `goxtnm<T1>` bound to `&xatsgo.XatsCon{...}`), so `panic` carries the
+boxed exception; mirrors the JS backend's `XATS000_raise(excval)`.
+
+**`I1INStry0(tk, bodyCmp, exnBinder, handlers)` → IIFE + defer/recover** (also
+block-form):
+```go
+goxtnm<itnm> := func() (goxret <RETTYPE>) {     // (or `_ = func()...` if dead)
+    defer func() {
+        if goxrec := recover(); goxrec != nil {
+            goxtnm<exnBinder> := goxrec.(*xatsgo.XatsCon)   // caught exception
+            switch {                                         // the M2.7 datacon case
+            case goxtnm<exnBinder>.Tag == -1 && goxtnm<exnBinder>.Name == "<C1>":
+                <field binds>; goxret = <handler1 body>
+            ...
+            default:
+                panic(goxrec)                                // RE-RAISE unhandled
+            }
+        }
+    }()
+    goxret = <bodyCmp in VALUE mode>            // may panic; trailing `return` if
+    return                                      //   the body doesn't already terminate
+}()
+```
+The Go WALK mirrors the JS backend's `try/catch` (js1emit_dynexp ~L2701), but
+the SHAPE is Go's defer/recover (JS uses try/catch).
+
+## Handler clauses REUSE the M2.7 datacon-case machinery (no new pattern code)
+
+A try's `handlers` is the SAME `i1clslst` structure `I1INScas0` uses; the
+exn-binder `I1Vtnm(T3)` is the scrutinee. So the handler switch is emitted by
+thin `goxret`-targeted wrappers around the EXACT M2.7 clause emitter:
+`i1cls_go1emit_goxret`/`i1clslst_go1emit_goxret` reuse `i0pckgo1` (tag test +
+`I1Vp1cn` field projection `goxrec.Args[i].(T)`), `i1bnd_bind_go1` (the
+whole-exception bind), and `emit_guard_iife` (inline `&&`-IIFE guard) VERBATIM;
+only the clause-body result is written `goxret = <r>` (via `i1cmp_go1emit_goxret`)
+instead of `goxtnm<itnm> = <r>`. The exn-binder is a `*xatsgo.XatsCon`; a field
+bind like `ErrmsgExn(m)` projects `goxtnm<exnBinder>.Args[0].(string)`.
+
+## Named-return type (unit + typed)
+
+`gotype_of_ift0type` gained an `I1INStry0` arm = `goty_join(body-result-type,
+handler-results-type)`. A **unit** `val () = try…` → body result `I1Vnil`
+(→`any`) + handler results unit (`prints` → `any`) → joins to `""`/`"any"`,
+COERCED to `any` at the emit site: `func() (goxret any)`, body/handler assign
+`xatsgo.XATSNIL()` / the any-returning call — all `any`, so it type-checks. A
+**typed** try (test82 `fun checked_double(n): sint = try … with …`) recovers
+`func() (goxret int)` from the body's `int` result (the M2.6 machinery), and the
+handler's `goxret = (0 - 1)` agrees. (Go build is the check — a wrong RETTYPE
+fails `go vet`/`go build`.)
+
+## Exception identity = NAME (the re-raise correctness crux)
+
+The front-end assigns EVERY `excptcon` the sentinel ctag **-1** (exceptions are
+an OPEN/extensible sum), so `.Tag == -1` ALONE cannot tell two exception types
+apart — two different excptcons would both have Tag -1 and collide. FIX (mirrors
+the JS backend's `XATSCTAG(name, ctag)` comparing BOTH): the runtime `XatsCon`
+gained a `Name string` field; `i1con_construct_go1emit` emits `Name: "<C>"`
+**only** for an excptcon (`d2con_is_excptn` = ctag < 0), and `i0pck_con_tag`
+ANDs in `&& <scrut>.Name == "<C>"` **only** for an excptcon. ORDINARY datatype
+cons (ctag ≥ 0) are byte-IDENTICAL to M2.7 (no `Name:` field, pure `.Tag ==
+<ctag>` test) — verified: `test62_tree`'s emitted Go has **0** `Name:` tokens,
+and the datatype suite stays byte-equal-vs-JS. A handler set that matches NO
+clause re-raises via `default: panic(goxrec)` (the original boxed value).
+
+## The 4 tests + HAND-COMPUTED goldens (JS oracle UNAVAILABLE — golden only)
+
+The JS-oracle bundle is still on the OLD intrep0 (no try/raise lowering — see the
+migration chunk above), so it produces NO output for exception programs; the
+differential oracle is UNAVAILABLE for exceptions. These are **GOLDEN-validated**:
+emit → `gofmt`/`go vet`/`go build` clean → RUN the Go → confirm the printed value
+equals the hand-computed truth → THEN set `TEST/OUTS/<name>.expected`.
+
+| test | program | HAND-COMPUTED golden | proves |
+|---|---|---|---|
+| test80_try_catch | `val () = try $raise ErrmsgExn("boom") with ErrmsgExn(m) => prints("caught: ",m,"\n")` | `caught: boom\n\n` | the headline CATCH (panic→recover→datacon switch→field bind) |
+| test81_try_normal | `safe_div(84,2)` (b≠0 → NORMAL path, handler skipped) | `normal: 42\n\n` | the non-raising path (recover sees nil; handler not entered) |
+| test82_try_typed | `fun checked_double(n):sint = try (if n<0 then $raise.. else n+n) with ..=>0-1` | `ok: 20\na: 42\nbad: -1\n\n` | the named-return type is concrete `int` (not `any`), normal + caught |
+| test83_reraise | inner `try` catches ONLY `ErrorExn` but `ErrmsgExn("bang")` is raised → inner `default: panic` → OUTER try catches | `outer caught: bang\n\n` | NAME-aware tag test + `default: panic(goxrec)` re-raise across nested IIFEs |
+
+Wired into `Makefile` `SUITE_NAMES` (test80-83). The 2 anti-collision shapes:
+**test82** proves the typed named return (a wrong RETTYPE fails go build);
+**test83** is the adversarial re-raise (a wrong/missing Name compare would make
+the inner handler swallow ErrmsgExn → "inner caught ErrorExn (WRONG)" instead of
+"outer caught: bang").
+
+## Files changed (all under srcgen2/xats2go/, additive, DATS-only + 1 runtime field)
+
+- `srcgen2/DATS/go1emit_styp0.dats`: `i1ins_is_blockform` += `I1INStry0`/
+  `I1INSraise`; new `cmp_last_let_raises`; `i1cmp_tail_returns` + `cmp_terminates`
+  treat a trailing raise as terminating; `gotype_of_ift0type2` += `I1INStry0` arm.
+- `srcgen2/DATS/go1emit_dynexp.dats`: `i1ins_go1emit_block` += `I1INSraise`
+  (panic) + `I1INStry0` (IIFE/defer/recover) cases; new `i1cmp_go1emit_goxret`/
+  `i1cls_go1emit_goxret`/`i1clslst_go1emit_goxret` (goxret-targeted clause emit,
+  reusing the M2.7 helpers); `d2con_is_excptn`/`i1con_emit_name` + `Name:` in
+  `i1con_construct_go1emit` + the `&& .Name == "<C>"` AND in `i0pck_con_tag`
+  (excptcon-only).
+- `runtime/xatsgo/xatsgo.go`: `XatsCon` gained `Name string` (populated only for
+  excptcons; "" for datatypes).
+- `Makefile` `SUITE_NAMES` += test80-83; `TEST/test8{0,1,2,3}_*.dats` (new) +
+  `TEST/OUTS/test8{0,1,2,3}_*.expected` (hand-computed goldens).
+
+## Honest coverage / real-vs-stub
+
+- **REAL (golden-validated, go vet + go build clean):** `I1INSraise` → bare
+  `panic(<excval>)` with terminating-statement suppression of the trailing
+  result; `I1INStry0` → IIFE + named return + defer/recover + the M2.7
+  datacon-switch handler (tag + Name test + `I1Vp1cn` field binds + `goxret`
+  assign); the unit + typed named-return typing; the NAME-aware excptcon identity
+  + `default: panic(goxrec)` re-raise (test83 proves both); nested try/IIFEs.
+- **JS ORACLE — UNAVAILABLE for exceptions (golden only):** the JS reference
+  bundle is pinned to the OLD intrep0 (the migration chunk kept `js2`/`lib2xats2js`
+  on the pre-try/raise cc to stay valid for the 58 non-exception tests), so it
+  emits NOTHING for try/raise. RESTORING it is a FOLLOW-UP: rebuild the JS
+  reference on the COMPLETE xats2js stage (the new local intrep0 with
+  `I0Etry0`/`I0Eraise` lowering + a JS `try/catch` emitter on the SAME bundle),
+  then the differential oracle would gate exceptions byte-equal-vs-JS too.
+- **DEVIATIONS:** (1) excptcon identity uses a runtime `Name` field (mirrors the
+  JS `XATSCTAG(name,ctag)`); a pure-numeric scheme (e.g. a per-excptcon
+  stamp-derived tag) would avoid the field but diverge from the JS shape — Name
+  is the faithful choice and keeps ordinary datatypes byte-identical. (2) The
+  unit-try named return is `any` (the documented scalar-table fallback for unit);
+  a dedicated Go unit type was unnecessary since `xatsgo.XATSNIL()` is `any`. (3)
+  A handler with a GUARD reuses the M2.7 inline `&&`-IIFE guard (untested in the 4
+  tests but wired through `i1cls_go1emit_goxret`). (4) A tail self-call inside a
+  recover handler is NOT loop-optimized (handlers emit value-mode, no `params`
+  threaded) — correct, just not TCO'd; not in the test surface.

@@ -256,6 +256,41 @@ case+ lab0 of
   prerrsln("[go1emit] NOTE: datacon lvalue with symbol label (unexpected)"))
 )//endof[i0lab_int_go1(filr,lab0)]
 //
+(*
+[d2con_is_excptn]: is this constructor an EXCEPTION constructor (excptcon)?
+The front-end assigns EVERY excptcon the sentinel ctag -1 (exceptions are an
+OPEN/extensible sum), whereas a closed datatype's constructors get distinct
+ctags 0,1,...  So a ctag < 0 IS the excptcon marker.  An excptcon's runtime
+value carries its NAME (so two exception types are distinguished -- mirrors the
+JS backend's XATSCTAG(name, ctag) comparing BOTH).
+*)
+fun
+d2con_is_excptn
+(dcon: d2con): bool = (d2con_get_ctag(dcon) < 0)
+//
+(*
+[i1con_emit_name]: emit `, Name: "<conname>"` for an EXCEPTION constructor
+(nothing for an ordinary datatype con, keeping its struct literal byte-identical
+to M2.7).  [d2con_get_name] is a sym_t whose [prints] is its textual name (the
+same the JS backend quotes).
+*)
+fun
+i1con_emit_name
+( filr: FILR
+, dcon: d2con): void =
+(
+if d2con_is_excptn(dcon)
+then
+let
+  val nm = d2con_get_name(dcon)
+  #impltmp g_print$out<>() = filr
+in
+  strnfpr(filr, ", Name: ");
+  prints('"'); prints(nm); prints('"')
+end
+else ((*ordinary datatype con -- no Name*))
+)//endof[i1con_emit_name(filr,dcon)]
+//
 fun
 i1con_construct_go1emit
 ( filr: FILR
@@ -266,6 +301,9 @@ let
 in//let
   strnfpr(filr, "&xatsgo.XatsCon{Tag: ");
   i0i00go1(filr, ctag);
+  // EXCEPTIONS: an excptcon also stores its NAME (so a try/with handler can
+  // distinguish exception types that all share ctag -1).
+  i1con_emit_name(filr, dcon);
   strnfpr(filr, ", Args: []any{");
   i1valgo1_list(filr, i1vs);
   strnfpr(filr, "}}")
@@ -1065,7 +1103,25 @@ i0pck_con_tag
 (
 i1valgo1(filr, casval);
 strnfpr(filr, ".Tag == ");
-i0i00go1(filr, d2con_get_ctag(dcon)))
+i0i00go1(filr, d2con_get_ctag(dcon));
+// EXCEPTIONS: an excptcon's ctag is the shared sentinel -1, so the tag test
+// alone is ambiguous between exception types -- AND in the NAME to disambiguate
+// (mirrors the JS backend's XATSCTAG(name, ctag) comparing both).  Ordinary
+// datatype cons (ctag >= 0) keep the pure `.Tag == <ctag>` test (their ctags are
+// already distinct, so no Name field is set/compared).
+(
+if d2con_is_excptn(dcon)
+then
+let
+  val nm = d2con_get_name(dcon)
+  #impltmp g_print$out<>() = filr
+in
+  strnfpr(filr, " && ");
+  i1valgo1(filr, casval);
+  strnfpr(filr, ".Name == ");
+  prints('"'); prints(nm); prints('"')
+end
+else ((*ordinary datatype con -- tag suffices*))))
 //
 (*
 i0pckgo1: emit a pattern as a Go BOOLEAN TEST against [casval].  Mirrors
@@ -1558,6 +1614,93 @@ i1clslst_go1emit
 (* ****** ****** *)
 //
 (*
+EXCEPTIONS (step 2/2): the try-IIFE result is a NAMED Go return [goxret] (so the
+`defer`/`recover` handler can set it).  The body cmp + each handler clause must
+therefore assign to the LITERAL identifier `goxret`, not to a `goxtnm<N>` temp.
+These three helpers mirror [i1cmp_go1emit_tnm] / [i1cls_go1emit_g] /
+[i1clslst_go1emit_g], but the result is written `goxret = <result>`.  Handlers are
+plain value-position clauses (return mode + TCO loops do NOT apply inside a
+recover handler -- a tail self-call would not be in scope here), so [params]/
+[bnds] are not threaded and guards are still folded inline as `&&`-IIFEs (reusing
+[i0pckgo1] / [emit_guard_iife] / [i1bnd_bind_go1] verbatim from the M2.7 case).
+*)
+fun
+i1cmp_go1emit_goxret
+( bodyCmp: i1cmp
+, env0: !envx2go): void =
+let
+  val filr = env0.filr()
+  val nind = envx2go_nind$get(env0)
+  val-I1CMPcons(ilts, ival) = bodyCmp
+  val () = i1letlst_go1emit(ilts, bodyCmp, env0)
+in//let
+  // assign the result to the named return UNLESS the cmp already terminated
+  // (a fully-returning trailing if/case, or a trailing `$raise` -> panic):
+  // then `goxret = <r>` would read an unassigned temp / be unreachable.
+  if i1cmp_tail_returns(bodyCmp) then () else
+  (
+  nindfpr(filr, nind);
+  strnfpr(filr, "goxret = ");
+  i1valgo1(filr, ival); fprintln(filr))
+end//let//endof[i1cmp_go1emit_goxret(bodyCmp,env0)]
+//
+fun
+i1cls_go1emit_goxret
+( casval: i1val, icl0: i1cls
+, env0: !envx2go): void =
+let
+  val filr = env0.filr()
+  val nind = envx2go_nind$get(env0)
+in//let
+case+ icl0.node() of
+|I1CLSgpt(_) =>
+  prerrsln("[go1emit] NOTE: I1CLSgpt (guard-only handler clause) skipped")
+|I1CLScls(igpt, body) =>
+  let
+    val (ibnd, guaopt) =
+    (
+    case+ igpt.node() of
+    |I1GPTpat(ibnd) => @(ibnd, optn_nil(): optn(i1gualst))
+    |I1GPTgua(ibnd, iguas) => @(ibnd, optn_cons(iguas)))
+    val-I1BNDcons(_, ipat, _) = ibnd
+    // `case <patcond>[ && <guard-IIFE>]:`  (the M2.7 datacon tag test + binds)
+    val () =
+    (
+    nindfpr(filr, nind); strnfpr(filr, "case ");
+    i0pckgo1(filr, casval, ipat);
+    (
+    case+ guaopt of
+    |optn_nil() => ()
+    |optn_cons(iguas) =>
+      (strnfpr(filr, " && "); emit_guard_iife(env0, iguas)));
+    strnfpr(filr, ":"); fprintln(filr))
+    val () = envx2go_incnind(env0, 1)
+    val () = i1bnd_bind_go1(env0, casval, ibnd, body)
+    // the handler body runs in VALUE mode, assigning to the named return.
+    val () = i1cmp_go1emit_goxret(body, env0)
+    val () = envx2go_decnind(env0, 1)
+  in
+    ((*void*))
+  end
+end//let//endof[i1cls_go1emit_goxret(...)]
+//
+fun
+i1clslst_go1emit_goxret
+( casval: i1val, icls: i1clslst
+, env0: !envx2go): void =
+(
+case+ icls of
+|list_nil() => ((*void*))
+|list_cons(ic1, ics1) =>
+  (
+  i1cls_go1emit_goxret(casval, ic1, env0);
+  i1clslst_go1emit_goxret(casval, ics1, env0))
+)//endof[i1clslst_go1emit_goxret(...)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
 =======================================================================
 == M2.5 CLOSURES: lambdas + local recursive closures                 ==
 =======================================================================
@@ -1919,6 +2062,171 @@ case+ iins of
       i1tnmgo1(filr, itnm); strnfpr(filr, " := ");
       d2vargo1(filr, fvar); fprintln(filr))
       else ()
+  in
+    ((*void*))
+  end
+//
+(* ----- I1INSraise : Go `panic(<excval>)` ---------------------------- *)
+(*
+EXCEPTIONS (step 2/2).  `$raise e` lowers to I1INSraise(tk, excval) where
+[excval] is the exception value (the I1Vtnm of an earlier datacon construction,
+e.g. ErrmsgExn("boom") -> a `*xatsgo.XatsCon`).  We emit a bare Go
+`panic(<excval>)` -- a TERMINATING statement -- regardless of value- vs
+return-position: a panic binds NOTHING and nothing runs after it.  So we emit
+NO `goxtnm<itnm> := ` prefix and NO `var` declaration (the bound temp [itnm] is
+unreachable; [cmp_last_let_raises] suppresses the trailing result that would have
+read it -- this is the M2.3 `default: panic(...)` discipline applied to `$raise`,
+keeping `go vet` clean of "unreachable code"/"missing return").  Mirrors the JS
+backend's `XATS000_raise(excval)` (js1emit_dynexp ~L1567), but Go uses `panic`.
+*)
+|I1INSraise(_, excval) =>
+  let
+    val nind = envx2go_nind$get(env0)
+  in
+  (
+  nindfpr(filr, nind);
+  strnfpr(filr, "panic("); i1valgo1(filr, excval); strnfpr(filr, ")");
+  fprintln(filr))
+  end
+//
+(* ----- I1INStry0 : IIFE + defer/recover + datacon handler switch ----- *)
+(*
+EXCEPTIONS (step 2/2).  `try BODY with HANDLERS` lowers to
+I1INStry0(tk, bodyCmp, exnBinder, handlers) where [exnBinder] is the I1Vtnm the
+handler clauses project the caught exception from, and [handlers] is the SAME
+i1clslst structure I1INScas0 uses (so we REUSE the M2.7 datacon-case clause
+emitter [i1clslst_go1emit_g] verbatim, with [exnBinder] as the scrutinee).
+//
+We emit an immediately-invoked Go func literal with a NAMED return + a
+defer/recover (the Go idiom for try/catch -- JS uses try/catch, js1emit_dynexp
+~L2701; the WALK is the same, the SHAPE differs):
+    goxtnm<itnm> := func() (goxret <RETTYPE>) {        // (or `_ = func()...` if dead)
+        defer func() {
+            if goxrec := recover(); goxrec != nil {
+                goxtnm<exnBinder> := goxrec.( ptr-to-xatsgo.XatsCon )   // caught exn
+                switch {                                         // <- the M2.7 datacon case
+                case goxtnm<exnBinder>.Tag == <ctag1>: <binds>; goxret = <handler1 body>
+                ...
+                default: panic(goxrec)                           // re-raise unhandled
+                }
+            }
+        }()
+        goxret = <bodyCmp in VALUE mode>                         // may panic
+        return
+    }()
+[RETTYPE] is the try's result Go type ([gotype_of_ift0type]: the body result
+joined with the handler results; "any" for a unit `val () = try ..`, where the
+body/handler results are unit -> xatsgo.XATSNIL(), itself `any`-typed, so the
+named return + both assignments agree).  The handler clauses run in VALUE mode
+(each `goxret = <result>`); a non-exhaustive handler set re-raises via the
+`default: panic(goxrec)` arm.
+*)
+|I1INStry0(_, bodyCmp, exnBinder, handlers) =>
+  let
+    val nind = envx2go_nind$get(env0)
+    // [RETTYPE]: the try result type (body joined with handlers).  A unit try
+    // (`val () = try ..`) yields "" / "any" (the body result is I1Vnil and the
+    // handler results are unit `prints` calls -> any); coerce BOTH to a concrete
+    // `any` so the named return is well-formed Go (`func() (goxret any)`) and the
+    // body/handler `goxret = ..` assignments -- xatsgo.XATSNIL() (any) and the
+    // any-returning handler call -- both type-check against it.  A typed try
+    // keeps its recovered concrete type.
+    val retty0 = gotype_of_ift0type(iins)
+    val retty =
+      (
+      if (retty0 = "") then "any" else
+      if (retty0 = "any") then "any" else retty0)
+    val live = i1tnm_used_in_cmp(itnm, scp)
+    //
+    // goxtnm<itnm> := func() (goxret <RETTYPE>) {   (or `_ = func()...` if dead)
+    val () =
+    (
+    nindfpr(filr, nind);
+    if live
+      then (i1tnmgo1(filr, itnm); strnfpr(filr, " := func() (goxret "))
+      else strnfpr(filr, "_ = func() (goxret ");
+    strnfpr(filr, retty); strnfpr(filr, ") {"); fprintln(filr))
+    //
+    val () = envx2go_incnind(env0, 1)
+    val nind1 = envx2go_nind$get(env0)
+    //
+    // defer func() { if goxrec := recover(); goxrec != nil { ... } }()
+    val () =
+    (
+    nindfpr(filr, nind1);
+    strnfpr(filr, "defer func() {"); fprintln(filr))
+    val () = envx2go_incnind(env0, 1)
+    val nind2 = envx2go_nind$get(env0)
+    val () =
+    (
+    nindfpr(filr, nind2);
+    strnfpr(filr, "if goxrec := recover(); goxrec != nil {"); fprintln(filr))
+    val () = envx2go_incnind(env0, 1)
+    val nind3 = envx2go_nind$get(env0)
+    //
+    // goxtnm<exnBinder> := goxrec.(*xatsgo.XatsCon)   -- the caught exception.
+    // The handler clauses project its fields via I1Vp1cn(<i0pat>, exnBinder, i)
+    // (the SAME node a case clause uses), so binding [exnBinder] here makes those
+    // projections resolve.  We bind ONLY when a handler references it (Go errors
+    // on an unused local) -- but a handler ALWAYS reads the binder (it is the
+    // scrutinee of every clause's tag test), so this is effectively always live.
+    val () =
+    (
+    nindfpr(filr, nind3);
+    i1valgo1(filr, exnBinder);
+    strnfpr(filr, " := goxrec.(*xatsgo.XatsCon)"); fprintln(filr))
+    //
+    // the handler clauses, as a datacon switch over [exnBinder] -- REUSING the
+    // M2.7 [i1clslst_go1emit_g] (tag tests + field binds + clause body), in VALUE
+    // mode assigning to [goxret] (retq=false; the result temp is [goxret], routed
+    // through the dedicated [goxret] assignment via [i1cmp_go1emit_goxret]).
+    val () =
+    (
+    nindfpr(filr, nind3); strnfpr(filr, "switch {"); fprintln(filr))
+    val () =
+      i1clslst_go1emit_goxret(exnBinder, handlers, env0)
+    // default: panic(goxrec) -- re-raise an exception no handler matched (a Go
+    // TERMINATING statement, so a return-position handler switch stays exhaustive).
+    val () =
+    (
+    nindfpr(filr, nind3); strnfpr(filr, "default:"); fprintln(filr))
+    val () = envx2go_incnind(env0, 1)
+    val () =
+    (
+    nindfpr(filr, envx2go_nind$get(env0));
+    strnfpr(filr, "panic(goxrec)"); fprintln(filr))
+    val () = envx2go_decnind(env0, 1)
+    val () =
+    (
+    nindfpr(filr, nind3); strnfpr(filr, "}"); fprintln(filr))
+    //
+    val () = envx2go_decnind(env0, 1)  // close `if goxrec != nil`
+    val () =
+    (
+    nindfpr(filr, nind2); strnfpr(filr, "}"); fprintln(filr))
+    val () = envx2go_decnind(env0, 1)  // close `defer func() {`
+    val () =
+    (
+    nindfpr(filr, nind1); strnfpr(filr, "}()"); fprintln(filr))
+    //
+    // goxret = <bodyCmp in VALUE mode> -- the normal path; may panic (caught by
+    // the defer above).  We assign the body's result to [goxret] via the
+    // dedicated emitter, then `return` (the named result) -- UNLESS the body
+    // ALREADY terminates on every path (it unconditionally `$raise`s -> a Go
+    // `panic(..)`, or returns via a fully-returning if/case): then the body's own
+    // terminator is the last statement and a trailing `return` would be
+    // UNREACHABLE (`go vet`: "unreachable code").  [i1cmp_tail_returns] (extended
+    // for `$raise` via [cmp_last_let_raises]) decides this.
+    val () = i1cmp_go1emit_goxret(bodyCmp, env0)
+    val () =
+      if i1cmp_tail_returns(bodyCmp) then () else
+      (
+      nindfpr(filr, nind1); strnfpr(filr, "return"); fprintln(filr))
+    //
+    val () = envx2go_decnind(env0, 1)  // close the IIFE body
+    val () =
+    (
+    nindfpr(filr, nind); strnfpr(filr, "}()"); fprintln(filr))
   in
     ((*void*))
   end

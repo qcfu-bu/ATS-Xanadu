@@ -108,6 +108,13 @@ func XATSNIL() any { return nil }
 type XatsCon struct {
 	Tag  int
 	Args []any
+	// Name is the constructor NAME, populated ONLY for EXCEPTION constructors
+	// (excptcon), which the front-end all assigns the sentinel ctag -1 (they are
+	// an OPEN/extensible sum, unlike a closed datatype whose constructors get
+	// distinct ctags 0,1,...). A try/with handler distinguishes two exception
+	// types by Name (mirrors the JS backend's XATSCTAG(name, ctag) which compares
+	// BOTH name and ctag). For ordinary datatype values Name is the zero "".
+	Name string
 }
 
 // Xats_list_length: a prelude `list` is a *XatsCon — list_nil = Tag 0 (no

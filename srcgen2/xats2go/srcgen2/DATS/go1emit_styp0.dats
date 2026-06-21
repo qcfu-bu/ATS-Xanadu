@@ -1600,6 +1600,13 @@ case+ iins of
   goty_join(gotype_of_cmpopt2(othn, bnds), gotype_of_cmpopt2(oels, bnds))
 |I1INScas0(_, _, icls) => gotype_of_clss2(icls, bnds)
 |I1INSlet0(_, icmp) => gotype_of_cmp2(icmp, bnds)
+// EXCEPTIONS: a value-position `try`'s result type is the NORMAL body's result
+// type joined with the handler clauses' result types (they must AGREE -- the
+// same value flows out of the IIFE's `goxret` on both the normal and recovered
+// paths).  The body type wins when concrete; else a clause type; else "any"
+// (e.g. a unit `val () = try ..`, whose body result is I1Vnil -> "any").
+|I1INStry0(_, bodycmp, _, icls) =>
+  goty_join(gotype_of_cmp2(bodycmp, bnds), gotype_of_clss2(icls, bnds))
 | _(*else*) => "any"
 )
 //
@@ -1721,10 +1728,15 @@ in//let
   (
   case+ lastlet(ilts) of
   |optn_nil() => false
+  // EXCEPTIONS: a trailing `$raise` (Go `panic(...)`) TERMINATES (both the
+  // effect form and the value-bound form -- the bound temp is unreachable).
+  |optn_cons(I1LETnew0(I1INSraise(_, _))) => true
   |optn_cons(I1LETnew0(_)) => false
   |optn_cons(I1LETnew1(tnm, iins)) =>
     (
     case+ iins of
+    // a value-bound raise also terminates (the temp is never read).
+    |I1INSraise(_, _) => true
     // ends in a (tail) CALL whose result is the cmp result -> terminates.
     |I1INSdapp(_, _) => res_is(tnm)
     // ends in a fully-terminating if/case/let whose result is the cmp result.
@@ -1811,8 +1823,52 @@ case+ iins of
 // than the single-expression let rule.
 |I1INSlam0(_, _, _) => true
 |I1INSfix0(_, _, _, _) => true
+// EXCEPTIONS (step 2/2): a `try` emits as a MULTI-LINE IIFE
+// (`goxtnm := func() (goxret T) { defer ...; goxret = <body>; return }()`), so
+// it routes through the block emitter; a `$raise` emits as a single `panic(...)`
+// statement, but it is TERMINATING (no value binding / unreachable after), so it
+// is ALSO routed through the block emitter (which emits the bare `panic` and NO
+// `goxtnm := ` prefix or trailing result -- the trailing-result suppression is
+// in [last_let_returns]/[cmp_terminates] below).
+|I1INStry0(_, _, _, _) => true
+|I1INSraise(_, _) => true
 | _(*else*) => false
 )
+//
+(* ****** ****** *)
+//
+(*
+[cmp_last_let_raises]: does the cmp's LAST let TERMINATE via a `$raise`
+(`I1INSraise`, emitted as Go `panic(...)`)?  When it does, the trailing cmp
+RESULT must NOT be emitted (`return <r>` / `goxret = <r>` / `_ = <r>` would read
+an UNDECLARED temp -- a panic binds nothing -- and be UNREACHABLE: `go vet`
+"unreachable code").  This is the EXACT parallel of [last_let_returns] for a
+fully-returning if/case, extended to a panic-terminating raise.  Covers both the
+value-bound form [I1LETnew1(t, I1INSraise(..))] (the canonical try-body shape:
+`val () = try $raise E with ..`) and the effect form [I1LETnew0(I1INSraise(..))].
+*)
+fun
+cmp_last_let_raises
+(icmp: i1cmp): bool =
+let
+  val-I1CMPcons(ilts, _) = icmp
+  //
+  fun
+  lastlet
+  (ilts: i1letlst): optn(i1let) =
+  (
+  case+ ilts of
+  |list_nil() => optn_nil()
+  |list_cons(il1, list_nil()) => optn_cons(il1)
+  |list_cons(_, ilts1) => lastlet(ilts1)
+  )
+in//let
+  case+ lastlet(ilts) of
+  |optn_nil() => false
+  |optn_cons(I1LETnew1(_, I1INSraise(_, _))) => true
+  |optn_cons(I1LETnew0(I1INSraise(_, _))) => true
+  |optn_cons(_) => false
+end//let//endof[cmp_last_let_raises(icmp)]
 //
 (* ****** ****** *)
 //
@@ -1867,7 +1923,10 @@ end//let//endof[last_let_returns(icmp)]
 i1cmp_tail_returns
 (icmp) =
 (
-  if i1cmp_retq(icmp) then true else last_let_returns(icmp))
+  // EXCEPTIONS: a cmp whose last let is a `$raise` (Go `panic(...)`) already
+  // terminates -- treat it as "tail-returns" so no trailing result is emitted.
+  if i1cmp_retq(icmp) then true else
+  if cmp_last_let_raises(icmp) then true else last_let_returns(icmp))
 //
 (* ****** ****** *)
 (* ****** ****** *)
