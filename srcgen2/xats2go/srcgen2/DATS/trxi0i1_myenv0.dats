@@ -880,6 +880,28 @@ endloc(*local*)//end-of-[local(envi0i1...)]
 (* ****** ****** *)
 (* ****** ****** *)
 //
+(*
+M2.5 (xats2go DIVERGENCE from the js backend): lexical-capture closures.
+//
+The js backend maps each captured free variable to an [I1Venv(I1ENV(ienv))]
+node and relies on an ENV-PASSING calling convention (the lambda takes the
+captured values as extra [env<k>] parameters).  Go instead has REAL lexical
+closures: a func literal captures the surrounding locals by name.  So rather
+than rewrite a captured [n] to an env slot, we map it to its EXISTING OUTER
+binding -- the very [i1val] (a [goxtnm<stamp>]) the enclosing function/let
+already bound it to.  The lambda body then references that outer Go local
+DIRECTLY, and Go's func literal captures it lexically.  No env struct, no
+[I1Venv] in a lam0/fix0 body, no closure conversion.
+//
+This is sound because [stkmap_search$opt] descends THROUGH the [stkmap_lam0]
+marker [envi0i1_pshlam0] just pushed, so the outer binding is still visible
+when we search for it here.  (If a captured var has no outer binding -- it
+should always have one, being free in the lambda but bound outside -- the
+search returns [i1val_none0], and we fall back to the old env-slot node so
+nothing silently breaks.)  The [I1Vfenv]/[envi0i1_fenv$insert] mechanism for
+a NAMED recursive [fix]'s self-call is UNAFFECTED (it uses [i0ws$search], not
+this insert), so local recursion still gets its self-reference value.
+*)
 #implfun
 envi0i1_i0ws$insert
   (env0, i0ws) =
@@ -909,9 +931,21 @@ loop(env0, i0ws, ienv+1)
 val d2v1 =
 i0var_dvar$get(i0w1)
 val loc1 = d2v1.lctn()
-val i0e1 = i1env_make(ienv)
+//
+// the captured var's OUTER binding (lexical capture target); search
+// descends through the lam0 marker, so this finds the enclosing local.
+val out1 = envi0i1_dvar$search(env0, d2v1)
 val i0v1 =
-i1val_make_node(loc1, I1Venv(i0e1))
+(
+case+ out1.node() of
+// no outer binding (should not happen for a genuine free var) -> keep
+// the env-slot node so behavior degrades safely, never silently wrong.
+| I1Vnone0 _ =>
+    i1val_make_node(loc1, I1Venv(i1env_make(ienv)))
+// the common case: re-bind the captured var to its outer Go local, so
+// the lambda body references it by name and Go captures it lexically.
+| _(*has outer binding*) => out1
+)
 val (  ) =
 envi0i1_dvar$insert(env0, d2v1, i0v1)
 }(*where*)

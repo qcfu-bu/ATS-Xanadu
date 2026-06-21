@@ -623,6 +623,59 @@ case+ args of
 //
 (* ****** ****** *)
 //
+(*
+[gorender_funty]: render a function static type's VALUE args + result as a Go
+function type `func(T0, T1) Tret` (proof args [npf] dropped).  Used by
+[gotype_of_styp]'s T2Pfun1 case so a function-TYPED value (a higher-order
+parameter like `f: sint -> sint`, or a closure-returning result) is a callable
+Go `func(...)...` rather than an opaque `any` (which Go cannot call/return as
+the wrong type).  Recurses through [gotype_of_styp] (SATS-declared, so the
+forward reference resolves).  [npf]/[args]/[res] mirror [chase_fun]; we inline
+a tiny proof-arg drop + arg-render here to avoid a section-3 forward ref.
+*)
+fun
+gorender_funty
+(npf: sint, args: s2typlst, res: s2typ): strn =
+let
+  fun
+  drop1
+  (n: sint, xs: s2typlst): s2typlst =
+  (
+  if (n <= 0) then xs else
+  (
+  case+ xs of
+  |list_nil() => xs
+  |list_cons(_, xs1) => drop1(n-1, xs1)))
+  //
+  fun
+  argchase
+  (t2p0: s2typ): strn =
+  (
+  case+ t2p0.node() of
+  |T2Parg1(_, t2p1) => argchase(t2p1)
+  |T2Patx2(t2p1, _) => argchase(t2p1)
+  | _(*else*) => gotype_of_styp(t2p0))
+  //
+  fun
+  loop
+  (i0: sint, xs: s2typlst): strn =
+  (
+  case+ xs of
+  |list_nil() => ""
+  |list_cons(a1, xs1) =>
+    let val t1 = argchase(a1) in
+      if (i0 >= 1)
+      then strn_append(strn_append(", ", t1), loop(i0+1, xs1))
+      else strn_append(t1, loop(i0+1, xs1))
+    end)
+  //
+  val args1 = drop1(npf, args)
+  val sargs = loop(0, args1)
+  val sres  = gotype_of_styp(res)
+in
+  strn_append(strn_append(strn_append("func(", sargs), ") "), sres)
+end//endof[gorender_funty(npf,args,res)]
+//
 #implfun
 gotype_of_styp
 (t2p0) =
@@ -630,6 +683,10 @@ gotype_of_styp
 case+ t2p0.node() of
 |T2Pcst(s2c0) =>
   gotype_of_symname(symbl_get_name(s2c0.name()))
+//
+// a FUNCTION type -> a Go `func(...)...` type, so a higher-order parameter
+// or a closure-returning result is callable/assignable (not opaque `any`).
+|T2Pfun1(_, npf, args, res) => gorender_funty(npf, args, res)
 //
 // an APPLIED type-constructor:  gint_type(KIND, i) / gflt_type(KIND) /
 // bool_type(b) / char_type(c) / string(...).  Map by the head cst name;
@@ -776,9 +833,65 @@ case+ args of
   in if (t1 = "any") then gotype_of_dapp_args(args1) else t1 end
 )
 //
+(*
+[binds_of_fjarglst]: collect the parameter binds (the [i1bnd] of each
+[I1BNDcons] across every [FJARGdarg]) of a lambda/fix's [fjarglst], so a body
+result temp that is one of these params can be typed from its [I0Pvar(d2var)]
+pattern via [gotype_of_capture_bnd].  Parallel to [params_of_fjarglst] /
+[gotypes_of_fjarglst].  (SATS-declared so the emitter -- and the recovery
+[and]-chain below -- can both call it; it is NOT chain-local because the chain
+is mutually recursive and [#implfun] cannot sit in an [and] group.)
+*)
+#implfun
+binds_of_fjarglst
+(fjas) =
+(
+case+ fjas of
+|list_nil() => list_nil()
+|list_cons(fja1, fjas1) =>
+  let
+    val-FJARGdarg(i1bs) = fja1.node()
+  in
+    list_append(i1bs, binds_of_fjarglst(fjas1))
+  end
+)
+//
+(*
+[gotype_of_capture_bnd]: type a bare result temp [stmp] that is NOT bound in
+the cmp's lets -- i.e. a FREE parameter or CAPTURE from an enclosing
+function/lambda.  [bnds] is the list of in-scope parameter binds (the
+function's own params + every enclosing lambda's params, accumulated as the
+emitter descends).  When [stmp] matches a bind's i1tnm, we read the param's
+declared/inferred static type from its [I0Pvar(d2var)] pattern via
+[d2var_get_styp] and map it through [gotype_of_styp].  This is the M2.5 BUG-1
+fix for `lam u => a` (body returns the captured `a`): without it the result
+temp is not in the lets, so the recovery returned "any" and the func literal
+was emitted as `func(...) any`, colliding with the enclosing function's
+concrete `func(...) int` signature (go vet failure).
+*)
+fun
+gotype_of_capture_bnd
+(stmp: stamp, bnds: i1bndlst): strn =
+(
+case+ bnds of
+|list_nil() => "any"
+|list_cons(ibnd, bnds1) =>
+  let
+    val-I1BNDcons(itnm, ipat, _) = ibnd
+  in
+    if stmp_eq(stmp, i1tnm_stmp$get(itnm))
+    then
+      (
+      case+ ipat.node() of
+      |I0Pvar(d2v) => gotype_of_styp(d2var_get_styp(d2v))
+      | _(*else*) => "any")
+    else gotype_of_capture_bnd(stmp, bnds1)
+  end
+)
+//
 fun
 gotype_of_ins_local
-(ilts: i1letlst, iins: i1ins): strn =
+(ilts: i1letlst, iins: i1ins, bnds: i1bndlst): strn =
 (
 case+ iins of
 |I1INSdapp(callee, args) =>
@@ -793,9 +906,39 @@ case+ iins of
       else op_result_goty(opnm, gotype_of_dapp_args(args))
     end
   | _(*else*) => "any")
-|I1INSift0(_, _, _) => gotype_of_ift0type(iins)
-|I1INScas0(_, _, _) => gotype_of_ift0type(iins)
-|I1INSlet0(_, _) => gotype_of_ift0type(iins)
+|I1INSift0(_, _, _) => gotype_of_ift0type2(iins, bnds)
+|I1INScas0(_, _, _) => gotype_of_ift0type2(iins, bnds)
+|I1INSlet0(_, _) => gotype_of_ift0type2(iins, bnds)
+// M2.5 BUG-1: a result temp whose producer is itself a NESTED lambda / local
+// recursive closure (a curried `lam b => lam c => ...`) -- recurse to recover
+// the inner closure's Go func type, so the enclosing lambda's RETURN type is
+// the concrete `func(...) ...` (NOT "any", which would collide with the outer
+// function's concrete signature).  The inner lambda's OWN params are added to
+// [bnds] so the inner body's captures/params still resolve.
+|I1INSlam0(_, fjas, body) =>
+  let
+    val argtys = gotypes_of_fjarglst(fjas)
+    val bnds1  = list_append(binds_of_fjarglst(fjas), bnds)
+    val retty  = gotype_of_lam_ret2(body, bnds1)
+  in
+    gofunctype_of_fjarglst(argtys, retty)
+  end
+|I1INSfix0(_, fvar, fjas, body) =>
+  let
+    // prefer the FIX-VAR's declared signature (more reliable than inferring
+    // from an if/case-bodied recursive body), as the fix0 emit site does.
+    val vargtys = goargtys_of_funvar(fvar)
+    val argtys  =
+      (case+ vargtys of
+       |list_nil() => gotypes_of_fjarglst(fjas)
+       |list_cons _ => vargtys)
+    val vretty = goretty_of_funvar(fvar)
+    val bnds1  = list_append(binds_of_fjarglst(fjas), bnds)
+    val retty  =
+      (if (vretty = "any") then gotype_of_lam_ret2(body, bnds1) else vretty)
+  in
+    gofunctype_of_fjarglst(argtys, retty)
+  end
 | _(*else*) => "any"
 )
 //
@@ -826,44 +969,49 @@ case+ iins of
 )
 //
 (*
-[gotype_of_tnm_in_lets]: find the binding of [stmp] in [search] (a suffix of
+[gotype_of_tnm_in_lets2]: find the binding of [stmp] in [search] (a suffix of
 the full let-list) and type its ins via [full] (the WHOLE let-list, needed so
 [gotype_of_ins_local] can resolve an op-temp callee that appears EARLIER than
 the binding being typed).  Keeping [full] constant across the search is the
-fix for the op-temp-precedes-its-use ANF shape.
+fix for the op-temp-precedes-its-use ANF shape.  [bnds] (in-scope param binds)
+is threaded so a nested block's own result temp that is itself a free
+param/capture can still be typed (M2.5).  When [stmp] is NOT bound in the lets
+at all, we fall back to [gotype_of_capture_bnd] -- the temp is a free
+parameter/capture (the M2.5 BUG-1 case: `lam u => a`).
 *)
-fun
+and
 gotype_of_tnm_in_lets2
-(stmp: stamp, full: i1letlst, search: i1letlst): strn =
+(stmp: stamp, full: i1letlst, search: i1letlst, bnds: i1bndlst): strn =
 (
 case+ search of
-|list_nil() => "any"
+|list_nil() => gotype_of_capture_bnd(stmp, bnds)
 |list_cons(ilt1, ilts1) =>
   (
   case+ ilt1 of
   |I1LETnew1(itnm, iins) =>
     (
     if stmp_eq(stmp, i1tnm_stmp$get(itnm))
-    then gotype_of_ins_local(full, iins)
-    else gotype_of_tnm_in_lets2(stmp, full, ilts1))
-  |I1LETnew0(_) => gotype_of_tnm_in_lets2(stmp, full, ilts1))
+    then gotype_of_ins_local(full, iins, bnds)
+    else gotype_of_tnm_in_lets2(stmp, full, ilts1, bnds))
+  |I1LETnew0(_) => gotype_of_tnm_in_lets2(stmp, full, ilts1, bnds))
 )
 //
-fun
+and
 gotype_of_tnm_in_lets
-(stmp: stamp, ilts: i1letlst): strn =
-  gotype_of_tnm_in_lets2(stmp, ilts, ilts)
+(stmp: stamp, ilts: i1letlst, bnds: i1bndlst): strn =
+  gotype_of_tnm_in_lets2(stmp, ilts, ilts, bnds)
 //
 (*
-[gotype_of_cmp]: the Go type of a cmp's RESULT value (the type the binding
-temp should have when this cmp is a value-position branch body).  A literal
-result types directly via [gotype_of_ival]; a COMPUTED result (I1Vtnm) is
-typed by finding its producing instruction in the cmp's lets
-([gotype_of_tnm_in_lets]); else "any".
+[gotype_of_cmp2]: the Go type of a cmp's RESULT value (the type the binding
+temp should have when this cmp is a value-position branch / lambda body).  A
+literal result types directly via [gotype_of_ival]; a COMPUTED result
+(I1Vtnm) is typed by finding its producing instruction in the cmp's lets
+([gotype_of_tnm_in_lets]) -- and when it is NOT in the lets, by the in-scope
+param binds [bnds] (free parameter / capture, the M2.5 fix); else "any".
 *)
-fun
-gotype_of_cmp
-(icmp: i1cmp): strn =
+and
+gotype_of_cmp2
+(icmp: i1cmp, bnds: i1bndlst): strn =
 (
 case+ icmp of
 |I1CMPcons(ilts, ival) =>
@@ -875,7 +1023,8 @@ case+ icmp of
     then
       (
       case+ ival.node() of
-      |I1Vtnm(rtnm) => gotype_of_tnm_in_lets(i1tnm_stmp$get(rtnm), ilts)
+      |I1Vtnm(rtnm) =>
+         gotype_of_tnm_in_lets(i1tnm_stmp$get(rtnm), ilts, bnds)
       | _(*else*) => "any")
     else t0)
   in
@@ -883,44 +1032,76 @@ case+ icmp of
   end
 )
 //
-fun
-gotype_of_cmpopt
-(ocmp: i1cmpopt): strn =
+and
+gotype_of_cmpopt2
+(ocmp: i1cmpopt, bnds: i1bndlst): strn =
 (
 case+ ocmp of
 |optn_nil() => "any"
-|optn_cons(icmp) => gotype_of_cmp(icmp)
+|optn_cons(icmp) => gotype_of_cmp2(icmp, bnds)
 )
 //
 (*
-[gotype_of_clss]: the Go type of a case's result, taken from the first
+[gotype_of_clss2]: the Go type of a case's result, taken from the first
 clause body whose result types concretely.
 *)
-fun
-gotype_of_clss
-(icls: i1clslst): strn =
+and
+gotype_of_clss2
+(icls: i1clslst, bnds: i1bndlst): strn =
 (
 case+ icls of
 |list_nil() => "any"
 |list_cons(ic1, ics1) =>
   (
   case+ ic1.node() of
-  |I1CLSgpt(_) => gotype_of_clss(ics1)
+  |I1CLSgpt(_) => gotype_of_clss2(ics1, bnds)
   |I1CLScls(_, icmp) =>
-    goty_join(gotype_of_cmp(icmp), gotype_of_clss(ics1)))
+    goty_join(gotype_of_cmp2(icmp, bnds), gotype_of_clss2(ics1, bnds)))
 )
 //
-#implfun
-gotype_of_ift0type
-(iins) =
+and
+gotype_of_ift0type2
+(iins: i1ins, bnds: i1bndlst): strn =
 (
 case+ iins of
 |I1INSift0(_, othn, oels) =>
-  goty_join(gotype_of_cmpopt(othn), gotype_of_cmpopt(oels))
-|I1INScas0(_, _, icls) => gotype_of_clss(icls)
-|I1INSlet0(_, icmp) => gotype_of_cmp(icmp)
+  goty_join(gotype_of_cmpopt2(othn, bnds), gotype_of_cmpopt2(oels, bnds))
+|I1INScas0(_, _, icls) => gotype_of_clss2(icls, bnds)
+|I1INSlet0(_, icmp) => gotype_of_cmp2(icmp, bnds)
 | _(*else*) => "any"
 )
+//
+(*
+[gotype_of_lam_ret2]: the Go RESULT type of a lambda/fix body cmp, given the
+in-scope param binds [bnds] (own params + enclosing captures).  The body is
+the canonical [I1CMPcons([I1LETnew0(I1INSrturn(_, innerCmp))], I1Vnil())]; we
+unwrap to [innerCmp] and type its result via [gotype_of_cmp2].  Falls back to
+"any" for a non-canonical body or an unrecoverable result type.
+*)
+and
+gotype_of_lam_ret2
+(icmp: i1cmp, bnds: i1bndlst): strn =
+(
+case+ icmp of
+|I1CMPcons
+  (list_cons(I1LETnew0(I1INSrturn(_, innerCmp)), list_nil()), _) =>
+    gotype_of_cmp2(innerCmp, bnds)
+| _(*otherwise*) => gotype_of_cmp2(icmp, bnds)
+)
+//
+(*
+[gotype_of_cmp] / [gotype_of_ift0type] / [gotype_of_lam_ret]: the
+no-in-scope-binds (top-level) entry points, used by value-position emission
+where there are no captured params to resolve.  The [bnds]-threaded variants
+([_2]) are the general form used by the lambda return-type recovery (M2.5).
+*)
+fun
+gotype_of_cmp
+(icmp: i1cmp): strn = gotype_of_cmp2(icmp, list_nil())
+//
+#implfun
+gotype_of_ift0type
+(iins) = gotype_of_ift0type2(iins, list_nil())
 //
 (* ****** ****** *)
 //
@@ -999,6 +1180,12 @@ case+ iins of
 |I1INSift0(_, _, _) => true
 |I1INScas0(_, _, _) => true
 |I1INSlet0(_, _) => true
+// M2.5: a lambda / local recursive closure emits as a MULTI-LINE Go func
+// literal (`goxtnm := func(...) ... { <body> }`), so it routes through the
+// block emitter (which controls indentation of the captured body) rather
+// than the single-expression let rule.
+|I1INSlam0(_, _, _) => true
+|I1INSfix0(_, _, _, _) => true
 | _(*else*) => false
 )
 //
@@ -1343,6 +1530,147 @@ case+ chase_fun(styp) of
     @(gotypes_of_args(args1), gotype_of_styp(res))
   end
 )
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
+=======================================================================
+== (4) CLOSURE TYPING  (milestone M2.5)                              ==
+=======================================================================
+//
+A lambda ([I1INSlam0]) / local recursive closure ([I1INSfix0]) has NO
+d2cst carrying its function static type (it is anonymous), so we recover
+the Go param types from each PARAMETER d2var's own static type
+([d2var_get_styp] on the [I0Pvar] the [i1bnd] pattern carries), and the
+RESULT type from the lambda body's result value ([gotype_of_lam_ret],
+which unwraps the canonical [I1INSrturn] and types the inner cmp's result
+via [gotype_of_cmp]).  Both fall back to "any" where unrecoverable
+(documented), but for the scalar surface the parameter types ARE concrete
+(so the body's native `(x OP y)` ops type-check) -- the Regime-B payoff.
+*)
+//
+(*
+[gotype_of_param_bnd]: the Go type of one lambda/fix parameter, from the
+bind's pattern.  For [I0Pvar(d2var)] we read [d2var_get_styp] (the param's
+inferred static type) and map it via [gotype_of_styp]; anything else -> "any".
+*)
+fun
+gotype_of_param_bnd
+(ibnd: i1bnd): strn =
+let
+  val-I1BNDcons(_, ipat, _) = ibnd
+in
+  case+ ipat.node() of
+  |I0Pvar(d2v) => gotype_of_styp(d2var_get_styp(d2v))
+  | _(*else*) => "any"
+end
+//
+fun
+gotypes_of_bnds
+(i1bs: i1bndlst): list(strn) =
+(
+case+ i1bs of
+|list_nil() => list_nil()
+|list_cons(ibnd, i1bs1) =>
+  list_cons(gotype_of_param_bnd(ibnd), gotypes_of_bnds(i1bs1))
+)
+//
+(*
+[gotypes_of_fjarglst]: the Go param-type list (in order) of a lambda/fix's
+[fjarglst], one entry per [i1bnd] across every [FJARGdarg].  Parallel to
+[params_of_fjarglst] (which gives the param i1tnms), so the emitter zips
+the two to print `goxtnm<stamp> <T>`.
+*)
+#implfun
+gotypes_of_fjarglst
+(fjas) =
+(
+case+ fjas of
+|list_nil() => list_nil()
+|list_cons(fja1, fjas1) =>
+  let
+    val-FJARGdarg(i1bs) = fja1.node()
+    val ts1 = gotypes_of_bnds(i1bs)
+    val ts2 = gotypes_of_fjarglst(fjas1)
+  in
+    list_append(ts1, ts2)
+  end
+)//endof[gotypes_of_fjarglst(fjas)]
+//
+(*
+[gotype_of_lam_ret]: the Go RESULT type of a lambda/fix body cmp, given the
+in-scope param binds [bnds] (the lambda's OWN params + every enclosing
+function/lambda's params, accumulated as the emitter descends).  Delegates to
+the [bnds]-threaded [gotype_of_lam_ret2] (defined in the recovery [and]-chain
+above) so a body that returns a captured/param var or a nested lambda is typed
+to its concrete Go type instead of "any" (M2.5 BUG-1).
+*)
+#implfun
+gotype_of_lam_ret
+(icmp, bnds) = gotype_of_lam_ret2(icmp, bnds)
+//
+(*
+[goretty_of_funvar]: the Go RESULT type of a NAMED function/closure value
+(a fix-var), read from its function static type [d2var_get_styp] ->
+T2Pfun1(...; res) -> [gotype_of_styp res].  For a local recursive closure
+[I1INSfix0] this is more reliable than [gotype_of_lam_ret] (whose if/case-
+bodied recursive form has both branches returning computed temps the i1val
+level cannot type) -- the declared signature pins the result type.  Returns
+"any" when the styp is not a recognizable function type.
+*)
+#implfun
+goretty_of_funvar
+(dvar) =
+(
+case+ chase_fun(d2var_get_styp(dvar)) of
+|optn_nil() => "any"
+|optn_cons(@(_, _, res)) => gotype_of_styp(res)
+)//endof[goretty_of_funvar(dvar)]
+//
+(*
+[goargtys_of_funvar]: the Go VALUE-arg type list of a named function/closure
+value (a fix-var), from its function static type (proof args dropped).  Used
+alongside [goretty_of_funvar] to build the fix0 `var f func(...)...`
+self-reference type from the declared signature (robust when the param
+patterns' own d2var styps are less precise).  Empty list if not a fun type.
+*)
+#implfun
+goargtys_of_funvar
+(dvar) =
+(
+case+ chase_fun(d2var_get_styp(dvar)) of
+|optn_nil() => list_nil()
+|optn_cons(@(npf, args, _)) => gotypes_of_args(drop_pf(npf, args))
+)//endof[goargtys_of_funvar(dvar)]
+//
+(*
+[gofunctype_of_fjarglst]: the Go FUNCTION-TYPE string `func(T0, T1) Tret`
+for a lambda/fix with the given param types [argtys] and result type [retty].
+Used to pre-declare a self-referential local recursive closure
+(`var goxtnm<f> func(...)...`) so the func literal can name itself
+([I1INSfix0], Go's `var f F; f = func(){... f() ...}` idiom).
+*)
+#implfun
+gofunctype_of_fjarglst
+(argtys, retty) =
+let
+  fun
+  loop
+  (i0: sint, ts: list(strn)): strn =
+  (
+  case+ ts of
+  |list_nil() => ""
+  |list_cons(t1, ts1) =>
+    (
+    if (i0 >= 1)
+    then strn_append(strn_append(", ", t1), loop(i0+1, ts1))
+    else strn_append(t1, loop(i0+1, ts1)))
+  )
+  val args = loop(0, argtys)
+in
+  strn_append(strn_append(strn_append("func(", args), ") "), retty)
+end//endof[gofunctype_of_fjarglst(argtys,retty)]
 //
 (* ****** ****** *)
 (* ****** ****** *)

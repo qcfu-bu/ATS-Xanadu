@@ -515,7 +515,19 @@ SUITE_NAMES := \
   test16_case_guard_xats2go \
   test17_let_xats2go \
   test18_tail_loop_xats2go \
-  test19_tail_acc_xats2go
+  test19_tail_acc_xats2go \
+  test20_lam_apply_xats2go \
+  test21_closure_cap_xats2go \
+  test22_fix_local_xats2go \
+  test23_lam_store_xats2go \
+  test30_nested_cap_xats2go \
+  test31_shadow_xats2go \
+  test32_multi_clos_xats2go \
+  test33_fix_multi_xats2go \
+  test34_cap_timing_xats2go \
+  test35_const_xats2go \
+  test36_cap_float_xats2go \
+  test37_nest3_xats2go
 
 # SEQUENTIAL suite — unchanged behavior.  Bundles are built ONCE up front (the
 # GOPATCHED + JSPATCHED prereqs), then each test reuses them.

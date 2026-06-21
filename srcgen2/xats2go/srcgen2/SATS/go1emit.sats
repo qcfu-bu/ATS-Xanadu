@@ -182,6 +182,65 @@ i1cmp_body_has_tailcall
 (* ****** ****** *)
 (* ****** ****** *)
 //
+// --- M2.5 closure typing helpers -----------------------------------------
+//
+// gotypes_of_fjarglst: the Go param-type list (in order) of a lambda/fix's
+// fjarglst -- one entry per i1bnd, recovered from each parameter d2var's
+// static type (d2var_get_styp via I0Pvar), "any" where unrecoverable.
+// Parallel to params_of_fjarglst (the param i1tnms), so the emitter zips the
+// two to print `goxtnm<stamp> <T>`.
+//
+fun
+gotypes_of_fjarglst
+(fjas: fjarglst): list(strn)
+//
+// binds_of_fjarglst: collect the parameter binds (the i1bnd of each I1BNDcons
+// across every FJARGdarg) of a lambda/fix's fjarglst.  Accumulated into the
+// in-scope bind environment threaded into gotype_of_lam_ret so a lambda body
+// that returns a captured/param var resolves that var's declared static type
+// (d2var_get_styp) instead of "any" (M2.5 BUG-1).
+//
+fun
+binds_of_fjarglst
+(fjas: fjarglst): i1bndlst
+//
+// gotype_of_lam_ret: the Go result type of a lambda/fix body cmp, given the
+// in-scope param binds [bnds] (own params + enclosing captures) -- unwraps the
+// canonical I1INSrturn and types the inner cmp's result; a result that is a
+// free param/capture is typed from [bnds] (its d2var_get_styp), a result that
+// is a NESTED lambda is typed to its concrete Go func(...)... type; "any" only
+// where genuinely unrecoverable (M2.5).
+//
+fun
+gotype_of_lam_ret
+(icmp: i1cmp, bnds: i1bndlst): strn
+//
+// gofunctype_of_fjarglst: the Go function-TYPE string `func(T0, T1) Tret`
+// from the recovered param types + result type.  Used to pre-declare a
+// self-referential local recursive closure (I1INSfix0): `var goxtnm<f>
+// func(...)...; goxtnm<f> = func(...){ ... goxtnm<f>(...) ... }`.
+//
+fun
+gofunctype_of_fjarglst
+(argtys: list(strn), retty: strn): strn
+//
+// goretty_of_funvar / goargtys_of_funvar: the Go RESULT type / VALUE-arg
+// type-list of a NAMED function/closure value (a fix-var), read from its
+// function static type (d2var_get_styp -> T2Pfun1).  For a local recursive
+// closure (I1INSfix0) the DECLARED signature pins the result+arg types more
+// reliably than inferring from the if/case-bodied body, so the emitted Go
+// func type is concrete (not `any`).  "any" / nil when not a fun type.
+//
+fun
+goretty_of_funvar
+(dvar: d2var): strn
+fun
+goargtys_of_funvar
+(dvar: d2var): list(strn)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
 // --- naming / leaf emission (go1emit_utils0.dats) ------------------------
 //
 fun
@@ -305,9 +364,15 @@ i1cmp_go1emit
 // [params] disables TCO (the M2.3 plain-return behavior); pass list_nil()
 // for a non-tail-recursive function body or a value-position context.
 //
+// [bnds] (M2.5): the in-scope parameter binds (the enclosing function's + every
+// enclosing lambda's params), threaded so a lambda emitted in this body can
+// recover the Go type of a body that RETURNS a captured/param var (its
+// d2var_get_styp) or a nested lambda -- otherwise that lambda's return type
+// degrades to "any" and collides with the enclosing concrete signature.
+//
 fun
 i1cmp_go1emit_ret
-(icmp: i1cmp, params: i1tnmlst, env0: !envx2go): void
+(icmp: i1cmp, params: i1tnmlst, bnds: i1bndlst, env0: !envx2go): void
 //
 // i1cmp_go1emit_tnm: emit an i1cmp in ASSIGN-TO-TEMP (value-position
 // branch) mode -- the let-bindings as Go statements, then `goxtnm<itnm> =
@@ -351,10 +416,10 @@ i1let_go1emit
 //
 fun
 i1letlst_go1emit_p
-(ilts: i1letlst, scp: i1cmp, params: i1tnmlst, env0: !envx2go): void
+(ilts: i1letlst, scp: i1cmp, params: i1tnmlst, bnds: i1bndlst, env0: !envx2go): void
 fun
 i1let_go1emit_p
-(ilet: i1let, scp: i1cmp, params: i1tnmlst, env0: !envx2go): void
+(ilet: i1let, scp: i1cmp, params: i1tnmlst, bnds: i1bndlst, env0: !envx2go): void
 //
 // emit_ret_plain / emit_param_reassign (M2.4): the plain-return path (unwrap
 // the canonical I1INSrturn, emit lets + `return`, threading [params] to a
@@ -364,7 +429,7 @@ i1let_go1emit_p
 //
 fun
 emit_ret_plain
-(icmp: i1cmp, params: i1tnmlst, env0: !envx2go): void
+(icmp: i1cmp, params: i1tnmlst, bnds: i1bndlst, env0: !envx2go): void
 fun
 emit_param_reassign
 (params: i1tnmlst, args: i1valist, env0: !envx2go): void
@@ -386,7 +451,7 @@ i1insgo1
 //
 fun
 i1ins_go1emit_block
-(scp: i1cmp, itnm: i1tnm, iins: i1ins, params: i1tnmlst, env0: !envx2go): void
+(scp: i1cmp, itnm: i1tnm, iins: i1ins, params: i1tnmlst, bnds: i1bndlst, env0: !envx2go): void
 //
 // i1clslst_go1emit / i1cls_go1emit: emit case clauses onto Go's expression-
 // less switch.  [retq] = return-position (branch returns) vs value-position
@@ -397,11 +462,11 @@ i1ins_go1emit_block
 fun
 i1clslst_go1emit
 ( retq: bool, live: bool, itnm: i1tnm
-, casval: i1val, icls: i1clslst, params: i1tnmlst, env0: !envx2go): void
+, casval: i1val, icls: i1clslst, params: i1tnmlst, bnds: i1bndlst, env0: !envx2go): void
 fun
 i1cls_go1emit
 ( retq: bool, live: bool, itnm: i1tnm
-, casval: i1val, icl0: i1cls, params: i1tnmlst, env0: !envx2go): void
+, casval: i1val, icl0: i1cls, params: i1tnmlst, bnds: i1bndlst, env0: !envx2go): void
 //
 (* ****** ****** *)
 (* ****** ****** *)

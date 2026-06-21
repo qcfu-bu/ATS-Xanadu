@@ -491,10 +491,14 @@ case+ tdxp of
       // whose every reachable path either `continue`s or `return`s as a
       // terminating statement, so no trailing `return` is needed after it.
       val params = params_of_fjarglst(fjas)
+      // M2.5: seed the in-scope bind environment with THIS function's own param
+      // binds, so a lambda emitted in the body can recover the Go type of a
+      // body that returns a captured param (`f(a) = lam u => a`).
+      val bnds = binds_of_fjarglst(fjas)
       val () = envx2go_incnind(env0, 1(*++*))
       val () = (nindfpr(filr, env0.nind()); strnfpr(filr, "for {\n"))
       val () = envx2go_incnind(env0, 1(*++*))
-      val () = i1cmp_go1emit_ret(icmp, params, env0)
+      val () = i1cmp_go1emit_ret(icmp, params, bnds, env0)
       val () = envx2go_decnind(env0, 1(*--*))
       val () = (nindfpr(filr, env0.nind()); strnfpr(filr, "}\n"))
       val () = envx2go_decnind(env0, 1(*--*))
@@ -505,8 +509,10 @@ case+ tdxp of
     (
     // not tail-recursive: plain return mode, no params (no `for` loop).  A
     // non-tail self-call stays a real Go recursive call (test14 factorial).
+    // M2.5: bnds = the function's own param binds (so a body-level lambda
+    // returning a captured param types concretely).
     envx2go_incnind(env0, 1(*++*));
-    i1cmp_go1emit_ret(icmp, list_nil(), env0);
+    i1cmp_go1emit_ret(icmp, list_nil(), binds_of_fjarglst(fjas), env0);
     envx2go_decnind(env0, 1(*--*)))
   end
 )

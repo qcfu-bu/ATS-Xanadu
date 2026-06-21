@@ -60,6 +60,37 @@ DEFAULT_SUITE=(
   #     fac(10)=3628800).  Each byte-equal-vs-JS (the JS backend also does TCO).
   "$HERE/test18_tail_loop_xats2go.dats"
   "$HERE/test19_tail_acc_xats2go.dats"
+  #   M2.5: closures (lambdas + captured environments) + local recursion.
+  #     test20 a HIGHER-ORDER fn taking a lambda arg (apply(f,x)=f(x) with
+  #     `lam x => x+1`); test21 the HEADLINE capturing closure
+  #     (adder(n)=lam x => x+n; add5=adder(5); add5(10)=15 -- REAL lexical
+  #     capture; JS-oracle-deferred via golden, the JS backend's lam0 env
+  #     capture has a pre-existing `env1`-undefined bug); test22 a LOCAL
+  #     recursive closure via `fix` (I1INSfix0, Go's `var f F; f=func(){..f()..}`
+  #     self-ref idiom; non-tail so the JS oracle is usable); test23 a lambda
+  #     STORED in a val and called later (capture-free, JS-oracle-validated).
+  "$HERE/test20_lam_apply_xats2go.dats"
+  "$HERE/test21_closure_cap_xats2go.dats"
+  "$HERE/test22_fix_local_xats2go.dats"
+  "$HERE/test23_lam_store_xats2go.dats"
+  #   M2.5 BUG-1 fix (lambda return-type recovery for captures / nested
+  #     lambdas).  These capture an enclosing value and so trip the JS
+  #     backend's pre-existing `env1`-undefined lam0-capture bug -- they are
+  #     GOLDEN-validated (the golden encodes the HAND-COMPUTED-correct value,
+  #     not "whatever Go emits"), EXCEPT test33 (non-capturing `fix`) which is
+  #     byte-equal-vs-JS.  test30 nested 2-level (123); test31 shadowing (108);
+  #     test32 multi-independent closures (105/110/15); test33 fix recursion
+  #     (tri 0 1 15 55); test34 capture-by-value timing (7/42/7); test35 const-
+  #     fn MWE (9); test36 captured FLOAT64 (3.5 -> func(int) float64, anti-
+  #     overfit vs int); test37 3-level nested capture (1234, anti-overfit).
+  "$HERE/test30_nested_cap_xats2go.dats"
+  "$HERE/test31_shadow_xats2go.dats"
+  "$HERE/test32_multi_clos_xats2go.dats"
+  "$HERE/test33_fix_multi_xats2go.dats"
+  "$HERE/test34_cap_timing_xats2go.dats"
+  "$HERE/test35_const_xats2go.dats"
+  "$HERE/test36_cap_float_xats2go.dats"
+  "$HERE/test37_nest3_xats2go.dats"
 )
 
 if [ "$#" -gt 0 ]; then

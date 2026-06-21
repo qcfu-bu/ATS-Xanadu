@@ -1358,3 +1358,179 @@ must add `var f F; f = func(...){... f(...) ...}` self-reference for I1INSfix0.
   but not loop-optimized); a tail call in a let-in TAIL position (let-in is
   emitted value-mode; rare, untested) -> would stay a plain return. Closures
   (`I1Vfenv` with capture), datatypes, exceptions, lazy remain for M2.5-M2.8.
+
+---
+
+# M2.5 — Closures (BUG-1 fix): lambda return-type recovery for captures + nested lambdas
+
+Status after **M2.5 BUG-1 fix**: a lambda whose body result is NOT a native-op
+scalar -- it RETURNS a captured/param variable (`lam u => a`) or RETURNS another
+lambda (curried `lam b => lam c => ...`) -- now emits with a CONCRETE Go return
+type (`func(int) int`, `func(int) func(int) int`, ...) instead of `any`. The
+prior `any` collided with the enclosing function's correct concrete signature
+(`func(int) func(int) int` etc.), so `go vet`/`go build` FAILED. `make -j
+psuite` = **30/30 GREEN, gofmt-clean, `go vet` OK on every emitted program**.
+All additive under `srcgen2/xats2go/`. The capture LOWERING (`trxi0i1_myenv0`)
+was already correct; this fix is purely the EMITTER's return-type recovery.
+
+## How to run (M2.5)
+
+```bash
+cd srcgen2/xats2go
+make -j psuite                        # 30 GREEN (22 prior + test30-37)
+make run/test35_const_xats2go         # const-fn MWE (any -> func(int) int)
+make run/test30_nested_cap_xats2go    # 2-level nested capture (123)
+```
+
+## THE BUG (BUG-1, diagnosed by review; reproduced + fixed)
+
+Before the fix, for `test35` (`konst(a) = lam u => a`) the emitter produced:
+```go
+func konst_214(goxtnm1 int) func(int) int {      // CORRECT (from konst's T2Pfun1 sig)
+	goxtnm3 := func(goxtnm2 int) any { return goxtnm1 }   // <-- BUG: `any`
+	return goxtnm3                                         // any != func(int) int -> go vet FAIL
+}
+```
+Two ROOT CAUSES, both in `go1emit_styp0.dats`'s return-type recovery
+(`gotype_of_lam_ret` -> `gotype_of_cmp` -> `gotype_of_tnm_in_lets` /
+`gotype_of_ins_local`), which is a PURE analysis run at the lambda emit site
+(`go1emit_dynexp.dats`, the `I1INSlam0`/`I1INSfix0` cases of
+`i1ins_go1emit_block`):
+1. **No `I1INSlam0`/`I1INSfix0` case in `gotype_of_ins_local`** -> a result temp
+   bound to a NESTED lambda (`lam b => lam c => ...`) typed as `any` (test30's
+   middle lambda was `func(int) any`).
+2. **`gotype_of_cmp`/`gotype_of_tnm_in_lets` could not type a result temp that
+   is a FREE parameter/capture** -- a bare `I1Vtnm` NOT bound in the cmp's lets
+   (the body of `lam u => a` returns `I1Vtnm(konst's param a)`) -> not found ->
+   `any`.
+
+## THE FIX (general; functions changed)
+
+`go1emit_styp0.dats` (the recovery cluster, now a `bnds`-threaded
+mutually-recursive `and`-chain + thin no-`bnds` wrappers):
+- **`binds_of_fjarglst(fjas)`** (`#implfun`, SATS-declared): the param binds
+  (`i1bnd` of each `I1BNDcons` across every `FJARGdarg`) of a lambda/fix --
+  parallel to `params_of_fjarglst`/`gotypes_of_fjarglst`.
+- **`gotype_of_capture_bnd(stmp, bnds)`**: type a bare result temp that is a
+  free param/capture -- match `stmp` against the in-scope param binds [bnds],
+  read the matched bind's `I0Pvar(d2var)` -> `d2var_get_styp` ->
+  `gotype_of_styp`. THE general rule the task asked for (param/capture via
+  `d2var_get_styp`). This is what types `lam u => a`'s body to the captured
+  var's declared type (int, float64, ...).
+- **`gotype_of_ins_local`** gained **`I1INSlam0`/`I1INSfix0` cases**: a result
+  temp that is itself a nested lambda recurses -- `gotypes_of_fjarglst` +
+  `gotype_of_lam_ret2(body, bnds ++ own-params)` (for fix0,
+  `goargtys_of_funvar`/`goretty_of_funvar` from the fix-var's declared
+  signature, exactly as the fix0 emit site) -> `gofunctype_of_fjarglst` = the
+  Go `func(<argtys>) <ret>` type. THE nested-lambda-recursion rule.
+- The whole recovery chain (`gotype_of_ins_local`, `gotype_of_tnm_in_lets2/_`,
+  `gotype_of_cmp2`, `gotype_of_cmpopt2`, `gotype_of_clss2`,
+  `gotype_of_ift0type2`, `gotype_of_lam_ret2`) now threads `bnds: i1bndlst` =
+  the in-scope param binds (own lambda params + every enclosing function/lambda
+  param). `gotype_of_tnm_in_lets2`'s `list_nil` base case (temp NOT in the lets)
+  now falls back to `gotype_of_capture_bnd(stmp, bnds)`. The no-`bnds` public
+  wrappers (`gotype_of_cmp`, `gotype_of_ift0type`) call the `_2` form with
+  `list_nil()` (value-position if/case/let -- no captured params to resolve).
+
+`go1emit.sats` + `go1emit_dynexp.dats` + `go1emit_decl00.dats` (THREADING the
+in-scope binds to the lambda emit site -- so each nested lambda's emit knows
+its enclosing captures):
+- `gotype_of_lam_ret` now takes `(icmp, bnds)`; `binds_of_fjarglst` SATS-declared.
+- A new `bnds: i1bndlst` arg is threaded PARALLEL to the existing M2.4
+  `params: i1tnmlst` through the return-position emit chain:
+  `i1cmp_go1emit_ret` -> `emit_ret_plain` -> `i1letlst_go1emit_p` ->
+  `i1let_go1emit_p` -> `i1ins_go1emit_block` (+ the if/case branch helpers
+  `f0_branch`, `i1cls_go1emit_g`, `i1clslst_go1emit_g`, and the
+  `i1cls_go1emit`/`i1clslst_go1emit` SATS wrappers). `emit_lam_body` carries it
+  too. `i1fundcl_go1emit` SEEDS it with `binds_of_fjarglst(fjas)` (the
+  function's own params). At each `I1INSlam0`/`I1INSfix0`, the body's binds are
+  `binds_of_fjarglst(this-lambda-params) ++ enclosing-bnds`, so a body that
+  returns a captured var (from ANY enclosing level) and a NESTED lambda emitted
+  inside the body both resolve. (Threaded as an explicit arg, not an `envx2go`
+  field, matching the M2.3 `scp` precedent of not touching the linear env vtype.)
+
+The task also mentioned threading the enclosing `T2Pfun1` declared result type
+as the lambda's expected return: NOT NEEDED for the surface here -- recovering
+from the actual param/capture types (`d2var_get_styp`) + nested-lambda recursion
+covers every test concretely, which the task says to PREFER over the threaded
+guess. The top-level lambda IS already typed from the enclosing function's
+`T2Pfun1` (its outermost `func(...)...` return type comes from
+`gotypes_of_funstyp` in `i1fundcl_go1emit`, unchanged from M2.2).
+
+## BEFORE / AFTER (emitted Go)
+
+```go
+// test35  BEFORE:  goxtnm3 := func(goxtnm2 int) any { return goxtnm1 }   // go vet FAIL
+// test35  AFTER:   goxtnm3 := func(goxtnm2 int) int { return goxtnm1 }   // captured int
+
+// test30 (nested) AFTER:
+func f_598(goxtnm1 int) func(int) func(int) int {
+	goxtnm21 := func(goxtnm2 int) func(int) int {        // was func(int) any
+		goxtnm20 := func(goxtnm3 int) int {
+			goxtnm18 := (goxtnm1 + goxtnm2)
+			goxtnm19 := (goxtnm18 + goxtnm3)
+			return goxtnm19
+		}
+		return goxtnm20
+	}
+	return goxtnm21
+}
+```
+
+## VALIDATION — golden, because the JS oracle is BROKEN for capturing lambdas
+
+The JS backend crashes on `I1INSlam0` capture (`env1 undefined` in the emitted
+closure), so a capturing-closure test produces NO JS stdout and CANNOT be
+byte-equal-vs-JS. These tests are therefore **GOLDEN-validated**: the golden
+(`TEST/OUTS/<name>.expected`) encodes the **HAND-COMPUTED-correct** value, and
+the oracle's golden-fallback path (`build-go.sh`/`Makefile _oracle`: when JS
+stdout is empty, `cmp` Go stdout vs the golden) gates them. For test30/34/35/36/
+37 the procedure was: emit -> `gofmt`/`go vet`/`go build` clean -> RUN the Go ->
+confirm the printed value equals the hand-computed truth -> ONLY THEN set the
+golden. test31/32 were likewise confirmed correct then wired. test33 (non-
+capturing `fix`) is byte-equal-vs-JS (the JS backend handles non-capturing fix).
+
+| test | program | HAND-COMPUTED golden | validation |
+|---|---|---|---|
+| test30_nested_cap | `f(a)=lam b=>lam c=>a+b+c`; f(100)(20)(3) | `nest=123` | golden (JS broken) |
+| test31_shadow | `shdw(n)=lam k=>(lam n=>n+1)(k)+n`; shdw(100)(7) | `shadow=108` | golden (JS broken) |
+| test32_multi_clos | `adder(d)=lam x=>x+d`; add5/add10 + mix | `a=105 b=110 mix=15` | golden (JS broken) |
+| test33_fix_multi | `fix f(x)=if x>0 then x+f(x-1) else 0`; T(0,1,5,10) | `tri 0 1 15 55` | BYTE-EQUAL-vs-JS |
+| test34_cap_timing | `mk(a)=lam u=>a`; k7,k42,k7 (capture-by-value) | `t0=7 t1=42 t2=7` | golden (JS broken) |
+| test35_const | `konst(a)=lam u=>a`; konst(9)(0) | `k=9` | golden (JS broken) |
+| test36_cap_float | `mkf(a:double)=lam u=>a`; mkf(3.5)(0) [anti-overfit] | `kf=3.5` | golden (JS broken) |
+| test37_nest3 | `g(a)=lam b=>lam c=>lam d=>a+b+c+d`; g(1000)(200)(30)(4) [anti-overfit] | `nest3=1234` | golden (JS broken) |
+
+The 2 ANTI-OVERFIT shapes guard the fix's generality: **test36** proves the
+captured-var type is recovered from the param's static type (a `double` ->
+`func(int) float64`, NOT hard-wired to `int` or `any`); **test37** proves the
+nested-lambda recursion works at depth 3 (`func(int) func(int) func(int) int`).
+
+## Wiring
+
+`Makefile` `SUITE_NAMES` and `srcgen2/TEST/run-suite.sh` `DEFAULT_SUITE` both
+gained test30-37. `make -j psuite` = 30/30 GREEN. The goldens for the 5
+JS-broken capture tests + test36/37 live in `TEST/OUTS/*.expected`; test33's
+golden was already present (it also byte-equals JS).
+
+## Honest coverage / real-vs-stub (M2.5 BUG-1)
+
+- **REAL (oracle/golden-validated):** captured-scalar return-type recovery
+  (int + float64) via `d2var_get_styp`; nested-lambda return-type recovery
+  (depth 2 and 3) via the `gotype_of_ins_local` lam0/fix0 cases; the in-scope
+  bind threading (own params + enclosing captures) from `i1fundcl_go1emit` down
+  to every lambda emit site; shadowing (inner param shadows outer capture);
+  capture-by-value timing; multiple independent closures from one generator;
+  local recursive `fix`. 30/30 suite GREEN, gofmt-clean, `go vet` OK on EVERY
+  emitted program (the BUG-1 gate).
+- **STILL `any` (genuine last-resort fallback, unchanged):** a captured/param
+  var whose `d2var_get_styp` is NOT a recognized scalar/fun type (datatypes /
+  tuples -> M2.6/M2.7; polymorphic `s2var` pre-monomorphization); a lambda body
+  whose result is an opaque computed temp from a non-native producer (the M2.6
+  `i1tnm->i0typ` side-table debt). The `// UNHANDLED`/stderr discipline is kept.
+  A lambda emitted INSIDE a let-in value-position body still types its return
+  with the no-`bnds` `gotype_of_ift0type` wrapper (rare; not in the M2.5 surface)
+  -- the captured-var recovery there would need `bnds` threaded through the
+  let0 value-mode path too (a small follow-up; no current test needs it).
+- **Untouched (per the brief):** `trxi0i1_myenv0.dats` (capture lowering -- it
+  is correct) and the JS backend.

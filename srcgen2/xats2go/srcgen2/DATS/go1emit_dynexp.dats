@@ -137,39 +137,13 @@ i1valgo1(filr, x0))
 (* ****** ****** *)
 //
 (*
-i1valgo1_lst2: emit the call ARGS then the captured-ENV values, as one
-comma-separated Go argument list.  Mirrors the JS backend's [lst2] order
-(args first, env values appended) at an I1Vfenv call site.  For a top-
-level non-closure fn the env list is empty, so this reduces to the plain
-args list; closures (M2.5) will populate the env tail.
+M2.2 staged an [i1valgo1_lst2] (args first, then the captured-env values
+appended, mirroring the JS backend's [lst2] order) for a future closure
+call site.  M2.5 REMOVED it: Go func literals capture lexically, so a
+closure is called with its plain args ONLY -- there is no env-passing
+calling convention to append values for (the [I1INSdapp]/[I1Vfenv] paths
+now ignore [envs] and use [i1valgo1_list]).  See the I1INSdapp doc above.
 *)
-fun
-i1valgo1_lst2
-( filr: FILR
-, i1vs: i1valist
-, envs: i1valist): void =
-let
-//
-fun
-loop
-( i0: sint
-, ivs: i1valist): sint =
-(
-case+ ivs of
-|list_nil() => i0
-|list_cons(iv1, ivs1) =>
-  (
-  if (i0 >= 1) then strnfpr(filr, ", ");
-  i1valgo1(filr, iv1);
-  loop(i0+1, ivs1))
-)
-//
-val n1 = loop(0, i1vs)
-val _  = loop(n1, envs)
-//
-in//let
-((*void*)) end
-//endof[i1valgo1_lst2(...)]
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -233,24 +207,20 @@ ival.node() of
 //
 (*
 I1Vfenv(d2var, envs): a function VALUE (its d2var + captured-env values).
-Used standalone (NOT as a direct dapp callee -- that case is special-
-cased in I1INSdapp to thread the env values into the arg list).  For a
-top-level non-closure fn the env list is empty, so the function value is
-just its Go name [d2vargo1].  A NON-empty env list means a real closure
-(M2.5): we emit the bare name + a stderr note (the name still type-checks
-as a Go func value, but the captured env is not yet bound -- M2.5 wires
-the closure conversion).
+Used standalone (e.g. as a fn argument, or a local recursive closure's
+self-call callee), and special-cased in I1INSdapp as a direct callee.
+//
+M2.5: we emit the function's Go IDENTIFIER ([d2vargo1]) and IGNORE [envs].
+For a top-level/hoisted `fun` that name is the package-level Go func; for a
+local recursive closure (I1INSfix0) it is the FIX-VAR's name, which the
+fix0 emitter pre-declares as `var <name> <functype>` (the self-reference
+target).  The captured env is NOT threaded -- Go's func literals capture
+the surrounding locals lexically (our [envi0i1_i0ws$insert] divergence
+already rewrote each captured var to its outer Go local), so the [envs]
+list carries no information the emitted Go needs.
 *)
 |I1Vfenv
-( d2f0, envs ) =>
-  (
-  case+ envs of
-  |list_nil() => d2vargo1(filr, d2f0)
-  |list_cons _ =>
-    (
-    d2vargo1(filr, d2f0);
-    prerrsln
-      ("[go1emit] NOTE: I1Vfenv with non-empty capture (closure, M2.5)")))
+( d2f0, _envs ) => d2vargo1(filr, d2f0)
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -326,19 +296,25 @@ else
 M2.2 CALL: a user function call.  A top-level [fun]/[fn] call lowers to
 I1INSdapp(I1Vfenv(d2var, envs), args) -- I1Vfenv is the function VALUE
 (its d2var + a CAPTURED-ENV value list; for a top-level non-closure fn
-[envs] is empty).  We emit  <fname>(<args>, <envs>)  -- the regular args
-first, then the captured-env values appended (matching the JS backend's
-lst2 order).  The function NAME is [d2vargo1] on the SAME d2var that the
-decl uses (i1fundcl_dpid), so call site and decl agree by construction.
-Any other callee (a plain temp holding a fn value, an I1Vcst/I1Vfid)
-falls through to the generic `<f>(<args>)` form.
+[envs] is empty).  We emit  <fname>(<args>)  -- ONLY the regular args.
+//
+M2.5: the captured-env values [envs] are IGNORED (NOT appended, unlike the
+JS backend's lst2).  Go func literals capture their surrounding locals
+LEXICALLY, so a closure is called with its plain args only -- there is no
+env-passing calling convention.  (Our [envi0i1_i0ws$insert] divergence
+already rewrote every captured var to its outer Go local, so the closure
+body reads its captures directly.)  The function NAME is [d2vargo1] on the
+SAME d2var that the decl / fix-var `var` uses, so call site and decl agree
+by construction.  Any other callee (a plain temp holding a fn value -- e.g.
+a func-typed parameter, or a temp-bound lambda -- an I1Vcst/I1Vfid) falls
+through to the generic `<f>(<args>)` form.
 *)
 case+ i1f0.node() of
-|I1Vfenv(d2f0, envs) =>
+|I1Vfenv(d2f0, _envs) =>
   (
   d2vargo1(filr, d2f0);
   strnfpr(filr, "(");
-  i1valgo1_lst2(filr, i1vs, envs);
+  i1valgo1_list(filr, i1vs);
   strnfpr(filr, ")"))
 | _(*otherwise*) =>
   (
@@ -366,17 +342,18 @@ recursion/TCO generalizes rturn handling.)
 (* ****** ****** *)
 //
 (*
-I1INSfix0(knd, fixvar, args, body): a LOCAL named recursive function VALUE
-(a `fun`/`fix` bound inside a function body, needing self-reference via the
-fixvar).  M2.4 (TCO) handles only PACKAGE-LEVEL recursion: every
-tail-recursive test routes through I1Dfundclst (verified -- 0 I1INSfix0
-nodes), so this never fires for the M2.4 surface.  A local recursive
-closure that DOES lower to I1INSfix0 needs Go's `var f F; f = func(...){...
-f(...) ...}` self-reference + capture conversion -- that is M2.5 (closures).
-We mark it UNHANDLED (deferred to M2.5), never silently-wrong Go.
+I1INSlam0 / I1INSfix0: lambdas + local recursive closures.  As of M2.5
+these are BLOCK-FORM (i1ins_is_blockform returns true), so a let binding
+one routes through [i1ins_go1emit_block] (inline Go func literal with
+lexical capture; fix0 uses the `var f F; f = func(){... f() ...}` self-ref
+idiom).  Reaching them HERE means a lam0/fix0 surfaced in a context that
+emits via the single-expression [i1insgo1] (not expected) -- mark UNHANDLED
+rather than emit a half-formed func literal inline.
 *)
+|I1INSlam0(_, _, _) =>
+  unhandled_ins(filr, "I1INSlam0(non-block-ctx)", iins)
 |I1INSfix0(_, _, _, _) =>
-  unhandled_ins(filr, "I1INSfix0(local-rec-closure -> M2.5)", iins)
+  unhandled_ins(filr, "I1INSfix0(non-block-ctx)", iins)
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -556,13 +533,14 @@ f0_branch
 , itnm: i1tnm
 , ocmp: i1cmpopt
 , params: i1tnmlst
+, bnds: i1bndlst
 , env0: !envx2go): void =
 (
 case+ ocmp of
 |optn_nil() => ((*void*))
 |optn_cons(icmp) =>
   (
-  if retq then i1cmp_go1emit_ret(icmp, params, env0)
+  if retq then i1cmp_go1emit_ret(icmp, params, bnds, env0)
   else
   (
   if live then i1cmp_go1emit_tnm(itnm, icmp, env0)
@@ -660,7 +638,7 @@ fun
 i1cls_go1emit_g
 ( retq: bool, live: bool, itnm: i1tnm
 , casval: i1val, icl0: i1cls, gopt: optn(i1val)
-, params: i1tnmlst, env0: !envx2go): void =
+, params: i1tnmlst, bnds: i1bndlst, env0: !envx2go): void =
 let
   val filr = env0.filr()
   val nind = envx2go_nind$get(env0)
@@ -699,7 +677,7 @@ case+ icl0.node() of
     val () = envx2go_incnind(env0, 1)
     val () = i1bnd_bind_go1(env0, casval, ibnd, body)
     val () =
-      if retq then i1cmp_go1emit_ret(body, params, env0)
+      if retq then i1cmp_go1emit_ret(body, params, bnds, env0)
       else
       (
       if live then i1cmp_go1emit_tnm(itnm, body, env0)
@@ -715,7 +693,7 @@ fun
 i1clslst_go1emit_g
 ( retq: bool, live: bool, itnm: i1tnm
 , casval: i1val, icls: i1clslst, gopts: list(optn(i1val))
-, params: i1tnmlst, env0: !envx2go): void =
+, params: i1tnmlst, bnds: i1bndlst, env0: !envx2go): void =
 (
 case+ icls of
 |list_nil() => ((*void*))
@@ -727,8 +705,8 @@ case+ icls of
     |list_nil() => @(optn_nil(), list_nil())
     |list_cons(g1, gs1) => @(g1, gs1))
   in
-    i1cls_go1emit_g(retq, live, itnm, casval, ic1, g1, params, env0);
-    i1clslst_go1emit_g(retq, live, itnm, casval, ics1, gs1, params, env0)
+    i1cls_go1emit_g(retq, live, itnm, casval, ic1, g1, params, bnds, env0);
+    i1clslst_go1emit_g(retq, live, itnm, casval, ics1, gs1, params, bnds, env0)
   end
 )//endof[i1clslst_go1emit_g(...)]
 //
@@ -739,27 +717,131 @@ the rest of the emitter / a future caller would use without the pre-pass.
 *)
 #implfun
 i1cls_go1emit
-(retq, live, itnm, casval, icl0, params, env0) =
-  i1cls_go1emit_g(retq, live, itnm, casval, icl0, optn_nil(), params, env0)
+(retq, live, itnm, casval, icl0, params, bnds, env0) =
+  i1cls_go1emit_g(retq, live, itnm, casval, icl0, optn_nil(), params, bnds, env0)
 //
 #implfun
 i1clslst_go1emit
-(retq, live, itnm, casval, icls, params, env0) =
-  i1clslst_go1emit_g(retq, live, itnm, casval, icls, list_nil(), params, env0)
+(retq, live, itnm, casval, icls, params, bnds, env0) =
+  i1clslst_go1emit_g(retq, live, itnm, casval, icls, list_nil(), params, bnds, env0)
 //
 (* ****** ****** *)
 (* ****** ****** *)
 //
 (*
-i1ins_go1emit_block: emit a BLOCK-FORM instruction (if / case / let-in)
-bound to result temp [itnm].  Dispatches on RETURN position (all branches
-end in rturn -> each emits its own `return`, no pre-declared temp) vs VALUE
-position (pre-declare `var goxtnm<itnm> <T>`; branches assign).  [scp] is
-the enclosing liveness scope.
+=======================================================================
+== M2.5 CLOSURES: lambdas + local recursive closures                 ==
+=======================================================================
+//
+A lambda [I1INSlam0(knd, fjas, body)] emits as an INLINE Go func literal
+bound to its temp:
+    goxtnm<itnm> := func(<p0> <T0>, <p1> <T1>) <Tret> {
+        <body in return mode>
+    }
+CRUCIAL (vs the M2.2 top-level `fun`, which is HOISTED to package level): a
+lambda is emitted IN PLACE at its definition point, so the func literal
+captures the surrounding locals by Go's lexical closure.  The IR already
+rewrote each captured free variable to its OUTER binding (our
+[envi0i1_i0ws$insert] divergence), so the body references the enclosing
+[goxtnm<...>] directly -- no env struct, no closure conversion, exactly as
+the PLAN intends.
+//
+A local recursive closure [I1INSfix0(knd, fvar, fjas, body)] needs Go's
+self-reference idiom (a `:=` func literal cannot name itself):
+    var <fname> func(<T0>, <T1>) <Tret>
+    <fname> = func(<p0> <T0>, <p1> <T1>) <Tret> { ... <fname>(...) ... }
+    goxtnm<itnm> := <fname>
+where <fname> = the FIX-VAR's Go name (d2vargo1(fvar)).  The body's
+self-call lowers to [I1INSdapp(I1Vfenv(fvar, _), args)] whose callee
+[I1Vfenv(fvar)] already emits [d2vargo1(fvar)] (= <fname>), so the
+self-reference resolves to the pre-declared `var`.  The outer temp
+[goxtnm<itnm>] is bound to <fname> so any later use of the closure VALUE
+(I1Vtnm(itnm)) still works.  TCO of the fix0 self-call (a `for` loop) is a
+follow-up; M2.5 emits a correct stack-using recursive self-call.
+*)
+//
+(*
+fjarglst_go1emit_typed_params: emit the Go parameter list
+`<p0> <T0>, <p1> <T1>` for a lambda/fix between the parens the caller
+opened.  Zips the param i1tnms (params_of_fjarglst) with the recovered Go
+types (gotypes_of_fjarglst); a missing type falls back to "any".  (Go does
+not error on unused params, so a captured-only lambda's unread params need
+no `_ =`.)  Mirrors the M2.2 fjarglst_go1emit_params but reusable here.
+*)
+fun
+fjarglst_go1emit_typed_params
+( filr: FILR
+, fjas: fjarglst
+, ptys: list(strn)): void =
+let
+  val ptnms = params_of_fjarglst(fjas)
+  //
+  fun
+  loop
+  (i0: sint, ts: i1tnmlst, gs: list(strn)): void =
+  (
+  case+ ts of
+  |list_nil() => ((*void*))
+  |list_cons(p1, ts1) =>
+    let
+      val (goty, gs1) =
+      (
+      case+ gs of
+      |list_nil() => @("any", list_nil())
+      |list_cons(g1, gs1) => @(g1, gs1))
+      val () =
+      (
+      if (i0 >= 1) then strnfpr(filr, ", ");
+      i1tnmgo1(filr, p1); strnfpr(filr, " "); strnfpr(filr, goty))
+    in
+      loop(i0+1, ts1, gs1)
+    end
+  )
+in
+  loop(0, ptnms, ptys)
+end//endof[fjarglst_go1emit_typed_params(filr,fjas,ptys)]
+//
+(*
+emit_lam_body: emit a lambda/fix BODY cmp in return mode + the closing `}`.
+The body is the canonical I1CMPcons([I1LETnew0(I1INSrturn(_, inner))], nil);
+[i1cmp_go1emit_ret] unwraps it -> inner lets + `return`.  We pass
+params=list_nil() so NO tail-loop is generated for the closure body (local-
+closure TCO is a documented follow-up); a tail self-call therefore stays a
+correct stack-using recursive call.
+*)
+fun
+emit_lam_body
+( body: i1cmp
+, bnds: i1bndlst
+, env0: !envx2go): void =
+let
+  val filr = env0.filr()
+in
+  envx2go_incnind(env0, 1(*++*));
+  // params=list_nil() => NO tail-loop for the closure body (local-closure TCO
+  // is a follow-up); [bnds] = the in-scope param binds (this lambda's own
+  // params + enclosing captures) so a NESTED lambda emitted inside this body
+  // recovers its return type (M2.5).
+  i1cmp_go1emit_ret(body, list_nil(), bnds, env0);
+  envx2go_decnind(env0, 1(*--*));
+  nindfpr(filr, envx2go_nind$get(env0)); strnfpr(filr, "}"); fprintln(filr)
+end//endof[emit_lam_body(body,env0)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
+i1ins_go1emit_block: emit a BLOCK-FORM instruction (if / case / let-in /
+lambda / local-rec-closure) bound to result temp [itnm].  For if/case it
+dispatches on RETURN position (all branches end in rturn -> each emits its
+own `return`, no pre-declared temp) vs VALUE position (pre-declare `var
+goxtnm<itnm> <T>`; branches assign).  For a lambda/fix it emits an inline Go
+func literal (capturing surrounding locals lexically).  [scp] is the
+enclosing liveness scope.
 *)
 #implfun
 i1ins_go1emit_block
-(scp, itnm, iins, params, env0) =
+(scp, itnm, iins, params, bnds, env0) =
 let
   val filr = env0.filr()
 in//let
@@ -789,7 +871,7 @@ case+ iins of
     i1valgo1(filr, itst); strnfpr(filr, " {"); fprintln(filr))
     //
     val () = envx2go_incnind(env0, 1)
-    val () = f0_branch(retq, live, itnm, othn, params, env0)
+    val () = f0_branch(retq, live, itnm, othn, params, bnds, env0)
     val () = envx2go_decnind(env0, 1)
     //
     val () =
@@ -797,7 +879,7 @@ case+ iins of
     nindfpr(filr, nind); strnfpr(filr, "} else {"); fprintln(filr))
     //
     val () = envx2go_incnind(env0, 1)
-    val () = f0_branch(retq, live, itnm, oels, params, env0)
+    val () = f0_branch(retq, live, itnm, oels, params, bnds, env0)
     val () = envx2go_decnind(env0, 1)
     //
     val () =
@@ -837,7 +919,7 @@ case+ iins of
     (
     nindfpr(filr, nind); strnfpr(filr, "switch {"); fprintln(filr))
     //
-    val () = i1clslst_go1emit_g(retq, live, itnm, casval, icls, gopts, params, env0)
+    val () = i1clslst_go1emit_g(retq, live, itnm, casval, icls, gopts, params, bnds, env0)
     //
     // a `default:` arm for match failure, mirroring the JS backend's
     // XATS000_cfail() fall-through.  We emit a literal `panic(...)` -- a Go
@@ -902,6 +984,91 @@ case+ iins of
     ((*void*))
   end
 //
+(* ----- I1INSlam0 : inline Go func literal (lexical capture) ---------- *)
+|I1INSlam0(_, fjas, body) =>
+  let
+    val nind = envx2go_nind$get(env0)
+    val argtys = gotypes_of_fjarglst(fjas)
+    // M2.5: the return type is recovered with THIS lambda's own params PLUS the
+    // enclosing in-scope binds [bnds] -- so a body that returns a captured/param
+    // var (`lam u => a`) or a nested lambda is typed concretely (NOT "any",
+    // which collides with the enclosing func's signature).  The same augmented
+    // binds [bnds1] are threaded into the body emit so a nested lambda inside
+    // this body recovers ITS return type too.
+    val bnds1  = list_append(binds_of_fjarglst(fjas), bnds)
+    val retty  = gotype_of_lam_ret(body, bnds1)
+    val live = i1tnm_used_in_cmp(itnm, scp)
+    //
+    // goxtnm<itnm> := func(<typed params>) <ret> {   (or `_ =` if dead, so
+    // a never-used lambda does not trip Go's "declared and not used").
+    val () =
+    (
+    nindfpr(filr, nind);
+    if live
+      then (i1tnmgo1(filr, itnm); strnfpr(filr, " := func("))
+      else strnfpr(filr, "_ = func(");
+    fjarglst_go1emit_typed_params(filr, fjas, argtys);
+    strnfpr(filr, ") "); strnfpr(filr, retty);
+    strnfpr(filr, " {"); fprintln(filr))
+    // <body in return mode> + closing `}`
+    val () = emit_lam_body(body, bnds1, env0)
+  in
+    ((*void*))
+  end
+//
+(* ----- I1INSfix0 : self-referential local recursive closure ---------- *)
+|I1INSfix0(_, fvar, fjas, body) =>
+  let
+    val nind = envx2go_nind$get(env0)
+    // the param/result Go types come from the FIX-VAR's declared function
+    // signature (d2var_get_styp -> T2Pfun1) -- more reliable than inferring
+    // from the if/case-bodied recursive body (whose branches return computed
+    // temps the i1val level cannot type).  Fall back to the param patterns'
+    // own d2var styps / body inference only when the fix-var has no fun type.
+    val vargtys = goargtys_of_funvar(fvar)
+    val argtys  =
+      (case+ vargtys of
+       |list_nil() => gotypes_of_fjarglst(fjas)
+       |list_cons _ => vargtys)
+    val vretty = goretty_of_funvar(fvar)
+    // M2.5: in-scope binds for the body = this fix's own params + enclosing
+    // captures; used both for the return-type fallback and the body emit.
+    val bnds1  = list_append(binds_of_fjarglst(fjas), bnds)
+    val retty  =
+      (if (vretty = "any") then gotype_of_lam_ret(body, bnds1) else vretty)
+    val ftype  = gofunctype_of_fjarglst(argtys, retty)
+    //
+    // var <fname> <functype>           (so the func literal can name itself)
+    val () =
+    (
+    nindfpr(filr, nind);
+    strnfpr(filr, "var "); d2vargo1(filr, fvar);
+    strnfpr(filr, " "); strnfpr(filr, ftype); fprintln(filr))
+    // <fname> = func(<typed params>) <ret> {   (params typed from [argtys]
+    // -- the SAME list as the `var` func type, so the signatures match).
+    val () =
+    (
+    nindfpr(filr, nind);
+    d2vargo1(filr, fvar); strnfpr(filr, " = func(");
+    fjarglst_go1emit_typed_params(filr, fjas, argtys);
+    strnfpr(filr, ") "); strnfpr(filr, retty);
+    strnfpr(filr, " {"); fprintln(filr))
+    // <body in return mode; self-call I1Vfenv(fvar) -> <fname>> + `}`
+    val () = emit_lam_body(body, bnds1, env0)
+    // bind the OUTER temp to the closure value, so a later I1Vtnm(itnm) use
+    // (e.g. the application `(i,1)`) resolves to the same Go func.
+    val live = i1tnm_used_in_cmp(itnm, scp)
+    val () =
+      if live then
+      (
+      nindfpr(filr, nind);
+      i1tnmgo1(filr, itnm); strnfpr(filr, " := ");
+      d2vargo1(filr, fvar); fprintln(filr))
+      else ()
+  in
+    ((*void*))
+  end
+//
 | _(*non-block*) =>
   unhandled_ins(filr, "i1ins_go1emit_block(non-block)", iins)
 //
@@ -924,27 +1091,27 @@ context down to its branches.
 *)
 #implfun
 i1letlst_go1emit
-(ilts, scp, env0) = i1letlst_go1emit_p(ilts, scp, list_nil(), env0)
+(ilts, scp, env0) = i1letlst_go1emit_p(ilts, scp, list_nil(), list_nil(), env0)
 //
 #implfun
 i1let_go1emit
-(ilet, scp, env0) = i1let_go1emit_p(ilet, scp, list_nil(), env0)
+(ilet, scp, env0) = i1let_go1emit_p(ilet, scp, list_nil(), list_nil(), env0)
 //
 #implfun
 i1letlst_go1emit_p
-(ilts, scp, params, env0) =
+(ilts, scp, params, bnds, env0) =
 (
 case+ ilts of
 |list_nil() => ((*void*))
 |list_cons(ilt1, ilts1) =>
   (
-  i1let_go1emit_p(ilt1, scp, params, env0);
-  i1letlst_go1emit_p(ilts1, scp, params, env0))
-)//endof[i1letlst_go1emit_p(ilts,scp,params,env0)]
+  i1let_go1emit_p(ilt1, scp, params, bnds, env0);
+  i1letlst_go1emit_p(ilts1, scp, params, bnds, env0))
+)//endof[i1letlst_go1emit_p(ilts,scp,params,bnds,env0)]
 //
 #implfun
 i1let_go1emit_p
-(ilet, scp, params, env0) =
+(ilet, scp, params, bnds, env0) =
 let
   val filr = env0.filr()
   val nind = envx2go_nind$get(env0)
@@ -954,7 +1121,7 @@ case+ ilet of
 |I1LETnew1(itnm, iins) =>
   (
   if i1ins_is_blockform(iins)
-  then i1ins_go1emit_block(scp, itnm, iins, params, env0)
+  then i1ins_go1emit_block(scp, itnm, iins, params, bnds, env0)
   else
   let
     val live = i1tnm_used_in_cmp(itnm, scp)
@@ -973,7 +1140,7 @@ case+ ilet of
   then
     // a block-form in statement position (no binding): drive it as a value-
     // position block with a throwaway temp (its result is unit/discarded).
-    let val tmp = i1tnm_new0() in i1ins_go1emit_block(scp, tmp, iins, params, env0) end
+    let val tmp = i1tnm_new0() in i1ins_go1emit_block(scp, tmp, iins, params, bnds, env0) end
   else
   (
   nindfpr(filr, nind);
@@ -1016,7 +1183,7 @@ end//let//endof[i1cmp_go1emit(icmp,env0)]
 //
 #implfun
 i1cmp_go1emit_ret
-(icmp, params, env0) =
+(icmp, params, bnds, env0) =
 let
   val filr = env0.filr()
   val nind = envx2go_nind$get(env0)
@@ -1045,12 +1212,12 @@ in//let
       // 3. continue the enclosing function loop.
       nindfpr(filr, nind); strnfpr(filr, "continue"); fprintln(filr))
     | _(*not a tail self-call, or TCO disabled*) =>
-      emit_ret_plain(innerCmp, params, env0))
+      emit_ret_plain(innerCmp, params, bnds, env0))
   //
   | _(*otherwise: a multi-let body (e.g. lets + a trailing if/case)*) =>
-    emit_ret_plain(icmp, params, env0)
+    emit_ret_plain(icmp, params, bnds, env0)
   //
-end//let//endof[i1cmp_go1emit_ret(icmp,params,env0)]
+end//let//endof[i1cmp_go1emit_ret(icmp,params,bnds,env0)]
 //
 (*
 emit_param_reassign: emit `goxtnm<p_i> = <arg_i>` for each (param, newarg)
@@ -1086,7 +1253,7 @@ continue (the branch bodies are emitted in return mode with [params] live).
 *)
 #implfun
 emit_ret_plain
-(icmp, params, env0) =
+(icmp, params, bnds, env0) =
 let
   val cmp1 =
   (
@@ -1100,14 +1267,14 @@ let
   val-I1CMPcons(ilts1, ival1) = cmp1
   val filr = env0.filr()
   val nind = envx2go_nind$get(env0)
-  val () = i1letlst_go1emit_p(ilts1, cmp1, params, env0)
+  val () = i1letlst_go1emit_p(ilts1, cmp1, params, bnds, env0)
 in//let
   if i1cmp_tail_returns(cmp1) then () else
   (
   nindfpr(filr, nind);
   strnfpr(filr, "return ");
   i1valgo1(filr, ival1); fprintln(filr))
-end//let//endof[emit_ret_plain(icmp,params,env0)]
+end//let//endof[emit_ret_plain(icmp,params,bnds,env0)]
 //
 #implfun
 i1cmp_go1emit_tnm
