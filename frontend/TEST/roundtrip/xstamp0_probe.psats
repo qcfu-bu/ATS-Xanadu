@@ -1,0 +1,59 @@
+# PROBE: same translation, but (a) import commented out (crashes the resolver),
+# (b) @overload alias lines removed (wrong shape), (c) lowercase abstract/alias names
+# left AS-IS to confirm the case-rule rejection. Everything else faithful.
+
+@static
+let ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+@abstract
+type stamp_type
+type stamp = stamp_type
+
+@abstract
+type stamper_tbox
+type stamper = stamper_tbox
+
+@static
+let the_stamp_nil: stamp
+
+@extern
+def stamp_nilq(x: stamp) -> Bool
+
+@extern
+def stamp_cmp(a: stamp, b: stamp) -> SInt
+
+@extern
+def stamp_fprint(s: stamp, f: FILR) -> Void
+
+@extern
+def stamp_get_uint(s: stamp) -> UInt
+
+@extern
+def stamp_make_uint(u: UInt) -> stamp
+
+@extern
+def stamper_new() -> stamper
+
+@extern
+def stamper_getinc(obj: stamper) -> stamp
+
+@extern
+def stamper_tmpset(s: stamper, i: SInt) -> Void
+
+@abstract
+type Tmpmap_tbox[X0]
+type Tmpmap[X0] = Tmpmap_tbox[X0]
+
+type key = stamp
+
+@extern
+def tmpmap_make_nil[Itm]() -> Tmpmap[Itm]
+
+@extern
+def tmpmap_strmize[Itm](m: Tmpmap[Itm]) -> Strm_vt[(SInt, Itm)]
+
+@extern
+def tmpmap_search_opt[Itm](map: Tmpmap[Itm], k: key) -> Optn_vt[Itm]
+
+@extern
+def tmpmap_insert_any[Itm](map: Tmpmap[Itm], k: key, itm: Itm) -> Void

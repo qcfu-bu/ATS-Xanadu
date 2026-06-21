@@ -133,6 +133,7 @@ case+ d of
 | PCCtempl(_, _, _, _, _, _, _, bodyopt) =>
     (case+ bodyopt of PCEGNone() => acc | PCEGSome(b) => harv_exp(b, acc))
 | PCCoverload(_, _, _) => acc    // an overload carries only two bare names — no poison nodes.
+| PCCsymalias(_, _, _, _) => acc // a symalias carries only two names + a precedence — no poison nodes.
 | PCCsortdef(_, _, _) => acc     // a sortdef carries only two names — no poison nodes.
 | PCCsortsub(_, _, _, _) => acc  // a subset sort carries a binder + raw guard types — no poison nodes.
 | PCCstacst(_, _, _) => acc      // a stacst carries only a name + a sort ref — no poison nodes.

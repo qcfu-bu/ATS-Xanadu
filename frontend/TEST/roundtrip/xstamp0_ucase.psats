@@ -1,0 +1,60 @@
+# PROBE 2: identical structure but ALL type names UPPERCASED (Stamp, Stamper, Key, ...)
+# to confirm that lowercase-name rejection is the ONLY remaining blocker and the rest of
+# the faithful translation typechecks cleanly (nerror=0). This is NOT faithful (ATS uses
+# lowercase types) — it is a diagnostic to isolate the case-rule gap.
+
+@static
+let ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+@abstract
+type Stamp_type
+type Stamp = Stamp_type
+
+@abstract
+type Stamper_tbox
+type Stamper = Stamper_tbox
+
+@static
+let the_stamp_nil: Stamp
+
+@extern
+def stamp_nilq(x: Stamp) -> Bool
+
+@extern
+def stamp_cmp(a: Stamp, b: Stamp) -> SInt
+
+@extern
+def stamp_fprint(s: Stamp, f: FILR) -> Void
+
+@extern
+def stamp_get_uint(s: Stamp) -> UInt
+
+@extern
+def stamp_make_uint(u: UInt) -> Stamp
+
+@extern
+def stamper_new() -> Stamper
+
+@extern
+def stamper_getinc(obj: Stamper) -> Stamp
+
+@extern
+def stamper_tmpset(s: Stamper, i: SInt) -> Void
+
+@abstract
+type Tmpmap_tbox[X0]
+type Tmpmap[X0] = Tmpmap_tbox[X0]
+
+type Key = Stamp
+
+@extern
+def tmpmap_make_nil[Itm]() -> Tmpmap[Itm]
+
+@extern
+def tmpmap_strmize[Itm](m: Tmpmap[Itm]) -> Strm_vt[(SInt, Itm)]
+
+@extern
+def tmpmap_search_opt[Itm](map: Tmpmap[Itm], k: Key) -> Optn_vt[Itm]
+
+@extern
+def tmpmap_insert_any[Itm](map: Tmpmap[Itm], k: Key, itm: Itm) -> Void

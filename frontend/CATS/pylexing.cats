@@ -52,6 +52,19 @@ function PYL_byte_at(i) {
   return PYL__bytes[i] | 0;
 }
 //
+// GAP2 (import crash-safety): strip ONE pair of surrounding double-quotes from a string, if
+// present. A `from "x" import *` keeps the quotes in the PT_STRING lexeme (`"x"`); a quoted
+// module-path segment must have them removed before it is joined into a filesystem path
+// (otherwise `/"x".sats` is opened, which never exists). A string without both quotes is
+// returned unchanged. Pure JS, never throws.
+function PYL_unquote(s) {
+  s = String(s);
+  if (s.length >= 2 && s.charCodeAt(0) === 34 && s.charCodeAt(s.length - 1) === 34) {
+    return s.substring(1, s.length - 1);
+  }
+  return s;
+}
+//
 // Slice bytes [lo, hi) of the current buffer back into a JS (UTF-8) string. Used
 // to materialize a token's lexeme (identifier / literal text) for PT_*(strn).
 function PYL_slice(lo, hi) {

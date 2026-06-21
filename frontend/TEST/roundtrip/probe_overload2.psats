@@ -1,0 +1,3 @@
+@extern
+def stamp_nilq(x: SInt) -> Bool
+@overload nilq with stamp_nilq

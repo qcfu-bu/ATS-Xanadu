@@ -368,7 +368,12 @@ pyparam =
 //     (no payload — byte-identical to before this slice).
 // The payload rides on PyDecor as a THIRD field so the existing per-name routing (decos_has, the
 // mode/variant dispatch) is unchanged; only the new template paths read the payload.
+// PyDAprec — a `@overload[N]` PRECEDENCE payload (a single INT literal, the `#symload … of N`
+// resolution precedence). UNLIKE PyDAbinders/PyDAtypes (which carry type-level lists), this is a
+// plain int; only the overload-ALIAS path reads it (decos_overload_prec). A bare `@overload`
+// (no bracket) carries PyDAnone -> the default precedence at lowering.
 and pydecoargs   = PyDAnone of () | PyDAbinders of list(pytyparam) | PyDAtypes of list(pytyp)
+                 | PyDAprec of (loctn, sint)
 and pydecorator  = PyDecor of (loctn, strn, pydecoargs)
 // the optional sort annotation on a type param (Type/Linear/Prop/… — OPEN vocab, kept as strn)
 and pysortopt   = PySortNone of () | PySortSome of (loctn, strn)
@@ -539,6 +544,14 @@ pydecl =
 //   praxi — proof + bodyless). The elaborator inspects the decorators and routes to the SAME
 //   PyCore variant they used to (PCCprfun / PCCprval / PCCpraxi), reusing the proven L2 lowering.
 | PyCimport of (loctn, pyimport)
+//   PyCsymalias : a STANDALONE overload-ALIAS decl `@overload NAME = TARGET` (+ optional
+//                 `@overload[N]` precedence) — the ATS-parity `#symload NAME with TARGET [of N]`.
+//                 There is NO `def` here: it RE-EXPORTS an already-existing function TARGET into
+//                 the overload set of a DIFFERENT symbol NAME (the 2012× corpus form). Carries the
+//                 overloaded NAME, the TARGET name, and the precedence (`~1` = none given). The
+//                 elaborator passes it straight through to PCCsymalias; M3 lowers it via the SAME
+//                 build_overload recipe PCCoverload uses (but with the parsed precedence as pval).
+| PyCsymalias of (loctn, strn(*name*), strn(*target*), sint(*precopt; ~1 = none*))
 | PyCstmt   of (loctn, pystmt)
 | PyCerror  of (loctn, strn)
 //

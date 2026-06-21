@@ -1,0 +1,105 @@
+# ROUND-TRIP VALIDATION — faithful pythonic translation of srcgen2/SATS/xstamp0.sats
+# (the ATS3-Xanadu compiler's "stamp" interface; 133 lines). This is a .sats INTERFACE
+# so it is signature-dense: abstract types, typedefs, bodyless fun signatures, val,
+# symload-overloads (with precedence), parametric abstract types, sort-quantifiers,
+# linear/tuple types, #include + #define. Each construct is translated with the surface
+# spellings shipped to date; constructs with NO pythonic spelling use a best-guess and
+# are flagged inline with  ## GAP: ...
+#
+# (License header omitted — pure comment block, no construct value.)
+
+# --- #include "./../HATS/xatsopt_sats.hats" ---
+## GAP[include]: no pythonic #include. Best guess = treat as an import of the .hats interface.
+from "frontend.TEST.roundtrip.xatsopt_sats" import *
+
+# --- #define ATS_PACKNAME "ATS3.XANADU.xatsopt-20220500" ---
+## GAP[define-const]: no pythonic #define string constant. Best guess = @static let.
+@static
+let ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+# --- #abstype stamp_type <= uint ;  #typedef stamp = stamp_type ---
+## GAP[abstype-bound]: @abstract type carries no `<= uint` representation bound in our surface.
+@abstract
+type stamp_type
+type stamp = stamp_type
+
+# --- #abstbox stamper_tbox // ptr ;  #typedef stamper = stamper_tbox ---
+@abstract
+type stamper_tbox
+type stamper = stamper_tbox
+
+# --- val the_stamp_nil: stamp(*0*) ---
+## GAP[val-decl]: a bodyless top-level `val` signature. Best guess = @static let (bodyless).
+@static
+let the_stamp_nil: stamp
+
+# --- fun stamp_nilq(stamp): (bool) ;  #symload nilq with stamp_nilq of 1000 ---
+@extern
+def stamp_nilq(x: stamp) -> Bool
+
+## GAP[symload-prec]: @overload carries no `of 1000` precedence number.
+@overload nilq = stamp_nilq
+
+# --- fun stamp_cmp(stamp, stamp): sint ---
+@extern
+def stamp_cmp(a: stamp, b: stamp) -> SInt
+
+# --- fun//<> stamp_fprint(stamp, FILR): void ---
+## GAP[fun-templatemark]: the `fun//<>` empty-template marker has no surface form (treated as plain fun).
+@extern
+def stamp_fprint(s: stamp, f: FILR) -> Void
+
+# --- fun stamp_get_uint(stamp): uint ;  #symload uint with stamp_get_uint ---
+@extern
+def stamp_get_uint(s: stamp) -> UInt
+@overload uint = stamp_get_uint
+
+# --- fun stamp_make_uint(uint): stamp ;  #symload stamp with stamp_make_uint ---
+@extern
+def stamp_make_uint(u: UInt) -> stamp
+@overload stamp = stamp_make_uint
+
+# --- fun stamper_new((*void*)): stamper ---
+@extern
+def stamper_new() -> stamper
+
+# --- fun stamper_getinc(obj:stamper): stamp ---
+@extern
+def stamper_getinc(obj: stamper) -> stamp
+
+# --- fun stamper_tmpset(stamper, sint): void ---
+@extern
+def stamper_tmpset(s: stamper, i: SInt) -> Void
+
+@overload getinc = stamper_getinc
+@overload tmpset = stamper_tmpset
+
+# --- #abstbox tmpmap_tbox(x0:t0) ;  #typedef tmpmap(x0:t0) = tmpmap_tbox(x0) ---
+## GAP[abstype-parametric]: a PARAMETRIC abstract boxed type. Best guess = @abstract type T[X0].
+@abstract
+type Tmpmap_tbox[X0]
+type Tmpmap[X0] = Tmpmap_tbox[X0]
+
+# --- #typedef key = stamp ---
+type key = stamp
+
+# --- fun tmpmap_make_nil {itm:tbox}((*void*)): tmpmap(itm) ---
+## GAP[sort-quantifier]: `{itm:tbox}` is a sort-quantified type param. Best guess = def [Itm].
+@extern
+def tmpmap_make_nil[Itm]() -> Tmpmap[Itm]
+
+# --- fun tmpmap_strmize {itm:tbox}(tmpmap(itm)): strm_vt(@(sint,itm)) ---
+## GAP[linear-result + flat-tuple]: strm_vt (linear stream) over @(sint,itm) flat-tuple.
+@extern
+def tmpmap_strmize[Itm](m: Tmpmap[Itm]) -> Strm_vt[(SInt, Itm)]
+
+# --- fun tmpmap_search$opt {itm:tbox}( map: tmpmap(itm), key: key): optn_vt(itm) ---
+## GAP[dollar-fnname]: `tmpmap_search$opt` is a $-suffixed template-spec name (no surface form).
+@extern
+def tmpmap_search_opt[Itm](map: Tmpmap[Itm], k: key) -> Optn_vt[Itm]
+
+# --- fun tmpmap_insert$any {itm:tbox}( map: tmpmap(itm), key: key, itm: itm): void ---
+@extern
+def tmpmap_insert_any[Itm](map: Tmpmap[Itm], k: key, itm: Itm) -> Void
+
+# end of [xstamp0.psats]

@@ -39,6 +39,13 @@
 // el_dloc / elab_func_body / elab_pure / elab_pat / elab_exp / harvest_decls /
 // lint_decls / uses_pyrt_decls all come from pyelab.sats (staloaded above).
 //
+// GAP2 (import crash-safety): strip ONE pair of surrounding double-quotes from a path segment.
+// A `from "x" import *` keeps the quotes in the PT_STRING lexeme (`"x"`); without stripping, the
+// joined path is `/"x".sats`, which can never exist (and the round-trip showed the quotes being
+// taken as part of the path). FFI (PYL_unquote in pylexing.cats, linked by every build): returns
+// the string unchanged when it is not a fully-quoted literal.
+#extern fun PYL_unquote(s: strn): strn = $extnam()
+//
 (* ****** ****** *)
 //
 fun
@@ -288,8 +295,10 @@ modpath_join(segs: list(strn)): strn =
 (
 case+ segs of
 | list_nil() => ""
-| list_cons(s, list_nil()) => s
-| list_cons(s, rest) => strn_append(s, strn_append("/", modpath_join(rest)))
+// GAP2: a quoted string-path segment (`from "x" import *`) keeps its quotes in the lexeme — strip
+// them per-segment so the joined filesystem path is `x`, not `"x"` (a path that never resolves).
+| list_cons(s, list_nil()) => PYL_unquote(s)
+| list_cons(s, rest) => strn_append(PYL_unquote(s), strn_append("/", modpath_join(rest)))
 )
 //
 // resolve segments -> the XATSHOME-relative `.sats` path. ("" segments -> a "/.sats" that will
@@ -475,6 +484,13 @@ case+ d of
       | PyImpFrom(iloc, segs, _star, _names) =>
           list_sing(PCCimport(iloc, modpath_to_sats(segs), 0(*static*), false(*is_python*)))
     )
+| PyCsymalias(loc, nm, tgt, prec) =>
+    // GAP1: a STANDALONE overload-ALIAS `@overload NAME = TARGET` (+ `@overload[N]` precedence) ->
+    // a PCCsymalias passed straight through. M3 (build_overload) resolves TARGET's d2itm and
+    // REGISTERS NAME -> a D2ITMsym bucket (the load-bearing step) carrying the precedence as the
+    // d2ptm's pval, then emits D2Csymload. UNLIKE `@overload def` (which emits PCCfun + a self
+    // PCCoverload), there is NO def here — this re-exports an existing fn under a different name.
+    list_sing(PCCsymalias(loc, nm, tgt, prec))
 | PyCstmt(loc, s) => elab_module_stmt(s)
 | PyCprivate(loc, ds) =>
     // SCOPING (bootstrap P1): a `private` run (modifier or block) -> a PCCprivate carrying the

@@ -527,6 +527,11 @@ case+ d of
     ps(out, " = "); pp_exp(out, e); ps(out, ")") )
 | PyCimport(loc, imp) =>
   (ps(out, "(import"); print_span(out, loc); ps(out, " "); pp_import(out, imp); ps(out, ")"))
+| PyCsymalias(loc, nm, tgt, prec) =>
+  ( ps(out, "(symalias "); ps(out, nm); print_span(out, loc);
+    ps(out, " = "); ps(out, tgt);
+    ( if prec >= 0 then (ps(out, " of "); pi(out, prec)) else () );
+    ps(out, ")") )
 | PyCstmt(loc, s) =>
   (ps(out, "(cstmt"); print_span(out, loc); pp_stmt(out, s, ind + 1); ps(out, ")"))
 | PyCerror(loc, msg) =>

@@ -684,14 +684,20 @@ end
 //          step that makes a later use of NAME resolve to IMPL,
 //        * emit D2Csymload(tknd, NAME, dptm) (the node is a record for the LSP; resolution is the env
 //          binding). An UNRESOLVABLE IMPL -> a benign D2Cnone0 (recovery).
+//
+// GAP1: `pval` is the resolution PRECEDENCE (the `#symload … of N` value). It IS read at typecheck
+// (trsym2b_dynexp.dats auxpmax/auxtake prune the bucket to the MAX pval among type-compatible
+// candidates), so a higher-precedence alias wins. The self-overload path (PCCoverload, from
+// `@overload def`) passes 0 — the stock default, byte-identical to before this slice. The standalone
+// overload-ALIAS path (PCCsymalias) passes the parsed `@overload[N]` precedence (or 0 if none).
 fun
-build_overload(env: !tr12env, loc: loctn, name: strn, impl: strn): d2ecl = let
+build_overload(env: !tr12env, loc: loctn, name: strn, impl: strn, pval: sint): d2ecl = let
   val sym_nm  = symbl_make_name(name)
   val implopt = tr12env_find_d2itm(env, symbl_make_name(impl))
 in
   case+ implopt of
   | ~optn_vt_cons(ditm_impl) => let
-      val dptm = D2PTMsome(0(*pval*), ditm_impl)
+      val dptm = D2PTMsome(pval, ditm_impl)
       // merge with any existing overload bucket under NAME.
       val d2ps =
         (
@@ -746,32 +752,63 @@ lower_import(env: !tr12env, loc: loctn, path: strn, knd0: sint, is_python: bool)
   else let
     // the absolute path: prepend XATSHOME (mirrors f0_pvsload's `strn_append(XATSHOME, fnam)`).
     val abspath = strn_append(the_XATSHOME(), path)
-    // (1) LOAD: parse the `.sats` to L0, then trans01 -> L1, then trans12 -> L2 (a d2parsed whose
-    //     `t2penv` is the module's D2TOPENV). SAME three steps `f0_pvsload` runs (xglobal.dats:
-    //     756-762), but we do NOT call the global `the_*env_pvsmrgw`.
-    val dpar0 = d0parsed_from_fpath(knd0, abspath)
-    val dpar1 = d1parsed_of_trans01(dpar0)
-    val dpar2 = d2parsed_of_trans12(dpar1)
-    // (2) build the module's f2env straight from its D2TOPENV (dynexp2.dats:404 `f2env_of_d2parsed`
-    //     = F2ENV(lcsrc, g1mac, s2tex, s2itm, d2itm) from `dpar.t2penv()` — the EXACT value the
-    //     stock bare-staload path passes to `tr12env_add1_f2env` (trans12_decl00.dats:2374)).
-    val fenv = f2env_of_d2parsed(dpar2)
-    // (3) SCOPED MERGE: register the f2env under `$.` in THIS file's env (NOT global). After this,
-    //     the module's exports resolve by bare name in `env` for all SUBSEQUENT decls.
-    val () = tr12env_add1_f2env(env, DLRDT_symbl, fenv)
-    // (4) the emitted node: a real D2Cstaload carrying the resolved fpath (LSP dep-graph) + the
-    //     f2env. `gsrc` = a minimal G1Eid0(path-as-symbol) src (vestigial for typecheck; the
-    //     dep-graph reads `fopt`, not `gsrc`). tknd = a T_STALOAD-ish token is not required by
-    //     trans23/tread3a/the LSP reader — they only read knd0/fopt/dopt — so a benign T_VAL token
-    //     suffices for the node's `token` slot.
-    val tok  = token_make_node(loc, T_VAL(VLKval))
-    val gsrc = g1exp_make_node(loc, G1Eid0(symbl_make_name(path)))
-    val fpth = fpath_make_absolute(abspath)
-    val fopt = optn_cons(fpth) : fpathopt
-    val dres = S2TALOADfenv(fenv) : s2taloadopt
   in
-    d2ecl_make_node(loc, D2Cstaload(knd0, tok, gsrc, fopt, dres))
+    // GAP2 (import crash-safety): GUARD the file-open. `d0parsed_from_fpath` does a lazy
+    // `readFileSync`, so a MISSING target throws an UNCAUGHT ENOENT (`open '…nonexistent.sats'`)
+    // that crashes the driver instead of producing a diagnostic. `fpath_rexists` (githwxi; an
+    // `fs.accessSync` wrapped in try/catch — NEVER throws) tests read-availability first. If the
+    // target is missing, emit a CLEAN counted error + a survivable no-op (NOT a crash): a poison
+    // `val _ = <none1>` whose d2exp_none1 falls through trans2a/trans23 to D3Enone1 and is COUNTED
+    // by tread3a (nerror>0), and which f3perr0 reports on the IMPORT's span. The module's exports
+    // simply don't resolve (the using-decls errck too) — a graceful, characterized failure. The
+    // stock compiler has NO such guard (xglobal.dats f0_pvsload assumes the prelude exists), so a
+    // faithful port of any file referencing a not-yet-ported sibling would otherwise crash here.
+    if ~fpath_rexists(abspath) then build_missing_import(loc, abspath)
+    else let
+      // (1) LOAD: parse the `.sats` to L0, then trans01 -> L1, then trans12 -> L2 (a d2parsed whose
+      //     `t2penv` is the module's D2TOPENV). SAME three steps `f0_pvsload` runs (xglobal.dats:
+      //     756-762), but we do NOT call the global `the_*env_pvsmrgw`.
+      val dpar0 = d0parsed_from_fpath(knd0, abspath)
+      val dpar1 = d1parsed_of_trans01(dpar0)
+      val dpar2 = d2parsed_of_trans12(dpar1)
+      // (2) build the module's f2env straight from its D2TOPENV (dynexp2.dats:404 `f2env_of_d2parsed`
+      //     = F2ENV(lcsrc, g1mac, s2tex, s2itm, d2itm) from `dpar.t2penv()` — the EXACT value the
+      //     stock bare-staload path passes to `tr12env_add1_f2env` (trans12_decl00.dats:2374)).
+      val fenv = f2env_of_d2parsed(dpar2)
+      // (3) SCOPED MERGE: register the f2env under `$.` in THIS file's env (NOT global). After this,
+      //     the module's exports resolve by bare name in `env` for all SUBSEQUENT decls.
+      val () = tr12env_add1_f2env(env, DLRDT_symbl, fenv)
+      // (4) the emitted node: a real D2Cstaload carrying the resolved fpath (LSP dep-graph) + the
+      //     f2env. `gsrc` = a minimal G1Eid0(path-as-symbol) src (vestigial for typecheck; the
+      //     dep-graph reads `fopt`, not `gsrc`). tknd = a T_STALOAD-ish token is not required by
+      //     trans23/tread3a/the LSP reader — they only read knd0/fopt/dopt — so a benign T_VAL token
+      //     suffices for the node's `token` slot.
+      val tok  = token_make_node(loc, T_VAL(VLKval))
+      val gsrc = g1exp_make_node(loc, G1Eid0(symbl_make_name(path)))
+      val fpth = fpath_make_absolute(abspath)
+      val fopt = optn_cons(fpth) : fpathopt
+      val dres = S2TALOADfenv(fenv) : s2taloadopt
+    in
+      d2ecl_make_node(loc, D2Cstaload(knd0, tok, gsrc, fopt, dres))
+    end
   end
+//
+// GAP2: the survivable no-op + counted error for a MISSING import target. A `val _ = <none1>`
+// poison decl: the wildcard pattern binds nothing; the d2exp_none1(D1Eid0("@missing-import"))
+// RHS is the SAME counted-error poison the unbound-name path uses (pl_var / PCEerror) — trans2a
+// never rewrites it, it falls through to D2Enone2 -> D3Enone1, and tread3a's catch-all COUNTS it
+// (nerror>0). f3perr0 then prints the errck on the import's loc — a clean diagnostic, no throw.
+// (In `lower_import`'s `fun … and …` group so it is visible at the forward call site above.)
+and
+build_missing_import(loc: loctn, abspath: strn): d2ecl = let
+  val tknd  = token_make_node(loc, T_VAL(VLKval))
+  val d2p   = d2pat_make_node(loc, D2Pany())
+  val poison = d2exp_none1(d1exp_make_node(loc, D1Eid0(symbl_make_name("@missing-import"))))
+  val ()    = bind_let_styp(d2p, poison)   // fresh tyvar binder (no-op for a none-node; see SATS)
+  val dval  = d2valdcl_make_args(loc, d2p, TEQD2EXPsome(tknd, poison), WTHS2EXPnone())
+in
+  d2ecl_make_node(loc, D2Cvaldclst(tknd, list_sing(dval)))
+end
 //
 (* ****** ****** *)
 //
@@ -966,8 +1003,17 @@ case+ d of
     template_decls_as_one(loc, lower_template(env, loc, targs, name, pargs, pnames, ptypes, ret, bodyopt))
 //
 // ATS-parity (`#symload`): an `overload NAME with IMPL` -> a D2Csymload + the env registration that
-// makes NAME resolve to IMPL (build_overload, via tr12env_add0_d2itm). SPIKE-PROVEN.
-| PCCoverload(loc, name, impl) => build_overload(env, loc, name, impl)
+// makes NAME resolve to IMPL (build_overload, via tr12env_add0_d2itm). SPIKE-PROVEN. The self-overload
+// (`@overload def`) uses precedence 0 (the stock default).
+| PCCoverload(loc, name, impl) => build_overload(env, loc, name, impl, 0(*pval*))
+//
+// GAP1: a STANDALONE overload-ALIAS `@overload NAME = TARGET` (the `#symload NAME with TARGET [of N]`)
+// -> the SAME D2Csymload + env-registration recipe (build_overload), re-exporting an ALREADY-EXISTING
+// TARGET under NAME. `prec` is the `@overload[N]` precedence (~1 = none given -> the stock default 0).
+// Precedence IS load-bearing at typecheck (trsym2b auxpmax/auxtake). UNLIKE PCCoverload, there is no
+// def preceding this — TARGET must already be registered (build_overload's not-found -> benign no-op).
+| PCCsymalias(loc, name, tgt, prec) =>
+    build_overload(env, loc, name, tgt, (if prec >= 0 then prec else 0))
 //
 // ATS-parity: a `sortdef Name = SORT` SORT ALIAS -> a D2Csortdef. SPIKE-PROVEN (dep-spike P6(A)):
 // map the RHS sort-reference string to a sort2 (the same SInt/Type/Prop vocab psort2_of uses), wrap

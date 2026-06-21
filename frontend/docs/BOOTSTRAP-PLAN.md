@@ -79,6 +79,22 @@ Empirical counts over the compiler + both preludes:
 6. **Tuple/record variants**: flat/boxed/linear prefixes.
 7. **Include / module story**: `#include` + `#staload`/`dynload` build graph.
 
+## Reality check — first real-file round-trip (`srcgen2/SATS/xstamp0.sats`, 2026-06-21)
+Validated the approach by hand-translating a real 133-line compiler interface. Re-ranked the
+backlog by what ACTUALLY broke (speculation was mis-ordered):
+1. **Lowercase type & constructor names** (16 of the failures; NOT on the speculative list). The whole
+   corpus names types + cons lowercase (`stamp`, `cons`, `nil`); our UIDENT convention rejects them.
+   **DECISION (2026-06-21): the pretty-printer CAPITALIZES** (`stamp`→`Stamp`, `cons`→`Cons`,
+   deterministic + collision-handled) — surface + case convention UNCHANGED, zero parser work; the
+   `_ucase` variant already typechecks nerror=0. ⇒ a P2 pretty-printer concern, not P1.
+2. **`#symload NAME with FN [of prec]`** — the overload-ALIAS form (2012× corpus-wide). Our `@overload`
+   only marks the def being defined; it can't re-export an existing fn under a new overloaded name. 🔴 REAL P1 GAP.
+3. **Import crash-safety** — `import`/`from` throws an uncaught `ENOENT` on a missing target. 🔴 correctness bug.
+4. Lower: abstract-rep bound `<= uint`, `$`-names (`foo$bar`) + qualified `$M.x`, `#define`-as-const, `#include` splice.
+- Deprioritized by reality: fixity, `where`/`local`, tuple/record variants did NOT appear in the interface file.
+- Confirmed-covered (better than feared): parametric abstract types, bodyless `val` sigs, sort-quant params,
+  linear result types, flat-tuple type args.
+
 ## Verification ladder
 1. **Per-file round-trip**: pretty-print `F` → re-parse → compile both to codegen → DIFF vs stock.
 2. **Corpus**: round-trip the prelude (130 files), then the compiler (210), each file a regression test.

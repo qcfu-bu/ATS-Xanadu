@@ -207,8 +207,37 @@ in
     else (if takes_types then
       // type-arg USES: reuse the shared type-arg parser (consumes the matching ']').
       let val @(ts, st1) = parse_deco_typeargs(st) in @(PyDAtypes(ts), st1) end
-    else @(PyDAnone(), st))        // a '[' after some OTHER decorator: not a payload — leave it.
+    else (if strn_eq(nm, "overload") then
+      // GAP1: `@overload[N]` — a single INT PRECEDENCE literal (the `#symload … of N`). Parse
+      // `[`, the INT lexeme, `]`; a malformed/missing int degrades to PyDAnone (no precedence ->
+      // the default at lowering), a graceful recovery rather than a crash.
+      p_deco_prec(st)
+    else @(PyDAnone(), st)))       // a '[' after some OTHER decorator: not a payload — leave it.
   | _ => @(PyDAnone(), st)
+end
+//
+// GAP1: parse a `@overload[N]` PRECEDENCE bracket — `[` INT `]` -> PyDAprec(loc, N). A
+// non-int or missing `]` degrades to PyDAnone (graceful: the overload alias just uses the
+// default precedence). Assumes the leading `[` has NOT been consumed (ps_peek = PT_LBRACK).
+and
+p_deco_prec(st: pstate): @(pydecoargs, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)   // consume `[`
+in
+  case+ ps_peek(st1) of
+  | PT_INT(raw) =>
+    let
+      val st2 = ps_advance(st1)
+      val st3 =
+        ( case+ ps_peek(st2) of
+          | PT_RBRACK() => ps_advance(st2)
+          | _ => ps_diag(st2, ps_peek_loctn(st2), "expected ']' after overload precedence") )
+    in
+      @(PyDAprec(loc, gint_parse_sint(raw)), st3)
+    end
+  | _ =>
+    let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected an integer precedence in @overload[…]") in
+      @(PyDAnone(), st2) end
 end
 //
 // ---- prefix decorators: { '@' LIDENT [ '[' args ']' ] NEWLINE } → a list(pydecorator) in source
@@ -781,6 +810,66 @@ p_import_names(st: pstate): @(list(strn), pstate) =
 //
 (* ****** ****** *)
 //
+// GAP1 (overload-ALIAS): file-local helpers for the STANDALONE `@overload NAME = TARGET` decl, used
+// by parse_decl below. Defined here (before parse_decl) so they are in scope; neither calls back into
+// parse_decl, so they live in their own `fun … and …` group rather than parse_decl's #implfun.
+//
+// the overload-ALIAS parser, positioned ON the overloaded NAME, with `decos` already parsed.
+// Grammar:  NAME '=' TARGET  where NAME and TARGET are each a LIDENT or UIDENT (the corpus overloads
+// lower- AND upper-case symbols). The precedence rides on the `@overload[N]` decorator (read by
+// decos_overload_prec_p; ~1 if none). A bare NAME with NO `@overload` decorator is NOT a decl ->
+// the "expected a declaration" error (preserving the old behavior for non-overload junk). A missing
+// `=` or TARGET degrades to a PyCerror + diagnostic (graceful recovery, never a crash).
+fun
+p_overload_alias(st: pstate, decos: list(pydecorator), loc: loctn): @(pydecl, pstate) =
+  if ~decos_has_p(decos, "overload") then
+    // a name token with no `@overload` (or any other) decorator at decl position: not a decl.
+    let val st1 = ps_diag(st, ps_peek_loctn(st), "expected a declaration") in
+      @(PyCerror(loc, "expected a declaration"), st1) end
+  else let
+    // the overloaded NAME (this token is a LIDENT/UIDENT — guarded by the caller).
+    val nm =
+      ( case+ ps_peek(st) of
+        | PT_LIDENT(s) => s
+        | PT_UIDENT(s) => s
+        | _ => "" ): strn   // unreachable (caller guards); defensive
+    val st1 = ps_advance(st)
+  in
+    case+ ps_peek(st1) of
+    | PT_EQ() =>
+      let
+        val st2 = ps_advance(st1)   // consume '='
+      in
+        case+ ps_peek(st2) of
+        | PT_LIDENT(tgt) =>
+            @(PyCsymalias(loc, nm, tgt, decos_overload_prec_p(decos)), ps_advance(st2))
+        | PT_UIDENT(tgt) =>
+            @(PyCsymalias(loc, nm, tgt, decos_overload_prec_p(decos)), ps_advance(st2))
+        | _ =>
+          let val st3 = ps_diag(st2, ps_peek_loctn(st2), "expected a target function after '=' in an overload alias") in
+            @(PyCerror(loc, "expected an overload-alias target"), st3) end
+      end
+    | _ =>
+      let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected '=' in an overload alias (@overload NAME = TARGET)") in
+        @(PyCerror(loc, "expected '=' in an overload alias"), st2) end
+  end
+//
+// read the `@overload[N]` PRECEDENCE off the decorator list (parser-side). Returns the parsed N,
+// or `~1` when no `@overload[N]` bracket was given (the default-precedence sentinel the lowering
+// maps to the stock default 0).
+and
+decos_overload_prec_p(decos: list(pydecorator)): sint =
+( case+ decos of
+  | list_nil() => (-1)
+  | list_cons(PyDecor(_, nm, dargs), rest) =>
+      if strn_eq(nm, "overload")
+        then ( case+ dargs of
+               | PyDAprec(_, n) => n
+               | _ => decos_overload_prec_p(rest) )
+        else decos_overload_prec_p(rest) )
+//
+(* ****** ****** *)
+//
 // ---- the SATS `parse_decl` entry: a decl may be prefixed by decorators (§5.7), so FIRST parse
 //      zero-or-more prefix decorators, THEN dispatch on the next keyword. The decorators are
 //      threaded into the node:
@@ -837,6 +926,14 @@ in
         let val st1 = ps_diag(st0, locD, "decorators must follow 'private', not precede it") in
           @(PyCerror(locD, "decorators must follow 'private'"), st1) end
       | list_nil() => p_private(st0) )
+  // GAP1: a STANDALONE overload-ALIAS `@overload NAME = TARGET` (+ `@overload[N]` precedence).
+  // No keyword follows the decorator run — the next token is the overloaded NAME (a LIDENT/UIDENT;
+  // the corpus names overloaded symbols both cases). REQUIRES `@overload` among the decorators;
+  // a bare NAME with no overload decorator is NOT a decl -> the error arm. (This dialect has no
+  // case `when`-guards, so we route both name tokens through p_overload_alias, which itself checks
+  // the `@overload` decorator and falls back to the error path when it is absent.)
+  | PT_LIDENT _ => p_overload_alias(st0, decos, locD)
+  | PT_UIDENT _ => p_overload_alias(st0, decos, locD)
   | _ =>
     // not a structural decl — should be reached only via the module loop's fallback;
     // produce an error decl (the loop already handles stmt-position decls separately).
@@ -847,6 +944,7 @@ in
       @(PyCerror(loc, "expected a declaration"), st1)
     end
 end
+//
 //
 // SCOPING (bootstrap P1): parse a `private` run. Positioned ON the `private` keyword.
 //   `private:` <NEWLINE INDENT decl* DEDENT>   -> PyCprivate(loc, <block decls>)

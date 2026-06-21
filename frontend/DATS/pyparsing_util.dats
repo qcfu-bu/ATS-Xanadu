@@ -98,6 +98,7 @@ case+ d of
 | PyCsortsub(loc, _, _, _) => loc
 | PyCstadef(loc, _, _) => loc
 | PyCimport(loc, _) => loc          | PyCstmt(loc, _) => loc
+| PyCsymalias(loc, _, _, _) => loc
 | PyCerror(loc, _) => loc
 )
 //

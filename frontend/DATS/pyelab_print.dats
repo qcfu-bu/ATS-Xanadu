@@ -480,6 +480,11 @@ case+ d of
 | PCCoverload(loc, nm, impl) =>
   ( ps(out, "(overload "); ps(out, nm); print_span(out, loc);
     ps(out, " with "); ps(out, impl); ps(out, ")") )
+| PCCsymalias(loc, nm, tgt, prec) =>
+  ( ps(out, "(symalias "); ps(out, nm); print_span(out, loc);
+    ps(out, " with "); ps(out, tgt);
+    ( if prec >= 0 then (ps(out, " of "); pi(out, prec)) else () );
+    ps(out, ")") )
 | PCCsortdef(loc, nm, srt) =>
   ( ps(out, "(sortdef "); ps(out, nm); print_span(out, loc);
     ps(out, " = "); ps(out, srt); ps(out, ")") )

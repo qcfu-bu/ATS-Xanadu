@@ -393,6 +393,19 @@ pcdecl =
 //   fresh impl-side `tqas` matching the declared template d2cst's shape.
 | PCCimplement of (loctn, strn, list(strn), list(pytypopt), pytypopt, pcexp, list(pytyp)(*tias*))
 | PCCoverload  of (loctn, strn(*name*), strn(*impl*))
+//   PCCsymalias : a STANDALONE overload-ALIAS decl `@overload NAME = TARGET` (+ optional
+//                 precedence `@overload[N] NAME = TARGET`) — the ATS-parity `#symload NAME with
+//                 TARGET [of N]` (2012× corpus-wide). UNLIKE PCCoverload (which the `@overload def`
+//                 path emits as a SELF-overload NAME->NAME right after defining NAME), this RE-EXPORTS
+//                 an ALREADY-EXISTING function TARGET into the overload set of a DIFFERENT symbol NAME
+//                 — there is NO def being defined here. `precopt` carries the resolution precedence:
+//                 `~1` = no `[N]` given (the stock default 0 is used at lowering), else the parsed N.
+//                 M3 (build_overload, same SPIKE-PROVEN f0_symload recipe as PCCoverload, but using
+//                 the precedence as the d2ptm's pval) resolves TARGET's d2itm, REGISTERS NAME -> a
+//                 D2ITMsym bucket via tr12env_add0_d2itm, and emits D2Csymload. Precedence IS read at
+//                 typecheck (trsym2b_dynexp.dats auxpmax/auxtake prune the bucket to the max pval),
+//                 so it is load-bearing, not cosmetic.
+| PCCsymalias  of (loctn, strn(*name*), strn(*target*), sint(*precopt; ~1 = none*))
 //   PCCtempl : a `@template[A, B] def foo[C, D](params) [-> Ret] [: body]` TEMPLATE declaration
 //              (A-template). Carries:
 //                * the TEMPLATE-arg binders (`list(pcparam)`, the `@template[A,B]` brackets) -> the
