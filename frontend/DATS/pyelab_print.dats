@@ -441,10 +441,12 @@ case+ d of
     ps(out, " "); pp_typ(out, typ); ps(out, ")") )
 | PCCexcept(loc, nm, ts) =>
   ( ps(out, "(exception "); ps(out, nm); print_span(out, loc); pp_typlst(out, ts); ps(out, ")") )
-| PCCabstype(loc, nm, tvs, mode) =>
+| PCCabstype(loc, nm, tvs, mode, repopt) =>
   ( ps(out, "(abstype "); ps(out, nm); print_span(out, loc);
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_pcparams(out, tvs); ps(out, ")")) );
-    ps(out, " mode="); pp_mode(out, mode); ps(out, ")") )
+    ps(out, " mode="); pp_mode(out, mode);
+    ( case+ repopt of PyTypNone() => () | PyTypSome(t) => (ps(out, " <= "); pp_typ(out, t)) );
+    ps(out, ")") )
 | PCCassume(loc, nm, typ) =>
   ( ps(out, "(assume "); ps(out, nm); print_span(out, loc);
     ps(out, " "); pp_typ(out, typ); ps(out, ")") )

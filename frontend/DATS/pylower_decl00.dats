@@ -451,10 +451,26 @@ case+ m of
 //
 // build a `D2Cabstype` for an OPAQUE type `name`. Mirrors f0_abstype's tail: s2cst_make_idst
 // (loc, sym, sort) with NO s2exp attached (the opacity), tr12env_add1_s2cst (register so later
-// uses + the `assume` resolve it), D2Cabstype(s2c, A2TDFsome()) (A2TDFsome = a plain abstract
-// declaration). A parametric `abstype Foo[A]` gets a FUNCTION sort (type)->...->RESULT (arity N).
+// uses + the `assume` resolve it), D2Cabstype(s2c, <a2tdf>) where the a2tdf is:
+//   * A2TDFsome()        when NO `<= REP` bound is given (a plain abstract declaration), OR
+//   * A2TDFlteq(repS2e)  when `<= REP` is present (TAIL ITEM 1, the stock `abstype stamp <= uint`).
+// A parametric `abstype Foo[A]` gets a FUNCTION sort (type)->...->RESULT (arity N).
+//
+// TAIL ITEM 1 — the `<= REP` REPRESENTATION witness. The stock f0_abstype @ trans12_decl00.dats:
+// 1471 elaborates the rep s0exp to an s2exp via trans12_a1tdf_stck (:3511) and carries it ONLY
+// in the D2Cabstype node's second field (A2TDFlteq) — it does NOT install any subtype relation on
+// the s2cst (no live s2cst rep/subtype setter exists). The bound is CODEGEN-ONLY / informational:
+// trans23 (trans23_decl00.dats:240) + trans2a (trans2a_decl00.dats:174) PASS the a2tdf through as
+// `_` and never inspect it — so it is safe at typecheck (the abstract singleton typechecks
+// identically with or without it). We mirror exactly: lower the REP via pylower_typ (a primitive
+// inherits the resolve_typ mitigation; a param resolves via S2ITMvar), wrap A2TDFlteq, and carry
+// it for round-trip. We do NOT bind the (rare) tvs while lowering the REP — the stock corpus reps
+// are CLOSED prelude types (`uint`, `int`, `size_t`); a param-mentioning REP is out of v1 scope
+// (it would degrade to s2exp_none0 via resolve_typ, still benign).
 fun
-build_abstype(env: !tr12env, loc: loctn, name: strn, tvs: list(pcparam), mode: pcmode): d2ecl =
+build_abstype
+( env: !tr12env, loc: loctn, name: strn
+, tvs: list(pcparam), mode: pcmode, repopt: pytypopt): d2ecl =
   let
     val s2t =
       if list_nilq(tvs)
@@ -462,8 +478,12 @@ build_abstype(env: !tr12env, loc: loctn, name: strn, tvs: list(pcparam), mode: p
         else S2Tfun1(mk_type_sorts(tvs), abs_sort_of(mode))
     val s2c = s2cst_make_idst(loc, symbl_make_name(name), s2t)
     val () = tr12env_add1_s2cst(env, s2c)
+    val atdf =
+      ( case+ repopt of
+        | PyTypNone()  => A2TDFsome()
+        | PyTypSome(t) => A2TDFlteq(pylower_typ(env, t)) ): a2tdf
   in
-    d2ecl_make_node(loc, D2Cabstype(s2c, A2TDFsome()))
+    d2ecl_make_node(loc, D2Cabstype(s2c, atdf))
   end
 //
 // build a `D2Cabsimpl` for `assume name = T`: SELECT the already-registered abstract s2cst by
@@ -976,7 +996,7 @@ case+ d of
 //
 // ATS-parity: an `abstype Name [tvs]` OPAQUE type -> a D2Cabstype (no sexp). build_abstype
 // registers the s2cst so later decls (and the `assume`) resolve `Name`. SPIKE-PROVEN.
-| PCCabstype(loc, name, tvs, mode) => build_abstype(env, loc, name, tvs, mode)
+| PCCabstype(loc, name, tvs, mode, repopt) => build_abstype(env, loc, name, tvs, mode, repopt)
 //
 // ATS-parity: an `assume Name = T` representation -> a D2Cabsimpl. build_absimpl selects the
 // already-registered abstract s2cst by name + attaches the lowered representation. SPIKE-PROVEN.

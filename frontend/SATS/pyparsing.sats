@@ -509,9 +509,13 @@ pydecl =
 | PyCenum   of (loctn, list(pydecorator), strn, list(pytyparam), list(pydatacon))   // enum: case suite
 | PyCstruct of (loctn, list(pydecorator), strn, list(pytyparam), list(pyfield))     // struct: field suite
 | PyCtype   of (loctn, list(pydecorator), strn, list(pytyparam), pytyp)             // type: ALIAS ONLY
-//   PyCabstype : `[decorators] abstype Name [typarams]` — an OPAQUE type declaration (ATS-parity).
-//                No `= T` body (opacity); decorators select the box/flat sort (@boxed/none->tbox,
-//                @unboxed->tflt; @linear deferred). M3 lowers it to D2Cabstype(s2cst, A2TDFsome()).
+//   PyCabstype : `[decorators] abstype Name [typarams] [<= REP]` — an OPAQUE type declaration
+//                (ATS-parity). No `= T` body (opacity); decorators select the box/flat sort
+//                (@boxed/none->tbox, @unboxed->tflt; @linear deferred). The OPTIONAL `<= REP`
+//                (TAIL ITEM 1) is the abstract type's REPRESENTATION witness (the stock
+//                `abstype stamp_type <= uint`) — codegen-only / informational (NOT typecheck-
+//                constraining, srcgen2 trans23/trans2a pass it through). M3 lowers it to
+//                D2Cabstype(s2cst, A2TDFsome()) when absent / A2TDFlteq(<lowered REP>) when present.
 //   PyCassume  : `assume Name = T` — gives an abstract type its hidden representation T (ATS-parity).
 //                M3 selects the abstract s2cst by name, lowers T via pylower_typ -> D2Cabsimpl.
 //
@@ -520,7 +524,7 @@ pydecl =
 //   plain `def` (PyCfun): `@extern def` / `@impl def` / `@overload def`. The elaborator inspects the
 //   def's decorators and routes to the SAME PyCore variant they used to (PCCextern / PCCimplement /
 //   PCCoverload), so the PROVEN L2 lowering is reused unchanged.
-| PyCabstype of (loctn, list(pydecorator), strn, list(pytyparam))
+| PyCabstype of (loctn, list(pydecorator), strn, list(pytyparam), pytypopt(*<= REP*))
 | PyCassume  of (loctn, strn, pytyp)
 | PyCexcept of (loctn, strn, list(pytyp))   // exception E(T1,T2): an exception constructor (EXN)
 //   PyCsortdef : `sortdef Name = SORT` — a SORT ALIAS (ATS-parity `sortdef`). Carries the

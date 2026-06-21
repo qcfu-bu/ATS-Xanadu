@@ -66,7 +66,7 @@ case+ d of
 | PCCalias(loc, _, _, _) => loc
 | PCCrecord(loc, _, _, _, _) => loc
 | PCCexcept(loc, _, _) => loc
-| PCCabstype(loc, _, _, _) => loc
+| PCCabstype(loc, _, _, _, _) => loc
 | PCCassume(loc, _, _) => loc
 | PCCextern(loc, _, _, _, _) => loc
 | PCCimplement(loc, _, _, _, _, _, _) => loc | PCCoverload(loc, _, _) => loc

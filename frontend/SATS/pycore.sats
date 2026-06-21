@@ -359,11 +359,15 @@ pcdecl =
 | PCCimport  of (loctn, strn(*resolved XATSHOME-rel .sats path*), sint(*0=static*), bool(*is_python: defer*))
 | PCCalias   of (loctn, strn, list(pcparam), pytyp)
 | PCCrecord  of (loctn, strn, list(pcparam), list(pcfield), pcmode)
-//   PCCabstype : an `abstype Name [tvs]` OPAQUE type declaration (ATS-parity). Carries the
-//                type NAME, its type-param names, and the decorator-selected MODE (@boxed/none->
-//                boxed tbox, @unboxed->flat tflt; @linear deferred -> boxed with a note). M3
-//                lowers it to D2Cabstype(s2cst, A2TDFsome()): an s2cst with NO sexp attached
-//                (opacity holds at typecheck — a distinct singleton). No imperative content.
+//   PCCabstype : an `abstype Name [tvs] [<= REP]` OPAQUE type declaration (ATS-parity). Carries
+//                the type NAME, its type-param names, the decorator-selected MODE (@boxed/none->
+//                boxed tbox, @unboxed->flat tflt; @linear deferred -> boxed with a note), and an
+//                OPTIONAL REPRESENTATION witness `<= REP` (TAIL ITEM 1, the stock
+//                `abstype stamp_type <= uint`). M3 lowers it to D2Cabstype(s2cst, A2TDFsome())
+//                when the rep is absent, or D2Cabstype(s2cst, A2TDFlteq(<lowered REP>)) when
+//                present: an s2cst with NO sexp attached (opacity holds at typecheck — a distinct
+//                singleton). The `<= REP` is codegen-only / informational (NOT typecheck-
+//                constraining — srcgen2 trans23/trans2a pass it through). No imperative content.
 //   PCCassume  : an `assume Name = T` representation (ATS-parity). Carries the abstract type's
 //                NAME + the concrete representation SURFACE type. M3 SELECTS the already-
 //                registered abstract s2cst by name (tr12env_find_s2itm -> SIMPLone1), lowers
@@ -372,7 +376,7 @@ pcdecl =
 //                the fun NAME, its param names + OPTIONAL types (parallel lists, M5a-style), and
 //                the OPTIONAL return type. M3 builds the function type, makes a d2cst, REGISTERS
 //                it (so calls resolve), and emits D2Cextern(tok, D2Cdynconst(...)). No body.
-| PCCabstype of (loctn, strn, list(pcparam), pcmode)
+| PCCabstype of (loctn, strn, list(pcparam), pcmode, pytypopt(*<= REP*))
 | PCCassume  of (loctn, strn, pytyp)
 | PCCextern  of (loctn, strn, list(strn), list(pytypopt), pytypopt)
 //   PCCimplement : an `implement NAME(params) [-> Ret]: <body>` body for a pre-declared function

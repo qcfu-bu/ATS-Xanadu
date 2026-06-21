@@ -429,11 +429,13 @@ case+ d of
     // §5.7 — a `type X = T` alias -> a PCCalias (M5b.5). M3 lowers `T` via pylower_typ and
     // builds the D2Csexpdef. tvs are monomorphic for now (a non-empty list is M5c).
     list_sing(PCCalias(loc, nm, elab_typarams(tps), aliasTyp))
-| PyCabstype(loc, decos, nm, tps) =>
-    // ATS-parity: `abstype Name [tvs]` -> a PCCabstype. The decorator selects the memory/repr
-    // MODE (@boxed/none->boxed tbox, @unboxed->flat tflt; @linear deferred -> boxed at lowering).
+| PyCabstype(loc, decos, nm, tps, repopt) =>
+    // ATS-parity: `abstype Name [tvs] [<= REP]` -> a PCCabstype. The decorator selects the
+    // memory/repr MODE (@boxed/none->boxed tbox, @unboxed->flat tflt; @linear deferred -> boxed at
+    // lowering). The OPTIONAL `<= REP` representation witness (TAIL ITEM 1) threads through as a
+    // raw surface pytypopt — M3's build_abstype lowers it to A2TDFlteq (codegen-only / informational).
     // No imperative content (opacity is a static fact). M3 builds the OPAQUE s2cst (no sexp).
-    list_sing(PCCabstype(loc, nm, elab_typarams(tps), mode_of_decos(decos)))
+    list_sing(PCCabstype(loc, nm, elab_typarams(tps), mode_of_decos(decos), repopt))
 | PyCassume(loc, nm, repTyp) =>
     // ATS-parity: `assume Name = T` -> a PCCassume carrying the abstract type's NAME + the raw
     // representation surface type. M3 selects the registered abstract s2cst by name + lowers T.

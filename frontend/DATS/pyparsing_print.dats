@@ -505,10 +505,11 @@ case+ d of
     pp_decolst(out, decos);
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
     ps(out, " (alias "); pp_typ(out, t); ps(out, ")"); ps(out, ")") )
-| PyCabstype(loc, decos, nm, tvs) =>
+| PyCabstype(loc, decos, nm, tvs, repopt) =>
   ( ps(out, "(abstype "); ps(out, nm); print_span(out, loc);
     pp_decolst(out, decos);
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
+    ( case+ repopt of PyTypNone() => () | PyTypSome(t) => (ps(out, " <= "); pp_typ(out, t)) );
     ps(out, ")") )
 | PyCassume(loc, nm, t) =>
   ( ps(out, "(assume "); ps(out, nm); print_span(out, loc);

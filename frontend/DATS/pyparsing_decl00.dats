@@ -407,12 +407,21 @@ p_typedecl(st: pstate, decos: list(pydecorator)): @(pydecl, pstate) = let
       | PT_UIDENT(s) => @(s, ps_advance(st1))
       | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a type name (uppercase)")) )
 in
-  // @abstract type Foo [tvs] — an OPAQUE type; NO `= rhs` body (opacity is the point). The mode
-  // decorators (@unboxed) ride in `decos`; the elaborator's mode_of_decos selects box/flat. Parse
-  // the typarams and STOP (no `=`): PyCabstype, exactly the old `abstype` node.
+  // @abstract type Foo [tvs] [<= REP] — an OPAQUE type; NO `= rhs` body (opacity is the point).
+  // The mode decorators (@unboxed) ride in `decos`; the elaborator's mode_of_decos selects
+  // box/flat. Parse the typarams, then OPTIONALLY a `<= REP` REPRESENTATION witness (TAIL ITEM 1,
+  // the stock `abstype stamp_type <= uint`): if the next token is `<=` (PT_LTE), parse the REP
+  // type and carry it as PyTypSome; otherwise PyTypNone. PyCabstype, the `abstype` node + rep slot.
   if decos_has_p(decos, "abstract") then
-    let val @(tvs, st3) = p_typarams(st2) in
-      @(PyCabstype(loc, decos, nm, tvs), st3) end
+    let
+      val @(tvs, st3) = p_typarams(st2)
+      val @(repopt, st4) =
+        ( case+ ps_peek(st3) of
+          | PT_LTE() =>
+            let val @(rt, stR) = parse_type(ps_advance(st3)) in @(PyTypSome(rt), stR) end
+          | _ => @(PyTypNone(), st3) ): @(pytypopt, pstate)
+    in
+      @(PyCabstype(loc, decos, nm, tvs, repopt), st4) end
   // @sort type Nat = <rhs> — a SORT declaration. The RHS is EITHER:
   //   * a sort-reference UIDENT (`SInt`/`Type`/...)        -> PyCsortdef (the old `sortdef` alias), OR
   //   * A-QUANT: a SUBSET `{ a: SInt | a >= 0 }`           -> PyCsortsub (the refined sortdef).

@@ -90,7 +90,16 @@ backlog by what ACTUALLY broke (speculation was mis-ordered):
 2. **`#symload NAME with FN [of prec]`** — the overload-ALIAS form (2012× corpus-wide). Our `@overload`
    only marks the def being defined; it can't re-export an existing fn under a new overloaded name. 🔴 REAL P1 GAP.
 3. **Import crash-safety** — `import`/`from` throws an uncaught `ENOENT` on a missing target. 🔴 correctness bug.
-4. Lower: abstract-rep bound `<= uint`, `$`-names (`foo$bar`) + qualified `$M.x`, `#define`-as-const, `#include` splice.
+4. P1-TAIL verdicts (closed 2026-06-21): **abstract-rep bound `<= REP`** → WIRED (`@abstract type T <= REP`
+   → `A2TDFlteq`; informational at typecheck). **`#define`-const** → already covered by plain `let NAME =
+   value` (every corpus `#define` use is dynamic). **`$`-in-ident `foo$bar`** → pretty-printer renders
+   **Koka-style `name1/name2`** (`$`→`/`; DECIDED 2026-06-21) — collision-SAFE (unlike `$`→`_`, which
+   clobbers existing `_`-names like `strm_print$len` vs `strm_print_len`); lexer must accept `/` in a
+   qualified-ident position (division then requires surrounding spaces). **qualified `$M.x`** → pretty-printer
+   drops the `$M.` qualifier, emits the BARE name (resolved via the `import`-registered `$.` fall-through);
+   named-alias qualification deferred (unneeded for corpus). **`#include`** → map to `import`/staload (sealed
+   load covers the corpus's `.hats` glue); a true textual splice is deferred driver work. Items 3/4/5 are
+   P2-pretty-printer concerns, not parser work.
 - Deprioritized by reality: fixity, `where`/`local`, tuple/record variants did NOT appear in the interface file.
 - Confirmed-covered (better than feared): parametric abstract types, bodyless `val` sigs, sort-quant params,
   linear result types, flat-tuple type args.

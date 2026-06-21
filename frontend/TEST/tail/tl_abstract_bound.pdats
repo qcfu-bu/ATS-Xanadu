@@ -1,0 +1,24 @@
+# TAIL ITEM 1 — abstract-type REPRESENTATION bound `<= REP`.
+#
+# Corpus pattern (recon-confirmed, e.g. srcgen2/SATS/xstamp0.sats):
+#   abstype stamp_type <= uint
+# declares an OPAQUE abstract type WITH a representation witness (`stamp` is rep'd as `uint`).
+# The `<= REP` is CODEGEN-ONLY / informational at typecheck: stock f0_abstype carries it ONLY in
+# the D2Cabstype node's second field (A2TDFlteq), never installing a subtype relation on the
+# s2cst; trans23/trans2a pass the a2tdf through as `_` and never inspect it (investigation-proven).
+#
+# Our `@abstract type NAME <= REP` now parses the optional `<= REP`, threads it through PyAST ->
+# PyCore -> build_abstype, and lowers to D2Cabstype(s2cst, A2TDFlteq(<lowered REP>)). Opacity at
+# typecheck is UNCHANGED (the abstract singleton typechecks identically with or without the rep),
+# so this fixture must reach nerror=0.
+#
+# This fixture: an abstract type `Stamp` with a representation bound `<= Int`, an `@extern` foreign
+# constructor producing a `Stamp`, and a use that typechecks against the opaque `Stamp` type.
+
+@abstract type Stamp <= Int
+
+@extern
+def stamp_make(x: Int) -> Stamp
+
+def use_stamp(n: Int) -> Stamp:
+    stamp_make(n)
