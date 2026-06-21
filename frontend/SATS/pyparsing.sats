@@ -232,6 +232,12 @@ pylit =
 //   PyElam   : a lambda `params => body` — inline OR block body (§2). The body is a
 //              SUITE (a pystmt list) carrying its own tail value; an inline body is a
 //              single expr-stmt suite. Params are `pyparam`s.
+//              M7-closures: the `bool` is the `@func` FLAG (true = the surface lambda was
+//              prefixed with `@func`). The surface default (`false`) is a CAPTURING first-
+//              class closure (uniform cloref). `@func` (true) opts the lambda into being
+//              NON-capturing, ENFORCED by the elaborator's free-variable/capture check (a
+//              `@func` lambda that references an enclosing FUNCTION-LOCAL is an error). The
+//              flag is a CHECK gate + a recorded codegen hint — it is NOT a type distinction.
 //   PyEann   : `e : T` — an annotated expression.
 //   PyEerror : an expression we could not parse (recovery).
 //
@@ -251,7 +257,7 @@ pyexp =
 | PyErec   of (loctn, list(pyefield))
 | PyEfield of (loctn, pyexp, strn)
 | PyEindex of (loctn, pyexp, pyexp)
-| PyElam   of (loctn, list(pyparam), list(pystmt))
+| PyElam   of (loctn, bool(*@func*), list(pyparam), list(pystmt))
 | PyEann   of (loctn, pyexp, pytyp)
 | PyEerror of (loctn, strn)
 //

@@ -32,7 +32,7 @@ pcexp_loctn(e) =
 case+ e of
 | PCElit(loc, _) => loc       | PCEvar(loc, _) => loc
 | PCEcon(loc, _) => loc       | PCEapp(loc, _, _) => loc
-| PCElam(loc, _, _, _) => loc | PCElet(loc, _, _, _, _) => loc
+| PCElam(loc, _, _, _, _) => loc | PCElet(loc, _, _, _, _) => loc
 | PCEletfun(loc, _, _) => loc | PCEif(loc, _, _, _) => loc
 | PCEcase(loc, _, _) => loc   | PCEtup(loc, _) => loc
 | PCErec(loc, _) => loc       | PCElist(loc, _) => loc

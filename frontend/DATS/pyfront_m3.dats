@@ -61,6 +61,28 @@
 //
 (* ****** ****** *)
 //
+// M7-closures: print the PyCore ELABORATION diagnostics (parse + poison-node messages, incl. the
+// @func capture check) to stderr, each on its surface span. Without this the driver dropped the
+// module's `pcdiaglst` (it only printed the L2 f3perr0 errcks), so a capture's name + span were
+// invisible. Each PCEerror poison still independently errcks at tread3a (nerror>0).
+fun
+pyfront_print_elab_diags(diags: list(pcdiag)): void = let
+  val out = g_stderr()
+  fun loop(out: FILR, gs: list(pcdiag)): void =
+    ( case+ gs of
+      | list_nil() => ()
+      | list_cons(g, rest) =>
+          ( strn_fprint("[elab-diag] ", out); pcdiag_fprint(out, g); strn_fprint("\n", out);
+            loop(out, rest) ) )
+in
+  case+ diags of
+  | list_nil() => ()
+  | _ => ( strn_fprint("[m3] -- elaboration diagnostics (parse + @func capture check, stderr) --\n", out);
+           loop(out, diags) )
+end
+//
+(* ****** ****** *)
+//
 // ---- the pipeline -----------------------------------------------------------
 //
 #implfun
@@ -70,7 +92,13 @@ pyfront_d2parsed_of_fpath(stadyn, src, text) = let
   val ast  = pyparse_module(src, text)
   val core = pyelab_module(ast)
   //
-  val+ PCModule(decls, _diags) = core
+  val+ PCModule(decls, elab_diags) = core
+  //
+  // M7-closures: surface the ELABORATION diagnostics (parse + poison-node messages, incl. the
+  // @func capture check) to stderr ON THE .pdats SPAN. These are distinct from the L2 f3perr0
+  // errcks printed later: a capture is reported HERE with its name + span, AND its poison node
+  // lowers to a none-node so tread3a also errcks it (nerror>0). Previously these were dropped.
+  val () = pyfront_print_elab_diags(elab_diags)
   //
   // lower : a FRESH tr12env (prelude fall-through), lower the decl list, free the top env.
   val env = tr12env_make_nil()

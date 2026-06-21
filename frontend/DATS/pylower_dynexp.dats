@@ -407,7 +407,11 @@ case+ e of
 // body, pop. M5a: a param carrying a surface type annotation lowers to an ANNOTATED binder
 // (D2Pannot) so its type is respected (e.g. the for-fold's typed accumulator param). The
 // type list is built BEFORE the param scope is pushed (it resolves type names in the env).
-| PCElam(loc, params, ptypes, body) => let
+// M7-closures: the `_is_func` flag is a RECORDED HINT only — it does NOT change the L2
+// closure-kind here (the spike showed F2CLfun is inferred from context, and an escaping
+// capturing cloref already typechecks). The frontend capture CHECK runs in the elaborator
+// (el_exp's PyElam case); by the time we lower, a @func lambda has already passed it.
+| PCElam(loc, _is_func, params, ptypes, body) => let
     val f2as = pl_params_typed(env, loc, params, ptypes)
     val () = tr12env_pshlam0(env)
     val () = tr12env_add0_f2arglst(env, f2as)
@@ -515,8 +519,15 @@ case+ e of
 // PCEunit : () -> the empty tuple D2Etup0(-1, []).
 | PCEunit(loc) => d2exp_make_node(loc, D2Etup0((-1), list_nil()))
 //
-// PCEerror : an elaboration poison node — surface it as a none-node (recovery).
-| PCEerror(loc, _) => d2exp_none0(loc)
+// PCEerror : an elaboration poison node — surface it as a none-node that SURVIVES to tread3a
+// (so the elaboration error actually FAILS the typecheck, nerror>0). A bare d2exp_none0 gets
+// `void`-stamped by trans2a and then unified AWAY (the M4-recovery HARD LESSON; #13a) — so a
+// poison whose surrounding context happens to typecheck (e.g. a @func capture, where the
+// captured var IS bound) would slip through with nerror=0. The d2exp_none1(D1Eid0(sym)) form is
+// IMMUNE: trans2a never rewrites it, it falls through to D2Enone2 -> D3Enone1, and tread3a's
+// `_(*otherwise*)` COUNTS it (err+1) on the poison's span — exactly the #13a unbound-name path.
+| PCEerror(loc, _) =>
+    d2exp_none1(d1exp_make_node(loc, D1Eid0(symbl_make_name("@elab-error"))))
 //
 )
 //

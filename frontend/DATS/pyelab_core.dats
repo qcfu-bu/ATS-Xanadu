@@ -250,48 +250,277 @@ case+ ps0 of
 //
 (* ****** ****** *)
 //
+// ============================================================================
+//  M7-closures: the `@func` CAPTURE CHECK (free-variable / scope analysis).
+//
+//  The surface default is "uniform cloref": every lambda is a CAPTURING first-class
+//  closure (F2CLfun / CXFREF) and may freely reference enclosing locals — no check.
+//  `@func` opts a lambda into being NON-capturing, ENFORCED here: a `@func (params) =>
+//  body` lambda may reference ONLY (a) its own params + names bound INSIDE its body,
+//  and (b) module-level / global / imported / prelude names. It may NOT reference a
+//  variable bound by an ENCLOSING function or lambda (a "captured local") — that is an
+//  error.
+//
+//  The analysis is over the PyAST. We thread `encl` — the set of ENCLOSING FUNCTION-
+//  LOCAL bindings (a def/lambda's params + `let`s bound inside a function body) — down
+//  through `el_exp`. Module-level `def`/`let`/`import` names never enter `encl`
+//  (referencing them from a @func lambda is fine). At a `@func` lambda we compute:
+//
+//    FV(body)  = (LIDENTs referenced in body)
+//                  \ (the lambda's own params + names bound by inner lets/binders)
+//    CAPTURES  = FV(body) ∩ encl
+//
+//  Each captured name yields a PCEerror poison on the lambda's span (harvested into the
+//  diagnostics AND lowered to a none-node so tread3a errcks -> nerror>0). A non-capturing
+//  @func lambda passes clean; a NON-@func lambda is NEVER checked.
+//
+//  EDGE CASES handled: nested @func lambdas (each checked against the locals visible AT
+//  it; an inner lambda's own params are bound for it but ARE enclosing-locals for a
+//  deeper lambda); inner `let`/`for`-pattern/nested-`def`-param binders subtracted from
+//  FV; module-level + imported + prelude refs pass (they are not in `encl`); `match`
+//  arm pattern binders + `as`-patterns + guards handled.
+// ============================================================================
+//
+// the LIDENT binder names introduced by a pattern (var, tuple, con-args, record fields,
+// `as`-name, annotated inner) — used both to SUBTRACT a lambda's bound names from its FV
+// and to EXTEND `encl` when descending past a binding.
+fun
+fc_pat_names(s: nameset, p: pypat): nameset =
+(
+case+ p of
+| PyPvar(_, nm)     => nameset_add(s, nm)
+| PyPwild(_)        => s
+| PyPcon(_, _, args) => fc_pat_names_lst(s, args)
+| PyPtup(_, ps0)    => fc_pat_names_lst(s, ps0)
+| PyPrec(_, fs)     => fc_pfield_names(s, fs)
+| PyPlit(_, _)      => s
+| PyPas(_, p1, nm)  => nameset_add(fc_pat_names(s, p1), nm)
+| PyPann(_, p1, _)  => fc_pat_names(s, p1)
+| PyPerror(_, _)    => s
+)
+and
+fc_pat_names_lst(s: nameset, ps0: list(pypat)): nameset =
+(
+case+ ps0 of
+| list_nil() => s
+| list_cons(p, rest) => fc_pat_names_lst(fc_pat_names(s, p), rest)
+)
+and
+fc_pfield_names(s: nameset, fs: list(pypfield)): nameset =
+(
+case+ fs of
+| list_nil() => s
+| list_cons(PyPField(_, _, p), rest) => fc_pfield_names(fc_pat_names(s, p), rest)
+)
+//
+// the param-name set of a lambda/def parameter list.
+fun
+fc_param_names(s: nameset, ps0: list(pyparam)): nameset =
+(
+case+ ps0 of
+| list_nil() => s
+| list_cons(PyParam(_, nm, _), rest) => fc_param_names(nameset_add(s, nm), rest)
+)
+//
+// FREE VARIABLES of an expression, given the set `bnd` of names bound at this point
+// (the lambda's own params + already-seen inner binders). A bare LIDENT NOT in `bnd` is
+// free. UIDENT constructors are not vars. Nested lambdas extend `bnd` with their params.
+fun
+fc_fv_exp(bnd: nameset, fv: nameset, e: pyexp): nameset =
+(
+case+ e of
+| PyEvar(_, nm)   => if nameset_mem(bnd, nm) then fv else nameset_add(fv, nm)
+| PyEcon(_, _)    => fv
+| PyElit(_, _)    => fv
+| PyEwild(_)      => fv
+| PyEapp(_, hd, args) => fc_fv_explst(bnd, fc_fv_exp(bnd, fv, hd), args)
+| PyEbin(_, _, l, r)  => fc_fv_exp(bnd, fc_fv_exp(bnd, fv, l), r)
+| PyEuna(_, _, e1)    => fc_fv_exp(bnd, fv, e1)
+| PyEif(_, gs, els)   => fc_fv_exp(bnd, fc_fv_guards(bnd, fv, gs), els)
+| PyEmatch(_, scrut, arms) => fc_fv_arms(bnd, fc_fv_exp(bnd, fv, scrut), arms)
+| PyEtup(_, es)   => fc_fv_explst(bnd, fv, es)
+| PyElist(_, es)  => fc_fv_explst(bnd, fv, es)
+| PyErec(_, fs)   => fc_fv_efields(bnd, fv, fs)
+| PyEfield(_, e1, _) => fc_fv_exp(bnd, fv, e1)
+| PyEindex(_, e1, ix) => fc_fv_exp(bnd, fc_fv_exp(bnd, fv, e1), ix)
+| PyElam(_, _, params, body) =>
+    // a nested lambda: its params are bound WITHIN its body; collect its body's FV.
+    fc_fv_stmts(fc_param_names(bnd, params), fv, body)
+| PyEann(_, e1, _) => fc_fv_exp(bnd, fv, e1)
+| PyEerror(_, _)  => fv
+)
+and
+fc_fv_explst(bnd: nameset, fv: nameset, es: list(pyexp)): nameset =
+(
+case+ es of
+| list_nil() => fv
+| list_cons(e, rest) => fc_fv_explst(bnd, fc_fv_exp(bnd, fv, e), rest)
+)
+and
+fc_fv_efields(bnd: nameset, fv: nameset, fs: list(pyefield)): nameset =
+(
+case+ fs of
+| list_nil() => fv
+| list_cons(PyEField(_, _, e), rest) => fc_fv_efields(bnd, fc_fv_exp(bnd, fv, e), rest)
+)
+and
+fc_fv_guards(bnd: nameset, fv: nameset, gs: list(pyguard)): nameset =
+(
+case+ gs of
+| list_nil() => fv
+| list_cons(PyGuard(_, c, body), rest) =>
+    fc_fv_guards(bnd, fc_fv_stmts(bnd, fc_fv_exp(bnd, fv, c), body), rest)
+)
+and
+fc_fv_arms(bnd: nameset, fv: nameset, arms: list(pyarm)): nameset =
+(
+case+ arms of
+| list_nil() => fv
+| list_cons(PyArm(_, p, gopt, body), rest) =>
+    let
+      // the arm's pattern binds names visible in its guard + body.
+      val bnd1 = fc_pat_names(bnd, p)
+      val fv1  = (case+ gopt of PyExpNone() => fv | PyExpSome(g) => fc_fv_exp(bnd1, fv, g))
+      val fv2  = fc_fv_stmts(bnd1, fv1, body)
+    in
+      fc_fv_arms(bnd, fv2, rest)
+    end
+)
+// FV of a STATEMENT SUITE: a `let`/`for`-pattern/inner-`def`-name binder extends `bnd`
+// for the REST of the suite (Python-ish: a binding is visible to later statements).
+and
+fc_fv_stmts(bnd: nameset, fv: nameset, ss: list(pystmt)): nameset =
+(
+case+ ss of
+| list_nil() => fv
+| list_cons(s, rest) =>
+  (
+  case+ s of
+  | PyDlet(_, _, p, _, rhs) =>
+      // RHS sees the OLD bnd; later stmts see the binder.
+      fc_fv_stmts(fc_pat_names(bnd, p), fc_fv_exp(bnd, fv, rhs), rest)
+  | PySreassign(_, lv, rhs) =>
+      // lvalue + rhs both referenced under the current bnd (a reassign does not bind a NEW name).
+      fc_fv_stmts(bnd, fc_fv_exp(bnd, fc_fv_exp(bnd, fv, lv), rhs), rest)
+  | PySexpr(_, e) => fc_fv_stmts(bnd, fc_fv_exp(bnd, fv, e), rest)
+  | PySif(_, gs, els) =>
+      fc_fv_stmts(bnd, fc_fv_else(bnd, fc_fv_guards(bnd, fv, gs), els), rest)
+  | PySwhile(_, c, body, els) =>
+      fc_fv_stmts(bnd,
+        fc_fv_else(bnd, fc_fv_stmts(bnd, fc_fv_exp(bnd, fv, c), body), els), rest)
+  | PySfor(_, p, iter, body, els) =>
+      // the loop pattern binds inside the body; the iterable sees the OLD bnd.
+      let val bnd1 = fc_pat_names(bnd, p) in
+        fc_fv_stmts(bnd,
+          fc_fv_else(bnd1, fc_fv_stmts(bnd1, fc_fv_exp(bnd, fv, iter), body), els), rest)
+      end
+  | PySreturn(_, eopt) =>
+      (case+ eopt of
+       | PyExpNone() => fc_fv_stmts(bnd, fv, rest)
+       | PyExpSome(e) => fc_fv_stmts(bnd, fc_fv_exp(bnd, fv, e), rest))
+  | PySblock(_, body) => fc_fv_stmts(bnd, fc_fv_stmts(bnd, fv, body), rest)
+  | PySdecl(_, d) =>
+      // an inner `def` binds its NAME for later stmts; its body's FV are collected with its
+      // own params bound (its params are NOT free in the enclosing scope).
+      (case+ d of
+       | PyCfun(_, nm, _, params, _, fbody) =>
+           let val fv1 = fc_fv_stmts(fc_param_names(bnd, params), fv, fbody) in
+             fc_fv_stmts(nameset_add(bnd, nm), fv1, rest) end
+       | _ => fc_fv_stmts(bnd, fv, rest))
+  | PySbreak(_) => fc_fv_stmts(bnd, fv, rest)
+  | PyScontinue(_) => fc_fv_stmts(bnd, fv, rest)
+  | PySerror(_, _) => fc_fv_stmts(bnd, fv, rest)
+  )
+)
+and
+fc_fv_else(bnd: nameset, fv: nameset, els: pystmtlstopt): nameset =
+(
+case+ els of
+| PyElseNone() => fv
+| PyElseSome(body) => fc_fv_stmts(bnd, fv, body)
+)
+//
+// intersect the lambda's FREE vars with the enclosing locals -> the CAPTURED names.
+fun
+fc_captures(loc: loctn, params: list(pyparam), body: list(pystmt), encl: nameset): nameset =
+let
+  val bnd = fc_param_names(list_nil(), params)
+  val fv  = fc_fv_stmts(bnd, list_nil(), body)
+in
+  nameset_inter(fv, encl)
+end
+//
+// build a poison-node chain naming each captured local; nil captures -> the clean inner exp.
+fun
+fc_poison(loc: loctn, caps: nameset, inner: pcexp): pcexp =
+(
+case+ caps of
+| list_nil() => inner
+| list_cons(nm, rest) =>
+    PCEseq(loc,
+      PCEerror(loc, strn_append(
+        strn_append("@func lambda captures local `", nm),
+        "` (a @func lambda may not capture enclosing locals)")),
+      fc_poison(loc, rest, inner))
+)
+//
+(* ****** ****** *)
+//
 // ---- EXPRESSION elaboration (mutually recursive: exp -> func_body -> pure -> exp) ----
+//   `encl` = the set of ENCLOSING FUNCTION-LOCAL names in scope (M7-closures capture check).
 //
 fun
-el_exp(e: pyexp): pcexp =
+el_exp(encl: nameset, e: pyexp): pcexp =
 (
 case+ e of
 | PyEvar(loc, nm) => PCEvar(loc, nm)
 | PyEcon(loc, nm) => PCEcon(loc, nm)
 | PyElit(loc, lit) => PCElit(loc, el_lit(lit))
 | PyEwild(loc) => PCEunit(loc)
-| PyEapp(loc, hd, args) => PCEapp(loc, el_exp(hd), el_explst(args))
-| PyEbin(loc, b, l, r) => el_binop(loc, b, l, r)
-| PyEuna(loc, u, e1) => el_unop(loc, u, e1)
-| PyEif(loc, gs, els) => el_eguards(gs, el_exp(els))
-| PyEmatch(loc, scrut, arms) => PCEcase(loc, el_exp(scrut), el_arms(arms))
-| PyEtup(loc, es) => PCEtup(loc, el_explst(es))
-| PyElist(loc, es) => PCElist(loc, el_explst(es))
-| PyErec(loc, fs) => PCErec(loc, el_efields(fs))
-| PyEfield(loc, e1, nm) => PCEfield(loc, el_exp(e1), nm)
+| PyEapp(loc, hd, args) => PCEapp(loc, el_exp(encl, hd), el_explst(encl, args))
+| PyEbin(loc, b, l, r) => el_binop(encl, loc, b, l, r)
+| PyEuna(loc, u, e1) => el_unop(encl, loc, u, e1)
+| PyEif(loc, gs, els) => el_eguards(encl, gs, el_exp(encl, els))
+| PyEmatch(loc, scrut, arms) => PCEcase(loc, el_exp(encl, scrut), el_arms(encl, arms))
+| PyEtup(loc, es) => PCEtup(loc, el_explst(encl, es))
+| PyElist(loc, es) => PCElist(loc, el_explst(encl, es))
+| PyErec(loc, fs) => PCErec(loc, el_efields(encl, fs))
+| PyEfield(loc, e1, nm) => PCEfield(loc, el_exp(encl, e1), nm)
 | PyEindex(loc, e1, ix) =>
-    PCEapp(loc, PCEvar(loc, "[]"), list_cons(el_exp(e1), list_sing(el_exp(ix))))
-| PyElam(loc, params, body) =>
-    PCElam(loc, el_param_names(params), el_param_types(params), el_func_body(loc, body))
-| PyEann(_, e1, _) => el_exp(e1)
+    PCEapp(loc, PCEvar(loc, "[]"), list_cons(el_exp(encl, e1), list_sing(el_exp(encl, ix))))
+| PyElam(loc, is_func, params, body) =>
+    // M7-closures: the lambda's own params are bound IN its body (and are enclosing-locals
+    // for any DEEPER lambda). If @func, check captures against the CURRENT `encl` and wrap a
+    // poison-node chain naming each captured local (else the clean lambda).
+    let
+      val encl_inner = fc_param_names(encl, params)
+      val lamexp =
+        PCElam(loc, is_func, el_param_names(params), el_param_types(params),
+               el_func_body(encl_inner, loc, body))
+    in
+      if is_func
+        then fc_poison(loc, fc_captures(loc, params, body, encl), lamexp)
+        else lamexp
+    end
+| PyEann(_, e1, _) => el_exp(encl, e1)
 | PyEerror(loc, msg) => PCEerror(loc, msg)
 )
 //
 and
-el_explst(es: list(pyexp)): list(pcexp) =
+el_explst(encl: nameset, es: list(pyexp)): list(pcexp) =
 (
 case+ es of
 | list_nil() => list_nil()
-| list_cons(e, rest) => list_cons(el_exp(e), el_explst(rest))
+| list_cons(e, rest) => list_cons(el_exp(encl, e), el_explst(encl, rest))
 )
 //
 and
-el_efields(fs: list(pyefield)): list(pcefield) =
+el_efields(encl: nameset, fs: list(pyefield)): list(pcefield) =
 (
 case+ fs of
 | list_nil() => list_nil()
 | list_cons(PyEField(loc, nm, e), rest) =>
-    list_cons(PCEField(loc, nm, el_exp(e)), el_efields(rest))
+    list_cons(PCEField(loc, nm, el_exp(encl, e)), el_efields(encl, rest))
 )
 //
 and
@@ -313,90 +542,97 @@ case+ ps0 of
 )
 //
 and
-el_binop(loc: loctn, b: pybop, l: pyexp, r: pyexp): pcexp =
+el_binop(encl: nameset, loc: loctn, b: pybop, l: pyexp, r: pyexp): pcexp =
 (
 case+ b of
-| PyBand() => PCEif(loc, el_exp(l), el_exp(r), PCElit(loc, PCLbool(loc, false)))
-| PyBor()  => PCEif(loc, el_exp(l), PCElit(loc, PCLbool(loc, true)), el_exp(r))
-| _ => PCEapp(loc, PCEvar(loc, bop_sym(b)), list_cons(el_exp(l), list_sing(el_exp(r))))
+| PyBand() => PCEif(loc, el_exp(encl, l), el_exp(encl, r), PCElit(loc, PCLbool(loc, false)))
+| PyBor()  => PCEif(loc, el_exp(encl, l), PCElit(loc, PCLbool(loc, true)), el_exp(encl, r))
+| _ => PCEapp(loc, PCEvar(loc, bop_sym(b)), list_cons(el_exp(encl, l), list_sing(el_exp(encl, r))))
 )
 //
 and
-el_unop(loc: loctn, u: pyuop, e1: pyexp): pcexp =
+el_unop(encl: nameset, loc: loctn, u: pyuop, e1: pyexp): pcexp =
 (
 case+ u of
-| PyUnot() => PCEif(loc, el_exp(e1), PCElit(loc, PCLbool(loc, false)), PCElit(loc, PCLbool(loc, true)))
-| _ => PCEapp(loc, PCEvar(loc, uop_sym(u)), list_sing(el_exp(e1)))
+| PyUnot() => PCEif(loc, el_exp(encl, e1), PCElit(loc, PCLbool(loc, false)), PCElit(loc, PCLbool(loc, true)))
+| _ => PCEapp(loc, PCEvar(loc, uop_sym(u)), list_sing(el_exp(encl, e1)))
 )
 //
 and
-el_eguards(gs: list(pyguard), els: pcexp): pcexp =
+el_eguards(encl: nameset, gs: list(pyguard), els: pcexp): pcexp =
 (
 case+ gs of
 | list_nil() => els
 | list_cons(PyGuard(loc, c, body), rest) =>
-    PCEif(loc, el_exp(c), el_func_body(loc, body), el_eguards(rest, els))
+    PCEif(loc, el_exp(encl, c), el_func_body(encl, loc, body), el_eguards(encl, rest, els))
 )
 //
 and
-el_arms(arms: list(pyarm)): list(pcarm) =
+el_arms(encl: nameset, arms: list(pyarm)): list(pcarm) =
 (
 case+ arms of
 | list_nil() => list_nil()
 | list_cons(PyArm(loc, p, gopt, body), rest) =>
   let
     val pc_p = el_pat(p)
-    val pc_body = el_func_body(loc, body)
+    // M7-closures: the arm pattern's binders are FUNCTION-LOCALS in the guard + body (a @func
+    // lambda there may not capture them — but it CAN use them, since they bind INSIDE itself
+    // only via FV-subtraction; here they enter `encl` for any DEEPER lambda).
+    val encl1 = fc_pat_names(encl, p)
+    val pc_body = el_func_body(encl1, loc, body)
     // architect ruling (iv): PRESERVE the surface guard — elaborate it and attach it to
     // the arm. Do NOT desugar to an inner `if` (a failed guard must fall through to the
     // NEXT arm; M4 lowers it to ATS's native guarded clause).
     val pc_g =
       (case+ gopt of
        | PyExpNone()   => PCEGNone()
-       | PyExpSome(g)  => PCEGSome(el_exp(g)))
+       | PyExpSome(g)  => PCEGSome(el_exp(encl1, g)))
   in
-    list_cons(PCArm(loc, pc_p, pc_g, pc_body), el_arms(rest))
+    list_cons(PCArm(loc, pc_p, pc_g, pc_body), el_arms(encl, rest))
   end
 )
 //
-// §5.4 function/branch-body epilogue.
+// §5.4 function/branch-body epilogue. `encl` = enclosing function-locals in scope here.
 and
-el_func_body(loc: loctn, body: list(pystmt)): pcexp =
+el_func_body(encl: nameset, loc: loctn, body: list(pystmt)): pcexp =
 let
   val fl = el_flags_stmts(body)
 in
   if ~(fl.0)  // no return: control-pure body — fast path with the tail value.
-    then el_pure(body, list_nil(), list_nil(), el_suite_tail(loc, body))
+    then el_pure(encl, body, list_nil(), list_nil(), el_suite_tail(encl, loc, body))
   else // may return: flow mode (no accumulators) + the §5.4 epilogue match.
     let
-      val flowexp = elab_flow(body, list_nil(), list_nil(), list_nil())
+      val flowexp = elab_flow(encl, body, list_nil(), list_nil(), list_nil())
       val a_ret =
         PCArm(el_dloc0(), PCPcon(el_dloc0(), "flow_return", list_sing(PCPvar(el_dloc0(), "r"))),
               PCEGNone(), PCEvar(el_dloc0(), "r"))
       val a_next =
         PCArm(el_dloc0(), PCPcon(el_dloc0(), "flow_next", list_sing(PCPwild(el_dloc0()))),
-              PCEGNone(), el_suite_tail(loc, body))
+              PCEGNone(), el_suite_tail(encl, loc, body))
     in
       PCEcase(loc, flowexp, list_cons(a_ret, list_sing(a_next)))
     end
 end
 //
 and
-el_suite_tail(loc: loctn, body: list(pystmt)): pcexp =
+el_suite_tail(encl: nameset, loc: loctn, body: list(pystmt)): pcexp =
 (
 case+ body of
 | list_nil() => PCEunit(loc)
 | list_cons(s, list_nil()) =>
-    (case+ s of PySexpr(_, e) => el_exp(e) | _ => PCEunit(pystmt_loctn(s)))
-| list_cons(_, rest) => el_suite_tail(loc, rest)
+    (case+ s of PySexpr(_, e) => el_exp(encl, e) | _ => PCEunit(pystmt_loctn(s)))
+| list_cons(_, rest) => el_suite_tail(encl, loc, rest)
 )
 //
 (* ****** ****** *)
 //
 // ---- §5.1 control-pure fast path --------------------------------------------
 //
+// M7-closures: `encl` carries the enclosing function-locals visible at this point; a `let`/
+// `for`-pattern/inner-`def`-name binder EXTENDS it for the REST of the suite, so a later @func
+// lambda that references such a binder is caught as a capture.
 and
-el_pure(ss: list(pystmt), muts: nameset, mts: muttypes, tail: pcexp): pcexp =
+el_pure(encl: nameset, ss: list(pystmt), muts: nameset, mts: muttypes, tail: pcexp): pcexp =
 (
 case+ ss of
 | list_nil() => tail
@@ -410,19 +646,21 @@ case+ ss of
       let
         val newmuts = (if ismut then el_add_pat_names(muts, p) else muts)
         val newmts = (if ismut then el_add_mut_types(mts, p, ann) else mts)
+        // the binder is a FUNCTION-LOCAL for everything after it (capture-check scope).
+        val encl1 = fc_pat_names(encl, p)
       in
-        PCElet(loc, el_pat(p), ann, el_exp(rhs), el_pure(rest, newmuts, newmts, tail))
+        PCElet(loc, el_pat(p), ann, el_exp(encl, rhs), el_pure(encl1, rest, newmuts, newmts, tail))
       end
   | PySreassign(loc, lv, rhs) =>
       let val nm = lv_name(lv) in
         if strn_eq(nm, "")
           then PCEseq(loc, PCEapp(loc, PCEvar(loc, "set!"),
-                                  list_cons(el_exp(lv), list_sing(el_exp(rhs)))),
-                      el_pure(rest, muts, mts, tail))
+                                  list_cons(el_exp(encl, lv), list_sing(el_exp(encl, rhs)))),
+                      el_pure(encl, rest, muts, mts, tail))
         else if nameset_mem(muts, nm)
-          then PCElet(loc, PCPvar(pyexp_loctn(lv), nm), PyTypNone(), el_exp(rhs), el_pure(rest, muts, mts, tail))
+          then PCElet(loc, PCPvar(pyexp_loctn(lv), nm), PyTypNone(), el_exp(encl, rhs), el_pure(encl, rest, muts, mts, tail))
         else PCEseq(loc, PCEerror(loc, strn_append("reassignment to non-mut binding: ", nm)),
-                    el_pure(rest, muts, mts, tail))
+                    el_pure(encl, rest, muts, mts, tail))
       end
   | PySexpr(loc, e) =>
       // M4 FIX: the LAST expression-statement of a suite IS the suite's tail value (el_suite_tail
@@ -431,49 +669,63 @@ case+ ss of
       // type error on every value-returning body (match/if/tuple/record arms). When this is the
       // final statement (rest = nil), produce the tail directly; otherwise it is a genuine
       // effect-then-continue, so keep the seq. (Mirrors trans12: a tail expression is not seq'd.)
+      // M7-closures: recompute the FINAL tail under the EXTENDED `encl` so a @func lambda in the
+      // tail position is checked against the body's earlier lets (the precomputed `tail` used the
+      // def-level encl). Identical PyCore otherwise — el_exp is pure.
       (case+ rest of
-       | list_nil() => tail
-       | list_cons(_, _) => PCEseq(loc, el_exp(e), el_pure(rest, muts, mts, tail)))
-  | PySif(loc, gs, els) => el_pure_if(loc, gs, els, muts, mts, rest, tail)
+       | list_nil() => el_exp(encl, e)
+       | list_cons(_, _) => PCEseq(loc, el_exp(encl, e), el_pure(encl, rest, muts, mts, tail)))
+  | PySif(loc, gs, els) => el_pure_if(encl, loc, gs, els, muts, mts, rest, tail)
   | PySwhile(loc, cond, body, wels) =>
-      elab_while_value(loc, cond, body, wels, muts, mts, el_pure(rest, muts, mts, tail))
+      elab_while_value(encl, loc, cond, body, wels, muts, mts, el_pure(encl, rest, muts, mts, tail))
   | PySfor(loc, pat, iter, body, fels) =>
-      elab_for_value(loc, pat, iter, body, fels, muts, mts, el_pure(rest, muts, mts, tail))
-  | PySblock(loc, body) => el_pure(body, muts, mts, el_pure(rest, muts, mts, tail))
-  | PySdecl(loc, d) => el_local_decl(loc, d, el_pure(rest, muts, mts, tail))
+      elab_for_value(encl, loc, pat, iter, body, fels, muts, mts, el_pure(fc_pat_names(encl, pat), rest, muts, mts, tail))
+  | PySblock(loc, body) => el_pure(encl, body, muts, mts, el_pure(encl, rest, muts, mts, tail))
+  | PySdecl(loc, d) => el_local_decl(encl, loc, d, el_pure(el_decl_name(encl, d), rest, muts, mts, tail))
   | PySreturn(loc, _) => PCEerror(loc, "return outside a function")
   | PySbreak(loc) => PCEerror(loc, "break outside a loop")
   | PyScontinue(loc) => PCEerror(loc, "continue outside a loop")
-  | PySerror(loc, msg) => PCEseq(loc, PCEerror(loc, msg), el_pure(rest, muts, mts, tail))
+  | PySerror(loc, msg) => PCEseq(loc, PCEerror(loc, msg), el_pure(encl, rest, muts, mts, tail))
   )
 )
 //
 and
 el_pure_if
-(loc: loctn, gs: list(pyguard), els: pystmtlstopt, muts: nameset, mts: muttypes,
+(encl: nameset, loc: loctn, gs: list(pyguard), els: pystmtlstopt, muts: nameset, mts: muttypes,
  rest: list(pystmt), tail: pcexp): pcexp =
 (
 case+ gs of
 | list_nil() =>
     (case+ els of
-     | PyElseNone() => el_pure(rest, muts, mts, tail)
-     | PyElseSome(body) => el_pure(body, muts, mts, el_pure(rest, muts, mts, tail)))
+     | PyElseNone() => el_pure(encl, rest, muts, mts, tail)
+     | PyElseSome(body) => el_pure(encl, body, muts, mts, el_pure(encl, rest, muts, mts, tail)))
 | list_cons(PyGuard(gloc, c, body), grest) =>
-    PCEif(gloc, el_exp(c),
-          el_pure(body, muts, mts, el_pure(rest, muts, mts, tail)),
-          el_pure_if(loc, grest, els, muts, mts, rest, tail))
+    PCEif(gloc, el_exp(encl, c),
+          el_pure(encl, body, muts, mts, el_pure(encl, rest, muts, mts, tail)),
+          el_pure_if(encl, loc, grest, els, muts, mts, rest, tail))
 )
 //
 and
-el_local_decl(loc: loctn, d: pydecl, kont: pcexp): pcexp =
+el_local_decl(encl: nameset, loc: loctn, d: pydecl, kont: pcexp): pcexp =
 (
 case+ d of
 | PyCfun(floc, nm, _, params, ret, body) =>
+    // an inner `def` binds its NAME (a function-local for later stmts: el_decl_name handles that);
+    // its OWN params seed the inner body's enclosing-locals.
     PCEletfun(loc,
       list_sing(PCFundcl(floc, nm, el_param_names(params), el_param_types(params),
-                         ret, el_func_body(floc, body), false)),
+                         ret, el_func_body(fc_param_names(encl, params), floc, body), false)),
       kont)
 | _ => kont
+)
+//
+// the function-local NAME a local `def` decl introduces (for the rest-of-suite encl).
+and
+el_decl_name(encl: nameset, d: pydecl): nameset =
+(
+case+ d of
+| PyCfun(_, nm, _, _, _, _) => nameset_add(encl, nm)
+| _ => encl
 )
 //
 // M5a: register a `let mut p : T` pattern's annotation into the mut-type map. Only a simple
@@ -492,15 +744,16 @@ case+ p of
 // ---- thin #implfun wrappers for the SATS entries ---------------------------
 //
 #implfun
-elab_else(loc, body, muts, mts) = el_pure(body, muts, mts, PCEunit(loc))
+elab_else(encl, loc, body, muts, mts) = el_pure(encl, body, muts, mts, PCEunit(loc))
 //
 #implfun el_dloc() = el_dloc0()
 #implfun assigned_stmts(ss) = el_assigned_stmts(ss)
 #implfun flags_stmts(ss) = el_flags_stmts(ss)
-#implfun elab_exp(e) = el_exp(e)
+#implfun elab_exp(encl, e) = el_exp(encl, e)
 #implfun elab_pat(p) = el_pat(p)
-#implfun elab_func_body(loc, body) = el_func_body(loc, body)
-#implfun elab_pure(ss, muts, mts, tail) = el_pure(ss, muts, mts, tail)
+#implfun elab_func_body(encl, loc, body) = el_func_body(encl, loc, body)
+#implfun elab_pure(encl, ss, muts, mts, tail) = el_pure(encl, ss, muts, mts, tail)
+#implfun fc_param_names_pub(encl, ps0) = fc_param_names(encl, ps0)
 #implfun accs_tuple_exp(loc, accs) = el_accs_exp(loc, accs)
 #implfun accs_tuple_pat(loc, accs) = el_accs_pat(loc, accs)
 #implfun lvalue_name(e) = lv_name(e)

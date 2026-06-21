@@ -99,7 +99,7 @@ case+ e of
       then acc
       else lint_exp(body, tail, acc)
 | PCEseq(_, e1, e2) => lint_exp(e2, tail, lint_exp(e1, false, acc))
-| PCElam(_, _, _, body) => lint_exp(body, false, acc)
+| PCElam(_, _, _, _, body) => lint_exp(body, false, acc)
 | PCEtup(_, es) => lint_explst_nt(es, acc)
 | PCErec(_, fs) => lint_efields_nt(fs, acc)
 | PCElist(_, es) => lint_explst_nt(es, acc)
@@ -152,7 +152,7 @@ lint_loops_exp(e: pcexp, acc: list(pcdiag)): list(pcdiag) =
 case+ e of
 | PCEletfun(_, fs, body) => lint_loops_exp(body, lint_loops_fundcls(fs, acc))
 | PCEapp(_, hd, args) => lint_loops_explst(args, lint_loops_exp(hd, acc))
-| PCElam(_, _, _, body) => lint_loops_exp(body, acc)
+| PCElam(_, _, _, _, body) => lint_loops_exp(body, acc)
 | PCElet(_, _, _, rhs, body) => lint_loops_exp(body, lint_loops_exp(rhs, acc))
 | PCEif(_, c, t, f) => lint_loops_exp(f, lint_loops_exp(t, lint_loops_exp(c, acc)))
 | PCEcase(_, scrut, arms) => lint_loops_arms(arms, lint_loops_exp(scrut, acc))

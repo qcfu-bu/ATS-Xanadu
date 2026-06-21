@@ -138,6 +138,11 @@ pcpfield =
 //              `PCEapp(PCEcon ..., args)`; a `flow_break(accs)` is exactly this shape.
 //   PCElam   : lambda — params + an EXPRESSION body (NOT a stmt suite; §2). Used for the
 //              §5.3 `for` fast-path fold's `lam(a,x) => body_state` and any surface lambda.
+//              M7-closures: the leading `bool` is the `@func` HINT (true = the surface lambda
+//              was prefixed with `@func` and PASSED the elaborator's non-capture check). It is
+//              a recorded hint for future codegen (a flat-fun representation); it does NOT
+//              change the L2 closure-kind (the spike showed it's inferred from context). A
+//              synthesized loop-fold lambda is `false` (it is internal, not @func).
 //              M5a: a PARALLEL `list(pytypopt)` carries each param's OPTIONAL surface type
 //              annotation (`PyTypNone()` for an unannotated param). It is the SAME length as
 //              the param-name list; M3 lowers a `PyTypSome(T)` param to an annotated f2arg
@@ -178,7 +183,7 @@ pcexp =
 | PCEvar    of (loctn, strn)
 | PCEcon    of (loctn, strn)
 | PCEapp    of (loctn, pcexp, list(pcexp))
-| PCElam    of (loctn, list(strn), list(pytypopt), pcexp)
+| PCElam    of (loctn, bool(*@func*), list(strn), list(pytypopt), pcexp)
 | PCElet    of (loctn, pcpat, pytypopt, pcexp, pcexp)
 | PCEletfun of (loctn, list(pcfundcl), pcexp)
 | PCEif     of (loctn, pcexp, pcexp, pcexp)

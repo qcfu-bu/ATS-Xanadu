@@ -109,6 +109,15 @@ case+ nod of
 // A lambda is detected by lookahead (LIDENT '=>' or '(' params ')' '=>'); see
 // p_try_lambda. The minimum binding power for the top Pratt call is 1 (any binary op).
 //
+// M7-closures: flip a freshly-parsed lambda's `@func` flag to true. Only ever applied to a
+// PyElam produced by p_try_lambda (a non-lambda never reaches here). A defensive non-lambda
+// is returned unchanged (the caller already gated on `islam`).
+fun
+set_lam_func(e: pyexp): pyexp =
+( case+ e of
+  | PyElam(loc, _, prms, body) => PyElam(loc, true(*@func*), prms, body)
+  | _ => e )
+//
 fun
 p_expr(st: pstate): @(pyexp, pstate) = let
   val nod = ps_peek(st)
@@ -116,6 +125,43 @@ in
   case+ nod of
   | PT_KW_IF()    => p_if_expr(st)
   | PT_KW_MATCH() => p_match_expr(st)
+  | PT_AT()       =>
+    // M7-closures: a `@func` prefix on a lambda in EXPRESSION position opts the lambda into
+    // being NON-capturing (enforced by the elaborator's capture check). Only `@func` is valid
+    // here; `@<other>` before a lambda is a clear parse error. The lambda itself is parsed by
+    // p_try_lambda; we then flip its `is_func` flag to true.
+    let
+      val locA = ps_peek_loctn(st)
+      val st1  = ps_advance(st)  // past '@'
+    in
+      case+ ps_peek(st1) of
+      | PT_LIDENT(nm) =>
+        if strn_eq(nm, "func") then
+          let
+            val st2 = ps_advance(st1)  // past 'func'
+            val @(islam, e, st3) = p_try_lambda(st2)
+          in
+            if islam
+              then @(set_lam_func(e), st3)
+              else
+                // RECOVERY: p_try_lambda consumed nothing — advance once past the offending token
+                // so the caller makes progress (never re-enters on the same token -> no loop).
+                let val st4 = ps_diag(st2, ps_peek_loctn(st2),
+                                      "@func must prefix a lambda ('(params) => body')") in
+                  @(PyEerror(locA, "@func not followed by a lambda"), ps_advance(st4)) end
+          end
+        else
+          // RECOVERY: a non-`func` decorator on a lambda — CONSUME the bad name (advance past it)
+          // so parsing continues past `@bad` rather than looping on it.
+          let val st2 = ps_diag(st1, locA,
+                strn_append("only @func is valid on a lambda; got @", nm)) in
+            @(PyEerror(locA, strn_append("invalid decorator on a lambda: @", nm)), ps_advance(st2)) end
+      | _ =>
+        // RECOVERY: `@` not followed by a name — advance once past whatever follows.
+        let val st2 = ps_diag(st1, ps_peek_loctn(st1),
+              "expected 'func' after '@' before a lambda") in
+          @(PyEerror(locA, "expected @func before a lambda"), ps_advance(st2)) end
+    end
   | _ =>
     // try a lambda; if not a lambda, fall through to the Pratt parser.
     let val @(islam, e, st1) = p_try_lambda(st) in
@@ -143,7 +189,7 @@ in
           val st1 = ps_advance(ps_advance(st))   // past LIDENT and '=>'
           val @(body, st2) = p_lam_body(st1)
         in
-          @(true, PyElam(loc, list_cons(prm, list_nil()), body), st2)
+          @(true, PyElam(loc, false(*@func*), list_cons(prm, list_nil()), body), st2)
         end
       | _ => @(false, PyEwild(loc), st) )
   | PT_LPAREN() =>
@@ -164,7 +210,7 @@ in
               | _ => ps_diag(st2, ps_peek_loctn(st2), "expected '=>'") )
           val @(body, st4) = p_lam_body(st3)
         in
-          @(true, PyElam(loc_span(loc, locR), prms, body), st4)
+          @(true, PyElam(loc_span(loc, locR), false(*@func*), prms, body), st4)
         end
       else @(false, PyEwild(loc), st) )
   | _ => @(false, PyEwild(loc), st)

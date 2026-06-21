@@ -247,8 +247,8 @@ case+ e of
 | PyEindex(loc, e1, ix) =>
   ( ps(out, "(Eindex"); print_span(out, loc); ps(out, " ");
     pp_exp(out, e1); ps(out, " "); pp_exp(out, ix); ps(out, ")") )
-| PyElam(loc, params, body) =>
-  ( ps(out, "(Elam"); print_span(out, loc);
+| PyElam(loc, is_func, params, body) =>
+  ( ps(out, "(Elam"); (if is_func then ps(out, "@func") else ()); print_span(out, loc);
     ps(out, " (params"); pp_paramlst(out, params); ps(out, ")");
     pp_stmtlst(out, body, 1); ps(out, ")") )
 | PyEann(loc, e1, t) =>

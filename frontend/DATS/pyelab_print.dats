@@ -209,8 +209,9 @@ case+ e of
 | PCEapp(loc, hd, args) =>
   ( ps(out, "(Eapp"); print_span(out, loc); ps(out, " ");
     pp_exp(out, hd, ind); ps(out, " (args"); pp_explst(out, args, ind); ps(out, "))") )
-| PCElam(loc, ps0, ptypes, body) =>
-  ( ps(out, "(Elam"); print_span(out, loc); ps(out, " (params"); pp_params_typed(out, ps0, ptypes);
+| PCElam(loc, is_func, ps0, ptypes, body) =>
+  ( ps(out, "(Elam"); (if is_func then ps(out, "@func") else ()); print_span(out, loc);
+    ps(out, " (params"); pp_params_typed(out, ps0, ptypes);
     ps(out, ") "); pp_exp(out, body, ind); ps(out, ")") )
 | PCElet(loc, p, ann, rhs, body) =>
   ( ps(out, "(Elet"); print_span(out, loc); ps(out, " ");

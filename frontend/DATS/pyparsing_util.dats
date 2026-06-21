@@ -40,7 +40,7 @@ case+ e of
 | PyEmatch(loc, _, _) => loc  | PyEtup(loc, _) => loc
 | PyElist(loc, _) => loc      | PyErec(loc, _) => loc
 | PyEfield(loc, _, _) => loc  | PyEindex(loc, _, _) => loc
-| PyElam(loc, _, _) => loc    | PyEann(loc, _, _) => loc
+| PyElam(loc, _, _, _) => loc | PyEann(loc, _, _) => loc
 | PyEerror(loc, _) => loc
 )
 //

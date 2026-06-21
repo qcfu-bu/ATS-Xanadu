@@ -92,26 +92,34 @@ fun assigned_stmts(ss: list(pystmt)): nameset
 fun flags_stmts(ss: list(pystmt)): pcflags
 //
 // expression / pattern elaboration (no control flow except and/or/not -> if, lambda body).
-fun elab_exp(e: pyexp): pcexp
+// M7-closures: `encl` is the set of ENCLOSING FUNCTION-LOCAL names in scope (a def/lambda's
+// params + function-body lets). It is threaded through elaboration so a `@func` lambda's
+// free-variable/capture check can intersect its FV against it. The module top level seeds
+// `encl = list_nil()` (module-level names are NOT capturable locals).
+fun elab_exp(encl: nameset, e: pyexp): pcexp
 fun elab_pat(p: pypat): pcpat
 //
 // §5.4 function/branch-body epilogue: a suite -> a PyCore expression (control-pure tail
 // value, or the flow-mode `case flow_return | flow_next` epilogue).
-fun elab_func_body(loc: loctn, body: list(pystmt)): pcexp
+fun elab_func_body(encl: nameset, loc: loctn, body: list(pystmt)): pcexp
 //
 // a loop-`else` clause (§7.3) elaborated with the enclosing `muts` IN SCOPE (so a
 // reassignment to an enclosing mut is a valid SSA rebind, not a false "non-mut" error).
 // Returns the else as a control-pure threaded expression ending in unit (its effect).
 // M5a: `mts` carries the enclosing mut-type annotations (so a nested loop in the else is typed).
-fun elab_else(loc: loctn, body: list(pystmt), muts: nameset, mts: muttypes): pcexp
+fun elab_else(encl: nameset, loc: loctn, body: list(pystmt), muts: nameset, mts: muttypes): pcexp
 //
 // §5.1 control-pure fast path: thread a suite as a chain of immutable lets ending in `tail`.
 // M5a: `mts` carries the running `let mut x : T` annotations (for typing synthesized loops).
-fun elab_pure(ss: list(pystmt), muts: nameset, mts: muttypes, tail: pcexp): pcexp
+fun elab_pure(encl: nameset, ss: list(pystmt), muts: nameset, mts: muttypes, tail: pcexp): pcexp
 //
 // §5 flow-mode suite elaboration: a control-bearing suite -> a `flow`-producing expr.
 // M5a: `mts` carries the mut-type annotations so a loop synthesized inside it is typed.
-fun elab_flow(ss: list(pystmt), accs: nameset, muts: nameset, mts: muttypes): pcexp
+fun elab_flow(encl: nameset, ss: list(pystmt), accs: nameset, muts: nameset, mts: muttypes): pcexp
+//
+// M7-closures: add a param list's names to an enclosing-locals set (seed `encl` at a def/lambda
+// boundary from its params). Exposed so pyelab_decl/pyelab_loop can seed the function-locals.
+fun fc_param_names_pub(encl: nameset, ps0: list(pyparam)): nameset
 //
 // accumulator-tuple builders (an N-tuple, or the bare var for N=1, or unit for N=0).
 fun accs_tuple_exp(loc: loctn, accs: nameset): pcexp
@@ -127,14 +135,16 @@ fun add_pat_names(muts: nameset, p: pypat): nameset
 // `flow`-typed expression the caller flow_binds.
 // M5a: each loop combinator additionally takes `mts` (the mut-type map) so the synthesized
 // loop's accumulator params can be typed from the enclosing `let mut x : T` annotations.
+// M7-closures: each loop combinator also threads `encl` (enclosing function-locals) so a @func
+// lambda inside a loop body/cond/iterable is capture-checked against the right scope.
 fun elab_while_value
-(loc: loctn, cond: pyexp, body: list(pystmt), els: pystmtlstopt, muts: nameset, mts: muttypes, kont: pcexp): pcexp
+(encl: nameset, loc: loctn, cond: pyexp, body: list(pystmt), els: pystmtlstopt, muts: nameset, mts: muttypes, kont: pcexp): pcexp
 fun elab_for_value
-(loc: loctn, pat: pypat, iter: pyexp, body: list(pystmt), els: pystmtlstopt, muts: nameset, mts: muttypes, kont: pcexp): pcexp
+(encl: nameset, loc: loctn, pat: pypat, iter: pyexp, body: list(pystmt), els: pystmtlstopt, muts: nameset, mts: muttypes, kont: pcexp): pcexp
 fun elab_while_flow
-(loc: loctn, cond: pyexp, body: list(pystmt), els: pystmtlstopt, muts: nameset, mts: muttypes, accs: nameset): pcexp
+(encl: nameset, loc: loctn, cond: pyexp, body: list(pystmt), els: pystmtlstopt, muts: nameset, mts: muttypes, accs: nameset): pcexp
 fun elab_for_flow
-(loc: loctn, pat: pypat, iter: pyexp, body: list(pystmt), els: pystmtlstopt, muts: nameset, mts: muttypes, accs: nameset): pcexp
+(encl: nameset, loc: loctn, pat: pypat, iter: pyexp, body: list(pystmt), els: pystmtlstopt, muts: nameset, mts: muttypes, accs: nameset): pcexp
 //
 (* ****** ****** *)
 (*

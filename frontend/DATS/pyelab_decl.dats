@@ -185,8 +185,10 @@ case+ d of
       // M5a: thread the param types + the return annotation into the PCFundcl (typed def).
       // (typarams `_tps` are still ignored at this layer — unchanged behavior; the field
       //  type changed to list(pytyparam) in §5.7 but the value flow is identical.)
+      // M7-closures: seed `encl` with the def's OWN params — they are the first enclosing
+      // FUNCTION-LOCALS a @func lambda in this body may NOT capture (make_bad(n)'s `n`).
       val fundcl = PCFundcl(loc, nm, param_names_d(params), param_types_d(params),
-                            ret, elab_func_body(loc, body), false)
+                            ret, elab_func_body(fc_param_names_pub(list_nil(), params), loc, body), false)
     in
       list_sing(PCCfun(loc, list_sing(fundcl)))
     end
@@ -232,13 +234,15 @@ elab_module_stmt(s: pystmt): list(pcdecl) =
 (
 case+ s of
 | PyDlet(loc, _ismut, p, _ann, rhs) =>
-    list_sing(PCCval(loc, elab_pat(p), elab_exp(rhs)))
+    // M7-closures: at MODULE level `encl = nil` — module-level names are NOT capturable locals,
+    // so a @func lambda may freely reference them.
+    list_sing(PCCval(loc, elab_pat(p), elab_exp(list_nil(), rhs)))
 | PySexpr(loc, e) =>
-    list_sing(PCCval(loc, PCPwild(loc), elab_exp(e)))
+    list_sing(PCCval(loc, PCPwild(loc), elab_exp(list_nil(), e)))
 | _ =>
     // any other module-level statement (while/for/if/...) is elaborated as a one-stmt
     // suite producing a value, bound to a wildcard (a module-init effect).
-    let val e = elab_func_body(pystmt_loctn(s), list_sing(s)) in
+    let val e = elab_func_body(list_nil(), pystmt_loctn(s), list_sing(s)) in
       list_sing(PCCval(pystmt_loctn(s), PCPwild(pystmt_loctn(s)), e))
     end
 )
