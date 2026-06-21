@@ -46,6 +46,15 @@ func XATS2JS_the_print_store_flush() string {
 	return cs
 }
 
+// XATS2GO_flush_pending drains top-level `prints(...)` output at program exit.
+// Unlike console_log(the_print_store_flush()), this does not append its own
+// newline; the source-level print text is written byte-for-byte.
+func XATS2GO_flush_pending() {
+	if len(thePrintStore) != 0 {
+		fmt.Print(XATS2JS_the_print_store_flush())
+	}
+}
+
 // XATS2JS_console_log mirrors console.log: print the value followed by a
 // single newline. (Go's fmt.Println appends exactly one '\n', matching
 // node's console.log for a single string argument.)

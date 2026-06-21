@@ -2435,6 +2435,39 @@ xs = list(2,3,4)
 
 ---
 
+## xats2js parity rung — top-level `prints` auto-flush (`test86_autoflush_tpl_xats2go`)
+
+xats2js `test05_xats2js.dats` prints with:
+
+```ats
+val () = prints("fibo4(10) = ", fibo4(10), "\n")
+```
+
+There is no explicit `the_print_store_log()`, but the JS backend still emits the
+pending print store on program exit.  Before this rung, xats2go compiled the
+program, passed `go vet`/`go build`, and produced empty stdout.
+
+### What changed
+
+- `go1emit.dats`: emitted `xatsgo.XATS2GO_flush_pending()` at the end of
+  generated `main`.
+- `runtime/xatsgo/xatsgo.go`: added `XATS2GO_flush_pending`, which drains the
+  print store with `fmt.Print`, not `console_log`.  This preserves source-level
+  bytes exactly and avoids adding an extra newline when the source already
+  printed `"\n"`.
+
+### Validation
+
+- External probe:
+  `make test TEST=../xats2js/srcgen1/TEST/test05_xats2js.dats` = PASS,
+  byte-equal-vs-JS (`fibo4(10) = 55\n`).
+- Promoted local rung: `TEST/test86_autoflush_tpl_xats2go.dats`.
+- Expected output: `TEST/OUTS/test86_autoflush_tpl_xats2go.expected`.
+- `make run/test86_autoflush_tpl_xats2go` = PASS, byte-equal-vs-JS.
+- `make -j 8 psuite` = **69/69 GREEN**.
+
+---
+
 ## intrep1 node coverage (final pass — lazy / fold / free / dp2tr / top / p2rj / extnam / env / aexp)
 
 This pass FINISHED the i1ins/i1val node coverage. Key finding: several target

@@ -224,6 +224,7 @@ val () = strnfpr(filr, "func main() {\n")
 //
 val () = envx2go_incnind(env0, 1(*++*))
 val () = i1dclistopt_go1emit(parsed, env0)
+val () = strnfpr(filr, "\txatsgo.XATS2GO_flush_pending()\n")
 val () = envx2go_decnind(env0, 1(*--*))
 //
 val () = strnfpr(filr, "}\n")
