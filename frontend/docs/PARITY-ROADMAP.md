@@ -18,17 +18,17 @@ monomorphic/parametric × boxed/linear/flat modes + param sorts; **function type
 check. All live in the deno LSP with diagnostics on `.psats`/`.pdats` spans.
 
 ## Batch A — imperative / term core
-- ⬜ **Exceptions** — `exception E(T)` / `raise` / `try…except` (`D2Cexcptcon` `dynexp2.sats:1556`, `D2Eraise` `:1102`, `D2Etry0` `:1021`). Handlers reuse case-clause lowering.
+- ✅ **Exceptions** — `exception E(T)` / `raise` / `try…except` (`cd59134a0`). Spike-verified; also fixed the nullary-con-as-value bug (`pl_con_value`→`D2Edap0`).
 - ⬜ **`var` / mutation** — `var x = e`, `x := e`, `!p` deref, `&x` addr (`D2Cvardclst` `:1522`, `D2Eassgn` `:1061`). The address/view world — likely a spike (linearity).
 - ⬜ **`where` / `local…in…end`** — post-hoc + private decls (`D2Ewhere` `:1054`, `D2Clocal0` `:1455`).
 - ⬜ **`op` qualified name** — operator as a first-class value (`reduce(xs, op+)`) (`T_OP1` `lexing0.sats:181`).
 
 ## Batch B — abstraction / modularity (library authors)
-- ⬜ **Abstract types** — `abstype`/`abst@ype`/`absvtype`/`absprop` + `assume`/`#absimpl` (`D2Cabstype` `:1467`, `D2Cabsimpl` `:1471`). Opaque type + hidden rep.
+- ✅ **Abstract types** — `abstype` + `assume` (`7dcb97706`). Opacity holds at typecheck; `@unboxed abstype`→flat. (`@linear absvtype`/`absprop` deferred.)
 - ⬜ **`stadef` / `sortdef` / `stacst`** — static-level definitions (`D2Csexpdef`/`D2Csortdef`/`D2Cstacst0`).
 - ⬜ **`#symload` / overloading** — overload a name onto multiple impls (`D2Csymload` `:1476`).
 - ⬜ **`implement` / `#implfun`** — user surface to implement a template/extern fn (`D2Cimplmnt0` `:1542`).
-- ⬜ **FFI** — `extern` decls, `%{…%}` C-code, `$extnam` (`D2Cextern` `:1449`, `D2Cextcode` `:1510`). Needs lexer `$`/`#`/`%{` token classes.
+- ✅/⏸ **FFI** — `extern def foo(…)->T` signature-only DONE (`7dcb97706`, `D2Cextern`→bodyless `d2cst`). Full `%{…%}` C-code + `$extnam` ⏸ deferred to codegen-era (the `#`/`$`/`%{` lexer classes collide with our `#`-comment).
 
 ## Batch C — fixity / macros / lexical
 - ⬜ **Fixity** — `infixl`/`infixr`/`prefix`/`postfix`/`nonfix` (`D0Cfixity`). Interacts with our fixed Pratt table.
@@ -36,7 +36,20 @@ check. All live in the deno LSP with diagnostics on `.psats`/`.pdats` spans.
 - ⬜ **`dynload` / `#include`** (`D2Cdyninit`/`D2Cinclude`).
 - ⬜ **Lexical parity** — `//` line + `(* *)` block comments (alongside `#`-to-EOL); char/string escape decoding; `$`/`#`-identifier classes.
 
-## Batch D — dependent types & proofs (the ATS depth)
+## ⚠ Batch D reality (investigation 2026-06-21) — the constraint solver does not exist
+**This compiler tree has NO dependent-type checking and NO constraint solver** (verified at
+source): `trans23`/`trans2a` have zero constraint/solve vocabulary; `srcgen2/xdeptck/` is an
+empty README ("This will probably take a while :)"); the L2→L3 `stpize` ERASES the index layer
+(`s2varlst_imprq` filters predicative `int`/`bool` vars; guards dropped; `T2Puni0`/`T2Pexi0` have
+no prop slot — `statyp2.sats:319`); the only checker is a structural first-order unifier
+(`unify00_s2typ`). **The STOCK compiler is in the same boat** — it parses + structurally-matches
+indexed types but does NOT verify `n+1=m`/guards either. ⇒ **SYNTAX parity is achievable**
+(express + lower the dependent surface to correct L2, matching what stock accepts); **SOUND
+index/proof checking = building the solver inside the compiler (the unstarted `xdeptck/`), a
+research project that EXCEEDS the canonical compiler — OUT OF SCOPE for "parity".** Stages 1–3
+below = surface parity (Stage-0 spike required to navigate the erasure + the M5a `T2Pbas` hazard).
+
+## Batch D — dependent types & proofs (the ATS depth) — STAGES 1–3 = syntax parity; Stage 4 (solver) out of scope
 - ⬜ **Dependent indices** — `list(a, n)`, `int(i)` + the **index sub-language** (sort `int`/`bool`, arithmetic, comparisons) (`S2Eint` `staexp2.sats:579`, `PyTidx`). The largest gap.
 - ⬜ **Quantifiers** — `{n:int}` universal, `[n:int | g]` existential + guards (`S2Euni0` `:636`, `S2Eexi0` `:632`; `s1qua` guard/var split `staexp1.sats:749`).
 - ⬜ **Templates** — `{..}`/`<..>` on functions, `$`-implicit instantiation (`t1qag`/`t1iag` `dynexp1.sats:696/759`).
