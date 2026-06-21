@@ -1,0 +1,6 @@
+def move_swap() -> Int:
+    var x: Int = 0
+    var y: Int = 1
+    x :=> y
+    x :=: y
+    x

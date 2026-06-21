@@ -188,6 +188,9 @@ pytcon_head(env: !tr12env, name: strn): s2exp =
 (
   if strn_eq(name, "SInt") then resolve_typ_name(env, "the_s2exp_sint1")
   else if strn_eq(name, "SBool") then resolve_typ_name(env, "the_s2exp_bool1")
+  // B-LINEAR: the surface pointer type `ptr[l]` (an addr-arg application) routes to the registered
+  // prelude ptr s2cst `the_s2exp_p2tr0` (ptr : (addr) -> type). (SPIKE BL-AT2/BL-DERF used it.)
+  else if strn_eq(name, "ptr") then resolve_typ_name(env, "the_s2exp_p2tr0")
   else resolve_typ(env, loctn_dummy(), name)
 )
 //
@@ -389,6 +392,18 @@ case+ t of
       if kind = 0
         then s2exp_uni0(s2vs, s2ps, s2e_body)   // forall (DEP-spike P2/P3-proven)
         else s2exp_exi0(s2vs, s2ps, s2e_body)   // exists (a-quant SX-EXI-proven)
+    end
+// B-LINEAR: the AT-VIEW `A at l` -> the at-view s2exp S2Eatx2(carried, addr) at result sort
+// the_sort2_vwtp (the viewtype sort the stock trans12 stamps on an at-view; trans12_staexp.dats
+// :1388). The carried type + the address each lower via pylower_typ (the address is normally a
+// PyTvar naming an `addr`-sorted quantifier bound by the enclosing forall/def). (B-LIN spike
+// BL-AT2 proved this rides to nerror=0 as a proof param.)
+| PyTat(loc, carr, addr) =>
+    let
+      val s2e_carr = pylower_typ(env, carr)
+      val s2e_addr = pylower_typ(env, addr)
+    in
+      s2exp_make_node(the_sort2_vwtp, S2Eatx2(s2e_carr, s2e_addr))
     end
 | PyTerror(loc, _)  => s2exp_none0()
 )

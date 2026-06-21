@@ -173,6 +173,8 @@ case+ p of
 // D2Prfpt so `x` is usable in the arm body.
 | PyPas(loc, p1, nm) => PCPas(loc, nm, el_pat(p1))
 | PyPann(_, p1, _) => el_pat(p1)
+// B-LINEAR: `~p` -> PCPfree(loc, <elaborated p>). M3 lowers it to D2Pfree wrapping the inner.
+| PyPfree(loc, p1) => PCPfree(loc, el_pat(p1))
 | PyPerror(loc, _) => PCPvar(loc, "_error")
 )
 //
@@ -296,6 +298,8 @@ case+ p of
 | PyPlit(_, _)      => s
 | PyPas(_, p1, nm)  => nameset_add(fc_pat_names(s, p1), nm)
 | PyPann(_, p1, _)  => fc_pat_names(s, p1)
+// B-LINEAR: `~p` binds the names of its inner consumed pattern (x, rest in `~VCons(x, rest)`).
+| PyPfree(_, p1)    => fc_pat_names(s, p1)
 | PyPerror(_, _)    => s
 )
 and
@@ -354,6 +358,9 @@ case+ e of
 | PyEop(_, _)     => fv     // an operator-as-value names no LOCAL — contributes no free vars
 // A-TEMPLATE: `@inst[types] e` — the type-args name no LOCAL; the free vars are those of `e`.
 | PyEinst(_, _, e1) => fc_fv_exp(bnd, fv, e1)
+// B-LINEAR: `&x` / `!p` — the free vars are those of the inner l-value / pointer expr.
+| PyEaddr(_, e1)  => fc_fv_exp(bnd, fv, e1)
+| PyEderef(_, e1) => fc_fv_exp(bnd, fv, e1)
 | PyEerror(_, _)  => fv
 )
 and
@@ -415,6 +422,11 @@ case+ ss of
   | PySassign(_, lv, rhs) =>
       // a cell assignment `lv := rhs`: lvalue + rhs both referenced under the current bnd
       // (it binds NO new name — the cell already exists).
+      fc_fv_stmts(bnd, fc_fv_exp(bnd, fc_fv_exp(bnd, fv, lv), rhs), rest)
+  // B-LINEAR: move/swap — like a cell assignment, both sides referenced, bind no new name.
+  | PySmove(_, lv, rhs) =>
+      fc_fv_stmts(bnd, fc_fv_exp(bnd, fc_fv_exp(bnd, fv, lv), rhs), rest)
+  | PySswap(_, lv, rhs) =>
       fc_fv_stmts(bnd, fc_fv_exp(bnd, fc_fv_exp(bnd, fv, lv), rhs), rest)
   | PySreassign(_, lv, rhs) =>
       // lvalue + rhs both referenced under the current bnd (a reassign does not bind a NEW name).
@@ -533,6 +545,9 @@ case+ e of
 // A-TEMPLATE: `@inst[types] e` -> PCEinst, carrying the type-args + the elaborated inner expr.
 // M3 (pl_exp) lowers it to a tapp-nested-in-dapp (foo<Int>(args)) / a bare tapp.
 | PyEinst(loc, ts, e1) => PCEinst(loc, ts, el_exp(encl, e1))
+// B-LINEAR: `&x` -> PCEaddr (D2Eaddr) ; `!p` -> PCEderef (D2Eeval).
+| PyEaddr(loc, e1) => PCEaddr(loc, el_exp(encl, e1))
+| PyEderef(loc, e1) => PCEderef(loc, el_exp(encl, e1))
 | PyEerror(loc, msg) => PCEerror(loc, msg)
 )
 //
@@ -697,6 +712,24 @@ case+ ss of
       // there is no SSA shadowing here, so `muts`/`mts`/`encl` are unchanged for the rest.
       PCEseq(loc, PCEassign(loc, el_exp(encl, lv), el_exp(encl, rhs)),
              el_pure(encl, rest, muts, mts, tail))
+  // B-LINEAR: MOVE `lv :=> rhs` -> PCEmove (D2Exazgn) ; SWAP `lv :=: rhs` -> PCEswap (D2Exchng).
+  // Both sides are existing l-values (var cells); they bind no new name. UNLIKE `:=` (D2Eassgn,
+  // returns void), `:=>`/`:=:` return the l-value's TYPE — so a NON-TAIL move/swap cannot go in a
+  // void seq-init position (f0_seqn tpck's inits against void). When it is the LAST statement it IS
+  // the suite tail (produces its value); otherwise we bind it to a `_` wildcard let so its non-void
+  // result is absorbed, then continue. (Mirrors the PySexpr tail-vs-nontail split below.)
+  | PySmove(loc, lv, rhs) =>
+      (case+ rest of
+       | list_nil() => PCEmove(loc, el_exp(encl, lv), el_exp(encl, rhs))
+       | list_cons(_, _) =>
+           PCElet(loc, PCPwild(loc), PyTypNone(), PCEmove(loc, el_exp(encl, lv), el_exp(encl, rhs)),
+                  el_pure(encl, rest, muts, mts, tail)))
+  | PySswap(loc, lv, rhs) =>
+      (case+ rest of
+       | list_nil() => PCEswap(loc, el_exp(encl, lv), el_exp(encl, rhs))
+       | list_cons(_, _) =>
+           PCElet(loc, PCPwild(loc), PyTypNone(), PCEswap(loc, el_exp(encl, lv), el_exp(encl, rhs)),
+                  el_pure(encl, rest, muts, mts, tail)))
   | PySreassign(loc, lv, rhs) =>
       let val nm = lv_name(lv) in
         if strn_eq(nm, "")

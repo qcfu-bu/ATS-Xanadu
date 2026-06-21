@@ -182,6 +182,9 @@ case+ p of
 | PCPas(loc, nm, inner) =>
   ( ps(out, "(Pas "); ps(out, nm); print_span(out, loc);
     ps(out, " "); pp_pat(out, inner); ps(out, ")") )
+// B-LINEAR: the linear-consume pattern `~p`.
+| PCPfree(loc, inner) =>
+  ( ps(out, "(Pfree"); print_span(out, loc); ps(out, " ~"); pp_pat(out, inner); ps(out, ")") )
 )
 //
 and
@@ -276,6 +279,17 @@ case+ e of
 | PCEinst(loc, ts, e1) =>
   ( ps(out, "(Einst"); print_span(out, loc); ps(out, " [types");
     pp_typlst(out, ts); ps(out, "] "); pp_exp(out, e1, ind); ps(out, ")") )
+// B-LINEAR: &/!/move/swap.
+| PCEaddr(loc, lv) =>
+  ( ps(out, "(Eaddr"); print_span(out, loc); ps(out, " &"); pp_exp(out, lv, ind); ps(out, ")") )
+| PCEderef(loc, p) =>
+  ( ps(out, "(Ederef"); print_span(out, loc); ps(out, " !"); pp_exp(out, p, ind); ps(out, ")") )
+| PCEmove(loc, lv, rv) =>
+  ( ps(out, "(Emove"); print_span(out, loc); ps(out, " ");
+    pp_exp(out, lv, ind); ps(out, " :=> "); pp_exp(out, rv, ind); ps(out, ")") )
+| PCEswap(loc, lv, rv) =>
+  ( ps(out, "(Eswap"); print_span(out, loc); ps(out, " ");
+    pp_exp(out, lv, ind); ps(out, " :=: "); pp_exp(out, rv, ind); ps(out, ")") )
 | PCEerror(loc, msg) =>
   (ps(out, "(Eerror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )

@@ -155,7 +155,20 @@ case+ ps_peek(st) of
 | PT_KW_EXISTS() => p_type_quant(st, 1(*exists*))
 | _ =>
   let
-    val @(t0, st1) = p_type_app(st)
+    val @(t0a, st1a) = p_type_app(st)
+    // B-LINEAR: a postfix `at` relation — `A at l` (the AT-VIEW). It binds TIGHTER than `->`
+    // (so `A at l -> B` is `(A at l) -> B`) but looser than application. The address `l` is a
+    // type_app atom (a quantifier var of sort `addr`, an applied con, etc.).
+    val @(t0, st1) =
+      (case+ ps_peek(st1a) of
+       | PT_KW_AT() =>
+         let
+           val @(addr, st1b) = p_type_app(ps_advance(st1a))
+           val span = loc_span(pytyp_loctn(t0a), pytyp_loctn(addr))
+         in
+           @(PyTat(span, t0a, addr), st1b)
+         end
+       | _ => @(t0a, st1a)) : @(pytyp, pstate)
   in
     case+ ps_peek(st1) of
     | PT_ARROW() =>
@@ -424,6 +437,14 @@ p_pat_atom(st: pstate): @(pypat, pstate) = let
   val nod = ps_peek(st)
 in
   case+ nod of
+  // B-LINEAR: `~p` — the LINEAR-CONSUME prefix. Consume `~`, parse the inner pattern atom,
+  // wrap in PyPfree. (Typically `~VCons(x, rest)` — the inner is a con pattern.)
+  | PT_TILDE() =>
+    let
+      val @(p1, st1) = p_pat_atom(ps_advance(st))
+    in
+      @(PyPfree(loc_span(loc, pypat_loctn(p1)), p1), st1)
+    end
   | PT_USCORE() => @(PyPwild(loc), ps_advance(st))
   | PT_LIDENT(s) => @(PyPvar(loc, s), ps_advance(st))
   | PT_UIDENT(s) =>

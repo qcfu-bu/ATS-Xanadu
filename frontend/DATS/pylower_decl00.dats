@@ -130,6 +130,10 @@ case+ p of
       then the_sort2_int0
       else if strn_eq(sname, "SBool")
         then the_sort2_bool
+    // B-LINEAR: the ADDRESS sort `addr` — a `[l: Addr]` quantifier binds an address var
+    // (the `l` in `A at l` / `ptr[l]`). (SPIKE BL-AT2-proven the_sort2_addr rides clean.)
+      else if strn_eq(sname, "Addr")
+        then the_sort2_addr
     // "Type" OR "" (default) OR any unknown name => the_sort2_type / the_sort2_tflt.
       else if strn_eq(sname, "Linear")
         then (if unboxed then the_sort2_vtft else the_sort2_vwtp)
@@ -151,6 +155,8 @@ sort2_of_name(sname: strn): sort2 =
     then the_sort2_int0
     else if strn_eq(sname, "SBool")
       then the_sort2_bool
+      else if strn_eq(sname, "Addr")        // B-LINEAR: the address sort `addr`
+        then the_sort2_addr
       else if strn_eq(sname, "Linear")
         then the_sort2_vwtp
         else if strn_eq(sname, "Prop")

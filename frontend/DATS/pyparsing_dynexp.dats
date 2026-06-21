@@ -386,6 +386,14 @@ in
   | PT_KW_NOT() =>
     let val @(e, st1) = p_unary(ps_advance(st)) in
       @(PyEuna(loc_span(loc, pyexp_loctn(e)), PyUnot(), e), st1) end
+  // B-LINEAR: `&x` ADDRESS-OF and `!p` DEREFERENCE (expr position). Prefix operators, same
+  // level as the other unary prefixes. `&`/`!` recurse into p_unary so `!!p` / `&!p` nest.
+  | PT_AMP() =>
+    let val @(e, st1) = p_unary(ps_advance(st)) in
+      @(PyEaddr(loc_span(loc, pyexp_loctn(e)), e), st1) end
+  | PT_BANG() =>
+    let val @(e, st1) = p_unary(ps_advance(st)) in
+      @(PyEderef(loc_span(loc, pyexp_loctn(e)), e), st1) end
   | _ => p_postfix(st)
 end
 //
@@ -918,6 +926,21 @@ in
           val @(rhs, st3) = p_expr_or_tuple(st2)
         in
           @(PySassign(loc_span(pyexp_loctn(e), pyexp_loctn(rhs)), e, rhs), st3)
+        end
+      // B-LINEAR: MOVE `lv :=> rv` and SWAP `lv :=: rv` — statement-level siblings of `:=`.
+      | PT_MOVE() =>
+        let
+          val st2 = ps_advance(st1)
+          val @(rhs, st3) = p_expr_or_tuple(st2)
+        in
+          @(PySmove(loc_span(pyexp_loctn(e), pyexp_loctn(rhs)), e, rhs), st3)
+        end
+      | PT_SWAP() =>
+        let
+          val st2 = ps_advance(st1)
+          val @(rhs, st3) = p_expr_or_tuple(st2)
+        in
+          @(PySswap(loc_span(pyexp_loctn(e), pyexp_loctn(rhs)), e, rhs), st3)
         end
       | _ => @(PySexpr(pyexp_loctn(e), e), st1)
     end

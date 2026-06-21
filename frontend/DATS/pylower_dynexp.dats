@@ -446,6 +446,14 @@ case+ p of
     in
       d2pat_make_node(loc, D2Prfpt(d2pinner, tok_val(loc), d2pbind))
     end
+// B-LINEAR: the LINEAR-CONSUME pattern `~p` -> D2Pfree wrapping the inner pattern. f0_free
+// (trans2a_dynexp.dats:700) is a structural pass-through — it re-typechecks the inner pattern
+// and re-wraps with the same type, so a well-formed con pattern stays well-formed under `~`.
+// (B-LIN spike BL-LIN-proven nerror=0 on `~VCons(x, rest)` / `~VNil()`.)
+| PCPfree(loc, inner) =>
+    let val d2pinner = pl_pat(env, inner) in
+      d2pat_make_node(loc, D2Pfree(d2pinner))
+    end
 )
 //
 and
@@ -582,6 +590,37 @@ case+ e of
     val d2rv = pl_exp(env, rv)
   in
     d2exp_make_node(loc, D2Eassgn(d2lv, d2rv))
+  end
+// B-LINEAR: `&x` ADDRESS-OF -> D2Eaddr. f0_addr (trans2a_dynexp.dats:2918) types it as
+// ptr(typ-of-x) via the_s2typ_p2tr1 (B-LIN spike BL-ADDR-proven nerror=0).
+| PCEaddr(loc, lv) => let
+    val d2lv = pl_exp(env, lv)
+  in
+    d2exp_make_node(loc, D2Eaddr(d2lv))
+  end
+// B-LINEAR: `!p` DEREFERENCE (expr position) -> D2Eeval. f0_eval (trans2a_dynexp.dats:3019)
+// peels the pointer element type (B-LIN spike BL-DERF2-proven nerror=0 on an element-typed ptr,
+// e.g. from `&x`).
+| PCEderef(loc, ptr) => let
+    val d2ptr = pl_exp(env, ptr)
+  in
+    d2exp_make_node(loc, D2Eeval(d2ptr))
+  end
+// B-LINEAR: MOVE `lv :=> rv` -> D2Exazgn. f0_xazgn (trans2a_dynexp.dats:3210) typechecks rv
+// against lv's type, like := (B-LIN spike BL-MV-proven nerror=0).
+| PCEmove(loc, lv, rv) => let
+    val d2lv = pl_exp(env, lv)
+    val d2rv = pl_exp(env, rv)
+  in
+    d2exp_make_node(loc, D2Exazgn(d2lv, d2rv))
+  end
+// B-LINEAR: SWAP `lv :=: rv` -> D2Exchng. f0_xchng (trans2a_dynexp.dats:3238) cross-typechecks
+// both sides (B-LIN spike BL-SW-proven nerror=0).
+| PCEswap(loc, lv, rv) => let
+    val d2lv = pl_exp(env, lv)
+    val d2rv = pl_exp(env, rv)
+  in
+    d2exp_make_node(loc, D2Exchng(d2lv, d2rv))
   end
 //
 // template F (local form) : `let fun f(..)=.. and g(..)=.. in body`.

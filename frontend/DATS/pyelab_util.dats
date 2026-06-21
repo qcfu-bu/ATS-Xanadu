@@ -41,6 +41,8 @@ case+ e of
 | PCEunit(loc) => loc         | PCEerror(loc, _) => loc
 | PCEraise(loc, _) => loc     | PCEtry(loc, _, _) => loc
 | PCEinst(loc, _, _) => loc
+| PCEaddr(loc, _) => loc      | PCEderef(loc, _) => loc
+| PCEmove(loc, _, _) => loc   | PCEswap(loc, _, _) => loc
 )
 //
 #implfun
@@ -50,7 +52,7 @@ case+ p of
 | PCPvar(loc, _) => loc   | PCPwild(loc) => loc
 | PCPcon(loc, _, _, _) => loc | PCPtup(loc, _) => loc
 | PCPrec(loc, _) => loc   | PCPlit(loc, _) => loc
-| PCPas(loc, _, _) => loc
+| PCPas(loc, _, _) => loc | PCPfree(loc, _) => loc
 )
 //
 #implfun

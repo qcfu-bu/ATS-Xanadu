@@ -171,6 +171,21 @@ case+ ss of
       // it lives — captured from the enclosing scope, not threaded through the loop's accs.
       PCEseq(loc, PCEassign(loc, elab_exp(encl, lv), elab_exp(encl, rhs)),
              fl_suite(encl, rest, accs, muts, mts))
+  // B-LINEAR: MOVE / SWAP inside a loop body — in place; NOT accumulators. `:=>`/`:=:` return the
+  // l-value type (NOT void), so a non-tail move/swap is bound to a `_` wildcard let to absorb its
+  // result (a void seq-init would reject the non-void value); the LAST one is the suite tail.
+  | PySmove(loc, lv, rhs) =>
+      (case+ rest of
+       | list_nil() => PCEmove(loc, elab_exp(encl, lv), elab_exp(encl, rhs))
+       | list_cons(_, _) =>
+           PCElet(loc, PCPwild(loc), PyTypNone(), PCEmove(loc, elab_exp(encl, lv), elab_exp(encl, rhs)),
+                  fl_suite(encl, rest, accs, muts, mts)))
+  | PySswap(loc, lv, rhs) =>
+      (case+ rest of
+       | list_nil() => PCEswap(loc, elab_exp(encl, lv), elab_exp(encl, rhs))
+       | list_cons(_, _) =>
+           PCElet(loc, PCPwild(loc), PyTypNone(), PCEswap(loc, elab_exp(encl, lv), elab_exp(encl, rhs)),
+                  fl_suite(encl, rest, accs, muts, mts)))
   | PySreassign(loc, lv, rhs) =>
       let val nm = lvalue_name(lv) in
         if strn_eq(nm, "")

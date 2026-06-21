@@ -1,0 +1,9 @@
+@linear
+enum LList[A]:
+    case LNil
+    case LCons(A, LList[A])
+
+def head_or[A](d: A, xs: LList[A]) -> A:
+    match xs:
+        case ~LNil: d
+        case ~LCons(x, rest): x

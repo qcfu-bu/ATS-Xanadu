@@ -152,6 +152,10 @@ case+ t of
       | PyGuardSome(_, g) => (ps(out, " (guard "); pp_typ(out, g); ps(out, ")"))
       | PyGuardNone() => () );
     ps(out, " (body "); pp_typ(out, body); ps(out, "))") )
+// B-LINEAR: the AT-VIEW `A at l`.
+| PyTat(loc, carr, addr) =>
+  ( ps(out, "(Tat"); print_span(out, loc); ps(out, " ");
+    pp_typ(out, carr); ps(out, " at "); pp_typ(out, addr); ps(out, ")") )
 | PyTerror(loc, msg) =>
   (ps(out, "(Terror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )
@@ -219,6 +223,9 @@ case+ p of
 | PyPann(loc, p1, t) =>
   ( ps(out, "(Pann"); print_span(out, loc); ps(out, " ");
     pp_pat(out, p1); ps(out, " : "); pp_typ(out, t); ps(out, ")") )
+// B-LINEAR: the LINEAR-CONSUME pattern `~p`.
+| PyPfree(loc, p1) =>
+  ( ps(out, "(Pfree"); print_span(out, loc); ps(out, " ~"); pp_pat(out, p1); ps(out, ")") )
 | PyPerror(loc, msg) =>
   (ps(out, "(Perror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )
@@ -305,6 +312,11 @@ case+ e of
 | PyEinst(loc, ts, e1) =>
   ( ps(out, "(Einst"); print_span(out, loc); ps(out, " [types");
     pp_typlst(out, ts); ps(out, "] "); pp_exp(out, e1); ps(out, ")") )
+// B-LINEAR: `&x` address-of and `!p` deref.
+| PyEaddr(loc, e1) =>
+  ( ps(out, "(Eaddr"); print_span(out, loc); ps(out, " &"); pp_exp(out, e1); ps(out, ")") )
+| PyEderef(loc, e1) =>
+  ( ps(out, "(Ederef"); print_span(out, loc); ps(out, " !"); pp_exp(out, e1); ps(out, ")") )
 | PyEerror(loc, msg) =>
   (ps(out, "(Eerror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )
@@ -389,6 +401,12 @@ case+ s of
 | PySassign(loc, lv, rhs) =>
   ( ps(out, "(assign"); print_span(out, loc); ps(out, " ");
     pp_exp(out, lv); ps(out, " := "); pp_exp(out, rhs); ps(out, ")") )
+| PySmove(loc, lv, rhs) =>
+  ( ps(out, "(move"); print_span(out, loc); ps(out, " ");
+    pp_exp(out, lv); ps(out, " :=> "); pp_exp(out, rhs); ps(out, ")") )
+| PySswap(loc, lv, rhs) =>
+  ( ps(out, "(swap"); print_span(out, loc); ps(out, " ");
+    pp_exp(out, lv); ps(out, " :=: "); pp_exp(out, rhs); ps(out, ")") )
 | PySreassign(loc, lv, rhs) =>
   ( ps(out, "(reassign"); print_span(out, loc); ps(out, " ");
     pp_exp(out, lv); ps(out, " = "); pp_exp(out, rhs); ps(out, ")") )

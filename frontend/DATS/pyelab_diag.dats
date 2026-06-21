@@ -67,6 +67,11 @@ case+ e of
 | PCEtry(_, body, hs) => harv_arms(hs, harv_exp(body, acc))
 // A-TEMPLATE: `@inst[types] e` harvests poison nodes of its instantiated inner expr.
 | PCEinst(_, _, e1) => harv_exp(e1, acc)
+// B-LINEAR: &/!/move/swap harvest poison nodes of their operand sub-exprs.
+| PCEaddr(_, lv) => harv_exp(lv, acc)
+| PCEderef(_, p) => harv_exp(p, acc)
+| PCEmove(_, lv, rv) => harv_exp(rv, harv_exp(lv, acc))
+| PCEswap(_, lv, rv) => harv_exp(rv, harv_exp(lv, acc))
 )
 //
 and
@@ -187,6 +192,11 @@ case+ e of
 | PCEtry(_, body, hs) => b_or(uses_exp(body), uses_arms(hs))
 // A-TEMPLATE: `@inst[types] e` uses pyrt iff its inner expr does (the type-args name no pyrt fn).
 | PCEinst(_, _, e1) => uses_exp(e1)
+// B-LINEAR: &/!/move/swap use pyrt iff an operand sub-expr does.
+| PCEaddr(_, lv) => uses_exp(lv)
+| PCEderef(_, p) => uses_exp(p)
+| PCEmove(_, lv, rv) => b_or(uses_exp(lv), uses_exp(rv))
+| PCEswap(_, lv, rv) => b_or(uses_exp(lv), uses_exp(rv))
 )
 //
 and

@@ -121,6 +121,8 @@ ptnode =
 | PT_KW_AS      of ()   // as  (pattern alias; SURFACE-GRAMMAR §5.5)
 | PT_KW_FORALL  of ()   // forall (EXPLICIT universal quantifier in a type; A-QUANT, §A)
 | PT_KW_EXISTS  of ()   // exists (EXPLICIT existential quantifier in a type; A-QUANT, §A)
+| PT_KW_AT      of ()   // at  (AT-VIEW relation in a type: `A at l`; B-LINEAR, §B. `@` stays
+                        //      decorators-only — `at` is a genuine keyword/relation, not a decorator.)
 //
 // NOTE (decorator rework): the ATS-specific def/let variants are NO LONGER keywords. They are
 // expressed as @decorators on a plain `def`/`let` — `@proof def`/`@proof let`/`@proof @extern def`
@@ -177,6 +179,13 @@ ptnode =
 | PT_COLONEQ of ()  // :=   (var-cell assignment; ATS-parity var/mutation — distinct
                     //       from `=` SSA reassign. Lexed as ONE token when `:` is
                     //       IMMEDIATELY followed by `=` (no intervening space).)
+| PT_MOVE    of ()  // :=>  (MOVE / consume-assign; B-LINEAR, §B. Lowers to D2Exazgn.
+                    //       Lexed BEFORE `:=` so the 3-byte form wins the longest match.)
+| PT_SWAP    of ()  // :=:  (SWAP; B-LINEAR, §B. Lowers to D2Exchng. Lexed BEFORE `:=`.)
+| PT_AMP     of ()  // &    (ADDRESS-OF prefix; B-LINEAR, §B. Lowers to D2Eaddr.)
+| PT_BANG    of ()  // !    (DEREFERENCE prefix in expr position; B-LINEAR, §B. Lowers to
+                    //       D2Eeval. Single `!` — `!=` is matched first as PT_NEQ.)
+| PT_TILDE   of ()  // ~    (LINEAR-CONSUME pattern prefix `~p`; B-LINEAR, §B. Lowers to D2Pfree.)
 | PT_FATARROW of () // =>   (lambda arrow)
 | PT_ARROW   of ()  // ->   (type / return arrow)
 | PT_COLON   of ()  // :    (annotation / block-header)

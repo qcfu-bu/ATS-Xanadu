@@ -98,6 +98,7 @@ fun cur_advn(c: cur, n: sint): cur =
 // is semantically identical — we use these prefix helpers and avoid `&&`/`||`.
 //
 fun band(x: bool, y: bool): bool = (if x then y else false)
+fun band3(x: bool, y: bool, z: bool): bool = (if x then (if y then z else false) else false)
 fun bor(x: bool, y: bool): bool = (if x then true else y)
 //
 (* ****** ****** *)
@@ -166,6 +167,9 @@ kw_of_lident(s: strn): ptnode =
   // izable), so they are reserved words, NOT LIDENTs.
   else if s = "forall" then PT_KW_FORALL()
   else if s = "exists" then PT_KW_EXISTS()
+  // B-LINEAR: `at` is the AT-VIEW relation keyword (`A at l`). A genuine binder/relation
+  // (not decorator-izable), so it is a reserved word, NOT a LIDENT.
+  else if s = "at" then PT_KW_AT()
   // NOTE (decorator rework): `extern`/`implement`/`overload`/`prfun`/`prval`/`praxi`/`op`/`with`
   // are NO LONGER keywords — the ATS-specific def/let variants are now @decorators on a plain
   // `def`/`let` (`@extern`/`@impl`/`@overload`/`@proof`), and `op+` became the parenthesized
@@ -328,6 +332,7 @@ scan_op
 //
 val b0 = cur_byte(c0)
 val b1 = cur_byte_at(c0, 1)
+val b2 = cur_byte_at(c0, 2)
 //
 // helper: emit a fixed-width op of n bytes
 fun emit(nod: ptnode, n: sint): @(pytoken, cur) = let
@@ -335,8 +340,12 @@ fun emit(nod: ptnode, n: sint): @(pytoken, cur) = let
 //
 in
 //
+// three-byte operators (B-LINEAR move/swap) — MUST precede the 2-byte `:=` so the
+// longest match wins (`:=>` and `:=:` both start with `:=`).
+if band3(b0 = 58, b1 = 61, b2 = 62) then emit(PT_MOVE(), 3)      // :=>
+else if band3(b0 = 58, b1 = 61, b2 = 58) then emit(PT_SWAP(), 3) // :=:
 // two-byte operators
-if band(b0 = 61, b1 = 61) then emit(PT_EQEQ(), 2)        // ==
+else if band(b0 = 61, b1 = 61) then emit(PT_EQEQ(), 2)        // ==
 else if band(b0 = 33, b1 = 61) then emit(PT_NEQ(), 2)    // !=
 else if band(b0 = 60, b1 = 61) then emit(PT_LTE(), 2)    // <=
 else if band(b0 = 62, b1 = 61) then emit(PT_GTE(), 2)    // >=
@@ -357,6 +366,9 @@ else if (b0 = 60) then emit(PT_LT(), 1)                // <
 else if (b0 = 62) then emit(PT_GT(), 1)                // >
 else if (b0 = 58) then emit(PT_COLON(), 1)             // :
 else if (b0 = 64) then emit(PT_AT(), 1)               // @  (decorator marker; standalone)
+else if (b0 = 38) then emit(PT_AMP(), 1)               // &  (address-of prefix; B-LINEAR)
+else if (b0 = 33) then emit(PT_BANG(), 1)              // !  (deref prefix; B-LINEAR; `!=` matched above)
+else if (b0 = 126) then emit(PT_TILDE(), 1)            // ~  (linear-consume pattern prefix; B-LINEAR)
 else if (b0 = 124) then emit(PT_BAR(), 1)              // |  (sum-type separator)
 else if (b0 = 44) then emit(PT_COMMA(), 1)             // ,
 else if (b0 = 46) then emit(PT_DOT(), 1)               // .

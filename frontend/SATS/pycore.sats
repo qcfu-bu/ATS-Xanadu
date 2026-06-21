@@ -123,6 +123,9 @@ pcpat =
 | PCPrec  of (loctn, list(pcpfield))
 | PCPlit  of (loctn, pclit)
 | PCPas   of (loctn, strn(*name*), pcpat(*inner*))
+// B-LINEAR: the LINEAR-CONSUME pattern `~p` — wraps the inner consumed pattern. Lowers to the
+// D2Pfree node (f0_free is a structural pass-through; SPIKE BL-LIN nerror=0).
+| PCPfree of (loctn, pcpat(*inner*))
 //
 // a record-pattern field `name = pat`.
 and
@@ -203,6 +206,13 @@ pcexp =
 //                `PCEvar name` for v1 (field/index later).
 | PCEvarcell of (loctn, strn, pytypopt, pcexp(*init*), pcexp(*body*))
 | PCEassign of (loctn, pcexp(*lval*), pcexp(*rval*))
+// B-LINEAR: address-of `&x` -> D2Eaddr ; deref `!p` -> D2Eeval ; move `x :=> y` -> D2Exazgn ;
+// swap `x :=: y` -> D2Exchng. All proven nerror=0 (SPIKE BL-ADDR/BL-DERF2/BL-MV/BL-SW). The
+// move/swap l-values pair with `var` cells (PCEvarcell).
+| PCEaddr   of (loctn, pcexp(*lval*))
+| PCEderef  of (loctn, pcexp(*ptr*))
+| PCEmove   of (loctn, pcexp(*lval*), pcexp(*rval*))
+| PCEswap   of (loctn, pcexp(*lval*), pcexp(*rval*))
 | PCEletfun of (loctn, list(pcfundcl), pcexp)
 | PCEif     of (loctn, pcexp, pcexp, pcexp)
 | PCEcase   of (loctn, pcexp, list(pcarm))

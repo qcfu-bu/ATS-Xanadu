@@ -168,6 +168,12 @@ pytyp =
 // s2exp_uni0 (forall) / s2exp_exi0 (exists) — both proven structurally (dep-spike P2/P3 for
 // uni0/guards; a-quant SX-EXI for exi0).
 | PyTquant of (loctn, int(*0=forall,1=exists*), list(pytyparam), pyguardopt, pytyp)
+// B-LINEAR: the AT-VIEW relation `A at l` — the carried type `A` is held AT the address `l`.
+// A postfix `at`-relation in a type (keyword `at`; SPIKE BL-AT2 proved S2Eatx2 rides clean).
+// The first `pytyp` is the carried type, the second is the address expression (a `pytyp` —
+// usually a `PyTvar` naming an `addr`-sorted quantifier). Lowers to the at-view s2exp
+// `S2Eatx2(carried, addr)` of result sort `the_sort2_vwtp`. (`view` sort reserved.)
+| PyTat    of (loctn, pytyp(*carried*), pytyp(*addr*))
 | PyTerror of (loctn, strn)
 //
 // a record-type field `name: type`
@@ -205,6 +211,10 @@ pypat =
 | PyPlit   of (loctn, pylit)
 | PyPas    of (loctn, pypat, strn)
 | PyPann   of (loctn, pypat, pytyp)
+// B-LINEAR: the LINEAR-CONSUME pattern `~p` — frees/consumes the matched linear value.
+// The inner `pypat` is the con-pattern being consumed (`~VCons(x, rest)`). Lowers to the
+// D2Pfree node wrapping the inner pattern (SPIKE BL-LIN proved f0_free is a pass-through).
+| PyPfree  of (loctn, pypat)
 | PyPerror of (loctn, strn)
 //
 // a record-pattern field `name = pat`
@@ -300,6 +310,14 @@ pyexp =
 //              `(Int,Int)->Int` value; `let f = (+)` then `f(1,2)` works. The parser disambiguates
 //              `(+)` (an OPERATOR token between the parens) from a parenthesized expression `(e)`.
 | PyEop    of (loctn, strn)
+//   PyEaddr  : `&x` — ADDRESS-OF (B-LINEAR). Takes the address of an l-value (a var cell).
+//              Lowers to D2Eaddr; the result is a `ptr(typ-of-x)` (SPIKE BL-ADDR, nerror=0).
+//   PyEderef : `!p` — DEREFERENCE in EXPRESSION position (B-LINEAR). Reads the pointee of `p`.
+//              Lowers to D2Eeval; on an element-typed pointer (e.g. from `&x`) it peels the
+//              element type (SPIKE BL-DERF2, nerror=0). `!p` in a PATTERN position is unfold —
+//              a DISTINCT, deferred feature; this is the expr-position deref only.
+| PyEaddr  of (loctn, pyexp)
+| PyEderef of (loctn, pyexp)
 //   PyEinst  : `@inst[T1, T2, ..] e` — an EXPRESSION-position TEMPLATE INSTANTIATION decorator
 //              (A-template). `@inst` is our FIRST non-declaration decorator: it carries a list of
 //              type-ARG USES (the `[T1,T2,..]` brackets, a `list(pytyp)`) and the following
@@ -405,6 +423,11 @@ pystmt =
 | PyDlet      of (loctn, list(pydecorator), bool, pypat, pytypopt, pyexp)
 | PySvar      of (loctn, strn, pytypopt, pyexp)
 | PySassign   of (loctn, pyexp(*lval*), pyexp(*rval*))
+// B-LINEAR: MOVE `x :=> y` (consume y into x) and SWAP `x :=: y`. Statement-level siblings of
+// PySassign — distinct operators (PT_MOVE / PT_SWAP). Lower (via PCEmove/PCEswap) to D2Exazgn /
+// D2Exchng (SPIKE BL-MV / BL-SW, both nerror=0). They pair with `var` cells (already shipped).
+| PySmove     of (loctn, pyexp(*lval*), pyexp(*rval*))
+| PySswap     of (loctn, pyexp(*lval*), pyexp(*rval*))
 | PySreassign of (loctn, pyexp, pyexp)
 | PySexpr     of (loctn, pyexp)
 | PySif       of (loctn, list(pyguard), pystmtlstopt)

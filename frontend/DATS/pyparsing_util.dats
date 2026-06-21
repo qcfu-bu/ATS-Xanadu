@@ -43,6 +43,7 @@ case+ e of
 | PyElam(loc, _, _, _) => loc | PyEann(loc, _, _) => loc
 | PyEraise(loc, _) => loc     | PyEtry(loc, _, _) => loc
 | PyEop(loc, _) => loc        | PyEinst(loc, _, _) => loc
+| PyEaddr(loc, _) => loc      | PyEderef(loc, _) => loc
 | PyEerror(loc, _) => loc
 )
 //
@@ -54,6 +55,7 @@ case+ p of
 | PyPcon(loc, _, _, _) => loc | PyPtup(loc, _) => loc
 | PyPrec(loc, _) => loc       | PyPlit(loc, _) => loc
 | PyPas(loc, _, _) => loc     | PyPann(loc, _, _) => loc
+| PyPfree(loc, _) => loc
 | PyPerror(loc, _) => loc
 )
 //
@@ -66,6 +68,7 @@ case+ t of
 | PyTfun(loc, _, _) => loc    | PyTtup(loc, _) => loc
 | PyTrec(loc, _) => loc       | PyTerror(loc, _) => loc
 | PyTquant(loc, _, _, _, _) => loc
+| PyTat(loc, _, _) => loc
 )
 //
 #implfun
@@ -74,6 +77,7 @@ pystmt_loctn(s) =
 case+ s of
 | PyDlet(loc, _, _, _, _, _) => loc | PySreassign(loc, _, _) => loc
 | PySvar(loc, _, _, _) => loc    | PySassign(loc, _, _) => loc
+| PySmove(loc, _, _) => loc      | PySswap(loc, _, _) => loc
 | PySexpr(loc, _) => loc         | PySif(loc, _, _) => loc
 | PySwhile(loc, _, _, _) => loc  | PySfor(loc, _, _, _, _) => loc
 | PySbreak(loc) => loc           | PyScontinue(loc) => loc
