@@ -648,8 +648,15 @@ in
     let val @(islit, lit) = elit_of_node(loc, nod) in
       if islit then @(PyElit(loc, lit), ps_advance(st))
       else
-        let val st1 = ps_diag(st, loc, "expected an expression") in
-          @(PyEerror(loc, "expected an expression"), st1) end
+        let
+          val st1 = ps_diag(st, loc, "expected an expression")
+          val st2 =
+            ( case+ nod of
+              | PT_ERROR(_) => ps_advance(st1)
+              | _ => st1 )
+        in
+          @(PyEerror(loc, "expected an expression"), st2)
+        end
     end
 end
 //
@@ -982,11 +989,32 @@ p_stmt_list(st: pstate): @(pystmtlst, pstate) =
   | PT_DEDENT() => @(list_nil(), st)
   | PT_EOF() => @(list_nil(), st)
   | PT_NEWLINE() => p_stmt_list(ps_advance(st))   // stray blank line inside a block
+  | PT_INDENT() =>
+    let val st1 = ps_diag(st, ps_peek_loctn(st), "unexpected indent") in
+      p_stmt_list(ps_advance(st1))
+    end
   | _ =>
     let val @(s, st1) = p_stmt(st) in
-      let val @(ss, st2) = p_stmt_list(st1) in
-        @(list_cons(s, ss), st2) end
+      if same_head(st, st1) then
+        let
+          val st2 = ps_resync(ps_diag(st1, ps_peek_loctn(st1), "skipping unparseable statement"))
+          val @(ss, st3) = p_stmt_list(st2)
+        in
+          @(list_cons(PySerror(pystmt_loctn(s), "skipping unparseable statement"), ss), st3)
+        end
+      else
+        let val @(ss, st2) = p_stmt_list(st1) in
+          @(list_cons(s, ss), st2) end
     end )
+//
+// crude structural "did the head token advance?" check by comparing remaining lengths.
+and
+same_head(a: pstate, b: pstate): bool = let
+  val+ PState(ta, _) = a
+  val+ PState(tb, _) = b
+in
+  (list_length(ta) = list_length(tb))
+end
 //
 // a full statement (block-introducing or simple). Block stmts (if/while/for/match/
 // def/type) consume their own suite + trailing layout; simple stmts end at NEWLINE.
@@ -1048,6 +1076,10 @@ in
     let val @(d, st1) = parse_decl(st) in @(PySdecl(loc, d), st1) end
   | PT_KW_EXCEPTION() =>
     // EXN: a single-line `exception E(T...)` decl in statement position (parity with `type`).
+    let val @(d, st1) = parse_decl(st) in @(PySdecl(loc, d), st1) end
+  | PT_KW_PRIVATE() =>
+    // SCOPING: the declaration parser already owns `private:` blocks and `private def ...`
+    // modifiers; statement-position locals reuse the same syntax and wrap the result.
     let val @(d, st1) = parse_decl(st) in @(PySdecl(loc, d), st1) end
   | PT_KW_IMPORT() =>
     let val @(d, st1) = parse_decl(st) in @(PySdecl(loc, d), st1) end
