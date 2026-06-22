@@ -769,8 +769,11 @@ end
 //      under `$.` in THIS env — exactly the spike's resolved case, but scoped.
 //
 //      We emit a REAL `D2Cstaload` (NOT D2Cnone0) carrying the resolved `fpath` (for the LSP
-//      dep-graph `dependency_d3ecl`, which reads `fopt.fnm2()`) + `S2TALOADfenv(fenv)` (trans23's
-//      f0_staload maps it to S3TALOADnone for a static load — harmless; the dep edge is in fopt).
+//      dep-graph `dependency_d3ecl`, which reads `fopt.fnm2()`) + `S2TALOADdpar(shrd,dpar2)`.
+//      The d2parsed is looked up through `the_d2parenv_pvsfind` / `the_d2parenv_pvsadd0`, matching
+//      stock staload identity semantics. That shared identity matters when a file imports module A
+//      directly and also through module B: reparsing A creates distinct L2 constants/types for the
+//      same source path, which then fails unification across the trans23/read passes.
 //
 // `path` is the XATSHOME-RELATIVE `.sats` path (e.g. "/frontend/TEST/m7imp/lib.sats"); we prepend
 // `the_XATSHOME()` exactly as `f0_pvsload` does (xglobal.dats:741-748). `knd0`=0 (static `.sats`).
@@ -799,12 +802,11 @@ lower_import(env: !tr12env, loc: loctn, path: strn, knd0: sint, is_python: bool)
     // faithful port of any file referencing a not-yet-ported sibling would otherwise crash here.
     if ~fpath_rexists(abspath) then build_missing_import(loc, abspath)
     else let
-      // (1) LOAD: parse the `.sats` to L0, then trans01 -> L1, then trans12 -> L2 (a d2parsed whose
-      //     `t2penv` is the module's D2TOPENV). SAME three steps `f0_pvsload` runs (xglobal.dats:
-      //     756-762), but we do NOT call the global `the_*env_pvsmrgw`.
-      val dpar0 = d0parsed_from_fpath(knd0, abspath)
-      val dpar1 = d1parsed_of_trans01(dpar0)
-      val dpar2 = d2parsed_of_trans12(dpar1)
+      // (1) LOAD: parse the `.sats` to L0, then trans01 -> L1, then trans12/trans2a/trsym2b -> L2
+      //     (a d2parsed whose `t2penv` is the module's D2TOPENV). SAME path stock staload uses,
+      //     including the parsed-file cache, but we do NOT call the global `the_*env_pvsmrgw`.
+      val fpth = fpath_make_absolute(abspath)
+      val @(shrd, dpar2) = cached_d2parsed_from_fpath(knd0, fpth, abspath)
       // (2) build the module's f2env straight from its D2TOPENV (dynexp2.dats:404 `f2env_of_d2parsed`
       //     = F2ENV(lcsrc, g1mac, s2tex, s2itm, d2itm) from `dpar.t2penv()` — the EXACT value the
       //     stock bare-staload path passes to `tr12env_add1_f2env` (trans12_decl00.dats:2374)).
@@ -819,13 +821,31 @@ lower_import(env: !tr12env, loc: loctn, path: strn, knd0: sint, is_python: bool)
       //     suffices for the node's `token` slot.
       val tok  = token_make_node(loc, T_VAL(VLKval))
       val gsrc = g1exp_make_node(loc, G1Eid0(symbl_make_name(path)))
-      val fpth = fpath_make_absolute(abspath)
       val fopt = optn_cons(fpth) : fpathopt
-      val dres = S2TALOADfenv(fenv) : s2taloadopt
+      val dres = S2TALOADdpar(shrd, dpar2) : s2taloadopt
     in
       d2ecl_make_node(loc, D2Cstaload(knd0, tok, gsrc, fopt, dres))
     end
   end
+//
+and
+cached_d2parsed_from_fpath(knd0: sint, fpth: fpath, abspath: strn): @(sint, d2parsed) = let
+  val fnm2 = fpath_get_fnm2(fpth)
+  val opt2 = the_d2parenv_pvsfind(fnm2)
+in
+  case+ opt2 of
+  | ~optn_vt_cons(dpar2) => @(1, dpar2)
+  | ~optn_vt_nil() => let
+      val dpar0 = d0parsed_from_fpath(knd0, abspath)
+      val dpar1 = d1parsed_of_trans01(dpar0)
+      val dpar2 = d2parsed_of_trans12(dpar1)
+      val dpar2 = d2parsed_of_trans2a(dpar2)
+      val () = d2parsed_by_trsym2b(dpar2)
+      val () = the_d2parenv_pvsadd0(fnm2, dpar2)
+    in
+      @(0, dpar2)
+    end
+end
 //
 // GAP2: the survivable no-op + counted error for a MISSING import target. A `val _ = <none1>`
 // poison decl: the wildcard pattern binds nothing; the d2exp_none1(D1Eid0("@missing-import"))
