@@ -1,0 +1,16 @@
+# SCOPING: adjacent helpers in a where block form one mutually-recursive group.
+# The first helper calls a later helper, matching ATS where-local function runs.
+
+def bounce(n: Int) -> Int:
+    first(n)
+where:
+    def first(k: Int) -> Int:
+        if k <= 0:
+            0
+        else:
+            second(k - 1)
+    def second(k: Int) -> Int:
+        if k <= 0:
+            1
+        else:
+            first(k - 1)

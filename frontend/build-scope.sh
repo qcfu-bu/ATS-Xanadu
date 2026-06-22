@@ -8,6 +8,9 @@
 #                               the where-decls are BACKWARDS-scoped around the body
 #                               (ATS `e where {decls}` -> D2Ewhere). The body calls a
 #                               where-defined helper. SPIKE-PROVEN (S1).
+#   * sc_where_mutual.pdats   — adjacent plain `def`s inside a `where:` block form one
+#                               mutually-recursive helper group, so earlier helpers see
+#                               later helpers, matching ATS local `fun` runs.
 #   * sc_private_block.pdats  — a `private:` block of helpers + a public def using them.
 #                               capture-rest: privates = local-head D1, the following
 #                               publics = local-body D2 of ONE D2Clocal0. SPIKE-PROVEN (S2).
@@ -75,6 +78,7 @@ nerror_of() {
 # ---- VALID programs: each must LOWER + TYPECHECK to nerror=0 -----------------
 VALID=(
   "sc_where"          # def fact(n) = go(n,1) where: def go(k,acc) = ...   (D2Ewhere)
+  "sc_where_mutual"   # where helpers are one adjacent mutually-recursive fun group
   "sc_private_block"  # private: { add1, dbl } ; def combine uses them      (D2Clocal0 capture-rest)
   "sc_private_mod"    # private def helper ; def public_use uses it         (D2Clocal0, 1-elem run)
   "sc_where_private"  # private def base ; def compute(...) where: def step (both scopings)

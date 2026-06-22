@@ -318,6 +318,58 @@ end
 //
 (* ****** ****** *)
 //
+// Adjacent undecorated, non-generic defs form one mutual-recursive group (§5.2).
+// Keep decorated/template/generic defs on the old singleton route because PCCfun has
+// group-wide typarams/metrics and decorators can emit non-fun decls.
+fun
+plain_groupable_fun(d: pydecl): bool =
+(
+case+ d of
+| PyCfun(_, list_nil(), _, list_nil(), _, _, _, _, _) => true
+| _ => false
+)
+//
+fun
+plain_fun_fundcl(d: pydecl): pcfundcl =
+(
+case+ d of
+| PyCfun(loc, _, nm, _, _, params, ret, body, wheres) =>
+    let
+      val body0 = elab_func_body(fc_param_names_pub(list_nil(), params), loc, body)
+      val body1 =
+        ( case+ wheres of
+          | list_nil() => body0
+          | _ => PCEwhere(loc, body0, elab_decls(wheres)) )
+    in
+      PCFundcl(loc, nm, param_names_d(params), param_types_d(params), ret, body1, false)
+    end
+| _ =>
+    let
+      val loc = pydecl_loctn(d)
+    in
+      PCFundcl(loc, "__pyfront_internal_bad_fun_group", list_nil(), list_nil(), PyTypNone(),
+               PCEerror(loc, "internal: non-function in plain def group"), false)
+    end
+)
+//
+fun
+take_plain_fungroup(ds: list(pydecl)): @(list(pcfundcl), list(pydecl)) =
+(
+case+ ds of
+| list_nil() => @(list_nil(), list_nil())
+| list_cons(d, rest) =>
+    if plain_groupable_fun(d) then
+      let
+        val fd = plain_fun_fundcl(d)
+        val @(fds, tail) = take_plain_fungroup(rest)
+      in
+        @(list_cons(fd, fds), tail)
+      end
+    else @(list_nil(), ds)
+)
+//
+(* ****** ****** *)
+//
 // elaborate one surface decl into zero-or-one PyCore decls (a statement decl may produce a
 // PCCval; a def -> PCCfun; a type -> PCCdata or nothing for an alias; import -> a PCCimport).
 //
@@ -564,7 +616,14 @@ elab_decls(ds) =
 (
 case+ ds of
 | list_nil() => list_nil()
-| list_cons(d, rest) => list_append(elab_decl(d), elab_decls(rest))
+| list_cons(d, rest) =>
+    if plain_groupable_fun(d) then
+      let
+        val @(fds, tail) = take_plain_fungroup(ds)
+      in
+        list_cons(PCCfun(pydecl_loctn(d), list_nil(), list_nil(), fds), elab_decls(tail))
+      end
+    else list_append(elab_decl(d), elab_decls(rest))
 )
 //
 (* ****** ****** *)
