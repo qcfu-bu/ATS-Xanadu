@@ -162,8 +162,8 @@ done
 if [ "${#FILES[@]}" -eq 0 ]; then
   case "$MODE" in
     static) FILES=("srcgen2/SATS/xstamp0.sats") ;;
-    dynamic) FILES=("srcgen2/DATS/filpath_drpth0.dats") ;;
-    auto) FILES=("srcgen2/SATS/xstamp0.sats" "srcgen2/DATS/filpath_drpth0.dats") ;;
+    dynamic) FILES=("srcgen2/DATS/filpath_drpth0.dats" "frontend/TEST/roundtrip/uppercase_values.dats") ;;
+    auto) FILES=("srcgen2/SATS/xstamp0.sats" "srcgen2/DATS/filpath_drpth0.dats" "frontend/TEST/roundtrip/uppercase_values.dats") ;;
   esac
 fi
 
