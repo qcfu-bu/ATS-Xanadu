@@ -1328,6 +1328,69 @@ in
 end
 //
 fun
+tqas_s2vs(tqas: t2qaglst): s2varlst =
+(
+case+ tqas of
+| list_nil() => list_nil()
+| list_cons(tqa, rest) => list_append(t2qag_get_s2vs(tqa), tqas_s2vs(rest))
+)
+//
+fun
+subst_s2var(s2v: s2var, s2vs: s2varlst, s2es: s2explst): s2expopt =
+(
+case+ s2vs of
+| list_nil() => optn_nil()
+| list_cons(s2v0, vrest) =>
+    (case+ s2es of
+     | list_cons(s2e0, erest) =>
+         if s2var_get_stmp(s2v) = s2var_get_stmp(s2v0)
+         then optn_cons(s2e0)
+         else subst_s2var(s2v, vrest, erest)
+     | list_nil() => optn_nil())
+)
+//
+fun
+subst_s2exp(s2e0: s2exp, s2vs: s2varlst, s2es: s2explst): s2exp =
+(
+case+ s2e0.node() of
+| S2Evar(s2v) =>
+    (case+ subst_s2var(s2v, s2vs, s2es) of
+     | optn_cons(s2e1) => s2e1
+     | optn_nil() => s2e0)
+| S2Etop0(s2e1) =>
+    s2exp_make_node(s2e0.sort(), S2Etop0(subst_s2exp(s2e1, s2vs, s2es)))
+| S2Etop1(s2e1) =>
+    s2exp_make_node(s2e0.sort(), S2Etop1(subst_s2exp(s2e1, s2vs, s2es)))
+| S2Earg1(knd0, s2e1) =>
+    s2exp_make_node(s2e0.sort(), S2Earg1(knd0, subst_s2exp(s2e1, s2vs, s2es)))
+| S2Eatx2(s2e1, s2e2) =>
+    s2exp_make_node(s2e0.sort(), S2Eatx2(subst_s2exp(s2e1, s2vs, s2es), subst_s2exp(s2e2, s2vs, s2es)))
+| S2Eapps(s2f0, args) =>
+    s2exp_make_node(s2e0.sort(), S2Eapps(subst_s2exp(s2f0, s2vs, s2es), subst_s2explst(args, s2vs, s2es)))
+| S2Efun1(f2cl, npf1, args, res) =>
+    s2exp_make_node(s2e0.sort(), S2Efun1(f2cl, npf1, subst_s2explst(args, s2vs, s2es), subst_s2exp(res, s2vs, s2es)))
+| S2Elist(args) =>
+    s2exp_make_node(s2e0.sort(), S2Elist(subst_s2explst(args, s2vs, s2es)))
+| _ => s2e0
+)
+and
+subst_s2explst(xs: s2explst, s2vs: s2varlst, s2es: s2explst): s2explst =
+(
+case+ xs of
+| list_nil() => list_nil()
+| list_cons(x, rest) => list_cons(subst_s2exp(x, s2vs, s2es), subst_s2explst(rest, s2vs, s2es))
+)
+//
+fun
+instantiated_d2c_fun_args(d2c: d2cst, s2es: s2explst): s2explst = let
+  val s2vs = tqas_s2vs(d2cst_get_tqas(d2c))
+in
+  if list_length(s2vs) = list_length(s2es)
+  then subst_s2explst(d2c_fun_args(d2c), s2vs, s2es)
+  else list_nil()
+end
+//
+fun
 pl_implement
 ( env: !tr12env, loc: loctn, name: strn
 , tvs: list(pcparam), has_darg: bool, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt, body: pcexp
@@ -1347,11 +1410,16 @@ in
   | ~optn_cons(d2c) => let
       val dimp = dimpl_make_node(loc, DIMPLone1(d2c))
       val tknd = token_make_node(loc, T_IMPLMNT(IMPLfun()))
+      val tia_s2es =
+        ( case+ tias_typs of
+          | list_nil() => list_nil()
+          | list_cons(_, _) => pylower_typlst(env, tias_typs)
+        ): s2explst
       // A-TEMPLATE: the `@impl[Int, ..]` instantiation list (empty for a bare `@impl def`).
       val tias =
         ( case+ tias_typs of
           | list_nil() => list_nil()
-          | list_cons(_, _) => list_sing(t2iag_make_s2es(loc, pylower_typlst(env, tias_typs)))
+          | list_cons(_, _) => list_sing(t2iag_make_s2es(loc, tia_s2es))
         ): t2iaglst
       // A bare `@impl def f[A]` mirrors ATS `#implfun f {a:t0} (...)`: the after-name static
       // binder is an F2ARGsapp, not a D2Cimplmnt0 tqas entry. When absent, a bare template
@@ -1380,7 +1448,7 @@ in
           then list_nil()
           else
             ( case+ tias_typs of
-              | list_cons(_, _) => list_nil()
+              | list_cons(_, _) => instantiated_d2c_fun_args(d2c, tia_s2es)
               | list_nil() => (if list_nilq(tqas) then d2c_fun_args(d2c) else list_nil()) )
         ): s2explst
       // Build + bind the (typed) params, lower the body, pop — the fun-body scope dance. The fresh

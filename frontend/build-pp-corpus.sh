@@ -162,8 +162,8 @@ done
 if [ "${#FILES[@]}" -eq 0 ]; then
   case "$MODE" in
     static) FILES=("srcgen2/SATS/xstamp0.sats") ;;
-    dynamic) FILES=("srcgen2/DATS/filpath_drpth0.dats" "frontend/TEST/roundtrip/uppercase_values.dats" "frontend/TEST/roundtrip/local_type_alias.dats" "frontend/TEST/roundtrip/generic_impl_sapp.dats" "frontend/TEST/roundtrip/imported_nullary_con.dats") ;;
-    auto) FILES=("srcgen2/SATS/xstamp0.sats" "srcgen2/DATS/filpath_drpth0.dats" "frontend/TEST/roundtrip/uppercase_values.dats" "frontend/TEST/roundtrip/local_type_alias.dats" "frontend/TEST/roundtrip/generic_impl_sapp.dats" "frontend/TEST/roundtrip/imported_nullary_con.dats") ;;
+    dynamic) FILES=("srcgen2/DATS/filpath_drpth0.dats" "frontend/TEST/roundtrip/uppercase_values.dats" "frontend/TEST/roundtrip/local_type_alias.dats" "frontend/TEST/roundtrip/generic_impl_sapp.dats" "frontend/TEST/roundtrip/imported_nullary_con.dats" "frontend/TEST/roundtrip/stmt_where_shadow.dats" "frontend/TEST/roundtrip/plain_fun_helper.dats" "frontend/TEST/roundtrip/local_impltmp_inst.dats") ;;
+    auto) FILES=("srcgen2/SATS/xstamp0.sats" "srcgen2/DATS/filpath_drpth0.dats" "frontend/TEST/roundtrip/uppercase_values.dats" "frontend/TEST/roundtrip/local_type_alias.dats" "frontend/TEST/roundtrip/generic_impl_sapp.dats" "frontend/TEST/roundtrip/imported_nullary_con.dats" "frontend/TEST/roundtrip/stmt_where_shadow.dats" "frontend/TEST/roundtrip/plain_fun_helper.dats" "frontend/TEST/roundtrip/local_impltmp_inst.dats") ;;
   esac
 fi
 

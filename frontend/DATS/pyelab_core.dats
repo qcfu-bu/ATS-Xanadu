@@ -827,6 +827,45 @@ case+ gs of
 )
 //
 and
+core_decos_has(decos: list(pydecorator), name: strn): bool =
+(
+case+ decos of
+| list_nil() => false
+| list_cons(PyDecor(_, nm, _), rest) =>
+    if strn_eq(nm, name) then true else core_decos_has(rest, name)
+)
+and
+core_decos_has_unboxed(decos: list(pydecorator)): bool =
+(
+case+ decos of
+| list_nil() => false
+| list_cons(PyDecor(_, nm, _), rest) =>
+    if strn_eq(nm, "unboxed") then true else core_decos_has_unboxed(rest)
+)
+and
+core_decos_impl_types(decos: list(pydecorator)): list(pytyp) =
+(
+case+ decos of
+| list_nil() => list_nil()
+| list_cons(PyDecor(_, nm, dargs), rest) =>
+    if strn_eq(nm, "impl")
+    then (case+ dargs of PyDAtypes(ts) => ts | _ => list_nil())
+    else core_decos_impl_types(rest)
+)
+and
+core_elab_typarams(tps: list(pytyparam)): list(pcparam) =
+(
+case+ tps of
+| list_nil() => list_nil()
+| list_cons(PyTyParam(ploc, nm, sortopt, decos, _gopt), rest) =>
+    let
+      val sname = (case+ sortopt of PySortSome(_, s) => s | PySortNone() => "")
+      val unboxed = core_decos_has_unboxed(decos)
+    in
+      list_cons(PCParam(ploc, nm, sname, unboxed), core_elab_typarams(rest))
+    end
+)
+and
 local_groupable_fun(d: pydecl): bool =
 (
 case+ d of
@@ -883,17 +922,31 @@ and
 el_local_decl(encl: nameset, loc: loctn, d: pydecl, kont: pcexp): pcexp =
 (
 case+ d of
-| PyCfun(floc, _decos, nm, _, _, params, ret, body, wheres) =>
+| PyCfun(floc, decos, nm, tps, has_darg, params, ret, body, wheres) =>
     // an inner `def` binds its NAME (a function-local for later stmts: el_decl_name handles that);
-    // its OWN params seed the inner body's enclosing-locals. (DECORATOR REWORK: a decorated inner
-    // def — rare — is lowered as a plain inner def here; the proof/extern variants are top-level.)
+    // its OWN params seed the inner body's enclosing-locals.
     // SCOPING: an inner def MAY carry a trailing `where:` block — wrap its body in PCEwhere (M3 ->
     // D2Ewhere), the SAME backwards-scoping as a top-level def (EMPTY where => no wrap).
-    let
-      val fd = local_fun_fundcl(encl, d)
-    in
-      PCEletfun(loc, list_sing(fd), kont)
-    end
+    if core_decos_has(decos, "impl") then
+      let
+        val body0 = el_func_body(fc_param_names(encl, params), floc, body)
+        val body1 =
+          ( case+ wheres of
+            | list_nil() => body0
+            | _ => PCEwhere(floc, body0, elab_decls(wheres)) )
+        val decl =
+          PCCimplement(floc, nm, core_elab_typarams(tps), has_darg,
+                       el_param_names(params), el_param_types(params), ret,
+                       body1, core_decos_impl_types(decos))
+      in
+        PCEwhere(loc, kont, list_sing(decl))
+      end
+    else
+      let
+        val fd = local_fun_fundcl(encl, d)
+      in
+        PCEletfun(loc, list_sing(fd), kont)
+      end
 | PyCtype(_, _, _, _, _) =>
     PCEwhere(loc, kont, elab_decls(list_sing(d)))
 | _ => kont
@@ -904,7 +957,8 @@ and
 el_decl_name(encl: nameset, d: pydecl): nameset =
 (
 case+ d of
-| PyCfun(_, _, nm, _, _, _, _, _, _) => nameset_add(encl, nm)
+| PyCfun(_, decos, nm, _, _, _, _, _, _) =>
+    if core_decos_has(decos, "impl") then encl else nameset_add(encl, nm)
 | _ => encl
 )
 //

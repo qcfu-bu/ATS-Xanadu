@@ -1875,10 +1875,10 @@ pp_dexp_valdcl(out: FILR, n: sint, vd: d0valdcl): void = let
 in
   case+ tdxp of
   | TEQD0EXPsome(_, rhs) => (
-      // a void-pattern binding `val () = e` (a side-effecting statement) -> emit e
-      // as a bare statement (no `let () =`).
+      // A void-pattern binding `val () = e` is a side-effecting statement. Route it
+      // through the suite printer so expression-level `where` decls are preserved.
       if dpat_is_void(dpat)
-      then (ind(out, n); pp_dexp_stmt_inline(out, rhs); nl(out))
+      then pp_d0exp_suite(out, n, rhs)
       else pp_dexp_val_rhs(out, n, dpat, rhs))
   | TEQD0EXPnone() => (ind(out, n); todo(out, "valdcl-no-rhs"))
 end
@@ -2341,8 +2341,9 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   // T_IMPLMNT(IMPLfun) and parses to D0Cimplmnt0 (the implement decl): name (d0qid),
   // f0arglst (params), s0res, and the d0exp body.
   | D0Cimplmnt0(_, _, tqas, dqi, tias, farg, _, _, body) => (pp_impl(out, tqas, dqi, tias, farg, body); true)
-  // a local fun-decl-with-body (`fun f(x) = e`) also reaches here as D0Cfundclst.
-  | D0Cfundclst(_, _, fds) => (pp_fundcl_impl_list(out, fds); true)
+  // an ordinary `fun f(x) = e` reaches here as D0Cfundclst. It creates a fresh
+  // function binding, unlike `@impl def`, which requires an existing signature.
+  | D0Cfundclst(_, _, fds) => (pp_fundcl_local_list_n(out, 0, fds); true)
   //
   // a top-level value binding (`val name = e`) -> `@static let name = e`.
   | D0Cvaldclst(_, vds) => (pp_topval(out, vds); true)
