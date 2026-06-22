@@ -373,13 +373,14 @@ pcdecl =
 //                M3 SELECTS the already-registered abstract s2cst by name (tr12env_find_s2itm ->
 //                SIMPLone1), lowers T via pylower_typ, wraps parametric reps in s2exp_lam1, and
 //                builds D2Cabsimpl(tok, simpl, s2exp).
-//   PCCextern  : an `extern def foo(params) -> Ret` FFI bodyless SIGNATURE (ATS-parity). Carries
-//                the fun NAME, its param names + OPTIONAL types (parallel lists, M5a-style), and
-//                the OPTIONAL return type. M3 builds the function type, makes a d2cst, REGISTERS
-//                it (so calls resolve), and emits D2Cextern(tok, D2Cdynconst(...)). No body.
+//   PCCextern  : an `extern def foo[T](params) -> Ret` FFI bodyless SIGNATURE (ATS-parity). Carries
+//                the fun NAME, its type params, param names + OPTIONAL types (parallel lists,
+//                M5a-style), and the OPTIONAL return type. M3 builds the function type, makes a
+//                d2cst, REGISTERS it (so calls resolve), and emits D2Cextern(tok,
+//                D2Cdynconst(...)). No body.
 | PCCabstype of (loctn, strn, list(pcparam), pcmode, pytypopt(*<= REP*))
 | PCCassume  of (loctn, strn, list(pcparam), pytyp)
-| PCCextern  of (loctn, strn, list(strn), list(pytypopt), pytypopt)
+| PCCextern  of (loctn, strn, list(pcparam), list(strn), list(pytypopt), pytypopt)
 //   PCCimplement : an `implement NAME(params) [-> Ret]: <body>` body for a pre-declared function
 //                  (ATS-parity). Carries the implemented fun NAME, whether a dynamic `(params)`
 //                  group was written, its param names + OPTIONAL types (parallel lists, M5a-style),
@@ -393,12 +394,12 @@ pcdecl =
 //                  the IMPL NAME (an already-registered def/extern). M3 (SPIKE-PROVEN; mirrors stock
 //                  f0_symload @ trans12_decl00.dats:2056) resolves IMPL's d2itm, REGISTERS NAME -> a
 //                  D2ITMsym bucket via tr12env_add0_d2itm (the load-bearing step), emits D2Csymload.
-//   A-TEMPLATE: PCCimplement gains a TRAILING `list(pytyp)` = the `@impl[Int, ..]` template-arg
-//   INSTANTIATION list (the `tias`). A bare `@impl def` (no brackets) carries `[]` (byte-identical
-//   to before this slice — the existing non-template implement). A `@impl[Int] def` carries the
-//   bracket types; M3 (lower_implement) builds `tias = [ t2iag_make_s2es(loc, [<types>]) ]` and a
-//   fresh impl-side `tqas` matching the declared template d2cst's shape.
-| PCCimplement of (loctn, strn, bool(*has darg*), list(strn), list(pytypopt), pytypopt, pcexp, list(pytyp)(*tias*))
+//   A-TEMPLATE: PCCimplement carries both the def's own polymorphic params (`def f[A]`) and the
+//   TRAILING `list(pytyp)` = the `@impl[Int, ..]` template-arg INSTANTIATION list (the `tias`).
+//   A bare `@impl def` (no brackets) carries `[]` for both lists (byte-identical to before this
+//   slice). `@impl def f[A]` lowers `A` as impl-side tqas; `@impl[Int] def f` lowers the decorator
+//   payload as `tias`.
+| PCCimplement of (loctn, strn, list(pcparam)(*tvs*), bool(*has darg*), list(strn), list(pytypopt), pytypopt, pcexp, list(pytyp)(*tias*))
 | PCCoverload  of (loctn, strn(*name*), strn(*impl*))
 //   PCCsymalias : a STANDALONE overload-ALIAS decl `@overload NAME = TARGET` (+ optional
 //                 precedence `@overload[N] NAME = TARGET`) — the ATS-parity `#symload NAME with

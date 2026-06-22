@@ -1122,6 +1122,17 @@ case+ hd of
           let val d2es = pl_explst(env, args) in d2exp_dapp(loc, d2f, (-1), d2es) end
     end
   end
+| PCEcon(hloc, name) => let
+    // Constructor call syntax lowers from the raw constructor head. A bare PCEcon value already
+    // applies nullary constructors in pl_con_value; using pl_exp here for `C()` would double-wrap
+    // imported nullary constructors as D2Edap0(D2Edap0(C)).
+    val d2f = pl_var(env, hloc, ats_sym(name))
+  in
+    case+ args of
+    | list_nil() => d2exp_make_node(loc, D2Edap0(d2f))
+    | list_cons(_, _) =>
+        let val d2es = pl_explst(env, args) in d2exp_dapp(loc, d2f, (-1), d2es) end
+  end
 | _ => let
     val d2f = pl_exp(env, hd)
   in
@@ -1319,7 +1330,7 @@ end
 fun
 pl_implement
 ( env: !tr12env, loc: loctn, name: strn
-, has_darg: bool, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt, body: pcexp
+, tvs: list(pcparam), has_darg: bool, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt, body: pcexp
 , tias_typs: list(pytyp)): d2ecl = let
   // resolve the pre-declared d2cst by name (mirror f1_dqid: find_d2itm -> D2ITMcst head).
   val d2copt =
@@ -1342,21 +1353,35 @@ in
           | list_nil() => list_nil()
           | list_cons(_, _) => list_sing(t2iag_make_s2es(loc, pylower_typlst(env, tias_typs)))
         ): t2iaglst
-      // A bare template implementation is generic: build fresh impl-side tqas matching the
-      // declared d2cst. An explicit `@impl[T, ...]` is an instantiation implementation: keep tqas
-      // empty and let the D2Cimplmnt0 tias instantiate the template signature.
+      // A bare `@impl def f[A]` mirrors ATS `#implfun f {a:t0} (...)`: the after-name static
+      // binder is an F2ARGsapp, not a D2Cimplmnt0 tqas entry. When absent, a bare template
+      // implementation is still generic: build fresh impl-side tqas matching the declared d2cst.
+      // An explicit `@impl[T, ...]` with no `def f[A]` is an instantiation implementation: keep
+      // tqas empty and let D2Cimplmnt0's tias instantiate the template signature.
+      val tv_s2vs = mk_param_s2vars(tvs)
       val tqas =
-        ( case+ tias_typs of
-          | list_nil() => fresh_impl_tqas(loc, d2cst_get_tqas(d2c))
-          | list_cons(_, _) => list_nil()
+        ( if ~list_nilq(tvs)
+          then list_nil()
+          else
+            ( case+ tias_typs of
+              | list_nil() => fresh_impl_tqas(loc, d2cst_get_tqas(d2c))
+              | list_cons(_, _) => list_nil() )
         ): t2qaglst
+      val sf2as =
+        ( if ~list_nilq(tvs)
+          then list_sing(f2arg_make_node(loc, F2ARGsapp(tv_s2vs, list_nil())))
+          else list_nil()
+        ): f2arglst
       // For generic/template impls, the declared signature args mention declaration-side tqas
       // variables. For explicit instantiations, avoid stamping those stale declaration vars onto
       // params; the tias carries the substitution and typechecking assigns the instantiated shape.
       val sigargs =
-        ( case+ tias_typs of
-          | list_cons(_, _) => list_nil()
-          | list_nil() => (if list_nilq(tqas) then d2c_fun_args(d2c) else list_nil())
+        ( if ~list_nilq(tvs)
+          then list_nil()
+          else
+            ( case+ tias_typs of
+              | list_cons(_, _) => list_nil()
+              | list_nil() => (if list_nilq(tqas) then d2c_fun_args(d2c) else list_nil()) )
         ): s2explst
       // Build + bind the (typed) params, lower the body, pop — the fun-body scope dance. The fresh
       // template tqas vars are bound FIRST so the param types / body resolve them. A pretty-printed
@@ -1364,10 +1389,12 @@ in
       // f2arglst; `@impl[T] def f(): body` remains the distinct nullary dynamic farg.
       val () = tr12env_pshlam0(env)
       val () = tr12env_add0_tqas(env, tqas)
-      val f2as =
+      val () = tr12env_add0_s2varlst(env, tv_s2vs)
+      val df2as =
         ( if has_darg
           then pl_params_typed_sig(env, loc, pnames, ptypes, sigargs)
           else list_nil() ): f2arglst
+      val f2as = list_append(sf2as, df2as): f2arglst
       val () =
         ( if has_darg
           then tr12env_add0_f2arglst(env, f2as)
@@ -1490,8 +1517,8 @@ end
 #implfun pylower_explst(env, es) = pl_explst(env, es)
 #implfun params_to_f2arglst(env, loc, params) = pl_params(loc, params)
 #implfun lower_fungroup(env, loc, tvs, mets, fdcls) = pl_fungroup(env, loc, tvs, mets, fdcls)
-#implfun lower_implement(env, loc, name, has_darg, pnames, ptypes, ret, body, tias_typs) =
-  pl_implement(env, loc, name, has_darg, pnames, ptypes, ret, body, tias_typs)
+#implfun lower_implement(env, loc, name, tvs, has_darg, pnames, ptypes, ret, body, tias_typs) =
+  pl_implement(env, loc, name, tvs, has_darg, pnames, ptypes, ret, body, tias_typs)
 // proof-function group (prfun): the funkind-parameterized fun-group with FNKprfn1.
 #implfun lower_prfungroup(env, loc, tvs, fdcls) =
   pl_fungroup_fnk(env, loc, FNKprfn1, tvs, list_nil()(*no metric*), fdcls)

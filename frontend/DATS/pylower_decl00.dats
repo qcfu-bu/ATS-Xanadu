@@ -586,7 +586,10 @@ case+ tys of
 fun
 build_extern
 ( env: !tr12env, loc: loctn, name: strn
-, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt): d2ecl = let
+, tvs: list(pcparam), pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt): d2ecl = let
+  val s2vs = mk_param_s2vars(tvs)
+  val () = tr12env_pshlam0(env)
+  val () = bind_param_s2vars(env, s2vs)
   val argtyps = extern_argtyps(env, ptypes)
   val restyp =
     (
@@ -594,13 +597,16 @@ build_extern
     | PyTypSome(t) => pylower_typ(env, t)
     | PyTypNone()  => resolve_typ_name(env, "void")
     ): s2exp
-  val sfun     = s2exp_fun1_nil0((-1)(*npf*), argtyps, restyp)
+  val () = tr12env_poplam0(env)
+  val inner    = s2exp_fun1_nil0((-1)(*npf*), argtyps, restyp)
+  val sfun     = (if list_nilq(tvs) then inner else s2exp_uni0(s2vs, list_nil(), inner)): s2exp
+  val tqas     = (if list_nilq(tvs) then list_nil() else list_sing(t2qag_make_s2vs(loc, s2vs))): t2qaglst
   val tok_id   = token_make_node(loc, T_IDALP(ats_name(name)))
   val tok_fnk  = token_make_node(loc, T_FUN(FNKfn2))
-  val d2c      = d2cst_make_idtp(tok_fnk, tok_id, list_nil()(*tqas*), sfun)
+  val d2c      = d2cst_make_idtp(tok_fnk, tok_id, tqas, sfun)
   val () = tr12env_add1_d2cst(env, d2c)              // register so a call to `name` resolves
   val dcdcl    = d2cstdcl_make_args(loc, d2c, list_nil()(*darg*), S2RESnone(), TEQD2EXPnone())
-  val dyncst   = d2ecl_make_node(loc, D2Cdynconst(tok_fnk, list_nil()(*tqas*), list_sing(dcdcl)))
+  val dyncst   = d2ecl_make_node(loc, D2Cdynconst(tok_fnk, tqas, list_sing(dcdcl)))
   val tok_ext  = token_make_node(loc, T_SRP_EXTERN())
 in
   d2ecl_make_node(loc, D2Cextern(tok_ext, dyncst))
@@ -701,7 +707,9 @@ in
   | PCEGSome(body) =>
       // INLINE body: the GENERIC implement (tias=[] — not instantiated; this is the generic body).
       // Params/return are inferred from the d2cst's fn type (untyped here — see none_types above).
-      let val decl_impl = lower_implement(env, loc, name, true, pnames, none_types(pnames), PyTypNone(), body, list_nil()) in
+      let val decl_impl =
+        lower_implement(env, loc, name, list_nil(), true, pnames,
+                        none_types(pnames), PyTypNone(), body, list_nil()) in
         list_cons(decl_ext, list_sing(decl_impl))
       end
 end
@@ -1198,13 +1206,13 @@ case+ d of
 // ATS-parity: an `extern def foo(params) -> Ret` FFI bodyless SIGNATURE -> a D2Cextern wrapping
 // a D2Cdynconst whose d2cst carries the function type. build_extern REGISTERS the d2cst so a
 // call to `foo(...)` resolves against the declared signature. SPIKE-PROVEN.
-| PCCextern(loc, name, pnames, ptypes, ret) => build_extern(env, loc, name, pnames, ptypes, ret)
+| PCCextern(loc, name, tvs, pnames, ptypes, ret) => build_extern(env, loc, name, tvs, pnames, ptypes, ret)
 //
 // ATS-parity: an `implement NAME(params) -> Ret: body` -> a D2Cimplmnt0. lower_implement (in
 // pylower_dynexp, where pl_exp/pl_params_typed are in scope) RESOLVES the pre-declared d2cst by
 // name, binds the params, lowers the body, and assembles the node (MONOMORPHIC). SPIKE-PROVEN.
-| PCCimplement(loc, name, has_darg, pnames, ptypes, ret, body, tias) =>
-    lower_implement(env, loc, name, has_darg, pnames, ptypes, ret, body, tias)
+| PCCimplement(loc, name, tvs, has_darg, pnames, ptypes, ret, body, tias) =>
+    lower_implement(env, loc, name, tvs, has_darg, pnames, ptypes, ret, body, tias)
 //
 // A-TEMPLATE: a `@template[A] def foo[C](...) [: body]` -> a TEMPLATE extern (+ optional generic
 // implement). lower_template builds the template d2cst (non-empty tqas + s2exp_uni0 poly wrap) and,

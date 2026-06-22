@@ -421,7 +421,8 @@ case+ d of
             list_sing(PCCpraxi(loc, nm, param_names_d(params), param_types_d(params), ret))
           else
             // @extern def NAME(...) -> T  ==  extern def (FFI bodyless SIGNATURE). No body.
-            list_sing(PCCextern(loc, nm, param_names_d(params), param_types_d(params), ret)) )
+            list_sing(PCCextern(loc, nm, elab_typarams(tps),
+                                 param_names_d(params), param_types_d(params), ret)) )
       else if is_proof then
         // @proof def NAME(...) -> T: body  ==  prfun (proof FUNCTION; body elaborated like a def).
         let
@@ -449,7 +450,8 @@ case+ d of
               | list_nil() => body0
               | _ => PCEwhere(loc, body0, elab_decls(wheres)) )
         in
-          list_sing(PCCimplement(loc, nm, has_darg, param_names_d(params), param_types_d(params), ret,
+          list_sing(PCCimplement(loc, nm, elab_typarams(tps), has_darg,
+                                 param_names_d(params), param_types_d(params), ret,
                                  body1, decos_impl_types(decos)))
         end
       else

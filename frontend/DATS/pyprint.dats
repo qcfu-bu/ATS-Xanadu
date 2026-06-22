@@ -496,6 +496,24 @@ squa_idnames(ids: i0dntlst): list(strn) =
   | list_nil() => list_nil()
   | list_cons(id, rest) => list_cons(tyname(i0dnt_lexeme(id)), squa_idnames(rest))
 )
+and
+collect_squa_raw_names(sqs: s0qualst): list(strn) =
+(
+  case+ sqs of
+  | list_nil() => list_nil()
+  | list_cons(sq, rest) => (
+      case+ sq.node() of
+      | S0QUAvars(ids, _) => list_append(squa_idraw_names(ids), collect_squa_raw_names(rest))
+      | S0QUAprop(_) => collect_squa_raw_names(rest)
+    )
+)
+and
+squa_idraw_names(ids: i0dntlst): list(strn) =
+(
+  case+ ids of
+  | list_nil() => list_nil()
+  | list_cons(id, rest) => list_cons(i0dnt_lexeme(id), squa_idraw_names(rest))
+)
 //
 fun
 collect_q0arg_names(qas: q0arglst): list(strn) =
@@ -541,6 +559,34 @@ tqag_raw_names(tqas: t0qaglst): list(strn) =
       | _ => tqag_raw_names(rest)
     )
 )
+and
+farg_sapp_names(farg: f0arglst): list(strn) =
+(
+  case+ farg of
+  | list_nil() => list_nil()
+  | list_cons(fa, rest) => (
+      case+ fa.node() of
+      | F0ARGsapp(_, sqs, _) => list_append(collect_squa_names(sqs), farg_sapp_names(rest))
+      | _ => farg_sapp_names(rest)
+    )
+)
+and
+farg_sapp_raw_names(farg: f0arglst): list(strn) =
+(
+  case+ farg of
+  | list_nil() => list_nil()
+  | list_cons(fa, rest) => (
+      case+ fa.node() of
+      | F0ARGsapp(_, sqs, _) => list_append(collect_squa_raw_names(sqs), farg_sapp_raw_names(rest))
+      | _ => farg_sapp_raw_names(rest)
+    )
+)
+and
+impl_farg_names(tqas: t0qaglst, farg: f0arglst): list(strn) =
+  list_append(tqag_names(tqas), farg_sapp_names(farg))
+and
+impl_farg_raw_names(tqas: t0qaglst, farg: f0arglst): list(strn) =
+  list_append(tqag_raw_names(tqas), farg_sapp_raw_names(farg))
 and
 t0iag_s0es(tia: t0iag): s0explst =
 (
@@ -1728,16 +1774,20 @@ pp_dexp_extern_fundcl(out: FILR, n: sint, tps: list(strn), fd: d0fundcl): void =
   val nm   = i0dnt_lexeme(d0fundcl_get_dpid(fd))
   val farg = d0fundcl_get_farg(fd)
   val sres = d0fundcl_get_sres(fd)
+  val raws = farg_sapp_raw_names(farg)
+  val tps1 = list_append(tps, farg_sapp_names(farg))
 in
+  push_binders(raws);
   ind(out, n); ps(out, "@extern"); nl(out);
   ind(out, n); ps(out, "def "); ps(out, fname(nm));
-  pp_names_brkt(out, tps);
+  pp_names_brkt(out, tps1);
   pp_sig_farg_params(out, farg);
   ps(out, " -> ");
   (case+ sres of
    | S0RESsome(_, se) => pp_s0exp(out, se)
    | S0RESnone() => ps(out, "Void"));
-  nl(out)
+  nl(out);
+  pop_binders(raws)
 end
 and
 pp_dexp_where_decls(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
@@ -1749,10 +1799,12 @@ and
 pp_dexp_impl_local
 ( out: FILR, n: sint, tqas: t0qaglst, dqi: d0qid, tias: t0iaglst
 , farg: f0arglst, body: d0exp): void = let
-  val raws = tqag_raw_names(tqas)
+  val raws = impl_farg_raw_names(tqas, farg)
+  val tps = impl_farg_names(tqas, farg)
 in
   ind(out, n); ps(out, "@impl"); push_binders(raws); pp_impl_tias(out, tias);
   ps(out, " def "); ps(out, fname(d0qid_lexeme(dqi)));
+  pp_names_brkt(out, tps);
   (if farg_has_dapp(farg) then pp_lam_farg_params(out, farg) else ());
   ps(out, ":"); nl(out);
   pp_dexp_fun_body(out, n, body);
@@ -2093,10 +2145,12 @@ end
 	pp_impl_n
 	( out: FILR, n: sint, tqas: t0qaglst, dqi: d0qid, tias: t0iaglst
 	, farg: f0arglst, body: d0exp): void = let
-	  val raws = tqag_raw_names(tqas)
+	  val raws = impl_farg_raw_names(tqas, farg)
+	  val tps = impl_farg_names(tqas, farg)
 	in
 	  ind(out, n); ps(out, "@impl"); push_binders(raws); pp_impl_tias(out, tias);
 	  ps(out, " def "); ps(out, fname(d0qid_lexeme(dqi)));
+	  pp_names_brkt(out, tps);
 	  (if farg_has_dapp(farg) then pp_farg_params(out, farg) else ());
 	  ps(out, ":"); nl(out);
 	  pp_impl_body(out, n, body);
@@ -2107,13 +2161,17 @@ end
 	  val nm   = i0dnt_lexeme(d0fundcl_get_dpid(fd))
 	  val farg = d0fundcl_get_farg(fd)
 	  val tdxp = d0fundcl_get_tdxp(fd)
+	  val raws = farg_sapp_raw_names(farg)
+	  val tps = farg_sapp_names(farg)
 in
-  ind(out, n); ps(out, "@impl def "); ps(out, fname(nm));
+  ind(out, n); ps(out, "@impl def "); ps(out, fname(nm)); push_binders(raws);
+  pp_names_brkt(out, tps);
   pp_farg_params(out, farg);
   ps(out, ":"); nl(out);
 	  (case+ tdxp of
 	   | TEQD0EXPsome(_, body) => pp_impl_body(out, n, body)
-	   | TEQD0EXPnone() => (ind(out, n+1); todo(out, "impl-no-body")))
+	   | TEQD0EXPnone() => (ind(out, n+1); todo(out, "impl-no-body")));
+  pop_binders(raws)
 	end
 	and
 pp_fundcl_local(out: FILR, n: sint, fd: d0fundcl): void = let
