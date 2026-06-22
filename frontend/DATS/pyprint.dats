@@ -492,6 +492,17 @@ collect_q0arg_names(qas: q0arglst): list(strn) =
     )
 )
 and
+collect_q0arg_raw_names(qas: q0arglst): list(strn) =
+(
+  case+ qas of
+  | list_nil() => list_nil()
+  | list_cons(qa, rest) => (
+      case+ qa.node() of
+      | Q0ARGsome(id, _) => list_cons(i0dnt_lexeme(id), collect_q0arg_raw_names(rest))
+      | _ => collect_q0arg_raw_names(rest)
+    )
+)
+and
 tqag_names(tqas: t0qaglst): list(strn) =
 (
   case+ tqas of
@@ -502,6 +513,39 @@ tqag_names(tqas: t0qaglst): list(strn) =
       | _ => tqag_names(rest)
     )
 )
+and
+tqag_raw_names(tqas: t0qaglst): list(strn) =
+(
+  case+ tqas of
+  | list_nil() => list_nil()
+  | list_cons(tqa, rest) => (
+      case+ tqa.node() of
+      | T0QAGsome(_, qas, _) => list_append(collect_q0arg_raw_names(qas), tqag_raw_names(rest))
+      | _ => tqag_raw_names(rest)
+    )
+)
+and
+t0iag_s0es(tia: t0iag): s0explst =
+(
+  case+ tia.node() of
+  | T0IAGsome(_, ses, _) => ses
+  | T0IAGnone(_) => list_nil()
+)
+and
+t0iaglst_s0es(tias: t0iaglst): s0explst =
+(
+  case+ tias of
+  | list_nil() => list_nil()
+  | list_cons(tia, rest) => list_append(t0iag_s0es(tia), t0iaglst_s0es(rest))
+)
+and
+pp_impl_tias(out: FILR, tias: t0iaglst): void = let
+  val ses = t0iaglst_s0es(tias)
+in
+  case+ ses of
+  | list_nil() => ()
+  | _ => (ps(out, "["); pp_s0exp_seq(out, ses); ps(out, "]"))
+end
 //
 fun
 pp_names_brkt(out: FILR, ns: list(strn)): void = let
@@ -1595,7 +1639,8 @@ pp_dexp_letdecl(out: FILR, n: sint, dc: d0ecl): void =
 	  | D0Cvaldclst(_, vds) => pp_dexp_valdcls(out, n, vds)
 	  | D0Cvardclst(_, vds) => pp_dexp_vardcls(out, n, vds)
 	  | D0Cfundclst(_, _, fds) => pp_dexp_fundcl_local_list(out, n, fds)
-	  | D0Cimplmnt0(_, _, _, dqi, _, farg, _, _, body) => pp_dexp_impl_local(out, n, dqi, farg, body)
+	  | D0Cimplmnt0(_, _, tqas, dqi, tias, farg, _, _, body) =>
+        pp_dexp_impl_local(out, n, tqas, dqi, tias, farg, body)
 	  | D0Csexpdef(_, _, _, _, _, _) => ()
 	  | D0Cstatic(_, dc1) => pp_dexp_letdecl(out, n, dc1)
 	  | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
@@ -1645,13 +1690,18 @@ pp_dexp_where_decls(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
   | d0eclseq_WHERE(_, _, dcs, _) => pp_dexp_letdecls(out, n, dcs)
 )
 and
-pp_dexp_impl_local(out: FILR, n: sint, dqi: d0qid, farg: f0arglst, body: d0exp): void =
-(
-  ind(out, n); ps(out, "@impl def "); ps(out, fname(d0qid_lexeme(dqi)));
+pp_dexp_impl_local
+( out: FILR, n: sint, tqas: t0qaglst, dqi: d0qid, tias: t0iaglst
+, farg: f0arglst, body: d0exp): void = let
+  val raws = tqag_raw_names(tqas)
+in
+  ind(out, n); ps(out, "@impl"); push_binders(raws); pp_impl_tias(out, tias);
+  ps(out, " def "); ps(out, fname(d0qid_lexeme(dqi)));
   pp_lam_farg_params(out, farg);
   ps(out, ":"); nl(out);
-  pp_dexp_fun_body(out, n, body)
-)
+  pp_dexp_fun_body(out, n, body);
+  pop_binders(raws)
+end
 and
 pp_dexp_fundcl_local_list(out: FILR, n: sint, fds: d0fundclist): void =
 (
@@ -1993,13 +2043,18 @@ end
 // which the frontend's inline-implement path accepts at nerror=0).
 //
 	fun
-	pp_impl_n(out: FILR, n: sint, dqi: d0qid, farg: f0arglst, body: d0exp): void =
-	(
-	  ind(out, n); ps(out, "@impl def "); ps(out, fname(d0qid_lexeme(dqi)));
+	pp_impl_n
+	( out: FILR, n: sint, tqas: t0qaglst, dqi: d0qid, tias: t0iaglst
+	, farg: f0arglst, body: d0exp): void = let
+	  val raws = tqag_raw_names(tqas)
+	in
+	  ind(out, n); ps(out, "@impl"); push_binders(raws); pp_impl_tias(out, tias);
+	  ps(out, " def "); ps(out, fname(d0qid_lexeme(dqi)));
 	  pp_farg_params(out, farg);
 	  ps(out, ":"); nl(out);
-	  pp_impl_body(out, n, body)
-	)
+	  pp_impl_body(out, n, body);
+	  pop_binders(raws)
+	end
 	and
 	pp_fundcl_impl(out: FILR, n: sint, fd: d0fundcl): void = let
 	  val nm   = i0dnt_lexeme(d0fundcl_get_dpid(fd))
@@ -2061,7 +2116,7 @@ and
 	  case+ dc.node() of
 	  | D0Cvaldclst(_, vds) => pp_dexp_valdcls(out, n, vds)
 	  | D0Cfundclst(_, _, fds) => pp_fundcl_local_list_n(out, n, fds)
-	  | D0Cimplmnt0(_, _, _, dqi, _, farg, _, _, body) => pp_impl_n(out, n, dqi, farg, body)
+	  | D0Cimplmnt0(_, _, tqas, dqi, tias, farg, _, _, body) => pp_impl_n(out, n, tqas, dqi, tias, farg, body)
 	  | D0Csexpdef(_, sid, smas, _, _, se) => pp_typedef(out, n, sid, smas, se)
 	  | D0Cstatic(_, dc1) => pp_where_decl(out, n, dc1)
 	  | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
@@ -2172,7 +2227,7 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   // `#implfun f(args) = body`  ->  `@impl def f(args): body`.  `#implfun` lexes to
   // T_IMPLMNT(IMPLfun) and parses to D0Cimplmnt0 (the implement decl): name (d0qid),
   // f0arglst (params), s0res, and the d0exp body.
-  | D0Cimplmnt0(_, _, _, dqi, _, farg, _, _, body) => (pp_impl(out, dqi, farg, body); true)
+  | D0Cimplmnt0(_, _, tqas, dqi, tias, farg, _, _, body) => (pp_impl(out, tqas, dqi, tias, farg, body); true)
   // a local fun-decl-with-body (`fun f(x) = e`) also reaches here as D0Cfundclst.
   | D0Cfundclst(_, _, fds) => (pp_fundcl_impl_list(out, fds); true)
   //
@@ -2364,7 +2419,7 @@ pp_priv_head_one(out: FILR, n: sint, dc: d0ecl): void =
 	  | D0Cexcptcon(_, _, tcns) => pp_excptcon_list(out, n, tcns)
 	  | D0Cvaldclst(_, vds) => pp_priv_valdcls(out, n, vds)
 	  | D0Cfundclst(_, _, fds) => pp_fundcl_local_list_n(out, n, fds)
-	  | D0Cimplmnt0(_, _, _, dqi, _, farg, _, _, body) => pp_impl_n(out, n, dqi, farg, body)
+	  | D0Cimplmnt0(_, _, tqas, dqi, tias, farg, _, _, body) => pp_impl_n(out, n, tqas, dqi, tias, farg, body)
 	  | D0Cabsimpl(_, sqid, smas, _, _, se) => pp_absimpl(out, n, sqid, smas, se)
 	  | D0Csexpdef(_, sid, smas, _, _, se) => pp_typedef(out, n, sid, smas, se)
 	  | D0Cstatic(_, dc1) => pp_priv_head_one(out, n, dc1)
@@ -2396,8 +2451,8 @@ and
 	// `#implfun NAME(params) = body` (a D0Cimplmnt0) -> `@impl def NAME(params): body`.
 	// Params are UNANNOTATED (the .dats carries no param types; the inline-implement
 	// path infers them — verified nerror=0). The body is a `:`-suite at indent 1.
-	pp_impl(out: FILR, dqi: d0qid, farg: f0arglst, body: d0exp): void =
-	  pp_impl_n(out, 0, dqi, farg, body)
+	pp_impl(out: FILR, tqas: t0qaglst, dqi: d0qid, tias: t0iaglst, farg: f0arglst, body: d0exp): void =
+	  pp_impl_n(out, 0, tqas, dqi, tias, farg, body)
 	and
 // the body of `#implfun` -> `@impl def` (one or more d0fundcl in a list).
 pp_fundcl_impl_list(out: FILR, fds: d0fundclist): void =

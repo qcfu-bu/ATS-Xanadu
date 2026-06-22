@@ -1305,7 +1305,7 @@ fresh_impl_tqas(loc: loctn, decl_tqas: t2qaglst): t2qaglst = let
     case+ s2vs of
     | list_nil() => list_nil()
     | list_cons(s2v, rest) =>
-        list_cons(s2var_make_idst(symbl_make_name("a"), s2var_get_sort(s2v)), fresh_vars(rest))
+        list_cons(s2var_make_idst(s2var_get_name(s2v), s2var_get_sort(s2v)), fresh_vars(rest))
   fun
   go(gs: t2qaglst): t2qaglst =
     case+ gs of
@@ -1336,20 +1336,28 @@ in
   | ~optn_cons(d2c) => let
       val dimp = dimpl_make_node(loc, DIMPLone1(d2c))
       val tknd = token_make_node(loc, T_IMPLMNT(IMPLfun()))
-      // A-TEMPLATE: a fresh impl-side tqas matching the declared d2cst's template-quantifier shape
-      // (empty for a non-template d2cst — the existing monomorphic implement path).
-      val tqas = fresh_impl_tqas(loc, d2cst_get_tqas(d2c))
       // A-TEMPLATE: the `@impl[Int, ..]` instantiation list (empty for a bare `@impl def`).
       val tias =
         ( case+ tias_typs of
           | list_nil() => list_nil()
           | list_cons(_, _) => list_sing(t2iag_make_s2es(loc, pylower_typlst(env, tias_typs)))
         ): t2iaglst
-      // For generic/template impls, the declared signature args mention declaration-side
-      // tqas variables. Let D2Cimplmnt0 check unannotated binders against the fresh impl tqas
-      // instead of stamping stale declaration vars onto the param patterns.
+      // A bare template implementation is generic: build fresh impl-side tqas matching the
+      // declared d2cst. An explicit `@impl[T, ...]` is an instantiation implementation: keep tqas
+      // empty and let the D2Cimplmnt0 tias instantiate the template signature.
+      val tqas =
+        ( case+ tias_typs of
+          | list_nil() => fresh_impl_tqas(loc, d2cst_get_tqas(d2c))
+          | list_cons(_, _) => list_nil()
+        ): t2qaglst
+      // For generic/template impls, the declared signature args mention declaration-side tqas
+      // variables. For explicit instantiations, avoid stamping those stale declaration vars onto
+      // params; the tias carries the substitution and typechecking assigns the instantiated shape.
       val sigargs =
-        (if list_nilq(tqas) then d2c_fun_args(d2c) else list_nil()): s2explst
+        ( case+ tias_typs of
+          | list_cons(_, _) => list_nil()
+          | list_nil() => (if list_nilq(tqas) then d2c_fun_args(d2c) else list_nil())
+        ): s2explst
       // build + bind the (typed) params, lower the body, pop — the fun-body scope dance. The fresh
       // template tqas vars are bound FIRST so the param types / body resolve them.
       val () = tr12env_pshlam0(env)
