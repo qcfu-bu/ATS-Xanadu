@@ -56,6 +56,18 @@ fun strn_all_digits(s: strn): bool =
   if strn_eq(s, "") then false else strn_forall<>(s)
 )
 //
+fun strn_has_underscore(s: strn): bool =
+(
+strn_foldl<bool>(s, false) where
+{
+#typedef x0 = cgtz
+#typedef r0 = bool
+#impltmp
+foldl$fopr<x0><r0>(r0, x0) =
+  if r0 then true else x0 = '_'
+}
+)
+//
 fun field_label(name: strn): label =
 (
   if strn_all_digits(name)
@@ -163,10 +175,31 @@ fun tok_val_for_pat(loc: loctn, p: pcpat): token =
 fun
 d2e_styp(d2e: d2exp, t2p: s2typ): d2exp = let val () = d2exp_set_styp(d2e, t2p) in d2e end
 //
-// SINGLETON-OVERLOAD FAST PATH: the direct M3 path does not run the full stock overload-resolution
-// pass before trans23. For a deterministic overload bucket (`#symload stamp with stamp_make_uint`)
-// we can safely collapse the bucket to its only concrete target and leave multi-candidate overloads
-// on the existing D2Esym0/D2Edtsel path.
+fun
+d2cst_fun_narg(d2c: d2cst): sint =
+(
+  case+ d2cst_get_xtyp(d2c).node() of
+  | T2Pfun1(_, _, args, _) => list_length(args)
+  | _ =>
+      (case+ d2cst_get_sexp(d2c).node() of
+       | S2Efun1(_, _, args, _) => list_length(args)
+       | _ => (-1))
+)
+fun
+d2con_fun_narg(d2c: d2con): sint =
+(
+  case+ d2con_get_xtyp(d2c).node() of
+  | T2Pfun1(_, _, args, _) => list_length(args)
+  | _ => d2con_get_narg(d2c)
+)
+//
+// OVERLOAD FAST PATHS: the direct M3 path does not run the full stock overload-resolution
+// pass before trans23. For a deterministic overload bucket (`#symload stamp with
+// stamp_make_uint`) we can safely collapse the bucket to its only concrete target. For call
+// heads with a multi-candidate bucket, we also collapse shorthand families (`d3pat`) when
+// EXACTLY ONE concrete target has the supplied value-argument arity AND belongs to the
+// overloaded name's family (`d3pat` -> `d3pat_make_node`). Explicit family names containing
+// underscores (`d2pat_errvl`) stay on D2Esym0 because they may need type-based resolution.
 fun
 d2itm_value_exp(loc: loctn, d2i: d2itm): optn(d2exp) =
 (
@@ -180,11 +213,83 @@ case+ d2i of
 )
 //
 fun
+d2itm_family_match(sym: sym_t, d2i: d2itm): bool = let
+  val pref = strn_append(symbl_get_name(sym), "_")
+in
+case+ d2i of
+| D2ITMcon(d2cs) =>
+    if list_singq(d2cs) then strn_prefixq(pref, symbl_get_name(d2con_get_name(d2cs.head()))) else false
+| D2ITMcst(d2cs) =>
+    if list_singq(d2cs) then strn_prefixq(pref, symbl_get_name(d2cst_get_name(d2cs.head()))) else false
+| _ => false
+end
+//
+fun
+d2itm_arity_match(sym: sym_t, d2i: d2itm, nargs: sint): bool =
+(
+if d2itm_family_match(sym, d2i) then
+  (case+ d2i of
+   | D2ITMcon(d2cs) =>
+       if list_singq(d2cs) then d2con_fun_narg(d2cs.head()) = nargs else false
+   | D2ITMcst(d2cs) =>
+       if list_singq(d2cs) then d2cst_fun_narg(d2cs.head()) = nargs else false
+   | _ => false)
+else false
+)
+//
+fun
+d2itm_value_arity_exp(loc: loctn, sym: sym_t, d2i: d2itm, nargs: sint): optn(d2exp) =
+(
+  if d2itm_arity_match(sym, d2i, nargs) then d2itm_value_exp(loc, d2i) else optn_nil()
+)
+//
+fun
 d2ptmlst_single_exp(loc: loctn, dpis: d2ptmlst): optn(d2exp) =
 (
 case+ dpis of
 | list_cons(D2PTMsome(_, d2i), list_nil()) => d2itm_value_exp(loc, d2i)
 | _ => optn_nil()
+)
+//
+fun
+d2ptmlst_arity_count(sym: sym_t, dpis: d2ptmlst, nargs: sint): sint =
+(
+case+ dpis of
+| list_nil() => 0
+| list_cons(dpi, rest) =>
+    let
+      val hit =
+        (
+        case+ dpi of
+        | D2PTMsome(_, d2i) => if d2itm_arity_match(sym, d2i, nargs) then 1 else 0
+        | D2PTMnone(_) => 0
+        ) : sint
+    in
+      hit + d2ptmlst_arity_count(sym, rest, nargs)
+    end
+)
+//
+fun
+d2ptmlst_arity_first_exp(loc: loctn, sym: sym_t, dpis: d2ptmlst, nargs: sint): optn(d2exp) =
+(
+case+ dpis of
+| list_nil() => optn_nil()
+| list_cons(dpi, rest) =>
+    (case+ dpi of
+     | D2PTMsome(_, d2i) =>
+         (case+ d2itm_value_arity_exp(loc, sym, d2i, nargs) of
+          | ~optn_cons(d2e) => optn_cons(d2e)
+          | ~optn_nil() => d2ptmlst_arity_first_exp(loc, sym, rest, nargs))
+     | D2PTMnone(_) => d2ptmlst_arity_first_exp(loc, sym, rest, nargs))
+)
+//
+fun
+d2ptmlst_arity_single_exp(loc: loctn, sym: sym_t, dpis: d2ptmlst, nargs: sint): optn(d2exp) =
+(
+  if strn_has_underscore(symbl_get_name(sym)) then optn_nil() else
+    if d2ptmlst_arity_count(sym, dpis, nargs) = 1
+      then d2ptmlst_arity_first_exp(loc, sym, dpis, nargs)
+      else optn_nil()
 )
 //
 // VAL-BINDER STYP (M4): trans23_d2valdcl (trans23_decl00.dats:883) checks the val RHS against
@@ -301,11 +406,19 @@ end
 // value application. Stock ATS reaches this as an empty tapp/tapq; direct L2 construction has to
 // spell it out so the later template passes see the nullary template call.
 fun
-pl_call_head(env: !tr12env, loc: loctn, hloc: loctn, sym: sym_t): d2exp = let
-  val dopt = tr12env_find_d2itm(env, sym)
+pl_call_head(env: !tr12env, loc: loctn, hloc: loctn, sym: sym_t, nargs: sint): d2exp = let
+  val arity_exp =
+    (
+    case+ tr12env_find_d2itm(env, sym) of
+    | ~optn_vt_cons(d2i) =>
+        (case+ d2i of
+         | D2ITMsym(_, dpis) => d2ptmlst_arity_single_exp(hloc, sym, dpis, nargs)
+         | _ => optn_nil())
+    | ~optn_vt_nil() => optn_nil()
+    ) : optn(d2exp)
   val template_cst =
     (
-    case+ dopt of
+    case+ tr12env_find_d2itm(env, sym) of
     | ~optn_vt_cons(d2i) =>
       (
         case+ d2i of
@@ -320,9 +433,12 @@ pl_call_head(env: !tr12env, loc: loctn, hloc: loctn, sym: sym_t): d2exp = let
     | ~optn_vt_nil() => optn_nil()
     ) : optn(d2cst)
 in
-  case+ template_cst of
-  | ~optn_cons(d2c) => d2exp_tapp(loc, d2exp_cst(hloc, d2c), list_nil())
-  | ~optn_nil() => pl_var(env, hloc, sym)
+  case+ arity_exp of
+  | ~optn_cons(d2e) => d2e
+  | ~optn_nil() =>
+      (case+ template_cst of
+       | ~optn_cons(d2c) => d2exp_tapp(loc, d2exp_cst(hloc, d2c), list_nil())
+       | ~optn_nil() => pl_var(env, hloc, sym))
 end
 //
 // resolve a bare CONSTRUCTOR NAME used as a VALUE. Identical to pl_var EXCEPT a single resolved
@@ -461,14 +577,6 @@ d2c_fun_args(d2c: d2cst): s2explst =
   | S2Efun1(_, _, args, _) => args
   | _ => list_nil()
 )
-fun
-d2con_fun_narg(d2c: d2con): sint =
-(
-  case+ d2con_get_xtyp(d2c).node() of
-  | T2Pfun1(_, _, args, _) => list_length(args)
-  | _ => d2con_get_narg(d2c)
-)
-//
 fun
 pl_sres_sig(env: !tr12env, ret: pytypopt): s2res =
 (
@@ -1184,7 +1292,7 @@ case+ hd of
       // a no-op prefix (unary +): the application IS its single operand.
       (case+ args of list_cons(a, _) => pl_exp(env, a) | list_nil() => d2exp_none0(loc))
     else let
-      val d2f = pl_call_head(env, loc, hloc, ats_sym(key))
+      val d2f = pl_call_head(env, loc, hloc, ats_sym(key), nargs)
     in
       case+ args of
       | list_nil() => d2exp_make_node(loc, D2Edap0(d2f))

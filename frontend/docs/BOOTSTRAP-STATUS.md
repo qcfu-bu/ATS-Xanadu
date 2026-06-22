@@ -30,7 +30,7 @@ harnesses.
   reader/checker slices, the focused compiler-environment slice
   `lexbuf0_cstrx1.dats`, `lexing0_utils2.dats`, `trans12_myenv0.dats`,
   `trans23_myenv0.dats`, and `trtmp3c_myenv0.dats`, the first green
-  `dynexp0`/`dynexp1`/`dynexp2` helper sub-slice, the reporter and reader
+  `dynexp0`/`dynexp1`/`dynexp2`/`dynexp3` helper sub-slice, the reporter and reader
   expansion slices, the `trtmp3b`/`trtmp3c` template-pass slice, the
   support/type-kernel `statyp2` plus `xstamp0`/`xsymbol`/`xlabel0` slice, and
   the focused round-trip fixtures with `TODOpp=0` and `m3_nerror=0`.
@@ -127,10 +127,13 @@ harnesses.
   `trtmp3c` files except `trtmp3c_myenv0.dats`, which was already in the
   focused compiler-environment slice.
 - The first dynamic-expression expansion slice
-  `srcgen2/DATS/{dynexp0,dynexp0_print0,dynexp1,dynexp1_print0,dynexp2,dynexp2_print0,dynexp2_tmplib,dynexp2_utils0}.dats`
+  `srcgen2/DATS/{dynexp0,dynexp0_print0,dynexp1,dynexp1_print0,dynexp2,dynexp2_print0,dynexp2_tmplib,dynexp2_utils0,dynexp3,dynexp3_print0,dynexp3_tmplib,dynexp3_utils0}.dats`
   now reaches `TODOpp=0` and `m3_nerror=0`. ATS qualified static map types such
   as `$MAP.topmap` now pretty-print as `MAP.topmap[...]` and lower through the
-  same namespace lookup path as stock ATS.
+  same namespace lookup path as stock ATS. Imported multi-candidate symload call
+  heads now prune by unique value-argument arity, so generated calls such as
+  `d3pat(loc0, node)` lower to the arity-2 `d3pat_make_node` target instead of
+  staying as unresolved `D2Esym0`.
 - The support/type-kernel expansion slice now sits in the default corpus and
   reaches `TODOpp=0` and `m3_nerror=0`. It covers the `statyp2*`,
   `xstamp0*`, `xsymbol*`, and `xlabel0*` files now promoted into the default
@@ -190,9 +193,8 @@ harnesses.
   `~C(...)`, applied lowercase constructor patterns, and generated `fold(e)`
   calls now parse/elaborate/lower; the next high-value targets are the remaining
   typecheck errors and unresolved dynamic helper names surfaced by generated
-  Pythonic files. One concrete next blocker is `dynexp3.dats`: generated
-  `d3pat(loc0, node)` reaches M3 but remains a multi-candidate imported
-  symload call instead of resolving to the arity-2 `d3pat_make_node`.
+  Pythonic files. The previous `dynexp3.dats` imported-symload blocker is now
+  covered by the default corpus and `TEST/dyn/dyn_overload_call_arity.pdats`.
 - Slash-identifier fidelity: keep `$` <-> `/` round-trip support covered by
   regression tests and expand the corpus audit around collision-prone names.
 

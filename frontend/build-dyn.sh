@@ -19,6 +19,8 @@
 #           final void expression in the branch must not replace the function value.
 #   GAP F — dotted qualified static type heads (`MAP.topmap[T]`) must lower like
 #           ATS `$MAP.topmap(T)` instead of degrading the constructor field type to none0.
+#   GAP G — an imported multi-candidate `#symload` call head is pruned by call arity when
+#           exactly one target matches (`d3pat(loc0,node)` -> `d3pat_make_node`).
 #
 # Each fixture rides the SAME M3 driver path (frontend/DATS/pyfront_m3.dats = the full
 # lex -> parse -> elab -> lower -> trans2a -> trsym2b -> t2read0 -> trans23 -> tread3a
@@ -179,6 +181,23 @@ else
   FAIL=1
 fi
 
+# ---- GAP G: dyn_overload_call_arity — imported overload call-head arity pruning --------
+echo "----------------------------------------------------------------------"
+py="$TESTDIR/dyn_overload_call_arity.pdats"
+echo ">> [GAP G] $py  (imported overload call pruned by arity ; expect nerror=0)"
+echo "-- source --"; cat "$py"
+run_fixture "$py"
+echo ">> rc=$RC  nerror (after tread3a) = ${NE:-<none>}"
+if [ "${NE:-X}" = "0" ]; then
+  echo ">> PASS  (GAP G: d3pat(loc,node) resolves to the arity-2 imported symload target, nerror=0)"
+  echo "         NOTE: codegen may then hit the stock srcgen2 i0varfst_mklst gap after typecheck;"
+  echo "               the regression asserts the frontend/typecheck boundary."
+else
+  echo "!! FAIL  (GAP G expected nerror=0; got ${NE:-<none>})" >&2
+  grep -E "F2PERR0-ERROR|F3PERR0-ERROR|elab-diag" "$ERRF" | head -8 >&2
+  FAIL=1
+fi
+
 echo "======================================================================"
 if [ "$FAIL" -ne 0 ]; then echo ">> DYN: FAIL (see failures above)"; exit 1; fi
 echo ">> DYN: PASS (GAP A private-head TYPECHECKS nerror=0 [codegen-lib gap noted];"
@@ -186,5 +205,6 @@ echo "            GAP B r[]/r[]:=  LOWER+TYPECHECK nerror=0;  GAP C lowercase co
 echo "            is crash-safe with counted nerror>0; GAP D expression underscore"
 echo "            LOWERS as ATS top; GAP E statement if continues to the suite tail;"
 echo "            GAP F dotted qualified static type heads lower through namespace lookup;"
+echo "            GAP G imported overload call heads prune by unique arity match;"
 echo "            all expected-success fixtures TYPECHECK nerror=0.)"
 exit 0

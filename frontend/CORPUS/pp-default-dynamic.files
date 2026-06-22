@@ -10,6 +10,10 @@ srcgen2/DATS/dynexp2.dats
 srcgen2/DATS/dynexp2_print0.dats
 srcgen2/DATS/dynexp2_tmplib.dats
 srcgen2/DATS/dynexp2_utils0.dats
+srcgen2/DATS/dynexp3.dats
+srcgen2/DATS/dynexp3_print0.dats
+srcgen2/DATS/dynexp3_tmplib.dats
+srcgen2/DATS/dynexp3_utils0.dats
 srcgen2/DATS/f2perr0.dats
 srcgen2/DATS/f2perr0_decl00.dats
 srcgen2/DATS/f2perr0_dynexp.dats
