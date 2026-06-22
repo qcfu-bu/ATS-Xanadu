@@ -123,6 +123,7 @@ srcgen2/DATS/locinfo.dats
 srcgen2/DATS/locinfo_print0.dats
 srcgen2/DATS/nmspace.dats
 srcgen2/DATS/lexing0.dats
+srcgen2/DATS/lexing0_kword0.dats
 srcgen2/DATS/lexing0_ext000.dats
 srcgen2/DATS/lexing0_mymap0.dats
 srcgen2/DATS/lexing0_token0.dats

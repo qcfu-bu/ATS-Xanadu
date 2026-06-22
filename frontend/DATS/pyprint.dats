@@ -3137,7 +3137,7 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   // function binding, unlike an `@impl`-decorated def, which requires an existing signature.
   | D0Cfundclst(_, _, fds) => (pp_fundcl_local_list_n(out, 0, fds); true)
   //
-  // a top-level value binding (`val name = e`) -> `@static let name = e`.
+  // a top-level dynamic value binding (`val name = e`) -> plain `let name = e`.
   | D0Cvaldclst(_, vds) => (pp_topval(out, vds); true)
   //
   // `#staload "x"` (a .sats interface) -> a scoped Pythonic import of the interface.
@@ -3406,13 +3406,15 @@ pp_fundcl_impl_list(out: FILR, fds: d0fundclist): void =
       pp_fundcl_impl_list(out, rest))
 )
 and
-// a TOP-LEVEL `val name = e` binding (outside a local) -> `@static let name = e`.
+// a TOP-LEVEL `val name = e` binding (outside a local) is still dynamic in a .dats.
+// `@static let` is reserved for real `stadef`/`stacst` declarations; token-valued
+// aliases such as `val T0CAS0 = T_CASE(...)` must be ordinary dynamic values.
 pp_topval(out: FILR, vds: d0valdclist): void =
 (
   case+ vds of
   | list_nil() => ()
   | list_cons(vd, rest) => (
-      (ps(out, "@static"); nl(out); pp_dexp_valdcl(out, 0, vd));
+      pp_dexp_valdcl(out, 0, vd);
       pp_topval(out, rest))
 )
 //

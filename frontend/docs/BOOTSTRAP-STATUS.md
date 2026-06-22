@@ -147,8 +147,8 @@ harnesses.
   `trans12`/`trans11`/`trans23` helpers, `xsymmap*`, `staexp0_print0`,
   `staexp1*`, selected `staexp2*` helpers, `filpath_{fpath0,print0,search}`,
   `gmacro1*`, `locinfo*`, `nmspace`, and the green `lexing0` helper subset.
-  The default dynamic corpus now validates 142/142 files; the default auto
-  corpus validates 143/143 files.
+  The default dynamic corpus now validates 143/143 files; the default auto
+  corpus validates 144/144 files.
 - `srcgen2/DATS/filpath.dats` now sits in the default corpus and reaches
   `TODOpp=0` and `m3_nerror=0`. The blocker was expression-decorator
   precedence: generated code such as
@@ -156,6 +156,12 @@ harnesses.
   must instantiate the `gseq_z2cmp11(...)` call before applying infix equality.
   `@inst` and `@sapp` now bind as high-precedence expression decorators, with a
   regression in `TEST/atmpl/at_inst_infix_operand.pdats`.
+- `srcgen2/DATS/lexing0_kword0.dats` now sits in the default corpus and reaches
+  `TODOpp=0` and `m3_nerror=0`. The blocker was top-level `val` emission:
+  token-valued aliases such as `val T0CAS0 = T_CASE(CSKcas0)` are dynamic
+  values, not `stadef`s, so pyprint now emits plain `let` for top-level
+  `D0Cvaldclst` bindings. True static definitions still use explicit
+  `@static let`.
 - `build-pp-corpus.sh --out-dir RELPATH` now normalizes the report directory
   against `frontend/` before running pyprint from `XATSHOME`, so separate static
   and dynamic corpus summaries can be kept without path breakage.
@@ -166,7 +172,7 @@ harnesses.
    interface corpus and the 166-file `srcgen2/DATS`/`srcgen2/UTIL` pyprint-only
    slice. The parser implementation slice no longer crashes in layout/reparse,
    all seven first parser implementation files now reparse/typecheck, and the
-   default dynamic corpus validates 141 generated files. The next breadth
+   default dynamic corpus validates 143 generated files. The next breadth
    blocker is scaling that same `TODOpp=0` plus `m3_nerror=0` treatment into the
    remaining compiler/backend slices, then `srcgen1/prelude` and backend
    comparison.
