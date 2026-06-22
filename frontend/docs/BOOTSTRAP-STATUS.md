@@ -53,7 +53,7 @@ harnesses.
   compiler interfaces such as `dynexp0.sats`.
 - The dynamic compiler/utility pyprint-only sweep now has a concrete baseline:
   `build-pp-corpus.sh --dynamic --no-reparse` over 166 `srcgen2/DATS` and
-  `srcgen2/UTIL` files reports 18 visible `# TODO(pp)` markers. Printing ATS
+  `srcgen2/UTIL` files reports 15 visible `# TODO(pp)` markers. Printing ATS
   `when` guards as Pythonic `case ... if ...:` removed the largest previous
   TODO class, and selector left-hand sides such as `buf.N := ...` now print
   without `d0exp-inline` fallbacks. Value RHSs shaped as
@@ -63,8 +63,10 @@ harnesses.
   comments rather than emitted as invalid Pythonic binders. Local exception
   constructors now print in `let` and `where` scopes, clearing `xfixity.dats`
   to `TODOpp=0`. `#staload` declarations in `local` heads now print inside the
-  generated `private:` block. The remaining clusters are inline dynamic
-  expressions, local structural declarations, and let-declaration shapes.
+  generated `private:` block. `local ... in ... end` declarations inside
+  dynamic `let` setup lists now emit an indented `private:` setup followed by
+  the local body declarations. The remaining clusters are inline dynamic
+  expressions and structural `where`/private-head declaration shapes.
 - `build-pp-corpus.sh --out-dir RELPATH` now normalizes the report directory
   against `frontend/` before running pyprint from `XATSHOME`, so separate static
   and dynamic corpus summaries can be kept without path breakage.
@@ -111,8 +113,8 @@ harnesses.
   current two-file smoke corpus and track per-file `# TODO(pp)` count and
   reparse `nerror`.
 - Dynamic pyprint breadth: drive the 166-file DATS/UTIL baseline from
-  `TODOpp=18` to zero, starting with inline dynamic expressions and structural
-  local/let declaration fallbacks.
+  `TODOpp=15` to zero, starting with inline dynamic expressions and structural
+  `where`/private-head declaration fallbacks.
 - Slash-identifier fidelity: keep `$` <-> `/` round-trip support covered by
   regression tests and expand the corpus audit around collision-prone names.
 

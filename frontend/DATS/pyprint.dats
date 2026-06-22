@@ -1892,12 +1892,24 @@ pp_dexp_letdecl(out: FILR, n: sint, dc: d0ecl): void =
 	        pp_typedef(out, n, sid, smas, se))
 	  | D0Cdefine(_, gid, _, gedf) => pp_define(out, n, gid, gedf)
 	  | D0Cexcptcon(_, _, tcns) => pp_excptcon_list(out, n, tcns)
+	  | D0Clocal0(_, head, _, body, _) => pp_dexp_local_decls(out, n, head, body)
 	  | D0Cstatic(_, dc1) => pp_dexp_letdecl(out, n, dc1)
 	  | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
 	  | D0Ctkerr(_) => ()
 	  | D0Ctkskp(_) => ()
 	  | _ => (ind(out, n); todo(out, "let-decl"))
 	)
+and
+pp_dexp_local_decls(out: FILR, n: sint, head: d0eclist, body: d0eclist): void =
+(
+  if list_nilq(head)
+  then pp_dexp_letdecls(out, n, body)
+  else (
+    ind(out, n); ps(out, "private:"); nl(out);
+    pp_dexp_letdecls(out, n+1, head);
+    nl(out);
+    pp_dexp_letdecls(out, n, body))
+)
 and
 pp_dexp_extern_decl(out: FILR, n: sint, dc: d0ecl): void =
 (
