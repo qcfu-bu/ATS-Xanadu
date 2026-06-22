@@ -137,6 +137,30 @@ fun tok_val_for_pat(loc: loctn, p: pcpat): token =
 fun
 d2e_styp(d2e: d2exp, t2p: s2typ): d2exp = let val () = d2exp_set_styp(d2e, t2p) in d2e end
 //
+// SINGLETON-OVERLOAD FAST PATH: the direct M3 path does not run the full stock overload-resolution
+// pass before trans23. For a deterministic overload bucket (`#symload stamp with stamp_make_uint`)
+// we can safely collapse the bucket to its only concrete target and leave multi-candidate overloads
+// on the existing D2Esym0/D2Edtsel path.
+fun
+d2itm_value_exp(loc: loctn, d2i: d2itm): optn(d2exp) =
+(
+case+ d2i of
+| D2ITMvar(d2v) => optn_cons(d2exp_var(loc, d2v))
+| D2ITMcon(d2cs) =>
+    if list_singq(d2cs) then optn_cons(d2exp_con(loc, d2cs.head())) else optn_nil()
+| D2ITMcst(d2cs) =>
+    if list_singq(d2cs) then optn_cons(d2exp_cst(loc, d2cs.head())) else optn_nil()
+| D2ITMsym(_, _) => optn_nil()
+)
+//
+fun
+d2ptmlst_single_exp(loc: loctn, dpis: d2ptmlst): optn(d2exp) =
+(
+case+ dpis of
+| list_cons(D2PTMsome(_, d2i), list_nil()) => d2itm_value_exp(loc, d2i)
+| _ => optn_nil()
+)
+//
 // VAL-BINDER STYP (M4): trans23_d2valdcl (trans23_decl00.dats:883) checks the val RHS against
 // `dpat.styp()` (= the binder d2var's styp). The from-FILE pipeline gives every binder a fresh
 // existential tyvar in trans2a (f0_var, 546-574) so the RHS type flows in; but
@@ -226,12 +250,15 @@ in
       | D2ITMcst(d2cs) =>
           if list_singq(d2cs) then d2exp_cst(loc, d2cs.head()) else d2exp_csts(loc, d2cs)
       | D2ITMsym(_, dpis) =>
-          let
-            val d1e0 = d1exp_make_node(loc, D1Eid0(sym))
-            val drxp = d2rxp_new1(loc)
-          in
-            d2exp_sym0(loc, drxp, d1e0, dpis)
-          end
+          (case+ d2ptmlst_single_exp(loc, dpis) of
+           | ~optn_cons(d2e) => d2e
+           | ~optn_nil() =>
+             let
+               val d1e0 = d1exp_make_node(loc, D1Eid0(sym))
+               val drxp = d2rxp_new1(loc)
+             in
+               d2exp_sym0(loc, drxp, d1e0, dpis)
+             end)
     )
 end
 //
@@ -1066,11 +1093,18 @@ pl_selector_app
 let
   val lab = LABsym(ats_sym(name))
   val dpis = selector_dpis(env, name)
-  val darg = optn_cons(pl_explst(env, args)) : d2explstopt
-  val dsel = d2exp_make_node(hloc, D2Edtsel(tok_dot(hloc), lab, dpis, (-1), darg))
   val dobj = pl_exp(env, obj)
+  val dargs = pl_explst(env, args)
 in
-  d2exp_dapp(loc, dsel, (-1), list_sing(dobj))
+  case+ d2ptmlst_single_exp(hloc, dpis) of
+  | ~optn_cons(d2f) => d2exp_dapp(loc, d2f, (-1), list_cons(dobj, dargs))
+  | ~optn_nil() =>
+      let
+        val darg = optn_cons(dargs) : d2explstopt
+        val dsel = d2exp_make_node(hloc, D2Edtsel(tok_dot(hloc), lab, dpis, (-1), darg))
+      in
+        d2exp_dapp(loc, dsel, (-1), list_sing(dobj))
+      end
 end
 //
 // template F : lower one (recursive/mutual) fun group to a D2Cfundclst d2ecl. Mirrors
