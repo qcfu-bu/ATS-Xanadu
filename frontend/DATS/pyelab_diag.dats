@@ -125,7 +125,7 @@ case+ d of
 | PCCrecord(_, _, _, _, _) => acc // a struct record carries only field types — no poison nodes.
 | PCCexcept(_, _, _) => acc      // EXN: an exception decl carries only arg types — no poison nodes.
 | PCCabstype(_, _, _, _, _) => acc  // an abstract type carries only a name/params — no poison nodes.
-| PCCassume(_, _, _) => acc      // an assume carries only a name + a surface type — no poison nodes.
+| PCCassume(_, _, _, _) => acc   // an assume carries only a name/params + a surface type.
 | PCCextern(_, _, _, _, _) => acc // an extern signature carries only types — no poison nodes.
 | PCCimplement(_, _, _, _, _, body, _) => harv_exp(body, acc) // an implement BODY may carry poison nodes.
 // A-TEMPLATE: a template decl's INLINE body (when present) may carry poison nodes; a bodyless one

@@ -368,16 +368,17 @@ pcdecl =
 //                present: an s2cst with NO sexp attached (opacity holds at typecheck — a distinct
 //                singleton). The `<= REP` is codegen-only / informational (NOT typecheck-
 //                constraining — srcgen2 trans23/trans2a pass it through). No imperative content.
-//   PCCassume  : an `assume Name = T` representation (ATS-parity). Carries the abstract type's
-//                NAME + the concrete representation SURFACE type. M3 SELECTS the already-
-//                registered abstract s2cst by name (tr12env_find_s2itm -> SIMPLone1), lowers
-//                T via pylower_typ, and builds D2Cabsimpl(tok, simpl, s2exp).
+//   PCCassume  : an `assume Name [tvs] = T` representation (ATS-parity). Carries the abstract
+//                type's NAME + optional static params + the concrete representation SURFACE type.
+//                M3 SELECTS the already-registered abstract s2cst by name (tr12env_find_s2itm ->
+//                SIMPLone1), lowers T via pylower_typ, wraps parametric reps in s2exp_lam1, and
+//                builds D2Cabsimpl(tok, simpl, s2exp).
 //   PCCextern  : an `extern def foo(params) -> Ret` FFI bodyless SIGNATURE (ATS-parity). Carries
 //                the fun NAME, its param names + OPTIONAL types (parallel lists, M5a-style), and
 //                the OPTIONAL return type. M3 builds the function type, makes a d2cst, REGISTERS
 //                it (so calls resolve), and emits D2Cextern(tok, D2Cdynconst(...)). No body.
 | PCCabstype of (loctn, strn, list(pcparam), pcmode, pytypopt(*<= REP*))
-| PCCassume  of (loctn, strn, pytyp)
+| PCCassume  of (loctn, strn, list(pcparam), pytyp)
 | PCCextern  of (loctn, strn, list(strn), list(pytypopt), pytypopt)
 //   PCCimplement : an `implement NAME(params) [-> Ret]: <body>` body for a pre-declared function
 //                  (ATS-parity). Carries the implemented fun NAME, its param names + OPTIONAL types

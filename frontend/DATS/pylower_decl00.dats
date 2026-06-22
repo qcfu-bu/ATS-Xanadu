@@ -811,7 +811,8 @@ lower_import(env: !tr12env, loc: loctn, path: strn, knd0: sint, is_python: bool)
       //     (a d2parsed whose `t2penv` is the module's D2TOPENV). SAME path stock staload uses,
       //     including the parsed-file cache, but we do NOT call the global `the_*env_pvsmrgw`.
       val fpth = fpath_make_absolute(abspath)
-      val @(shrd, dpar2) = cached_d2parsed_from_fpath(knd0, fpth, abspath)
+      val pknd = import_parse_kind(knd0, abspath)
+      val @(shrd, dpar2) = cached_d2parsed_from_fpath(pknd, fpth, abspath)
       // (2) build the module's f2env straight from its D2TOPENV (dynexp2.dats:404 `f2env_of_d2parsed`
       //     = F2ENV(lcsrc, g1mac, s2tex, s2itm, d2itm) from `dpar.t2penv()` — the EXACT value the
       //     stock bare-staload path passes to `tr12env_add1_f2env` (trans12_decl00.dats:2374)).
@@ -829,8 +830,15 @@ lower_import(env: !tr12env, loc: loctn, path: strn, knd0: sint, is_python: bool)
       val fopt = optn_cons(fpth) : fpathopt
       val dres = S2TALOADdpar(shrd, dpar2) : s2taloadopt
     in
-      d2ecl_make_node(loc, D2Cstaload(knd0, tok, gsrc, fopt, dres))
+      d2ecl_make_node(loc, D2Cstaload(pknd, tok, gsrc, fopt, dres))
     end
+end
+//
+and
+import_parse_kind(knd0: sint, path: strn): sint = let
+  val knd1 = fname_stadyn(path)
+in
+  if knd1 < 0 then knd0 else knd1
 end
 //
 and
@@ -1079,9 +1087,21 @@ case+ d of
 // registers the s2cst so later decls (and the `assume`) resolve `Name`. SPIKE-PROVEN.
 | PCCabstype(loc, name, tvs, mode, repopt) => build_abstype(env, loc, name, tvs, mode, repopt)
 //
-// ATS-parity: an `assume Name = T` representation -> a D2Cabsimpl. build_absimpl selects the
-// already-registered abstract s2cst by name + attaches the lowered representation. SPIKE-PROVEN.
-| PCCassume(loc, name, typ) => build_absimpl(env, loc, name, pylower_typ(env, typ))
+// ATS-parity: an `assume Name [tvs] = T` representation -> a D2Cabsimpl. Parametric assumes encode
+// the params in the RHS as static lambdas, matching stock trans12's `f1_lams` for #absimpl.
+| PCCassume(loc, name, tvs, typ) =>
+  if list_nilq(tvs) then
+    build_absimpl(env, loc, name, pylower_typ(env, typ))
+  else let
+    val s2vs = mk_param_s2vars(tvs)
+    val () = tr12env_pshlam0(env)
+    val () = bind_param_s2vars(env, s2vs)
+    val body = pylower_typ(env, typ)
+    val () = tr12env_poplam0(env)
+    val rhs = s2exp_lam1(s2vs, body)
+  in
+    build_absimpl(env, loc, name, rhs)
+  end
 //
 // ATS-parity: an `extern def foo(params) -> Ret` FFI bodyless SIGNATURE -> a D2Cextern wrapping
 // a D2Cdynconst whose d2cst carries the function type. build_extern REGISTERS the d2cst so a

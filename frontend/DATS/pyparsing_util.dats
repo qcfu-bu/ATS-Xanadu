@@ -93,7 +93,7 @@ case+ d of
 | PyCfun(loc, _, _, _, _, _, _, _) => loc | PyCtype(loc, _, _, _, _) => loc
 | PyCprivate(loc, _) => loc
 | PyCenum(loc, _, _, _, _) => loc   | PyCstruct(loc, _, _, _, _) => loc
-| PyCabstype(loc, _, _, _, _) => loc   | PyCassume(loc, _, _) => loc
+| PyCabstype(loc, _, _, _, _) => loc   | PyCassume(loc, _, _, _) => loc
 | PyCexcept(loc, _, _) => loc
 | PyCsortdef(loc, _, _) => loc      | PyCstacst(loc, _, _) => loc
 | PyCsortsub(loc, _, _, _) => loc

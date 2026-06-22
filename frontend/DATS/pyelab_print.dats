@@ -447,8 +447,9 @@ case+ d of
     ps(out, " mode="); pp_mode(out, mode);
     ( case+ repopt of PyTypNone() => () | PyTypSome(t) => (ps(out, " <= "); pp_typ(out, t)) );
     ps(out, ")") )
-| PCCassume(loc, nm, typ) =>
+| PCCassume(loc, nm, tvs, typ) =>
   ( ps(out, "(assume "); ps(out, nm); print_span(out, loc);
+    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_pcparams(out, tvs); ps(out, ")")) );
     ps(out, " "); pp_typ(out, typ); ps(out, ")") )
 | PCCextern(loc, nm, pnames, _ptypes, ret) =>
   ( ps(out, "(extern "); ps(out, nm); print_span(out, loc);

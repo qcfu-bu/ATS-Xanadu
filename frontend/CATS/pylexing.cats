@@ -60,13 +60,14 @@ function PYL_byte_at(i) {
 function PYL_unquote(s) {
   s = String(s);
   if (s.length >= 2 && s.charCodeAt(0) === 34 && s.charCodeAt(s.length - 1) === 34) {
-    return s.substring(1, s.length - 1);
+    s = s.substring(1, s.length - 1);
   }
+  s = s.replace(/\\\r?\n[ \t]*/g, "");
   return s;
 }
 function PYL_has_ats_ext(s) {
   s = PYL_unquote(s);
-  return /\.(sats|hats)$/i.test(String(s));
+  return /\.(sats|dats|hats)$/i.test(String(s));
 }
 function PYL_has_hats_ext(s) {
   s = PYL_unquote(s);

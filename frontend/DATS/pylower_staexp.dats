@@ -106,11 +106,14 @@ typ_alias(name: strn): strn =
   else if strn_eq(name, "strn") then "the_s2exp_strn0"
   else if strn_eq(name, "Char") then "the_s2exp_char0"
   else if strn_eq(name, "Float") then "the_s2exp_dflt0"
+  else if strn_eq(name, "UInt") then "the_s2exp_uint0"
+  else if strn_eq(name, "Uint") then "the_s2exp_uint0"
   // DEP: a BARE `SInt` (no index args) is the EXISTENTIAL int — the SAME `the_s2exp_sint0`
   // that an int literal's type is `T2Pcst(the_s2exp_sint0)` (M5a reasoning), so `-> SInt`
   // unifies with `0`. The INDEXED form `SInt[k]` is routed separately (the_s2exp_sint1) in
   // the PyTcon arm BEFORE this alias runs — so this branch only fires for the bare name.
   else if strn_eq(name, "SInt") then "the_s2exp_sint0"
+  else if strn_eq(name, "Sint") then "the_s2exp_sint0"
   else if strn_eq(name, "SBool") then "the_s2exp_bool0"
   else name
 )
@@ -209,8 +212,16 @@ end
 fun
 pytcon_head(env: !tr12env, name: strn): s2exp =
 (
-  if strn_eq(name, "SInt") then resolve_typ_name(env, "the_s2exp_sint1")
+  if strn_eq(name, "Int") then resolve_typ_name(env, "the_s2exp_sint1")
+  else if strn_eq(name, "SInt") then resolve_typ_name(env, "the_s2exp_sint1")
+  else if strn_eq(name, "Sint") then resolve_typ_name(env, "the_s2exp_sint1")
+  else if strn_eq(name, "UInt") then resolve_typ_name(env, "the_s2exp_uint1")
+  else if strn_eq(name, "Uint") then resolve_typ_name(env, "the_s2exp_uint1")
+  else if strn_eq(name, "Bool") then resolve_typ_name(env, "the_s2exp_bool1")
   else if strn_eq(name, "SBool") then resolve_typ_name(env, "the_s2exp_bool1")
+  else if strn_eq(name, "Char") then resolve_typ_name(env, "the_s2exp_char1")
+  else if strn_eq(name, "String") then resolve_typ_name(env, "the_s2exp_strn1")
+  else if strn_eq(name, "strn") then resolve_typ_name(env, "the_s2exp_strn1")
   // B-LINEAR: the surface pointer type `ptr[l]` (an addr-arg application) routes to the registered
   // prelude ptr s2cst `the_s2exp_p2tr0` (ptr : (addr) -> type). (SPIKE BL-AT2/BL-DERF used it.)
   else if strn_eq(name, "ptr") then resolve_typ_name(env, "the_s2exp_p2tr0")

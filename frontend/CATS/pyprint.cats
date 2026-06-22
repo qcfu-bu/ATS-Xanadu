@@ -34,8 +34,9 @@ function PYPP_source_set(s) { PYPP_source_path = String(s || ""); return; }
 function PYPP_unquote(s) {
   s = String(s);
   if (s.length >= 2 && s.charAt(0) === '"' && s.charAt(s.length - 1) === '"') {
-    return s.substring(1, s.length - 1);
+    s = s.substring(1, s.length - 1);
   }
+  s = s.replace(/\\\r?\n[ \t]*/g, "");
   return s;
 }
 function PYPP_strip_ext(s) {
@@ -84,10 +85,44 @@ function PYPP_argv_stadyn() {
 // stay verbatim so they resolve against the existing lowercase pyrt. The walk
 // pre-registers a file-local name (the lowercase ATS spelling) then checks
 // membership at every name-emission site.
-var PYPP_local_set = {};
-function PYPP_local_reset() { PYPP_local_set = {}; }
-function PYPP_local_add(s) { PYPP_local_set[String(s)] = true; return; }
-function PYPP_local_has(s) { return PYPP_local_set[String(s)] === true; }
+var PYPP_type_set = {};
+var PYPP_con_set = {};
+function PYPP_local_reset() {
+  PYPP_type_set = {};
+  PYPP_con_set = {};
+}
+function PYPP_local_add(s) {
+  PYPP_type_set[String(s)] = true;
+  PYPP_con_set[String(s)] = true;
+  return;
+}
+function PYPP_local_has(s) {
+  s = String(s);
+  return PYPP_type_set[s] === true || PYPP_con_set[s] === true;
+}
+function PYPP_type_add(s) { PYPP_type_set[String(s)] = true; return; }
+function PYPP_type_has(s) { return PYPP_type_set[String(s)] === true; }
+function PYPP_con_add(s) { PYPP_con_set[String(s)] = true; return; }
+function PYPP_con_has(s) { return PYPP_con_set[String(s)] === true; }
+var PYPP_binder_stack = [];
+function PYPP_binder_push(s) { PYPP_binder_stack.push(String(s)); return; }
+function PYPP_binder_pop(s) {
+  s = String(s);
+  for (var i = PYPP_binder_stack.length - 1; i >= 0; --i) {
+    if (PYPP_binder_stack[i] === s) {
+      PYPP_binder_stack.splice(i, 1);
+      break;
+    }
+  }
+  return;
+}
+function PYPP_binder_has(s) {
+  s = String(s);
+  for (var i = PYPP_binder_stack.length - 1; i >= 0; --i) {
+    if (PYPP_binder_stack[i] === s) return true;
+  }
+  return false;
+}
 //
 // CAPITALIZE-ALL mode: the STATIC (.sats) tracer capitalizes EVERY type name
 // (positional rule 1 — there is no lowercase-pyrt to resolve against in that

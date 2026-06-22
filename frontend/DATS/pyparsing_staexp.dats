@@ -251,7 +251,9 @@ in
   @(PyTquant(span, kind, binders, gopt, body), st3)
 end
 //
-// type_app: atom { '[' type {, type} ']' } — left-assoc application of [..] args.
+// type_app: atom { '[' type {, type} ']' } — left-assoc application of [..] args. A lowercase
+// head stays a PyTvar when bare (`a`/`n`), but becomes a PyTcon when applied (`mydict[K,V]`) so
+// lowering can resolve source-level lowercase `#sexpdef` aliases instead of losing the head.
 and
 p_type_app(st: pstate): @(pytyp, pstate) = let
   val @(t0, st1) = p_type_atom(st)
@@ -288,6 +290,7 @@ case+ ps_peek(st) of
     val t1 =
       ( case+ t0 of
         | PyTcon(_, nm, prev) => PyTcon(loc_span(locL, locR), nm, list_append(prev, args))
+        | PyTvar(_, nm) => PyTcon(loc_span(locL, locR), nm, args)
         | _ => PyTcon(loc_span(locL, locR), "?app", args) )
   in
     p_type_app_loop(t1, st2)

@@ -393,7 +393,7 @@ decos_has_p(decos: list(pydecorator), name: strn): bool =
 // `type`. p_typedecl dispatches on the prefix decorators to the SAME AST node the dedicated keyword
 // produced (the L2 lowering is reused unchanged):
 //   @abstract type Foo [tvs]      (NO `= rhs`)        -> PyCabstype  (was `abstype`; @unboxed→flat)
-//   @impl     type Foo = T                            -> PyCassume   (was `assume`; hidden repr T)
+//   @impl     type Foo [tvs] = T                      -> PyCassume   (was `assume`; hidden repr T)
 //   @sort     type Nat = SInt     (RHS a sort UIDENT) -> PyCsortdef  (was `sortdef`; sort alias)
 //   @static   type X   = <expr>   (RHS a static expr) -> PyCstadef   (was `stadef`; static def)
 //   (no variant deco) type X = T                      -> PyCtype     (a plain alias, unchanged)
@@ -455,17 +455,18 @@ in
     in
       @(PyCstadef(loc, nm, e), st4)
     end
-  // @impl type Foo = T — gives an abstract type its hidden REPRESENTATION T (monomorphic in v1).
-  // `= T(type)`. PyCassume, the old `assume`.
+  // @impl type Foo [tvs] = T — gives an abstract type its hidden REPRESENTATION T.
+  // Non-empty tvs mirror ATS `#absimpl Foo(a:type) = T`.
   else if decos_has_p(decos, "impl") then
     let
+      val @(tvs, stT) = p_typarams(st2)
       val st3 =
-        ( case+ ps_peek(st2) of
-          | PT_EQ() => ps_advance(st2)
-          | _ => ps_diag(st2, ps_peek_loctn(st2), "expected '=' in '@impl type' declaration") )
+        ( case+ ps_peek(stT) of
+          | PT_EQ() => ps_advance(stT)
+          | _ => ps_diag(stT, ps_peek_loctn(stT), "expected '=' in '@impl type' declaration") )
       val @(t, st4) = parse_type(st3)
     in
-      @(PyCassume(loc, nm, t), st4)
+      @(PyCassume(loc, nm, tvs, t), st4)
     end
   // a plain `type X [tvs] = T` alias — `= type`. PyCtype, unchanged.
   else

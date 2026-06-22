@@ -131,12 +131,14 @@ pyuop =
 //  pytyp — the surface TYPE language (§5.5)
 // ==================================================================
 //
-//   PyTcon  : UIDENT applied to 0+ type args — `Int`, `List[Int]`, `Tree[a]`.
-//             (a bare `Int` is `PyTcon("Int", [])`; `List[Int]` carries one arg.) DEP: a type-app
-//             arg list `Vec[A, n]` / `Vec[Int, 0]` may MIX type args (`A`, `Int` — PyTcon) and
-//             INDEX args (a literal `0` -> PyTidx; a variable `n` -> PyTvar). The index-vs-type
-//             distinction is resolved at LOWERING (a digit -> s2exp_int; a bound index s2var ->
-//             s2exp_var via resolve_typ's S2ITMvar arm), not in the AST shape.
+//   PyTcon  : applied type head with 0+ type args — `Int`, `List[Int]`, `Tree[a]`.
+//             (a bare `Int` is `PyTcon("Int", [])`; `List[Int]` carries one arg.) A lowercase
+//             head remains `PyTvar` when bare (`a`/`n`) but is promoted to `PyTcon` when applied
+//             (`mydict[K,V]`) so lowercase `#sexpdef` aliases can resolve. DEP: a type-app arg list
+//             `Vec[A, n]` / `Vec[Int, 0]` may MIX type args (`A`, `Int` — PyTcon) and INDEX args
+//             (a literal `0` -> PyTidx; a variable `n` -> PyTvar). The index-vs-type distinction
+//             is resolved at LOWERING (a digit -> s2exp_int; a bound index s2var -> s2exp_var via
+//             resolve_typ's S2ITMvar arm), not in the AST shape.
 //   PyTvar  : LIDENT — a type variable (`a`, `b`) OR an INDEX variable (`n`, bound by an enclosing
 //             `[n: SInt]` quantifier). Both are lowercase names; resolve_typ's S2ITMvar arm yields
 //             s2exp_var of WHATEVER s2var the name is bound to (type-sorted or int/bool-sorted).
@@ -516,8 +518,9 @@ pydecl =
 //                `abstype stamp_type <= uint`) — codegen-only / informational (NOT typecheck-
 //                constraining, srcgen2 trans23/trans2a pass it through). M3 lowers it to
 //                D2Cabstype(s2cst, A2TDFsome()) when absent / A2TDFlteq(<lowered REP>) when present.
-//   PyCassume  : `assume Name = T` — gives an abstract type its hidden representation T (ATS-parity).
-//                M3 selects the abstract s2cst by name, lowers T via pylower_typ -> D2Cabsimpl.
+//   PyCassume  : `assume Name [tvs] = T` — gives an abstract type its hidden representation T
+//                (ATS-parity). M3 selects the abstract s2cst by name, lowers T via pylower_typ ->
+//                D2Cabsimpl; non-empty tvs wrap T in the same static lambda shape as #absimpl.
 //
 //   DECORATOR REWORK: the former PyCextern / PyCimplement / PyCoverload (the keyword `extern def` /
 //   `implement` / `overload` surface nodes) were REMOVED. Those variants are now @decorators on a
@@ -525,7 +528,7 @@ pydecl =
 //   def's decorators and routes to the SAME PyCore variant they used to (PCCextern / PCCimplement /
 //   PCCoverload), so the PROVEN L2 lowering is reused unchanged.
 | PyCabstype of (loctn, list(pydecorator), strn, list(pytyparam), pytypopt(*<= REP*))
-| PyCassume  of (loctn, strn, pytyp)
+| PyCassume  of (loctn, strn, list(pytyparam), pytyp)
 | PyCexcept of (loctn, strn, list(pytyp))   // exception E(T1,T2): an exception constructor (EXN)
 //   PyCsortdef : `sortdef Name = SORT` — a SORT ALIAS (ATS-parity `sortdef`). Carries the
 //                alias NAME (UIDENT) + the right-hand SORT-reference NAME (a sort vocab

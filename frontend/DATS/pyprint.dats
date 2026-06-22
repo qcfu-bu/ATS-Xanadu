@@ -56,13 +56,18 @@
 #extern fun PYPP_source_set(s: strn): void = $extnam()
 #extern fun PYPP_import_path(raw: strn): strn = $extnam()
 #extern fun PYPP_import_stem(raw: strn): strn = $extnam()
-// CAPITALIZE-SCOPING (dynamic side): the file-local name registry. PYPP_local_add
-// records a name DEFINED IN THIS FILE (a datatype type-name or data-constructor,
-// in its lowercase ATS spelling); PYPP_local_has tests membership. Only file-local
-// names capitalize at emission; prelude/external names stay verbatim.
+// CAPITALIZE-SCOPING (dynamic side): file-local type/constructor registries. Type aliases must
+// capitalize in type position (`key` -> `Key`) without rewriting value variables named `key`.
 #extern fun PYPP_local_reset((*0*)): void = $extnam()
 #extern fun PYPP_local_add(s: strn): void = $extnam()
 #extern fun PYPP_local_has(s: strn): bool = $extnam()
+#extern fun PYPP_type_add(s: strn): void = $extnam()
+#extern fun PYPP_type_has(s: strn): bool = $extnam()
+#extern fun PYPP_con_add(s: strn): void = $extnam()
+#extern fun PYPP_con_has(s: strn): bool = $extnam()
+#extern fun PYPP_binder_push(s: strn): void = $extnam()
+#extern fun PYPP_binder_pop(s: strn): void = $extnam()
+#extern fun PYPP_binder_has(s: strn): bool = $extnam()
 // capitalize-ALL mode (the STATIC tracer default) vs file-local-only (DYNAMIC).
 #extern fun PYPP_capall_set(b: bool): void = $extnam()
 #extern fun PYPP_capall_get((*0*)): bool = $extnam()
@@ -157,27 +162,48 @@ fun rewrite_dollar(s: strn): strn = PYPP_dollar_fix(s)
 // a FUNCTION / VALUE name: keep case, but $->/.
 fun fname(s: strn): strn = rewrite_dollar(s)
 //
+// primitive ATS type names whose Pythonic spellings are not just first-letter capitalization.
+fun tyname_primitive(s: strn): strn = let
+  val r = rewrite_dollar(s)
+in
+  if strn_eq(r, "int") then "Int"
+  else if strn_eq(r, "sint") then "SInt"
+  else if strn_eq(r, "uint") then "UInt"
+  else if strn_eq(r, "bool") then "Bool"
+  else if strn_eq(r, "strn") then "String"
+  else if strn_eq(r, "char") then "Char"
+  else if strn_eq(r, "dflt") then "Float"
+  else if strn_eq(r, "void") then "Void"
+  else r
+end
+//
 // a TYPE name (LHS of typedef/abstype, or a value-name in a value position):
 // capitalize + $->/.   (rule 1)
 fun tyname(s: strn): strn = PYPP_capitalize(rewrite_dollar(s))
 //
 // CAPITALIZE-SCOPING: a name in TYPE position that capitalizes ONLY if it is
-// file-local (a datatype defined in THIS file). Prelude/external type names
-// (strn, list, optn, ...) stay verbatim so they resolve against the lowercase
-// pyrt — exactly what the nerror=0 hand-translation did.
-fun tyname_scoped(s: strn): strn =
-  if strn_eq(rewrite_dollar(s), "bool")
-  then "Bool"
+// file-local (a datatype defined in THIS file). Primitive ATS names get stable
+// Pythonic spellings via tyname_primitive; other prelude/external type names
+// (list, optn, ...) stay verbatim so they resolve against the lowercase pyrt.
+fun tyname_scoped(s: strn): strn = let
+  val r = rewrite_dollar(s)
+  val p = tyname_primitive(s)
+in
+  if ~(strn_eq(p, r))
+  then p
+  else if PYPP_binder_has(s)
+  then PYPP_capitalize(r)
   else if PYPP_capall_get()
-  then PYPP_capitalize(rewrite_dollar(s))
-  else (if PYPP_local_has(s)
-        then PYPP_capitalize(rewrite_dollar(s)) else rewrite_dollar(s))
+  then PYPP_capitalize(r)
+  else (if PYPP_type_has(s)
+        then PYPP_capitalize(r) else r)
+end
 //
 // a data-CONSTRUCTOR name in expr/pattern position: capitalize ONLY if file-local
 // (e.g. DRPTH — already upper, but a lowercase file-local con would also lift).
 // Prelude cons (list_cons, list_nil, ...) stay verbatim.
 fun conname_scoped(s: strn): strn =
-  if PYPP_local_has(s) then PYPP_capitalize(rewrite_dollar(s)) else rewrite_dollar(s)
+  if PYPP_con_has(s) then PYPP_capitalize(rewrite_dollar(s)) else rewrite_dollar(s)
 //
 (* ****** ****** *)
 //
@@ -684,6 +710,67 @@ gen_xnames(i: sint, n: sint): list(strn) =
   if i >= n then list_nil() else list_cons(xname(i), gen_xnames(i+1, n))
 //
 fun
+sort0_name(opt: sort0opt): strn =
+(
+  case+ opt of
+  | optn_nil() => ""
+  | optn_cons(s0t) => (
+      case+ s0t.node() of
+      | S0Tid0(id) => i0dnt_lexeme(id)
+      | _ => ""
+    )
+)
+fun
+sort0_pyname(s: strn): strn =
+(
+  if strn_eq(s, "") then ""
+  else if strn_eq(s, "t0") then "Type"
+  else if strn_eq(s, "type") then "Type"
+  else if strn_eq(s, "i0") then "SInt"
+  else if strn_eq(s, "int") then "SInt"
+  else tyname(s)
+)
+fun
+sarg_name(sag: s0arg): strn =
+(
+  case+ sag.node() of
+  | S0ARGsome(id, _) => i0dnt_lexeme(id)
+  | S0ARGnone(_) => ""
+)
+fun
+sarg_pyparam(sag: s0arg): strn =
+(
+  case+ sag.node() of
+  | S0ARGsome(id, sopt) => let
+      val nm = i0dnt_lexeme(id)
+      val sn = sort0_pyname(sort0_name(sopt))
+    in
+      if strn_eq(sn, "") then tyname(nm)
+      else strn_append(strn_append(tyname(nm), ": "), sn)
+    end
+  | S0ARGnone(_) => xname(0)
+)
+fun
+sarg_raw_names(sargs: s0arglst): list(strn) =
+(
+  case+ sargs of
+  | list_nil() => list_nil()
+  | list_cons(sag, rest) =>
+      let val nm = sarg_name(sag) in
+        if strn_eq(nm, "")
+        then list_cons(xname(0), sarg_raw_names(rest))
+        else list_cons(nm, sarg_raw_names(rest))
+      end
+)
+fun
+sarg_pyparams(sargs: s0arglst): list(strn) =
+(
+  case+ sargs of
+  | list_nil() => list_nil()
+  | list_cons(sag, rest) => list_cons(sarg_pyparam(sag), sarg_pyparams(rest))
+)
+//
+fun
 pp_tmag_names(tmas: t0maglst): list(strn) =
 (
   case+ tmas of
@@ -703,10 +790,36 @@ pp_smag_names(smas: s0maglst): list(strn) =
   | list_nil() => list_nil()
   | list_cons(sm, rest) => (
       case+ sm.node() of
-      | S0MAGlist(_, sargs, _) => list_append(gen_xnames(0, sarg_count(sargs)), pp_smag_names(rest))
+      | S0MAGlist(_, sargs, _) => list_append(sarg_pyparams(sargs), pp_smag_names(rest))
       | S0MAGsing(_) => list_cons(xname(0), pp_smag_names(rest))
       | S0MAGnone(_) => pp_smag_names(rest)
     )
+)
+fun
+pp_smag_raw_names(smas: s0maglst): list(strn) =
+(
+  case+ smas of
+  | list_nil() => list_nil()
+  | list_cons(sm, rest) => (
+      case+ sm.node() of
+      | S0MAGlist(_, sargs, _) => list_append(sarg_raw_names(sargs), pp_smag_raw_names(rest))
+      | S0MAGsing(sid) => list_cons(i0dnt_lexeme(sid), pp_smag_raw_names(rest))
+      | S0MAGnone(_) => pp_smag_raw_names(rest)
+    )
+)
+fun
+push_binders(ns: list(strn)): void =
+(
+  case+ ns of
+  | list_nil() => ()
+  | list_cons(nm, rest) => (PYPP_binder_push(nm); push_binders(rest))
+)
+fun
+pop_binders(ns: list(strn)): void =
+(
+  case+ ns of
+  | list_nil() => ()
+  | list_cons(nm, rest) => (PYPP_binder_pop(nm); pop_binders(rest))
 )
 //
 (* ****** ****** *)
@@ -1553,7 +1666,7 @@ register_d0typ_names(dts: d0typlst): void =
   | list_cons(dt, rest) => (
       (case+ dt.node() of
        | D0TYPnode(nm, _, _, _, tcns) => (
-           PYPP_local_add(i0dnt_lexeme(nm));
+           PYPP_type_add(i0dnt_lexeme(nm));
            register_d0tcn_names(tcns)));
       register_d0typ_names(rest))
 )
@@ -1564,7 +1677,7 @@ register_d0tcn_names(tcns: d0tcnlst): void =
   | list_nil() => ()
   | list_cons(tcn, rest) => (
       (case+ tcn.node() of
-       | D0TCNnode(_, nm, _, _) => PYPP_local_add(i0dnt_lexeme(nm)));
+       | D0TCNnode(_, nm, _, _) => PYPP_con_add(i0dnt_lexeme(nm)));
       register_d0tcn_names(rest))
 )
 //
@@ -1613,6 +1726,35 @@ pp_tcon_argty(out: FILR, se: s0exp): void =
   | S0Etup1(_, _, ses, _) => pp_s0exp_seq(out, ses)
   | _ => pp_s0exp(out, se)
 )
+//
+fun
+pp_typedef(out: FILR, n: sint, sid: s0eid, smas: s0maglst, se: s0exp): void = let
+  val raws = pp_smag_raw_names(smas)
+  val tps = pp_smag_names(smas)
+in
+  ind(out, n); ps(out, "type "); ps(out, tyname(i0dnt_lexeme(sid)));
+  pp_names_brkt(out, tps);
+  ps(out, " = ");
+  push_binders(raws);
+  pp_s0exp(out, se);
+  pop_binders(raws);
+  nl(out)
+end
+//
+fun
+pp_absimpl(out: FILR, n: sint, sqid: s0qid, smas: s0maglst, se: s0exp): void = let
+  val raws = pp_smag_raw_names(smas)
+  val tps = pp_smag_names(smas)
+in
+  ind(out, n); ps(out, "@impl"); nl(out);
+  ind(out, n); ps(out, "type "); ps(out, tyname(s0qid_lexeme(sqid)));
+  pp_names_brkt(out, tps);
+  ps(out, " = ");
+  push_binders(raws);
+  pp_s0exp(out, se);
+  pop_binders(raws);
+  nl(out)
+end
 //
 (* ****** ****** *)
 //
@@ -1694,7 +1836,7 @@ and
 	  | D0Cvaldclst(_, vds) => pp_dexp_valdcls(out, n, vds)
 	  | D0Cfundclst(_, _, fds) => pp_fundcl_local_list_n(out, n, fds)
 	  | D0Cimplmnt0(_, _, _, dqi, _, farg, _, _, body) => pp_impl_n(out, n, dqi, farg, body)
-	  | D0Csexpdef(_, _, _, _, _, _) => ()
+	  | D0Csexpdef(_, sid, smas, _, _, se) => pp_typedef(out, n, sid, smas, se)
 	  | D0Cstatic(_, dc1) => pp_where_decl(out, n, dc1)
 	  | D0Cextern(_, dc1) => pp_where_decl(out, n, dc1)
 	  | D0Ctkerr(_) => ()
@@ -1773,6 +1915,7 @@ register_file_local_names(dcs: d0eclist): void =
   | list_cons(dc, rest) => (
       (case+ dc.node() of
        | D0Cdatatype(_, dts, _) => register_d0typ_names(dts)
+       | D0Csexpdef(_, sid, _, _, _, _) => PYPP_type_add(i0dnt_lexeme(sid))
        | D0Clocal0(_, head, _, body, _) => (
            register_file_local_names(head);
            register_file_local_names(body))
@@ -1825,21 +1968,13 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
     end
   //
   // #typedef A = B   ->   type A = B   (with parametric [X0] if present)
-  | D0Csexpdef(_, sid, smas, _, _, se) => let
-      val nm = tyname(i0dnt_lexeme(sid))
-      val tps = pp_smag_names(smas)
-    in
-      ps(out, "type "); ps(out, nm);
-      pp_names_brkt(out, tps);
-      ps(out, " = "); pp_s0exp(out, se); nl(out);
-      true
-    end
+  | D0Csexpdef(_, sid, smas, _, _, se) => (pp_typedef(out, 0, sid, smas, se); true)
   //
   // bodyless val / fun (in a .sats interface)  ->  @static let / @extern def
   | D0Cdynconst(tok, tqas, dcds) => (pp_dynconst(out, tok, tqas, dcds); true)
   //
   // #absimpl T = REP  ->  @impl type T = REP
-  | D0Cabsimpl(_, sqid, _, _, _, se) => (pp_absimpl(out, 0, sqid, se); true)
+  | D0Cabsimpl(_, sqid, smas, _, _, se) => (pp_absimpl(out, 0, sqid, smas, se); true)
   //
   // #symload NAME with FN [of prec]  ->  @overload[prec] NAME = FN
   | D0Csymload(_, sym, _, dqi, prec) => let
@@ -1877,6 +2012,15 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   // a trailing parser-skip token (e.g. EOF region / comment-only tail) — silent.
   | D0Ctkerr(_) => false
   | D0Ctkskp(_) => false
+  // Conditional-compilation markers guard nearby declarations in ATS, but the declarations
+  // themselves are already present in the L0 stream we print. The marker tokens are not Pythonic
+  // declarations, so keep them silent instead of emitting visible TODOs.
+  | D0Cifdef(_, _) => false
+  | D0Cifexp(_, _) => false
+  | D0Celsif(_, _) => false
+  | D0Cthen0(_) => false
+  | D0Celse1(_) => false
+  | D0Cendif(_) => false
   //
   // anything else in scope-but-unmapped: a VISIBLE gap marker.
   | _ => (todo(out, "unmapped d0ecl"); true)
@@ -2004,21 +2148,14 @@ pp_priv_head_one(out: FILR, n: sint, dc: d0ecl): void =
 	  | D0Cvaldclst(_, vds) => pp_priv_valdcls(out, n, vds)
 	  | D0Cfundclst(_, _, fds) => pp_fundcl_local_list_n(out, n, fds)
 	  | D0Cimplmnt0(_, _, _, dqi, _, farg, _, _, body) => pp_impl_n(out, n, dqi, farg, body)
-	  | D0Cabsimpl(_, sqid, _, _, _, se) => pp_absimpl(out, n, sqid, se)
-	  | D0Csexpdef(_, _, _, _, _, _) => ()
+	  | D0Cabsimpl(_, sqid, smas, _, _, se) => pp_absimpl(out, n, sqid, smas, se)
+	  | D0Csexpdef(_, sid, smas, _, _, se) => pp_typedef(out, n, sid, smas, se)
 	  | D0Cstatic(_, dc1) => pp_priv_head_one(out, n, dc1)
 	  | D0Cextern(_, dc1) => pp_priv_head_one(out, n, dc1)
 	  | D0Ctkerr(_) => ()
 	  | D0Ctkskp(_) => ()
 	  | _ => (ind(out, n); todo(out, "private-head decl"))
 	)
-and
-pp_absimpl(out: FILR, n: sint, sqid: s0qid, se: s0exp): void =
-(
-  ind(out, n); ps(out, "@impl"); nl(out);
-  ind(out, n); ps(out, "type "); ps(out, tyname(s0qid_lexeme(sqid)));
-  ps(out, " = "); pp_s0exp(out, se); nl(out)
-)
 and
 pp_priv_valdcls(out: FILR, n: sint, vds: d0valdclist): void =
 (

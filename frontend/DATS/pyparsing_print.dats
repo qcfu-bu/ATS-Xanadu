@@ -511,8 +511,9 @@ case+ d of
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
     ( case+ repopt of PyTypNone() => () | PyTypSome(t) => (ps(out, " <= "); pp_typ(out, t)) );
     ps(out, ")") )
-| PyCassume(loc, nm, t) =>
+| PyCassume(loc, nm, tvs, t) =>
   ( ps(out, "(assume "); ps(out, nm); print_span(out, loc);
+    ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
     ps(out, " (rep "); pp_typ(out, t); ps(out, ")"); ps(out, ")") )
 | PyCexcept(loc, nm, ts) =>
   ( ps(out, "(exception "); ps(out, nm); print_span(out, loc); pp_typlst(out, ts); ps(out, ")") )

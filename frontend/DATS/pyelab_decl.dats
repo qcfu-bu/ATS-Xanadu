@@ -459,10 +459,10 @@ case+ d of
     // raw surface pytypopt — M3's build_abstype lowers it to A2TDFlteq (codegen-only / informational).
     // No imperative content (opacity is a static fact). M3 builds the OPAQUE s2cst (no sexp).
     list_sing(PCCabstype(loc, nm, elab_typarams(tps), mode_of_decos(decos), repopt))
-| PyCassume(loc, nm, repTyp) =>
-    // ATS-parity: `assume Name = T` -> a PCCassume carrying the abstract type's NAME + the raw
-    // representation surface type. M3 selects the registered abstract s2cst by name + lowers T.
-    list_sing(PCCassume(loc, nm, repTyp))
+| PyCassume(loc, nm, tps, repTyp) =>
+    // ATS-parity: `assume Name [tvs] = T` -> a PCCassume carrying the abstract type's NAME +
+    // optional static params + the raw representation surface type.
+    list_sing(PCCassume(loc, nm, elab_typarams(tps), repTyp))
 | PyCexcept(loc, nm, ts) =>
     // EXN: `exception E(T...)` -> a PCCexcept carrying the con name + raw surface arg types.
     // M3 lowers it to a D2Cexcptcon: a d2con of the built-in `exn` type, registered like a
