@@ -233,6 +233,11 @@ build_pyprint_bundle() {
 
 ensure_pyprint_bundle() {
   if [ "$REBUILD_PP" -eq 0 ]; then
+    if [ -s "$BUILD/pp-corpus.js" ]; then
+      PP_BUNDLE="$BUILD/pp-corpus.js"
+      echo ">> [1/3] reusing $PP_BUNDLE ($(wc -l < "$PP_BUNDLE") lines)"
+      return
+    fi
     if [ -s "$BUILD/pp.js" ]; then
       PP_BUNDLE="$BUILD/pp.js"
       echo ">> [1/3] reusing $PP_BUNDLE ($(wc -l < "$PP_BUNDLE") lines)"
@@ -243,15 +248,10 @@ ensure_pyprint_bundle() {
       echo ">> [1/3] reusing $PP_BUNDLE ($(wc -l < "$PP_BUNDLE") lines)"
       return
     fi
-    if [ -s "$BUILD/pp-corpus.js" ]; then
-      PP_BUNDLE="$BUILD/pp-corpus.js"
-      echo ">> [1/3] reusing $PP_BUNDLE ($(wc -l < "$PP_BUNDLE") lines)"
-      return
-    fi
   fi
 
   if [ "$REUSE_ONLY" -eq 1 ]; then
-    die "no reusable pyprint bundle found in BUILD (drop --reuse-bundles or run build-pp.sh)"
+    die "no reusable pyprint bundle found in BUILD (drop --reuse-bundles or run with --rebuild-pp)"
   fi
   build_pyprint_bundle
 }
