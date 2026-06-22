@@ -1122,6 +1122,13 @@ dpat_is_tilde(dp: d0pat): bool =
   | D0Pid0(id) => strn_eq(i0dnt_lexeme(id), "~")
   | _ => false
 )
+and
+dpat_is_bang(dp: d0pat): bool =
+(
+  case+ dp.node() of
+  | D0Pid0(id) => strn_eq(i0dnt_lexeme(id), "!")
+  | _ => false
+)
 //
 fun
 pp_d0pat(out: FILR, dp: d0pat): void =
@@ -1168,37 +1175,45 @@ pp_d0pat_head(out: FILR, dp: d0pat): void =
   | _ => pp_d0pat(out, dp)
 )
 and
+pp_dpat_prefix_apps(out: FILR, mark: strn, arg0: d0pat, rest: d0patlst): void =
+(
+  case+ arg0.node() of
+  | D0Plpar(_, list_cons(inner, list_nil()), _) =>
+      (ps(out, mark); pp_d0pat_head(out, inner); pp_dpat_apps_args(out, rest))
+  | _ =>
+      (ps(out, mark); pp_d0pat_head(out, arg0); pp_dpat_apps_args(out, rest))
+)
+and
 pp_dpat_apps(out: FILR, dps: d0patlst): void =
 (
   case+ dps of
   | list_nil() => ()
-  // Stock ATS parses `~ C(args)` as an application headed by `~` plus a
-  // parenthesized constructor head. Pythonic spells that prefix directly.
+  // Stock ATS parses generated pattern prefixes (`! C(args)`, `~ C(args)`) as
+  // applications headed by the prefix plus a parenthesized constructor head.
+  // Pythonic spells these prefixes directly on the pattern.
   | list_cons(hd, list_cons(arg0, rest)) =>
       if dpat_is_tilde(hd) then
-        (
-          case+ arg0.node() of
-          | D0Plpar(_, list_cons(inner, list_nil()), _) =>
-              (ps(out, "~"); pp_d0pat_head(out, inner); pp_dpat_apps_args(out, rest))
-          | _ =>
-              (ps(out, "~"); pp_d0pat_head(out, arg0); pp_dpat_apps_args(out, rest))
-        )
+        pp_dpat_prefix_apps(out, "~", arg0, rest)
       else
-        (pp_d0pat_head(out, hd); pp_dpat_apps_args(out, list_cons(arg0, rest)))
+        (
+          if dpat_is_bang(hd) then
+            pp_dpat_prefix_apps(out, "!", arg0, rest)
+          else
+            (pp_d0pat_head(out, hd); pp_dpat_apps_args(out, list_cons(arg0, rest)))
+        )
   | list_cons(hd, rest) =>
       (
         case+ hd.node() of
         | D0Papps(list_cons(phd, list_cons(arg0, list_nil()))) =>
             if dpat_is_tilde(phd) then
-              (
-                case+ arg0.node() of
-                | D0Plpar(_, list_cons(inner, list_nil()), _) =>
-                    (ps(out, "~"); pp_d0pat_head(out, inner); pp_dpat_apps_args(out, rest))
-                | _ =>
-                    (ps(out, "~"); pp_d0pat_head(out, arg0); pp_dpat_apps_args(out, rest))
-              )
+              pp_dpat_prefix_apps(out, "~", arg0, rest)
             else
-              (pp_d0pat_head(out, hd); pp_dpat_apps_args(out, rest))
+              (
+                if dpat_is_bang(phd) then
+                  pp_dpat_prefix_apps(out, "!", arg0, rest)
+                else
+                  (pp_d0pat_head(out, hd); pp_dpat_apps_args(out, rest))
+              )
         | _ =>
             (pp_d0pat_head(out, hd); pp_dpat_apps_args(out, rest))
       )
@@ -1852,10 +1867,11 @@ pp_dexp_stmts(out: FILR, n: sint, des: d0explst): void =
   | list_nil() => ()
   | list_cons(de, rest) => (
       (case+ rest of
-       // the LAST elem of a sequence is the value — render as a (possibly multi-
-       // line) suite (it may itself be a match/let). Non-last elems are statements.
+       // Every sequence elem may still be a compound statement (`if`, `case`,
+       // `let`, nested sequence). The last one is the value, but the same suite
+       // renderer is also the statement-safe spelling for non-final elems.
        | list_nil() => pp_d0exp_suite(out, n, de)
-       | _ => (ind(out, n); pp_dexp_stmt_inline(out, de); nl(out)));
+       | _ => pp_d0exp_suite(out, n, de));
       pp_dexp_stmts(out, n, rest))
 )
 //

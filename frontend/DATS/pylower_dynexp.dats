@@ -769,11 +769,13 @@ case+ p of
     in
       d2pat_make_node(loc, D2Prfpt(d2pinner, tok_val(loc), d2pbind))
     end
-// BOOTSTRAP-PARITY: generated ATS pattern prefixes `!p` and `@p` map directly
-// onto the stock L2 pattern nodes used by trans2a/trans23.
+// BOOTSTRAP-PARITY: generated ATS pattern prefixes `!p` and `@p` map onto the
+// stock L2 pattern nodes used by trans2a/trans23. Whole-constructor `!C(...)`
+// must first be normalized like stock trans12's d2pat_bangize:
+//   !C(x, !y) -> C(!x, y)
 | PCPbang(loc, inner) =>
     let val d2pinner = pl_pat(env, inner) in
-      d2pat_make_node(loc, D2Pbang(d2pinner))
+      d2pat_bangize_for_prefix(d2pinner)
     end
 | PCPflat(loc, inner) =>
     let val d2pinner = pl_pat(env, inner) in
@@ -788,6 +790,44 @@ case+ p of
       d2pat_make_node(loc, D2Pfree(d2pinner))
     end
 )
+//
+and
+d2pat_bangize_for_prefix(d2p0: d2pat): d2pat = let
+  val loc0 = d2p0.lctn()
+  fun
+  f0_d2ps(d2ps: d2patlst): d2patlst =
+  (
+    case+ d2ps of
+    | list_nil() => list_nil()
+    | list_cons(d2p1, rest) =>
+        list_cons(d2pat_bangize_for_prefix(d2p1), f0_d2ps(rest))
+  )
+  fun
+  f0_ldps(ldps: l2d2plst): l2d2plst =
+  (
+    case+ ldps of
+    | list_nil() => list_nil()
+    | list_cons(D2LAB(lab0, d2p1), rest) =>
+        list_cons(D2LAB(lab0, d2pat_bangize_for_prefix(d2p1)), f0_ldps(rest))
+  )
+in
+  case+ d2p0.node() of
+  | D2Pvar _ => d2pat_make_node(loc0, D2Pbang(d2p0))
+  | D2Pbang(d2p1) => d2p1
+  | D2Pdapp(d2f0, npf1, d2ps) =>
+      d2pat_make_node(loc0, D2Pdapp(d2f0, npf1, f0_d2ps(d2ps)))
+  | D2Prfpt(d2rf, tkas, d2p1) =>
+      d2pat_make_node(loc0, D2Prfpt(d2rf, tkas, d2pat_bangize_for_prefix(d2p1)))
+  | D2Ptup0(npf1, d2ps) =>
+      d2pat_make_node(loc0, D2Ptup0(npf1, f0_d2ps(d2ps)))
+  | D2Ptup1(tknd, npf1, d2ps) =>
+      d2pat_make_node(loc0, D2Ptup1(tknd, npf1, f0_d2ps(d2ps)))
+  | D2Prcd2(tknd, npf1, ldps) =>
+      d2pat_make_node(loc0, D2Prcd2(tknd, npf1, f0_ldps(ldps)))
+  | D2Pannot(d2p1, s1e2, s2e2) =>
+      d2pat_make_node(loc0, D2Pannot(d2pat_bangize_for_prefix(d2p1), s1e2, s2e2))
+  | _ => d2p0
+end
 //
 and
 pl_patlst(env: !tr12env, ps: list(pcpat)): d2patlst =

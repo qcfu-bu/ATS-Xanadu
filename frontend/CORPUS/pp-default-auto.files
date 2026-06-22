@@ -4,6 +4,7 @@ srcgen2/DATS/filpath_drpth0.dats
 srcgen2/DATS/filpath.dats
 srcgen2/DATS/lexbuf0.dats
 srcgen2/DATS/lexbuf0_cstrx1.dats
+srcgen2/DATS/lexbuf0_cstrx2.dats
 srcgen2/DATS/lexing0_utils2.dats
 srcgen2/DATS/dynexp0.dats
 srcgen2/DATS/dynexp0_print0.dats
