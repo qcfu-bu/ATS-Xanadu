@@ -132,6 +132,8 @@ pyuop =
 // ==================================================================
 //
 //   PyTcon  : applied type head with 0+ type args — `Int`, `List[Int]`, `Tree[a]`.
+//             Dotted qualified static heads such as `MAP.topmap[a]` are stored in the same `strn`
+//             field and lower through stock qualified static lookup.
 //             (a bare `Int` is `PyTcon("Int", [])`; `List[Int]` carries one arg.) A lowercase
 //             head remains `PyTvar` when bare (`a`/`n`) but is promoted to `PyTcon` when applied
 //             (`mydict[K,V]`) so lowercase `#sexpdef` aliases can resolve. DEP: a type-app arg list

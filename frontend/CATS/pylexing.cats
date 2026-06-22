@@ -83,6 +83,23 @@ function PYL_ats_name(s) {
   if (s === "/" || s === "//") return s;
   return s.split("/").join("$");
 }
+function PYL_is_qualified_name(s) {
+  return String(s).indexOf(".") >= 0;
+}
+function PYL_ats_qualified_name(s) {
+  s = String(s);
+  return "$" + PYL_ats_name(s.split(".").join("$"));
+}
+function PYL_qual_head_key(s) {
+  s = String(s);
+  var i = s.indexOf(".");
+  return i < 0 ? "" : ("$" + s.slice(0, i + 1));
+}
+function PYL_qual_tail_name(s) {
+  s = String(s);
+  var i = s.indexOf(".");
+  return i < 0 ? s : s.slice(i + 1);
+}
 function PYL_uncapitalize(s) {
   s = String(s);
   if (s.length === 0) return s;

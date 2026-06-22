@@ -118,11 +118,11 @@ harnesses.
   blocker in the first part of that slice was statement-`if` continuation
   handling: a side-effecting branch body must sequence into the following suite
   tail instead of replacing the function value.
-- The first dynamic-expression expansion sub-slice
-  `srcgen2/DATS/{dynexp0,dynexp0_print0,dynexp1,dynexp1_print0,dynexp2_print0,dynexp2_tmplib,dynexp2_utils0}.dats`
-  now reaches `TODOpp=0` and `m3_nerror=0`. The adjacent `dynexp2.dats` is still
-  excluded: it prints marker-free Pythonic code, but unresolved qualified static
-  map types such as `$MAP.topmap` currently lower to missing bare `topmap`.
+- The first dynamic-expression expansion slice
+  `srcgen2/DATS/{dynexp0,dynexp0_print0,dynexp1,dynexp1_print0,dynexp2,dynexp2_print0,dynexp2_tmplib,dynexp2_utils0}.dats`
+  now reaches `TODOpp=0` and `m3_nerror=0`. ATS qualified static map types such
+  as `$MAP.topmap` now pretty-print as `MAP.topmap[...]` and lower through the
+  same namespace lookup path as stock ATS.
 - `build-pp-corpus.sh --out-dir RELPATH` now normalizes the report directory
   against `frontend/` before running pyprint from `XATSHOME`, so separate static
   and dynamic corpus summaries can be kept without path breakage.

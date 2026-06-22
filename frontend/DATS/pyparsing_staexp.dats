@@ -411,14 +411,14 @@ case+ ps_peek(st) of
 | _ => @(a, st)
 )
 //
-// type_atom: UIDENT | LIDENT | INT | '!' type_atom | '(' ... ')' | '{' ... '}'
+// type_atom: UIDENT[.ident]* | LIDENT | INT | '!' type_atom | '(' ... ')' | '{' ... '}'
 and
 p_type_atom(st: pstate): @(pytyp, pstate) = let
   val loc = ps_peek_loctn(st)
   val nod = ps_peek(st)
 in
   case+ nod of
-  | PT_UIDENT(s) => @(PyTcon(loc, s, list_nil()), ps_advance(st))
+  | PT_UIDENT(s) => p_type_con_name(loc, s, ps_advance(st))
   | PT_LIDENT(s) => @(PyTvar(loc, s), ps_advance(st))
   | PT_INT(s)    => @(PyTidx(loc, s), ps_advance(st))
   // BOOTSTRAP-PARITY: ATS `!T` / `~T` linear/viewtype prefixes are accepted
@@ -433,6 +433,36 @@ in
     let val st1 = ps_diag(st, loc, "expected a type") in
       @(PyTerror(loc, "expected a type"), st1) end
 end
+and
+p_type_con_name(loc0: loctn, name0: strn, st: pstate): @(pytyp, pstate) =
+(
+case+ ps_peek(st) of
+| PT_DOT() =>
+    let
+      val st1 = ps_advance(st)
+    in
+      case+ ps_peek(st1) of
+      | PT_LIDENT(s1) =>
+          let
+            val loc1 = ps_peek_loctn(st1)
+            val name1 = strn_append(strn_append(name0, "."), s1)
+          in
+            p_type_con_name(loc_span(loc0, loc1), name1, ps_advance(st1))
+          end
+      | PT_UIDENT(s1) =>
+          let
+            val loc1 = ps_peek_loctn(st1)
+            val name1 = strn_append(strn_append(name0, "."), s1)
+          in
+            p_type_con_name(loc_span(loc0, loc1), name1, ps_advance(st1))
+          end
+      | _ =>
+          let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected a type name after '.'") in
+            @(PyTcon(loc0, name0, list_nil()), st2)
+          end
+    end
+| _ => @(PyTcon(loc0, name0, list_nil()), st)
+)
 //
 // BOOTSTRAP-PARITY: ATS by-reference/view-change argument types such as
 // `&sint >> _` are accepted in Pythonic output as `&SInt >> _` and erased to the

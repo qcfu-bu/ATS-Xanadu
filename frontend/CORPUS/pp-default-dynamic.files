@@ -6,6 +6,7 @@ srcgen2/DATS/dynexp0.dats
 srcgen2/DATS/dynexp0_print0.dats
 srcgen2/DATS/dynexp1.dats
 srcgen2/DATS/dynexp1_print0.dats
+srcgen2/DATS/dynexp2.dats
 srcgen2/DATS/dynexp2_print0.dats
 srcgen2/DATS/dynexp2_tmplib.dats
 srcgen2/DATS/dynexp2_utils0.dats
@@ -57,3 +58,4 @@ frontend/TEST/roundtrip/empty_local_head.dats
 frontend/TEST/roundtrip/nested_where_chain.dats
 frontend/TEST/roundtrip/imported_macro_const.dats
 frontend/TEST/roundtrip/local_define_const.dats
+frontend/TEST/roundtrip/qualified_static_map_type.dats

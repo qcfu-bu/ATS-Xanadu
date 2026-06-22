@@ -5,6 +5,7 @@
 //   PYPP_log*       -> process.stderr  (progress; stdout = the pythonic text)
 //   PYPP_capitalize -> uppercase the first char (rule 1: type/cons names)
 //   PYPP_dollar_fix -> '$' -> '/'  (rule 2; Koka-style module/name spelling)
+//   PYPP_qual_name  -> strip leading '$' / trailing '.' on ATS qualifier tokens
 //   PYPP_xname/PYPP_pname -> synthesized positional typaram/param names
 //   PYPP_source_set / PYPP_import_stem -> normalize ATS #staload paths for import
 //   PYPP_argv_path  -> process.argv[2] or ""
@@ -22,6 +23,12 @@ function PYPP_dollar_fix(s) {
   s = String(s);
   if (s.charAt(0) === "$") s = s.slice(1);
   return s.split("$").join("/");
+}
+function PYPP_qual_name(s) {
+  s = String(s);
+  if (s.charAt(0) === "$") s = s.slice(1);
+  if (s.charAt(s.length - 1) === ".") s = s.slice(0, -1);
+  return PYPP_dollar_fix(s);
 }
 function PYPP_value_name(s) {
   s = PYPP_dollar_fix(s);

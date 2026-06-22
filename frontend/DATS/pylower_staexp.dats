@@ -32,6 +32,10 @@
 (* ****** ****** *)
 //
 #extern fun PYL_ats_name(s: strn): strn = $extnam()
+#extern fun PYL_is_qualified_name(s: strn): bool = $extnam()
+#extern fun PYL_ats_qualified_name(s: strn): strn = $extnam()
+#extern fun PYL_qual_head_key(s: strn): strn = $extnam()
+#extern fun PYL_qual_tail_name(s: strn): strn = $extnam()
 #extern fun PYL_uncapitalize(s: strn): strn = $extnam()
 //
 #implfun
@@ -39,6 +43,7 @@ pylower_ats_name(name) = PYL_ats_name(name)
 //
 fun ats_name(name: strn): strn = pylower_ats_name(name)
 fun ats_sym(name: strn): sym_t = symbl_make_name(ats_name(name))
+fun ats_qualified_sym(name: strn): sym_t = symbl_make_name(PYL_ats_qualified_name(name))
 fun ats_type_name(name: strn): strn = PYL_uncapitalize(ats_name(name))
 fun ats_type_sym(name: strn): sym_t = symbl_make_name(ats_type_name(name))
 //
@@ -191,13 +196,80 @@ in
 end
 //
 fun
+s2itm_to_typ(s2i: s2itm): s2exp =
+(
+  case+ s2i of
+  | S2ITMcst(s2cs) =>
+    if list_nilq(s2cs) then s2exp_none0() else s2exp_cst(s2cs.head())
+  | S2ITMvar(s2v)  => s2exp_var(s2v)
+  | S2ITMenv(_)    => s2exp_none0()
+)
+//
+fun
+resolve_typ_qua_key(env: !tr12env, key: sym_t): s2exp = let
+  val sopt = tr12env_find_s2qua(env, key)
+in
+  case+ sopt of
+  | ~optn_vt_cons(s2i) => s2itm_to_typ(s2i)
+  | ~optn_vt_nil() => s2exp_none0()
+end
+//
+fun
+resolve_typ_qualified_envs(envs: f2envlst, name: strn): s2exp =
+(
+  if PYL_is_qualified_name(name) then let
+    val head = PYL_qual_head_key(name)
+    val tail = PYL_qual_tail_name(name)
+    val sopt = f2envlst_find_s2itm(envs, symbl_make_name(head))
+  in
+    case+ sopt of
+    | ~optn_vt_cons(s2i) =>
+      (
+        case+ s2i of
+        | S2ITMenv(envs1) => resolve_typ_qualified_envs(envs1, tail)
+        | _ => s2exp_none0()
+      )
+    | ~optn_vt_nil() => s2exp_none0()
+  end else let
+    val sopt = f2envlst_find_s2itm(envs, ats_sym(name))
+  in
+    case+ sopt of
+    | ~optn_vt_cons(s2i) => s2itm_to_typ(s2i)
+    | ~optn_vt_nil() => s2exp_none0()
+  end
+)
+//
+fun
+resolve_typ_qualified(env: !tr12env, name: strn): s2exp = let
+  val head = PYL_qual_head_key(name)
+  val tail = PYL_qual_tail_name(name)
+  val sopt = tr12env_find_s2itm(env, symbl_make_name(head))
+in
+  case+ sopt of
+  | ~optn_vt_cons(s2i) =>
+    (
+      case+ s2i of
+      | S2ITMenv(envs) => resolve_typ_qualified_envs(envs, tail)
+      | _ => s2exp_none0()
+    )
+  | ~optn_vt_nil() => resolve_typ_qua_key(env, ats_qualified_sym(name))
+end
+//
+fun
 resolve_typ(env: !tr12env, loc: loctn, name: strn): s2exp = let
   val name0 = typ_alias(name)
-  val exact = resolve_typ_key(env, ats_sym(name0))
+  val exact =
+    if PYL_is_qualified_name(name0)
+    then resolve_typ_qualified(env, name0)
+    else resolve_typ_key(env, ats_sym(name0))
 in
-  case+ exact.node() of
-  | S2Enone0() => resolve_typ_key(env, ats_type_sym(name0))
-  | _ => exact
+  if PYL_is_qualified_name(name0)
+  then exact
+  else (
+    case+ exact.node() of
+    | S2Enone0() => resolve_typ_key(env, ats_type_sym(name0))
+    | _ => exact
+  )
 end
 //
 (* ****** ****** *)

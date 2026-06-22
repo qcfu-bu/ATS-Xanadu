@@ -20,7 +20,7 @@
 **   (1) CAPITALIZE type & data-constructor names (positionally: type exprs,
 **       typedef/abstype LHS, result/arg types). FUNCTION/value names stay as-is.
 **   (2) `$`-in-ident foo$bar -> Koka-style foo/bar  ($->/).
-**   (3) qualified $M.x -> bare x.
+**   (3) qualified $M.x -> M.x (drop the leading '$', keep the module qualifier).
 **   Anything unmapped -> `# TODO(pp): <construct>` (gaps stay VISIBLE).
 **
 ** PURELY ADDITIVE: only CALLS the compiler-as-a-library (lib2xatsopt).
@@ -49,6 +49,7 @@
 //   PYPP_source_set/PYPP_import_stem : normalize source-relative #staload paths.
 #extern fun PYPP_capitalize(s: strn): strn = $extnam()
 #extern fun PYPP_dollar_fix(s: strn): strn = $extnam()
+#extern fun PYPP_qual_name(s: strn): strn = $extnam()
 #extern fun PYPP_value_name(s: strn): strn = $extnam()
 #extern fun PYPP_identish(s: strn): bool = $extnam()
 #extern fun PYPP_string_literal(s: strn): strn = $extnam()
@@ -138,7 +139,7 @@ i0dnt_lexeme(id: i0dnt): strn =
   | I0DNTnone(tok) => tok_lexeme(tok)
 )
 //
-// d0qid (qualified dyn-id): DROP the qualifier (rule 3), keep the bare name.
+// d0qid (qualified dyn-id): keep the bare name in value position.
 fun
 d0qid_lexeme(q: d0qid): strn =
 (
@@ -147,7 +148,7 @@ d0qid_lexeme(q: d0qid): strn =
   | D0QIDsome(_, id) => i0dnt_lexeme(id)
 )
 //
-// s0qid (qualified static-id): same rule as d0qid; drop the qualifier.
+// s0qid (qualified static-id): declaration heads still use their bare local name.
 fun
 s0qid_lexeme(q: s0qid): strn =
 (
@@ -167,9 +168,15 @@ s0ymb_lexeme(sym: s0ymb): strn =
 //
 (* ****** ****** *)
 //
-// rule 2: `$`-in-ident -> `/` (Koka-style). rule 3 (qualified `$M.x` -> bare `x`)
-// is handled at the qualifier level (we take bare names).
+// rule 2: `$`-in-ident -> `/` (Koka-style). Qualified static names preserve the module qualifier
+// as `M.x`; only the leading `$` on the qualifier token is removed.
 fun rewrite_dollar(s: strn): strn = PYPP_dollar_fix(s)
+fun qualname(tok: token): strn =
+(
+  case+ tok.node() of
+  | T_IDQUA(s) => PYPP_qual_name(s)
+  | _ => ""
+)
 //
 // a FUNCTION / VALUE name: keep case, but $->/.
 fun fname(s: strn): strn = rewrite_dollar(s)
@@ -297,12 +304,28 @@ pp_s0exp(out: FILR, se: s0exp): void =
       | _ => pp_tuple(out, ses)
     )
   //
-  // a qualified static type $M.t -> drop the $M. (rule 3), capitalize the bare.
-  | S0Equal0(_, se1) => pp_s0exp(out, se1)
+  // a qualified static type $M.t -> M.t.
+  | S0Equal0(tok, se1) => pp_s0exp_qual(out, tok, se1)
   //
   | S0Eannot(se1, _) => pp_s0exp(out, se1)
   //
   | _ => ps(out, "# TODO(pp): s0exp")
+)
+and
+pp_s0exp_qual(out: FILR, tok: token, se1: s0exp): void = let
+  val q = qualname(tok)
+in
+  if strn_eq(q, "")
+  then pp_s0exp(out, se1)
+  else (ps(out, q); ps(out, "."); pp_s0exp_qual_tail(out, se1))
+end
+and
+pp_s0exp_qual_tail(out: FILR, se: s0exp): void =
+(
+  case+ se.node() of
+  | S0Eid0(id) => ps(out, rewrite_dollar(i0dnt_lexeme(id)))
+  | S0Eannot(se1, _) => pp_s0exp_qual_tail(out, se1)
+  | _ => pp_s0exp(out, se)
 )
 //
 // an apps list: first elem is the head (a type name); subsequent S0Elpar groups

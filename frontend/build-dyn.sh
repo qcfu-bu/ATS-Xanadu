@@ -17,6 +17,8 @@
 #           contextually typed in annotation and constructor-argument positions.
 #   GAP E — statement `if` branch bodies sequence into the following suite tail; a
 #           final void expression in the branch must not replace the function value.
+#   GAP F — dotted qualified static type heads (`MAP.topmap[T]`) must lower like
+#           ATS `$MAP.topmap(T)` instead of degrading the constructor field type to none0.
 #
 # Each fixture rides the SAME M3 driver path (frontend/DATS/pyfront_m3.dats = the full
 # lex -> parse -> elab -> lower -> trans2a -> trsym2b -> t2read0 -> trans23 -> tread3a
@@ -160,11 +162,29 @@ else
   FAIL=1
 fi
 
+# ---- GAP F: dyn_qualified_static_type — MAP.topmap[T] qualified type head --------------
+echo "----------------------------------------------------------------------"
+py="$TESTDIR/dyn_qualified_static_type.pdats"
+echo ">> [GAP F] $py  (dotted qualified static type head ; expect nerror=0)"
+echo "-- source --"; cat "$py"
+run_fixture "$py"
+echo ">> rc=$RC  nerror (after tread3a) = ${NE:-<none>}"
+if [ "${NE:-X}" = "0" ]; then
+  echo ">> PASS  (GAP F: MAP.topmap[...] LOWERS through qualified static lookup, nerror=0)"
+  echo "         NOTE: codegen may then hit the stock srcgen2 i0varfst_mklst gap after typecheck;"
+  echo "               the regression asserts the frontend/typecheck boundary."
+else
+  echo "!! FAIL  (GAP F expected nerror=0; got ${NE:-<none>})" >&2
+  grep -E "F3PERR0-ERROR|elab-diag" "$ERRF" | head -8 >&2
+  FAIL=1
+fi
+
 echo "======================================================================"
 if [ "$FAIL" -ne 0 ]; then echo ">> DYN: FAIL (see failures above)"; exit 1; fi
 echo ">> DYN: PASS (GAP A private-head TYPECHECKS nerror=0 [codegen-lib gap noted];"
 echo "            GAP B r[]/r[]:=  LOWER+TYPECHECK nerror=0;  GAP C lowercase con-app pattern"
 echo "            is crash-safe with counted nerror>0; GAP D expression underscore"
 echo "            LOWERS as ATS top; GAP E statement if continues to the suite tail;"
+echo "            GAP F dotted qualified static type heads lower through namespace lookup;"
 echo "            all expected-success fixtures TYPECHECK nerror=0.)"
 exit 0
