@@ -451,6 +451,13 @@ d2c_fun_args(d2c: d2cst): s2explst =
   | S2Efun1(_, _, args, _) => args
   | _ => list_nil()
 )
+fun
+d2con_fun_narg(d2c: d2con): sint =
+(
+  case+ d2con_get_xtyp(d2c).node() of
+  | T2Pfun1(_, _, args, _) => list_length(args)
+  | _ => d2con_get_narg(d2c)
+)
 //
 fun
 pl_sres_sig(env: !tr12env, ret: pytypopt): s2res =
@@ -553,21 +560,25 @@ case+ p of
 | PCPcon(loc, name, sargs, args) => let
     val sym = ats_sym(name)
     val dopt = tr12env_find_d2itm(env, sym)
-    val con_hd =
+    val @(con_hd, con_narg) =
       (
         case+ dopt of
         | ~optn_vt_cons(d2i) =>
           (
             case+ d2i of
             | D2ITMcon(d2cs) =>
-                if list_singq(d2cs) then d2pat_con(loc, d2cs.head())
-                else d2pat_make_node(loc, D2Pnone0())
-            | D2ITMvar(_) => d2pat_make_node(loc, D2Pnone0())
-            | D2ITMcst(_) => d2pat_make_node(loc, D2Pnone0())
-            | D2ITMsym(_, _) => d2pat_make_node(loc, D2Pnone0())
+                if list_singq(d2cs) then let
+                  val d2c = d2cs.head()
+                in
+                  @(d2pat_con(loc, d2c), d2con_fun_narg(d2c))
+                end
+                else @(d2pat_make_node(loc, D2Pnone0()), -1)
+            | D2ITMvar(_) => @(d2pat_make_node(loc, D2Pnone0()), -1)
+            | D2ITMcst(_) => @(d2pat_make_node(loc, D2Pnone0()), -1)
+            | D2ITMsym(_, _) => @(d2pat_make_node(loc, D2Pnone0()), -1)
           )
-        | ~optn_vt_nil() => d2pat_make_node(loc, D2Pnone0())
-      )
+        | ~optn_vt_nil() => @(d2pat_make_node(loc, D2Pnone0()), -1)
+      ) : @(d2pat, sint)
     // C-PROOF: the EXISTENTIAL-UNPACK static-args `{n, m}` (CP-UNP-spike-proven nerror=0). Each
     // surface binder name -> a FRESH int-sorted s2var; `d2pat_sapp(loc, <con>, [s2vs])` introduces
     // them (the con's hidden index vars) into the arm scope. The BARE con (not dap0-wrapped) is the
@@ -597,6 +608,10 @@ case+ p of
     // no nullary con pattern had ever been typechecked.) NB: an unpack with NO value args
     // (`VNil{n}`) also takes the dap0 path — the sapp-wrapped con dap0'd to its result.
     | list_nil() => d2pat_make_node(loc, D2Pdap0(phd))
+    | list_cons(PCPwild(_), list_nil()) =>
+        if con_narg = 0
+        then d2pat_make_node(loc, D2Pdap0(phd))
+        else d2pat_make_node(loc, D2Pdap1(phd))
     | list_cons(_, _) =>
         let val dps = pl_patlst(env, args) in d2pat_make_node(loc, D2Pdapp(phd, (-1), dps)) end
   end
