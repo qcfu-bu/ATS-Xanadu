@@ -217,6 +217,12 @@ d3cl.node() of
   f0_implmnt0(d3cl, env0))
 //
 (* ****** ****** *)
+//
+|D3Cerrck(_, d3cl1) =>
+(
+  d3ecl_trxd3i0(d3cl1, env0))
+//
+(* ****** ****** *)
 (* ****** ****** *)
 |_(* otherwise *) => i0dcl_none1(d3cl)
 (* ****** ****** *)

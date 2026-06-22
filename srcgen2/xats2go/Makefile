@@ -545,7 +545,7 @@ selfhost-strict: selfhost-smoke
 	echo ">> SELFHOST-STRICT: $$EMIT"; \
 	echo "======================================================================"; \
 	bad=0; \
-	if grep -n -E '/\*[[:space:]]*UNHANDLED:|^[[:space:]]*//[[:space:]]*UNHANDLED:' "$$EMIT" > "$$WORK/$$NAME.strict-unhandled.txt"; then \
+	if grep -n -E '(^|[^"])/\*[[:space:]]*UNHANDLED:|^[[:space:]]*//[[:space:]]*UNHANDLED:' "$$EMIT" > "$$WORK/$$NAME.strict-unhandled.txt"; then \
 	  echo "!! selfhost-strict: generated Go contains UNHANDLED markers" >&2; \
 	  sed -n '1,20p' "$$WORK/$$NAME.strict-unhandled.txt" >&2; \
 	  bad=1; \

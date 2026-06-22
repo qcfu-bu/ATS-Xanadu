@@ -924,6 +924,22 @@ idcl.node() of
 (
   f0_fundclst
   (idcl, i0ws, env0))
+|I1Dextern(_, idcl1) =>
+(
+  i1dclenv_fenvins
+  (idcl1, i0ws, env0))
+|I1Ddclst0(idcls) =>
+(
+  f0_dclist(idcls, i0ws, env0))
+|I1Dlocal0(head, body) =>
+(
+  f0_dclist(head, i0ws, env0);
+  f0_dclist(body, i0ws, env0))
+|I1Dinclude(_, _, _, _, dopt) =>
+(
+  case+ dopt of
+  |optn_nil() => ((*void*))
+  |optn_cons(idcls) => f0_dclist(idcls, i0ws, env0))
 |I1Dstatic(_, idcl1) =>
 (
   i1dclenv_fenvins
@@ -998,6 +1014,21 @@ prerrsln("f0_fundclst(fins): idcl = ", idcl)
 *)
 //
 }(*where*)//end-of-[f0_fundclst(idcl,i0ws,env0)]
+//
+fun
+f0_dclist
+(
+idcls: i1dclist,
+i0ws: ienvs,
+env0: !envi0i1): void =
+(
+case+ idcls of
+|list_nil() => ((*void*))
+|list_cons(idcl1, idcls1) =>
+  (
+  i1dclenv_fenvins(idcl1, i0ws, env0);
+  f0_dclist(idcls1, i0ws, env0))
+)
 //
 }(*where*)//end-of-[i1dclenv_trxi0i1(idcl,i0ws,env0)]
 //

@@ -886,6 +886,9 @@ d3e0.node() of
 |D3Etimp _ =>
 (
   f0_timp(d3e0, env0))
+|D3Etimq _ =>
+(
+  f0_timq(d3e0, env0))
 //
 (* ****** ****** *)
 //
@@ -1318,6 +1321,38 @@ i0exp(
 loc0, i0t0, I0Etimp(i0e1, timp))
 //
 end(*let*)//end-of-[f0_timp(d3e0,env0)]
+//
+(* ****** ****** *)
+//
+fun
+f0_timq
+(d3e0: d3exp
+,env0: !envd3i0): i0exp =
+let
+//
+val-
+D3Etimq
+(d3e1, timp, _tmps) = d3e0.node()
+//
+val loc0 = d3e0.lctn((*0*))
+val t2p0 = d3e0.styp((*0*))
+val i0t0 =
+(
+  s2typ_trxd3i0(t2p0, env0))
+//
+val i0e1 =
+(
+  d3exp_trxd3i0(d3e1, env0))
+val timp =
+(
+  timpl_trxd3i0(timp, env0))
+//
+in//let
+//
+i0exp(
+loc0, i0t0, I0Etimp(i0e1, timp))
+//
+end(*let*)//end-of-[f0_timq(d3e0,env0)]
 //
 (* ****** ****** *)
 //
