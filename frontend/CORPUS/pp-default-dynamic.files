@@ -1,5 +1,14 @@
 # Default dynamic Pythonic-ATS pretty-printer corpus.
 srcgen2/DATS/filpath_drpth0.dats
+srcgen2/DATS/lexbuf0_cstrx1.dats
+srcgen2/DATS/lexing0_utils2.dats
+srcgen2/DATS/dynexp0.dats
+srcgen2/DATS/dynexp0_print0.dats
+srcgen2/DATS/dynexp1.dats
+srcgen2/DATS/dynexp1_print0.dats
+srcgen2/DATS/dynexp2_print0.dats
+srcgen2/DATS/dynexp2_tmplib.dats
+srcgen2/DATS/dynexp2_utils0.dats
 srcgen2/DATS/parsing_basics.dats
 srcgen2/DATS/parsing_tokbuf.dats
 srcgen2/DATS/parsing_utils0.dats
@@ -22,6 +31,17 @@ srcgen2/DATS/tread12_decl00.dats
 srcgen2/DATS/tread12_dynexp.dats
 srcgen2/DATS/tread12_errmsg.dats
 srcgen2/DATS/tread12_staexp.dats
+srcgen2/DATS/tread23.dats
+srcgen2/DATS/tread23_decl00.dats
+srcgen2/DATS/tread23_dynexp.dats
+srcgen2/DATS/tread23_errmsg.dats
+srcgen2/DATS/tread3a.dats
+srcgen2/DATS/tread3a_staexp.dats
+srcgen2/DATS/tread3a_dynexp.dats
+srcgen2/DATS/tread3a_decl00.dats
+srcgen2/DATS/trans12_myenv0.dats
+srcgen2/DATS/trans23_myenv0.dats
+srcgen2/DATS/trtmp3c_myenv0.dats
 frontend/TEST/roundtrip/uppercase_values.dats
 frontend/TEST/roundtrip/local_type_alias.dats
 frontend/TEST/roundtrip/generic_impl_sapp.dats

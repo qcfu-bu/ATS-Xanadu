@@ -26,8 +26,12 @@ harnesses.
 - The default corpus audit now pretty-prints and reparses/typechecks
   `srcgen2/SATS/xstamp0.sats`, `srcgen2/DATS/filpath_drpth0.dats`, the full
   `srcgen2/DATS/parsing*.dats` parser implementation slice, the green
-  `pread00*`, `tread01*`, and `tread12*` reader/checker slices, and the focused
-  round-trip fixtures with `TODOpp=0` and `m3_nerror=0`.
+  `pread00*`, `tread01*`, `tread12*`, `tread23*`, and `tread3a*`
+  reader/checker slices, the focused compiler-environment slice
+  `lexbuf0_cstrx1.dats`, `lexing0_utils2.dats`, `trans12_myenv0.dats`,
+  `trans23_myenv0.dats`, and `trtmp3c_myenv0.dats`, the first green
+  `dynexp0`/`dynexp1`/`dynexp2` helper sub-slice, and the focused round-trip
+  fixtures with `TODOpp=0` and `m3_nerror=0`.
 - The expanded static interface slice
   `srcgen2/SATS/{filpath,xsymbol,locinfo,lexing0}.sats` now also reaches
   `TODOpp=0` and `m3_nerror=0`. This covers aliased `#staload`, symbolic
@@ -108,11 +112,17 @@ harnesses.
   `parsing_basics.dats`, `parsing_tokbuf.dats`, `parsing_utils0.dats`,
   `parsing_staexp.dats`, `parsing_dynexp.dats`, `parsing_decl00.dats`, and
   `parsing.dats`.
-- The first reader/checker expansion slice
-  `srcgen2/DATS/{pread00,tread01,tread12}*.dats` now reaches `TODOpp=0` and
-  `m3_nerror=0` across fifteen generated files. The last blocker in that slice
-  was statement-`if` continuation handling: a side-effecting branch body must
-  sequence into the following suite tail instead of replacing the function value.
+- The reader/checker expansion slice
+  `srcgen2/DATS/{pread00,tread01,tread12,tread23,tread3a}*.dats` now reaches
+  `TODOpp=0` and `m3_nerror=0` across twenty-three generated files. The last
+  blocker in the first part of that slice was statement-`if` continuation
+  handling: a side-effecting branch body must sequence into the following suite
+  tail instead of replacing the function value.
+- The first dynamic-expression expansion sub-slice
+  `srcgen2/DATS/{dynexp0,dynexp0_print0,dynexp1,dynexp1_print0,dynexp2_print0,dynexp2_tmplib,dynexp2_utils0}.dats`
+  now reaches `TODOpp=0` and `m3_nerror=0`. The adjacent `dynexp2.dats` is still
+  excluded: it prints marker-free Pythonic code, but unresolved qualified static
+  map types such as `$MAP.topmap` currently lower to missing bare `topmap`.
 - `build-pp-corpus.sh --out-dir RELPATH` now normalizes the report directory
   against `frontend/` before running pyprint from `XATSHOME`, so separate static
   and dynamic corpus summaries can be kept without path breakage.
