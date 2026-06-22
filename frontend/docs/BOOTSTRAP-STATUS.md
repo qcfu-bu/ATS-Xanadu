@@ -30,7 +30,8 @@ harnesses.
   reader/checker slices, the focused compiler-environment slice
   `lexbuf0_cstrx1.dats`, `lexing0_utils2.dats`, `trans12_myenv0.dats`,
   `trans23_myenv0.dats`, and `trtmp3c_myenv0.dats`, the first green
-  `dynexp0`/`dynexp1`/`dynexp2` helper sub-slice, and the focused round-trip
+  `dynexp0`/`dynexp1`/`dynexp2` helper sub-slice, the support/type-kernel
+  `statyp2` plus `xstamp0`/`xsymbol` slice, and the focused round-trip
   fixtures with `TODOpp=0` and `m3_nerror=0`.
 - The expanded static interface slice
   `srcgen2/SATS/{filpath,xsymbol,locinfo,lexing0}.sats` now also reaches
@@ -123,6 +124,10 @@ harnesses.
   now reaches `TODOpp=0` and `m3_nerror=0`. ATS qualified static map types such
   as `$MAP.topmap` now pretty-print as `MAP.topmap[...]` and lower through the
   same namespace lookup path as stock ATS.
+- The support/type-kernel expansion slice now sits in the default corpus and
+  reaches `TODOpp=0` and `m3_nerror=0`. It covers the `statyp2*` files plus
+  `xstamp0.dats`, `xstamp0_tmpmap.dats`, `xsymbol.dats`, and
+  `xsymbol_inits0.dats`.
 - `build-pp-corpus.sh --out-dir RELPATH` now normalizes the report directory
   against `frontend/` before running pyprint from `XATSHOME`, so separate static
   and dynamic corpus summaries can be kept without path breakage.
