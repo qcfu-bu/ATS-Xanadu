@@ -85,6 +85,7 @@ case+ e of
         val a2 = lint_exp(t, tail, a1)
     in lint_exp(f, tail, a2) end
 | PCEcase(_, scrut, arms) => lint_arms(arms, tail, lint_exp(scrut, false, acc))
+| PCEllazy(_, body) => lint_exp(body, tail, acc)
 | PCElet(_, _, _, rhs, body) => lint_exp(body, tail, lint_exp(rhs, false, acc))
 // a var cell: the init is NOT tail; the body inherits the enclosing tail context (the cell
 // scopes the rest exactly like a `let`). A cell assignment is void-valued — neither side tail.
@@ -180,6 +181,7 @@ case+ e of
 | PCEassign(_, lv, rv) => lint_loops_exp(rv, lint_loops_exp(lv, acc))
 | PCEif(_, c, t, f) => lint_loops_exp(f, lint_loops_exp(t, lint_loops_exp(c, acc)))
 | PCEcase(_, scrut, arms) => lint_loops_arms(arms, lint_loops_exp(scrut, acc))
+| PCEllazy(_, body) => lint_loops_exp(body, acc)
 | PCEtup(_, es) => lint_loops_explst(es, acc)
 | PCErec(_, fs) => lint_loops_efields(fs, acc)
 | PCElist(_, es) => lint_loops_explst(es, acc)

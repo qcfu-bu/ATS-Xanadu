@@ -901,6 +901,18 @@ case+ e of
     d2exp_make_node(loc, D2Ecas0(tok_case(loc), d2scrut, d2cs))
   end
 //
+// PCEllazy : `llazy: suite` -> ATS linear lazy value. Match stock trans12's `$llazy`
+// lowering: if the body lowered to a sequence, preserve the initial effects/frees in the
+// third `D2El1azy` field and use the final expression as the thunk body.
+| PCEllazy(loc, body) => let
+    val d1f0 = d1exp_make_node(loc, D1Eid0(symbl_make_name("$llazy")))
+    val d2e1 = pl_exp(env, body)
+  in
+    case+ d2e1.node() of
+    | D2Eseqn(d2es, d2e2) => d2exp_make_node(loc, D2El1azy(d1f0, d2e2, d2es))
+    | _ => d2exp_make_node(loc, D2El1azy(d1f0, d2e1, list_nil()))
+  end
+//
 // PCEtup : (a, b) -> D2Etup0(-1, [..]).
 | PCEtup(loc, es) =>
     let val d2es = pl_explst(env, es) in d2exp_make_node(loc, D2Etup0((-1), d2es)) end

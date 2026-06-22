@@ -264,6 +264,8 @@ pylit =
 //   PyEif    : `if c: t elif c2: t2 ... else: e` EXPRESSION. A list of (cond, branch)
 //              guarded arms + a mandatory else branch (§5.4 if_expr requires `else`).
 //   PyEmatch : `match e: case p [if g]: body ...` EXPRESSION. scrutinee + arm list.
+//   PyEllazy : `llazy: suite` — a linear lazy value. The suite is elaborated like a
+//              function/match arm body and lowers to ATS `D2El1azy`.
 //   PyEtup   : `( e, e )` tuple (also a bare `a, b` in return/RHS positions, §5.4 exprs).
 //              A 0-tuple `()` is unit; a 1-element parenthesized expr is NOT a tuple
 //              (the parser returns the inner expr directly).
@@ -294,6 +296,7 @@ pyexp =
 | PyEuna   of (loctn, pyuop, pyexp)
 | PyEif    of (loctn, list(pyguard), pyexp)
 | PyEmatch of (loctn, pyexp, list(pyarm))
+| PyEllazy of (loctn, list(pystmt))
 | PyEtup   of (loctn, list(pyexp))
 | PyElist  of (loctn, list(pyexp))
 | PyErec   of (loctn, list(pyefield))

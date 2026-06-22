@@ -284,6 +284,9 @@ case+ e of
 | PyEmatch(loc, scrut, arms) =>
   ( ps(out, "(Ematch"); print_span(out, loc); ps(out, " ");
     pp_exp(out, scrut); pp_armlst(out, arms, 1); ps(out, ")") )
+| PyEllazy(loc, body) =>
+  ( ps(out, "(Ellazy"); print_span(out, loc);
+    pp_stmtlst(out, body, 1); ps(out, ")") )
 | PyEtup(loc, es) =>
   (ps(out, "(Etup"); print_span(out, loc); pp_explst(out, es); ps(out, ")"))
 | PyElist(loc, es) =>

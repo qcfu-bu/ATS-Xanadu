@@ -36,6 +36,7 @@ case+ e of
 | PCEvarcell(loc, _, _, _, _) => loc | PCEassign(loc, _, _) => loc
 | PCEletfun(loc, _, _) => loc | PCEif(loc, _, _, _) => loc
 | PCEcase(loc, _, _) => loc   | PCEtup(loc, _) => loc
+| PCEllazy(loc, _) => loc
 | PCErec(loc, _) => loc       | PCElist(loc, _) => loc
 | PCEfield(loc, _, _) => loc  | PCEseq(loc, _, _) => loc
 | PCEunit(loc) => loc         | PCEerror(loc, _) => loc

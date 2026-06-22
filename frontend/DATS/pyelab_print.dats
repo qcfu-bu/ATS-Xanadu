@@ -254,6 +254,9 @@ case+ e of
 | PCEcase(loc, scrut, arms) =>
   ( ps(out, "(Ecase"); print_span(out, loc); ps(out, " ");
     pp_exp(out, scrut, ind); pp_armlst(out, arms, ind + 1); ps(out, ")") )
+| PCEllazy(loc, body) =>
+  ( ps(out, "(Ellazy"); print_span(out, loc); ps(out, " ");
+    pp_exp(out, body, ind + 1); ps(out, ")") )
 | PCEtup(loc, es) =>
   (ps(out, "(Etup"); print_span(out, loc); pp_explst(out, es, ind); ps(out, ")"))
 | PCErec(loc, fs) =>

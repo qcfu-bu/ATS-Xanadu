@@ -20,8 +20,9 @@ harnesses.
 - `build-roundtrip.sh` is a gap-analysis reporter, not a green regression gate.
 - Canonical ATS ingestion exists through `pyprint`:
   `d0parsed_from_fpath` -> `DATS/pyprint.dats` -> Pythonic text.
-  It is still a tracer-grade surface transliterator with visible `# TODO(pp)`
-  fallbacks.
+  It is still a corpus-driven surface transliterator, but the currently audited
+  static interface and dynamic compiler/utility slices have no visible
+  `# TODO(pp)` fallbacks.
 - The default corpus audit now pretty-prints and reparses/typechecks both
   `srcgen2/SATS/xstamp0.sats` and `srcgen2/DATS/filpath_drpth0.dats` with
   `TODOpp=0` and `m3_nerror=0`.
@@ -53,7 +54,7 @@ harnesses.
   compiler interfaces such as `dynexp0.sats`.
 - The dynamic compiler/utility pyprint-only sweep now has a concrete baseline:
   `build-pp-corpus.sh --dynamic --no-reparse` over 166 `srcgen2/DATS` and
-  `srcgen2/UTIL` files reports 2 visible `# TODO(pp)` marker lines. Printing ATS
+  `srcgen2/UTIL` files reports 0 visible `# TODO(pp)` marker lines. Printing ATS
   `when` guards as Pythonic `case ... if ...:` removed the largest previous
   TODO class, and selector left-hand sides such as `buf.N := ...` now print
   without `d0exp-inline` fallbacks. Value RHSs shaped as
@@ -68,19 +69,26 @@ harnesses.
   the local body declarations. Nested `local` declarations in `where` blocks
   and private heads now print with the same `private:` structure, clearing the
   remaining structural declaration fallbacks. Value RHS `if` expressions with
-  `let`/`case` branches now print through indentation-aware block emitters. The
-  remaining cluster is the `llazy(case ...)` call-argument form in
-  `lexbuf0_cstrx1.dats` and `lexing0_utils2.dats`.
+  `let`/`case` branches now print through indentation-aware block emitters.
+  ATS `$llazy(case ...)` call-argument forms now print as Pythonic `llazy:`
+  block expressions in `lexbuf0_cstrx1.dats` and `lexing0_utils2.dats`, closing
+  the last visible dynamic DATS/UTIL pyprint markers.
+- Focused M3 reparse/typecheck of the two former `$llazy(case ...)` files now
+  reaches real numeric verdicts: `lexbuf0_cstrx1.dats` reports `m3_nerror=29`
+  and `lexing0_utils2.dats` reports `m3_nerror=33`. The new `llazy:` syntax
+  lowers to `D2El1azy(D1Eid0($llazy), ...)`; the remaining errors are older
+  dynamic reparse/typecheck gaps rather than `llazy:` parser coverage.
 - `build-pp-corpus.sh --out-dir RELPATH` now normalizes the report directory
   against `frontend/` before running pyprint from `XATSHOME`, so separate static
   and dynamic corpus summaries can be kept without path breakage.
 
 ## End-goal blockers
 
-1. Pretty-printer breadth remains the main blocker, but the `srcgen2/SATS`
-   interface corpus is now green apart from the comments-only empty-file
-   harness classification. The next breadth target is `srcgen2/DATS` and then
-   `srcgen1/prelude` / `srcgen2/UTIL`.
+1. Pretty-printer breadth is now marker-free for the audited `srcgen2/SATS`
+   interface corpus and the 166-file `srcgen2/DATS`/`srcgen2/UTIL` pyprint-only
+   slice. The next blocker is making those dynamic outputs reparse/typecheck
+   reliably, then extending the same treatment to `srcgen1/prelude` and backend
+   comparison.
 2. Include/import/load semantics are not faithful yet. Bare and aliased
    `#staload` now pretty-print to scoped ATS `.sats` imports, but `#include`
    still prints as an inert comment and needs a real Pythonic load/include
@@ -116,9 +124,11 @@ harnesses.
 - Pretty-printer corpus audit: keep expanding `build-pp-corpus.sh` beyond the
   current two-file smoke corpus and track per-file `# TODO(pp)` count and
   reparse `nerror`.
-- Dynamic pyprint breadth: drive the 166-file DATS/UTIL baseline from
-  `TODOpp=2` to zero, starting with the remaining `llazy(case ...)`
-  call-argument emitters.
+- Dynamic reparse/typecheck triage: protect the 166-file DATS/UTIL
+  `TODOpp=0` pyprint-only baseline while classifying M3 type errors versus
+  driver/runtime crashes. The next high-value targets include simple
+  `llazy(expr)` semantics, moved/free pattern gaps, and unresolved dynamic
+  helper names surfaced by the generated Pythonic files.
 - Slash-identifier fidelity: keep `$` <-> `/` round-trip support covered by
   regression tests and expand the corpus audit around collision-prone names.
 

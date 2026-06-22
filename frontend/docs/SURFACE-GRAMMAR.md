@@ -250,12 +250,13 @@ case_arm  ::= 'case' pattern [ 'if' expr ] ':' suite
 
 ```
 exprs     ::= expr { ',' expr }                      (* bare tuple in return/RHS: a, b ≡ (a, b) *)
-expr      ::= lambda | if_expr | match_expr | or_expr
+expr      ::= lambda | if_expr | match_expr | llazy_expr | or_expr
 lambda    ::= lamparams '=>' lambody
 lamparams ::= LIDENT | '(' [ param { ',' param } ] ')'
 lambody   ::= expr | NEWLINE INDENT stmt { stmt } DEDENT     (* inline OR block — §2 *)
 if_expr   ::= 'if' expr ':' branch { 'elif' expr ':' branch } 'else' ':' branch
 match_expr::= 'match' expr ':' NEWLINE INDENT case_arm { case_arm } DEDENT
+llazy_expr::= 'llazy' ':' branch                  (* linear lazy value thunk *)
 branch    ::= expr | NEWLINE INDENT stmt { stmt } DEDENT
 
 (* precedence: lowest → highest; see §5.6 *)

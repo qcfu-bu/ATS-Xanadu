@@ -175,6 +175,19 @@ in
   case+ nod of
   | PT_KW_IF()    => p_if_expr(st)
   | PT_KW_MATCH() => p_match_expr(st)
+  | PT_LIDENT(nm) =>
+    if strn_eq(nm, "llazy")
+    then (
+      case+ ps_peek2(st) of
+      | PT_COLON() => p_llazy_expr(st)
+      | _ =>
+        let val @(islam, e, st1) = p_try_lambda(st) in
+          if islam then @(e, st1) else p_pratt(st, 1)
+        end)
+    else
+      let val @(islam, e, st1) = p_try_lambda(st) in
+        if islam then @(e, st1) else p_pratt(st, 1)
+      end
   | PT_KW_RAISE() => p_raise_expr(st)
   | PT_KW_TRY()   => p_try_expr(st)
   | PT_AT()       =>
@@ -708,6 +721,17 @@ p_match_expr(st: pstate): @(pyexp, pstate) = let
   val st7 = skip_one_dedent(st6)
 in
   @(PyEmatch(loc, scrut, arms), st7)
+end
+//
+// llazy_expr ::= 'llazy' ':' suite
+and
+p_llazy_expr(st: pstate): @(pyexp, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'llazy'
+  val st2 = expect_colon_e(st1)
+  val @(body, st3) = parse_suite(st2)
+in
+  @(PyEllazy(loc, body), st3)
 end
 //
 and

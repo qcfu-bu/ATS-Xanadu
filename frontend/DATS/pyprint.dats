@@ -1489,6 +1489,9 @@ and
 	and
 	dexp_is_name(de: d0exp, name: strn): bool = strn_eq(dexp_name(de), name)
 	and
+	dexp_is_llazy_head(de: d0exp): bool =
+	  if dexp_is_name(de, "$llazy") then true else dexp_is_name(de, "llazy")
+	and
 	dexp_binop_py(de: d0exp): strn = let
 	  val oper = dexp_name(de)
 	in
@@ -1757,6 +1760,10 @@ pp_d0exp_suite(out: FILR, n: sint, de: d0exp): void =
   //
   // a ref-set `r[] := e` is an APPS with `:=` — detected in pp_dexp_stmt. As a
   // whole-body it is a single statement.
+  | D0Eapps(des) => (
+      if pp_dexp_llazy_case_suite(out, n, des)
+      then ()
+      else (ind(out, n); pp_dexp_stmt_inline(out, de); nl(out)))
   | _ => (ind(out, n); pp_dexp_stmt_inline(out, de); nl(out))
 )
 //
@@ -1805,6 +1812,40 @@ pp_dexp_stmt_apps(out: FILR, des: d0explst): void =
   if dexp_apps_has_assign(des)
   then pp_dexp_assign(out, des)
   else pp_dexp_apps(out, des)
+)
+and
+pp_dexp_llazy_case_suite(out: FILR, n: sint, des: d0explst): bool =
+(
+  case+ des of
+  | list_cons(hd, list_cons(arg, list_nil())) =>
+      if dexp_is_llazy_head(hd)
+      then pp_dexp_llazy_case_arg_suite(out, n, arg)
+      else false
+  | _ => false
+)
+and
+pp_dexp_llazy_case_arg_suite(out: FILR, n: sint, arg: d0exp): bool =
+(
+  case+ arg.node() of
+  | D0Elpar(_, list_cons(de, list_nil()), _) => pp_dexp_llazy_case_exp_suite(out, n, de)
+  | D0Eannot(de1, _) => pp_dexp_llazy_case_arg_suite(out, n, de1)
+  | D0Equal0(_, de1) => pp_dexp_llazy_case_arg_suite(out, n, de1)
+  | D0Eerrck(_, de1) => pp_dexp_llazy_case_arg_suite(out, n, de1)
+  | _ => pp_dexp_llazy_case_exp_suite(out, n, arg)
+)
+and
+pp_dexp_llazy_case_exp_suite(out: FILR, n: sint, de: d0exp): bool =
+(
+  case+ de.node() of
+  | D0Ecas0(_, scrut, _, _, cls) => (
+      ind(out, n); ps(out, "llazy:"); nl(out);
+      pp_dexp_match(out, n+1, scrut, cls);
+      true)
+  | D0Ecas1(_, scrut, _, _, cls, _) => (
+      ind(out, n); ps(out, "llazy:"); nl(out);
+      pp_dexp_match(out, n+1, scrut, cls);
+      true)
+  | _ => false
 )
 // does this apps-list contain a `:=` infix op? (a ref-set).
 and
@@ -2096,9 +2137,49 @@ pp_dexp_val_rhs(out: FILR, n: sint, dpat: d0pat, rhs: d0exp): void =
       ind(out, n); ps(out, "let "); pp_d0pat(out, dpat); ps(out, " = match ");
       pp_d0exp_inline(out, scrut); ps(out, ":"); nl(out);
       pp_dexp_clauses(out, n+1, cls))
+  | D0Eapps(des) => (
+      if pp_dexp_val_llazy_case_rhs(out, n, dpat, des)
+      then ()
+      else (
+        ind(out, n); ps(out, "let "); pp_d0pat(out, dpat); ps(out, " = ");
+        pp_d0exp_inline(out, rhs); nl(out)))
   | _ => (
       ind(out, n); ps(out, "let "); pp_d0pat(out, dpat); ps(out, " = ");
       pp_d0exp_inline(out, rhs); nl(out))
+)
+and
+pp_dexp_val_llazy_case_rhs(out: FILR, n: sint, dpat: d0pat, des: d0explst): bool =
+(
+  case+ des of
+  | list_cons(hd, list_cons(arg, list_nil())) =>
+      if dexp_is_llazy_head(hd)
+      then pp_dexp_val_llazy_case_arg(out, n, dpat, arg)
+      else false
+  | _ => false
+)
+and
+pp_dexp_val_llazy_case_arg(out: FILR, n: sint, dpat: d0pat, arg: d0exp): bool =
+(
+  case+ arg.node() of
+  | D0Elpar(_, list_cons(de, list_nil()), _) => pp_dexp_val_llazy_case_exp(out, n, dpat, de)
+  | D0Eannot(de1, _) => pp_dexp_val_llazy_case_arg(out, n, dpat, de1)
+  | D0Equal0(_, de1) => pp_dexp_val_llazy_case_arg(out, n, dpat, de1)
+  | D0Eerrck(_, de1) => pp_dexp_val_llazy_case_arg(out, n, dpat, de1)
+  | _ => pp_dexp_val_llazy_case_exp(out, n, dpat, arg)
+)
+and
+pp_dexp_val_llazy_case_exp(out: FILR, n: sint, dpat: d0pat, de: d0exp): bool =
+(
+  case+ de.node() of
+  | D0Ecas0(_, scrut, _, _, cls) => (
+      ind(out, n); ps(out, "let "); pp_d0pat(out, dpat); ps(out, " = llazy:"); nl(out);
+      pp_dexp_match(out, n+1, scrut, cls);
+      true)
+  | D0Ecas1(_, scrut, _, _, cls, _) => (
+      ind(out, n); ps(out, "let "); pp_d0pat(out, dpat); ps(out, " = llazy:"); nl(out);
+      pp_dexp_match(out, n+1, scrut, cls);
+      true)
+  | _ => false
 )
 and
 pp_dexp_val_if_rhs
