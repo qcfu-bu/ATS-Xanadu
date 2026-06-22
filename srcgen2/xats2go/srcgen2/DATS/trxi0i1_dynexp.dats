@@ -58,9 +58,6 @@ XATSOPT "./../../.."
 (* ****** ****** *)
 #staload // LAB =
 "./../../../SATS/xlabel0.sats"
-(* ****** ****** *)
-(* ****** ****** *)
-//
 #staload ".\
 /../../xats2cc\
 /srcgen1/SATS/intrep0.sats"//...
@@ -1664,6 +1661,10 @@ iexp.node() of
 //
 |I0Etry0 _ => f0_try0(iexp, env0)
 |I0Eraise _ => f0_raise(iexp, env0)
+|I0Edl0az _ => f0_dl0az(env0, iexp)
+|I0Edl1az _ => f0_dl1az(env0, iexp)
+|I0El0azy _ => f0_l0azy(env0, iexp)
+|I0El1azy _ => f0_l1azy(env0, iexp)
 //
 (* ****** ****** *)
 //
@@ -2793,6 +2794,143 @@ in//let
 (
   i1val_raise(env0, loc0, tknd, i1v1))
 end(*let*)//end-of-[f0_raise(iexp,env0)]
+//
+(* ****** ****** *)
+
+fun
+f0_dl0az
+(
+env0: !envi0i1,
+iexp: i0exp): i1val =
+let
+//
+val loc0 = iexp.lctn()
+//
+val-
+I0Edl0az
+(   i0f0   ) = iexp.node()
+//
+val i1f0 =
+(
+  i0exp_trxi0i1(i0f0, env0))
+//
+in//let
+(
+i1val_dl0az(env0, loc0, i1f0))
+end(*let*)//end-of-[f0_dl0az(env0,iexp)]
+//
+fun
+f0_dl1az
+(
+env0: !envi0i1,
+iexp: i0exp): i1val =
+let
+//
+val loc0 = iexp.lctn()
+//
+val-
+I0Edl1az
+(   i0f0   ) = iexp.node()
+//
+val i1f0 =
+(
+  i0exp_trxi0i1(i0f0, env0))
+//
+in//let
+(
+i1val_dl1az(env0, loc0, i1f0))
+end(*let*)//end-of-[f0_dl1az(env0,iexp)]
+//
+(* ****** ****** *)
+
+fun
+f0_l0azy
+(
+env0: !envi0i1,
+iexp: i0exp): i1val =
+let
+//
+val loc0 = iexp.lctn()
+//
+val-
+I0El0azy
+(dknd, body) = iexp.node()
+//
+val () =
+envi0i1_pshlam0(env0)
+//
+val iret =
+(
+  i0exp_trxi0i1(body, env0))
+//
+val ilts =
+envi0i1_poplam0(env0)
+//
+val icmp = I1CMPcons(ilts, iret)
+//
+in//let
+(
+i1val_l0azy(env0, loc0, dknd, icmp))
+end(*let*)//end-of-[f0_l0azy(env0,iexp)]
+//
+fun
+f0_l1azy
+(
+env0: !envi0i1,
+iexp: i0exp): i1val =
+let
+//
+val loc0 = iexp.lctn()
+//
+val-
+I0El1azy
+(dknd, body, i0fs) = iexp.node()
+//
+val () =
+envi0i1_pshlam0(env0)
+//
+val iret =
+(
+  i0exp_trxi0i1(body, env0))
+//
+val i1fs =
+(
+  f1_i0blklst(i0fs, env0))
+//
+val ilts =
+envi0i1_poplam0(env0)
+//
+val icmp = I1CMPcons(ilts, iret)
+//
+in//let
+(
+i1val_l1azy(env0, loc0, dknd, icmp, i1fs))
+end where
+{
+//
+fun
+f1_i0blklst
+( i0es: i0explst
+, env0: !envi0i1): i1cmplst =
+(
+case+ i0es of
+|list_nil
+( (*void*) ) => list_nil()
+|list_cons
+(i0e1, i0es) =>
+let
+//
+val icmp =
+i0blk_trxi0i1(i0e1, env0)
+val icmps =
+f1_i0blklst(i0es, env0)
+//
+in//let
+list_cons(icmp, icmps)
+end//let//end-of-[list_cons(...)]
+)
+//
+}(*where*)//end-of-[f0_l1azy(env0,iexp)]
 //
 (* ****** ****** *)
 (* ****** ****** *)

@@ -11,11 +11,9 @@ is bound but unused, and the program's OUTPUT is the fixed string, so the run is
 well-defined and BYTE-EQUAL to the JS backend (both emit a top/undefined the
 output never inspects).
 //
-This is the one cleanly surface-reachable target node of this milestone: see
-BUILD-NOTES "intrep1 node coverage" for why the lazy / fold / free / dp2tr / p2rj
-nodes are NOT producible from surface syntax in this frontend build (the trxd3i0
-stage does not lower `$lazy`/`!`, so they surface as error nodes; their emit
-cases + runtime are handled-and-ready but unreachable).
+This remains a focused surface-reachable `I1Vtop` rung.  Lazy forcing now has
+its own coverage in test88; fold/free/dp2tr/p2rj coverage still belongs to
+separate focused rungs as the frontend and emitter grow.
 *)
 (* ****** ****** *)
 #staload _ =

@@ -821,6 +821,17 @@ prints("I0Esynext(", tknd, ";", gexp, ")"))
 (
 prints("I0Etry0(", tknd, ";", i0e1, ";", icls, ")"))
 //
+// xats2go MIGRATION: print arms for the APPENDED lazy constructor nodes.
+|I0El0azy
+(dknd, i0e1) =>
+(
+prints("I0El0azy(", dknd, ";", i0e1, ")"))
+|I0El1azy
+(dknd, i0e1, i0es) =>
+(
+print("I0El1azy(");
+prints(dknd, ";", i0e1, ";", i0es, ")"))
+//
 (* ****** ****** *)
 (* ****** ****** *)
 //

@@ -281,7 +281,7 @@ else
 d2cstimplgo1: a resolved user implementation constant -> package-level Go
 identifier.  Unlike [d2cstgo1], this is NOT an xatsgo runtime hook; it mirrors
 [d2vargo1]'s source-name + location-stamp scheme so a #implfun definition and
-its package symbol are stable and collision-resistant.
+its package symbol are stable, Go-safe, and collision-resistant.
 *)
 #implfun
 d2cstimplgo1
@@ -290,7 +290,7 @@ let
 val name = dcst.name((*0*))
 in//let
 (
-strnfpr(filr, symbl_get_name(name));
+xsymgo1(filr, name);
 strnfpr(filr, "_");
 fprint_loctn_as_stamp(filr, dcst.lctn((*0*)))) end
 //endof[d2cstimplgo1(filr,dcst)]
@@ -298,7 +298,7 @@ fprint_loctn_as_stamp(filr, dcst.lctn((*0*)))) end
 (* ****** ****** *)
 //
 (*
-d2vargo1: a local/global dynamic variable -> "<sym>_<gostamp>".
+d2vargo1: a local/global dynamic variable -> "<go-safe-sym>_<gostamp>".
 (Not exercised by test01's executed path, but provided for completeness
 and used by any I1Vfid leaf.)
 *)
@@ -309,7 +309,7 @@ let
 val name = dvar.name((*0*))
 in//let
 (
-strnfpr(filr, symbl_get_name(name));
+xsymgo1(filr, name);
 strnfpr(filr, "_");
 fprint_loctn_as_stamp(filr, dvar.lctn((*0*)))) end
 //endof[d2vargo1(filr,dvar)]

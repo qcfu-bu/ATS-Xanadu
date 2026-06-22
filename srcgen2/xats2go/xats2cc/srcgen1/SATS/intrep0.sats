@@ -763,6 +763,16 @@ FV(i0exp) = i0varlst
 (token(*$TRY*)
 ,i0exp(*normal*), i0clslst(*handles*))
 //
+//
+// xats2go MIGRATION: lazy constructors are appended after the previously
+// appended [I0Etry0] so existing local constructor stamps stay stable.  Shapes
+// mirror xats2js/srcgen1's [I0El0azy]/[I0El1azy].
+|I0El0azy of // nonlin-lazy-eval
+( d1exp(*$L0AZY*), i0exp(*non-thunk*) )
+|I0El1azy of // linear-lazy-eval
+( d1exp(*$LLAZY*)
+, i0exp(*lin-thunk*), i0explst(*frees*))
+//
 (* ****** ****** *)
 (* ****** ****** *)
 (*

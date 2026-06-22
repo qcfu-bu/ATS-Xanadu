@@ -535,3 +535,34 @@ var Xats_gs_print_a4 = func(x0 any, x1 any, x2 any, x3 any) any {
 	gsPrintOne(x3)
 	return XATSNIL()
 }
+
+var Xats_gs_println_a0 = func() any {
+	XATS2JS_strn_print("\n")
+	return XATSNIL()
+}
+var Xats_gs_println_a1 = func(x0 any) any {
+	gsPrintOne(x0)
+	XATS2JS_strn_print("\n")
+	return XATSNIL()
+}
+var Xats_gs_println_a2 = func(x0 any, x1 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	XATS2JS_strn_print("\n")
+	return XATSNIL()
+}
+var Xats_gs_println_a3 = func(x0 any, x1 any, x2 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	gsPrintOne(x2)
+	XATS2JS_strn_print("\n")
+	return XATSNIL()
+}
+var Xats_gs_println_a4 = func(x0 any, x1 any, x2 any, x3 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	gsPrintOne(x2)
+	gsPrintOne(x3)
+	XATS2JS_strn_print("\n")
+	return XATSNIL()
+}
