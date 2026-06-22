@@ -40,7 +40,7 @@
 | `lambda a, b: e` | `D2Elam0(tok, f2args, sres, arrw, body)` | params bound in a `pshlam0` scope (§4.D) |
 | `if c: t elif … else e` | `D2Eift0(c, Some t, Some e)` | a **value**; nest `D2Eift0` for `elif`; missing `else` → `None` |
 | `match e: case P: r …` | `D2Ecas0(tok, d2e, clauses)` | `tok` = match-kind token; clauses are `d2cls` (§1.2 / §4) |
-| `llazy: body` | `D2El1azy(D1Eid0 "$llazy", tail, prefix)` | linear lazy value thunk; lower the suite as a value expression and split `D2Eseqn(prefix, tail)` when present |
+| `llazy: body` / `llazy(expr)` | `D2El1azy(D1Eid0 "$llazy", tail, prefix)` | linear lazy value thunk; lower the suite or shorthand expression as a value expression and split `D2Eseqn(prefix, tail)` when present |
 | `(a, b)` / `a, b` | `D2Etup0(-1, [a, b])` | boxed/flat tuple-kind via `D2Etup1(tok, …)` if a sigil is chosen |
 | `{l: a, m: b}` | `D2Ercd2(tok, -1, [D2LAB(l,a), …])` | record; labels via `label` (`xlabel0.sats`) |
 | `e.field` | `D2Eproj(tok, d2rxp_new1 loc, lab, d2e)` | or `D2Edtsel` for datatype-field selection (Q3, plan §12) |

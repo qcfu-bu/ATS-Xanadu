@@ -344,7 +344,7 @@ case+ e of
 | PyEcon(_, _)    => fv
 | PyElit(_, _)    => fv
 | PyEwild(_)      => fv
-| PyEapp(_, hd, args) => fc_fv_explst(bnd, fc_fv_exp(bnd, fv, hd), args)
+| PyEapp(_, hd, args) => fc_fv_app(bnd, fv, hd, args)
 | PyEbin(_, _, l, r)  => fc_fv_exp(bnd, fc_fv_exp(bnd, fv, l), r)
 | PyEuna(_, _, e1)    => fc_fv_exp(bnd, fv, e1)
 | PyEif(_, gs, els)   => fc_fv_exp(bnd, fc_fv_guards(bnd, fv, gs), els)
@@ -372,6 +372,19 @@ case+ e of
 // GAP B: `r[]` ref-cell deref — its free vars are those of the ref expr `r`.
 | PyEderefcell(_, e1) => fc_fv_exp(bnd, fv, e1)
 | PyEerror(_, _)  => fv
+)
+and
+fc_fv_app(bnd: nameset, fv: nameset, hd: pyexp, args: list(pyexp)): nameset =
+(
+case+ hd of
+| PyEvar(_, nm) =>
+    if strn_eq(nm, "llazy")
+    then (
+      case+ args of
+      | list_cons(arg, list_nil()) => fc_fv_exp(bnd, fv, arg)
+      | _ => fc_fv_explst(bnd, fc_fv_exp(bnd, fv, hd), args))
+    else fc_fv_explst(bnd, fc_fv_exp(bnd, fv, hd), args)
+| _ => fc_fv_explst(bnd, fc_fv_exp(bnd, fv, hd), args)
 )
 and
 fc_fv_explst(bnd: nameset, fv: nameset, es: list(pyexp)): nameset =
@@ -518,7 +531,7 @@ case+ e of
 | PyEcon(loc, nm) => PCEcon(loc, nm)
 | PyElit(loc, lit) => PCElit(loc, el_lit(lit))
 | PyEwild(loc) => PCEunit(loc)
-| PyEapp(loc, hd, args) => PCEapp(loc, el_exp(encl, hd), el_explst(encl, args))
+| PyEapp(loc, hd, args) => el_app(encl, loc, hd, args)
 | PyEbin(loc, b, l, r) => el_binop(encl, loc, b, l, r)
 | PyEuna(loc, u, e1) => el_unop(encl, loc, u, e1)
 | PyEif(loc, gs, els) => el_eguards(encl, gs, el_exp(encl, els))
@@ -567,6 +580,20 @@ case+ e of
 | PyEaddr(loc, e1) => PCEaddr(loc, el_exp(encl, e1))
 | PyEderef(loc, e1) => PCEderef(loc, el_exp(encl, e1))
 | PyEerror(loc, msg) => PCEerror(loc, msg)
+)
+//
+and
+el_app(encl: nameset, loc: loctn, hd: pyexp, args: list(pyexp)): pcexp =
+(
+case+ hd of
+| PyEvar(_, nm) =>
+    if strn_eq(nm, "llazy")
+    then (
+      case+ args of
+      | list_cons(arg, list_nil()) => PCEllazy(loc, el_exp(encl, arg))
+      | _ => PCEapp(loc, el_exp(encl, hd), el_explst(encl, args)))
+    else PCEapp(loc, el_exp(encl, hd), el_explst(encl, args))
+| _ => PCEapp(loc, el_exp(encl, hd), el_explst(encl, args))
 )
 //
 and

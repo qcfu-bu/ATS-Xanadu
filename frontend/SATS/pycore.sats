@@ -169,8 +169,8 @@ pcpfield =
 //              elaborator supplies the else, even for a statement-if with no surface else).
 //   PCEcase  : `case scrut of | p => e ...` — the loop combinators' flow dispatch and any
 //              surface `match` lower here. Arms are (pat, body-expr).
-//   PCEllazy : linear lazy value `llazy: suite` -> D2El1azy. The body is already the
-//              suite-folded thunk expression.
+//   PCEllazy : linear lazy value `llazy: suite` / `llazy(expr)` -> D2El1azy.
+//              The body is already the suite-folded thunk expression.
 //   PCEtup   : tuple `(e, e)` — accumulator tuples at loop boundaries (§5) and surface tuples.
 //   PCErec   : record literal `{ f = e, ... }`.
 //   PCElist  : list literal `[ e, e ]`.

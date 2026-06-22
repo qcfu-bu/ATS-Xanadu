@@ -256,7 +256,8 @@ lamparams ::= LIDENT | '(' [ param { ',' param } ] ')'
 lambody   ::= expr | NEWLINE INDENT stmt { stmt } DEDENT     (* inline OR block — §2 *)
 if_expr   ::= 'if' expr ':' branch { 'elif' expr ':' branch } 'else' ':' branch
 match_expr::= 'match' expr ':' NEWLINE INDENT case_arm { case_arm } DEDENT
-llazy_expr::= 'llazy' ':' branch                  (* linear lazy value thunk *)
+llazy_expr::= 'llazy' ':' branch                  (* block linear lazy thunk *)
+            | 'llazy' '(' expr ')'                (* expression-position shorthand *)
 branch    ::= expr | NEWLINE INDENT stmt { stmt } DEDENT
 
 (* precedence: lowest → highest; see §5.6 *)

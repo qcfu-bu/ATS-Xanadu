@@ -74,10 +74,12 @@ harnesses.
   block expressions in `lexbuf0_cstrx1.dats` and `lexing0_utils2.dats`, closing
   the last visible dynamic DATS/UTIL pyprint markers.
 - Focused M3 reparse/typecheck of the two former `$llazy(case ...)` files now
-  reaches real numeric verdicts: `lexbuf0_cstrx1.dats` reports `m3_nerror=29`
-  and `lexing0_utils2.dats` reports `m3_nerror=33`. The new `llazy:` syntax
-  lowers to `D2El1azy(D1Eid0($llazy), ...)`; the remaining errors are older
-  dynamic reparse/typecheck gaps rather than `llazy:` parser coverage.
+  reaches real numeric verdicts: `lexbuf0_cstrx1.dats` reports `m3_nerror=28`
+  and `lexing0_utils2.dats` reports `m3_nerror=30`. The new `llazy:` syntax
+  and expression-position `llazy(expr)` shorthand both lower to
+  `D2El1azy(D1Eid0($llazy), ...)`; the remaining errors are older dynamic
+  reparse/typecheck gaps such as printed pattern forms and destructive update
+  helpers rather than lazy-value coverage.
 - `build-pp-corpus.sh --out-dir RELPATH` now normalizes the report directory
   against `frontend/` before running pyprint from `XATSHOME`, so separate static
   and dynamic corpus summaries can be kept without path breakage.
@@ -126,9 +128,9 @@ harnesses.
   reparse `nerror`.
 - Dynamic reparse/typecheck triage: protect the 166-file DATS/UTIL
   `TODOpp=0` pyprint-only baseline while classifying M3 type errors versus
-  driver/runtime crashes. The next high-value targets include simple
-  `llazy(expr)` semantics, moved/free pattern gaps, and unresolved dynamic
-  helper names surfaced by the generated Pythonic files.
+  driver/runtime crashes. The next high-value targets include generated pattern
+  forms such as `@(C)(...)`, `~C(...)`, `!x`, lowercase constructor patterns,
+  and unresolved dynamic helper names surfaced by the generated Pythonic files.
 - Slash-identifier fidelity: keep `$` <-> `/` round-trip support covered by
   regression tests and expand the corpus audit around collision-prone names.
 

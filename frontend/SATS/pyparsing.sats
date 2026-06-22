@@ -265,7 +265,8 @@ pylit =
 //              guarded arms + a mandatory else branch (§5.4 if_expr requires `else`).
 //   PyEmatch : `match e: case p [if g]: body ...` EXPRESSION. scrutinee + arm list.
 //   PyEllazy : `llazy: suite` — a linear lazy value. The suite is elaborated like a
-//              function/match arm body and lowers to ATS `D2El1azy`.
+//              function/match arm body and lowers to ATS `D2El1azy`. The elaborator
+//              also accepts expression-position `llazy(expr)` as the same lazy value.
 //   PyEtup   : `( e, e )` tuple (also a bare `a, b` in return/RHS positions, §5.4 exprs).
 //              A 0-tuple `()` is unit; a 1-element parenthesized expr is NOT a tuple
 //              (the parser returns the inner expr directly).
