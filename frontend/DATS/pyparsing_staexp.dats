@@ -159,7 +159,7 @@ case+ ps_peek(st) of
     // B-LINEAR: a postfix `at` relation — `A at l` (the AT-VIEW). It binds TIGHTER than `->`
     // (so `A at l -> B` is `(A at l) -> B`) but looser than application. The address `l` is a
     // type_app atom (a quantifier var of sort `addr`, an applied con, etc.).
-    val @(t0, st1) =
+    val @(t0a2, st1b2) =
       (case+ ps_peek(st1a) of
        | PT_KW_AT() =>
          let
@@ -169,6 +169,10 @@ case+ ps_peek(st) of
            @(PyTat(span, t0a, addr), st1b)
          end
        | _ => @(t0a, st1a)) : @(pytyp, pstate)
+    // BOOTSTRAP-PARITY: consume an erased view-change tail after any carried type,
+    // covering both `&T >> _` and `!T >> _`.
+    val t0 = t0a2
+    val st1 = p_type_viewchange_tail(st1b2)
   in
     case+ ps_peek(st1) of
     | PT_ARROW() =>
@@ -187,6 +191,19 @@ case+ ps_peek(st) of
       end
     | _ => @(t0, st1)
   end
+)
+//
+and
+p_type_viewchange_tail(st: pstate): pstate =
+(
+case+ ps_peek(st) of
+| PT_GT() =>
+  let val st1 = ps_advance(st) in
+    case+ ps_peek(st1) of
+    | PT_GT() => p_type_byref_target(ps_advance(st1))
+    | _ => st
+  end
+| _ => st
 )
 //
 // ARROW-EFFECTS: parse the OPTIONAL `[Tag]` after a `->`. `[` UIDENT `]` -> the UIDENT string;

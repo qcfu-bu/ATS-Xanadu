@@ -62,6 +62,7 @@ fun lowercase_nullary_datacon(s: strn): bool =
 // trans23; only its presence/kind matters). A LAM token for lambdas; a FUN token for groups.
 //
 fun tok_val(loc: loctn): token = token_make_node(loc, T_VAL(VLKval))
+fun tok_vlp(loc: loctn): token = token_make_node(loc, T_VAL(VLKvlp))
 fun tok_lam(loc: loctn): token = token_make_node(loc, T_LAM(0(*lam0*)))
 fun tok_fun(loc: loctn): token = token_make_node(loc, T_FUN(FNKfn2(*tailrec*)))
 // the `var` kind-token for D2Cvardclst (ATS-parity var/mutation). VRKvar is the only var
@@ -80,6 +81,41 @@ fun tok_rec(loc: loctn): token = token_make_node(loc, T_TRCD20(0))
 // D2Eraise with a T_DLR_RAISE token and D2Etry0 with a T_TRY token (SPIKE-PROVEN).
 fun tok_raise(loc: loctn): token = token_make_node(loc, T_DLR_RAISE())
 fun tok_try(loc: loctn): token = token_make_node(loc, T_TRY())
+//
+fun
+pcpat_has_con(p: pcpat): bool =
+(
+case+ p of
+| PCPcon _ => true
+| PCPtup(_, ps) => pcpatlst_has_con(ps)
+| PCPrec(_, fs) => pcpfieldlst_has_con(fs)
+| PCPas(_, _, p1) => pcpat_has_con(p1)
+| PCPfree(_, p1) => pcpat_has_con(p1)
+| _ => false
+)
+and
+pcpatlst_has_con(ps: list(pcpat)): bool =
+(
+case+ ps of
+| list_nil() => false
+| list_cons(p, rest) =>
+    if pcpat_has_con(p) then true else pcpatlst_has_con(rest)
+)
+and
+pcpfieldlst_has_con(fs: list(pcpfield)): bool =
+(
+case+ fs of
+| list_nil() => false
+| list_cons(f, rest) =>
+    (case+ f of
+    | PCPField(_, _, p) =>
+        if pcpat_has_con(p) then true else pcpfieldlst_has_con(rest))
+)
+//
+// ATS `val+` is needed for constructor-pattern value binds. Pythonic keeps the
+// compact `let CON(...) = ...` surface and recovers the valkind while lowering.
+fun tok_val_for_pat(loc: loctn, p: pcpat): token =
+  if pcpat_has_con(p) then tok_vlp(loc) else tok_val(loc)
 //
 (* ****** ****** *)
 //
@@ -598,6 +634,7 @@ case+ e of
 // flows from it). An unannotated `let` keeps the M4 fresh-tyvar binder path (types inferred).
 | PCElet(loc, p, ann, rhs, body) => let
     val () = tr12env_pshlet0(env)
+    val tknd = tok_val_for_pat(loc, p)
     val d2p = pl_pat(env, p)
     val d2rhs0 = pl_exp(env, rhs)
     val d2rhs =
@@ -611,8 +648,8 @@ case+ e of
       ): d2exp
     val () = bind_let_styp(d2p, d2rhs)           // M4: fresh tyvar binder (unless RHS is none0)
     val () = tr12env_add0_d2pat(env, d2p)        // non-rec: bind after RHS
-    val dval = d2valdcl_make_args(loc, d2p, TEQD2EXPsome(tok_val(loc), d2rhs), WTHS2EXPnone())
-    val decl = d2ecl_make_node(loc, D2Cvaldclst(tok_val(loc), list_sing(dval)))
+    val dval = d2valdcl_make_args(loc, d2p, TEQD2EXPsome(tknd, d2rhs), WTHS2EXPnone())
+    val decl = d2ecl_make_node(loc, D2Cvaldclst(tknd, list_sing(dval)))
     val d2body = pl_exp(env, body)
     val () = tr12env_poplet0(env)
   in

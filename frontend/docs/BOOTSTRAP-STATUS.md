@@ -40,6 +40,14 @@ harnesses.
   `-1`, parsed/erased `~T` linear/viewtype parameter syntax, by-reference
   view-change argument syntax such as `&SInt >> _`, and arrow result spines
   whose result is itself an applied type.
+- The full `srcgen2/SATS/*.sats` interface corpus now reaches `TODOpp=0`.
+  A fresh audit on 2026-06-22 reported 44 files pretty-printed, with 43/44
+  emitted files reparsing/typechecking at `m3_nerror=0`; the remaining file,
+  `xsynoug.sats`, is comments-only and emits an empty Pythonic file. This
+  closes the real static blockers found in `trtmp3b.sats`, `trtmp3c.sats`,
+  and `xsymmap.sats`: generalized view-change printing now covers `!T >> _`
+  and parameterized `&T[A] >> _`, while the type parser erases `>> target`
+  tails consistently.
 - The Pythonic raw lexer now uses an iterative JS-backed scanner in
   `CATS/pylexing.cats`. The ATS scanner remains as the readable spec, but the
   production path no longer exhausts Node's stack on large pretty-printed
@@ -47,9 +55,10 @@ harnesses.
 
 ## End-goal blockers
 
-1. Pretty-printer breadth is the main blocker. It must become corpus-grade for
-   `srcgen1/prelude` and `srcgen2/{SATS,DATS,UTIL}` before self-hosting is
-   meaningful.
+1. Pretty-printer breadth remains the main blocker, but the `srcgen2/SATS`
+   interface corpus is now green apart from the comments-only empty-file
+   harness classification. The next breadth target is `srcgen2/DATS` and then
+   `srcgen1/prelude` / `srcgen2/UTIL`.
 2. Include/import/load semantics are not faithful yet. Bare and aliased
    `#staload` now pretty-print to scoped ATS `.sats` imports, but `#include`
    still prints as an inert comment and needs a real Pythonic load/include
@@ -66,7 +75,9 @@ harnesses.
 5. Dynamic conversion is still incomplete, but the first real dynamic compiler
    file is now green: `#absimpl` prints as `@impl type`, `#staload` imports the
    interface, and `filpath_drpth0.dats` reparses/typechecks with `nerror=0`.
-   Richer expression/pattern forms need corpus-driven expansion.
+   `#implfun` bodies with ATS `where { ... }` now print as trailing Pythonic
+   `where:` blocks and lower through `@impl def`, but richer
+   expression/pattern forms need corpus-driven expansion.
 6. Full self-host validation needs corpus automation: pretty-print each file,
    reparse/lower/typecheck it, then eventually compare stock vs Pythonic backend
    outputs and stage2/stage3 compiler artifacts.

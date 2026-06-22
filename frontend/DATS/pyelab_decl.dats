@@ -364,8 +364,13 @@ case+ d of
       else if is_proof then
         // @proof def NAME(...) -> T: body  ==  prfun (proof FUNCTION; body elaborated like a def).
         let
+          val body0 = elab_func_body(fc_param_names_pub(list_nil(), params), loc, body)
+          val body1 =
+            ( case+ wheres of
+              | list_nil() => body0
+              | _ => PCEwhere(loc, body0, elab_decls(wheres)) )
           val fundcl = PCFundcl(loc, nm, param_names_d(params), param_types_d(params),
-                                ret, elab_func_body(fc_param_names_pub(list_nil(), params), loc, body), false)
+                                ret, body1, false)
         in
           list_sing(PCCprfun(loc, elab_typarams(tps), fundcl))
         end
@@ -374,9 +379,18 @@ case+ d of
         // folded to a function-epilogue expr by elab_func_body, EXACTLY like a `def` body.
         // A-TEMPLATE: a `@impl[Int, ..]` carries an INSTANTIATION type-arg list (the `tias`); a bare
         // `@impl def` carries [] (the existing non-template implement, byte-identical).
-        list_sing(PCCimplement(loc, nm, param_names_d(params), param_types_d(params), ret,
-                               elab_func_body(fc_param_names_pub(list_nil(), params), loc, body),
-                               decos_impl_types(decos)))
+        let
+          // SCOPING: an @impl def can carry the same trailing `where:` block as a plain def. ATS
+          // pretty-printing uses this for `#implfun f(...) = body where { ... }`.
+          val body0 = elab_func_body(fc_param_names_pub(list_nil(), params), loc, body)
+          val body1 =
+            ( case+ wheres of
+              | list_nil() => body0
+              | _ => PCEwhere(loc, body0, elab_decls(wheres)) )
+        in
+          list_sing(PCCimplement(loc, nm, param_names_d(params), param_types_d(params), ret,
+                                 body1, decos_impl_types(decos)))
+        end
       else
         // a plain `def` (no variant decorator) OR an @overload def. Either way the def itself is a
         // PCCfun group. M5a: thread the param types + return annotation into the PCFundcl (typed

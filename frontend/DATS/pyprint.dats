@@ -218,15 +218,26 @@ and
 pp_apps(out: FILR, ses: s0explst): void =
 (
   case+ ses of
-  | list_cons(amp, list_cons(arg, list_cons(gtgt, list_cons(target, list_nil())))) =>
-      if s0exp_is_amp(amp)
-      then (
-        if s0exp_is_gtgt(gtgt)
-        then (ps(out, "&"); pp_s0exp(out, arg); ps(out, " >> "); pp_s0exp(out, target))
+  | list_cons(prefix, rest) =>
+      if s0exp_is_amp(prefix)
+      then pp_prefix_update_or_generic(out, "&", rest)
+      else (
+        if s0exp_is_bang(prefix)
+        then pp_prefix_update_or_generic(out, "!", rest)
         else pp_apps_arrow_or_prefix(out, ses)
       )
-      else pp_apps_arrow_or_prefix(out, ses)
   | _ => pp_apps_arrow_or_prefix(out, ses)
+)
+and
+pp_prefix_update_or_generic(out: FILR, mark: strn, rest: s0explst): void =
+(
+  if s0explst_has_gtgt(rest)
+  then (
+    ps(out, mark);
+    pp_update_lhs(out, rest);
+    ps(out, " >> ");
+    pp_update_rhs(out, rest))
+  else (ps(out, mark); pp_apps_generic(out, rest))
 )
 and
 pp_apps_arrow_or_prefix(out: FILR, ses: s0explst): void =
@@ -251,6 +262,54 @@ pp_apps_prefix_or_generic(out: FILR, ses: s0explst): void =
         else pp_apps_generic(out, ses)
       )
   | _ => pp_apps_generic(out, ses)
+)
+and
+// The view/update type spine is prefix + lhs + `>>` + target:
+//   ! tmpstk >> _        -> !Tmpstk >> _
+//   & stkmap(itm) >> _   -> &Stkmap[Itm] >> _
+s0explst_has_gtgt(ses: s0explst): bool =
+(
+  case+ ses of
+  | list_nil() => false
+  | list_cons(se, rest) =>
+      if s0exp_is_gtgt(se) then true else s0explst_has_gtgt(rest)
+)
+and
+pp_update_lhs(out: FILR, ses: s0explst): void =
+(
+  case+ ses of
+  | list_nil() => ()
+  | list_cons(se, rest) =>
+      if s0exp_is_gtgt(se)
+      then ()
+      else (pp_s0exp(out, se); pp_update_lhs_args(out, rest))
+)
+and
+pp_update_lhs_args(out: FILR, ses: s0explst): void =
+(
+  case+ ses of
+  | list_nil() => ()
+  | list_cons(se, rest) =>
+      if s0exp_is_gtgt(se)
+      then ()
+      else (
+        (case+ se.node() of
+         | S0Elpar(_, args, _) => pp_typargs(out, args)
+         | _ => (ps(out, "["); pp_s0exp(out, se); ps(out, "]")));
+        pp_update_lhs_args(out, rest))
+)
+and
+pp_update_rhs(out: FILR, ses: s0explst): void =
+(
+  case+ ses of
+  | list_nil() => ps(out, "_")
+  | list_cons(se, rest) =>
+      if s0exp_is_gtgt(se)
+      then (
+        case+ rest of
+        | list_nil() => ps(out, "_")
+        | _ => pp_apps_generic(out, rest))
+      else pp_update_rhs(out, rest)
 )
 and
 pp_apps_generic(out: FILR, ses: s0explst): void =
@@ -1162,9 +1221,53 @@ in
   pp_farg_params(out, farg);
   ps(out, ":"); nl(out);
   (case+ tdxp of
-   | TEQD0EXPsome(_, body) => pp_d0exp_suite(out, n+1, body)
+   | TEQD0EXPsome(_, body) => pp_impl_body(out, n, body)
    | TEQD0EXPnone() => (ind(out, n+1); todo(out, "impl-no-body")))
 end
+and
+pp_impl_body(out: FILR, n: sint, body: d0exp): void =
+(
+  case+ body.node() of
+  | D0Ewhere(body0, wdc) => (
+      pp_d0exp_suite(out, n+1, body0);
+      pp_where_block(out, n, wdc))
+  | _ => pp_d0exp_suite(out, n+1, body)
+)
+and
+pp_where_block(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
+(
+  case+ wdc of
+  | d0eclseq_WHERE(_, _, dcs, _) => (
+      ind(out, n); ps(out, "where:"); nl(out);
+      pp_where_decls(out, n+1, dcs))
+)
+and
+pp_where_decls(out: FILR, n: sint, dcs: d0eclist): void =
+(
+  case+ dcs of
+  | list_nil() => ()
+  | list_cons(dc, rest) => (
+      pp_where_decl(out, n, dc);
+      pp_where_decls(out, n, rest))
+)
+and
+pp_where_decl(out: FILR, n: sint, dc: d0ecl): void =
+(
+  case+ dc.node() of
+  | D0Cvaldclst(_, vds) => pp_dexp_valdcls(out, n, vds)
+  | D0Cfundclst(_, _, fds) => pp_fundcl_impl_list_n(out, n, fds)
+  | _ => (ind(out, n); todo(out, "where-decl"))
+)
+and
+pp_fundcl_impl_list_n(out: FILR, n: sint, fds: d0fundclist): void =
+(
+  case+ fds of
+  | list_nil() => ()
+  | list_cons(fd, rest) => (
+      pp_fundcl_impl(out, n, fd);
+      (case+ rest of list_nil() => () | _ => nl(out));
+      pp_fundcl_impl_list_n(out, n, rest))
+)
 // the (params) of a fun arg-list. Each f0arg is F0ARGdapp(d0pat); the d0pat is a
 // paren-group of the params (or a single).  F0ARGsapp `{a:t0}` would be a typaram
 // bracket; the corpus impls have none.
@@ -1482,7 +1585,7 @@ pp_impl(out: FILR, dqi: d0qid, farg: f0arglst, body: d0exp): void = (
   ps(out, "@impl def "); ps(out, fname(d0qid_lexeme(dqi)));
   pp_farg_params(out, farg);
   ps(out, ":"); nl(out);
-  pp_d0exp_suite(out, 1, body)
+  pp_impl_body(out, 0, body)
 )
 and
 // the body of `#implfun` -> `@impl def` (one or more d0fundcl in a list).
