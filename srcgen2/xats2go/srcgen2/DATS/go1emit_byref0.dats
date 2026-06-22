@@ -56,7 +56,7 @@ fun
 stmp_eqb
 (s1: stamp, s2: stamp): bool =
 (
-  stamp_cmp(s1, s2) = 0)
+  s1 = s2)
 //
 fun
 stmp_mem
@@ -83,6 +83,15 @@ val
 the_go_byref_ref =
 a0ref_make_1val<stamplst>(list_nil(*void*))
 //
+fun
+the_go_byref_get
+((*void*)): stamplst =
+(
+case+ a0ref_get<stamplst>(the_go_byref_ref) of
+|list_nil() => list_nil()
+|list_cons(s1, stps1) => list_cons(s1, stps1)
+)
+//
 in//local
 //
 (* ****** ****** *)
@@ -91,7 +100,7 @@ in//local
 byref_add
 (stmp) =
 let
-  val stps = a0ref_get<stamplst>(the_go_byref_ref)
+  val stps = the_go_byref_get((*void*))
 in//let
   // de-dup defensively: skip if already present.
   if stmp_mem(stps, stmp)
@@ -105,7 +114,7 @@ end//let//endof[byref_add(stmp)]
 byref_has
 (stmp) =
 let
-  val stps = a0ref_get<stamplst>(the_go_byref_ref)
+  val stps = the_go_byref_get((*void*))
 in//let
   stmp_mem(stps, stmp)
 end//let//endof[byref_has(stmp)]

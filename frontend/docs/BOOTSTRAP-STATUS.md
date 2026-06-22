@@ -3,8 +3,7 @@
 Date: 2026-06-22
 
 This note reconciles the older planning docs with the current repository state.
-`docs/README.md` is stale: it still describes the project as planning-only, while
-the tree now contains a working Pythonic lexer/parser/elaborator/lowerer, a
+The tree now contains a working Pythonic lexer/parser/elaborator/lowerer, a
 partial canonical-ATS-to-Pythonic pretty-printer, and milestone/round-trip
 harnesses.
 
@@ -52,6 +51,15 @@ harnesses.
   `CATS/pylexing.cats`. The ATS scanner remains as the readable spec, but the
   production path no longer exhausts Node's stack on large pretty-printed
   compiler interfaces such as `dynexp0.sats`.
+- The dynamic compiler/utility pyprint-only sweep now has a concrete baseline:
+  `build-pp-corpus.sh --dynamic --no-reparse` over 166 `srcgen2/DATS` and
+  `srcgen2/UTIL` files reports 93 visible `# TODO(pp)` markers. Printing ATS
+  `when` guards as Pythonic `case ... if ...:` removed the largest previous
+  TODO class; the remaining clusters are inline dynamic expressions, local
+  private-head declarations, `where` declarations, and let-declaration shapes.
+- `build-pp-corpus.sh --out-dir RELPATH` now normalizes the report directory
+  against `frontend/` before running pyprint from `XATSHOME`, so separate static
+  and dynamic corpus summaries can be kept without path breakage.
 
 ## End-goal blockers
 
@@ -76,11 +84,16 @@ harnesses.
    file is now green: `#absimpl` prints as `@impl type`, `#staload` imports the
    interface, and `filpath_drpth0.dats` reparses/typechecks with `nerror=0`.
    `#implfun` bodies with ATS `where { ... }` now print as trailing Pythonic
-   `where:` blocks and lower through `@impl def`, but richer
-   expression/pattern forms need corpus-driven expansion.
+   `where:` blocks and lower through `@impl def`, and ATS match `when` guards now
+   print as Pythonic `case ... if ...:`. Richer expression/pattern forms still
+   need corpus-driven expansion.
 6. Full self-host validation needs corpus automation: pretty-print each file,
    reparse/lower/typecheck it, then eventually compare stock vs Pythonic backend
    outputs and stage2/stage3 compiler artifacts.
+7. Dynamic reparse/typecheck at corpus scale still needs crash classification:
+   a `TODOpp=0` generated file can still fail before an `m3_nerror` verdict, so
+   the reporter needs to distinguish parse/type errors from driver/runtime
+   crashes.
 
 ## Active workstreams
 
@@ -89,6 +102,9 @@ harnesses.
 - Pretty-printer corpus audit: keep expanding `build-pp-corpus.sh` beyond the
   current two-file smoke corpus and track per-file `# TODO(pp)` count and
   reparse `nerror`.
+- Dynamic pyprint breadth: drive the 166-file DATS/UTIL baseline from
+  `TODOpp=93` to zero, starting with inline dynamic expressions and private/
+  where/let declaration fallbacks.
 - Slash-identifier fidelity: keep `$` <-> `/` round-trip support covered by
   regression tests and expand the corpus audit around collision-prone names.
 

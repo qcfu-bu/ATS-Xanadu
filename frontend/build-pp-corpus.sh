@@ -167,6 +167,11 @@ if [ "${#FILES[@]}" -eq 0 ]; then
   esac
 fi
 
+case "$OUTDIR" in
+  /*) ;;
+  *) OUTDIR="$HERE/$OUTDIR" ;;
+esac
+
 mkdir -p "$BUILD" "$OUTDIR"
 
 require_file() {

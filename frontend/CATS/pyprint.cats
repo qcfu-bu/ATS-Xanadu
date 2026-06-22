@@ -27,6 +27,13 @@ function PYPP_value_name(s) {
   s = PYPP_dollar_fix(s);
   return /^[A-Z]/.test(s) ? ("xatsv_" + s) : s;
 }
+function PYPP_string_literal(s) {
+  s = String(s);
+  if (s.length >= 2 && s.charAt(0) === '"' && s.charAt(s.length - 1) === '"') {
+    return '"' + s.substring(1, s.length - 1).replace(/\\\r?\n[ \t]*/g, "") + '"';
+  }
+  return s.replace(/\\\r?\n[ \t]*/g, "");
+}
 // synthesized positional names (string-building stays in JS; the ATS side has no
 // string-append). a typaram X0, X1, ...; a parameter a/b/c/d/e then x5, x6, ...
 function PYPP_xname(i) { return "X" + String(i); }

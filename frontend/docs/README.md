@@ -42,8 +42,12 @@ these as authoritative for the *back half* of the pipeline:
 
 ## Status
 
-Planning only. No frontend code exists yet (`frontend/` currently contains only
-`docs/`). The plan front-loads an end-to-end "tracer bullet" (M0) that proves the
-hand-built-L2 → typecheck → JS spine before any lexer/parser is written.
-</content>
-</invoke>
+This README is a design-doc index. For live implementation status, start with
+[BOOTSTRAP-STATUS.md](BOOTSTRAP-STATUS.md).
+
+As of 2026-06-22, the tree contains a working Pythonic lexer/layout/parser,
+elaborator, lowerer, LSP/M3 drivers, milestone gates, and a partial canonical
+ATS-to-Pythonic pretty-printer. The current bootstrap frontier is no longer
+whether the frontend exists; it is scaling source-to-source conversion and
+verification across `srcgen2/DATS`, `srcgen1/prelude`, and the compiler
+stage2/stage3 loop.

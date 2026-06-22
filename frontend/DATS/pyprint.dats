@@ -50,6 +50,7 @@
 #extern fun PYPP_capitalize(s: strn): strn = $extnam()
 #extern fun PYPP_dollar_fix(s: strn): strn = $extnam()
 #extern fun PYPP_value_name(s: strn): strn = $extnam()
+#extern fun PYPP_string_literal(s: strn): strn = $extnam()
 // synthesized positional names (string-building done in JS to avoid the ATS
 // string-append template): "X"+i (a typaram), "a"/"b".../"x"+i (a parameter).
 #extern fun PYPP_xname(i: sint): strn = $extnam()
@@ -104,7 +105,7 @@ tok_lexeme(tok: token): strn =
   | T_CHAR1_nil0(s) => s
   | T_CHAR2_char(s) => s
   | T_CHAR3_blsh(s) => s
-  | T_STRN1_clsd(s, _) => s
+  | T_STRN1_clsd(s, _) => PYPP_string_literal(s)
   | T_AT0() => "@"
   | T_BAR() => "|"
   | T_CLN() => ":"
@@ -2016,7 +2017,32 @@ pp_dexp_gpt(out: FILR, gpt: d0gpt): void =
 (
   case+ gpt.node() of
   | D0GPTpat(dp) => pp_d0pat(out, dp)
-  | D0GPTgua(dp, _, _) => (pp_d0pat(out, dp); ps(out, " # TODO(pp): when-guard"))
+  | D0GPTgua(dp, _, gs) => (
+      pp_d0pat(out, dp);
+      pp_d0gua_if(out, gs))
+)
+and
+pp_d0gua_if(out: FILR, gs: d0gualst): void =
+(
+  case+ gs of
+  | list_nil() => ()
+  | _ => (ps(out, " if "); pp_d0gualst_inline(out, gs))
+)
+and
+pp_d0gualst_inline(out: FILR, gs: d0gualst): void =
+(
+  case+ gs of
+  | list_nil() => ()
+  | list_cons(g, rest) => (
+      pp_d0gua_inline(out, g);
+      (case+ rest of list_nil() => () | _ => (ps(out, " and "); pp_d0gualst_inline(out, rest))))
+)
+and
+pp_d0gua_inline(out: FILR, g: d0gua): void =
+(
+  case+ g.node() of
+  | D0GUAexp(de) => pp_d0exp_inline(out, de)
+  | D0GUAmat(_, _, _) => ps(out, "# TODO(pp): when-match-guard")
 )
 //
 (* ****** ****** *)

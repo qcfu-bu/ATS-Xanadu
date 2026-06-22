@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -441,6 +442,18 @@ var Xats_sint_lte_sint = func(i1 any, i2 any) any { return i1.(int) <= i2.(int) 
 var Xats_sint_gte_sint = func(i1 any, i2 any) any { return i1.(int) >= i2.(int) }
 var Xats_sint_eq_sint = func(i1 any, i2 any) any { return i1.(int) == i2.(int) }
 var Xats_sint_neq_sint = func(i1 any, i2 any) any { return i1.(int) != i2.(int) }
+
+var Xats_g_eq = func(x1 any, x2 any) bool {
+	if x1 == nil || x2 == nil {
+		return x1 == x2
+	}
+	t1 := reflect.TypeOf(x1)
+	t2 := reflect.TypeOf(x2)
+	if t1 == t2 && t1.Comparable() {
+		return x1 == x2
+	}
+	return reflect.DeepEqual(x1, x2)
+}
 
 // Generic-integer equality specialized to sint/sint. The emitted fallback can
 // name this prelude primitive directly when equality flows through a generic
