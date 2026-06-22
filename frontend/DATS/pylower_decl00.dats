@@ -810,11 +810,10 @@ end
 //      `env` merge lives only in this file's tr12env (a fresh `tr12env_make_nil()` per file), so a
 //      later file that did NOT import M does NOT see M's names — the no-leak re-entrancy invariant.
 //
-//      HOW BARE-NAME RESOLUTION WORKS (no extra promotion needed): a bare staload registers the
-//      f2env under `$.`; `tr12env_find_d2itm` (trans12_myenv0.dats:1693) falls through to
-//      `tr12env_ofind_d2itm` (:2286) which looks up the `$.` S2ITMenv and searches its f2env list
-//      via `f2envlst_find_d2itm`. So `lib_double` resolves by BARE name once its module's f2env is
-//      under `$.` in THIS env — exactly the spike's resolved case, but scoped.
+//      HOW BARE-NAME RESOLUTION WORKS: a bare staload registers the f2env under `$.`;
+//      `tr12env_find_d2itm` falls through to that f2env for ordinary names. Imported overload
+//      aliases (`D2Csymload`) need one extra stock-parity step: replay the imported symloads into
+//      THIS env, matching `f0_staload_aft` in trans12_decl00.dats.
 //
 //      We emit a REAL `D2Cstaload` (NOT D2Cnone0) carrying the resolved `fpath` (for the LSP
 //      dep-graph `dependency_d3ecl`, which reads `fopt.fnm2()`) + `S2TALOADdpar(shrd,dpar2)`.
@@ -867,6 +866,7 @@ lower_import(env: !tr12env, loc: loctn, path: strn, knd0: sint, is_python: bool)
       // (3) SCOPED MERGE: register the f2env under `$.` in THIS file's env (NOT global). After this,
       //     the module's exports resolve by bare name in `env` for all SUBSEQUENT decls.
       val () = tr12env_add1_f2env(env, DLRDT_symbl, fenv)
+      val () = promote_import_symloads(env, dpar2)
       // (4) the emitted node: a real D2Cstaload carrying the resolved fpath (LSP dep-graph) + the
       //     f2env. `gsrc` = a minimal G1Eid0(path-as-symbol) src (vestigial for typecheck; the
       //     dep-graph reads `fopt`, not `gsrc`). tknd = a T_STALOAD-ish token is not required by
@@ -880,6 +880,51 @@ lower_import(env: !tr12env, loc: loctn, path: strn, knd0: sint, is_python: bool)
       d2ecl_make_node(loc, D2Cstaload(pknd, tok, gsrc, fopt, dres))
     end
 end
+//
+and
+promote_import_symloads(env: !tr12env, dpar: d2parsed): void =
+let
+  val dopt = d2parsed_get_parsed(dpar)
+in
+  case+ dopt of
+  | optn_nil() => ()
+  | optn_cons(dcls) => promote_import_symload_dcls(env, dcls)
+end
+//
+and
+promote_import_symload_dcls(env: !tr12env, dcls: d2eclist): void =
+(
+case+ dcls of
+| list_nil() => ()
+| list_cons(dcl1, rest) =>
+    (
+    case+ dcl1.node() of
+    | D2Clocal0(_head, body) =>
+        let val () = promote_import_symload_dcls(env, body) in
+          promote_import_symload_dcls(env, rest)
+        end
+    | D2Csymload(_tknd, sym1, dptm) =>
+        let
+          val opt1 = tr12env_find_d2itm(env, sym1)
+          val d2ps =
+            (
+            case+ opt1 of
+            | ~optn_vt_nil() => list_nil()
+            | ~optn_vt_cons(d2i1) =>
+                (
+                case+ d2i1 of
+                | D2ITMsym(_, d2ps) => d2ps
+                | _ => list_sing(D2PTMsome(0, d2i1))
+                )
+            ) : d2ptmlst
+          val ditm = D2ITMsym(sym1, list_cons(dptm, d2ps))
+          val () = tr12env_add0_d2itm(env, sym1, ditm)
+        in
+          promote_import_symload_dcls(env, rest)
+        end
+    | _ => promote_import_symload_dcls(env, rest)
+    )
+)
 //
 and
 import_parse_kind(knd0: sint, path: strn): sint = let

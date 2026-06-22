@@ -15,7 +15,8 @@
 # Fixtures (frontend/TEST/symimp/):
 #   1. si_overload_alias.pdats  — `@overload is_nil = stamp_nilq` + a use `is_nil(x)`  => nerror=0
 #   2. si_overload_prec.pdats   — `@overload[1000]` precedence payload variant            => nerror=0
-#   3. si_missing_import.pdats  — `from NonexistentModule import *`  => NO crash, nerror>0 (a clean
+#   3. si_imported_symload_node.pdats — imported `#symload node` resolves `d2pat.node()` => nerror=0
+#   4. si_missing_import.pdats  — `from NonexistentModule import *`  => NO crash, nerror>0 (a clean
 #                                  diagnostic, NOT an ENOENT throw / SIGSEGV). Asserts rc != 139 +
 #                                  the @missing-import errck + nerror>0.
 #
@@ -79,6 +80,7 @@ echo ">> [2/2a] GAP1 — the overload-ALIAS fixtures must LOWER + TYPECHECK to n
 VALID=(
   "si_overload_alias"   # @overload is_nil = stamp_nilq ; use is_nil(x)        (the alias form)
   "si_overload_prec"    # @overload[1000]\nis_nil = stamp_nilq ; use is_nil(x)  (precedence payload)
+  "si_imported_symload_node" # from dynexp2 import * ; use d2pat.node() via imported #symload
 )
 for base in "${VALID[@]}"; do
   py="$TESTDIR/${base}.pdats"

@@ -1,0 +1,4 @@
+from "srcgen2/SATS/dynexp2" import *
+
+def use_d2pat_node(d2p0: d2pat):
+    d2p0.node()
