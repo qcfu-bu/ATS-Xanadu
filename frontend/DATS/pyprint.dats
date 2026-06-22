@@ -218,14 +218,24 @@ and
 pp_apps(out: FILR, ses: s0explst): void =
 (
   case+ ses of
-  | list_cons(bang, list_cons(arg, list_nil())) =>
-      if s0exp_is_bang(bang)
-      then (ps(out, "!"); pp_s0exp(out, arg))
-      else pp_apps_generic(out, ses)
   | list_cons(arg, list_cons(arr, list_cons(res, list_nil()))) =>
       if s0exp_is_arrow(arr)
       then (pp_s0exp(out, arg); ps(out, " -> "); pp_s0exp(out, res))
-      else pp_apps_generic(out, ses)
+      else pp_apps_prefix_or_generic(out, ses)
+  | _ => pp_apps_prefix_or_generic(out, ses)
+)
+and
+pp_apps_prefix_or_generic(out: FILR, ses: s0explst): void =
+(
+  case+ ses of
+  | list_cons(prefix, rest) =>
+      if s0exp_is_bang(prefix)
+      then (ps(out, "!"); pp_apps_generic(out, rest))
+      else (
+        if s0exp_is_tilde(prefix)
+        then (ps(out, "~"); pp_apps_generic(out, rest))
+        else pp_apps_generic(out, ses)
+      )
   | _ => pp_apps_generic(out, ses)
 )
 and
@@ -250,6 +260,13 @@ s0exp_is_bang(se: s0exp): bool =
 (
   case+ se.node() of
   | S0Eid0(id) => i0dnt_lexeme(id) = "!"
+  | _ => false
+)
+and
+s0exp_is_tilde(se: s0exp): bool =
+(
+  case+ se.node() of
+  | S0Eid0(id) => i0dnt_lexeme(id) = "~"
   | _ => false
 )
 and
@@ -1229,7 +1246,36 @@ pp_g0exp(out: FILR, ge: g0exp): void =
   | G0Eid0(id) => ps(out, fname(i0dnt_lexeme(id)))
   | G0Eint(t0) => (case+ t0 of T0INTsome(tok) => ps(out, tok_lexeme(tok)) | T0INTnone(tok) => ps(out, tok_lexeme(tok)))
   | G0Estr(t0) => (case+ t0 of T0STRsome(tok) => ps(out, tok_lexeme(tok)) | T0STRnone(tok) => ps(out, tok_lexeme(tok)))
+  | G0Eapps(ges) => pp_g0apps(out, ges)
   | _ => ps(out, "# TODO(pp): g0exp")
+)
+and
+pp_g0apps(out: FILR, ges: g0explst): void =
+(
+  case+ ges of
+  | list_cons(gop, list_cons(arg, list_nil())) =>
+      if g0exp_is_id(gop, "-")
+      then (ps(out, "-"); pp_g0exp(out, arg))
+      else pp_g0exp_app_fallback(out, ges)
+  | _ => pp_g0exp_app_fallback(out, ges)
+)
+and
+pp_g0exp_app_fallback(out: FILR, ges: g0explst): void =
+(
+  case+ ges of
+  | list_nil() => ps(out, "# TODO(pp): g0exp")
+  | list_cons(ge, rest) => (
+      pp_g0exp(out, ge);
+      (case+ rest of
+       | list_nil() => ()
+       | _ => (ps(out, " "); pp_g0exp_app_fallback(out, rest))))
+)
+and
+g0exp_is_id(ge: g0exp, s: strn): bool =
+(
+  case+ ge.node() of
+  | G0Eid0(id) => i0dnt_lexeme(id) = s
+  | _ => false
 )
 and
 g0exp_lexeme(ge: g0exp): strn =

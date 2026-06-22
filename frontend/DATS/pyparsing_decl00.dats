@@ -844,10 +844,32 @@ p_overload_name(st: pstate): @(strn, pstate, bool) =
   | PT_STAR2()   => @("**", ps_advance(st), true)
   | PT_EQEQ()    => @("==", ps_advance(st), true)
   | PT_NEQ()     => @("!=", ps_advance(st), true)
-  | PT_LT()      => @("<", ps_advance(st), true)
+  | PT_LT()      =>
+    let
+      val st1 = ps_advance(st)
+    in
+      case+ ps_peek(st1) of
+      | PT_LT() => @("<<", ps_advance(st1), true)
+      | _ => @("<", st1, true)
+    end
   | PT_LTE()     => @("<=", ps_advance(st), true)
-  | PT_GT()      => @(">", ps_advance(st), true)
+  | PT_GT()      =>
+    let
+      val st1 = ps_advance(st)
+    in
+      case+ ps_peek(st1) of
+      | PT_GT() =>
+        let
+          val st2 = ps_advance(st1)
+        in
+          case+ ps_peek(st2) of
+          | PT_GT() => @(">>>", ps_advance(st2), true)
+          | _ => @(">>", st2, true)
+        end
+      | _ => @(">", st1, true)
+    end
   | PT_GTE()     => @(">=", ps_advance(st), true)
+  | PT_AMP()     => @("&", ps_advance(st), true)
   | PT_LBRACK() =>
     let
       val st1 = ps_advance(st)
@@ -983,6 +1005,7 @@ in
   | PT_LTE() => p_overload_alias(st0, decos, locD)
   | PT_GT() => p_overload_alias(st0, decos, locD)
   | PT_GTE() => p_overload_alias(st0, decos, locD)
+  | PT_AMP() => p_overload_alias(st0, decos, locD)
   | PT_LBRACK() => p_overload_alias(st0, decos, locD)
   | _ =>
     // not a structural decl — should be reached only via the module loop's fallback;

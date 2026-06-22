@@ -383,10 +383,11 @@ in
   | PT_UIDENT(s) => @(PyTcon(loc, s, list_nil()), ps_advance(st))
   | PT_LIDENT(s) => @(PyTvar(loc, s), ps_advance(st))
   | PT_INT(s)    => @(PyTidx(loc, s), ps_advance(st))
-  // BOOTSTRAP-PARITY: ATS `!T` (non-consuming linear/viewtype parameter) is accepted
+  // BOOTSTRAP-PARITY: ATS `!T` / `~T` linear/viewtype prefixes are accepted
   // in type position and erased for now. The parser keeps corpus interfaces round-trippable while
   // the deeper view-modality AST is still deferred.
   | PT_BANG()    => p_type_atom(ps_advance(st))
+  | PT_TILDE()   => p_type_atom(ps_advance(st))
   | PT_LPAREN()  => p_type_paren(ps_advance(st), loc)
   | PT_LBRACE()  => p_type_record(ps_advance(st), loc)
   | _ =>
