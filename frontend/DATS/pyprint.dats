@@ -337,9 +337,19 @@ pp_apps_arrow_or_prefix(out: FILR, ses: s0explst): void =
   case+ ses of
   | list_cons(arg, list_cons(arr, res)) =>
       if s0exp_is_arrow(arr)
-      then (pp_s0exp(out, arg); ps(out, " -> "); pp_apps_generic(out, res))
+      then (pp_s0exp_arrow_lhs(out, arg); ps(out, " -> "); pp_apps_generic(out, res))
       else pp_apps_prefix_or_generic(out, ses)
   | _ => pp_apps_prefix_or_generic(out, ses)
+)
+and
+pp_s0exp_arrow_lhs(out: FILR, se: s0exp): void =
+(
+  case+ se.node() of
+  | S0Elpar(_, list_cons(se1, list_nil()), _) =>
+      if s0exp_is_arrow_type(se1)
+      then (ps(out, "("); pp_s0exp(out, se1); ps(out, ")"))
+      else pp_s0exp(out, se)
+  | _ => pp_s0exp(out, se)
 )
 and
 pp_apps_prefix_or_generic(out: FILR, ses: s0explst): void =
@@ -412,6 +422,21 @@ pp_apps_generic(out: FILR, ses: s0explst): void =
       pp_s0exp(out, hd);
       pp_apps_args(out, rest)
     )
+)
+and
+s0exp_is_arrow_type(se: s0exp): bool =
+(
+  case+ se.node() of
+  | S0Eapps(ses) => s0explst_is_arrow_spine(ses)
+  | S0Elpar(_, list_cons(se1, list_nil()), _) => s0exp_is_arrow_type(se1)
+  | _ => false
+)
+and
+s0explst_is_arrow_spine(ses: s0explst): bool =
+(
+  case+ ses of
+  | list_cons(_, list_cons(arr, _)) => s0exp_is_arrow(arr)
+  | _ => false
 )
 and
 s0exp_is_arrow(se: s0exp): bool =
@@ -2204,12 +2229,53 @@ in
 	end
 	and
 	pp_impl_body(out: FILR, n: sint, body: d0exp): void =
-	(
+	  pp_impl_body_where(out, n, body, list_nil())
+and
+pp_impl_body_where(out: FILR, n: sint, body: d0exp, wdcs: list(d0eclseq_WHERE)): void =
+(
   case+ body.node() of
-  | D0Ewhere(body0, wdc) => (
-      pp_impl_body(out, n, body0);
-      pp_where_block(out, n, wdc))
-  | _ => pp_d0exp_suite(out, n+1, body)
+  | D0Ewhere(body0, wdc) => pp_impl_body_where(out, n, body0, list_cons(wdc, wdcs))
+  | _ => (pp_d0exp_suite(out, n+1, body); pp_impl_flat_where_blocks(out, n, wdcs))
+)
+and
+impl_where_seq_has_decls(wdc: d0eclseq_WHERE): bool =
+(
+  case+ wdc of
+  | d0eclseq_WHERE(_, _, dcs, _) => ~(list_nilq(dcs))
+)
+and
+impl_where_blocks_has_decls(wdcs: list(d0eclseq_WHERE)): bool =
+(
+  case+ wdcs of
+  | list_nil() => false
+  | list_cons(wdc, rest) =>
+      if impl_where_seq_has_decls(wdc) then true else impl_where_blocks_has_decls(rest)
+)
+and
+pp_impl_flat_where_blocks(out: FILR, n: sint, wdcs: list(d0eclseq_WHERE)): void =
+(
+  if impl_where_blocks_has_decls(wdcs)
+  then (
+    PYPP_type_scope_push();
+    ind(out, n); ps(out, "where:"); nl(out);
+    pp_impl_flat_where_decls(out, n+1, wdcs);
+    PYPP_type_scope_pop())
+  else ()
+)
+and
+pp_impl_flat_where_decls(out: FILR, n: sint, wdcs: list(d0eclseq_WHERE)): void =
+(
+  case+ wdcs of
+  | list_nil() => ()
+  | list_cons(wdc, rest) => (
+      pp_impl_flat_where_decls(out, n, rest);
+      pp_impl_where_seq_decls(out, n, wdc))
+)
+and
+pp_impl_where_seq_decls(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
+(
+  case+ wdc of
+  | d0eclseq_WHERE(_, _, dcs, _) => pp_where_decls(out, n, dcs)
 )
 and
 pp_where_block(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
@@ -2546,12 +2612,15 @@ pop_local_type_renames(head: d0eclist): void =
 )
 and
 pp_local(out: FILR, head: d0eclist, body: d0eclist): void = (
-  push_local_type_renames(head);
-  ps(out, "private:"); nl(out);
-  pp_priv_head(out, 1, head);
-  nl(out);
-  pp_walk(out, body);
-  pop_local_type_renames(head)
+  if list_nilq(head)
+  then pp_walk(out, body)
+  else (
+    push_local_type_renames(head);
+    ps(out, "private:"); nl(out);
+    pp_priv_head(out, 1, head);
+    nl(out);
+    pp_walk(out, body);
+    pop_local_type_renames(head))
 )
 and
 // the HEAD of a local: datatypes -> enum; val-bindings -> `let`; #absimpl -> `@impl type`.

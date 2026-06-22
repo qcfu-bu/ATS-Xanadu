@@ -254,8 +254,15 @@ case+ lit of
 //
 fun
 pl_var(env: !tr12env, loc: loctn, sym: sym_t): d2exp = let
-  val dopt = tr12env_find_d2itm(env, sym)
+  val gopt = tr12env_find_g1mac(env, sym)
 in
+  case+ gopt of
+  | ~optn_vt_cons(gmac0) =>
+      let val gmac1 = trans12_g1mac(env, gmac0) in
+        trd2exp_g1mac(env, loc, gmac1)
+      end
+  | ~optn_vt_nil() =>
+    let val dopt = tr12env_find_d2itm(env, sym) in
   case+ dopt of
   // UNBOUND-NAME RECOVERY (#13a): emit the SAME node the stock trans12 emits — d2exp_none1(d1e0),
   // where d1e0 = D1Eid0(sym) carries the unresolved id (trans12_dynexp.dats:2003 f0_id0_d1sym's
@@ -284,6 +291,7 @@ in
                d2exp_sym0(loc, drxp, d1e0, dpis)
              end)
     )
+    end
 end
 //
 // Call-head resolution is almost pl_var, except a singleton template constant (`fun<>`,
