@@ -26,15 +26,22 @@ harnesses.
 - The default corpus audit now pretty-prints and reparses/typechecks both
   `srcgen2/SATS/xstamp0.sats` and `srcgen2/DATS/filpath_drpth0.dats` with
   `TODOpp=0` and `m3_nerror=0`.
+- The expanded static interface slice
+  `srcgen2/SATS/{filpath,xsymbol,locinfo,lexing0}.sats` now also reaches
+  `TODOpp=0` and `m3_nerror=0`. This covers aliased `#staload`, symbolic
+  `#symload + ... of 1000`, plain function-type arrows, outer `<obj:vt>`
+  template binders on extern constants, and parsed/erased `!T` viewtype
+  parameter syntax.
 
 ## End-goal blockers
 
 1. Pretty-printer breadth is the main blocker. It must become corpus-grade for
    `srcgen1/prelude` and `srcgen2/{SATS,DATS,UTIL}` before self-hosting is
    meaningful.
-2. Include/import/load semantics are not faithful yet. `#staload` now
-   pretty-prints to a scoped ATS `.sats` import, but `#include` still prints as
-   an inert comment and needs a real Pythonic load/include story.
+2. Include/import/load semantics are not faithful yet. Bare and aliased
+   `#staload` now pretty-print to scoped ATS `.sats` imports, but `#include`
+   still prints as an inert comment and needs a real Pythonic load/include
+   story.
 3. Identifier fidelity now has the first end-to-end path: pyprint emits ATS `$`
    names as slash-separated Pythonic names, the lexer accepts slash-separated
    identifier segments, and lowering maps them back before symbol lookup. The
@@ -66,7 +73,7 @@ harnesses.
 
 1. Stabilize reporting harnesses so every known gap is visible and current.
 2. Close small pyprint TODOs that already have parser/lowering support
-   (include/load forms, overload precedence output, more local-head decls).
+   (include/load forms, more local-head decls, effect-arrow tags).
 3. Implement identifier fidelity and collision checks for pretty-printer naming.
 4. Expand pyprint declaration/expression coverage against the prelude corpus.
 5. Add corpus-level round-trip/typecheck automation, then backend diffing.

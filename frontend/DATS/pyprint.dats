@@ -188,6 +188,7 @@ pp_s0exp(out: FILR, se: s0exp): void =
   // a type application: head followed by paren arg-groups.
   //   tmpmap(itm)            -> Tmpmap[Itm]
   //   strm_vt(@(sint,itm))   -> Strm_vt[(SInt, Itm)]
+  //   (postn, FILR) -> void  -> (Postn, FILR) -> Void
   | S0Eapps(ses) => pp_apps(out, ses)
   //
   // a flat / boxed tuple `@(a,b)` / `$(a,b)`  -> (A, B).
@@ -210,8 +211,25 @@ pp_s0exp(out: FILR, se: s0exp): void =
 //
 // an apps list: first elem is the head (a type name); subsequent S0Elpar groups
 // are arg lists -> `Head[arg, ...]`. A standalone head (no args) is just `Head`.
+// Plain ATS function types parse as the source-order application spine
+// `(args), ->, result`; render those as the Pythonic arrow grammar instead of a
+// bogus type application like `(Args)[->][Result]`.
 and
 pp_apps(out: FILR, ses: s0explst): void =
+(
+  case+ ses of
+  | list_cons(bang, list_cons(arg, list_nil())) =>
+      if s0exp_is_bang(bang)
+      then (ps(out, "!"); pp_s0exp(out, arg))
+      else pp_apps_generic(out, ses)
+  | list_cons(arg, list_cons(arr, list_cons(res, list_nil()))) =>
+      if s0exp_is_arrow(arr)
+      then (pp_s0exp(out, arg); ps(out, " -> "); pp_s0exp(out, res))
+      else pp_apps_generic(out, ses)
+  | _ => pp_apps_generic(out, ses)
+)
+and
+pp_apps_generic(out: FILR, ses: s0explst): void =
 (
   case+ ses of
   | list_nil() => ()
@@ -219,6 +237,20 @@ pp_apps(out: FILR, ses: s0explst): void =
       pp_s0exp(out, hd);
       pp_apps_args(out, rest)
     )
+)
+and
+s0exp_is_arrow(se: s0exp): bool =
+(
+  case+ se.node() of
+  | S0Eid0(id) => i0dnt_lexeme(id) = "->"
+  | _ => false
+)
+and
+s0exp_is_bang(se: s0exp): bool =
+(
+  case+ se.node() of
+  | S0Eid0(id) => i0dnt_lexeme(id) = "!"
+  | _ => false
 )
 and
 pp_apps_args(out: FILR, ses: s0explst): void =
@@ -278,6 +310,29 @@ squa_idnames(ids: i0dntlst): list(strn) =
   case+ ids of
   | list_nil() => list_nil()
   | list_cons(id, rest) => list_cons(tyname(i0dnt_lexeme(id)), squa_idnames(rest))
+)
+//
+fun
+collect_q0arg_names(qas: q0arglst): list(strn) =
+(
+  case+ qas of
+  | list_nil() => list_nil()
+  | list_cons(qa, rest) => (
+      case+ qa.node() of
+      | Q0ARGsome(id, _) => list_cons(tyname(i0dnt_lexeme(id)), collect_q0arg_names(rest))
+      | _ => collect_q0arg_names(rest)
+    )
+)
+and
+tqag_names(tqas: t0qaglst): list(strn) =
+(
+  case+ tqas of
+  | list_nil() => list_nil()
+  | list_cons(tqa, rest) => (
+      case+ tqa.node() of
+      | T0QAGsome(_, qas, _) => list_append(collect_q0arg_names(qas), tqag_names(rest))
+      | _ => tqag_names(rest)
+    )
 )
 //
 fun
@@ -369,11 +424,11 @@ tok_is_val(tok: token): bool =
 // emit ONE d0cstdcl (the name + signature) as an @extern def / @static let body.
 //
 fun
-pp_dynconst_fun(out: FILR, dcd: d0cstdcl): void = let
+pp_dynconst_fun(out: FILR, outer_tps: list(strn), dcd: d0cstdcl): void = let
   val nm    = i0dnt_lexeme(d0cstdcl_get_dpid(dcd))
   val dargs = d0cstdcl_get_darg(dcd)
   val sres  = d0cstdcl_get_sres(dcd)
-  val tps   = darg_squa_names(dargs)
+  val tps   = list_append(outer_tps, darg_squa_names(dargs))
 in
   ps(out, "@extern"); nl(out);
   ps(out, "def "); ps(out, fname(nm));
@@ -400,14 +455,15 @@ in
 end
 //
 fun
-pp_dynconst(out: FILR, tok: token, dcds: d0cstdclist): void = let
+pp_dynconst(out: FILR, tok: token, tqas: t0qaglst, dcds: d0cstdclist): void = let
   val isval = tok_is_val(tok)
+  val outer_tps = tqag_names(tqas)
   fun loop(out: FILR, first: bool, dcds: d0cstdclist): void =
     case+ dcds of
     | list_nil() => ()
     | list_cons(dcd, rest) => (
         (if first then () else nl(out));
-        (if isval then pp_dynconst_val(out, dcd) else pp_dynconst_fun(out, dcd));
+        (if isval then pp_dynconst_val(out, dcd) else pp_dynconst_fun(out, outer_tps, dcd));
         loop(out, false, rest)
       )
 in
@@ -1119,17 +1175,20 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
     end
   //
   // bodyless val / fun (in a .sats interface)  ->  @static let / @extern def
-  | D0Cdynconst(tok, _, dcds) => (pp_dynconst(out, tok, dcds); true)
+  | D0Cdynconst(tok, tqas, dcds) => (pp_dynconst(out, tok, tqas, dcds); true)
   //
   // #absimpl T = REP  ->  @impl type T = REP
   | D0Cabsimpl(_, sqid, _, _, _, se) => (pp_absimpl(out, 0, sqid, se); true)
   //
-  // #symload NAME with FN [of prec]  ->  @overload NAME = FN
-  | D0Csymload(_, sym, _, dqi, _) => let
+  // #symload NAME with FN [of prec]  ->  @overload[prec] NAME = FN
+  | D0Csymload(_, sym, _, dqi, prec) => let
       val nm  = fname(s0ymb_lexeme(sym))
       val tgt = fname(d0qid_lexeme(dqi))
     in
-      ps(out, "@overload "); ps(out, nm); ps(out, " = "); ps(out, tgt); nl(out);
+      (case+ prec of
+       | optn_cons(ge) => (ps(out, "@overload["); ps(out, g0exp_lexeme(ge)); ps(out, "] "))
+       | optn_nil() => ps(out, "@overload "));
+      ps(out, nm); ps(out, " = "); ps(out, tgt); nl(out);
       true
     end
   //
@@ -1182,9 +1241,30 @@ g0exp_lexeme(ge: g0exp): strn =
   | _ => "?"
 )
 and
+g0exp_import_path(ge: g0exp): strn =
+(
+  case+ ge.node() of
+  | G0Estr(t0) => (case+ t0 of T0STRsome(tok) => tok_lexeme(tok) | T0STRnone(tok) => tok_lexeme(tok))
+  | G0Eapps(ges) => g0explst_import_path(ges)
+  | G0Elpar(_, ges, _) => g0explst_import_path(ges)
+  | G0Eerrck(_, ge1) => g0exp_import_path(ge1)
+  | _ => "?"
+)
+and
+g0explst_import_path(ges: g0explst): strn =
+(
+  case+ ges of
+  | list_nil() => "?"
+  | list_cons(ge, rest) => let
+      val p0 = g0exp_import_path(ge)
+    in
+      if p0 = "?" then g0explst_import_path(rest) else p0
+    end
+)
+and
 pp_staload(out: FILR, ge: g0exp): void =
 (
-  ps(out, "from \""); ps(out, PYPP_import_stem(g0exp_lexeme(ge))); ps(out, "\" import *"); nl(out)
+  ps(out, "from \""); ps(out, PYPP_import_stem(g0exp_import_path(ge))); ps(out, "\" import *"); nl(out)
 )
 //
 (* ****** ****** *)

@@ -824,43 +824,70 @@ p_import_names(st: pstate): @(list(strn), pstate) =
 // parse_decl, so they live in their own `fun … and …` group rather than parse_decl's #implfun.
 //
 // the overload-ALIAS parser, positioned ON the overloaded NAME, with `decos` already parsed.
-// Grammar:  NAME '=' TARGET  where NAME and TARGET are each a LIDENT or UIDENT (the corpus overloads
-// lower- AND upper-case symbols). The precedence rides on the `@overload[N]` decorator (read by
+// Grammar:  NAME '=' TARGET  where NAME is a LIDENT/UIDENT or an operator token (`+`, `[]`, ...)
+// and TARGET is a LIDENT or UIDENT. The precedence rides on the `@overload[N]` decorator (read by
 // decos_overload_prec_p; ~1 if none). A bare NAME with NO `@overload` decorator is NOT a decl ->
 // the "expected a declaration" error (preserving the old behavior for non-overload junk). A missing
 // `=` or TARGET degrades to a PyCerror + diagnostic (graceful recovery, never a crash).
 fun
+p_overload_name(st: pstate): @(strn, pstate, bool) =
+(
+  case+ ps_peek(st) of
+  | PT_LIDENT(s) => @(s, ps_advance(st), true)
+  | PT_UIDENT(s) => @(s, ps_advance(st), true)
+  | PT_PLUS()    => @("+", ps_advance(st), true)
+  | PT_MINUS()   => @("-", ps_advance(st), true)
+  | PT_STAR()    => @("*", ps_advance(st), true)
+  | PT_SLASH()   => @("/", ps_advance(st), true)
+  | PT_SLASH2()  => @("//", ps_advance(st), true)
+  | PT_PERCENT() => @("%", ps_advance(st), true)
+  | PT_STAR2()   => @("**", ps_advance(st), true)
+  | PT_EQEQ()    => @("==", ps_advance(st), true)
+  | PT_NEQ()     => @("!=", ps_advance(st), true)
+  | PT_LT()      => @("<", ps_advance(st), true)
+  | PT_LTE()     => @("<=", ps_advance(st), true)
+  | PT_GT()      => @(">", ps_advance(st), true)
+  | PT_GTE()     => @(">=", ps_advance(st), true)
+  | PT_LBRACK() =>
+    let
+      val st1 = ps_advance(st)
+    in
+      case+ ps_peek(st1) of
+      | PT_RBRACK() => @("[]", ps_advance(st1), true)
+      | _ => @("", st, false)
+    end
+  | _ => @("", st, false)
+)
+and
 p_overload_alias(st: pstate, decos: list(pydecorator), loc: loctn): @(pydecl, pstate) =
   if ~decos_has_p(decos, "overload") then
     // a name token with no `@overload` (or any other) decorator at decl position: not a decl.
     let val st1 = ps_diag(st, ps_peek_loctn(st), "expected a declaration") in
       @(PyCerror(loc, "expected a declaration"), st1) end
   else let
-    // the overloaded NAME (this token is a LIDENT/UIDENT — guarded by the caller).
-    val nm =
-      ( case+ ps_peek(st) of
-        | PT_LIDENT(s) => s
-        | PT_UIDENT(s) => s
-        | _ => "" ): strn   // unreachable (caller guards); defensive
-    val st1 = ps_advance(st)
+    val @(nm, st1, ok) = p_overload_name(st)
   in
-    case+ ps_peek(st1) of
-    | PT_EQ() =>
-      let
-        val st2 = ps_advance(st1)   // consume '='
-      in
-        case+ ps_peek(st2) of
-        | PT_LIDENT(tgt) =>
-            @(PyCsymalias(loc, nm, tgt, decos_overload_prec_p(decos)), ps_advance(st2))
-        | PT_UIDENT(tgt) =>
-            @(PyCsymalias(loc, nm, tgt, decos_overload_prec_p(decos)), ps_advance(st2))
-        | _ =>
-          let val st3 = ps_diag(st2, ps_peek_loctn(st2), "expected a target function after '=' in an overload alias") in
-            @(PyCerror(loc, "expected an overload-alias target"), st3) end
-      end
-    | _ =>
-      let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected '=' in an overload alias (@overload NAME = TARGET)") in
-        @(PyCerror(loc, "expected '=' in an overload alias"), st2) end
+    if ~ok then
+      let val st2 = ps_diag(st, ps_peek_loctn(st), "expected an overload-alias name") in
+        @(PyCerror(loc, "expected an overload-alias name"), st2) end
+    else
+      case+ ps_peek(st1) of
+      | PT_EQ() =>
+        let
+          val st2 = ps_advance(st1)   // consume '='
+        in
+          case+ ps_peek(st2) of
+          | PT_LIDENT(tgt) =>
+              @(PyCsymalias(loc, nm, tgt, decos_overload_prec_p(decos)), ps_advance(st2))
+          | PT_UIDENT(tgt) =>
+              @(PyCsymalias(loc, nm, tgt, decos_overload_prec_p(decos)), ps_advance(st2))
+          | _ =>
+            let val st3 = ps_diag(st2, ps_peek_loctn(st2), "expected a target function after '=' in an overload alias") in
+              @(PyCerror(loc, "expected an overload-alias target"), st3) end
+        end
+      | _ =>
+        let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected '=' in an overload alias (@overload NAME = TARGET)") in
+          @(PyCerror(loc, "expected '=' in an overload alias"), st2) end
   end
 //
 // read the `@overload[N]` PRECEDENCE off the decorator list (parser-side). Returns the parsed N,
@@ -936,13 +963,27 @@ in
           @(PyCerror(locD, "decorators must follow 'private'"), st1) end
       | list_nil() => p_private(st0) )
   // GAP1: a STANDALONE overload-ALIAS `@overload NAME = TARGET` (+ `@overload[N]` precedence).
-  // No keyword follows the decorator run — the next token is the overloaded NAME (a LIDENT/UIDENT;
-  // the corpus names overloaded symbols both cases). REQUIRES `@overload` among the decorators;
+  // No keyword follows the decorator run — the next token is the overloaded NAME (a LIDENT/UIDENT
+  // or operator symbol). REQUIRES `@overload` among the decorators;
   // a bare NAME with no overload decorator is NOT a decl -> the error arm. (This dialect has no
   // case `when`-guards, so we route both name tokens through p_overload_alias, which itself checks
   // the `@overload` decorator and falls back to the error path when it is absent.)
   | PT_LIDENT _ => p_overload_alias(st0, decos, locD)
   | PT_UIDENT _ => p_overload_alias(st0, decos, locD)
+  | PT_PLUS() => p_overload_alias(st0, decos, locD)
+  | PT_MINUS() => p_overload_alias(st0, decos, locD)
+  | PT_STAR() => p_overload_alias(st0, decos, locD)
+  | PT_SLASH() => p_overload_alias(st0, decos, locD)
+  | PT_SLASH2() => p_overload_alias(st0, decos, locD)
+  | PT_PERCENT() => p_overload_alias(st0, decos, locD)
+  | PT_STAR2() => p_overload_alias(st0, decos, locD)
+  | PT_EQEQ() => p_overload_alias(st0, decos, locD)
+  | PT_NEQ() => p_overload_alias(st0, decos, locD)
+  | PT_LT() => p_overload_alias(st0, decos, locD)
+  | PT_LTE() => p_overload_alias(st0, decos, locD)
+  | PT_GT() => p_overload_alias(st0, decos, locD)
+  | PT_GTE() => p_overload_alias(st0, decos, locD)
+  | PT_LBRACK() => p_overload_alias(st0, decos, locD)
   | _ =>
     // not a structural decl — should be reached only via the module loop's fallback;
     // produce an error decl (the loop already handles stmt-position decls separately).
