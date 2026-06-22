@@ -30,9 +30,10 @@ harnesses.
   reader/checker slices, the focused compiler-environment slice
   `lexbuf0_cstrx1.dats`, `lexing0_utils2.dats`, `trans12_myenv0.dats`,
   `trans23_myenv0.dats`, and `trtmp3c_myenv0.dats`, the first green
-  `dynexp0`/`dynexp1`/`dynexp2` helper sub-slice, the support/type-kernel
-  `statyp2` plus `xstamp0`/`xsymbol`/`xlabel0` slice, and the focused
-  round-trip fixtures with `TODOpp=0` and `m3_nerror=0`.
+  `dynexp0`/`dynexp1`/`dynexp2` helper sub-slice, the reporter and reader
+  expansion slices, the `trtmp3b`/`trtmp3c` template-pass slice, the
+  support/type-kernel `statyp2` plus `xstamp0`/`xsymbol`/`xlabel0` slice, and
+  the focused round-trip fixtures with `TODOpp=0` and `m3_nerror=0`.
 - The expanded static interface slice
   `srcgen2/SATS/{filpath,xsymbol,locinfo,lexing0}.sats` now also reaches
   `TODOpp=0` and `m3_nerror=0`. This covers aliased `#staload`, symbolic
@@ -119,6 +120,12 @@ harnesses.
   blocker in the first part of that slice was statement-`if` continuation
   handling: a side-effecting branch body must sequence into the following suite
   tail instead of replacing the function value.
+- The reporter, t2/t3 reader, and template-pass expansion slices now sit in the
+  default corpus and reach `TODOpp=0` and `m3_nerror=0`. This covers
+  `f2perr0*`, `f3perr0*`, `t2read0*`, `t3read0.dats`,
+  `t3read0_decl00.dats`, `t3read0_dynexp.dats`, `trtmp3b*`, and the green
+  `trtmp3c` files except `trtmp3c_myenv0.dats`, which was already in the
+  focused compiler-environment slice.
 - The first dynamic-expression expansion slice
   `srcgen2/DATS/{dynexp0,dynexp0_print0,dynexp1,dynexp1_print0,dynexp2,dynexp2_print0,dynexp2_tmplib,dynexp2_utils0}.dats`
   now reaches `TODOpp=0` and `m3_nerror=0`. ATS qualified static map types such
@@ -183,7 +190,9 @@ harnesses.
   `~C(...)`, applied lowercase constructor patterns, and generated `fold(e)`
   calls now parse/elaborate/lower; the next high-value targets are the remaining
   typecheck errors and unresolved dynamic helper names surfaced by generated
-  Pythonic files.
+  Pythonic files. One concrete next blocker is `dynexp3.dats`: generated
+  `d3pat(loc0, node)` reaches M3 but remains a multi-candidate imported
+  symload call instead of resolving to the arity-2 `d3pat_make_node`.
 - Slash-identifier fidelity: keep `$` <-> `/` round-trip support covered by
   regression tests and expand the corpus audit around collision-prone names.
 
