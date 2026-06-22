@@ -1372,6 +1372,8 @@ and
 	in
 	  if dexp_tail_starts_cmp(tail0)
 	  then pp_dexp_cmp_apps(out, hd, rest, tail0)
+	  else if dexp_tail_starts_bslash_selector(tail0)
+	  then pp_dexp_bslash_selector_apps(out, hd, rest, tail0)
 	  else let
 	    val tail1 = pp_dexp_operand_from(out, hd, rest)
 	  in
@@ -1413,6 +1415,33 @@ and
 	    in
 	      pp_dexp_infix_tail(out, tail1)
 	    end
+	)
+	and
+	pp_dexp_bslash_selector_apps(out: FILR, hd: d0exp, rest: d0explst, tail0: d0explst): void =
+	(
+	  case+ tail0 of
+	  | list_cons(_, list_cons(opr, list_cons(rhs, rhsrest))) => let
+	      val _ = pp_dexp_operand_from(out, hd, rest)
+	      val () = ps(out, ".")
+	      val () = ps(out, fname(dexp_name(opr)))
+	      val () = pp_dexp_bslash_selector_arg(out, rhs)
+	    in
+	      pp_dexp_infix_tail(out, rhsrest)
+	    end
+	  | _ => let
+	      val tail1 = pp_dexp_operand_from(out, hd, rest)
+	    in
+	      pp_dexp_infix_tail(out, tail1)
+	    end
+	)
+	and
+	pp_dexp_bslash_selector_arg(out: FILR, arg: d0exp): void =
+	(
+	  case+ arg.node() of
+	  | D0Elpar(_, args, _) => (ps(out, "("); pp_dexp_seq_inline(out, args); ps(out, ")"))
+	  | D0Etup1(_, _, args, _) => (ps(out, "("); pp_dexp_seq_inline(out, args); ps(out, ")"))
+	  | D0Ebrckt(_, args, _) => (ps(out, "["); pp_dexp_seq_inline(out, args); ps(out, "]"))
+	  | _ => (ps(out, "("); pp_d0exp_inline(out, arg); ps(out, ")"))
 	)
 	and
 	pp_dexp_operand_from(out: FILR, hd: d0exp, rest: d0explst): d0explst =
@@ -1567,6 +1596,16 @@ and
 	  case+ des of
 	  | list_cons(bs, list_cons(cmp, list_cons(_, _))) =>
 	      if dexp_is_name(bs, "\\") then dexp_is_name(cmp, "cmp") else false
+	  | _ => false
+	)
+	and
+	dexp_tail_starts_bslash_selector(des: d0explst): bool =
+	(
+	  case+ des of
+	  | list_cons(bs, list_cons(opr, list_cons(_, _))) =>
+	      if dexp_is_name(bs, "\\")
+	      then ~(strn_eq(dexp_name(opr), ""))
+	      else false
 	  | _ => false
 	)
 	and
