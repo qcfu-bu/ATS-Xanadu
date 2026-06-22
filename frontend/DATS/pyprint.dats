@@ -2657,10 +2657,14 @@ g0explst_import_path(ges: g0explst): strn =
     end
 )
 and
-pp_staload(out: FILR, ge: g0exp): void =
+pp_staload_n(out: FILR, n: sint, ge: g0exp): void =
 (
+  ind(out, n);
   ps(out, "from \""); ps(out, PYPP_import_stem(g0exp_import_path(ge))); ps(out, "\" import *"); nl(out)
 )
+and
+pp_staload(out: FILR, ge: g0exp): void =
+  pp_staload_n(out, 0, ge)
 //
 (* ****** ****** *)
 //
@@ -2742,6 +2746,7 @@ pp_priv_head_one(out: FILR, n: sint, dc: d0ecl): void =
 	  | D0Cabsimpl(_, sqid, smas, _, _, se) => pp_absimpl(out, n, sqid, smas, se)
 	  | D0Csexpdef(_, sid, smas, _, _, se) => pp_typedef(out, n, sid, smas, se)
 	  | D0Cdefine(_, gid, _, gedf) => pp_define(out, n, gid, gedf)
+	  | D0Cstaload(_, _, ge) => pp_staload_n(out, n, ge)
 	  | D0Cstatic(_, dc1) => pp_priv_head_one(out, n, dc1)
 	  | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
 	  | D0Csymload(_, sym, _, dqi, prec) => pp_symload_alias(out, n, sym, dqi, prec)
