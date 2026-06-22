@@ -27,6 +27,10 @@ function PYPP_value_name(s) {
   s = PYPP_dollar_fix(s);
   return /^[A-Z]/.test(s) ? ("xatsv_" + s) : s;
 }
+function PYPP_identish(s) {
+  s = PYPP_dollar_fix(s);
+  return /^[A-Za-z_][A-Za-z0-9_]*(\/[A-Za-z_][A-Za-z0-9_]*)*$/.test(s);
+}
 function PYPP_string_literal(s) {
   s = String(s);
   if (s.length >= 2 && s.charAt(0) === '"' && s.charAt(s.length - 1) === '"') {

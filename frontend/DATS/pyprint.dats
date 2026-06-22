@@ -50,6 +50,7 @@
 #extern fun PYPP_capitalize(s: strn): strn = $extnam()
 #extern fun PYPP_dollar_fix(s: strn): strn = $extnam()
 #extern fun PYPP_value_name(s: strn): strn = $extnam()
+#extern fun PYPP_identish(s: strn): bool = $extnam()
 #extern fun PYPP_string_literal(s: strn): strn = $extnam()
 // synthesized positional names (string-building done in JS to avoid the ATS
 // string-append template): "X"+i (a typaram), "a"/"b".../"x"+i (a parameter).
@@ -1581,8 +1582,8 @@ pp_d0pat_sig(out: FILR, dp: d0pat): void =
   | D0Pqual0(_, dp1) => pp_d0pat_sig(out, dp1)
   | _ => pp_d0pat(out, dp)
 )
-	and
-	pp_dexp_seq_inline(out: FILR, des: d0explst): void =
+and
+pp_dexp_seq_inline(out: FILR, des: d0explst): void =
 (
   case+ des of
   | list_nil() => ()
@@ -1590,6 +1591,68 @@ pp_d0pat_sig(out: FILR, dp: d0pat): void =
       pp_d0exp_inline(out, de);
       (case+ rest of list_nil() => () | _ => ps(out, ", "));
       pp_dexp_seq_inline(out, rest))
+)
+//
+// #define NAME val -> @static let NAME = val. Symbolic macro aliases such as
+// `#define :: list_cons` do not have a Pythonic binder spelling yet, so preserve
+// them as inert comments instead of emitting invalid syntax.
+fun
+pp_define(out: FILR, n: sint, gid: g0eid, gedf: g0edf): void = let
+  val raw = i0dnt_lexeme(gid)
+  val nm = fname(raw)
+in
+  if PYPP_identish(raw)
+  then (
+    ind(out, n); ps(out, "@static"); nl(out);
+    ind(out, n); ps(out, "let "); ps(out, nm); ps(out, " = ");
+    (case+ gedf of
+     | G0EDFsome(_, ge) => pp_define_g0exp(out, ge)
+     | G0EDFnone() => ps(out, "()"));
+    nl(out))
+  else (
+    ind(out, n); ps(out, "# define "); ps(out, nm); ps(out, " = ");
+    (case+ gedf of
+     | G0EDFsome(_, ge) => pp_define_g0exp(out, ge)
+     | G0EDFnone() => ps(out, "()"));
+    nl(out))
+end
+and
+pp_define_g0exp(out: FILR, ge: g0exp): void =
+(
+  case+ ge.node() of
+  | G0Eid0(id) => ps(out, fname(i0dnt_lexeme(id)))
+  | G0Eint(t0) => (case+ t0 of T0INTsome(tok) => ps(out, tok_lexeme(tok)) | T0INTnone(tok) => ps(out, tok_lexeme(tok)))
+  | G0Estr(t0) => (case+ t0 of T0STRsome(tok) => ps(out, tok_lexeme(tok)) | T0STRnone(tok) => ps(out, tok_lexeme(tok)))
+  | G0Eapps(ges) => pp_define_g0apps(out, ges)
+  | _ => ps(out, "# TODO(pp): g0exp")
+)
+and
+pp_define_g0apps(out: FILR, ges: g0explst): void =
+(
+  case+ ges of
+  | list_cons(gop, list_cons(arg, list_nil())) =>
+      if pp_define_g0exp_is_id(gop, "-")
+      then (ps(out, "-"); pp_define_g0exp(out, arg))
+      else pp_define_g0app_fallback(out, ges)
+  | _ => pp_define_g0app_fallback(out, ges)
+)
+and
+pp_define_g0app_fallback(out: FILR, ges: g0explst): void =
+(
+  case+ ges of
+  | list_nil() => ps(out, "# TODO(pp): g0exp")
+  | list_cons(ge, rest) => (
+      pp_define_g0exp(out, ge);
+      (case+ rest of
+       | list_nil() => ()
+       | _ => (ps(out, " "); pp_define_g0app_fallback(out, rest))))
+)
+and
+pp_define_g0exp_is_id(ge: g0exp, s: strn): bool =
+(
+  case+ ge.node() of
+  | G0Eid0(id) => i0dnt_lexeme(id) = s
+  | _ => false
 )
 //
 (* ****** ****** *)
@@ -1779,10 +1842,11 @@ pp_dexp_letdecl(out: FILR, n: sint, dc: d0ecl): void =
 	  | D0Cvardclst(_, vds) => pp_dexp_vardcls(out, n, vds)
 	  | D0Cfundclst(_, _, fds) => pp_dexp_fundcl_local_list(out, n, fds)
 	  | D0Cimplmnt0(_, _, tqas, dqi, tias, farg, _, _, body) =>
-        pp_dexp_impl_local(out, n, tqas, dqi, tias, farg, body)
+	        pp_dexp_impl_local(out, n, tqas, dqi, tias, farg, body)
 	  | D0Csexpdef(_, sid, smas, _, _, se) => (
-        PYPP_type_add(i0dnt_lexeme(sid));
-        pp_typedef(out, n, sid, smas, se))
+	        PYPP_type_add(i0dnt_lexeme(sid));
+	        pp_typedef(out, n, sid, smas, se))
+	  | D0Cdefine(_, gid, _, gedf) => pp_define(out, n, gid, gedf)
 	  | D0Cstatic(_, dc1) => pp_dexp_letdecl(out, n, dc1)
 	  | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
 	  | D0Ctkerr(_) => ()
@@ -2349,8 +2413,9 @@ and
 	  | D0Cfundclst(_, _, fds) => pp_fundcl_local_list_n(out, n, fds)
 	  | D0Cimplmnt0(_, _, tqas, dqi, tias, farg, _, _, body) => pp_impl_n(out, n, tqas, dqi, tias, farg, body)
 	  | D0Csexpdef(_, sid, smas, _, _, se) => (
-        PYPP_type_add(i0dnt_lexeme(sid));
-        pp_typedef(out, n, sid, smas, se))
+	      PYPP_type_add(i0dnt_lexeme(sid));
+	      pp_typedef(out, n, sid, smas, se))
+	  | D0Cdefine(_, gid, _, gedf) => pp_define(out, n, gid, gedf)
 	  | D0Cstatic(_, dc1) => pp_where_decl(out, n, dc1)
 	  | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
 	  | D0Csymload(_, sym, _, dqi, prec) => pp_symload_alias(out, n, sym, dqi, prec)
@@ -2505,17 +2570,7 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   // #define NAME val  ->  @static let NAME = val   (a module-level binding; the
   // @static marker mirrors the hand-translation so it lowers as a static const,
   // not a bare top-level fun-decl).
-  | D0Cdefine(_, gid, _, gedf) => let
-      val nm = fname(i0dnt_lexeme(gid))
-    in
-      ps(out, "@static"); nl(out);
-      ps(out, "let "); ps(out, nm); ps(out, " = ");
-      (case+ gedf of
-       | G0EDFsome(_, ge) => pp_g0exp(out, ge)
-       | G0EDFnone() => ps(out, "()"));
-      nl(out);
-      true
-    end
+  | D0Cdefine(_, gid, _, gedf) => (pp_define(out, 0, gid, gedf); true)
   //
   // #include "x" -> import the ATS header/interface into this Pythonic module.
   | D0Cinclude(_, _, ge) => (
@@ -2685,6 +2740,7 @@ pp_priv_head_one(out: FILR, n: sint, dc: d0ecl): void =
 	  | D0Cimplmnt0(_, _, tqas, dqi, tias, farg, _, _, body) => pp_impl_n(out, n, tqas, dqi, tias, farg, body)
 	  | D0Cabsimpl(_, sqid, smas, _, _, se) => pp_absimpl(out, n, sqid, smas, se)
 	  | D0Csexpdef(_, sid, smas, _, _, se) => pp_typedef(out, n, sid, smas, se)
+	  | D0Cdefine(_, gid, _, gedf) => pp_define(out, n, gid, gedf)
 	  | D0Cstatic(_, dc1) => pp_priv_head_one(out, n, dc1)
 	  | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
 	  | D0Csymload(_, sym, _, dqi, prec) => pp_symload_alias(out, n, sym, dqi, prec)
