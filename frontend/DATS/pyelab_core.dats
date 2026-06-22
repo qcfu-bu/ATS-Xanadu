@@ -541,7 +541,7 @@ case+ e of
 | PyEvar(loc, nm) => PCEvar(loc, nm)
 | PyEcon(loc, nm) => PCEcon(loc, nm)
 | PyElit(loc, lit) => PCElit(loc, el_lit(lit))
-| PyEwild(loc) => PCEunit(loc)
+| PyEwild(loc) => PCEtop(loc)
 | PyEapp(loc, hd, args) => el_app(encl, loc, hd, args)
 | PyEbin(loc, b, l, r) => el_binop(encl, loc, b, l, r)
 | PyEuna(loc, u, e1) => el_unop(encl, loc, u, e1)

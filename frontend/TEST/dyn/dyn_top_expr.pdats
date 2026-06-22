@@ -1,0 +1,8 @@
+# GAP D: expression-position `_` is ATS top, not unit.
+# It should be contextually typed in both annotation and constructor-argument positions.
+
+enum Box:
+    case Mk(Int)
+
+let top_as_int: Int = _
+let top_payload = Mk(_)

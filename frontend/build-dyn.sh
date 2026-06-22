@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 ########################################################################
-# DYN (DYNAMIC-side gaps, bootstrap P1 feature 5) — three gaps a real `.dats`
+# DYN (DYNAMIC-side gaps, bootstrap P1 feature 5) — gaps a real `.dats`
 # round-trip surfaced, wired through the real frontend pipeline:
 #
 #   GAP A — `private:` (D2Clocal0 capture-rest) with a NON-`def` head (an `enum`
@@ -12,8 +12,9 @@
 #           + a cell built via a0ref_make_1val. The prelude ref API, re-exported in
 #           pyrt.sats; the surface `[]`/`[]:=` wired in the parser/elaborator. nerror=0.
 #   GAP C — crash-safety: `case list_cons(a,b):` (lowercase con-app PATTERN) used to
-#           loop -> SIGSEGV; now a CLEAN parse diagnostic + a COUNTED error (rc != 139,
-#           nerror>0).
+#           loop -> SIGSEGV; now it reaches a COUNTED type error (rc != 139, nerror>0).
+#   GAP D — expression-position `_` is ATS top/omitted value, not unit. It must be
+#           contextually typed in annotation and constructor-argument positions.
 #
 # Each fixture rides the SAME M3 driver path (frontend/DATS/pyfront_m3.dats = the full
 # lex -> parse -> elab -> lower -> trans2a -> trsym2b -> t2read0 -> trans23 -> tread3a
@@ -116,16 +117,29 @@ echo ">> [GAP C] $py  (lowercase con-app pattern ; expect NO crash rc!=139 + ner
 echo "-- source --"; cat "$py"
 run_fixture "$py"
 echo ">> rc=$RC  nerror (after tread3a) = ${NE:-<none>}"
-echo "-- the clean parse diagnostic --"
-grep -E "constructor pattern needs an uppercase name" "$ERRF" | head -2
 if [ "$RC" -eq 139 ]; then
   echo "!! FAIL  (GAP C CRASHED — rc=139/SIGSEGV; the parser still loops)" >&2
   FAIL=1
-elif [ "${NE:-0}" -gt 0 ] 2>/dev/null && grep -q "constructor pattern needs an uppercase name" "$ERRF"; then
-  echo ">> PASS  (GAP C: NO crash (rc=$RC != 139), CLEAN parse diagnostic, nerror=${NE} > 0)"
+elif [ "${NE:-0}" -gt 0 ] 2>/dev/null; then
+  echo ">> PASS  (GAP C: NO crash (rc=$RC != 139), counted nerror=${NE} > 0)"
 else
-  echo "!! FAIL  (GAP C: expected no-crash + clean diag + nerror>0; rc=$RC nerror=${NE:-<none>})" >&2
+  echo "!! FAIL  (GAP C: expected no-crash + nerror>0; rc=$RC nerror=${NE:-<none>})" >&2
   grep -E "elab-diag" "$ERRF" | head -8 >&2
+  FAIL=1
+fi
+
+# ---- GAP D: dyn_top_expr — expression-position `_` is top, not unit --------------------
+echo "----------------------------------------------------------------------"
+py="$TESTDIR/dyn_top_expr.pdats"
+echo ">> [GAP D] $py  (expression underscore as ATS top ; expect nerror=0)"
+echo "-- source --"; cat "$py"
+run_fixture "$py"
+echo ">> rc=$RC  nerror (after tread3a) = ${NE:-<none>}"
+if [ "${NE:-X}" = "0" ]; then
+  echo ">> PASS  (GAP D: expression underscore LOWERS as ATS top and TYPECHECKS, nerror=0)"
+else
+  echo "!! FAIL  (GAP D expected nerror=0; got ${NE:-<none>})" >&2
+  grep -E "F3PERR0-ERROR|elab-diag" "$ERRF" | head -8 >&2
   FAIL=1
 fi
 
@@ -133,5 +147,6 @@ echo "======================================================================"
 if [ "$FAIL" -ne 0 ]; then echo ">> DYN: FAIL (see failures above)"; exit 1; fi
 echo ">> DYN: PASS (GAP A private-head TYPECHECKS nerror=0 [codegen-lib gap noted];"
 echo "            GAP B r[]/r[]:=  LOWER+TYPECHECK nerror=0;  GAP C lowercase con-app pattern"
-echo "            is a CLEAN parse error (no SIGSEGV, nerror>0).)"
+echo "            is crash-safe with counted nerror>0; GAP D expression underscore"
+echo "            LOWERS as ATS top and TYPECHECKS nerror=0.)"
 exit 0

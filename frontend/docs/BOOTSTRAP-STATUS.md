@@ -99,12 +99,13 @@ harnesses.
   `(A, B) -> C` is a native two-argument function, while `((A, B)) -> C`
   is the explicit unary tuple-argument form. Local `#define` constants now emit
   dynamic bindings, so `parsing_decl00.dats` no longer has unresolved
-  `STA`/`DYN` references. As a result, the focused parser slice now has five of
-  six generated files reparsing/typechecking at
-  `m3_nerror=0`:
+  `STA`/`DYN` references. Expression-position ATS `_` now elaborates as a
+  contextual top/omitted value and lowers to `D2Etop(WCARD_symbl)`, not unit,
+  so generated calls such as `T0ENDINVsome(_, tinv)` typecheck. As a result,
+  the focused parser slice now has all six generated files reparsing/typechecking
+  at `m3_nerror=0`:
   `parsing_basics.dats`, `parsing_tokbuf.dats`, `parsing_utils0.dats`,
-  `parsing_staexp.dats`, and `parsing_decl00.dats`. The remaining ordinary M3
-  diagnostic is `parsing_dynexp.dats` at `m3_nerror=1`.
+  `parsing_staexp.dats`, `parsing_dynexp.dats`, and `parsing_decl00.dats`.
 - `build-pp-corpus.sh --out-dir RELPATH` now normalizes the report directory
   against `frontend/` before running pyprint from `XATSHOME`, so separate static
   and dynamic corpus summaries can be kept without path breakage.
@@ -114,11 +115,10 @@ harnesses.
 1. Pretty-printer breadth is now marker-free for the audited `srcgen2/SATS`
    interface corpus and the 166-file `srcgen2/DATS`/`srcgen2/UTIL` pyprint-only
    slice. The parser implementation slice no longer crashes in layout/reparse,
-   and five of the first six parser implementation files now reparse/typecheck.
-   Its remaining blocker is a concrete M3 type diagnostic: `parsing_dynexp`
-   has one token/void mismatch around generated `T0ENDINVsome(_, tinv)`, where
-   `_` is currently elaborated as unit. After that reaches `m3_nerror=0`,
-   extend the same treatment to `srcgen1/prelude` and backend comparison.
+   and all six first parser implementation files now reparse/typecheck. The
+   next breadth blocker is scaling that same `TODOpp=0` plus `m3_nerror=0`
+   treatment into larger parser/compiler slices, then `srcgen1/prelude` and
+   backend comparison.
 2. Include/import/load semantics are not faithful yet. Bare and aliased
    `#staload` now pretty-print to scoped ATS `.sats` imports, but `#include`
    still prints as an inert comment and needs a real Pythonic load/include

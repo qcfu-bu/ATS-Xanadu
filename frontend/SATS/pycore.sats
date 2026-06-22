@@ -185,6 +185,8 @@ pcpfield =
 //              explicit seq so M3 maps it to L2 `D2Eseqn`).
 //   PCEunit  : the unit value `( )` — a control-pure suite that falls off the end with no
 //              tail value, and the tail value of an empty function body (§5.4).
+//   PCEtop   : expression-position ATS wildcard `_` — a contextual top/omitted value,
+//              distinct from unit and from pattern wildcard.
 //   PCEerror : a poison node carrying a message + span — an elaboration error placeholder
 //              (e.g. a reassigned immutable, break outside a loop). Non-fail-fast: the
 //              elaborator emits this + a diagnostic and keeps going (matches the parser's
@@ -231,6 +233,7 @@ pcexp =
 | PCEfield  of (loctn, pcexp, strn)
 | PCEseq    of (loctn, pcexp, pcexp)
 | PCEunit   of (loctn)
+| PCEtop    of (loctn)
 //   PCEraise : `raise e` (EXN) -> D2Eraise. `e` lowers to an exn-typed expr.
 //   PCEtry   : `try body except <pat>: handler ...` (EXN) -> D2Etry0. The body is a single
 //              elaborated pcexp (the surface body-suite was folded by el_func_body); the

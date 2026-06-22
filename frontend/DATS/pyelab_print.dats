@@ -277,6 +277,8 @@ case+ e of
     pp_exp(out, e2, ind + 1); ps(out, ")") )
 | PCEunit(loc) =>
   (ps(out, "(Eunit"); print_span(out, loc); ps(out, ")"))
+| PCEtop(loc) =>
+  (ps(out, "(Etop"); print_span(out, loc); ps(out, ")"))
 | PCEraise(loc, e1) =>
   ( ps(out, "(Eraise"); print_span(out, loc); ps(out, " "); pp_exp(out, e1, ind); ps(out, ")") )
 | PCEtry(loc, body, hs) =>

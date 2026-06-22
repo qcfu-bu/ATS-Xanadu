@@ -49,6 +49,7 @@ case+ e of
 | PCEvar(_, _) => acc
 | PCEcon(_, _) => acc
 | PCEunit(_) => acc
+| PCEtop(_) => acc
 | PCEapp(_, hd, args) => harv_explst(args, harv_exp(hd, acc))
 | PCElam(_, _, _, _, body) => harv_exp(body, acc)
 | PCElet(_, _, _, rhs, body) => harv_exp(body, harv_exp(rhs, acc))
@@ -181,6 +182,7 @@ case+ e of
 | PCEcon(_, nm) => is_pyrt_name(nm)
 | PCElit(_, _) => false
 | PCEunit(_) => false
+| PCEtop(_) => false
 | PCEerror(_, _) => false
 | PCEapp(_, hd, args) => b_or(uses_exp(hd), uses_explst(args))
 | PCElam(_, _, _, _, body) => uses_exp(body)

@@ -39,7 +39,8 @@ case+ e of
 | PCEllazy(loc, _) => loc
 | PCErec(loc, _) => loc       | PCElist(loc, _) => loc
 | PCEfield(loc, _, _) => loc  | PCEseq(loc, _, _) => loc
-| PCEunit(loc) => loc         | PCEerror(loc, _) => loc
+| PCEunit(loc) => loc         | PCEtop(loc) => loc
+| PCEerror(loc, _) => loc
 | PCEraise(loc, _) => loc     | PCEtry(loc, _, _) => loc
 | PCEinst(loc, _, _) => loc
 | PCEsapp(loc, _, _) => loc

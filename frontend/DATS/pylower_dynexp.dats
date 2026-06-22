@@ -1011,6 +1011,8 @@ case+ e of
 //
 // PCEunit : () -> the empty tuple D2Etup0(-1, []).
 | PCEunit(loc) => d2exp_make_node(loc, D2Etup0((-1), list_nil()))
+// PCEtop : expression-position `_` -> ATS top wildcard, contextually typed.
+| PCEtop(loc) => d2exp_top(loc, WCARD_symbl)
 //
 // EXN: PCEraise -> D2Eraise($raise-tok, e). trans23 f0_raise typechecks `e` against the
 // built-in exn type (the_s2typ_excptn) and gives the whole raise a FRESH type var — `raise`
