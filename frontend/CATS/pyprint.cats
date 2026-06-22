@@ -95,11 +95,15 @@ var PYPP_type_set = {};
 var PYPP_con_set = {};
 var PYPP_value_set = {};
 var PYPP_type_scope_stack = [];
+var PYPP_type_rename_stack = [];
+var PYPP_type_rename_serial = 0;
 function PYPP_local_reset() {
   PYPP_type_set = {};
   PYPP_con_set = {};
   PYPP_value_set = {};
   PYPP_type_scope_stack = [];
+  PYPP_type_rename_stack = [];
+  PYPP_type_rename_serial = 0;
 }
 function PYPP_local_add(s) {
   PYPP_type_set[String(s)] = true;
@@ -126,6 +130,36 @@ function PYPP_type_scope_pop() {
     PYPP_type_set = PYPP_type_scope_stack.pop();
   }
   return;
+}
+function PYPP_type_rename_safe(s) {
+  s = PYPP_dollar_fix(String(s || ""));
+  s = s.replace(/[^A-Za-z0-9_]/g, "_");
+  if (s.length === 0) s = "anon";
+  return s;
+}
+function PYPP_type_rename_push(s) {
+  s = String(s);
+  var safe = PYPP_type_rename_safe(s);
+  var name = "Xatslocal" + String(PYPP_type_rename_serial++) + "_" + safe;
+  PYPP_type_rename_stack.push([s, name]);
+  return;
+}
+function PYPP_type_rename_pop(s) {
+  s = String(s);
+  for (var i = PYPP_type_rename_stack.length - 1; i >= 0; --i) {
+    if (PYPP_type_rename_stack[i][0] === s) {
+      PYPP_type_rename_stack.splice(i, 1);
+      break;
+    }
+  }
+  return;
+}
+function PYPP_type_rename_get(s) {
+  s = String(s);
+  for (var i = PYPP_type_rename_stack.length - 1; i >= 0; --i) {
+    if (PYPP_type_rename_stack[i][0] === s) return PYPP_type_rename_stack[i][1];
+  }
+  return "";
 }
 function PYPP_con_add(s) { PYPP_con_set[String(s)] = true; return; }
 function PYPP_con_has(s) { return PYPP_con_set[String(s)] === true; }

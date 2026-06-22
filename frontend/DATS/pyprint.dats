@@ -66,6 +66,9 @@
 #extern fun PYPP_type_has(s: strn): bool = $extnam()
 #extern fun PYPP_type_scope_push((*0*)): void = $extnam()
 #extern fun PYPP_type_scope_pop((*0*)): void = $extnam()
+#extern fun PYPP_type_rename_push(s: strn): void = $extnam()
+#extern fun PYPP_type_rename_pop(s: strn): void = $extnam()
+#extern fun PYPP_type_rename_get(s: strn): strn = $extnam()
 #extern fun PYPP_con_add(s: strn): void = $extnam()
 #extern fun PYPP_con_has(s: strn): bool = $extnam()
 #extern fun PYPP_value_add(s: strn): void = $extnam()
@@ -192,16 +195,24 @@ end
 // a TYPE name (LHS of typedef/abstype, or a value-name in a value position):
 // capitalize + $->/.   (rule 1)
 fun tyname(s: strn): strn = PYPP_capitalize(rewrite_dollar(s))
+fun tyname_decl(s: strn): strn = let
+  val rn = PYPP_type_rename_get(s)
+in
+  if strn_eq(rn, "") then tyname(s) else rn
+end
 //
 // CAPITALIZE-SCOPING: a name in TYPE position that capitalizes ONLY if it is
 // file-local (a datatype defined in THIS file). Primitive ATS names get stable
 // Pythonic spellings via tyname_primitive; other prelude/external type names
 // (list, optn, ...) stay verbatim so they resolve against the lowercase pyrt.
 fun tyname_scoped(s: strn): strn = let
+  val rn = PYPP_type_rename_get(s)
   val r = rewrite_dollar(s)
   val p = tyname_primitive(s)
 in
-  if ~(strn_eq(p, r))
+  if ~(strn_eq(rn, ""))
+  then rn
+  else if ~(strn_eq(p, r))
   then p
   else if PYPP_binder_has(s)
   then PYPP_capitalize(r)
@@ -1008,7 +1019,7 @@ pp_typedef(out: FILR, n: sint, sid: s0eid, smas: s0maglst, se: s0exp): void = le
   val raws = pp_smag_raw_names(smas)
   val tps = pp_smag_names(smas)
 in
-  ind(out, n); ps(out, "type "); ps(out, tyname(i0dnt_lexeme(sid)));
+  ind(out, n); ps(out, "type "); ps(out, tyname_decl(i0dnt_lexeme(sid)));
   pp_names_brkt(out, tps);
   ps(out, " = ");
   push_binders(raws);
@@ -1189,13 +1200,14 @@ pp_d0exp_inline(out: FILR, de: d0exp): void =
 	| D0Elam0(_, farg, _, _, body, _) => (
 	      pp_lam_farg_params(out, farg); ps(out, " => "); pp_d0exp_inline(out, body))
 	  //
-	  // a parenthesized / sequence group.  A single-elem paren -> that elem; a
+	  // a parenthesized / sequence group.  Preserve single-elem source parens:
+	  // `a + (b - c)` must not reparse as `(a + b) - c`.
   // SMCLN-sequence (cons2) at expression position -> a (a; b) we render inline
   // as a comma-paren only when used as an rvalue is wrong — but inside an INLINE
   // ref-set rhs the corpus never nests a sequence, so a single-elem is the norm.
   | D0Elpar(_, des, rp) => (
       case+ des of
-      | list_cons(de1, list_nil()) => pp_d0exp_inline(out, de1)
+      | list_cons(de1, list_nil()) => (ps(out, "("); pp_d0exp_inline(out, de1); ps(out, ")"))
       | _ => (ps(out, "("); pp_dexp_seq_inline(out, des); ps(out, ")")))
   //
   // a tuple `@(a, b)` / `(a, b)`.
@@ -2509,11 +2521,37 @@ pp_walk(out: FILR, dcs: d0eclist): void =
 // the entry (register_file_local_names), so cons used in D2 bodies capitalize.
 //
 and
+push_local_type_renames(head: d0eclist): void =
+(
+  case+ head of
+  | list_nil() => ()
+  | list_cons(dc, rest) => (
+      (case+ dc.node() of
+       | D0Csexpdef(_, sid, _, _, _, _) => PYPP_type_rename_push(i0dnt_lexeme(sid))
+       | D0Cstatic(_, dc1) => push_local_type_renames(list_sing(dc1))
+       | _ => ());
+      push_local_type_renames(rest))
+)
+and
+pop_local_type_renames(head: d0eclist): void =
+(
+  case+ head of
+  | list_nil() => ()
+  | list_cons(dc, rest) => (
+      (case+ dc.node() of
+       | D0Csexpdef(_, sid, _, _, _, _) => PYPP_type_rename_pop(i0dnt_lexeme(sid))
+       | D0Cstatic(_, dc1) => pop_local_type_renames(list_sing(dc1))
+       | _ => ());
+      pop_local_type_renames(rest))
+)
+and
 pp_local(out: FILR, head: d0eclist, body: d0eclist): void = (
+  push_local_type_renames(head);
   ps(out, "private:"); nl(out);
   pp_priv_head(out, 1, head);
   nl(out);
-  pp_walk(out, body)
+  pp_walk(out, body);
+  pop_local_type_renames(head)
 )
 and
 // the HEAD of a local: datatypes -> enum; val-bindings -> `let`; #absimpl -> `@impl type`.

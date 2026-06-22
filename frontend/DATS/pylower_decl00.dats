@@ -925,7 +925,14 @@ case+ dcls of
                 | _ => list_sing(D2PTMsome(0, d2i1))
                 )
             ) : d2ptmlst
-          val ditm = D2ITMsym(sym1, list_cons(dptm, d2ps))
+          val d2ps =
+            (
+            case+ dptm of
+            | D2PTMsome(_, d2i0) =>
+                if d2ptmlst_has_same_target(d2ps, d2i0) then d2ps else list_cons(dptm, d2ps)
+            | D2PTMnone(_) => list_cons(dptm, d2ps)
+            ) : d2ptmlst
+          val ditm = D2ITMsym(sym1, d2ps)
           val () = tr12env_add0_d2itm(env, sym1, ditm)
         in
           promote_import_symload_dcls(env, rest)
