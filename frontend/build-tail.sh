@@ -99,8 +99,8 @@ done
 
 echo "======================================================================"
 if [ "$FAIL" -ne 0 ]; then echo ">> TAIL: FAIL (see failures above)"; exit 1; fi
-echo ">> TAIL: PASS (abstract-type rep bound `@abstract type Stamp <= Int` carries A2TDFlteq +"
-echo "            typechecks opaque; `#define`-as-const modeled by plain `let NAME = value` used"
+echo ">> TAIL: PASS (abstract-type rep bound '@abstract type Stamp <= Int' carries A2TDFlteq +"
+echo "            typechecks opaque; '#define'-as-const modeled by plain 'let NAME = value' used"
 echo "            in dynamic arithmetic/comparison; both nerror=0. ITEMS 3/4/5 verdicts in"
 echo "            the report (WIRE-verdict / DEFER).)"
 exit 0

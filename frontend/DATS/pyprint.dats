@@ -1633,17 +1633,18 @@ pp_dexp_seq_inline(out: FILR, des: d0explst): void =
       pp_dexp_seq_inline(out, rest))
 )
 //
-// #define NAME val -> @static let NAME = val. Symbolic macro aliases such as
-// `#define :: list_cons` do not have a Pythonic binder spelling yet, so preserve
-// them as inert comments instead of emitting invalid syntax.
+// #define NAME val -> let <value-name> = val. The compiler macro-expands these
+// constants before dynamic typechecking; modeling them as dynamic value bindings
+// matches the corpus use sites (`STA`, `DYN`, bit flags, etc.). Symbolic macro
+// aliases such as `#define :: list_cons` do not have a Pythonic binder spelling
+// yet, so preserve them as inert comments instead of emitting invalid syntax.
 fun
 pp_define(out: FILR, n: sint, gid: g0eid, gedf: g0edf): void = let
   val raw = i0dnt_lexeme(gid)
-  val nm = fname(raw)
+  val nm = vname_bind(raw)
 in
   if PYPP_identish(raw)
   then (
-    ind(out, n); ps(out, "@static"); nl(out);
     ind(out, n); ps(out, "let "); ps(out, nm); ps(out, " = ");
     (case+ gedf of
      | G0EDFsome(_, ge) => pp_define_g0exp(out, ge)
@@ -1660,7 +1661,7 @@ and
 pp_define_g0exp(out: FILR, ge: g0exp): void =
 (
   case+ ge.node() of
-  | G0Eid0(id) => ps(out, fname(i0dnt_lexeme(id)))
+  | G0Eid0(id) => ps(out, val_or_con_name(i0dnt_lexeme(id)))
   | G0Eint(t0) => (case+ t0 of T0INTsome(tok) => ps(out, tok_lexeme(tok)) | T0INTnone(tok) => ps(out, tok_lexeme(tok)))
   | G0Estr(t0) => (case+ t0 of T0STRsome(tok) => ps(out, tok_lexeme(tok)) | T0STRnone(tok) => ps(out, tok_lexeme(tok)))
   | G0Eapps(ges) => pp_define_g0apps(out, ges)
@@ -3148,9 +3149,7 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   // #symload NAME with FN [of prec]  ->  @overload[prec] NAME = FN
   | D0Csymload(_, sym, _, dqi, prec) => (pp_symload_alias(out, 0, sym, dqi, prec); true)
   //
-  // #define NAME val  ->  @static let NAME = val   (a module-level binding; the
-  // @static marker mirrors the hand-translation so it lowers as a static const,
-  // not a bare top-level fun-decl).
+  // #define NAME val  ->  let name = val   (dynamic macro-constant model).
   | D0Cdefine(_, gid, _, gedf) => (pp_define(out, 0, gid, gedf); true)
   //
   // #include "x" -> import the ATS header/interface into this Pythonic module.

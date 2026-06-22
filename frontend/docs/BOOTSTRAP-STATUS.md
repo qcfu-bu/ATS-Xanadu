@@ -60,9 +60,11 @@ harnesses.
   TODO class, and selector left-hand sides such as `buf.N := ...` now print
   without `d0exp-inline` fallbacks. Value RHSs shaped as
   `let ... in ... end` now emit their local declarations before binding the
-  final RHS. Local `#define` constants now reuse the `@static let` printer;
-  symbolic macro aliases such as `#define :: list_cons` are preserved as
-  comments rather than emitted as invalid Pythonic binders. Local exception
+  final RHS. Local `#define` constants now print as dynamic `let` bindings,
+  matching the compiler's macro-expansion behavior for corpus constants such as
+  `STA`, `DYN`, and bit flags; symbolic macro aliases such as
+  `#define :: list_cons` are preserved as comments rather than emitted as
+  invalid Pythonic binders. Local exception
   constructors now print in `let` and `where` scopes, clearing `xfixity.dats`
   to `TODOpp=0`. `#staload` declarations in `local` heads now print inside the
   generated `private:` block. `local ... in ... end` declarations inside
@@ -95,13 +97,14 @@ harnesses.
   `@extern def p1_i0dntseq() -> p1_fun[...]` shape without adding an extra
   nullary function layer. Function type parsing now follows ATS3 arity:
   `(A, B) -> C` is a native two-argument function, while `((A, B)) -> C`
-  is the explicit unary tuple-argument form. As a result, the focused parser
-  slice now has four of six generated files reparsing/typechecking at
+  is the explicit unary tuple-argument form. Local `#define` constants now emit
+  dynamic bindings, so `parsing_decl00.dats` no longer has unresolved
+  `STA`/`DYN` references. As a result, the focused parser slice now has five of
+  six generated files reparsing/typechecking at
   `m3_nerror=0`:
-  `parsing_basics.dats`, `parsing_tokbuf.dats`, `parsing_utils0.dats`, and
-  `parsing_staexp.dats`. The remaining ordinary M3 diagnostics are
-  `parsing_dynexp.dats` at `m3_nerror=1` and `parsing_decl00.dats` at
-  `m3_nerror=5`.
+  `parsing_basics.dats`, `parsing_tokbuf.dats`, `parsing_utils0.dats`,
+  `parsing_staexp.dats`, and `parsing_decl00.dats`. The remaining ordinary M3
+  diagnostic is `parsing_dynexp.dats` at `m3_nerror=1`.
 - `build-pp-corpus.sh --out-dir RELPATH` now normalizes the report directory
   against `frontend/` before running pyprint from `XATSHOME`, so separate static
   and dynamic corpus summaries can be kept without path breakage.
@@ -111,13 +114,11 @@ harnesses.
 1. Pretty-printer breadth is now marker-free for the audited `srcgen2/SATS`
    interface corpus and the 166-file `srcgen2/DATS`/`srcgen2/UTIL` pyprint-only
    slice. The parser implementation slice no longer crashes in layout/reparse,
-   and four of the first six parser implementation files now reparse/typecheck.
-   Its remaining blockers are concrete M3 type diagnostics: `parsing_dynexp`
+   and five of the first six parser implementation files now reparse/typecheck.
+   Its remaining blocker is a concrete M3 type diagnostic: `parsing_dynexp`
    has one token/void mismatch around generated `T0ENDINVsome(_, tinv)`, where
-   `_` is currently elaborated as unit, and `parsing_decl00` has five unresolved
-   dynamic references to local `#define` constants printed as `@static let`
-   (`STA`/`DYN`). After those reach `m3_nerror=0`, extend the same treatment to
-   `srcgen1/prelude` and backend comparison.
+   `_` is currently elaborated as unit. After that reaches `m3_nerror=0`,
+   extend the same treatment to `srcgen1/prelude` and backend comparison.
 2. Include/import/load semantics are not faithful yet. Bare and aliased
    `#staload` now pretty-print to scoped ATS `.sats` imports, but `#include`
    still prints as an inert comment and needs a real Pythonic load/include
