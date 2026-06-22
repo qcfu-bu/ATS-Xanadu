@@ -18,9 +18,14 @@ srcgen2/DATS/statyp2_utils2.dats
 srcgen2/DATS/statyp2_inits0.dats
 srcgen2/DATS/statyp2_tmplib.dats
 srcgen2/DATS/xstamp0.dats
+srcgen2/DATS/xstamp0_print0.dats
 srcgen2/DATS/xstamp0_tmpmap.dats
 srcgen2/DATS/xsymbol.dats
 srcgen2/DATS/xsymbol_inits0.dats
+srcgen2/DATS/xsymbol_print0.dats
+srcgen2/DATS/xsymbol_mymap0.dats
+srcgen2/DATS/xlabel0.dats
+srcgen2/DATS/xlabel0_print0.dats
 srcgen2/DATS/parsing_basics.dats
 srcgen2/DATS/parsing_tokbuf.dats
 srcgen2/DATS/parsing_utils0.dats
