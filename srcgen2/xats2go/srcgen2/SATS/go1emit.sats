@@ -593,11 +593,31 @@ i1cls_go1emit
 //
 (* ****** ****** *)
 //
-// Declared at the end so adding this helper does not shift existing d2cst
+// Declared at the end so adding helpers does not shift existing d2cst
 // stamps used by the generated JS bundle's cross-file references.
 fun
 d2cstimplgo1
 (filr:FILR, dcst: d2cst): void
+//
+fun
+go1emit_strn_contains
+(hay: strn, needle: strn): bool
+fun
+go1emit_package_pathq
+(path: strn): bool
+fun
+d2cst_known_packageq
+(sname: strn): bool
+fun
+d2cst_known_runtimeq
+(sname: strn): bool
+fun
+d2cst_package_sourceq
+(dcst: d2cst): bool
+//
+fun
+xsymgo1
+(filr:FILR, xsym: sym_t): void
 //
 (* ****** ****** *)
 (* ****** ****** *)

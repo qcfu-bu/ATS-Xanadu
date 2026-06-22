@@ -44,11 +44,16 @@ Naming (PLAN.md §5.9, mirrors js1emit):
 "./../../../SATS/locinfo.sats"
 #staload // LEX =
 "./../../../SATS/lexing0.sats"
+#staload // FP0 =
+"./../../../SATS/filpath.sats"
 #staload // BAS =
 "./../../../SATS/xbasics.sats"
 //
 #staload // D2E =
 "./../../../SATS/dynexp2.sats"
+//
+#staload // GLO =
+"./../../../SATS/xglobal.sats"
 //
 (* ****** ****** *)
 //
@@ -81,15 +86,121 @@ XATS2GO_gochar_esc
 (* ****** ****** *)
 //
 (*
+go1emit_strn_contains: tiny path classifier helper kept local to the Go
+emitter.  Used by [d2cst_package_sourceq] below; deliberately ASCII-only
+because source paths and directory markers are ASCII.
+*)
+#implfun
+go1emit_strn_contains
+( hay: strn
+, needle: strn): bool =
+let
+  val nhay = strn_length(hay)
+  val nndl = strn_length(needle)
+  fun
+  match_at
+  (i0: sint, j0: sint): bool =
+    if j0 >= nndl then true else
+    if strn_get$at(hay, i0+j0) = strn_get$at(needle, j0)
+    then match_at(i0, j0+1) else false
+  fun
+  loop
+  (i0: sint): bool =
+    if nndl <= 0 then true else
+    if i0 + nndl > nhay then false else
+    if match_at(i0, 0) then true else loop(i0+1)
+in//let
+  loop(0)
+end//endof[go1emit_strn_contains(hay,needle)]
+//
+(* ****** ****** *)
+//
+#implfun
+go1emit_package_pathq
+(path: strn): bool =
+(
+if go1emit_strn_contains(path, "prelude/") then false else
+if go1emit_strn_contains(path, "xatslib/") then false else
+if go1emit_strn_contains(path, "srcgen2/xats2go/srcgen2/") then true else
+if go1emit_strn_contains(path, "srcgen2/SATS/") then true else
+if go1emit_strn_contains(path, "srcgen2/DATS/") then true else false)
+//
+(* ****** ****** *)
+//
+#implfun
+d2cst_known_packageq
+(sname: strn): bool =
+(
+if
+(sname = "d2cst_get_name") then true else
+if
+(sname = "d2cst_get_lctn") then true else
+if
+(sname = "d2cst_get_styp") then true else
+if
+(sname = "d2cst_get_stmp") then true else
+if
+(sname = "d2var_get_name") then true else
+if
+(sname = "d2var_get_lctn") then true else
+if
+(sname = "d2var_get_styp") then true else
+if
+(sname = "d2var_get_stmp") then true else
+if
+(sname = "token_get_node") then true else
+if
+(sname = "fprint_loctn_as_stamp") then true else
+if
+(sname = "symbl_get_name") then true else
+if
+(sname = "strnfpr") then true else
+if
+(sname = "chrfpr") then true else
+if
+(sname = "d2cstgo1") then true else
+if
+(sname = "d2cstimplgo1") then true else
+if
+(sname = "d2vargo1") then true else false)
+//
+#implfun
+d2cst_known_runtimeq
+(sname: strn): bool =
+(
+if
+(sname = "XATS2GO_gochar_esc") then true else
+if
+(sname = "XATS2GO_chrfpr") then true else false)
+//
+(* ****** ****** *)
+//
+#implfun
+d2cst_package_sourceq
+(dcst) =
+let
+  val lsrc = loctn_get_lsrc(dcst.lctn((*0*)))
+in//let
+(
+case+ lsrc of
+|LCSRCsome1(path) => go1emit_package_pathq(path)
+|LCSRCfpath(fpx) => go1emit_package_pathq(fpath_get_fnm1(fpx))
+|_(*else*) => false)
+end//endof[d2cst_package_sourceq(dcst)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
 xsymgo1: emit a symbol's chars as a valid Go identifier fragment.
 Mirrors xsymjs1 (escape ' -> $) but Go has no '$' in identifiers, so we
 map any non-[A-Za-z0-9_] char to '_' (collisions are acceptable for the
 M1 known-prelude surface; M2 introduces a stamp-disambiguated mangler).
 *)
-fun
+#implfun
 xsymgo1
 ( filr: FILR
-, xsym: symbl): void =
+, xsym: sym_t): void =
 let
 //
 val name = symbl_get_name(xsym)
@@ -126,11 +237,11 @@ in//let
 (* ****** ****** *)
 //
 (*
-d2cstgo1: prelude constants route to xatsgo; compiler/user constants route
-to package symbols.  This keeps runtime hooks available for lowered prelude
-calls while preserving linkable names for self-hosting compiler helpers.  The
-known-helper list is intentionally narrow until the self-host path can preserve
-the source-location classifier without introducing fresh unresolved helpers.
+d2cstgo1: runtime/prelude constants route to xatsgo; compiler/backend helper
+constants route to package symbols.  The classifier is intentionally hybrid:
+known runtime externals stay runtime, [$extnam] impls recorded in the d2cst map
+stay runtime, and only known helpers or compiler/backend source locations become
+package names.  A miss never turns a prelude path into a package identifier.
 *)
 #implfun
 d2cstgo1
@@ -138,26 +249,20 @@ d2cstgo1
 let
 val name = dcst.name((*0*))
 val sname = symbl_get_name(name)
+val stmp = d2cst_get_stmp(dcst)
+val xopt = the_d2cstmap_xnmfind(stmp)
+val xrtq =
+(
+case+ xopt of
+| ~optn_vt_cons(X2NAMsome(_)) => true
+| ~optn_vt_cons(X2NAMnone()) => false
+| ~optn_vt_nil() => false)
 val pkgq =
 (
-if
-(sname = "d2cst_get_name") then true else
-if
-(sname = "d2cst_get_lctn") then true else
-if
-(sname = "d2var_get_name") then true else
-if
-(sname = "d2var_get_lctn") then true else
-if
-(sname = "token_get_node") then true else
-if
-(sname = "fprint_loctn_as_stamp") then true else
-if
-(sname = "symbl_get_name") then true else
-if
-(sname = "strnfpr") then true else
-if
-(sname = "chrfpr") then true else false)
+if d2cst_known_runtimeq(sname) then false else
+if xrtq then false else
+if d2cst_known_packageq(sname) then true else
+d2cst_package_sourceq(dcst))
 in//let
 (
 if

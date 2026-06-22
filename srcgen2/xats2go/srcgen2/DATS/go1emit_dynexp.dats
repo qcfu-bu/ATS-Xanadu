@@ -1669,11 +1669,11 @@ in//let
   (
   nindfpr(filr, nind);
   i1tnmgo1(filr, itnm); strnfpr(filr, " := ");
-  i1valgo1(filr, casval); fprintln(filr);
+  i1valgo1(filr, casval); strnfpr(filr, "\n");
   if used then ((*void*)) else
     (
     nindfpr(filr, nind);
-    strnfpr(filr, "_ = "); i1tnmgo1(filr, itnm); fprintln(filr)))
+    strnfpr(filr, "_ = "); i1tnmgo1(filr, itnm); strnfpr(filr, "\n")))
 end//let//endof[i1bnd_bind_go1(...)]
 //
 (* ****** ****** *)
@@ -1862,7 +1862,7 @@ in//let
   (
   nindfpr(filr, nind);
   i1tnmgo1(filr, itnm); strnfpr(filr, " := ");
-  i1valgo1(filr, casval); fprintln(filr))
+  i1valgo1(filr, casval); strnfpr(filr, "\n"))
   else ((*unused -- skip*))
 end//let//endof[i1bnd_bind_go1_guard(...)]
 //
@@ -1957,7 +1957,7 @@ case+ icl0.node() of
     |optn_cons(iguas) =>
       (
       strnfpr(filr, " && "); emit_guard_iife(env0, iguas)));
-    strnfpr(filr, ":"); fprintln(filr))
+    strnfpr(filr, ":"); strnfpr(filr, "\n"))
     //
     val () = envx2go_incnind(env0, 1)
     val () = i1bnd_bind_go1(env0, casval, ibnd, body)
@@ -2034,7 +2034,7 @@ in//let
   (
   nindfpr(filr, nind);
   strnfpr(filr, "goxret = ");
-  i1valgo1(filr, ival); fprintln(filr))
+  i1valgo1(filr, ival); strnfpr(filr, "\n"))
 end//let//endof[i1cmp_go1emit_goxret(bodyCmp,env0)]
 //
 fun
@@ -2066,7 +2066,7 @@ case+ icl0.node() of
     |optn_nil() => ()
     |optn_cons(iguas) =>
       (strnfpr(filr, " && "); emit_guard_iife(env0, iguas)));
-    strnfpr(filr, ":"); fprintln(filr))
+    strnfpr(filr, ":"); strnfpr(filr, "\n"))
     val () = envx2go_incnind(env0, 1)
     val () = i1bnd_bind_go1(env0, casval, ibnd, body)
     // the handler body runs in VALUE mode, assigning to the named return.
@@ -2189,7 +2189,7 @@ in
   // recovers its return type (M2.5).
   i1cmp_go1emit_ret(body, list_nil(), bnds, env0);
   envx2go_decnind(env0, 1(*--*));
-  nindfpr(filr, envx2go_nind$get(env0)); strnfpr(filr, "}"); fprintln(filr)
+  nindfpr(filr, envx2go_nind$get(env0)); strnfpr(filr, "}"); strnfpr(filr, "\n")
 end//endof[emit_lam_body(body,env0)]
 //
 (* ****** ****** *)
@@ -2227,13 +2227,13 @@ case+ iins of
       nindfpr(filr, nind);
       strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
       strnfpr(filr, " "); strnfpr(filr, gotype_of_ift0type(iins));
-      fprintln(filr))
+      strnfpr(filr, "\n"))
       else ())
     //
     val () =
     (
     nindfpr(filr, nind); strnfpr(filr, "if ");
-    i1valgo1(filr, itst); strnfpr(filr, " {"); fprintln(filr))
+    i1valgo1(filr, itst); strnfpr(filr, " {"); strnfpr(filr, "\n"))
     //
     val () = envx2go_incnind(env0, 1)
     val () = f0_branch(retq, live, itnm, othn, params, bnds, env0)
@@ -2241,7 +2241,7 @@ case+ iins of
     //
     val () =
     (
-    nindfpr(filr, nind); strnfpr(filr, "} else {"); fprintln(filr))
+    nindfpr(filr, nind); strnfpr(filr, "} else {"); strnfpr(filr, "\n"))
     //
     val () = envx2go_incnind(env0, 1)
     val () = f0_branch(retq, live, itnm, oels, params, bnds, env0)
@@ -2249,7 +2249,7 @@ case+ iins of
     //
     val () =
     (
-    nindfpr(filr, nind); strnfpr(filr, "}"); fprintln(filr))
+    nindfpr(filr, nind); strnfpr(filr, "}"); strnfpr(filr, "\n"))
   in
     ((*void*))
   end
@@ -2269,7 +2269,7 @@ case+ iins of
       nindfpr(filr, nind);
       strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
       strnfpr(filr, " "); strnfpr(filr, gotype_of_ift0type(iins));
-      fprintln(filr))
+      strnfpr(filr, "\n"))
       else ())
     //
     // GUARD pre-pass: emit ONLY each guarded clause's pre-switch scrutinee BIND
@@ -2284,7 +2284,7 @@ case+ iins of
     // expression-less switch == if-else chain with implicit break.
     val () =
     (
-    nindfpr(filr, nind); strnfpr(filr, "switch {"); fprintln(filr))
+    nindfpr(filr, nind); strnfpr(filr, "switch {"); strnfpr(filr, "\n"))
     //
     val () = i1clslst_go1emit_g(retq, live, itnm, casval, icls, params, bnds, env0)
     //
@@ -2297,17 +2297,17 @@ case+ iins of
     // default is never reached (oracle-checked).
     val () =
     (
-    nindfpr(filr, nind); strnfpr(filr, "default:"); fprintln(filr))
+    nindfpr(filr, nind); strnfpr(filr, "default:"); strnfpr(filr, "\n"))
     val () = envx2go_incnind(env0, 1)
     val () =
     (
     nindfpr(filr, envx2go_nind$get(env0));
-    strnfpr(filr, "panic(\"xats2go: XATS000_cfail\")"); fprintln(filr))
+    strnfpr(filr, "panic(\"xats2go: XATS000_cfail\")"); strnfpr(filr, "\n"))
     val () = envx2go_decnind(env0, 1)
     //
     val () =
     (
-    nindfpr(filr, nind); strnfpr(filr, "}"); fprintln(filr))
+    nindfpr(filr, nind); strnfpr(filr, "}"); strnfpr(filr, "\n"))
   in
     ((*void*))
   end
@@ -2337,12 +2337,12 @@ case+ iins of
       nindfpr(filr, nind);
       strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
       strnfpr(filr, " "); strnfpr(filr, gotype_of_ift0type(iins));
-      fprintln(filr))
+      strnfpr(filr, "\n"))
       else ())
     //
     val () =
     (
-    nindfpr(filr, nind); strnfpr(filr, "{"); fprintln(filr))
+    nindfpr(filr, nind); strnfpr(filr, "{"); strnfpr(filr, "\n"))
     val () = envx2go_incnind(env0, 1)
     //
     // emit the inner LOCAL declarations.  GAP-1: use the LOCAL decl walk so a
@@ -2369,7 +2369,7 @@ case+ iins of
     val () = envx2go_decnind(env0, 1)
     val () =
     (
-    nindfpr(filr, nind); strnfpr(filr, "}"); fprintln(filr))
+    nindfpr(filr, nind); strnfpr(filr, "}"); strnfpr(filr, "\n"))
   in
     ((*void*))
   end
@@ -2399,7 +2399,7 @@ case+ iins of
       else strnfpr(filr, "_ = func(");
     fjarglst_go1emit_typed_params(filr, fjas, argtys);
     strnfpr(filr, ") "); strnfpr(filr, retty);
-    strnfpr(filr, " {"); fprintln(filr))
+    strnfpr(filr, " {"); strnfpr(filr, "\n"))
     // <body in return mode> + closing `}`
     val () = emit_lam_body(body, bnds1, env0)
   in
@@ -2433,7 +2433,7 @@ case+ iins of
     (
     nindfpr(filr, nind);
     strnfpr(filr, "var "); d2vargo1(filr, fvar);
-    strnfpr(filr, " "); strnfpr(filr, ftype); fprintln(filr))
+    strnfpr(filr, " "); strnfpr(filr, ftype); strnfpr(filr, "\n"))
     // <fname> = func(<typed params>) <ret> {   (params typed from [argtys]
     // -- the SAME list as the `var` func type, so the signatures match).
     val () =
@@ -2442,7 +2442,7 @@ case+ iins of
     d2vargo1(filr, fvar); strnfpr(filr, " = func(");
     fjarglst_go1emit_typed_params(filr, fjas, argtys);
     strnfpr(filr, ") "); strnfpr(filr, retty);
-    strnfpr(filr, " {"); fprintln(filr))
+    strnfpr(filr, " {"); strnfpr(filr, "\n"))
     // <body in return mode; self-call I1Vfenv(fvar) -> <fname>> + `}`
     val () = emit_lam_body(body, bnds1, env0)
     // bind the OUTER temp to the closure value, so a later I1Vtnm(itnm) use
@@ -2453,7 +2453,7 @@ case+ iins of
       (
       nindfpr(filr, nind);
       i1tnmgo1(filr, itnm); strnfpr(filr, " := ");
-      d2vargo1(filr, fvar); fprintln(filr))
+      d2vargo1(filr, fvar); strnfpr(filr, "\n"))
       else ()
   in
     ((*void*))
@@ -2479,7 +2479,7 @@ backend's `XATS000_raise(excval)` (js1emit_dynexp ~L1567), but Go uses `panic`.
   (
   nindfpr(filr, nind);
   strnfpr(filr, "panic("); i1valgo1(filr, excval); strnfpr(filr, ")");
-  fprintln(filr))
+  strnfpr(filr, "\n"))
   end
 //
 (* ----- I1INStry0 : IIFE + defer/recover + datacon handler switch ----- *)
@@ -2538,7 +2538,7 @@ named return + both assignments agree).  The handler clauses run in VALUE mode
     if live
       then (i1tnmgo1(filr, itnm); strnfpr(filr, " := func() (goxret "))
       else strnfpr(filr, "_ = func() (goxret ");
-    strnfpr(filr, retty); strnfpr(filr, ") {"); fprintln(filr))
+    strnfpr(filr, retty); strnfpr(filr, ") {"); strnfpr(filr, "\n"))
     //
     val () = envx2go_incnind(env0, 1)
     val nind1 = envx2go_nind$get(env0)
@@ -2547,13 +2547,13 @@ named return + both assignments agree).  The handler clauses run in VALUE mode
     val () =
     (
     nindfpr(filr, nind1);
-    strnfpr(filr, "defer func() {"); fprintln(filr))
+    strnfpr(filr, "defer func() {"); strnfpr(filr, "\n"))
     val () = envx2go_incnind(env0, 1)
     val nind2 = envx2go_nind$get(env0)
     val () =
     (
     nindfpr(filr, nind2);
-    strnfpr(filr, "if goxrec := recover(); goxrec != nil {"); fprintln(filr))
+    strnfpr(filr, "if goxrec := recover(); goxrec != nil {"); strnfpr(filr, "\n"))
     val () = envx2go_incnind(env0, 1)
     val nind3 = envx2go_nind$get(env0)
     //
@@ -2567,7 +2567,7 @@ named return + both assignments agree).  The handler clauses run in VALUE mode
     (
     nindfpr(filr, nind3);
     i1valgo1(filr, exnBinder);
-    strnfpr(filr, " := goxrec.(*xatsgo.XatsCon)"); fprintln(filr))
+    strnfpr(filr, " := goxrec.(*xatsgo.XatsCon)"); strnfpr(filr, "\n"))
     //
     // the handler clauses, as a datacon switch over [exnBinder] -- REUSING the
     // M2.7 [i1clslst_go1emit_g] (tag tests + field binds + clause body), in VALUE
@@ -2575,32 +2575,32 @@ named return + both assignments agree).  The handler clauses run in VALUE mode
     // through the dedicated [goxret] assignment via [i1cmp_go1emit_goxret]).
     val () =
     (
-    nindfpr(filr, nind3); strnfpr(filr, "switch {"); fprintln(filr))
+    nindfpr(filr, nind3); strnfpr(filr, "switch {"); strnfpr(filr, "\n"))
     val () =
       i1clslst_go1emit_goxret(exnBinder, handlers, env0)
     // default: panic(goxrec) -- re-raise an exception no handler matched (a Go
     // TERMINATING statement, so a return-position handler switch stays exhaustive).
     val () =
     (
-    nindfpr(filr, nind3); strnfpr(filr, "default:"); fprintln(filr))
+    nindfpr(filr, nind3); strnfpr(filr, "default:"); strnfpr(filr, "\n"))
     val () = envx2go_incnind(env0, 1)
     val () =
     (
     nindfpr(filr, envx2go_nind$get(env0));
-    strnfpr(filr, "panic(goxrec)"); fprintln(filr))
+    strnfpr(filr, "panic(goxrec)"); strnfpr(filr, "\n"))
     val () = envx2go_decnind(env0, 1)
     val () =
     (
-    nindfpr(filr, nind3); strnfpr(filr, "}"); fprintln(filr))
+    nindfpr(filr, nind3); strnfpr(filr, "}"); strnfpr(filr, "\n"))
     //
     val () = envx2go_decnind(env0, 1)  // close `if goxrec != nil`
     val () =
     (
-    nindfpr(filr, nind2); strnfpr(filr, "}"); fprintln(filr))
+    nindfpr(filr, nind2); strnfpr(filr, "}"); strnfpr(filr, "\n"))
     val () = envx2go_decnind(env0, 1)  // close `defer func() {`
     val () =
     (
-    nindfpr(filr, nind1); strnfpr(filr, "}()"); fprintln(filr))
+    nindfpr(filr, nind1); strnfpr(filr, "}()"); strnfpr(filr, "\n"))
     //
     // goxret = <bodyCmp in VALUE mode> -- the normal path; may panic (caught by
     // the defer above).  We assign the body's result to [goxret] via the
@@ -2614,12 +2614,12 @@ named return + both assignments agree).  The handler clauses run in VALUE mode
     val () =
       if i1cmp_tail_returns(bodyCmp) then () else
       (
-      nindfpr(filr, nind1); strnfpr(filr, "return"); fprintln(filr))
+      nindfpr(filr, nind1); strnfpr(filr, "return"); strnfpr(filr, "\n"))
     //
     val () = envx2go_decnind(env0, 1)  // close the IIFE body
     val () =
     (
-    nindfpr(filr, nind); strnfpr(filr, "}()"); fprintln(filr))
+    nindfpr(filr, nind); strnfpr(filr, "}()"); strnfpr(filr, "\n"))
   in
     ((*void*))
   end
@@ -2654,13 +2654,13 @@ has NO I0El0azy/I0El1azy constructor, so `$lazy` lowers to an error node and
     if live
       then (i1tnmgo1(filr, itnm); strnfpr(filr, " := xatsgo.Xats_l0azy(func() any {"))
       else strnfpr(filr, "_ = xatsgo.Xats_l0azy(func() any {");
-    fprintln(filr))
+    strnfpr(filr, "\n"))
     val () = envx2go_incnind(env0, 1)
     val () = i1cmp_go1emit_ret(thunkCmp, list_nil(), bnds, env0)
     val () = envx2go_decnind(env0, 1)
     val () =
     (
-    nindfpr(filr, nind); strnfpr(filr, "})"); fprintln(filr))
+    nindfpr(filr, nind); strnfpr(filr, "})"); strnfpr(filr, "\n"))
   in
     ((*void*))
   end
@@ -2674,13 +2674,13 @@ has NO I0El0azy/I0El1azy constructor, so `$lazy` lowers to an error node and
     if live
       then (i1tnmgo1(filr, itnm); strnfpr(filr, " := xatsgo.Xats_l1azy(func() any {"))
       else strnfpr(filr, "_ = xatsgo.Xats_l1azy(func() any {");
-    fprintln(filr))
+    strnfpr(filr, "\n"))
     val () = envx2go_incnind(env0, 1)
     val () = i1cmp_go1emit_ret(thunkCmp, list_nil(), bnds, env0)
     val () = envx2go_decnind(env0, 1)
     val () =
     (
-    nindfpr(filr, nind); strnfpr(filr, "})"); fprintln(filr))
+    nindfpr(filr, nind); strnfpr(filr, "})"); strnfpr(filr, "\n"))
   in
     ((*void*))
   end
@@ -2769,7 +2769,7 @@ case+ proj_binding(ilt1) of
               val () = (strnfpr(filr, "."); strnfpr(filr, gofield_of_label(llab)))
               val () = strnfpr(filr, " = ")
               val () = i1valgo1(filr, irgt)
-              val () = fprintln(filr)
+              val () = strnfpr(filr, "\n")
             in
               true
             end
@@ -2860,7 +2860,7 @@ case+ ilet of
     if live
       then (i1tnmgo1(filr, itnm); strnfpr(filr, " := "))
       else strnfpr(filr, "_ = ");
-    i1trcd_construct_go1emit(filr, itnm, iins); fprintln(filr))
+    i1trcd_construct_go1emit(filr, itnm, iins); strnfpr(filr, "\n"))
     end
   else
   (
@@ -2878,7 +2878,7 @@ case+ ilet of
     t1imp_func_literal_go1emit(filr, timp, env0)
     then ((*void*))
     else i1insgo1(filr, scp, iins);
-    fprintln(filr))
+    strnfpr(filr, "\n"))
     end
   | _(*ordinary single-expression instruction*) =>
   let
@@ -2901,7 +2901,7 @@ case+ ilet of
     end
   | _(*otherwise*) =>
       i1insgo1(filr, scp, iins);
-  fprintln(filr))
+  strnfpr(filr, "\n"))
   end)
   )
 //
@@ -2937,12 +2937,12 @@ case+ ilet of
     in
     (
     nindfpr(filr, nind); strnfpr(filr, "_ = ");
-    i1trcd_construct_go1emit(filr, tmp, iins); fprintln(filr))
+    i1trcd_construct_go1emit(filr, tmp, iins); strnfpr(filr, "\n"))
     end
   else
   (
   nindfpr(filr, nind);
-  i1insgo1(filr, scp, iins); fprintln(filr))))
+  i1insgo1(filr, scp, iins); strnfpr(filr, "\n"))))
 //
 end//let//endof[i1let_go1emit_p(ilet,scp,params,env0)]
 //
@@ -2976,7 +2976,7 @@ in//let
   (
   nindfpr(filr, nind);
   strnfpr(filr, "_ = ");
-  i1valgo1(filr, ival); fprintln(filr))
+  i1valgo1(filr, ival); strnfpr(filr, "\n"))
 end//let//endof[i1cmp_go1emit(icmp,env0)]
 //
 #implfun
@@ -3008,7 +3008,7 @@ in//let
       // 2. reassign each parameter from the (already pre-computed) new value.
       emit_param_reassign(params, args, env0);
       // 3. continue the enclosing function loop.
-      nindfpr(filr, nind); strnfpr(filr, "continue"); fprintln(filr))
+      nindfpr(filr, nind); strnfpr(filr, "continue"); strnfpr(filr, "\n"))
     | _(*not a tail self-call, or TCO disabled*) =>
       emit_ret_plain(innerCmp, params, bnds, env0))
   //
@@ -3036,7 +3036,7 @@ in//let
     (
     nindfpr(filr, nind);
     i1tnmgo1(filr, p1); strnfpr(filr, " = ");
-    i1valgo1(filr, a1); fprintln(filr);
+    i1valgo1(filr, a1); strnfpr(filr, "\n");
     emit_param_reassign(ps1, as1, env0))
   | _(*exhausted*) => ((*void*))
 end//let//endof[emit_param_reassign(...)]
@@ -3071,7 +3071,7 @@ in//let
   (
   nindfpr(filr, nind);
   strnfpr(filr, "return ");
-  i1valgo1(filr, ival1); fprintln(filr))
+  i1valgo1(filr, ival1); strnfpr(filr, "\n"))
 end//let//endof[emit_ret_plain(icmp,params,bnds,env0)]
 //
 #implfun
@@ -3089,7 +3089,7 @@ in//let
   (
   nindfpr(filr, nind);
   i1tnmgo1(filr, itnm); strnfpr(filr, " = ");
-  i1valgo1(filr, ival); fprintln(filr))
+  i1valgo1(filr, ival); strnfpr(filr, "\n"))
 end//let//endof[i1cmp_go1emit_tnm(itnm,icmp,env0)]
 //
 (* ****** ****** *)

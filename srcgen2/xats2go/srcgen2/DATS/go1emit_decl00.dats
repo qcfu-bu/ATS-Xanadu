@@ -138,7 +138,7 @@ val () =
 (
 nindfpr(filr, nind);
 strnfpr(filr, "// I1Dvaldclist(");
-loctn_fprint(loc0, filr); strnfpr(filr, ")"); fprintln(filr))
+loctn_fprint(loc0, filr); strnfpr(filr, ")"); strnfpr(filr, "\n"))
 //
 val () =
 (
@@ -177,7 +177,7 @@ in//let
 (
 nindfpr(filr, nind);
 strnfpr(filr, "// (skipped non-val dcl @ ");
-loctn_fprint(loc0, filr); strnfpr(filr, ")"); fprintln(filr)) end
+loctn_fprint(loc0, filr); strnfpr(filr, ")"); strnfpr(filr, "\n")) end
 //endof[f0_otherwise(dcl0,env0)]
 //
 }(*where*)//endof[i1dcl_go1emit(dcl0,env0)]
@@ -296,7 +296,7 @@ in//let
       (
       nindfpr(filr, nind);
       strnfpr(filr, "var "); d2vargo1(filr, dvar);
-      strnfpr(filr, " "); strnfpr(filr, funty); fprintln(filr))
+      strnfpr(filr, " "); strnfpr(filr, funty); strnfpr(filr, "\n"))
     in
       localfun_predecl(i1fs1, d2cs1, env0)
     end
@@ -410,7 +410,7 @@ in//let
       val () =
       (
       strnfpr(filr, ") "); strnfpr(filr, retty);
-      strnfpr(filr, " {"); fprintln(filr))
+      strnfpr(filr, " {"); strnfpr(filr, "\n"))
       //
       // body: return mode, TCO-loop when it has a reachable tail self-call.
       val () =
@@ -421,7 +421,7 @@ in//let
         envx2go_incnind(env0, 1(*++*));
         nindfpr(filr, envx2go_nind$get(env0));
         strnfpr(filr, "panic(\"xats2go: local function with no body\")");
-        fprintln(filr);
+        strnfpr(filr, "\n");
         envx2go_decnind(env0, 1(*--*));
         prerrsln("[go1emit] NOTE: local I1Dfundcl with no body (TEQI1CMPnone)"))
       |TEQI1CMPsome(_, icmp) =>
@@ -448,7 +448,7 @@ in//let
         end)
       //
       // closing `}` of the func literal.
-      val () = (nindfpr(filr, nind); strnfpr(filr, "}"); fprintln(filr))
+      val () = (nindfpr(filr, nind); strnfpr(filr, "}"); strnfpr(filr, "\n"))
     in
       localfun_assign(i1fs1, d2cs1, env0)
     end
@@ -481,7 +481,7 @@ in//let
   |list_cons _ =>
     (
     nindfpr(filr, envx2go_nind$get(env0));
-    strnfpr(filr, "// UNHANDLED: template local fundclst"); fprintln(filr);
+    strnfpr(filr, "// UNHANDLED: template local fundclst"); strnfpr(filr, "\n");
     prerrsln("[go1emit] UNHANDLED: template local I1Dfundclst (M3)"))
 end//let//endof[f0_localfun(dcl1,env0)]
 //
@@ -607,9 +607,9 @@ case+ ipat.node() of
     // not already-returning (a val initializer is a value), so always bind.
     nindfpr(filr, nind);
     i1tnmgo1(filr, itnm); strnfpr(filr, " := ");
-    i1valgo1(filr, ival); fprintln(filr);
+    i1valgo1(filr, ival); strnfpr(filr, "\n");
     nindfpr(filr, nind);
-    strnfpr(filr, "_ = "); i1tnmgo1(filr, itnm); fprintln(filr)
+    strnfpr(filr, "_ = "); i1tnmgo1(filr, itnm); strnfpr(filr, "\n")
   end
 //
 // `val _ = CMP`: a wildcard binding -- emit as a discarded effect.
@@ -635,9 +635,9 @@ case+ ipat.node() of
         if (gty = "any")
           then strnfpr(filr, ".(*xatsgo.XatsCon)") else ((*void*)))
       else ((*void*));
-    fprintln(filr);
+    strnfpr(filr, "\n");
     nindfpr(filr, nind);
-    strnfpr(filr, "_ = "); i1tnmgo1(filr, itnm); fprintln(filr)
+    strnfpr(filr, "_ = "); i1tnmgo1(filr, itnm); strnfpr(filr, "\n")
   end
 ))
 //
@@ -739,14 +739,14 @@ case+ tdxp of
     (
     nindfpr(filr, nind);
     strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
-    strnfpr(filr, " *"); strnfpr(filr, body); fprintln(filr))
+    strnfpr(filr, " *"); strnfpr(filr, body); strnfpr(filr, "\n"))
   |optn_nil() =>
     let
       val goty = goty_of_dpid(dpid)
     in
       nindfpr(filr, nind);
       strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
-      strnfpr(filr, " "); strnfpr(filr, goty); fprintln(filr);
+      strnfpr(filr, " "); strnfpr(filr, goty); strnfpr(filr, "\n");
       if (goty = "any")
       then prerrsln("[go1emit] NOTE: var without initializer -> `var goxtnm<x> any`")
       else ((*void*))
@@ -802,7 +802,7 @@ case+ tdxp of
       strnfpr(filr, " *"); strnfpr(filr, body);
       strnfpr(filr, " = ");
       (if isFlat then strnfpr(filr, "&"));   // &<value-struct> -> *struct
-      i1valgo1(filr, ival); fprintln(filr))
+      i1valgo1(filr, ival); strnfpr(filr, "\n"))
     //
     // NON-aggregate (scalar / unrecoverable) var -> keep the value type.  A
     // scalar var's mutation is a whole-var reassignment (`x = v`), not a field
@@ -815,7 +815,7 @@ case+ tdxp of
         strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
         strnfpr(filr, " "); strnfpr(filr, goty);
         strnfpr(filr, " = ");
-        i1valgo1(filr, ival); fprintln(filr)
+        i1valgo1(filr, ival); strnfpr(filr, "\n")
       end
   end
 //
@@ -900,7 +900,7 @@ case+ tqas of
   // a TEMPLATE function group (has static template args) -- M3 scope.
   nindfpr(filr, env0.nind());
   strnfpr(filr, "// UNHANDLED: template fundclst @ ");
-  loctn_fprint(loc0, filr); fprintln(filr);
+  loctn_fprint(loc0, filr); strnfpr(filr, "\n");
   prerrsln
     ("[go1emit] UNHANDLED: template I1Dfundclst (M3)"))
 //
@@ -947,7 +947,7 @@ emit_comment
 (
 nindfpr(filr, env0.nind());
 strnfpr(filr, "// "); strnfpr(filr, msg);
-strnfpr(filr, " @ "); loctn_fprint(loc0, filr); fprintln(filr))
+strnfpr(filr, " @ "); loctn_fprint(loc0, filr); strnfpr(filr, "\n"))
 //
 fun
 emit_implfun
