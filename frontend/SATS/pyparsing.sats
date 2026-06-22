@@ -349,6 +349,10 @@ pyexp =
 //              to a plain `d2exp_tapp(e, [Int])` (no value-app). `@` stays decorators-only on the
 //              surface, so there is no collision with any operator.
 | PyEinst  of (loctn, list(pytyp), pyexp)
+//   PyEsapp  : `@sapp[T1, T2, ..] e` — ATS STATIC application (`foo{T1,..}`), distinct from
+//              template `<...>` instantiation. Generated Pythonic code uses this to preserve or
+//              reconstruct compiler-internal static arguments such as `topmap_make_nil{itm}()`.
+| PyEsapp  of (loctn, list(pytyp), pyexp)
 | PyEerror of (loctn, strn)
 //
 // a record-literal field `name = expr`
@@ -701,10 +705,10 @@ fun parse_index_type(st: pstate): @(pytyp, pstate)
 fun parse_typarams(st: pstate): @(list(pytyparam), pstate)
 fun parse_pattern(st: pstate): @(pypat, pstate)
 // A-TEMPLATE: parse a decorator's `[ type {, type} ]` TYPE-ARG payload (the `@impl[Int, Bool]` /
-// `@inst[Int, ..]` brackets — type USES, NOT binders). The lookahead MUST be PT_LBRACK; we consume
+// `@inst[Int, ..]` / `@sapp[Int, ..]` brackets — type USES, NOT binders). The lookahead MUST be PT_LBRACK; we consume
 // the matching PT_RBRACK. Each element is a full surface type (reuses the staexp type-arg grammar,
 // so `Int` / `List[Int]` / a bare index all parse). Lives in staexp (where parse_type is in scope);
-// used by BOTH decl00 (@impl decorator payload) and dynexp (@inst expr decorator payload).
+// used by BOTH decl00 (@impl decorator payload) and dynexp (@inst/@sapp expr decorator payload).
 fun parse_deco_typeargs(st: pstate): @(list(pytyp), pstate)
 fun parse_expr(st: pstate): @(pyexp, pstate)
 fun parse_suite(st: pstate): @(pystmtlst, pstate)

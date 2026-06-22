@@ -370,6 +370,7 @@ case+ e of
 | PyEop(_, _)     => fv     // an operator-as-value names no LOCAL — contributes no free vars
 // A-TEMPLATE: `@inst[types] e` — the type-args name no LOCAL; the free vars are those of `e`.
 | PyEinst(_, _, e1) => fc_fv_exp(bnd, fv, e1)
+| PyEsapp(_, _, e1) => fc_fv_exp(bnd, fv, e1)
 // B-LINEAR: `&x` / `!p` — the free vars are those of the inner l-value / pointer expr.
 | PyEaddr(_, e1)  => fc_fv_exp(bnd, fv, e1)
 | PyEderef(_, e1) => fc_fv_exp(bnd, fv, e1)
@@ -586,6 +587,8 @@ case+ e of
 // A-TEMPLATE: `@inst[types] e` -> PCEinst, carrying the type-args + the elaborated inner expr.
 // M3 (pl_exp) lowers it to a tapp-nested-in-dapp (foo<Int>(args)) / a bare tapp.
 | PyEinst(loc, ts, e1) => PCEinst(loc, ts, el_exp(encl, e1))
+// Static `{...}` application: generated pyprint uses this for ATS implicit/static arguments.
+| PyEsapp(loc, ts, e1) => PCEsapp(loc, ts, el_exp(encl, e1))
 // B-LINEAR: `&x` -> PCEaddr (D2Eaddr) ; `!p` -> PCEderef (D2Eeval).
 | PyEaddr(loc, e1) => PCEaddr(loc, el_exp(encl, e1))
 | PyEderef(loc, e1) => PCEderef(loc, el_exp(encl, e1))

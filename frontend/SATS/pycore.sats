@@ -246,6 +246,9 @@ pcexp =
 //             thus reaches ATS `foo<Int>(5)`. (Resolution/monomorphization is deferred to trtmp3b/3c,
 //             AFTER tread3a, so the instantiated form typechecks structurally — SPIKE T3-proven.)
 | PCEinst   of (loctn, list(pytyp), pcexp)
+//   PCEsapp : `@sapp[T1, ..] e` — static `{...}` application, lowering to D2Esapp. Generated
+//             compiler corpus output uses this for explicit and reconstructed static map args.
+| PCEsapp   of (loctn, list(pytyp), pcexp)
 //   PCEwhere : SCOPING (bootstrap P1) — a def BODY wrapped in a `where:` block: `e where {decls}`.
 //              Carries the body expr + the ELABORATED where-decls. M3 lowers it (pl_exp) to
 //              D2Ewhere(<body>, <lowered where-decls>) — the where-decls are BACKWARDS-scoped around

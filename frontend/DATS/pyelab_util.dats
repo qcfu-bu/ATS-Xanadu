@@ -42,6 +42,7 @@ case+ e of
 | PCEunit(loc) => loc         | PCEerror(loc, _) => loc
 | PCEraise(loc, _) => loc     | PCEtry(loc, _, _) => loc
 | PCEinst(loc, _, _) => loc
+| PCEsapp(loc, _, _) => loc
 | PCEwhere(loc, _, _) => loc
 | PCEaddr(loc, _) => loc      | PCEderef(loc, _) => loc
 | PCEfold(loc, _) => loc

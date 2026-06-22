@@ -15,7 +15,8 @@ loop-`else`); operators; tuples, records, lists; `enum`/`struct`/`type` ×
 monomorphic/parametric × boxed/linear/flat modes + param sorts; **function types**
 `(A)->B`; **tuple types** `(A,B)`; **as-patterns** `p as x`; **multi-file `import`**
 (scoped staload, no LSP leak); **closures** (uniform `cloref`) + **`@func`** non-capture
-check. All live in the deno LSP with diagnostics on `.psats`/`.pdats` spans.
+check; explicit static call-site application **`@sapp[T] f(...)`**. All live in the deno LSP
+with diagnostics on `.psats`/`.pdats` spans.
 
 ## Batch A — imperative / term core
 - ✅ **Exceptions** — `exception E(T)` / `raise` / `try…except` (`cd59134a0`). Spike-verified; also fixed the nullary-con-as-value bug (`pl_con_value`→`D2Edap0`).
@@ -55,7 +56,7 @@ obligations are NOT solver-verified — the constraint solver is unbuilt in stoc
 `ADVANCED-SURFACE.md` for the full settled surface.
 - ✅ **Dependent indices** — `SInt`/`SBool` index sorts, index args (`Vec[A,n]`/`SInt[n]`), arithmetic (`n+1`), guards (`{n|g}`) (DEP, DEP2). `the_s2exp_sint1`/static-op map.
 - ✅ **Quantifiers** — `def f[n: SInt | g]` universal sugar + explicit `forall[n|g] T` / `exists[m|g] T` in types (`s2exp_uni0`/`s2exp_exi0`) + **subset sorts** `@sort type Nat = {a|g}` (`S2TEXsub`) (A-quant, `d8002a68a`).
-- ✅ **Templates** — `@template[A] def foo[C]` (decl, `tqas` via `t2qag_make_s2vs`) / `@impl[Int] def` (`tias`) / `@inst[Int] foo(…)` (`d2exp_tapp`); resolution deferred to trtmp3b/3c (after tread3a), so all reach nerror=0 (A-template, `29d3794d5`). Negative control proves the instantiation is really typechecked.
+- ✅ **Templates/static apps** — `@template[A] def foo[C]` (decl, `tqas` via `t2qag_make_s2vs`) / `@impl[Int] def` (`tias`) / `@inst[Int] foo(…)` (`d2exp_tapp`) / `@sapp[C] foo(…)` (`d2exp_sapp`); resolution deferred to trtmp3b/3c (after tread3a), so all reach nerror=0 (A-template, `29d3794d5`). Negative control proves the template instantiation is really typechecked.
 - ✅ **`dataprop` / `dataview`** — `@prop`/`@view enum` (DEP2). `@sort enum` datasort ⏸ (needs L1; no-op past trans12 — low priority).
 - ✅ **Proofs** — `@proof def`=prfun / `@proof let`=prval / `@proof @extern def`=praxi (STAT/PROOF). `@terminates[n]` totality metric (`F2ARGmets`) + `VCons{n}(…)` existential-unpack (`d2pat_sapp`) (C-proof, `9e9ae3906`). `@with` on case arms ⏸ DEFERRED (no per-clause withtype slot in `D2CLScls`).
 - ✅ **Views / linear** — `A at l` at-views (`S2Eatx2`), `~p` consume (`D2Pfree`), `&x`/`!p` (`D2Eaddr`/`D2Eeval`), `:=>`/`:=:` move/swap (`D2Exazgn`/`D2Exchng`) (B-linear, `4094aa171`). Proof-linked bare-ptr deref ⏸ DEFERRED (needs view solver); `!p`-unfold + `@p` flat patterns ⏸ out of scope.

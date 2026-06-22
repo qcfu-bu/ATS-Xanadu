@@ -73,6 +73,8 @@
 #extern fun PYPP_type_rename_get(s: strn): strn = $extnam()
 #extern fun PYPP_con_add(s: strn): void = $extnam()
 #extern fun PYPP_con_has(s: strn): bool = $extnam()
+#extern fun PYPP_con_maparg_add(con: strn, idx: sint, kind: strn, elem: strn): void = $extnam()
+#extern fun PYPP_con_maparg_elem(con: strn, idx: sint, kind: strn): strn = $extnam()
 #extern fun PYPP_value_add(s: strn): void = $extnam()
 #extern fun PYPP_value_has(s: strn): bool = $extnam()
 #extern fun PYPP_binder_push(s: strn): void = $extnam()
@@ -1291,6 +1293,21 @@ and
 	)
 	and
 	pp_dexp_apps_from(out: FILR, hd: d0exp, rest: d0explst): void =
+	(
+	  case+ rest of
+	  | list_cons(arg0, rest1) => (
+	      case+ arg0.node() of
+	      | D0Esarg(_, ses, _) => (
+	          ps(out, "@sapp["); pp_s0exp_seq(out, ses); ps(out, "] ");
+	          pp_dexp_apps_from(out, hd, rest1))
+	      | D0Etarg(_, ses, _) => (
+	          ps(out, "@inst["); pp_s0exp_seq(out, ses); ps(out, "] ");
+	          pp_dexp_apps_from(out, hd, rest1))
+	      | _ => pp_dexp_apps_from_plain(out, hd, rest))
+	  | list_nil() => pp_dexp_apps_from_plain(out, hd, rest)
+	)
+	and
+	pp_dexp_apps_from_plain(out: FILR, hd: d0exp, rest: d0explst): void =
 	if dexp_is_nullary_local_con_call(hd, rest)
 	then pp_d0exp_inline(out, hd)
 	else let
@@ -1719,11 +1736,11 @@ pp_d0exp_suite(out: FILR, n: sint, de: d0exp): void =
   //
   // a let-binding suite. The L0 `let DECLS in BODY end` -> emit each decl, then
   // the body. The decls are d0eclist (here: val-bindings `val+ P = e`).
-  | D0Elet0(_, decls, _, body, _) => (
-      PYPP_type_scope_push();
-      pp_dexp_letdecls(out, n, decls);
-      pp_dexp_body_seq(out, n, body);
-      PYPP_type_scope_pop())
+	  | D0Elet0(_, decls, _, body, _) => (
+	      PYPP_type_scope_push();
+	      pp_dexp_letdecls_bodyctx(out, n, body, decls);
+	      pp_dexp_body_seq(out, n, body);
+	      PYPP_type_scope_pop())
   //
   // a `case[+-] X of | p => e | ...` -> `match X:` then arms.
   | D0Ecas0(_, scrut, _, _, cls) => pp_dexp_match(out, n, scrut, cls)
@@ -1736,11 +1753,11 @@ pp_d0exp_suite(out: FILR, n: sint, de: d0exp): void =
 	  // Suite-position `e where { decls }`: hoist the backwards-scoped decls before
 	  // the expression so side-effecting `val () = ...` where decls are preserved.
 	  // Top-level impl bodies still print a trailing `where:` block via pp_impl_body.
-	  | D0Ewhere(body0, wdc) => (
-	      PYPP_type_scope_push();
-	      pp_dexp_where_decls(out, n, wdc);
-	      pp_d0exp_suite(out, n, body0);
-        PYPP_type_scope_pop())
+		  | D0Ewhere(body0, wdc) => (
+		      PYPP_type_scope_push();
+		      pp_dexp_where_decls_ctx(out, n, body0, wdc);
+		      pp_d0exp_suite(out, n, body0);
+	        PYPP_type_scope_pop())
 	  //
 	  // a `(a; b; ...)` SMCLN-sequence -> each on its own statement line.  The parse
   // SPLITS at the FIRST `;`: D0Elpar's d0explst holds the part BEFORE `;`, and the
@@ -1908,19 +1925,37 @@ pp_dexp_rhs(out: FILR, des: d0explst): void = pp_dexp_apps(out, des)
 //
 // the let-decls (val+ P = e bindings) of a `let ... in` -> `let P = e` lines.
 //
-and
-pp_dexp_letdecls(out: FILR, n: sint, decls: d0eclist): void =
-(
-  case+ decls of
+	and
+	pp_dexp_letdecls(out: FILR, n: sint, decls: d0eclist): void =
+	(
+	  case+ decls of
   | list_nil() => ()
   | list_cons(dc, rest) => (
-      pp_dexp_letdecl(out, n, dc);
-      pp_dexp_letdecls(out, n, rest))
-)
-and
-pp_dexp_letdecl(out: FILR, n: sint, dc: d0ecl): void =
-(
-  case+ dc.node() of
+	      pp_dexp_letdecl(out, n, dc);
+	      pp_dexp_letdecls(out, n, rest))
+	)
+	and
+	pp_dexp_letdecls_ctx(out: FILR, n: sint, ctx: d0exp, decls: d0eclist): void =
+	(
+	  case+ decls of
+	  | list_nil() => ()
+	  | list_cons(dc, rest) => (
+	      pp_dexp_letdecl_ctx(out, n, ctx, dc);
+	      pp_dexp_letdecls_ctx(out, n, ctx, rest))
+	)
+	and
+	pp_dexp_letdecls_bodyctx(out: FILR, n: sint, body: d0explst, decls: d0eclist): void =
+	(
+	  case+ decls of
+	  | list_nil() => ()
+	  | list_cons(dc, rest) => (
+	      pp_dexp_letdecl_bodyctx(out, n, body, dc);
+	      pp_dexp_letdecls_bodyctx(out, n, body, rest))
+	)
+	and
+	pp_dexp_letdecl(out: FILR, n: sint, dc: d0ecl): void =
+	(
+	  case+ dc.node() of
 	  // a `val+ P = e` / `val P = e` value binding -> `let P = e` (or just the stmt
 	  // if P is the void pattern `()` — a side-effecting binding).
 	  | D0Cvaldclst(_, vds) => pp_dexp_valdcls(out, n, vds)
@@ -1938,7 +1973,23 @@ pp_dexp_letdecl(out: FILR, n: sint, dc: d0ecl): void =
 	  | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
 	  | D0Ctkerr(_) => ()
 	  | D0Ctkskp(_) => ()
-	  | _ => (ind(out, n); todo(out, "let-decl"))
+		  | _ => (ind(out, n); todo(out, "let-decl"))
+		)
+	and
+	pp_dexp_letdecl_ctx(out: FILR, n: sint, ctx: d0exp, dc: d0ecl): void =
+	(
+	  case+ dc.node() of
+		  | D0Cvaldclst(_, vds) => pp_dexp_valdcls_ctx(out, n, ctx, vds)
+		  | D0Cstatic(_, dc1) => pp_dexp_letdecl_ctx(out, n, ctx, dc1)
+		  | _ => pp_dexp_letdecl(out, n, dc)
+	)
+	and
+	pp_dexp_letdecl_bodyctx(out: FILR, n: sint, body: d0explst, dc: d0ecl): void =
+	(
+	  case+ dc.node() of
+		  | D0Cvaldclst(_, vds) => pp_dexp_valdcls_bodyctx(out, n, body, vds)
+		  | D0Cstatic(_, dc1) => pp_dexp_letdecl_bodyctx(out, n, body, dc1)
+		  | _ => pp_dexp_letdecl(out, n, dc)
 	)
 and
 pp_dexp_local_decls(out: FILR, n: sint, head: d0eclist, body: d0eclist): void =
@@ -1991,11 +2042,17 @@ in
   pop_binders(raws)
 end
 and
-pp_dexp_where_decls(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
-(
-  case+ wdc of
-  | d0eclseq_WHERE(_, _, dcs, _) => pp_dexp_letdecls(out, n, dcs)
-)
+	pp_dexp_where_decls(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
+	(
+	  case+ wdc of
+	  | d0eclseq_WHERE(_, _, dcs, _) => pp_dexp_letdecls(out, n, dcs)
+	)
+	and
+	pp_dexp_where_decls_ctx(out: FILR, n: sint, ctx: d0exp, wdc: d0eclseq_WHERE): void =
+	(
+	  case+ wdc of
+	  | d0eclseq_WHERE(_, _, dcs, _) => pp_dexp_letdecls_ctx(out, n, ctx, dcs)
+	)
 and
 pp_dexp_impl_local
 ( out: FILR, n: sint, tqas: t0qaglst, dqi: d0qid, tias: t0iaglst
@@ -2039,16 +2096,16 @@ in
    | TEQD0EXPnone() => (ind(out, n+1); todo(out, "fun-no-body")))
 end
 and
-pp_dexp_fun_body(out: FILR, n: sint, body: d0exp): void =
-(
-  case+ body.node() of
-  | D0Ewhere(body0, wdc) => (
-      pp_dexp_fun_body(out, n, body0);
-      pp_dexp_where_block(out, n, wdc))
-  | _ => pp_d0exp_suite(out, n+1, body)
-)
-and
-pp_dexp_where_block(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
+	pp_dexp_fun_body(out: FILR, n: sint, body: d0exp): void =
+	(
+	  case+ body.node() of
+	  | D0Ewhere(body0, wdc) => (
+	      pp_dexp_fun_body(out, n, body0);
+	      pp_dexp_where_block_ctx(out, n, body0, wdc))
+	  | _ => pp_d0exp_suite(out, n+1, body)
+	)
+	and
+	pp_dexp_where_block(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
 (
   case+ wdc of
   | d0eclseq_WHERE(_, _, dcs, _) => (
@@ -2057,22 +2114,53 @@ pp_dexp_where_block(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
       | _ => (
           PYPP_type_scope_push();
           ind(out, n); ps(out, "where:"); nl(out);
-          pp_dexp_letdecls(out, n+1, dcs);
-          PYPP_type_scope_pop()))
-)
-and
-pp_dexp_valdcls(out: FILR, n: sint, vds: d0valdclist): void =
-(
-  case+ vds of
+	          pp_dexp_letdecls(out, n+1, dcs);
+	          PYPP_type_scope_pop()))
+	)
+	and
+	pp_dexp_where_block_ctx(out: FILR, n: sint, ctx: d0exp, wdc: d0eclseq_WHERE): void =
+	(
+	  case+ wdc of
+	  | d0eclseq_WHERE(_, _, dcs, _) => (
+	      case+ dcs of
+	      | list_nil() => ()
+	      | _ => (
+	          PYPP_type_scope_push();
+	          ind(out, n); ps(out, "where:"); nl(out);
+	          pp_dexp_letdecls_ctx(out, n+1, ctx, dcs);
+	          PYPP_type_scope_pop()))
+	)
+	and
+	pp_dexp_valdcls(out: FILR, n: sint, vds: d0valdclist): void =
+	(
+	  case+ vds of
   | list_nil() => ()
   | list_cons(vd, rest) => (
-      pp_dexp_valdcl(out, n, vd);
-      pp_dexp_valdcls(out, n, rest))
-)
-and
-pp_dexp_valdcl(out: FILR, n: sint, vd: d0valdcl): void = let
-  val dpat = d0valdcl_get_dpat(vd)
-  val tdxp = d0valdcl_get_tdxp(vd)
+	      pp_dexp_valdcl(out, n, vd);
+	      pp_dexp_valdcls(out, n, rest))
+	)
+	and
+	pp_dexp_valdcls_ctx(out: FILR, n: sint, ctx: d0exp, vds: d0valdclist): void =
+	(
+	  case+ vds of
+	  | list_nil() => ()
+	  | list_cons(vd, rest) => (
+	      pp_dexp_valdcl_ctx(out, n, ctx, vd);
+	      pp_dexp_valdcls_ctx(out, n, ctx, rest))
+	)
+	and
+	pp_dexp_valdcls_bodyctx(out: FILR, n: sint, body: d0explst, vds: d0valdclist): void =
+	(
+	  case+ vds of
+	  | list_nil() => ()
+	  | list_cons(vd, rest) => (
+	      pp_dexp_valdcl_bodyctx(out, n, body, vd);
+	      pp_dexp_valdcls_bodyctx(out, n, body, rest))
+	)
+	and
+	pp_dexp_valdcl(out: FILR, n: sint, vd: d0valdcl): void = let
+	  val dpat = d0valdcl_get_dpat(vd)
+	  val tdxp = d0valdcl_get_tdxp(vd)
 in
   case+ tdxp of
   | TEQD0EXPsome(_, rhs) => (
@@ -2081,11 +2169,35 @@ in
       if dpat_is_void(dpat)
       then pp_d0exp_suite(out, n, rhs)
       else pp_dexp_val_rhs(out, n, dpat, rhs))
-  | TEQD0EXPnone() => (ind(out, n); todo(out, "valdcl-no-rhs"))
-end
-and
-pp_dexp_vardcls(out: FILR, n: sint, vds: d0vardclist): void =
-(
+	  | TEQD0EXPnone() => (ind(out, n); todo(out, "valdcl-no-rhs"))
+	end
+	and
+	pp_dexp_valdcl_ctx(out: FILR, n: sint, ctx: d0exp, vd: d0valdcl): void = let
+	  val dpat = d0valdcl_get_dpat(vd)
+	  val tdxp = d0valdcl_get_tdxp(vd)
+	in
+	  case+ tdxp of
+	  | TEQD0EXPsome(_, rhs) =>
+	      if pp_dexp_val_map_sapp_ctx(out, n, ctx, dpat, rhs)
+	      then ()
+	      else pp_dexp_valdcl(out, n, vd)
+	  | TEQD0EXPnone() => pp_dexp_valdcl(out, n, vd)
+	end
+	and
+	pp_dexp_valdcl_bodyctx(out: FILR, n: sint, body: d0explst, vd: d0valdcl): void = let
+	  val dpat = d0valdcl_get_dpat(vd)
+	  val tdxp = d0valdcl_get_tdxp(vd)
+	in
+	  case+ tdxp of
+	  | TEQD0EXPsome(_, rhs) =>
+	      if pp_dexp_val_map_sapp_bodyctx(out, n, body, dpat, rhs)
+	      then ()
+	      else pp_dexp_valdcl(out, n, vd)
+	  | TEQD0EXPnone() => pp_dexp_valdcl(out, n, vd)
+	end
+	and
+	pp_dexp_vardcls(out: FILR, n: sint, vds: d0vardclist): void =
+	(
   case+ vds of
   | list_nil() => ()
   | list_cons(vd, rest) => (
@@ -2240,16 +2352,185 @@ pp_dexp_val_body_seq(out: FILR, n: sint, dpat: d0pat, body: d0explst): void =
 )
 // is the pattern the void/unit pattern `()` (an empty paren group)?
 and
-dpat_is_void(dp: d0pat): bool =
-(
-  case+ dp.node() of
-  | D0Plpar(_, list_nil(), _) => true
-  | _ => false
-)
-//
-(* ****** ****** *)
-//
-// a `match X:` from `case- X of | p => e | ...`.
+	dpat_is_void(dp: d0pat): bool =
+	(
+	  case+ dp.node() of
+	  | D0Plpar(_, list_nil(), _) => true
+	  | _ => false
+	)
+	and
+	pp_dexp_val_map_sapp_ctx
+	( out: FILR, n: sint, ctx: d0exp
+	, dpat: d0pat, rhs: d0exp): bool = let
+	  val pat = dpat_var_raw(dpat)
+	  val kind = dexp_nil_map_kind(rhs)
+	  val elem =
+	    (if strn_eq(pat, "") then ""
+	     else if strn_eq(kind, "") then ""
+	     else dexp_context_map_elem(ctx, pat, kind)): strn
+	in
+	  if strn_eq(elem, "")
+	  then false
+	  else (pp_dexp_val_map_sapp_emit(out, n, dpat, elem, rhs); true)
+	end
+	and
+	pp_dexp_val_map_sapp_bodyctx
+	( out: FILR, n: sint, body: d0explst
+	, dpat: d0pat, rhs: d0exp): bool = let
+	  val pat = dpat_var_raw(dpat)
+	  val kind = dexp_nil_map_kind(rhs)
+	  val elem =
+	    (if strn_eq(pat, "") then ""
+	     else if strn_eq(kind, "") then ""
+	     else dexp_body_context_map_elem(body, pat, kind)): strn
+	in
+	  if strn_eq(elem, "")
+	  then false
+	  else (pp_dexp_val_map_sapp_emit(out, n, dpat, elem, rhs); true)
+	end
+	and
+	pp_dexp_val_map_sapp_emit
+	(out: FILR, n: sint, dpat: d0pat, elem: strn, rhs: d0exp): void =
+	(
+	  ind(out, n); ps(out, "let "); pp_d0pat(out, dpat);
+	  ps(out, " = @sapp["); ps(out, elem); ps(out, "] ");
+	  pp_d0exp_inline(out, rhs); nl(out)
+	)
+	and
+	dpat_var_raw(dp: d0pat): strn =
+	(
+	  case+ dp.node() of
+	  | D0Pid0(id) => i0dnt_lexeme(id)
+	  | D0Pannot(dp1, _) => dpat_var_raw(dp1)
+	  | D0Pqual0(_, dp1) => dpat_var_raw(dp1)
+	  | D0Perrck(_, dp1) => dpat_var_raw(dp1)
+	  | _ => ""
+	)
+	and
+	dexp_id_raw(de: d0exp): strn =
+	(
+	  case+ de.node() of
+	  | D0Eid0(id) => i0dnt_lexeme(id)
+	  | D0Eannot(de1, _) => dexp_id_raw(de1)
+	  | D0Equal0(_, de1) => dexp_id_raw(de1)
+	  | D0Eerrck(_, de1) => dexp_id_raw(de1)
+	  | D0Elpar(_, list_cons(de1, list_nil()), _) => dexp_id_raw(de1)
+	  | _ => ""
+	)
+	and
+	dexp_nil_map_kind(de: d0exp): strn =
+	(
+	  case+ de.node() of
+	  | D0Eannot(de1, _) => dexp_nil_map_kind(de1)
+	  | D0Equal0(_, de1) => dexp_nil_map_kind(de1)
+	  | D0Eerrck(_, de1) => dexp_nil_map_kind(de1)
+	  | D0Elpar(_, list_cons(de1, list_nil()), _) => dexp_nil_map_kind(de1)
+	  | D0Eapps(des) => dexp_nil_map_kind_apps(des)
+	  | _ => ""
+	)
+	and
+	dexp_nil_map_kind_apps(des: d0explst): strn =
+	(
+	  case+ des of
+	  | list_cons(hd, rest) => let
+	      val nm = dexp_name(hd)
+	    in
+	      if strn_eq(nm, "topmap_make_nil")
+	      then (if dexp_is_plain_empty_call_tail(rest) then "topmap" else "")
+	      else (
+	        if strn_eq(nm, "stkmap_make_nil")
+	        then (if dexp_is_plain_empty_call_tail(rest) then "stkmap" else "")
+	        else "")
+	    end
+	  | _ => ""
+	)
+	and
+	dexp_is_plain_empty_call_tail(des: d0explst): bool =
+	(
+	  case+ des of
+	  | list_cons(de, rest) => (
+	      case+ de.node() of
+	      | D0Elpar(_, list_nil(), _) => dexp_is_plain_tail_done(rest)
+	      | _ => false)
+	  | _ => false
+	)
+	and
+	dexp_is_plain_tail_done(des: d0explst): bool =
+	(
+	  case+ des of
+	  | list_nil() => true
+	  | _ => false
+	)
+	and
+	dexp_body_context_map_elem(body: d0explst, vraw: strn, kind: strn): strn =
+	(
+	  case+ body of
+	  | list_nil() => ""
+	  | list_cons(de, list_nil()) => dexp_context_map_elem(de, vraw, kind)
+	  | list_cons(_, rest) => dexp_body_context_map_elem(rest, vraw, kind)
+	)
+	and
+	dexp_context_map_elem(ctx: d0exp, vraw: strn, kind: strn): strn =
+	(
+	  case+ ctx.node() of
+	  | D0Eannot(ctx1, _) => dexp_context_map_elem(ctx1, vraw, kind)
+	  | D0Equal0(_, ctx1) => dexp_context_map_elem(ctx1, vraw, kind)
+	  | D0Eerrck(_, ctx1) => dexp_context_map_elem(ctx1, vraw, kind)
+	  | D0Ewhere(ctx1, _) => dexp_context_map_elem(ctx1, vraw, kind)
+	  | D0Elpar(_, list_cons(ctx1, list_nil()), _) => dexp_context_map_elem(ctx1, vraw, kind)
+	  | D0Eapps(des) => dexp_context_map_elem_apps(des, vraw, kind)
+	  | _ => ""
+	)
+	and
+	dexp_context_map_elem_apps(des: d0explst, vraw: strn, kind: strn): strn =
+	(
+	  case+ des of
+	  | list_cons(hd, rest) => let
+	      val con0 = dexp_id_raw(hd)
+	    in
+	      if strn_eq(con0, "")
+	      then ""
+	      else dexp_context_map_elem_tail(con0, rest, vraw, kind)
+	    end
+	  | _ => ""
+	)
+	and
+	dexp_context_map_elem_tail
+	(con0: strn, rest: d0explst, vraw: strn, kind: strn): strn =
+	(
+	  case+ rest of
+	  | list_nil() => ""
+	  | list_cons(arggrp, _) => (
+	      case+ arggrp.node() of
+	      | D0Elpar(_, args, _) => dexp_context_map_elem_args(con0, 0, args, vraw, kind)
+	      | D0Etup1(_, _, args, _) => dexp_context_map_elem_args(con0, 0, args, vraw, kind)
+	      | _ => dexp_context_map_elem_args(con0, 0, list_cons(arggrp, list_nil()), vraw, kind))
+	)
+	and
+	dexp_context_map_elem_args
+	( con0: strn, idx: sint, args: d0explst
+	, vraw: strn, kind: strn): strn =
+	(
+	  case+ args of
+	  | list_nil() => ""
+	  | list_cons(arg, rest) => let
+	      val raw = dexp_id_raw(arg)
+	    in
+	      if strn_eq(raw, vraw)
+	      then let
+	        val elem = PYPP_con_maparg_elem(con0, idx, kind)
+	      in
+	        if strn_eq(elem, "")
+	        then dexp_context_map_elem_args(con0, idx+1, rest, vraw, kind)
+	        else elem
+	      end
+	      else dexp_context_map_elem_args(con0, idx+1, rest, vraw, kind)
+	    end
+	)
+	//
+	(* ****** ****** *)
+	//
+	// a `match X:` from `case- X of | p => e | ...`.
 //
 and
 pp_dexp_match(out: FILR, n: sint, scrut: d0exp, cls: d0clslst): void = (
@@ -2393,12 +2674,94 @@ pp_d0tcn(out: FILR, n: sint, tcn: d0tcn): void =
   // FIELD TYPE is the 4th field — the `of (T)` argument (an s0exp, paren-wrapped
   // for a single field or a tuple).  s0is is the (here empty) index list.
   case+ tcn.node() of
-  | D0TCNnode(_, nm, _s0is, ofty) => (
-      ind(out, n); ps(out, "case "); ps(out, conname_scoped(i0dnt_lexeme(nm)));
+  | D0TCNnode(_, nm, _s0is, ofty) => let
+      val con0 = i0dnt_lexeme(nm)
+      val () = register_tcon_map_args(con0, ofty)
+    in
+      ind(out, n); ps(out, "case "); ps(out, conname_scoped(con0));
       (case+ ofty of
        | optn_cons(se) => (ps(out, "("); pp_tcon_argty(out, se); ps(out, ")"))
        | optn_nil() => ());
-      nl(out))
+      nl(out)
+    end
+)
+and
+register_tcon_map_args(con0: strn, ofty: s0expopt): void =
+(
+  case+ ofty of
+  | optn_nil() => ()
+  | optn_cons(se) => register_tcon_map_args_s0exp(con0, 0, se)
+)
+and
+register_tcon_map_args_s0exp(con0: strn, idx: sint, se: s0exp): void =
+(
+  case+ se.node() of
+  | S0Elpar(_, ses, _) => register_tcon_map_args_seq(con0, idx, ses)
+  | S0Etup1(_, _, ses, _) => register_tcon_map_args_seq(con0, idx, ses)
+  | _ => register_tcon_map_arg_one(con0, idx, se)
+)
+and
+register_tcon_map_args_seq(con0: strn, idx: sint, ses: s0explst): void =
+(
+  case+ ses of
+  | list_nil() => ()
+  | list_cons(se, rest) => (
+      register_tcon_map_arg_one(con0, idx, se);
+      register_tcon_map_args_seq(con0, idx+1, rest))
+)
+and
+register_tcon_map_arg_one(con0: strn, idx: sint, se: s0exp): void = let
+  val @(kind, elem) = s0exp_map_kind_elem(se)
+in
+  if strn_eq(elem, "")
+  then ()
+  else PYPP_con_maparg_add(con0, idx, kind, elem)
+end
+and
+s0exp_map_kind_elem(se: s0exp): @(strn, strn) =
+(
+  case+ se.node() of
+  | S0Eannot(se1, _) => s0exp_map_kind_elem(se1)
+  | S0Equal0(_, se1) => s0exp_map_kind_elem(se1)
+  | S0Eapps(ses) => s0exp_map_kind_elem_apps(ses)
+  | _ => @("", "")
+)
+and
+s0exp_map_kind_elem_apps(ses: s0explst): @(strn, strn) =
+(
+  case+ ses of
+  | list_cons(hd, list_cons(arg, list_nil())) => (
+      case+ hd.node() of
+      | S0Eid0(id) => let
+          val kind = i0dnt_lexeme(id)
+          val elem = s0exp_single_static_arg_name(arg)
+        in
+          if strn_eq(kind, "topmap")
+          then @("topmap", elem)
+          else (
+            if strn_eq(kind, "stkmap")
+            then @("stkmap", elem)
+            else @("", ""))
+        end
+      | _ => @("", ""))
+  | _ => @("", "")
+)
+and
+s0exp_single_static_arg_name(se: s0exp): strn =
+(
+  case+ se.node() of
+  | S0Elpar(_, list_cons(se1, list_nil()), _) => s0exp_static_arg_name(se1)
+  | S0Etup1(_, _, list_cons(se1, list_nil()), _) => s0exp_static_arg_name(se1)
+  | _ => s0exp_static_arg_name(se)
+)
+and
+s0exp_static_arg_name(se: s0exp): strn =
+(
+  case+ se.node() of
+  | S0Eid0(id) => tyname_scoped(i0dnt_lexeme(id))
+  | S0Eannot(se1, _) => s0exp_static_arg_name(se1)
+  | S0Equal0(_, se1) => s0exp_static_arg_name(se1)
+  | _ => ""
 )
 //
 fun
@@ -2479,12 +2842,12 @@ in
 	pp_impl_body(out: FILR, n: sint, body: d0exp): void =
 	  pp_impl_body_where(out, n, body, list_nil())
 and
-pp_impl_body_where(out: FILR, n: sint, body: d0exp, wdcs: list(d0eclseq_WHERE)): void =
-(
-  case+ body.node() of
-  | D0Ewhere(body0, wdc) => pp_impl_body_where(out, n, body0, list_cons(wdc, wdcs))
-  | _ => (pp_d0exp_suite(out, n+1, body); pp_impl_flat_where_blocks(out, n, wdcs))
-)
+	pp_impl_body_where(out: FILR, n: sint, body: d0exp, wdcs: list(d0eclseq_WHERE)): void =
+	(
+	  case+ body.node() of
+	  | D0Ewhere(body0, wdc) => pp_impl_body_where(out, n, body0, list_cons(wdc, wdcs))
+	  | _ => (pp_d0exp_suite(out, n+1, body); pp_impl_flat_where_blocks_ctx(out, n, body, wdcs))
+	)
 and
 impl_where_seq_has_decls(wdc: d0eclseq_WHERE): bool =
 (
@@ -2500,32 +2863,58 @@ impl_where_blocks_has_decls(wdcs: list(d0eclseq_WHERE)): bool =
       if impl_where_seq_has_decls(wdc) then true else impl_where_blocks_has_decls(rest)
 )
 and
-pp_impl_flat_where_blocks(out: FILR, n: sint, wdcs: list(d0eclseq_WHERE)): void =
-(
-  if impl_where_blocks_has_decls(wdcs)
+	pp_impl_flat_where_blocks(out: FILR, n: sint, wdcs: list(d0eclseq_WHERE)): void =
+	(
+	  if impl_where_blocks_has_decls(wdcs)
   then (
     PYPP_type_scope_push();
     ind(out, n); ps(out, "where:"); nl(out);
     pp_impl_flat_where_decls(out, n+1, wdcs);
     PYPP_type_scope_pop())
-  else ()
-)
-and
-pp_impl_flat_where_decls(out: FILR, n: sint, wdcs: list(d0eclseq_WHERE)): void =
-(
-  case+ wdcs of
+	  else ()
+	)
+	and
+	pp_impl_flat_where_blocks_ctx(out: FILR, n: sint, ctx: d0exp, wdcs: list(d0eclseq_WHERE)): void =
+	(
+	  if impl_where_blocks_has_decls(wdcs)
+	  then (
+	    PYPP_type_scope_push();
+	    ind(out, n); ps(out, "where:"); nl(out);
+	    pp_impl_flat_where_decls_ctx(out, n+1, ctx, wdcs);
+	    PYPP_type_scope_pop())
+	  else ()
+	)
+	and
+	pp_impl_flat_where_decls(out: FILR, n: sint, wdcs: list(d0eclseq_WHERE)): void =
+	(
+	  case+ wdcs of
   | list_nil() => ()
   | list_cons(wdc, rest) => (
-      pp_impl_flat_where_decls(out, n, rest);
-      pp_impl_where_seq_decls(out, n, wdc))
-)
-and
-pp_impl_where_seq_decls(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
-(
-  case+ wdc of
-  | d0eclseq_WHERE(_, _, dcs, _) => pp_where_decls(out, n, dcs)
-)
-and
+	      pp_impl_flat_where_decls(out, n, rest);
+	      pp_impl_where_seq_decls(out, n, wdc))
+	)
+	and
+	pp_impl_flat_where_decls_ctx(out: FILR, n: sint, ctx: d0exp, wdcs: list(d0eclseq_WHERE)): void =
+	(
+	  case+ wdcs of
+	  | list_nil() => ()
+	  | list_cons(wdc, rest) => (
+	      pp_impl_flat_where_decls_ctx(out, n, ctx, rest);
+	      pp_impl_where_seq_decls_ctx(out, n, ctx, wdc))
+	)
+	and
+	pp_impl_where_seq_decls(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
+	(
+	  case+ wdc of
+	  | d0eclseq_WHERE(_, _, dcs, _) => pp_where_decls(out, n, dcs)
+	)
+	and
+	pp_impl_where_seq_decls_ctx(out: FILR, n: sint, ctx: d0exp, wdc: d0eclseq_WHERE): void =
+	(
+	  case+ wdc of
+	  | d0eclseq_WHERE(_, _, dcs, _) => pp_where_decls_ctx(out, n, ctx, dcs)
+	)
+	and
 pp_where_block(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
 (
   case+ wdc of
@@ -2539,18 +2928,27 @@ pp_where_block(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
           PYPP_type_scope_pop()))
 )
 and
-pp_where_decls(out: FILR, n: sint, dcs: d0eclist): void =
-(
-  case+ dcs of
+	pp_where_decls(out: FILR, n: sint, dcs: d0eclist): void =
+	(
+	  case+ dcs of
   | list_nil() => ()
   | list_cons(dc, rest) => (
-      pp_where_decl(out, n, dc);
-      pp_where_decls(out, n, rest))
-)
-and
-	pp_where_decl(out: FILR, n: sint, dc: d0ecl): void =
+	      pp_where_decl(out, n, dc);
+	      pp_where_decls(out, n, rest))
+	)
+	and
+	pp_where_decls_ctx(out: FILR, n: sint, ctx: d0exp, dcs: d0eclist): void =
 	(
-	  case+ dc.node() of
+	  case+ dcs of
+	  | list_nil() => ()
+	  | list_cons(dc, rest) => (
+	      pp_where_decl_ctx(out, n, ctx, dc);
+	      pp_where_decls_ctx(out, n, ctx, rest))
+	)
+	and
+		pp_where_decl(out: FILR, n: sint, dc: d0ecl): void =
+		(
+		  case+ dc.node() of
 	  | D0Cvaldclst(_, vds) => pp_dexp_valdcls(out, n, vds)
 	  | D0Cfundclst(_, _, fds) => pp_fundcl_local_list_n(out, n, fds)
 	  | D0Cimplmnt0(_, _, tqas, dqi, tias, farg, _, _, body) => pp_impl_n(out, n, tqas, dqi, tias, farg, body)
@@ -2565,10 +2963,18 @@ and
 	  | D0Csymload(_, sym, _, dqi, prec) => pp_symload_alias(out, n, sym, dqi, prec)
 	  | D0Ctkerr(_) => ()
 	  | D0Ctkskp(_) => ()
-	  | _ => (ind(out, n); todo(out, "where-decl"))
+		  | _ => (ind(out, n); todo(out, "where-decl"))
+		)
+	and
+	pp_where_decl_ctx(out: FILR, n: sint, ctx: d0exp, dc: d0ecl): void =
+	(
+	  case+ dc.node() of
+	  | D0Cvaldclst(_, vds) => pp_dexp_valdcls_ctx(out, n, ctx, vds)
+	  | D0Cstatic(_, dc1) => pp_where_decl_ctx(out, n, ctx, dc1)
+	  | _ => pp_where_decl(out, n, dc)
 	)
-and
-pp_where_local_decls(out: FILR, n: sint, head: d0eclist, body: d0eclist): void =
+	and
+	pp_where_local_decls(out: FILR, n: sint, head: d0eclist, body: d0eclist): void =
 (
   if list_nilq(head)
   then pp_where_decls(out, n, body)

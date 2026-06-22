@@ -16,6 +16,7 @@
 forall[n: SInt | g] (Vec[A, n]) -> SInt[n]   # explicit UNIVERSAL inside a type
 exists[m: SInt | m <= n] Vec[A, m]            # EXISTENTIAL ("a Vec of some m")
 @inst[Int, ..] foo(x, y, z)                    # explicit template INSTANTIATION (call site)
+@sapp[Int, ..] foo(x, y, z)                    # explicit static `{...}` application (call site)
 @sort type Nat = {a: SInt | a >= 0}            # SUBSET sort (refined; -> S2TEXsub)
 @sort enum Tree: case Leaf / case Node(...)    # datasort (LOW PRIORITY — needs L1, no-op past trans12)
 ```
@@ -45,11 +46,15 @@ ALL THREE template operations use the SAME shape — a decorator whose `[…]` c
 | declare | `@template[A, B] def foo[C, D](…)` | `extern fun{A,B} foo{C,D}(…)` |
 | implement | `@impl[Int, Bool] def foo[C, D](…) = …` | `implement{Int,Bool} foo{C,D}(…) = …` |
 | instantiate (call) | `@inst[Int, ..] foo(x, y, z)` | `foo<Int,..>(x, y, z)` |
+| static apply (call) | `@sapp[C, D] foo(x, y, z)` | `foo{C,D}(x, y, z)` |
 - `@impl[…]` is our EXISTING `@impl` (plain implement → `D2Cimplmnt0`) PLUS a template-arg
   instantiation list — bare `@impl def` (no brackets) stays the non-template implement.
 - `@inst[Int, ..] foo(x, y, z)` instantiates the TEMPLATE bracket (→ ATS `foo<Int,..>(…)`); the
   polymorphic `[C,D]` bracket is inferred from the value, as polymorphic args always are. No `<>`
   angle-brackets anywhere on the surface.
+- `@sapp[C, D] foo(x, y, z)` is the explicit static `{C,D}` call-site application. Pyprint uses it
+  when stock ATS code carries explicit or reconstructed static arguments, for example
+  `topmap_make_nil{itm}()`.
 - BODY rule: an inline body on `@template[…] def foo(…): <body>` IS its generic implementation
   (declare + implement in one shot, like ATS `fn{a} foo(x) = body`). A BODYLESS `@template[…] def
   foo(…)` is declaration-only (→ `extern fun{…}`) and takes its bodies from separate `@impl[…]`s.

@@ -321,6 +321,9 @@ case+ e of
 | PyEinst(loc, ts, e1) =>
   ( ps(out, "(Einst"); print_span(out, loc); ps(out, " [types");
     pp_typlst(out, ts); ps(out, "] "); pp_exp(out, e1); ps(out, ")") )
+| PyEsapp(loc, ts, e1) =>
+  ( ps(out, "(Esapp"); print_span(out, loc); ps(out, " [types");
+    pp_typlst(out, ts); ps(out, "] "); pp_exp(out, e1); ps(out, ")") )
 // B-LINEAR: `&x` address-of and `!p` deref.
 | PyEaddr(loc, e1) =>
   ( ps(out, "(Eaddr"); print_span(out, loc); ps(out, " &"); pp_exp(out, e1); ps(out, ")") )

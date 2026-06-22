@@ -36,6 +36,7 @@
 | `'c'` | `D2Echr tok` / `D2Ec00 c` | `T_CHAR2_char "'c'"` |
 | `true` / `false` | `D2Ebtf sym` / `D2Eb00 b` | lowercase literal keywords; `sym = symbl_make_name "true"`/`"false"` |
 | `f(a, b)` | `D2Edapp(d2f, -1, [d2a, d2b])` | use `d2exp_dapp(loc, d2f, -1, args)`; empty arg list → `D2Edap0` |
+| `@sapp[T, ...] f(args)` | `D2Esapp` callee, then `D2Edapp` / `D2Edap0` | explicit ATS static `{...}` application. Distinct from `@inst`, which lowers to template `D2Etapp`; empty value args must still lower through `D2Edap0`. |
 | `a + b`, `a < b`, `-a`, `a and b` | `D2Edapp(D2Ecst op, -1, args)` | resolve the operator **name** like any identifier (§3.4) |
 | `lambda a, b: e` | `D2Elam0(tok, f2args, sres, arrw, body)` | params bound in a `pshlam0` scope (§4.D) |
 | `if c: t elif … else e` | `D2Eift0(c, Some t, Some e)` | a **value**; nest `D2Eift0` for `elif`; missing `else` → `None` |

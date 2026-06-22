@@ -73,6 +73,13 @@ harnesses.
   ATS `$llazy(case ...)` call-argument forms now print as Pythonic `llazy:`
   block expressions in `lexbuf0_cstrx1.dats` and `lexing0_utils2.dats`, closing
   the last visible dynamic DATS/UTIL pyprint markers.
+- Explicit static application is now a first-class Pythonic expression decorator:
+  `@sapp[T] f(...)` lowers to ATS `{T}` static application. Pyprint reconstructs
+  static map-initializer calls such as `topmap_make_nil{itm}()` as
+  `@sapp[Itm] topmap_make_nil()`. The focused dynamic compiler-environment slice
+  `lexbuf0_cstrx1.dats`, `lexing0_utils2.dats`, `trans12_myenv0.dats`,
+  `trans23_myenv0.dats`, and `trtmp3c_myenv0.dats` now reaches `TODOpp=0` and
+  `m3_nerror=0`.
 - Focused M3 reparse/typecheck of the two former `$llazy(case ...)` files now
   reaches real numeric verdicts: `lexbuf0_cstrx1.dats` reports `m3_nerror=28`
   and `lexing0_utils2.dats` reports `m3_nerror=30`. The new `llazy:` syntax

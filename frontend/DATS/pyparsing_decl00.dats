@@ -1103,6 +1103,11 @@ p_decl_block_loop(st) =
 //
 #implfun
 p_top_item(st) = let
+  fun
+  is_expr_decorator(nm: strn): bool =
+    if strn_eq(nm, "func") then true else
+    if strn_eq(nm, "inst") then true else
+    if strn_eq(nm, "sapp") then true else false
   val nod = ps_peek(st)
 in
   case+ nod of
@@ -1114,15 +1119,20 @@ in
   // way no extra trailing NEWLINE is owed here.
   | PT_KW_PRIVATE() => parse_decl(st)
   | PT_AT()        =>
-    // DECORATOR REWORK: a decorator-prefixed decl. The construct after the decorators may be:
-    //   * enum/struct/def-with-body (`@impl def`, `@proof def`, `@overload def`, `@prop enum`,
-    //     `@view enum`) — BLOCK-bodied, consumes its own DEDENT; expect_newline_d is then a no-op.
-    //   * type alias / `@abstract type` / `@impl type` / `@sort type` / `@static type` /
-    //     `@extern def` / `@proof @extern def` (praxi) / `@proof let` / `@static let` — SINGLE-line;
-    //     expect_newline_d consumes the trailing NEWLINE.
-    // expect_newline_d handles BOTH (consume a NEWLINE iff present), so this one arm covers all
-    // decorated forms uniformly.
-    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+    // DECORATOR REWORK: expression decorators (`@func`, `@inst`, `@sapp`) are valid module-init
+    // statements; declaration decorators continue through parse_decl.
+    let
+      val stA = ps_advance(st)
+    in
+      case+ ps_peek(stA) of
+      | PT_LIDENT(nm) =>
+          if is_expr_decorator(nm) then
+            let val @(s, st1) = parse_stmt(st) in @(PyCstmt(pystmt_loctn(s), s), st1) end
+          else
+            let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+      | _ =>
+          let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+    end
   | PT_KW_TYPE()   =>
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_EXCEPTION() =>

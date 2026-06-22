@@ -250,7 +250,10 @@ case_arm  ::= 'case' pattern [ 'if' expr ] ':' suite
 
 ```
 exprs     ::= expr { ',' expr }                      (* bare tuple in return/RHS: a, b ≡ (a, b) *)
-expr      ::= lambda | if_expr | match_expr | llazy_expr | or_expr
+expr      ::= expr_deco | lambda | if_expr | match_expr | llazy_expr | or_expr
+expr_deco ::= '@inst' '[' type { ',' type } ']' expr     (* template call instantiation: f<T>(...) *)
+            | '@sapp' '[' type { ',' type } ']' expr     (* static app: f{T}(...) *)
+            | '@func' lambda                             (* non-capturing lambda opt-in *)
 lambda    ::= lamparams '=>' lambody
 lamparams ::= LIDENT | '(' [ param { ',' param } ] ')'
 lambody   ::= expr | NEWLINE INDENT stmt { stmt } DEDENT     (* inline OR block — §2 *)

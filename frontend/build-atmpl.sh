@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 ########################################################################
-# A-TEMPLATE SURFACE — the three template operations wired end-to-end through the
+# A-TEMPLATE SURFACE — template operations plus explicit static application, wired end-to-end through the
 # real frontend pipeline (lex -> parse -> elab -> lower -> trans2a/trsym2b/t2read0/
-# trans23/tread3a) + TYPECHECKED. All three are DECORATORS whose `[…]` carry type-args:
+# trans23/tread3a) + TYPECHECKED. These are DECORATORS whose `[…]` carry type-args:
 #
 #   declare      @template[A] def foo[C](…)[: body]  ->  extern fun{A} foo{C}(…)  (+impl if inline)
 #   implement    @impl[Int] def foo(…): body         ->  implement{Int} foo(…) = body
 #   instantiate  @inst[Int] foo(x)                    ->  foo<Int>(x)
+#   static app   @sapp[Int] foo(x)                    ->  foo{Int}(x)
 #
 # What this proves (real typecheck — resolution deferred to trtmp3b/3c, AFTER tread3a, so a
 # DECLARED+INSTANTIATED template reaches nerror=0 structurally; the SPIKE T1-T5 proved this):
@@ -14,6 +15,7 @@
 #   * at_separate_impl.pdats  — bodyless declare + separate @impl[Int]       (nerror=0)
 #   * at_impl_alias_nodarg.pdats — farg-less @impl[Int] alias body           (nerror=0)
 #   * at_both_brackets.pdats  — @template[A] AND foo[C] polymorphic coexist  (nerror=0)
+#   * at_sapp_empty_call.pdats — explicit static `{Int}` call-site app       (nerror=0)
 #   * at_neg_inst.pdats       — NEGATIVE control: @inst[Int] id("hi")        (nerror>0 — REAL check)
 # The negative control MUST fail to typecheck — if it reaches nerror=0 the wiring is fake.
 #
@@ -78,6 +80,7 @@ VALID=(
   "at_separate_impl"    # bodyless @template + @impl[Int] def pick + @inst[Int]    (separate impl)
   "at_impl_alias_nodarg" # bodyless @template + farg-less @impl[Int] alias body    (no dynamic farg)
   "at_both_brackets"    # @template[A] def foo[C](x:A,y:C)->C: y ; @inst[Int]       (BOTH brackets)
+  "at_sapp_empty_call"   # def zero[A](); @sapp[Int] zero() -> zero{Int}()          (empty dapp)
 )
 for base in "${VALID[@]}"; do
   py="$TESTDIR/${base}.pdats"
@@ -121,8 +124,9 @@ fi
 
 echo "======================================================================"
 if [ "$FAIL" -ne 0 ]; then echo ">> ATMPL: FAIL (see failures above)"; exit 1; fi
-echo ">> ATMPL: PASS (the three template operations — @template[A] declare (+inline-body implement),"
-echo "            @impl[Int] separate implement, @inst[Int] instantiate — all LOWER + TYPECHECK"
+echo ">> ATMPL: PASS (the template operations — @template[A] declare (+inline-body implement),"
+echo "            @impl[Int] separate implement, @inst[Int] instantiate — plus @sapp[Int]"
+echo "            explicit static application — all LOWER + TYPECHECK"
 echo "            structurally at nerror=0; the NEG control @inst[Int] id(\"hi\") correctly fails"
 echo "            (nerror>0), proving the instantiation is REALLY typechecked. Resolution/monomorph-"
 echo "            ization is deferred to trtmp3b/3c, AFTER tread3a — same as stock ATS templates.)"

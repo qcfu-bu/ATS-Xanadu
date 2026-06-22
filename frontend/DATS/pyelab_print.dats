@@ -286,6 +286,9 @@ case+ e of
 | PCEinst(loc, ts, e1) =>
   ( ps(out, "(Einst"); print_span(out, loc); ps(out, " [types");
     pp_typlst(out, ts); ps(out, "] "); pp_exp(out, e1, ind); ps(out, ")") )
+| PCEsapp(loc, ts, e1) =>
+  ( ps(out, "(Esapp"); print_span(out, loc); ps(out, " [types");
+    pp_typlst(out, ts); ps(out, "] "); pp_exp(out, e1, ind); ps(out, ")") )
 // SCOPING: `e where {decls}` -> the body expr + the where-decl block. The where-decls print via the
 // SATS-exposed pcdecl_fprint (globally resolvable, so no cross-`fun`-group forward reference from the
 // pp_exp group). A small let-local loop walks them.

@@ -43,7 +43,7 @@ case+ e of
 | PyEfield(loc, _, _) => loc  | PyEindex(loc, _, _) => loc
 | PyElam(loc, _, _, _) => loc | PyEann(loc, _, _) => loc
 | PyEraise(loc, _) => loc     | PyEtry(loc, _, _) => loc
-| PyEop(loc, _) => loc        | PyEinst(loc, _, _) => loc
+| PyEop(loc, _) => loc        | PyEinst(loc, _, _) => loc | PyEsapp(loc, _, _) => loc
 | PyEaddr(loc, _) => loc      | PyEderef(loc, _) => loc
 | PyEderefcell(loc, _) => loc
 | PyEerror(loc, _) => loc

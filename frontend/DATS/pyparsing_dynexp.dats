@@ -239,12 +239,30 @@ in
                     "@inst must be followed by a '[' type-arg list (e.g. @inst[Int] foo(x))") in
                 @(PyEerror(locA, "@inst not followed by '[' type-args"), ps_advance(st3)) end
           end
+        else (if strn_eq(nm, "sapp") then
+          let
+            val st2 = ps_advance(st1)               // past 'sapp'
+          in
+            case+ ps_peek(st2) of
+            | PT_LBRACK() =>
+              let
+                val @(ts, st3) = parse_deco_typeargs(st2)
+                val @(e, st4) = p_expr(st3)
+              in
+                @(PyEsapp(loc_span(locA, pyexp_loctn(e)), ts, e), st4)
+              end
+            | _ =>
+              let val st3 = ps_diag(st2, ps_peek_loctn(st2),
+                    "@sapp must be followed by a '[' type-arg list (e.g. @sapp[Int] foo(x))") in
+                @(PyEerror(locA, "@sapp not followed by '[' type-args"), ps_advance(st3)) end
+          end
         else
           // RECOVERY: a non-`func`/`inst` decorator in expression position — CONSUME the bad name
           // (advance past it) so parsing continues past `@bad` rather than looping on it.
           let val st2 = ps_diag(st1, locA,
-                strn_append("only @func / @inst are valid in expression position; got @", nm)) in
+                strn_append("only @func / @inst / @sapp are valid in expression position; got @", nm)) in
             @(PyEerror(locA, strn_append("invalid decorator in expression position: @", nm)), ps_advance(st2)) end)
+        )
       | _ =>
         // RECOVERY: `@` not followed by a name — advance once past whatever follows.
         let val st2 = ps_diag(st1, ps_peek_loctn(st1),
@@ -907,6 +925,11 @@ p_stmt_list(st: pstate): @(pystmtlst, pstate) =
 // def/type) consume their own suite + trailing layout; simple stmts end at NEWLINE.
 and
 p_stmt(st: pstate): @(pystmt, pstate) = let
+  fun
+  is_expr_decorator(nm: strn): bool =
+    if strn_eq(nm, "func") then true else
+    if strn_eq(nm, "inst") then true else
+    if strn_eq(nm, "sapp") then true else false
   val nod = ps_peek(st)
   val loc = ps_peek_loctn(st)
 in
@@ -915,16 +938,32 @@ in
   | PT_KW_WHILE() => p_while_stmt(st)
   | PT_KW_FOR()   => p_for_stmt(st)
   | PT_AT()       =>
-    // DECORATOR REWORK: a `@decorator` in STATEMENT position prefixes a `def` or a `let`. We route
-    // to `parse_decl` (the decorator dispatcher: it parses the prefix decorators, then a `@... def`
-    // -> a PyCfun pydecl, a `@... let` -> a PyCstmt-wrapped PyDlet pydecl). A `@... let` decl
-    // unwraps back to its inner PyDlet statement (it is block-bodyless, a simple stmt — so consume
-    // its trailing NEWLINE); a `@... def` decl wraps as PySdecl. (A `@func` lambda in EXPRESSION
-    // position is handled by p_expr, NOT here — a statement never starts with a lambda-only line.)
-    let val @(d, st1) = parse_decl(st) in
-      case+ d of
-      | PyCstmt(_, s) => @(s, expect_newline(st1))   // a decorated `let` -> its inner stmt
-      | _             => @(PySdecl(loc, d), st1)      // a decorated `def`
+    // DECORATOR REWORK: declaration decorators prefix `def`/`let`/`type`, but expression
+    // decorators (`@func`, `@inst`, `@sapp`) can also start a statement expression.
+    let
+      val stA = ps_advance(st)
+    in
+      case+ ps_peek(stA) of
+      | PT_LIDENT(nm) =>
+          if is_expr_decorator(nm) then
+            let
+              val @(e, st1) = p_expr_or_tuple(st)
+              val st2 = expect_newline(st1)
+            in
+              @(PySexpr(loc, e), st2)
+            end
+          else
+            let val @(d, st1) = parse_decl(st) in
+              case+ d of
+              | PyCstmt(_, s) => @(s, expect_newline(st1))   // decorated `let`
+              | _             => @(PySdecl(loc, d), st1)      // decorated `def`
+            end
+      | _ =>
+          let val @(d, st1) = parse_decl(st) in
+            case+ d of
+            | PyCstmt(_, s) => @(s, expect_newline(st1))
+            | _             => @(PySdecl(loc, d), st1)
+          end
     end
   | PT_KW_MATCH() =>
     // a match used as a statement: parse the match-EXPR, wrap as an expr-stmt.

@@ -705,6 +705,49 @@ case+ fs of
 )
 //
 and
+pl_deco_call_parts
+(e0: pcexp, revs: list(pcexp)): @(pcexp, list(pcexp), bool, list(pcexp)) =
+(
+case+ e0 of
+| PCEinst(_, _, inner) => pl_deco_call_parts(inner, list_cons(e0, revs))
+| PCEsapp(_, _, inner) => pl_deco_call_parts(inner, list_cons(e0, revs))
+| PCEapp(_, f, args) => @(f, args, true, revs)
+| _ => @(e0, list_nil(), false, revs)
+)
+//
+and
+pl_apply_deco_revs(env: !tr12env, d2f: d2exp, revs: list(pcexp)): d2exp =
+(
+case+ revs of
+| list_nil() => d2f
+| list_cons(deco, rest) =>
+    let
+      val d2base = pl_apply_deco_revs(env, d2f, rest)
+    in
+      case+ deco of
+      | PCEinst(loc, typs, _) => d2exp_tapp(loc, d2base, pylower_typlst(env, typs))
+      | PCEsapp(loc, typs, _) => d2exp_sapp(loc, d2base, pylower_typlst(env, typs))
+      | _ => d2base
+    end
+)
+//
+and
+pl_deco_chain_exp(env: !tr12env, loc: loctn, e0: pcexp): d2exp = let
+  val @(head, args, is_call, revs) = pl_deco_call_parts(e0, list_nil())
+  val d2head = pl_exp(env, head)
+  val d2callee = pl_apply_deco_revs(env, d2head, revs)
+in
+  if is_call then
+    case+ args of
+    | list_nil() => d2exp_make_node(loc, D2Edap0(d2callee))
+    | list_cons(_, _) =>
+        let val d2args = pl_explst(env, args) in
+          d2exp_make_node(loc, D2Edapp(d2callee, (-1)(*npf*), d2args))
+        end
+  else d2callee
+end
+//
+and
 selector_dpis(env: !tr12env, name: strn): d2ptmlst = let
   val dopt = tr12env_find_d2itm(env, ats_sym(name))
 in
@@ -999,23 +1042,10 @@ case+ e of
 //   * inner is a BARE head -> `d2exp_tapp(<inner>, <types>)`: just the instantiated callee value.
 // (Resolution/monomorphization is deferred to trtmp3b/3c, AFTER tread3a — so this typechecks
 // structurally; SPIKE T3-proven. A type-MISMATCHED arg DOES errck at tread3a — SPIKE T5-proven.)
-| PCEinst(loc, typs, inner) => let
-    val s2es = pylower_typlst(env, typs)
-  in
-    case+ inner of
-    | PCEapp(_, f, args) => let
-        val d2f = pl_exp(env, f)
-        val d2callee = d2exp_tapp(loc, d2f, s2es)          // f<T1, ..>
-        val d2args = pl_explst(env, args)
-      in
-        d2exp_make_node(loc, D2Edapp(d2callee, (-1)(*npf*), d2args))
-      end
-    | _ => let
-        val d2inner = pl_exp(env, inner)
-      in
-        d2exp_tapp(loc, d2inner, s2es)                     // bare instantiated callee
-      end
-  end
+| PCEinst(loc, _, _) => pl_deco_chain_exp(env, loc, e)
+// Static `{...}` application. This mirrors PCEinst but targets D2Esapp (`foo{T}`), which is
+// needed for compiler-internal functions such as `topmap_make_nil{itm}()`.
+| PCEsapp(loc, _, _) => pl_deco_chain_exp(env, loc, e)
 //
 // PCEerror : an elaboration poison node — surface it as a none-node that SURVIVES to tread3a
 // (so the elaboration error actually FAILS the typecheck, nerror>0). A bare d2exp_none0 gets

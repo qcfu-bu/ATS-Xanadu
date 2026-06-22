@@ -105,6 +105,7 @@ function PYPP_argv_stadyn() {
 var PYPP_type_set = {};
 var PYPP_con_set = {};
 var PYPP_value_set = {};
+var PYPP_con_maparg = {};
 var PYPP_type_scope_stack = [];
 var PYPP_type_rename_stack = [];
 var PYPP_type_rename_serial = 0;
@@ -112,6 +113,7 @@ function PYPP_local_reset() {
   PYPP_type_set = {};
   PYPP_con_set = {};
   PYPP_value_set = {};
+  PYPP_con_maparg = {};
   PYPP_type_scope_stack = [];
   PYPP_type_rename_stack = [];
   PYPP_type_rename_serial = 0;
@@ -174,6 +176,17 @@ function PYPP_type_rename_get(s) {
 }
 function PYPP_con_add(s) { PYPP_con_set[String(s)] = true; return; }
 function PYPP_con_has(s) { return PYPP_con_set[String(s)] === true; }
+function PYPP_con_maparg_key(con, idx, kind) {
+  return String(con) + "#" + String(idx) + "#" + String(kind);
+}
+function PYPP_con_maparg_add(con, idx, kind, elem) {
+  PYPP_con_maparg[PYPP_con_maparg_key(con, idx, kind)] = String(elem);
+  return;
+}
+function PYPP_con_maparg_elem(con, idx, kind) {
+  var v = PYPP_con_maparg[PYPP_con_maparg_key(con, idx, kind)];
+  return v === undefined ? "" : v;
+}
 function PYPP_value_add(s) { PYPP_value_set[String(s)] = true; return; }
 function PYPP_value_has(s) { return PYPP_value_set[String(s)] === true; }
 var PYPP_binder_stack = [];
