@@ -1048,6 +1048,9 @@ pp_d0exp_inline(out: FILR, de: d0exp): void =
 	  // application / con-application: head then paren arg-groups.
 	  | D0Eapps(des) => pp_dexp_apps(out, des)
 	  //
+	  // ATS `$raise e` -> Pythonic `raise e`.
+	  | D0Eraise(_, de1) => (ps(out, "raise "); pp_d0exp_inline(out, de1))
+	  //
 	  // expression-level conditional.
 	  | D0Eift0(_, c, th, el) => pp_dexp_if_inline(out, c, th, el)
 	  | D0Eift1(_, c, th, el, _) => pp_dexp_if_inline(out, c, th, el)
@@ -1915,6 +1918,40 @@ pp_tcon_argty(out: FILR, se: s0exp): void =
   | S0Etup1(_, _, ses, _) => pp_s0exp_seq(out, ses)
   | _ => pp_s0exp(out, se)
 )
+and
+pp_excptcon_list(out: FILR, n: sint, tcns: d0tcnlst): void =
+(
+  case+ tcns of
+  | list_nil() => ()
+  | list_cons(tcn, rest) => (
+      pp_excptcon(out, n, tcn);
+      pp_excptcon_list(out, n, rest))
+)
+and
+pp_excptcon(out: FILR, n: sint, tcn: d0tcn): void =
+(
+  case+ tcn.node() of
+  | D0TCNnode(_, nm, _s0is, ofty) => (
+      ind(out, n); ps(out, "exception "); ps(out, conname_scoped(i0dnt_lexeme(nm)));
+      (case+ ofty of
+       | optn_cons(se) =>
+           if s0exp_is_nullary_payload(se)
+           then ()
+           else (ps(out, "("); pp_tcon_argty(out, se); ps(out, ")"))
+       | optn_nil() => ());
+      nl(out))
+)
+and
+s0exp_is_nullary_payload(se: s0exp): bool =
+(
+  case+ se.node() of
+  | S0Elpar(_, list_nil(), _) => true
+  | S0Etup1(_, _, list_nil(), _) => true
+  | S0Eannot(se1, _) => s0exp_is_nullary_payload(se1)
+  | S0Equal0(_, se1) => s0exp_is_nullary_payload(se1)
+  | S0Eerrck(_, se1) => s0exp_is_nullary_payload(se1)
+  | _ => false
+)
 //
 fun
 pp_typedef(out: FILR, n: sint, sid: s0eid, smas: s0maglst, se: s0exp): void = let
@@ -2105,6 +2142,7 @@ register_file_local_names(dcs: d0eclist): void =
   | list_cons(dc, rest) => (
       (case+ dc.node() of
        | D0Cdatatype(_, dts, _) => register_d0typ_names(dts)
+       | D0Cexcptcon(_, _, tcns) => register_d0tcn_names(tcns)
        | D0Csexpdef(_, sid, _, _, _, _) => PYPP_type_add(i0dnt_lexeme(sid))
        | D0Clocal0(_, head, _, body, _) => (
            register_file_local_names(head);
@@ -2127,6 +2165,9 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   //
   // a top-level `datatype` -> an `enum` (capitalize the type + cons).
   | D0Cdatatype(_, dts, _) => (pp_d0typ_enum_list(out, 0, dts); true)
+  //
+  // `excptcon E of (T)` -> `exception E(T)`.
+  | D0Cexcptcon(_, _, tcns) => (pp_excptcon_list(out, 0, tcns); true)
   //
   // `#implfun f(args) = body`  ->  `@impl def f(args): body`.  `#implfun` lexes to
   // T_IMPLMNT(IMPLfun) and parses to D0Cimplmnt0 (the implement decl): name (d0qid),
@@ -2320,6 +2361,7 @@ pp_priv_head_one(out: FILR, n: sint, dc: d0ecl): void =
 (
 	  case+ dc.node() of
 	  | D0Cdatatype(_, dts, _) => pp_d0typ_enum_list(out, n, dts)
+	  | D0Cexcptcon(_, _, tcns) => pp_excptcon_list(out, n, tcns)
 	  | D0Cvaldclst(_, vds) => pp_priv_valdcls(out, n, vds)
 	  | D0Cfundclst(_, _, fds) => pp_fundcl_local_list_n(out, n, fds)
 	  | D0Cimplmnt0(_, _, _, dqi, _, farg, _, _, body) => pp_impl_n(out, n, dqi, farg, body)
