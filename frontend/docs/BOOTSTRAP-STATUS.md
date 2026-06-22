@@ -33,14 +33,14 @@ harnesses.
   template binders on extern constants, and parsed/erased `!T` viewtype
   parameter syntax.
 - The next static interface slice
-  `srcgen2/SATS/{xbasics,lexbuf0,xfixity,staexp0}.sats` now reaches
+  `srcgen2/SATS/{xbasics,lexbuf0,xfixity,staexp0,parsing}.sats` now reaches
   `TODOpp=0` and `m3_nerror=0`. This adds symbolic overload aliases for
   `&`, `<<`, `>>`, and `>>>`, unary static `#define` expressions such as
-  `-1`, and parsed/erased `~T` linear/viewtype parameter syntax.
+  `-1`, parsed/erased `~T` linear/viewtype parameter syntax, by-reference
+  view-change argument syntax such as `&SInt >> _`, and arrow result spines
+  whose result is itself an applied type.
 - In the same audit batch, `srcgen2/SATS/dynexp0.sats` still makes the M3
-  reparse driver segfault after pretty-printing with `TODOpp=0`, and
-  `srcgen2/SATS/parsing.sats` now pretty-prints with `TODOpp=0` but reports
-  `m3_nerror=80`.
+  reparse driver segfault after pretty-printing with `TODOpp=0`.
 
 ## End-goal blockers
 

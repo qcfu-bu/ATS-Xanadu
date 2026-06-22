@@ -218,9 +218,23 @@ and
 pp_apps(out: FILR, ses: s0explst): void =
 (
   case+ ses of
-  | list_cons(arg, list_cons(arr, list_cons(res, list_nil()))) =>
+  | list_cons(amp, list_cons(arg, list_cons(gtgt, list_cons(target, list_nil())))) =>
+      if s0exp_is_amp(amp)
+      then (
+        if s0exp_is_gtgt(gtgt)
+        then (ps(out, "&"); pp_s0exp(out, arg); ps(out, " >> "); pp_s0exp(out, target))
+        else pp_apps_arrow_or_prefix(out, ses)
+      )
+      else pp_apps_arrow_or_prefix(out, ses)
+  | _ => pp_apps_arrow_or_prefix(out, ses)
+)
+and
+pp_apps_arrow_or_prefix(out: FILR, ses: s0explst): void =
+(
+  case+ ses of
+  | list_cons(arg, list_cons(arr, res)) =>
       if s0exp_is_arrow(arr)
-      then (pp_s0exp(out, arg); ps(out, " -> "); pp_s0exp(out, res))
+      then (pp_s0exp(out, arg); ps(out, " -> "); pp_apps_generic(out, res))
       else pp_apps_prefix_or_generic(out, ses)
   | _ => pp_apps_prefix_or_generic(out, ses)
 )
@@ -260,6 +274,20 @@ s0exp_is_bang(se: s0exp): bool =
 (
   case+ se.node() of
   | S0Eid0(id) => i0dnt_lexeme(id) = "!"
+  | _ => false
+)
+and
+s0exp_is_amp(se: s0exp): bool =
+(
+  case+ se.node() of
+  | S0Eid0(id) => i0dnt_lexeme(id) = "&"
+  | _ => false
+)
+and
+s0exp_is_gtgt(se: s0exp): bool =
+(
+  case+ se.node() of
+  | S0Eid0(id) => i0dnt_lexeme(id) = ">>"
   | _ => false
 )
 and

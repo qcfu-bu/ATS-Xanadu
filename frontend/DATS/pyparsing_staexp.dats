@@ -388,12 +388,51 @@ in
   // the deeper view-modality AST is still deferred.
   | PT_BANG()    => p_type_atom(ps_advance(st))
   | PT_TILDE()   => p_type_atom(ps_advance(st))
+  | PT_AMP()     => p_type_byref(ps_advance(st), loc)
   | PT_LPAREN()  => p_type_paren(ps_advance(st), loc)
   | PT_LBRACE()  => p_type_record(ps_advance(st), loc)
   | _ =>
     let val st1 = ps_diag(st, loc, "expected a type") in
       @(PyTerror(loc, "expected a type"), st1) end
 end
+//
+// BOOTSTRAP-PARITY: ATS by-reference/view-change argument types such as
+// `&sint >> _` are accepted in Pythonic output as `&SInt >> _` and erased to the
+// carried type for now. This is deliberately a parser shim; a first-class byref
+// type node can replace it when M3 owns the deeper linear view-change semantics.
+and
+p_type_byref(st: pstate, locA: loctn): @(pytyp, pstate) = let
+  val @(t0, st1) = p_type_app(st)
+in
+  case+ ps_peek(st1) of
+  | PT_GT() =>
+    let
+      val st2 = ps_advance(st1)
+    in
+      case+ ps_peek(st2) of
+      | PT_GT() =>
+        let
+          val st3 = ps_advance(st2)
+          val st4 = p_type_byref_target(st3)
+        in
+          @(t0, st4)
+        end
+      | _ => @(t0, st1)
+    end
+  | _ => @(t0, st1)
+end
+and
+p_type_byref_target(st: pstate): pstate =
+(
+  case+ ps_peek(st) of
+  | PT_USCORE() => ps_advance(st)
+  | _ =>
+    let
+      val @(_, st1) = p_type_app(st)
+    in
+      st1
+    end
+)
 //
 // after '(' : a tuple type or a parenthesized type.
 and
