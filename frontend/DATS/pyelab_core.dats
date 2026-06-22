@@ -793,7 +793,16 @@ case+ ss of
   | PySfor(loc, pat, iter, body, fels) =>
       elab_for_value(encl, loc, pat, iter, body, fels, muts, mts, el_pure(fc_pat_names(encl, pat), rest, muts, mts, tail))
   | PySblock(loc, body) => el_pure(encl, body, muts, mts, el_pure(encl, rest, muts, mts, tail))
-  | PySdecl(loc, d) => el_local_decl(encl, loc, d, el_pure(el_decl_name(encl, d), rest, muts, mts, tail))
+  | PySdecl(loc, d) =>
+      if local_groupable_fun(d) then
+        let
+          val @(fds, rest1, fnms) = take_local_fungroup(encl, ss)
+          val encl1 = nameset_union(encl, fnms)
+        in
+          PCEletfun(loc, fds, el_pure(encl1, rest1, muts, mts, tail))
+        end
+      else
+        el_local_decl(encl, loc, d, el_pure(el_decl_name(encl, d), rest, muts, mts, tail))
   | PySreturn(loc, _) => PCEerror(loc, "return outside a function")
   | PySbreak(loc) => PCEerror(loc, "break outside a loop")
   | PyScontinue(loc) => PCEerror(loc, "continue outside a loop")
@@ -818,6 +827,59 @@ case+ gs of
 )
 //
 and
+local_groupable_fun(d: pydecl): bool =
+(
+case+ d of
+| PyCfun(_, list_nil(), _, list_nil(), _, _, _, _, _) => true
+| _ => false
+)
+//
+and
+local_fun_fundcl(encl: nameset, d: pydecl): pcfundcl =
+(
+case+ d of
+| PyCfun(floc, _decos, nm, _, _, params, ret, body, wheres) =>
+    let
+      val ibody0 = el_func_body(fc_param_names(encl, params), floc, body)
+      val ibody1 =
+        ( case+ wheres of
+          | list_nil() => ibody0
+          | _ => PCEwhere(floc, ibody0, elab_decls(wheres)) )
+    in
+      PCFundcl(floc, nm, el_param_names(params), el_param_types(params), ret, ibody1, false)
+    end
+| _ =>
+    let val loc = pydecl_loctn(d) in
+      PCFundcl(loc, "__pyfront_internal_bad_local_fun_group", list_nil(), list_nil(), PyTypNone(),
+               PCEerror(loc, "internal: non-function in local def group"), false)
+    end
+)
+//
+and
+local_fun_name(ds: nameset, d: pydecl): nameset =
+(
+case+ d of
+| PyCfun(_, _, nm, _, _, _, _, _, _) => nameset_add(ds, nm)
+| _ => ds
+)
+//
+and
+take_local_fungroup(encl: nameset, ss: list(pystmt)): @(list(pcfundcl), list(pystmt), nameset) =
+(
+case+ ss of
+| list_cons(PySdecl(_, d), rest) =>
+    if local_groupable_fun(d) then
+      let
+        val fd = local_fun_fundcl(encl, d)
+        val @(fds, tail, fnms) = take_local_fungroup(encl, rest)
+      in
+        @(list_cons(fd, fds), tail, local_fun_name(fnms, d))
+      end
+    else @(list_nil(), ss, list_nil())
+| _ => @(list_nil(), ss, list_nil())
+)
+//
+and
 el_local_decl(encl: nameset, loc: loctn, d: pydecl, kont: pcexp): pcexp =
 (
 case+ d of
@@ -828,17 +890,12 @@ case+ d of
     // SCOPING: an inner def MAY carry a trailing `where:` block — wrap its body in PCEwhere (M3 ->
     // D2Ewhere), the SAME backwards-scoping as a top-level def (EMPTY where => no wrap).
     let
-      val ibody0 = el_func_body(fc_param_names(encl, params), floc, body)
-      val ibody1 =
-        ( case+ wheres of
-          | list_nil() => ibody0
-          | _ => PCEwhere(floc, ibody0, elab_decls(wheres)) )
+      val fd = local_fun_fundcl(encl, d)
     in
-      PCEletfun(loc,
-        list_sing(PCFundcl(floc, nm, el_param_names(params), el_param_types(params),
-                           ret, ibody1, false)),
-        kont)
+      PCEletfun(loc, list_sing(fd), kont)
     end
+| PyCtype(_, _, _, _, _) =>
+    PCEwhere(loc, kont, elab_decls(list_sing(d)))
 | _ => kont
 )
 //

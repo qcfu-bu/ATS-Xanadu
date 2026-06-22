@@ -223,26 +223,80 @@ case+ ss of
   | PySdecl(loc, d) =>
       (case+ d of
        | PyCfun(floc, _decos, nm, _, _, params, ret, fbody, wheres) =>
-           // SCOPING: an inner def in flow-mode MAY carry a `where:` block — wrap its body in
-           // PCEwhere (M3 -> D2Ewhere); EMPTY where => no wrap (byte-identical to before).
-           let
-             val ibody0 = elab_func_body(fc_param_names_pub(encl, params), floc, fbody)
-             val ibody1 =
-               ( case+ wheres of
-                 | list_nil() => ibody0
-                 | _ => PCEwhere(floc, ibody0, elab_decls(wheres)) )
-           in
-             PCEletfun(loc,
-               list_sing(PCFundcl(floc, nm, param_names_l(params), param_types_l(params),
-                                  ret, ibody1, false)),
-               fl_suite(nameset_add(encl, nm), rest, accs, muts, mts))
-           end
+           if flow_groupable_fun(d) then
+             let
+               val @(fds, rest1, fnms) = take_flow_fungroup(encl, ss)
+               val encl1 = nameset_union(encl, fnms)
+             in
+               PCEletfun(loc, fds, fl_suite(encl1, rest1, accs, muts, mts))
+             end
+           else
+             let
+               val fd = flow_fun_fundcl(encl, d)
+             in
+               PCEletfun(loc, list_sing(fd), fl_suite(nameset_add(encl, nm), rest, accs, muts, mts))
+             end
+       | PyCtype(_, _, _, _, _) =>
+           PCEwhere(loc, fl_suite(encl, rest, accs, muts, mts), elab_decls(list_sing(d)))
        | _ => fl_suite(encl, rest, accs, muts, mts))
   | PySerror(loc, msg) => PCEseq(loc, PCEerror(loc, msg), fl_suite(encl, rest, accs, muts, mts))
   )
 )
 //
 // M5a: register a `let mut p : T` annotation into the mut-type map (only a simple var binder).
+and
+flow_groupable_fun(d: pydecl): bool =
+(
+case+ d of
+| PyCfun(_, list_nil(), _, list_nil(), _, _, _, _, _) => true
+| _ => false
+)
+//
+and
+flow_fun_fundcl(encl: nameset, d: pydecl): pcfundcl =
+(
+case+ d of
+| PyCfun(floc, _decos, nm, _, _, params, ret, fbody, wheres) =>
+    let
+      val ibody0 = elab_func_body(fc_param_names_pub(encl, params), floc, fbody)
+      val ibody1 =
+        ( case+ wheres of
+          | list_nil() => ibody0
+          | _ => PCEwhere(floc, ibody0, elab_decls(wheres)) )
+    in
+      PCFundcl(floc, nm, param_names_l(params), param_types_l(params), ret, ibody1, false)
+    end
+| _ =>
+    let val loc = pydecl_loctn(d) in
+      PCFundcl(loc, "__pyfront_internal_bad_flow_fun_group", list_nil(), list_nil(), PyTypNone(),
+               PCEerror(loc, "internal: non-function in flow def group"), false)
+    end
+)
+//
+and
+flow_fun_name(ds: nameset, d: pydecl): nameset =
+(
+case+ d of
+| PyCfun(_, _, nm, _, _, _, _, _, _) => nameset_add(ds, nm)
+| _ => ds
+)
+//
+and
+take_flow_fungroup(encl: nameset, ss: list(pystmt)): @(list(pcfundcl), list(pystmt), nameset) =
+(
+case+ ss of
+| list_cons(PySdecl(_, d), rest) =>
+    if flow_groupable_fun(d) then
+      let
+        val fd = flow_fun_fundcl(encl, d)
+        val @(fds, tail, fnms) = take_flow_fungroup(encl, rest)
+      in
+        @(list_cons(fd, fds), tail, flow_fun_name(fnms, d))
+      end
+    else @(list_nil(), ss, list_nil())
+| _ => @(list_nil(), ss, list_nil())
+)
+//
 and
 mt_add(mts: muttypes, p: pypat, ann: pytypopt): muttypes =
 ( case+ p of PyPvar(_, nm) => muttypes_add(mts, nm, ann) | _ => mts )

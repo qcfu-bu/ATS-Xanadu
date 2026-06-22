@@ -64,6 +64,8 @@
 #extern fun PYPP_local_has(s: strn): bool = $extnam()
 #extern fun PYPP_type_add(s: strn): void = $extnam()
 #extern fun PYPP_type_has(s: strn): bool = $extnam()
+#extern fun PYPP_type_scope_push((*0*)): void = $extnam()
+#extern fun PYPP_type_scope_pop((*0*)): void = $extnam()
 #extern fun PYPP_con_add(s: strn): void = $extnam()
 #extern fun PYPP_con_has(s: strn): bool = $extnam()
 #extern fun PYPP_value_add(s: strn): void = $extnam()
@@ -943,7 +945,6 @@ pop_binders(ns: list(strn)): void =
   | list_nil() => ()
   | list_cons(nm, rest) => (PYPP_binder_pop(nm); pop_binders(rest))
 )
-//
 (* ****** ****** *)
 //
 // ====================== DYNAMIC side: indentation =========================
@@ -955,6 +956,20 @@ pop_binders(ns: list(strn)): void =
 fun
 ind(out: FILR, n: sint): void =
   if n <= 0 then () else (ps(out, "    "); ind(out, n-1))
+//
+fun
+pp_typedef(out: FILR, n: sint, sid: s0eid, smas: s0maglst, se: s0exp): void = let
+  val raws = pp_smag_raw_names(smas)
+  val tps = pp_smag_names(smas)
+in
+  ind(out, n); ps(out, "type "); ps(out, tyname(i0dnt_lexeme(sid)));
+  pp_names_brkt(out, tps);
+  ps(out, " = ");
+  push_binders(raws);
+  pp_s0exp(out, se);
+  pop_binders(raws);
+  nl(out)
+end
 //
 fun
 pp_symload_alias(out: FILR, n: sint, sym: s0ymb, dqi: d0qid, prec: g0expopt): void = let
@@ -1511,8 +1526,10 @@ pp_d0exp_suite(out: FILR, n: sint, de: d0exp): void =
   // a let-binding suite. The L0 `let DECLS in BODY end` -> emit each decl, then
   // the body. The decls are d0eclist (here: val-bindings `val+ P = e`).
   | D0Elet0(_, decls, _, body, _) => (
+      PYPP_type_scope_push();
       pp_dexp_letdecls(out, n, decls);
-      pp_dexp_body_seq(out, n, body))
+      pp_dexp_body_seq(out, n, body);
+      PYPP_type_scope_pop())
   //
   // a `case[+-] X of | p => e | ...` -> `match X:` then arms.
   | D0Ecas0(_, scrut, _, _, cls) => pp_dexp_match(out, n, scrut, cls)
@@ -1526,8 +1543,10 @@ pp_d0exp_suite(out: FILR, n: sint, de: d0exp): void =
 	  // the expression so side-effecting `val () = ...` where decls are preserved.
 	  // Top-level impl bodies still print a trailing `where:` block via pp_impl_body.
 	  | D0Ewhere(body0, wdc) => (
+	      PYPP_type_scope_push();
 	      pp_dexp_where_decls(out, n, wdc);
-	      pp_d0exp_suite(out, n, body0))
+	      pp_d0exp_suite(out, n, body0);
+        PYPP_type_scope_pop())
 	  //
 	  // a `(a; b; ...)` SMCLN-sequence -> each on its own statement line.  The parse
   // SPLITS at the FIRST `;`: D0Elpar's d0explst holds the part BEFORE `;`, and the
@@ -1676,7 +1695,9 @@ pp_dexp_letdecl(out: FILR, n: sint, dc: d0ecl): void =
 	  | D0Cfundclst(_, _, fds) => pp_dexp_fundcl_local_list(out, n, fds)
 	  | D0Cimplmnt0(_, _, tqas, dqi, tias, farg, _, _, body) =>
         pp_dexp_impl_local(out, n, tqas, dqi, tias, farg, body)
-	  | D0Csexpdef(_, _, _, _, _, _) => ()
+	  | D0Csexpdef(_, sid, smas, _, _, se) => (
+        PYPP_type_add(i0dnt_lexeme(sid));
+        pp_typedef(out, n, sid, smas, se))
 	  | D0Cstatic(_, dc1) => pp_dexp_letdecl(out, n, dc1)
 	  | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
 	  | D0Ctkerr(_) => ()
@@ -1751,10 +1772,14 @@ and
 pp_dexp_fundcl_local(out: FILR, n: sint, fd: d0fundcl): void = let
   val nm   = i0dnt_lexeme(d0fundcl_get_dpid(fd))
   val farg = d0fundcl_get_farg(fd)
+  val sres = d0fundcl_get_sres(fd)
   val tdxp = d0fundcl_get_tdxp(fd)
 in
   ind(out, n); ps(out, "def "); ps(out, fname(nm));
   pp_sig_farg_params(out, farg);
+  (case+ sres of
+   | S0RESsome(_, se) => (ps(out, " -> "); pp_s0exp(out, se))
+   | S0RESnone() => ());
   ps(out, ":"); nl(out);
   (case+ tdxp of
    | TEQD0EXPsome(_, body) => pp_dexp_fun_body(out, n, body)
@@ -1777,8 +1802,10 @@ pp_dexp_where_block(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
       case+ dcs of
       | list_nil() => ()
       | _ => (
+          PYPP_type_scope_push();
           ind(out, n); ps(out, "where:"); nl(out);
-          pp_dexp_letdecls(out, n+1, dcs)))
+          pp_dexp_letdecls(out, n+1, dcs);
+          PYPP_type_scope_pop()))
 )
 and
 pp_dexp_valdcls(out: FILR, n: sint, vds: d0valdclist): void =
@@ -2037,21 +2064,6 @@ s0exp_is_nullary_payload(se: s0exp): bool =
   | S0Eerrck(_, se1) => s0exp_is_nullary_payload(se1)
   | _ => false
 )
-//
-fun
-pp_typedef(out: FILR, n: sint, sid: s0eid, smas: s0maglst, se: s0exp): void = let
-  val raws = pp_smag_raw_names(smas)
-  val tps = pp_smag_names(smas)
-in
-  ind(out, n); ps(out, "type "); ps(out, tyname(i0dnt_lexeme(sid)));
-  pp_names_brkt(out, tps);
-  ps(out, " = ");
-  push_binders(raws);
-  pp_s0exp(out, se);
-  pop_binders(raws);
-  nl(out)
-end
-//
 fun
 pp_absimpl(out: FILR, n: sint, sqid: s0qid, smas: s0maglst, se: s0exp): void = let
   val raws = pp_smag_raw_names(smas)
@@ -2104,16 +2116,20 @@ in
 	   | TEQD0EXPnone() => (ind(out, n+1); todo(out, "impl-no-body")))
 	end
 	and
-	pp_fundcl_local(out: FILR, n: sint, fd: d0fundcl): void = let
-	  val nm   = i0dnt_lexeme(d0fundcl_get_dpid(fd))
-	  val farg = d0fundcl_get_farg(fd)
-	  val tdxp = d0fundcl_get_tdxp(fd)
-	in
-	  ind(out, n); ps(out, "def "); ps(out, fname(nm));
-	  pp_sig_farg_params(out, farg);
-	  ps(out, ":"); nl(out);
-	  (case+ tdxp of
-	   | TEQD0EXPsome(_, body) => pp_impl_body(out, n, body)
+pp_fundcl_local(out: FILR, n: sint, fd: d0fundcl): void = let
+  val nm   = i0dnt_lexeme(d0fundcl_get_dpid(fd))
+  val farg = d0fundcl_get_farg(fd)
+  val sres = d0fundcl_get_sres(fd)
+  val tdxp = d0fundcl_get_tdxp(fd)
+in
+  ind(out, n); ps(out, "def "); ps(out, fname(nm));
+  pp_sig_farg_params(out, farg);
+  (case+ sres of
+   | S0RESsome(_, se) => (ps(out, " -> "); pp_s0exp(out, se))
+   | S0RESnone() => ());
+  ps(out, ":"); nl(out);
+  (case+ tdxp of
+   | TEQD0EXPsome(_, body) => pp_impl_body(out, n, body)
 	   | TEQD0EXPnone() => (ind(out, n+1); todo(out, "fun-no-body")))
 	end
 	and
@@ -2133,8 +2149,10 @@ pp_where_block(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
       case+ dcs of
       | list_nil() => ()
       | _ => (
+          PYPP_type_scope_push();
           ind(out, n); ps(out, "where:"); nl(out);
-          pp_where_decls(out, n+1, dcs)))
+          pp_where_decls(out, n+1, dcs);
+          PYPP_type_scope_pop()))
 )
 and
 pp_where_decls(out: FILR, n: sint, dcs: d0eclist): void =
@@ -2152,7 +2170,9 @@ and
 	  | D0Cvaldclst(_, vds) => pp_dexp_valdcls(out, n, vds)
 	  | D0Cfundclst(_, _, fds) => pp_fundcl_local_list_n(out, n, fds)
 	  | D0Cimplmnt0(_, _, tqas, dqi, tias, farg, _, _, body) => pp_impl_n(out, n, tqas, dqi, tias, farg, body)
-	  | D0Csexpdef(_, sid, smas, _, _, se) => pp_typedef(out, n, sid, smas, se)
+	  | D0Csexpdef(_, sid, smas, _, _, se) => (
+        PYPP_type_add(i0dnt_lexeme(sid));
+        pp_typedef(out, n, sid, smas, se))
 	  | D0Cstatic(_, dc1) => pp_where_decl(out, n, dc1)
 	  | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
 	  | D0Csymload(_, sym, _, dqi, prec) => pp_symload_alias(out, n, sym, dqi, prec)

@@ -94,10 +94,12 @@ function PYPP_argv_stadyn() {
 var PYPP_type_set = {};
 var PYPP_con_set = {};
 var PYPP_value_set = {};
+var PYPP_type_scope_stack = [];
 function PYPP_local_reset() {
   PYPP_type_set = {};
   PYPP_con_set = {};
   PYPP_value_set = {};
+  PYPP_type_scope_stack = [];
 }
 function PYPP_local_add(s) {
   PYPP_type_set[String(s)] = true;
@@ -110,6 +112,21 @@ function PYPP_local_has(s) {
 }
 function PYPP_type_add(s) { PYPP_type_set[String(s)] = true; return; }
 function PYPP_type_has(s) { return PYPP_type_set[String(s)] === true; }
+function PYPP_type_scope_push() {
+  var copy = {};
+  for (var k in PYPP_type_set) {
+    if (Object.prototype.hasOwnProperty.call(PYPP_type_set, k)) copy[k] = PYPP_type_set[k];
+  }
+  PYPP_type_scope_stack.push(PYPP_type_set);
+  PYPP_type_set = copy;
+  return;
+}
+function PYPP_type_scope_pop() {
+  if (PYPP_type_scope_stack.length > 0) {
+    PYPP_type_set = PYPP_type_scope_stack.pop();
+  }
+  return;
+}
 function PYPP_con_add(s) { PYPP_con_set[String(s)] = true; return; }
 function PYPP_con_has(s) { return PYPP_con_set[String(s)] === true; }
 function PYPP_value_add(s) { PYPP_value_set[String(s)] = true; return; }
