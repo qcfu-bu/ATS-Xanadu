@@ -65,6 +65,10 @@
 //
 (* ****** ****** *)
 //
+#extern fun PYL_layout_iter(toks: pytokenlst): pytokenlst = $extnam()
+//
+(* ****** ****** *)
+//
 // is this raw node a physical newline?
 fun is_nlraw(nod: ptnode): bool = (case+ nod of PT_NL_RAW() => true | _ => false)
 fun is_eof(nod: ptnode): bool = (case+ nod of PT_EOF() => true | _ => false)
@@ -226,8 +230,9 @@ stklen(stk: list(sint)): sint =
 pylex_layout(src, text) = let
   val raw = pylex_text(src, text)
 in
-  // initial stack: just [0] (column-0 base block); bol=true; nothing pending yet.
-  layout_loop(raw, list_cons(0, list_nil()), 0, true, false, list_nil())
+  // The readable ATS layout_loop above is the spec. The production path uses
+  // the iterative JS bridge to survive generated compiler-sized token streams.
+  PYL_layout_iter(raw)
 end (* end of [pylex_layout] *)
 //
 (* ****** ****** *)

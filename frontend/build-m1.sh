@@ -121,6 +121,29 @@ for py in "$TESTDIR"/*.py; do
 done
 echo "----------------------------------------------------------------------"
 
+if [ "$ACCEPT" -eq 0 ]; then
+  echo ">> [3b/4] large-layout stress smoke (guards generated-JS stack depth)"
+  stress="$HERE/BUILD/m1_layout_stress.pdats"
+  stress_got="$HERE/BUILD/m1_layout_stress.got"
+  {
+    for ((i=0; i<1800; i++)); do
+      printf 'let stress_%04d = %d\n' "$i" "$i"
+    done
+  } > "$stress"
+  if node --stack-size=8801 "$OUTJS" "$stress" > "$stress_got" 2>"$HERE/BUILD/m1_layout_stress.run.err"; then
+    got_lines="$(wc -l < "$stress_got")"
+    if [ "$got_lines" -eq 9002 ]; then
+      echo "   [ok]   1800-line flat module layout ($got_lines token-dump lines)"
+    else
+      echo "   [FAIL] stress dump line count: got $got_lines, expected 9002" >&2
+      FAIL=1
+    fi
+  else
+    echo "   [FAIL] large-layout stress crashed; see BUILD/m1_layout_stress.run.err" >&2
+    FAIL=1
+  fi
+fi
+
 echo ">> [4/4] print the dump for two snippets (evidence: a def + a layout edge case)"
 for base in t01_def t05_brackets t07_dedent_eof; do
   got="$HERE/BUILD/${base}.got"

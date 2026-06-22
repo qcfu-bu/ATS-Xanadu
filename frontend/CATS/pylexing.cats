@@ -413,6 +413,99 @@ function PYL_scan_raw_iter(src, text) {
     }
   }
 }
+
+////////////////////////////////////////////////////////////////////////.
+//
+// Iterative layout pass.
+//
+// DATS/pylayout.dats keeps the readable off-side-rule implementation, but
+// generated JS recursion can overflow on pretty-printed compiler files. This
+// helper mirrors that logic with ordinary JS loops over the ATS token list.
+//
+function PYL__token_node(tok) { return tok[1]; }
+function PYL__token_loc(tok) { return tok[2]; }
+function PYL__loc_src(loc) { return loc[1]; }
+function PYL__loc_pbeg(loc) { return loc[2]; }
+function PYL__postn_col(pos) { return pos[3] | 0; }
+function PYL__synth(name, tag, loc) {
+  var p = PYL__loc_pbeg(loc);
+  var zloc = XATSCAPP("LOCTN", [0, PYL__loc_src(loc), p, p]);
+  return XATSCAPP("PYTOKEN", [0, PYL__node(name, tag), zloc]);
+}
+function PYL__brk_delta(tag) {
+  if (tag === 69 || tag === 71 || tag === 73) return 1;   // (, [, {
+  if (tag === 70 || tag === 72 || tag === 74) return -1;  // ), ], }
+  return 0;
+}
+function PYL_layout_iter(toks) {
+  var out = [];
+  var stk = [0];
+  var depth = 0;
+  var bol = true;
+  var pend = false;
+  var lastLoc = null;
+
+  function emit_dedents(n, loc) {
+    for (var k = 0; k < n; ++k) out.push(PYL__synth("PT_DEDENT", 78, loc));
+  }
+  function do_indent(ind, loc) {
+    var top = stk.length > 0 ? stk[stk.length - 1] : 0;
+    if (ind > top) {
+      stk.push(ind);
+      out.push(PYL__synth("PT_INDENT", 77, loc));
+    } else if (ind < top) {
+      while (stk.length > 0 && stk[stk.length - 1] > ind) {
+        stk.pop();
+        out.push(PYL__synth("PT_DEDENT", 78, loc));
+      }
+    }
+  }
+
+  var xs = toks;
+  while (xs && xs[0] === 1) {
+    var tok = xs[1];
+    xs = xs[2];
+    var nod = PYL__token_node(tok);
+    var tag = nod[0] | 0;
+    var loc = PYL__token_loc(tok);
+    lastLoc = loc;
+
+    if (tag === 79) { // PT_EOF
+      if (pend) out.push(PYL__synth("PT_NEWLINE", 76, loc));
+      emit_dedents(Math.max(0, stk.length - 1), loc);
+      out.push(XATSCAPP("PYTOKEN", [0, PYL__node("PT_EOF", 79), loc]));
+      return PYL__list_from_array(out);
+    }
+
+    if (tag === 75) { // PT_NL_RAW
+      if (depth > 0) {
+        // implicit line join inside brackets
+      } else if (bol) {
+        // blank/comment-only logical line
+      } else {
+        out.push(PYL__synth("PT_NEWLINE", 76, loc));
+        bol = true;
+        pend = false;
+      }
+      continue;
+    }
+
+    if (bol && depth === 0) {
+      do_indent(PYL__postn_col(PYL__loc_pbeg(loc)), loc);
+    }
+    depth += PYL__brk_delta(tag);
+    out.push(tok);
+    bol = false;
+    pend = true;
+  }
+
+  if (lastLoc) {
+    if (pend) out.push(PYL__synth("PT_NEWLINE", 76, lastLoc));
+    emit_dedents(Math.max(0, stk.length - 1), lastLoc);
+    out.push(PYL__synth("PT_EOF", 79, lastLoc));
+  }
+  return PYL__list_from_array(out);
+}
 //
 // Read a whole file as UTF-8 text (for the file driver / golden harness). On
 // failure returns the empty string (the lexer then yields just EOF).

@@ -88,9 +88,11 @@ harnesses.
   `buf.2 := i0 + 1`, which clears and typechecks `parsing_tokbuf.dats`.
   Expression-position ATS `~(...)` boolean negation now prints as Pythonic
   `not (...)`, and the parser accepts `~expr` as a compatibility alias so older
-  generated code does not crash M2. The remaining parser-slice blocker is M3
-  runtime crashes on the larger generated parser files, not visible pyprint
-  fallbacks.
+  generated code does not crash M2. The generated-JS layout pass now runs
+  iteratively, so the larger generated parser files no longer segfault during
+  M1/M2/M3 reparse. They now reach ordinary M3 diagnostics:
+  `parsing_staexp.dats` reports `m3_nerror=27`, `parsing_dynexp.dats` reports
+  `m3_nerror=48`, and `parsing_decl00.dats` reports `m3_nerror=35`.
 - `build-pp-corpus.sh --out-dir RELPATH` now normalizes the report directory
   against `frontend/` before running pyprint from `XATSHOME`, so separate static
   and dynamic corpus summaries can be kept without path breakage.
@@ -99,9 +101,10 @@ harnesses.
 
 1. Pretty-printer breadth is now marker-free for the audited `srcgen2/SATS`
    interface corpus and the 166-file `srcgen2/DATS`/`srcgen2/UTIL` pyprint-only
-   slice. The next blocker is making those dynamic outputs reparse/typecheck
-   reliably, then extending the same treatment to `srcgen1/prelude` and backend
-   comparison.
+   slice. The parser implementation slice no longer crashes in layout/reparse;
+   its remaining blockers are now concrete M3 type/elaboration diagnostics in
+   the larger generated parser files. After those reach `m3_nerror=0`, extend
+   the same treatment to `srcgen1/prelude` and backend comparison.
 2. Include/import/load semantics are not faithful yet. Bare and aliased
    `#staload` now pretty-print to scoped ATS `.sats` imports, but `#include`
    still prints as an inert comment and needs a real Pythonic load/include
