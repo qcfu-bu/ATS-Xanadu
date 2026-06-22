@@ -592,6 +592,14 @@ i1cls_go1emit
 , casval: i1val, icl0: i1cls, params: i1tnmlst, bnds: i1bndlst, env0: !envx2go): void
 //
 (* ****** ****** *)
+//
+// Declared at the end so adding this helper does not shift existing d2cst
+// stamps used by the generated JS bundle's cross-file references.
+fun
+d2cstimplgo1
+(filr:FILR, dcst: d2cst): void
+//
+(* ****** ****** *)
 (* ****** ****** *)
 //
 (***********************************************************************)

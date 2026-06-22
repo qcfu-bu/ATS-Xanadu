@@ -35,6 +35,10 @@ dispatch, emitting Go. Only the constructors the M1 walking skeleton
 //
 #staload // LOC =
 "./../../../SATS/locinfo.sats"
+#staload // BAS =
+"./../../../SATS/xbasics.sats"
+#staload // LEX =
+"./../../../SATS/lexing0.sats"
 #staload // D2E =
 "./../../../SATS/dynexp2.sats"
 //
@@ -53,6 +57,8 @@ dispatch, emitting Go. Only the constructors the M1 walking skeleton
 //
 #symload filr with envx2go_filr$get
 #symload nind with envx2go_nind$get
+#symload node with token_get_node
+#symload node with dimpl_get_node
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -104,6 +110,7 @@ dcl0.node() of
 // a (wrapped) I1Dfundclst to [f0_localfun] (a local Go closure).  So nested vs
 // top-level is distinguished by the ENTRY POINT, never double-emitted.
 |I1Dfundclst _ => ((*void*))
+|I1Dimplmnt0 _ => ((*void*))
 //
 | _(*otherwise*) =>
 (
@@ -532,8 +539,9 @@ i1valdcl_go1emit: a single [val PAT = CMP].
     `goxtnm<itnm> := <result>`.  A trailing `_ = goxtnm<itnm>` suppressor
     guarantees Go's "declared and not used" never trips (harmless if the body
     later reads it).  WILDCARD `val _ = ...` (I0Pany): emit as effect (no bind).
-  - OTHER non-unit patterns (tuples/records/datacons): reported UNHANDLED
-    (M2.6/M2.7 decompose them into projections).
+  - STRUCTURAL patterns (tuples/records/datacons): bind the pattern ROOT temp
+    to the initializer result.  The intrep1 binder already maps sub-pattern
+    variables to projection values rooted at that temp.
 *)
 #implfun
 i1valdcl_go1emit
@@ -558,6 +566,17 @@ case+ ipat.node() of
 (
 case+ i0ps of
 |list_nil() => true | list_cons _ => false)
+| _(*else*) => false)
+//
+fun
+i0pat_dataconq
+(ipat: i0pat): bool =
+(
+case+ ipat.node() of
+|I0Pcon _ => true
+|I0Pdap1(ip1) => i0pat_dataconq(ip1)
+|I0Pdapp(ip1, _, _) => i0pat_dataconq(ip1)
+|I0Ptapq(ip1, _) => i0pat_dataconq(ip1)
 | _(*else*) => false)
 //
 in//let
@@ -598,14 +617,28 @@ case+ ipat.node() of
   (
   i1cmp_go1emit(icmp, env0))
 //
-// tuples / records / datacons -> M2.6/M2.7.
+// Structural pattern: bind the pattern root temp; sub-pattern vars are
+// projections rooted at this temp.
 | _(*else*) =>
-  (
-  nindfpr(filr, nind);
-  strnfpr
-  (filr, "// UNHANDLED: non-unit val pattern\n");
-  prerrsln
-  ("[go1emit] UNHANDLED: non-unit val pattern (tuple/record/datacon -> M2.6/M2.7)"))
+  let
+    val-I1CMPcons(ilts, ival) = icmp
+    val () = i1letlst_go1emit(ilts, icmp, env0)
+    val gty = gotype_of_ival(ival)
+    val dcq = i0pat_dataconq(ipat)
+  in
+    nindfpr(filr, nind);
+    i1tnmgo1(filr, itnm); strnfpr(filr, " := ");
+    i1valgo1(filr, ival);
+    if dcq
+      then
+      (
+        if (gty = "any")
+          then strnfpr(filr, ".(*xatsgo.XatsCon)") else ((*void*)))
+      else ((*void*));
+    fprintln(filr);
+    nindfpr(filr, nind);
+    strnfpr(filr, "_ = "); i1tnmgo1(filr, itnm); fprintln(filr)
+  end
 ))
 //
 end//let//endof[i1valdcl_go1emit(idcl,env0)]
@@ -833,6 +866,7 @@ i1dcl_go1emit_fun
 (
 case+ dcl0.node() of
 |I1Dfundclst _ => f0_fundclst(dcl0, env0)
+|I1Dimplmnt0 _ => f0_implmnt0(dcl0, env0)
 |I1Ddclenv(idcl1, _) => i1dcl_go1emit_fun(idcl1, env0)
 |I1Dtmpsub(_, idcl1) => i1dcl_go1emit_fun(idcl1, env0)
 |I1Dstatic(_, idcl1) => i1dcl_go1emit_fun(idcl1, env0)
@@ -871,6 +905,117 @@ case+ tqas of
     ("[go1emit] UNHANDLED: template I1Dfundclst (M3)"))
 //
 end//let//endof[f0_fundclst(dcl0,env0)]
+//
+(* ****** ****** *)
+//
+fun
+implfunq
+(tknd: token): bool =
+(
+case+ tknd.node() of
+|T_IMPLMNT(IMPLfun()) => true
+| _(*else*) => false
+)//endof[implfunq(tknd)]
+//
+fun
+dimpl_dcstopt
+(dimp: dimpl): optn(d2cst) =
+(
+case+ dimp.node() of
+|DIMPLone1(dcst) => optn_cons(dcst)
+|DIMPLone2(dcst, _) => optn_cons(dcst)
+|DIMPLnon1(_) => optn_nil()
+)//endof[dimpl_dcstopt(dimp)]
+//
+fun
+f0_implmnt0
+(
+dcl0: i1dcl,
+env0: !envx2go): void =
+let
+//
+val filr = env0.filr()
+val loc0 = dcl0.lctn()
+//
+val-
+I1Dimplmnt0
+(tknd, _, _, dimp, fjas, icmp) = dcl0.node()
+//
+fun
+emit_comment
+(msg: strn): void =
+(
+nindfpr(filr, env0.nind());
+strnfpr(filr, "// "); strnfpr(filr, msg);
+strnfpr(filr, " @ "); loctn_fprint(loc0, filr); fprintln(filr))
+//
+fun
+emit_implfun
+(dcst: d2cst): void =
+let
+  val (argtys, retty) = gotypes_of_funstyp(d2cst_get_styp(dcst))
+  val bnds = binds_of_fjarglst(fjas)
+  val () = byref_register_params(fjas, d2cst_get_styp(dcst))
+  val () =
+  (
+  strnfpr(filr, "func ");
+  d2cstimplgo1(filr, dcst);
+  strnfpr(filr, "(");
+  localfun_emit_params(filr, fjas, argtys);
+  strnfpr(filr, ") ");
+  strnfpr(filr, retty);
+  strnfpr(filr, " {\n"))
+  val () =
+  (
+  if i1cmp_body_has_tailcall(icmp)
+  then
+    let
+      val params = params_of_fjarglst(fjas)
+      val () = envx2go_incnind(env0, 1(*++*))
+      val () = (nindfpr(filr, env0.nind()); strnfpr(filr, "for {\n"))
+      val () = envx2go_incnind(env0, 1(*++*))
+      val () = i1cmp_go1emit_ret(icmp, params, bnds, env0)
+      val () = envx2go_decnind(env0, 1(*--*))
+      val () = (nindfpr(filr, env0.nind()); strnfpr(filr, "}\n"))
+      val () = envx2go_decnind(env0, 1(*--*))
+    in
+      ((*void*))
+    end
+  else
+    (
+    envx2go_incnind(env0, 1(*++*));
+    i1cmp_go1emit_ret(icmp, list_nil(), bnds, env0);
+    envx2go_decnind(env0, 1(*--*))))
+  val () = strnfpr(filr, "}\n\n")
+in
+  ((*void*))
+end//endof[emit_implfun(dcst)]
+//
+in//let
+//
+if
+dimpl_tempq(dimp)
+then
+  (
+  emit_comment("UNHANDLED: template I1Dimplmnt0");
+  prerrsln("[go1emit] UNHANDLED: template I1Dimplmnt0 (M3)"))
+else
+if
+~implfunq(tknd)
+then
+  (
+  emit_comment("UNHANDLED: non-#implfun I1Dimplmnt0");
+  prerrsln("[go1emit] UNHANDLED: non-#implfun I1Dimplmnt0"))
+else
+  (
+  case+ dimpl_dcstopt(dimp) of
+  |optn_cons(dcst) => emit_implfun(dcst)
+  |optn_nil() =>
+    (
+    emit_comment("UNHANDLED: unresolved I1Dimplmnt0");
+    prerrsln("[go1emit] UNHANDLED: unresolved DIMPLnon1 I1Dimplmnt0")))
+//
+end//let//endof[f0_implmnt0(dcl0,env0)]
 //
 }(*where*)//endof[i1dcl_go1emit_fun(dcl0,env0)]
 //

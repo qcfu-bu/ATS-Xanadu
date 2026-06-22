@@ -243,7 +243,7 @@ RUNTIME := \
 NS2R := $(SRCGEN2)/xats2js/srcgen1/xshared/runtime
 
 ########################################################################
-.PHONY: all bundle suite psuite clean cleanall test help dirs check-go
+.PHONY: all bundle suite psuite clean cleanall test help dirs check-go selfhost-smoke selfhost-strict smoke-selfhost
 .DEFAULT_GOAL := bundle
 
 # The per-file transpiles and namespaced fragments are the WHOLE POINT of
@@ -263,6 +263,8 @@ help:
 	@echo "  make -j         cold/parallel transpile + bundle"
 	@echo "  make suite      differential-vs-JS oracle (sequential) + summary"
 	@echo "  make -jN psuite differential-vs-JS oracle (PARALLEL) + summary"
+	@echo "  make selfhost-smoke   structural guard for backend-source emission"
+	@echo "  make selfhost-strict  stricter self-hosting gate for unhandled/internal routing"
 	@echo "  make run/NAME   one test through the oracle"
 	@echo "  make TEST=path test   one test by path"
 	@echo "  make clean      remove emitter artifacts (keep cached fixed libs)"
@@ -486,6 +488,79 @@ bundle: $(GOPATCHED)
 
 check-go:
 	@command -v go >/dev/null 2>&1 || { echo "!! 'go' not on PATH" >&2; exit 1; }
+
+########################################################################
+# SELF-HOSTING SMOKE — structural guard for backend-source probes.
+# Runs the Go emitter on one backend source and rejects vacuous generated Go
+# that only contains skip-comments + func main.  This is intentionally separate
+# from the conformance suite because stdout equality can be empty/empty here.
+########################################################################
+SELFHOST_SMOKE_SRC ?= $(DATSDIR)/go1emit_utils0.dats
+SELFHOST_SMOKE_MIN_FUNCS ?= 1
+SELFHOST_STRICT_INTERNAL_ROUTE_RE ?= xatsgo\.Xats_(d2cst|d2var|token_get_node|fprint_loctn_as_stamp)
+
+selfhost-smoke: $(GOPATCHED)
+	@set -uo pipefail; \
+	SRC="$(SELFHOST_SMOKE_SRC)"; \
+	[ -f "$$SRC" ] || SRC="$(DATSDIR)/$$SRC"; \
+	[ -f "$$SRC" ] || { echo "!! selfhost-smoke source not found: $(SELFHOST_SMOKE_SRC)" >&2; exit 2; }; \
+	SRC="$$(cd "$$(dirname "$$SRC")" && pwd)/$$(basename "$$SRC")"; \
+	NAME="$$(basename "$$SRC" .dats)"; \
+	WORK="$(BUILD)/selfhost-smoke"; \
+	mkdir -p "$$WORK"; \
+	RAWOUT="$$WORK/$$NAME.stdout.txt"; \
+	STDERR="$$WORK/$$NAME.stderr.txt"; \
+	EMIT="$$WORK/$$NAME.go"; \
+	echo "======================================================================"; \
+	echo ">> SELFHOST-SMOKE: $$SRC"; \
+	echo "======================================================================"; \
+	echo ">> run go-emitter -> $$EMIT"; \
+	$(NODE) $(GOPATCHED) "$$SRC" > "$$RAWOUT" 2>"$$STDERR"; RC=$$?; \
+	if [ "$$RC" -ne 0 ]; then echo "!! go-emitter exit $$RC" >&2; tail -40 "$$STDERR" >&2; exit "$$RC"; fi; \
+	awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$$RAWOUT" > "$$EMIT"; \
+	[ "$$(wc -c < "$$EMIT")" -ge 2 ] || { echo "!! selfhost-smoke: no emitted Go captured" >&2; cat "$$RAWOUT" >&2; exit 1; }; \
+	funcs="$$(awk '/^func[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]*\(/ && $$0 !~ /^func[ \t]+main[ \t]*\(/ { n++ } END { print n+0 }' "$$EMIT")"; \
+	skips="$$(grep -c 'skipped non-val dcl' "$$EMIT" || true)"; \
+	echo "   emitted Go: $$EMIT ($$(wc -l < "$$EMIT") lines, $$funcs package-level func(s) excluding main, $$skips skip-comment(s))"; \
+	if [ "$$funcs" -lt "$(SELFHOST_SMOKE_MIN_FUNCS)" ]; then \
+	  echo "!! selfhost-smoke: vacuous backend-source emission" >&2; \
+	  echo "!! expected at least $(SELFHOST_SMOKE_MIN_FUNCS) package-level func declaration(s) other than main in $$EMIT" >&2; \
+	  echo "!! found $$funcs; this source can otherwise pass by empty stdout while real declarations are skipped" >&2; \
+	  echo "!! inspect $$EMIT and $$STDERR" >&2; \
+	  exit 1; \
+	fi; \
+	echo ">> SELFHOST-SMOKE PASS"
+
+selfhost-strict: selfhost-smoke
+	@set -uo pipefail; \
+	SRC="$(SELFHOST_SMOKE_SRC)"; \
+	[ -f "$$SRC" ] || SRC="$(DATSDIR)/$$SRC"; \
+	[ -f "$$SRC" ] || { echo "!! selfhost-strict source not found: $(SELFHOST_SMOKE_SRC)" >&2; exit 2; }; \
+	NAME="$$(basename "$$SRC" .dats)"; \
+	WORK="$(BUILD)/selfhost-smoke"; \
+	EMIT="$$WORK/$$NAME.go"; \
+	[ -f "$$EMIT" ] || { echo "!! selfhost-strict emitted Go not found: $$EMIT" >&2; exit 2; }; \
+	echo "======================================================================"; \
+	echo ">> SELFHOST-STRICT: $$EMIT"; \
+	echo "======================================================================"; \
+	bad=0; \
+	if grep -n 'UNHANDLED:' "$$EMIT" > "$$WORK/$$NAME.strict-unhandled.txt"; then \
+	  echo "!! selfhost-strict: generated Go contains UNHANDLED markers" >&2; \
+	  sed -n '1,20p' "$$WORK/$$NAME.strict-unhandled.txt" >&2; \
+	  bad=1; \
+	fi; \
+	if grep -n -E '$(SELFHOST_STRICT_INTERNAL_ROUTE_RE)' "$$EMIT" > "$$WORK/$$NAME.strict-internal-routing.txt"; then \
+	  echo "!! selfhost-strict: generated Go routes compiler-internal names through xatsgo" >&2; \
+	  sed -n '1,20p' "$$WORK/$$NAME.strict-internal-routing.txt" >&2; \
+	  bad=1; \
+	fi; \
+	if [ "$$bad" -ne 0 ]; then \
+	  echo "!! inspect $$EMIT" >&2; \
+	  exit 1; \
+	fi; \
+	echo ">> SELFHOST-STRICT PASS"
+
+smoke-selfhost: selfhost-smoke
 
 ########################################################################
 # ONE TEST through the differential-vs-JS oracle.

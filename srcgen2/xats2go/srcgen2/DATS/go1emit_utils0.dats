@@ -118,23 +118,67 @@ in//let
 (* ****** ****** *)
 //
 (*
-d2cstgo1: route a prelude constant to its xatsgo runtime entry point.
-The dcst identity is whatever the pipeline-resolved I1INStimp produced;
-we emit  xatsgo.Xats_<sym>  and capitalize via the explicit "Xats_"
-prefix so the result is an exported Go identifier regardless of the ATS
-symbol's case. The xatsgo runtime provides Xats_strn_print /
-Xats_the_print_store_log etc. as first-class function values.
+d2cstgo1: prelude constants route to xatsgo; compiler/user constants route
+to package symbols.  This keeps runtime hooks available for lowered prelude
+calls while preserving linkable names for self-hosting compiler helpers.  The
+known-helper list is intentionally narrow until the self-host path can preserve
+the source-location classifier without introducing fresh unresolved helpers.
 *)
 #implfun
 d2cstgo1
 (filr, dcst) =
 let
 val name = dcst.name((*0*))
+val sname = symbl_get_name(name)
+val pkgq =
+(
+if
+(sname = "d2cst_get_name") then true else
+if
+(sname = "d2cst_get_lctn") then true else
+if
+(sname = "d2var_get_name") then true else
+if
+(sname = "d2var_get_lctn") then true else
+if
+(sname = "token_get_node") then true else
+if
+(sname = "fprint_loctn_as_stamp") then true else
+if
+(sname = "symbl_get_name") then true else
+if
+(sname = "strnfpr") then true else false)
 in//let
 (
-strnfpr(filr, "xatsgo.Xats_");
-xsymgo1(filr, name)) end
+if
+pkgq
+then
+  d2cstimplgo1(filr, dcst)
+else
+(
+  strnfpr(filr, "xatsgo.Xats_");
+  xsymgo1(filr, name))) end
 //endof[d2cstgo1(filr,dcst)]
+//
+(* ****** ****** *)
+//
+(*
+d2cstimplgo1: a resolved user implementation constant -> package-level Go
+identifier.  Unlike [d2cstgo1], this is NOT an xatsgo runtime hook; it mirrors
+[d2vargo1]'s source-name + location-stamp scheme so a #implfun definition and
+its package symbol are stable and collision-resistant.
+*)
+#implfun
+d2cstimplgo1
+(filr, dcst) =
+let
+val name = dcst.name((*0*))
+in//let
+(
+strnfpr(filr, symbl_get_name(name));
+strnfpr(filr, "_");
+fprint_loctn_as_stamp(filr, dcst.lctn((*0*)))) end
+//endof[d2cstimplgo1(filr,dcst)]
 //
 (* ****** ****** *)
 //
@@ -150,7 +194,7 @@ let
 val name = dvar.name((*0*))
 in//let
 (
-xsymgo1(filr, name);
+strnfpr(filr, symbl_get_name(name));
 strnfpr(filr, "_");
 fprint_loctn_as_stamp(filr, dvar.lctn((*0*)))) end
 //endof[d2vargo1(filr,dvar)]
