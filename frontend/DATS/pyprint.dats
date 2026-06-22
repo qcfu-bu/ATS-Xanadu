@@ -2429,6 +2429,7 @@ and
 	      pp_typedef(out, n, sid, smas, se))
 	  | D0Cdefine(_, gid, _, gedf) => pp_define(out, n, gid, gedf)
 	  | D0Cexcptcon(_, _, tcns) => pp_excptcon_list(out, n, tcns)
+	  | D0Clocal0(_, head, _, body, _) => pp_where_local_decls(out, n, head, body)
 	  | D0Cstatic(_, dc1) => pp_where_decl(out, n, dc1)
 	  | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
 	  | D0Csymload(_, sym, _, dqi, prec) => pp_symload_alias(out, n, sym, dqi, prec)
@@ -2436,6 +2437,17 @@ and
 	  | D0Ctkskp(_) => ()
 	  | _ => (ind(out, n); todo(out, "where-decl"))
 	)
+and
+pp_where_local_decls(out: FILR, n: sint, head: d0eclist, body: d0eclist): void =
+(
+  if list_nilq(head)
+  then pp_where_decls(out, n, body)
+  else (
+    ind(out, n); ps(out, "private:"); nl(out);
+    pp_where_decls(out, n+1, head);
+    nl(out);
+    pp_where_decls(out, n, body))
+)
 and
 pp_fundcl_impl_list_n(out: FILR, n: sint, fds: d0fundclist): void =
 (
@@ -2759,6 +2771,7 @@ pp_priv_head_one(out: FILR, n: sint, dc: d0ecl): void =
 	  | D0Csexpdef(_, sid, smas, _, _, se) => pp_typedef(out, n, sid, smas, se)
 	  | D0Cdefine(_, gid, _, gedf) => pp_define(out, n, gid, gedf)
 	  | D0Cstaload(_, _, ge) => pp_staload_n(out, n, ge)
+	  | D0Clocal0(_, head, _, body, _) => pp_priv_head_local(out, n, head, body)
 	  | D0Cstatic(_, dc1) => pp_priv_head_one(out, n, dc1)
 	  | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
 	  | D0Csymload(_, sym, _, dqi, prec) => pp_symload_alias(out, n, sym, dqi, prec)
@@ -2766,6 +2779,17 @@ pp_priv_head_one(out: FILR, n: sint, dc: d0ecl): void =
 	  | D0Ctkskp(_) => ()
 	  | _ => (ind(out, n); todo(out, "private-head decl"))
 	)
+and
+pp_priv_head_local(out: FILR, n: sint, head: d0eclist, body: d0eclist): void =
+(
+  if list_nilq(head)
+  then pp_priv_head(out, n, body)
+  else (
+    ind(out, n); ps(out, "private:"); nl(out);
+    pp_priv_head(out, n+1, head);
+    nl(out);
+    pp_priv_head(out, n, body))
+)
 and
 pp_priv_valdcls(out: FILR, n: sint, vds: d0valdclist): void =
 (
