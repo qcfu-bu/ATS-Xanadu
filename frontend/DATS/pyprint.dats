@@ -14,7 +14,7 @@
 **   bodyless val x: T                     -> @static let x: T
 **   #symload NAME with FN [of N]          -> @overload NAME = FN
 **   #define NAME val                      -> let NAME = val
-**   #include "x"                          -> # include "x"  (TODO: import)
+**   #include "x"                          -> from "x" import *
 **
 ** REWRITE RULES:
 **   (1) CAPITALIZE type & data-constructor names (positionally: type exprs,
@@ -54,6 +54,7 @@
 #extern fun PYPP_xname(i: sint): strn = $extnam()
 #extern fun PYPP_pname(i: sint): strn = $extnam()
 #extern fun PYPP_source_set(s: strn): void = $extnam()
+#extern fun PYPP_import_path(raw: strn): strn = $extnam()
 #extern fun PYPP_import_stem(raw: strn): strn = $extnam()
 // CAPITALIZE-SCOPING (dynamic side): the file-local name registry. PYPP_local_add
 // records a name DEFINED IN THIS FILE (a datatype type-name or data-constructor,
@@ -1404,7 +1405,7 @@ pp_dexp_fun_body(out: FILR, n: sint, body: d0exp): void =
 (
   case+ body.node() of
   | D0Ewhere(body0, wdc) => (
-      pp_d0exp_suite(out, n+1, body0);
+      pp_dexp_fun_body(out, n, body0);
       pp_dexp_where_block(out, n, wdc))
   | _ => pp_d0exp_suite(out, n+1, body)
 )
@@ -1662,7 +1663,7 @@ in
 	(
   case+ body.node() of
   | D0Ewhere(body0, wdc) => (
-      pp_d0exp_suite(out, n+1, body0);
+      pp_impl_body(out, n, body0);
       pp_where_block(out, n, wdc))
   | _ => pp_d0exp_suite(out, n+1, body)
 )
@@ -1867,9 +1868,9 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
       true
     end
   //
-  // #include "x"  ->  a deferred-construct comment marker.
+  // #include "x" -> import the ATS header/interface into this Pythonic module.
   | D0Cinclude(_, _, ge) => (
-      ps(out, "# include "); pp_g0exp(out, ge); ps(out, "  (TODO: import)"); nl(out);
+      ps(out, "from \""); ps(out, PYPP_import_path(g0exp_import_path(ge))); ps(out, "\" import *"); nl(out);
       true
     )
   //

@@ -64,6 +64,14 @@ function PYL_unquote(s) {
   }
   return s;
 }
+function PYL_has_ats_ext(s) {
+  s = PYL_unquote(s);
+  return /\.(sats|hats)$/i.test(String(s));
+}
+function PYL_has_hats_ext(s) {
+  s = PYL_unquote(s);
+  return /\.hats$/i.test(String(s));
+}
 //
 // Surface identifiers spell ATS '$' segments Koka-style with '/', e.g. `a0ref/get`.
 // Lowering resolves those names against the existing compiler/prelude spelling.

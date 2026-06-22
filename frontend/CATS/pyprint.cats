@@ -42,7 +42,7 @@ function PYPP_strip_ext(s) {
   s = String(s);
   return s.replace(/\.(sats|hats)$/i, "");
 }
-function PYPP_import_stem(raw) {
+function PYPP_import_path(raw) {
   var path = require("path").posix;
   raw = PYPP_unquote(raw);
   var src = PYPP_source_path;
@@ -58,7 +58,10 @@ function PYPP_import_stem(raw) {
     else resolved = resolved.replace(/^\/+/, "");
   }
   resolved = resolved.replace(/^\/+/, "");
-  return PYPP_strip_ext(resolved);
+  return resolved;
+}
+function PYPP_import_stem(raw) {
+  return PYPP_strip_ext(PYPP_import_path(raw));
 }
 //
 function PYPP_argv_path() {

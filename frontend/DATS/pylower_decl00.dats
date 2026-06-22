@@ -53,6 +53,7 @@
 fun ats_name(name: strn): strn = pylower_ats_name(name)
 fun ats_sym(name: strn): sym_t = symbl_make_name(ats_name(name))
 #extern fun PYL_uncapitalize(s: strn): strn = $extnam()
+#extern fun PYL_has_hats_ext(s: strn): bool = $extnam()
 fun ats_uncap_sym(name: strn): sym_t = symbl_make_name(PYL_uncapitalize(ats_name(name)))
 fun ats_type_sym(name: strn): sym_t = ats_uncap_sym(name)
 //
@@ -786,6 +787,10 @@ lower_import(env: !tr12env, loc: loctn, path: strn, knd0: sint, is_python: bool)
     // errck as unresolved names — a graceful, characterized failure. (Python-module import is a
     // clean follow-up: thread OUR pipeline as the loader.)
     d2ecl_make_node(loc, D2Cnone0())
+  else if PYL_has_hats_ext(path) then
+    // `.hats` files are ATS header includes, not sealed modules. Lower them through the D1 include
+    // path so nested staloads/imports extend THIS file's env, matching stock `#include`.
+    lower_include(env, loc, path, knd0)
   else let
     // the absolute path: prepend XATSHOME (mirrors f0_pvsload's `strn_append(XATSHOME, fnam)`).
     val abspath = strn_append(the_XATSHOME(), path)
@@ -826,7 +831,33 @@ lower_import(env: !tr12env, loc: loctn, path: strn, knd0: sint, is_python: bool)
     in
       d2ecl_make_node(loc, D2Cstaload(knd0, tok, gsrc, fopt, dres))
     end
+end
+//
+and
+lower_include(env: !tr12env, loc: loctn, path: strn, knd0: sint): d2ecl = let
+  val abspath = strn_append(the_XATSHOME(), path)
+  val pknd =
+    if PYL_has_hats_ext(path)
+      then 1
+      else knd0
+in
+  if ~fpath_rexists(abspath) then build_missing_import(loc, abspath)
+  else let
+    val fpth = fpath_make_absolute(abspath)
+    val @(_shrd, dpar1) = cached_d1parsed_from_fpath(pknd, fpth, abspath)
+    val dopt =
+      (
+        case+ d1parsed_get_parsed(dpar1) of
+        | optn_nil() => optn_nil()
+        | optn_cons(d1cs) => optn_cons(trans12_d1eclist(env, d1cs))
+      ) : d2eclistopt
+    val tok  = token_make_node(loc, T_VAL(VLKval))
+    val gsrc = g1exp_make_node(loc, G1Eid0(symbl_make_name(path)))
+    val fopt = optn_cons(fpth) : fpathopt
+  in
+    d2ecl_make_node(loc, D2Cinclude(knd0, tok, gsrc, fopt, dopt))
   end
+end
 //
 and
 cached_d2parsed_from_fpath(knd0: sint, fpth: fpath, abspath: strn): @(sint, d2parsed) = let
@@ -844,6 +875,22 @@ in
       val () = the_d2parenv_pvsadd0(fnm2, dpar2)
     in
       @(0, dpar2)
+    end
+end
+//
+and
+cached_d1parsed_from_fpath(knd0: sint, fpth: fpath, abspath: strn): @(sint, d1parsed) = let
+  val fnm2 = fpath_get_fnm2(fpth)
+  val opt1 = the_d1parenv_pvsfind(fnm2)
+in
+  case+ opt1 of
+  | ~optn_vt_cons(dpar1) => @(1, dpar1)
+  | ~optn_vt_nil() => let
+      val dpar0 = d0parsed_from_fpath(knd0, abspath)
+      val dpar1 = d1parsed_of_trans01(dpar0)
+      val () = the_d1parenv_pvsadd0(fnm2, dpar1)
+    in
+      @(0, dpar1)
     end
 end
 //

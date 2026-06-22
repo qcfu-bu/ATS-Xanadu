@@ -45,6 +45,9 @@
 // taken as part of the path). FFI (PYL_unquote in pylexing.cats, linked by every build): returns
 // the string unchanged when it is not a fully-quoted literal.
 #extern fun PYL_unquote(s: strn): strn = $extnam()
+// Explicit quoted ATS paths can name `.sats` or `.hats` directly; dotted imports without an
+// extension keep the v1 rule and append `.sats`.
+#extern fun PYL_has_ats_ext(s: strn): bool = $extnam()
 //
 (* ****** ****** *)
 //
@@ -305,7 +308,13 @@ case+ segs of
 // fail the load with a clean diagnostic at M3, not a crash.)
 fun
 modpath_to_sats(segs: list(strn)): strn =
-  strn_append("/", strn_append(modpath_join(segs), ".sats"))
+let
+  val path = modpath_join(segs)
+in
+  if PYL_has_ats_ext(path)
+    then strn_append("/", path)
+    else strn_append("/", strn_append(path, ".sats"))
+end
 //
 (* ****** ****** *)
 //
