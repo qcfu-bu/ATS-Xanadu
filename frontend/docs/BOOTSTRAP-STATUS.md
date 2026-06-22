@@ -23,10 +23,10 @@ harnesses.
   It is still a corpus-driven surface transliterator, but the currently audited
   static interface and dynamic compiler/utility slices have no visible
   `# TODO(pp)` fallbacks.
-- The default corpus audit now pretty-prints and reparses/typechecks both
-  `srcgen2/SATS/xstamp0.sats` and the dynamic compiler files
-  `srcgen2/DATS/filpath_drpth0.dats` and `srcgen2/DATS/parsing_tokbuf.dats`
-  with `TODOpp=0` and `m3_nerror=0`.
+- The default corpus audit now pretty-prints and reparses/typechecks
+  `srcgen2/SATS/xstamp0.sats`, `srcgen2/DATS/filpath_drpth0.dats`, the full
+  `srcgen2/DATS/parsing*.dats` parser implementation slice, and the focused
+  round-trip fixtures with `TODOpp=0` and `m3_nerror=0`.
 - The expanded static interface slice
   `srcgen2/SATS/{filpath,xsymbol,locinfo,lexing0}.sats` now also reaches
   `TODOpp=0` and `m3_nerror=0`. This covers aliased `#staload`, symbolic
@@ -84,8 +84,8 @@ harnesses.
   `trans23_myenv0.dats`, and `trtmp3c_myenv0.dats` now reaches `TODOpp=0` and
   `m3_nerror=0`.
 - The first focused parser implementation slice
-  `srcgen2/DATS/{parsing_basics,parsing_tokbuf,parsing_utils0,parsing_staexp,parsing_dynexp,parsing_decl00}.dats`
-  now has `TODOpp=0` across all six generated Pythonic files. Inline
+  `srcgen2/DATS/{parsing_basics,parsing_tokbuf,parsing_utils0,parsing_staexp,parsing_dynexp,parsing_decl00,parsing}.dats`
+  now has `TODOpp=0` across all seven generated Pythonic files. Inline
   dot-selector printing preserves record/tuple-slot update targets such as
   `buf.2 := i0 + 1`, which clears and typechecks `parsing_tokbuf.dats`.
   Expression-position ATS `~(...)` boolean negation now prints as Pythonic
@@ -102,10 +102,11 @@ harnesses.
   `STA`/`DYN` references. Expression-position ATS `_` now elaborates as a
   contextual top/omitted value and lowers to `D2Etop(WCARD_symbl)`, not unit,
   so generated calls such as `T0ENDINVsome(_, tinv)` typecheck. As a result,
-  the focused parser slice now has all six generated files reparsing/typechecking
+  the focused parser slice now has all seven generated files reparsing/typechecking
   at `m3_nerror=0`:
   `parsing_basics.dats`, `parsing_tokbuf.dats`, `parsing_utils0.dats`,
-  `parsing_staexp.dats`, `parsing_dynexp.dats`, and `parsing_decl00.dats`.
+  `parsing_staexp.dats`, `parsing_dynexp.dats`, `parsing_decl00.dats`, and
+  `parsing.dats`.
 - `build-pp-corpus.sh --out-dir RELPATH` now normalizes the report directory
   against `frontend/` before running pyprint from `XATSHOME`, so separate static
   and dynamic corpus summaries can be kept without path breakage.
@@ -153,8 +154,8 @@ harnesses.
 - Round-trip reporter hygiene: keep `build-roundtrip.sh` current with actual
   outcomes and make stale expected-failure comments disappear.
 - Pretty-printer corpus audit: keep expanding `build-pp-corpus.sh` beyond the
-  current two-file smoke corpus and track per-file `# TODO(pp)` count and
-  reparse `nerror`.
+  current default corpus and track per-file `# TODO(pp)` count and reparse
+  `nerror`.
 - Dynamic reparse/typecheck triage: protect the 166-file DATS/UTIL
   `TODOpp=0` pyprint-only baseline while classifying M3 type errors versus
   driver/runtime crashes. Generated pattern forms such as `@(C)(...)`, `!p`,
