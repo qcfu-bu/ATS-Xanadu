@@ -313,6 +313,26 @@ var Xats_char_print = func(c0 any) any {
 	return XATSNIL()
 }
 
+// Xats_XATS2GO_gochar_esc returns the body of a Go rune literal, without the
+// surrounding single quotes. It is used by the self-hosted Go emitter when an
+// evaluated ATS char value must be printed as Go source.
+var Xats_XATS2GO_gochar_esc = func(c0 any) any {
+	var r rune
+	switch v := c0.(type) {
+	case int32:
+		r = rune(v)
+	case int:
+		r = rune(v)
+	default:
+		r = []rune(fmt.Sprint(v))[0]
+	}
+	q := strconv.QuoteRune(r)
+	if len(q) >= 2 {
+		return q[1 : len(q)-1]
+	}
+	return q
+}
+
 // Xats_dflt_print mirrors XATS2JS_dflt_print: f0.toString() pushed, where
 // .toString() is JS Number formatting -> see XatsFloatToString (JS-compatible).
 var Xats_dflt_print = func(f0 any) any {

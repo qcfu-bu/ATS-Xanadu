@@ -12,7 +12,7 @@ make -j psuite     # full conformance suite, parallel (~10s)
 make               # rebuild the emitter bundle, incremental (~1.7s)
 make TEST=path test   # one test by an explicit path
 make selfhost-smoke    # backend-source structural smoke guard
-make selfhost-strict   # stricter self-hosting gate, expected red on current gaps
+make selfhost-strict   # stricter self-hosting gate for backend-source probes
 ```
 
 **KEEP THE MAKEFILE IN SYNC — two lists, ONE place each:**
@@ -49,18 +49,15 @@ regressing to "skip comments + main".
 `go1emit_utils0.dats` probe and emitted Go artifact, then fails if the generated
 Go still contains `UNHANDLED:` markers or compiler-internal names routed through
 the Go runtime such as `xatsgo.Xats_d2cst_get_name`. It also asserts that the
-current probe still emitted the package-level helpers that expose the known
+probe still emits the package-level functions that previously exposed the helper
 blocker (`i0s00go1`, `i0c00go1` by default); removing those funcs is a false
-green, not progress. This target is a manager
-acceptance gate for the next self-hosting slice. Current status: package-level
-smoke passes, compiler-internal `xatsgo.Xats_*` routing has been removed from
-the probe, and the gate is now red only on two `UNHANDLED: i1val` sites caused
-by private string/char escaping helpers (`f0_gostr`, `f0_gochr`) lowering to
-`I1Vnone0`.
-Rejected experiments: adding `mytmplib00.hats` to `go1emit_utils0.dats` did not
-reduce the markers, and simply promoting the private helpers to `#implfun` made
-the smoke fail by forcing unresolved `strn_fprint`/`char_fprint` templates into
-required code.
+green, not progress. Current status: **GREEN**. The last red marker was the
+evaluated-char helper `f0_gochr`; it now calls the backend-owned
+`XATS2GO_gochar_esc` hook, supplied by the JS shim for the current compiler and
+by `runtime/xatsgo` for the future Go-hosted compiler. Rejected experiments:
+adding `mytmplib00.hats` to `go1emit_utils0.dats` did not reduce the markers,
+and simply promoting the private helpers to `#implfun` made the smoke fail by
+forcing unresolved `strn_fprint`/`char_fprint` templates into required code.
 
 ---
 

@@ -522,21 +522,19 @@ ATS3 code* and fix whatever breaks. The failure set IS the prioritized work list
   path as ordinary `fun`.  Pass 2 skips them so they are not emitted inside
   `main`.  `make selfhost-smoke` is now the structural guard against vacuous
   backend-source probes: `go1emit_utils0.dats` emits real package-level funcs
-  instead of only skip-comments.  Stronger single-file `go build` is still red,
-  but the first symbol-linking class is fixed: compiler-internal constants such
-  as `d2cst_get_name`, `d2var_get_lctn`, `token_get_node`, `strnfpr`, and
-  `fprint_loctn_as_stamp` now emit package symbols instead of fake
-  `xatsgo.Xats_*` runtime hooks.  `make selfhost-strict` is therefore red only
-  on the next honest blocker, and now asserts that the probe still contains the
-  package-level functions exposing that blocker (`i0s00go1`, `i0c00go1`) so
-  inlining/skipping them cannot create a false green: two private string/char escaping helper calls
-  (`f0_gostr`, `f0_gochr`) still lower to `I1Vnone0` and become
-  `UNHANDLED i1val` in the single-file probe.  Rejected experiments: adding
-  `mytmplib00.hats` did not improve the probe, and promoting those helpers
-  directly to `#implfun` made the smoke fail by surfacing unresolved
-  `strn_fprint`/`char_fprint` template calls.  The next slice is helper
-  preservation/source reshaping or upstream lowering, not an intrep1
-  polymorphism limitation.  Conformance suite remains **70/70 GREEN**.
+  instead of only skip-comments.  `make selfhost-strict` is now **GREEN** for
+  this probe: compiler-internal constants such as `d2cst_get_name`,
+  `d2var_get_lctn`, `token_get_node`, `strnfpr`, and
+  `fprint_loctn_as_stamp` emit package symbols instead of fake
+  `xatsgo.Xats_*` runtime hooks; `i0s00go1` no longer routes through the private
+  `f0_gostr` helper; and `f0_gochr` calls the backend-owned
+  `XATS2GO_gochar_esc` hook supplied by both the JS shim and the Go runtime.
+  The strict gate still asserts that `i0s00go1` and `i0c00go1` are emitted so
+  inlining/skipping them cannot create a false green.  Rejected experiments:
+  adding `mytmplib00.hats` did not improve the probe, promoting the helpers
+  directly to `#implfun` surfaced unresolved `strn_fprint`/`char_fprint`
+  templates, and use-site env-miss guessing was rejected because it hides scope
+  bugs.  Conformance suite remains **70/70 GREEN**.
 - **[rung-1 RESULT — ✅ GREEN]** the three real JS-backend programs copied as
   `test70/71/72_jsbk*_xats2go` are now byte-equal-vs-JS and live in the Makefile suite:
   1. **test70**: by-reference params (`&sint`) map to Go pointers (`*T`, `&x`, `*p`), so `fact4(10)`

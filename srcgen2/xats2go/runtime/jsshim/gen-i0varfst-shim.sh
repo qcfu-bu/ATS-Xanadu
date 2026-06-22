@@ -128,6 +128,24 @@ let ${STRMIZE} = function (s) {
   }
   return mk(0);
 };
+// Backend-owned helper used by go1emit_utils0.dats when emitting evaluated
+// char literals. It returns the body of a Go rune literal, without quotes.
+function XATS2GO_gochar_esc(c0) {
+  switch (c0) {
+    case 10: return "\\\\n";
+    case 9: return "\\\\t";
+    case 13: return "\\\\r";
+    case 8: return "\\\\b";
+    case 12: return "\\\\f";
+    case 11: return "\\\\v";
+    case 39: return "\\\\'";
+    case 92: return "\\\\\\\\";
+  }
+  if (c0 >= 32 && c0 !== 127) { return String.fromCharCode(c0); }
+  if (c0 <= 0xff) { return "\\\\x" + c0.toString(16).padStart(2, "0"); }
+  if (c0 <= 0xffff) { return "\\\\u" + c0.toString(16).padStart(4, "0"); }
+  return "\\\\U" + c0.toString(16).padStart(8, "0");
+}
 //==XATS2GO-JSSHIM-END==
 EOF
 

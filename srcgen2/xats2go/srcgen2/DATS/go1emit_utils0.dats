@@ -63,6 +63,14 @@ Naming (PLAN.md §5.9, mirrors js1emit):
 (* ****** ****** *)
 (* ****** ****** *)
 //
+#extern
+fun
+XATS2GO_gochar_esc
+  (c0: char): strn = $extnam()
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
 #symload lctn with d2cst_get_lctn
 #symload lctn with d2var_get_lctn
 #symload name with d2cst_get_name
@@ -256,7 +264,7 @@ i0s00go1
 (filr, s00) =
 (
 strnfpr(filr, "xatsgo.XATSSTR0(\"");
-f0_gostr(filr, s00);
+strnfpr(filr, s00);
 strnfpr(filr, "\")"))
 //endof[i0s00go1(filr,s00)]
 //
@@ -520,16 +528,7 @@ f0_gochr
 ( filr: FILR
 , c0: char): void =
 (
-case+ c0 of
-| '\n' => strn_fprint("\\n", filr)
-| '\t' => strn_fprint("\\t", filr)
-| '\r' => strn_fprint("\\r", filr)
-| '\b' => strn_fprint("\\b", filr)
-| '\f' => strn_fprint("\\f", filr)
-| '\v' => strn_fprint("\\v", filr)
-| '\'' => strn_fprint("\\'", filr)
-| '\\' => strn_fprint("\\\\", filr)
-| _(*else*) => char_fprint(c0, filr)
+strnfpr(filr, XATS2GO_gochar_esc(c0))
 )//endof[f0_gochr(filr,c0)]
 //
 #implfun
