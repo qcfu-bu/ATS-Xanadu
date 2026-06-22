@@ -1741,6 +1741,7 @@ pp_dexp_assign(out: FILR, des: d0explst): void = let
                case+ args of
                | list_nil() => ps(out, "[]")
                | _ => (ps(out, "["); pp_dexp_seq_inline(out, args); ps(out, "]")))
+           | D0Edtsel(_, lab, opt) => pp_dexp_dtsel(out, lab, opt)
            | _ => pp_d0exp_inline(out, de));
           emit_lhs(out, rest)))
 in let
