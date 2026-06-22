@@ -186,11 +186,29 @@ case+ ps_peek(st) of
         val @(tag, st1c) = p_arrow_tag(st1b)
         val @(rhs, st2) = p_type(st1c)               // right-assoc
         val span = loc_span(pytyp_loctn(t0), pytyp_loctn(rhs))
+        val args = p_type_fun_lhs_args(t0)
       in
-        @(PyTfun(span, list_cons(t0, list_nil()), rhs, tag), st2)
+        @(PyTfun(span, args, rhs, tag), st2)
       end
     | _ => @(t0, st1)
   end
+)
+//
+and
+p_type_fun_lhs_args(t0: pytyp): pytyplst =
+(
+case+ t0 of
+| PyTtup(_, ts) => ts
+| PyTparen(_, t1) => list_sing(p_type_unparen(t1))
+| _ => list_sing(t0)
+)
+//
+and
+p_type_unparen(t0: pytyp): pytyp =
+(
+case+ t0 of
+| PyTparen(_, t1) => p_type_unparen(t1)
+| _ => t0
 )
 //
 and
@@ -463,7 +481,7 @@ p_type_paren(st: pstate, locL: loctn): @(pytyp, pstate) = let
   val span = loc_span(locL, locR)
 in
   case+ ts of
-  | list_cons(t, list_nil()) => @(t, st2)   // single ⇒ unwrap (paren group)
+  | list_cons(t, list_nil()) => @(PyTparen(span, t), st2)
   | _ => @(PyTtup(span, ts), st2)
 end
 //

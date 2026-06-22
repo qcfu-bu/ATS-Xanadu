@@ -69,7 +69,8 @@ case+ t of
 | PyTcon(loc, _, _) => loc    | PyTvar(loc, _) => loc
 | PyTidx(loc, _) => loc       | PyTbin(loc, _, _, _) => loc
 | PyTfun(loc, _, _, _) => loc | PyTtup(loc, _) => loc
-| PyTrec(loc, _) => loc       | PyTerror(loc, _) => loc
+| PyTparen(loc, _) => loc     | PyTrec(loc, _) => loc
+| PyTerror(loc, _) => loc
 | PyTquant(loc, _, _, _, _) => loc
 | PyTat(loc, _, _) => loc
 )

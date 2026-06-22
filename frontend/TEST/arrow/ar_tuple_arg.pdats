@@ -1,0 +1,4 @@
+# ARROW-EFFECTS / ATS function arity: `((Int, Int)) -> Int` is unary.
+# The single argument is a tuple; `(Int, Int) -> Int` would be two native args.
+def use_tuple_arg(f: ((Int, Int)) -> Int, p: (Int, Int)) -> Int:
+    f(p)

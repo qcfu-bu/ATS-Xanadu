@@ -143,6 +143,8 @@ case+ t of
     ps(out, " (res "); pp_typ(out, res); ps(out, "))") )
 | PyTtup(loc, ts) =>
   (ps(out, "(Ttup"); print_span(out, loc); pp_typlst(out, ts); ps(out, ")"))
+| PyTparen(loc, t) =>
+  (ps(out, "(Tparen"); print_span(out, loc); ps(out, " "); pp_typ(out, t); ps(out, ")"))
 | PyTrec(loc, fs) =>
   (ps(out, "(Trec"); print_span(out, loc); pp_tfields(out, fs); ps(out, ")"))
 // A-QUANT: a quantified type `forall[..]/exists[..] T` — print the kind, binders, optional guard, body.

@@ -434,6 +434,7 @@ case+ t of
     let val l2elts = pylower_tuptypes(env, elts, 0(*i0*)) in
       s2exp_make_node(the_sort2_type, S2Etrcd(TRCDflt0, (-1)(*npf*), l2elts))
     end
+| PyTparen(_, body) => pylower_typ(env, body)
 | PyTrec(loc, flds) =>                // M5b.4: a boxed (default) record type — S2Etrcd.
     let val l2flds = pylower_tfields(env, flds) in
       s2exp_make_node(the_sort2_tbox, S2Etrcd(TRCDbox0, (-1)(*npf*), l2flds))

@@ -11,6 +11,7 @@
 #   * ar_fun.pdats      — `(Int) ->[Fun1] Int` (code-ptr / nonlinear) -> F2CLfun.
 #   * ar_cloptr.pdats   — `(Int) ->[CloPtr1] Int` (LINEAR closure) -> F2CLclo(1) — the linear
 #                         class, structurally distinct from cloref (arrow-spike AR-DIST).
+#   * ar_tuple_arg.pdats — `((Int, Int)) -> Int` remains unary over one tuple argument.
 #
 # Rides the SAME M3 driver path (frontend/DATS/pyfront_m3.dats = the full lex -> parse -> elab
 # -> lower -> trans2a -> trsym2b -> t2read0 -> trans23 -> tread3a pipeline): build the M3 driver
@@ -73,6 +74,7 @@ VALID=(
   "ar_cloref"    # (Int) ->[CloRef1] Int   boxed nonlinear closure -> F2CLfun
   "ar_fun"       # (Int) ->[Fun1] Int      code-ptr / nonlinear    -> F2CLfun
   "ar_cloptr"    # (Int) ->[CloPtr1] Int   LINEAR closure          -> F2CLclo(1)
+  "ar_tuple_arg" # ((Int, Int)) -> Int     unary function over one tuple argument
 )
 for base in "${VALID[@]}"; do
   py="$TESTDIR/${base}.pdats"

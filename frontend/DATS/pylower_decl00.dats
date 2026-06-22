@@ -578,6 +578,20 @@ case+ tys of
     end
 )
 //
+// A bodyless ATS declaration can be a function-typed constant:
+//   fun p1_i0dntseq: p1_fun(i0dntlst)
+// The pretty-printer has no imported-alias environment, so it emits:
+//   @extern def p1_i0dntseq() -> p1_fun[i0dntlst]
+// Once lowered with the real environment, avoid adding an extra nullary layer
+// when the result type already normalizes to a function.
+fun
+s2exp_fun_hnfq(s2e: s2exp): bool =
+(
+case+ s2typ_hnfiz0(s2exp_stpize(s2e)).node() of
+| T2Pfun1 _ => true
+| _ => false
+)
+//
 // build a `D2Cextern` wrapping a `D2Cdynconst` whose single d2cst is the bodyless function
 // signature `name : (argtyps) -> restyp`. Mirrors the spike: s2exp_fun1_nil0 for the fun type,
 // d2cst_make_idtp(tok, dpid, [], sfun), REGISTER via tr12env_add1_d2cst (so a call to `name`
@@ -598,7 +612,13 @@ build_extern
     | PyTypNone()  => resolve_typ_name(env, "void")
     ): s2exp
   val () = tr12env_poplam0(env)
-  val inner    = s2exp_fun1_nil0((-1)(*npf*), argtyps, restyp)
+  val inner    =
+    ( if list_nilq(pnames)
+      then
+        ( if s2exp_fun_hnfq(restyp)
+          then restyp
+          else s2exp_fun1_nil0((-1)(*npf*), argtyps, restyp) )
+      else s2exp_fun1_nil0((-1)(*npf*), argtyps, restyp) ): s2exp
   val sfun     = (if list_nilq(tvs) then inner else s2exp_uni0(s2vs, list_nil(), inner)): s2exp
   val tqas     = (if list_nilq(tvs) then list_nil() else list_sing(t2qag_make_s2vs(loc, s2vs))): t2qaglst
   val tok_id   = token_make_node(loc, T_IDALP(ats_name(name)))
@@ -662,7 +682,13 @@ build_template_extern
     | PyTypNone()  => resolve_typ_name(env, "void")
     ): s2exp
   val () = tr12env_poplam0(env)
-  val inner = s2exp_fun1_nil0((-1)(*npf*), argtyps, restyp)
+  val inner =
+    ( if list_nilq(pnames)
+      then
+        ( if s2exp_fun_hnfq(restyp)
+          then restyp
+          else s2exp_fun1_nil0((-1)(*npf*), argtyps, restyp) )
+      else s2exp_fun1_nil0((-1)(*npf*), argtyps, restyp) ): s2exp
   // wrap in the {C,D} universal when polymorphic params are present (else the bare fn type).
   val sfun =
     ( if list_nilq(pargs) then inner

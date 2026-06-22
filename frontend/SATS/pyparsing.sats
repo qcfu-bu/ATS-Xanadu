@@ -151,6 +151,9 @@ pyuop =
 //             const (add_i0_i0/lt_i0_i0/...) and emits `s2exp_apps(<const>, [a, b])`.
 //   PyTfun  : function type `(A, B) -> C` — args ++ result, right-assoc at parse.
 //   PyTtup  : tuple type `(A, B)`.
+//   PyTparen: an explicit extra type grouping. This preserves `((A, B)) -> C`
+//             as a unary function whose one argument is a tuple, while
+//             `(A, B) -> C` remains a native two-argument function.
 //   PyTrec  : record type `{ x: Int, y: Int }` — fields use ':'.
 //   PyTerror: a type we could not parse (recovery).
 //
@@ -168,6 +171,7 @@ pytyp =
 // proved the class IS structurally enforced: an F2CLclo(1) value is rejected at an F2CLfun param).
 | PyTfun   of (loctn, list(pytyp), pytyp, strn(*arrow tag; ""=bare*))
 | PyTtup   of (loctn, list(pytyp))
+| PyTparen of (loctn, pytyp)
 | PyTrec   of (loctn, list(pytfield))
 // A-QUANT: an EXPLICIT quantified type — `forall[n: SInt | g] <type>` (universal) or
 // `exists[m: SInt | m <= n] <type>` (existential). The `int` tag is 0=forall / 1=exists.
