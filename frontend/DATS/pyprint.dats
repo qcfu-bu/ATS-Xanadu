@@ -165,7 +165,9 @@ fun tyname(s: strn): strn = PYPP_capitalize(rewrite_dollar(s))
 // (strn, list, optn, ...) stay verbatim so they resolve against the lowercase
 // pyrt — exactly what the nerror=0 hand-translation did.
 fun tyname_scoped(s: strn): strn =
-  if PYPP_capall_get()
+  if strn_eq(rewrite_dollar(s), "bool")
+  then "Bool"
+  else if PYPP_capall_get()
   then PYPP_capitalize(rewrite_dollar(s))
   else (if PYPP_local_has(s)
         then PYPP_capitalize(rewrite_dollar(s)) else rewrite_dollar(s))
@@ -1085,14 +1087,56 @@ and
 	      | F0ARGdapp(dp) => pp_lam_farg_one(out, dp, rest)
 	      | _ => pp_lam_farg_dapps(out, rest))
 	)
-	and
-	pp_lam_farg_one(out: FILR, dp: d0pat, rest: f0arglst): void =
-	(
-	  case+ dp.node() of
-	  | D0Plpar(_, dps, _) => pp_dpat_seq(out, dps)
-	  | D0Ptup1(_, _, dps, _) => pp_dpat_seq(out, dps)
-	  | _ => pp_d0pat(out, dp)
-	)
+and
+pp_lam_farg_one(out: FILR, dp: d0pat, rest: f0arglst): void =
+(
+  case+ dp.node() of
+  | D0Plpar(_, dps, _) => pp_dpat_seq(out, dps)
+  | D0Ptup1(_, _, dps, _) => pp_dpat_seq(out, dps)
+  | _ => pp_d0pat(out, dp)
+)
+and
+pp_sig_farg_params(out: FILR, farg: f0arglst): void = (
+  ps(out, "(");
+  pp_sig_farg_dapps(out, farg);
+  ps(out, ")")
+)
+and
+pp_sig_farg_dapps(out: FILR, farg: f0arglst): void =
+(
+  case+ farg of
+  | list_nil() => ()
+  | list_cons(fa, rest) => (
+      case+ fa.node() of
+      | F0ARGdapp(dp) => pp_sig_farg_one(out, dp, rest)
+      | _ => pp_sig_farg_dapps(out, rest))
+)
+and
+pp_sig_farg_one(out: FILR, dp: d0pat, rest: f0arglst): void =
+(
+  case+ dp.node() of
+  | D0Plpar(_, dps, _) => pp_dpat_sig_seq(out, dps)
+  | D0Ptup1(_, _, dps, _) => pp_dpat_sig_seq(out, dps)
+  | _ => pp_d0pat_sig(out, dp)
+)
+and
+pp_dpat_sig_seq(out: FILR, dps: d0patlst): void =
+(
+  case+ dps of
+  | list_nil() => ()
+  | list_cons(dp, rest) => (
+      pp_d0pat_sig(out, dp);
+      (case+ rest of list_nil() => () | _ => ps(out, ", "));
+      pp_dpat_sig_seq(out, rest))
+)
+and
+pp_d0pat_sig(out: FILR, dp: d0pat): void =
+(
+  case+ dp.node() of
+  | D0Pannot(dp1, se) => (pp_d0pat(out, dp1); ps(out, ": "); pp_s0exp(out, se))
+  | D0Pqual0(_, dp1) => pp_d0pat_sig(out, dp1)
+  | _ => pp_d0pat(out, dp)
+)
 	and
 	pp_dexp_seq_inline(out: FILR, des: d0explst): void =
 (
@@ -1278,18 +1322,59 @@ pp_dexp_letdecl(out: FILR, n: sint, dc: d0ecl): void =
 	  | D0Cimplmnt0(_, _, _, dqi, _, farg, _, _, body) => pp_dexp_impl_local(out, n, dqi, farg, body)
 	  | D0Csexpdef(_, _, _, _, _, _) => ()
 	  | D0Cstatic(_, dc1) => pp_dexp_letdecl(out, n, dc1)
-	  | D0Cextern(_, dc1) => pp_dexp_letdecl(out, n, dc1)
+	  | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
 	  | D0Ctkerr(_) => ()
 	  | D0Ctkskp(_) => ()
 	  | _ => (ind(out, n); todo(out, "let-decl"))
 	)
+and
+pp_dexp_extern_decl(out: FILR, n: sint, dc: d0ecl): void =
+(
+  case+ dc.node() of
+  | D0Cfundclst(_, tqas, fds) => pp_dexp_extern_fundcl_list(out, n, tqag_names(tqas), fds)
+  | D0Cstatic(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
+  | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
+  | _ => pp_dexp_letdecl(out, n, dc)
+)
+and
+pp_dexp_extern_fundcl_list(out: FILR, n: sint, tps: list(strn), fds: d0fundclist): void =
+(
+  case+ fds of
+  | list_nil() => ()
+  | list_cons(fd, rest) => (
+      pp_dexp_extern_fundcl(out, n, tps, fd);
+      (case+ rest of list_nil() => () | _ => nl(out));
+      pp_dexp_extern_fundcl_list(out, n, tps, rest))
+)
+and
+pp_dexp_extern_fundcl(out: FILR, n: sint, tps: list(strn), fd: d0fundcl): void = let
+  val nm   = i0dnt_lexeme(d0fundcl_get_dpid(fd))
+  val farg = d0fundcl_get_farg(fd)
+  val sres = d0fundcl_get_sres(fd)
+in
+  ind(out, n); ps(out, "@extern"); nl(out);
+  ind(out, n); ps(out, "def "); ps(out, fname(nm));
+  pp_names_brkt(out, tps);
+  pp_sig_farg_params(out, farg);
+  ps(out, " -> ");
+  (case+ sres of
+   | S0RESsome(_, se) => pp_s0exp(out, se)
+   | S0RESnone() => ps(out, "Void"));
+  nl(out)
+end
+and
+pp_dexp_where_decls(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
+(
+  case+ wdc of
+  | d0eclseq_WHERE(_, _, dcs, _) => pp_dexp_letdecls(out, n, dcs)
+)
 and
 pp_dexp_impl_local(out: FILR, n: sint, dqi: d0qid, farg: f0arglst, body: d0exp): void =
 (
   ind(out, n); ps(out, "@impl def "); ps(out, fname(d0qid_lexeme(dqi)));
   pp_lam_farg_params(out, farg);
   ps(out, ":"); nl(out);
-  pp_d0exp_suite(out, n+1, body)
+  pp_dexp_fun_body(out, n, body)
 )
 and
 pp_dexp_fundcl_local_list(out: FILR, n: sint, fds: d0fundclist): void =
@@ -1311,9 +1396,29 @@ in
   pp_lam_farg_params(out, farg);
   ps(out, ":"); nl(out);
   (case+ tdxp of
-   | TEQD0EXPsome(_, body) => pp_d0exp_suite(out, n+1, body)
+   | TEQD0EXPsome(_, body) => pp_dexp_fun_body(out, n, body)
    | TEQD0EXPnone() => (ind(out, n+1); todo(out, "fun-no-body")))
 end
+and
+pp_dexp_fun_body(out: FILR, n: sint, body: d0exp): void =
+(
+  case+ body.node() of
+  | D0Ewhere(body0, wdc) => (
+      pp_d0exp_suite(out, n+1, body0);
+      pp_dexp_where_block(out, n, wdc))
+  | _ => pp_d0exp_suite(out, n+1, body)
+)
+and
+pp_dexp_where_block(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
+(
+  case+ wdc of
+  | d0eclseq_WHERE(_, _, dcs, _) => (
+      case+ dcs of
+      | list_nil() => ()
+      | _ => (
+          ind(out, n); ps(out, "where:"); nl(out);
+          pp_dexp_letdecls(out, n+1, dcs)))
+)
 and
 pp_dexp_valdcls(out: FILR, n: sint, vds: d0valdclist): void =
 (
@@ -1345,6 +1450,13 @@ pp_dexp_val_rhs(out: FILR, n: sint, dpat: d0pat, rhs: d0exp): void =
   | D0Equal0(_, rhs1) => pp_dexp_val_rhs(out, n, dpat, rhs1)
   | D0Eerrck(_, rhs1) => pp_dexp_val_rhs(out, n, dpat, rhs1)
   | D0Elpar(_, list_cons(rhs1, list_nil()), _) => pp_dexp_val_rhs(out, n, dpat, rhs1)
+  // `val x = e where { fun h(...) = ... }` has expression-level backwards scope in ATS. The
+  // Pythonic surface only accepts `where:` after `def`, so emit the helper declarations just before
+  // the `let` binding in the same local suite. This preserves RHS resolution for bootstrapping and
+  // keeps the output parseable; the helper may remain visible to following suite statements.
+  | D0Ewhere(rhs1, wdc) => (
+      pp_dexp_where_decls(out, n, wdc);
+      pp_dexp_val_rhs(out, n, dpat, rhs1))
   | D0Ecas0(_, scrut, _, _, cls) => (
       ind(out, n); ps(out, "let "); pp_d0pat(out, dpat); ps(out, " = match ");
       pp_d0exp_inline(out, scrut); ps(out, ":"); nl(out);
@@ -1559,8 +1671,11 @@ pp_where_block(out: FILR, n: sint, wdc: d0eclseq_WHERE): void =
 (
   case+ wdc of
   | d0eclseq_WHERE(_, _, dcs, _) => (
-      ind(out, n); ps(out, "where:"); nl(out);
-      pp_where_decls(out, n+1, dcs))
+      case+ dcs of
+      | list_nil() => ()
+      | _ => (
+          ind(out, n); ps(out, "where:"); nl(out);
+          pp_where_decls(out, n+1, dcs)))
 )
 and
 pp_where_decls(out: FILR, n: sint, dcs: d0eclist): void =
