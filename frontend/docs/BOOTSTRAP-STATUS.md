@@ -53,7 +53,7 @@ harnesses.
   compiler interfaces such as `dynexp0.sats`.
 - The dynamic compiler/utility pyprint-only sweep now has a concrete baseline:
   `build-pp-corpus.sh --dynamic --no-reparse` over 166 `srcgen2/DATS` and
-  `srcgen2/UTIL` files reports 7 visible `# TODO(pp)` marker lines. Printing ATS
+  `srcgen2/UTIL` files reports 2 visible `# TODO(pp)` marker lines. Printing ATS
   `when` guards as Pythonic `case ... if ...:` removed the largest previous
   TODO class, and selector left-hand sides such as `buf.N := ...` now print
   without `d0exp-inline` fallbacks. Value RHSs shaped as
@@ -67,8 +67,10 @@ harnesses.
   dynamic `let` setup lists now emit an indented `private:` setup followed by
   the local body declarations. Nested `local` declarations in `where` blocks
   and private heads now print with the same `private:` structure, clearing the
-  remaining structural declaration fallbacks. The remaining cluster is inline
-  dynamic expressions that need indentation-aware block emitters.
+  remaining structural declaration fallbacks. Value RHS `if` expressions with
+  `let`/`case` branches now print through indentation-aware block emitters. The
+  remaining cluster is the `llazy(case ...)` call-argument form in
+  `lexbuf0_cstrx1.dats` and `lexing0_utils2.dats`.
 - `build-pp-corpus.sh --out-dir RELPATH` now normalizes the report directory
   against `frontend/` before running pyprint from `XATSHOME`, so separate static
   and dynamic corpus summaries can be kept without path breakage.
@@ -115,8 +117,8 @@ harnesses.
   current two-file smoke corpus and track per-file `# TODO(pp)` count and
   reparse `nerror`.
 - Dynamic pyprint breadth: drive the 166-file DATS/UTIL baseline from
-  `TODOpp=7` to zero, starting with indentation-aware inline dynamic expression
-  emitters.
+  `TODOpp=2` to zero, starting with the remaining `llazy(case ...)`
+  call-argument emitters.
 - Slash-identifier fidelity: keep `$` <-> `/` round-trip support covered by
   regression tests and expand the corpus audit around collision-prone names.
 

@@ -2086,6 +2086,8 @@ pp_dexp_val_rhs(out: FILR, n: sint, dpat: d0pat, rhs: d0exp): void =
       pp_dexp_letdecls(out, n, decls);
       pp_dexp_val_body_seq(out, n, dpat, body);
       PYPP_type_scope_pop())
+  | D0Eift0(_, c, th, el) => pp_dexp_val_if_rhs(out, n, dpat, c, th, el)
+  | D0Eift1(_, c, th, el, _) => pp_dexp_val_if_rhs(out, n, dpat, c, th, el)
   | D0Ecas0(_, scrut, _, _, cls) => (
       ind(out, n); ps(out, "let "); pp_d0pat(out, dpat); ps(out, " = match ");
       pp_d0exp_inline(out, scrut); ps(out, ":"); nl(out);
@@ -2097,6 +2099,53 @@ pp_dexp_val_rhs(out: FILR, n: sint, dpat: d0pat, rhs: d0exp): void =
   | _ => (
       ind(out, n); ps(out, "let "); pp_d0pat(out, dpat); ps(out, " = ");
       pp_d0exp_inline(out, rhs); nl(out))
+)
+and
+pp_dexp_val_if_rhs
+( out: FILR, n: sint, dpat: d0pat, c: d0exp
+, th: d0exp_THEN, el: d0exp_ELSE): void =
+(
+  ind(out, n); ps(out, "let "); pp_d0pat(out, dpat); ps(out, " = if ");
+  pp_d0exp_inline(out, c); ps(out, ":"); nl(out);
+  (case+ th of
+   | d0exp_THEN_some(_, te) => pp_d0exp_suite(out, n+1, te)
+   | d0exp_THEN_none(_) => (ind(out, n+1); todo(out, "if-then-empty")));
+  ind(out, n); ps(out, "else: ");
+  pp_dexp_else_expr_line(out, n, el)
+)
+and
+pp_dexp_else_expr_line(out: FILR, n: sint, el: d0exp_ELSE): void =
+(
+  case+ el of
+  | d0exp_ELSE_some(_, ee) => pp_d0exp_expr_line(out, n, ee)
+  | d0exp_ELSE_none(_) => (ps(out, "# TODO(pp): if-else-empty"); nl(out))
+)
+and
+pp_d0exp_expr_line(out: FILR, n: sint, de: d0exp): void =
+(
+  case+ de.node() of
+  | D0Eannot(de1, _) => pp_d0exp_expr_line(out, n, de1)
+  | D0Equal0(_, de1) => pp_d0exp_expr_line(out, n, de1)
+  | D0Eerrck(_, de1) => pp_d0exp_expr_line(out, n, de1)
+  | D0Elpar(_, list_cons(de1, list_nil()), _) => pp_d0exp_expr_line(out, n, de1)
+  | D0Ecas0(_, scrut, _, _, cls) => (
+      ps(out, "match "); pp_d0exp_inline(out, scrut); ps(out, ":"); nl(out);
+      pp_dexp_clauses(out, n+1, cls))
+  | D0Ecas1(_, scrut, _, _, cls, _) => (
+      ps(out, "match "); pp_d0exp_inline(out, scrut); ps(out, ":"); nl(out);
+      pp_dexp_clauses(out, n+1, cls))
+  | D0Elet0(_, _, _, _, _) => pp_d0exp_block_expr_line(out, n, de)
+  | D0Ewhere(_, _) => pp_d0exp_block_expr_line(out, n, de)
+  | D0Eift0(_, _, _, _) => pp_d0exp_block_expr_line(out, n, de)
+  | D0Eift1(_, _, _, _, _) => pp_d0exp_block_expr_line(out, n, de)
+  | _ => (pp_d0exp_inline(out, de); nl(out))
+)
+and
+pp_d0exp_block_expr_line(out: FILR, n: sint, de: d0exp): void =
+(
+  ps(out, "match ():"); nl(out);
+  ind(out, n+1); ps(out, "case ():"); nl(out);
+  pp_d0exp_suite(out, n+2, de)
 )
 and
 pp_dexp_val_body_seq(out: FILR, n: sint, dpat: d0pat, body: d0explst): void =
