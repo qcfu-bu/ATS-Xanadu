@@ -75,7 +75,7 @@ pp-corpus: $(PP_SUMMARY)
 
 $(PP_SUMMARY): $(PP_TARGETS) Makefile
 	@mkdir -p "$(PP_OUT)"
-	@printf 'stadyn\tinput\tpyprint_rc\temitted_lines\ttodo_pp\tm3_nerror\tm3_zero\temitted_file\n' > "$@"
+	@printf 'stadyn\tinput\tpyprint_rc\temitted_lines\ttodo_pp\tm3_nerror\tm3_zero\temitted_file\tm3_status\n' > "$@"
 	@for s in $(PP_SUMMARIES); do tail -n +2 "$$s" >> "$@"; done
 	@total=$$(tail -n +2 "$@" | wc -l | tr -d ' '); \
 	  todos=$$(awk -F '\t' 'NR>1 { sum += $$5 } END { print sum + 0 }' "$@"); \

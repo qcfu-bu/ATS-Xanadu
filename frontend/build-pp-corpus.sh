@@ -323,12 +323,23 @@ nerror_from_log() {
     | tail -1
 }
 
+m3_noverdict_status() {
+  local log="$1" rc="$2"
+  if grep -qE "RangeError|ReferenceError|SyntaxError:|TypeError:|ENOENT|is not defined|Maximum call stack|stack overflow" "$log" 2>/dev/null; then
+    echo "crash"
+  elif [ "$rc" -ne 0 ]; then
+    echo "driver-nonzero"
+  else
+    echo "no-verdict"
+  fi
+}
+
 ensure_pyprint_bundle
 ensure_m3_bundle
 
 SUMMARY="$OUTDIR/summary.tsv"
 : > "$SUMMARY"
-printf 'stadyn\tinput\tpyprint_rc\temitted_lines\ttodo_pp\tm3_nerror\tm3_zero\temitted_file\n' >> "$SUMMARY"
+printf 'stadyn\tinput\tpyprint_rc\temitted_lines\ttodo_pp\tm3_nerror\tm3_zero\temitted_file\tm3_status\n' >> "$SUMMARY"
 
 echo ">> [3/3] PP corpus audit"
 echo ">> mode=$MODE  files=${#FILES[@]}  out=$OUTDIR"
@@ -339,8 +350,8 @@ else
   echo ">> NOTE: M3 reparse disabled by --no-reparse."
 fi
 
-printf '%-8s %-58s %5s %7s %8s %8s %s\n' \
-  "stadyn" "input" "lines" "TODOpp" "m3_nerr" "m3_0" "emitted"
+printf '%-8s %-58s %5s %7s %8s %8s %-14s %s\n' \
+  "stadyn" "input" "lines" "TODOpp" "m3_nerr" "m3_0" "m3_status" "emitted"
 
 TOTAL=0
 PP_FAIL=0
@@ -375,28 +386,38 @@ for input0 in "${FILES[@]}"; do
 
   m3_nerr="skipped"
   m3_zero="skipped"
+  m3_status="skipped"
   if [ "$DO_REPARSE" -eq 1 ] && [ -s "$outpp" ]; then
     (cd "$XATSHOME" && $NODE "$BUILD/pyfront-m3.js" "$outpp" > "$rplog" 2>&1)
+    m3rc=$?
     m3_nerr="$(nerror_from_log "$rplog" || true)"
     if [ -z "$m3_nerr" ]; then
       m3_nerr="?"
       m3_zero="no"
+      m3_status="$(m3_noverdict_status "$rplog" "$m3rc")"
     elif [ "$m3_nerr" = "0" ]; then
       m3_zero="yes"
+      m3_status="ok"
       M3_ZERO=$((M3_ZERO + 1))
     else
       m3_zero="no"
+      if grep -qE "parse: " "$rplog" 2>/dev/null; then
+        m3_status="parse-error"
+      else
+        m3_status="type-error"
+      fi
     fi
   elif [ "$DO_REPARSE" -eq 1 ]; then
     m3_nerr="?"
     m3_zero="no"
+    m3_status="empty-output"
   fi
 
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-    "$label" "$input0" "$pprc" "$lines" "$todos" "$m3_nerr" "$m3_zero" "$outpp" >> "$SUMMARY"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$label" "$input0" "$pprc" "$lines" "$todos" "$m3_nerr" "$m3_zero" "$outpp" "$m3_status" >> "$SUMMARY"
 
-  printf '%-8s %-58s %5s %7s %8s %8s %s\n' \
-    "$label" "$input0" "$lines" "$todos" "$m3_nerr" "$m3_zero" "$outpp"
+  printf '%-8s %-58s %5s %7s %8s %8s %-14s %s\n' \
+    "$label" "$input0" "$lines" "$todos" "$m3_nerr" "$m3_zero" "$m3_status" "$outpp"
 done
 
 echo "----------------------------------------------------------------------"
