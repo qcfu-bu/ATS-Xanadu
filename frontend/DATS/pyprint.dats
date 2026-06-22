@@ -83,7 +83,32 @@ tok_lexeme(tok: token): strn =
   | T_IDENT(s) => s
   | T_INT01(s) => s
   | T_INT02(_, s) => s
+  | T_INT03(_, s, _) => s
+  | T_FLT01(s) => s
+  | T_FLT02(_, s) => s
+  | T_FLT03(_, s, _) => s
+  | T_CHAR1_nil0(s) => s
+  | T_CHAR2_char(s) => s
+  | T_CHAR3_blsh(s) => s
   | T_STRN1_clsd(s, _) => s
+  | T_AT0() => "@"
+  | T_BAR() => "|"
+  | T_CLN() => ":"
+  | T_DOT() => "."
+  | T_EQ0() => "="
+  | T_LT0() => "<"
+  | T_GT0() => ">"
+  | T_DLR() => "$"
+  | T_SRP() => "#"
+  | T_EQLT() => "=<"
+  | T_EQGT() => "=>"
+  | T_LTGT() => "<>"
+  | T_GTLT() => "><"
+  | T_MSLT() => "-<"
+  | T_MSGT() => "->"
+  | T_COMMA() => ","
+  | T_SMCLN() => ";"
+  | T_BSLSH() => "\\"
   | _ => "?"
 )
 //
@@ -790,14 +815,22 @@ pp_d0exp_inline(out: FILR, de: d0exp): void =
   | D0Eopid(oid) => pp_d0eid(out, oid)
   //
   | D0Eint(t0) => (case+ t0 of T0INTsome(t) => ps(out, tok_lexeme(t)) | T0INTnone(t) => ps(out, tok_lexeme(t)))
-  | D0Estr(t0) => (case+ t0 of T0STRsome(t) => ps(out, tok_lexeme(t)) | T0STRnone(t) => ps(out, tok_lexeme(t)))
-  | D0Echr(t0) => (case+ t0 of T0CHRsome(t) => ps(out, tok_lexeme(t)) | T0CHRnone(t) => ps(out, tok_lexeme(t)))
-  | D0Eflt(t0) => (case+ t0 of T0FLTsome(t) => ps(out, tok_lexeme(t)) | T0FLTnone(t) => ps(out, tok_lexeme(t)))
-  //
-  // application / con-application: head then paren arg-groups.
-  | D0Eapps(des) => pp_dexp_apps(out, des)
-  //
-  // a parenthesized / sequence group.  A single-elem paren -> that elem; a
+	  | D0Estr(t0) => (case+ t0 of T0STRsome(t) => ps(out, tok_lexeme(t)) | T0STRnone(t) => ps(out, tok_lexeme(t)))
+	  | D0Echr(t0) => (case+ t0 of T0CHRsome(t) => ps(out, tok_lexeme(t)) | T0CHRnone(t) => ps(out, tok_lexeme(t)))
+	  | D0Eflt(t0) => (case+ t0 of T0FLTsome(t) => ps(out, tok_lexeme(t)) | T0FLTnone(t) => ps(out, tok_lexeme(t)))
+	  //
+	  // application / con-application: head then paren arg-groups.
+	  | D0Eapps(des) => pp_dexp_apps(out, des)
+	  //
+	  // expression-level conditional.
+	  | D0Eift0(_, c, th, el) => pp_dexp_if_inline(out, c, th, el)
+	  | D0Eift1(_, c, th, el, _) => pp_dexp_if_inline(out, c, th, el)
+	  //
+	  // anonymous function (`lam i => e`) -> Pythonic inline lambda.
+	| D0Elam0(_, farg, _, _, body, _) => (
+	      pp_lam_farg_params(out, farg); ps(out, " => "); pp_d0exp_inline(out, body))
+	  //
+	  // a parenthesized / sequence group.  A single-elem paren -> that elem; a
   // SMCLN-sequence (cons2) at expression position -> a (a; b) we render inline
   // as a comma-paren only when used as an rvalue is wrong — but inside an INLINE
   // ref-set rhs the corpus never nests a sequence, so a single-elem is the norm.
@@ -816,44 +849,252 @@ pp_d0exp_inline(out: FILR, de: d0exp): void =
       | list_nil() => ps(out, "[]")
       | _ => (ps(out, "["); pp_dexp_seq_inline(out, des); ps(out, "]")))
   //
-  | D0Eannot(de1, _) => pp_d0exp_inline(out, de1)
-  | D0Equal0(_, de1) => pp_d0exp_inline(out, de1)
-  //
-  | _ => ps(out, "# TODO(pp): d0exp-inline")
-)
+	  | D0Eannot(de1, _) => pp_d0exp_inline(out, de1)
+	  | D0Equal0(_, de1) => pp_d0exp_inline(out, de1)
+	  | D0Ewhere(de1, _) => pp_d0exp_inline(out, de1)
+	  | D0Eerrck(_, de1) => pp_d0exp_inline(out, de1)
+	  //
+	  | _ => ps(out, "# TODO(pp): d0exp-inline")
+	)
 // the d0eid (an operator-as-id) — a bare i0dnt (d0eid = i0dnt_tbox).
 and
 pp_d0eid(out: FILR, oid: d0eid): void = ps(out, fname(i0dnt_lexeme(oid)))
+and
+pp_dexp_if_inline(out: FILR, c: d0exp, th: d0exp_THEN, el: d0exp_ELSE): void =
+(
+  ps(out, "if "); pp_d0exp_inline(out, c); ps(out, ": ");
+  pp_dexp_then_inline(out, th);
+  ps(out, " else: ");
+  pp_dexp_else_inline(out, el)
+)
+and
+pp_dexp_then_inline(out: FILR, th: d0exp_THEN): void =
+(
+  case+ th of
+  | d0exp_THEN_some(_, te) => pp_d0exp_inline(out, te)
+  | d0exp_THEN_none(_) => ps(out, "# TODO(pp): if-then-inline")
+)
+and
+pp_dexp_else_inline(out: FILR, el: d0exp_ELSE): void =
+(
+  case+ el of
+  | d0exp_ELSE_some(_, ee) => pp_d0exp_inline(out, ee)
+  | d0exp_ELSE_none(_) => ps(out, "# TODO(pp): if-else-inline")
+)
 // an application apps-list: head then paren/bracket arg-groups. The HEAD is a con
 // or a function id; trailing `[]` brackets are ref-derefs (`r[]`); trailing `(..)`
 // are call/con args.
 and
-pp_dexp_apps(out: FILR, des: d0explst): void =
-(
-  case+ des of
-  | list_nil() => ()
-  | list_cons(hd, rest) => (
-      pp_d0exp_inline(out, hd);
-      pp_dexp_apps_args(out, rest))
-)
-and
-pp_dexp_apps_args(out: FILR, des: d0explst): void =
-(
-  case+ des of
-  | list_nil() => ()
-  | list_cons(de, rest) => (
-      (case+ de.node() of
-       | D0Ebrckt(_, args, _) => (
-           case+ args of
-           | list_nil() => ps(out, "[]")
-           | _ => (ps(out, "["); pp_dexp_seq_inline(out, args); ps(out, "]")))
-       | D0Elpar(_, args, _) => (ps(out, "("); pp_dexp_seq_inline(out, args); ps(out, ")"))
-       | D0Etup1(_, _, args, _) => (ps(out, "("); pp_dexp_seq_inline(out, args); ps(out, ")"))
-       | _ => (ps(out, "("); pp_d0exp_inline(out, de); ps(out, ")")));
-      pp_dexp_apps_args(out, rest))
-)
-and
-pp_dexp_seq_inline(out: FILR, des: d0explst): void =
+	pp_dexp_apps(out: FILR, des: d0explst): void =
+	(
+	  case+ des of
+	  | list_nil() => ()
+	  | list_cons(hd, rest) => pp_dexp_apps_from(out, hd, rest)
+	)
+	and
+	pp_dexp_apps_from(out: FILR, hd: d0exp, rest: d0explst): void =
+	let
+	  val tail0 = dexp_skip_postfix(rest)
+	in
+	  if dexp_tail_starts_cmp(tail0)
+	  then pp_dexp_cmp_apps(out, hd, rest, tail0)
+	  else let
+	    val tail1 = pp_dexp_operand_from(out, hd, rest)
+	  in
+	    pp_dexp_infix_tail(out, tail1)
+	  end
+	end
+	and
+	pp_dexp_cmp_apps(out: FILR, hd: d0exp, rest: d0explst, tail0: d0explst): void =
+	(
+	  case+ tail0 of
+	  | list_cons(_, list_cons(_, list_cons(rhs, rhsrest))) => let
+	      val () = ps(out, "g_cmp(")
+	      val _ = pp_dexp_operand_from(out, hd, rest)
+	      val () = ps(out, ", ")
+	      val tail1 = pp_dexp_operand_from(out, rhs, rhsrest)
+	      val () = ps(out, ")")
+	    in
+	      pp_dexp_infix_tail(out, tail1)
+	    end
+	  | _ => let
+	      val tail1 = pp_dexp_operand_from(out, hd, rest)
+	    in
+	      pp_dexp_infix_tail(out, tail1)
+	    end
+	)
+	and
+	pp_dexp_operand_from(out: FILR, hd: d0exp, rest: d0explst): d0explst =
+	(
+	  pp_d0exp_inline(out, hd);
+	  pp_dexp_postfix_tail(out, rest)
+	)
+	and
+	pp_dexp_postfix_tail(out: FILR, des: d0explst): d0explst =
+	(
+	  case+ des of
+	  | list_nil() => list_nil()
+	  | list_cons(de, rest) => (
+	      (case+ de.node() of
+	       | D0Ebrckt(_, args, _) => (
+	           case+ args of
+	           | list_nil() => ps(out, "[]")
+	           | _ => (ps(out, "["); pp_dexp_seq_inline(out, args); ps(out, "]")))
+	       | D0Elpar(_, args, _) => (ps(out, "("); pp_dexp_seq_inline(out, args); ps(out, ")"))
+	       | D0Etup1(_, _, args, _) => (ps(out, "("); pp_dexp_seq_inline(out, args); ps(out, ")"))
+	       | D0Edtsel(_, lab, opt) => pp_dexp_dtsel(out, lab, opt)
+	       | D0Esarg(_, _, _) => ()
+	       | D0Etarg(_, _, _) => ()
+	       | _ => ());
+	      if dexp_is_postfix(de)
+	      then pp_dexp_postfix_tail(out, rest) else des)
+	)
+	and
+	pp_dexp_infix_tail(out: FILR, des: d0explst): void =
+	(
+	  case+ des of
+	  | list_nil() => ()
+	  | list_cons(opr, rest) => let
+	      val bop = dexp_binop_py(opr)
+	    in
+	      if strn_eq(bop, "")
+	      then pp_dexp_apps_args_fallback(out, des)
+	      else (
+	        case+ rest of
+	        | list_nil() => (ps(out, "("); pp_d0exp_inline(out, opr); ps(out, ")"))
+	        | list_cons(rhs, rhsrest) => let
+	            val () = ps(out, " ")
+	            val () = ps(out, bop)
+	            val () = ps(out, " ")
+	            val tail1 = pp_dexp_operand_from(out, rhs, rhsrest)
+	          in
+	            pp_dexp_infix_tail(out, tail1)
+	          end)
+	    end
+	)
+	and
+	pp_dexp_apps_args_fallback(out: FILR, des: d0explst): void =
+	(
+	  case+ des of
+	  | list_nil() => ()
+	  | list_cons(de, rest) => (
+	      ps(out, "("); pp_d0exp_inline(out, de); ps(out, ")");
+	      pp_dexp_apps_args_fallback(out, rest))
+	)
+	and
+	pp_dexp_dtsel(out: FILR, lab: l0abl, opt: d0expopt): void =
+	(
+	  ps(out, ".");
+	  pp_l0abl(out, lab);
+	  case+ opt of
+	  | optn_nil() => ()
+	  | optn_cons(arg) => pp_dexp_dtsel_arg(out, arg)
+	)
+	and
+	pp_dexp_dtsel_arg(out: FILR, arg: d0exp): void =
+	(
+	  case+ arg.node() of
+	  | D0Elpar(_, args, _) => (ps(out, "("); pp_dexp_seq_inline(out, args); ps(out, ")"))
+	  | D0Etup1(_, _, args, _) => (ps(out, "("); pp_dexp_seq_inline(out, args); ps(out, ")"))
+	  | D0Ebrckt(_, args, _) => (ps(out, "["); pp_dexp_seq_inline(out, args); ps(out, "]"))
+	  | _ => (ps(out, "("); pp_d0exp_inline(out, arg); ps(out, ")"))
+	)
+	and
+	pp_l0abl(out: FILR, lab: l0abl): void =
+	(
+	  case+ lab.node() of
+	  | L0ABLsome(l0) => pp_label(out, l0)
+	  | L0ABLnone(tok) => ps(out, tok_lexeme(tok))
+	)
+	and
+	pp_label(out: FILR, lab: label): void =
+	(
+	  case+ lab of
+	  | LABint(i) => gint_fprint$sint(i, out)
+	  | LABsym(sym) => ps(out, fname(symbl_get_name(sym)))
+	)
+	and
+	dexp_is_postfix(de: d0exp): bool =
+	(
+	  case+ de.node() of
+	  | D0Ebrckt(_, _, _) => true
+	  | D0Elpar(_, _, _) => true
+	  | D0Etup1(_, _, _, _) => true
+	  | D0Edtsel(_, _, _) => true
+	  | D0Esarg(_, _, _) => true
+	  | D0Etarg(_, _, _) => true
+	  | _ => false
+	)
+	and
+	dexp_skip_postfix(des: d0explst): d0explst =
+	(
+	  case+ des of
+	  | list_nil() => list_nil()
+	  | list_cons(de, rest) =>
+	      if dexp_is_postfix(de) then dexp_skip_postfix(rest) else des
+	)
+	and
+	dexp_tail_starts_cmp(des: d0explst): bool =
+	(
+	  case+ des of
+	  | list_cons(bs, list_cons(cmp, list_cons(_, _))) =>
+	      if dexp_is_name(bs, "\\") then dexp_is_name(cmp, "cmp") else false
+	  | _ => false
+	)
+	and
+	dexp_name(de: d0exp): strn =
+	(
+	  case+ de.node() of
+	  | D0Eid0(id) => i0dnt_lexeme(id)
+	  | D0Eopid(oid) => i0dnt_lexeme(oid)
+	  | _ => ""
+	)
+	and
+	dexp_is_name(de: d0exp, name: strn): bool = strn_eq(dexp_name(de), name)
+	and
+	dexp_binop_py(de: d0exp): strn = let
+	  val oper = dexp_name(de)
+	in
+	  if strn_eq(oper, "=") then "=="
+	  else if strn_eq(oper, "<>") then "!="
+	  else if strn_eq(oper, "+") then "+"
+	  else if strn_eq(oper, "-") then "-"
+	  else if strn_eq(oper, "*") then "*"
+	  else if strn_eq(oper, "/") then "/"
+	  else if strn_eq(oper, "%") then "%"
+	  else if strn_eq(oper, "<") then "<"
+	  else if strn_eq(oper, "<=") then "<="
+	  else if strn_eq(oper, ">") then ">"
+	  else if strn_eq(oper, ">=") then ">="
+	  else if strn_eq(oper, "!=") then "!="
+	  else ""
+	end
+	and
+	pp_lam_farg_params(out: FILR, farg: f0arglst): void = (
+	  ps(out, "(");
+	  pp_lam_farg_dapps(out, farg);
+	  ps(out, ")")
+	)
+	and
+	pp_lam_farg_dapps(out: FILR, farg: f0arglst): void =
+	(
+	  case+ farg of
+	  | list_nil() => ()
+	  | list_cons(fa, rest) => (
+	      case+ fa.node() of
+	      | F0ARGdapp(dp) => pp_lam_farg_one(out, dp, rest)
+	      | _ => pp_lam_farg_dapps(out, rest))
+	)
+	and
+	pp_lam_farg_one(out: FILR, dp: d0pat, rest: f0arglst): void =
+	(
+	  case+ dp.node() of
+	  | D0Plpar(_, dps, _) => pp_dpat_seq(out, dps)
+	  | D0Ptup1(_, _, dps, _) => pp_dpat_seq(out, dps)
+	  | _ => pp_d0pat(out, dp)
+	)
+	and
+	pp_dexp_seq_inline(out: FILR, des: d0explst): void =
 (
   case+ des of
   | list_nil() => ()
@@ -889,10 +1130,13 @@ pp_d0exp_suite(out: FILR, n: sint, de: d0exp): void =
   | D0Ecas1(_, scrut, _, _, cls, _) => pp_dexp_match(out, n, scrut, cls)
   //
   // `if c then t else e`.
-  | D0Eift0(_, c, th, el) => pp_dexp_if(out, n, c, th, el)
-  | D0Eift1(_, c, th, el, _) => pp_dexp_if(out, n, c, th, el)
-  //
-  // a `(a; b; ...)` SMCLN-sequence -> each on its own statement line.  The parse
+	  | D0Eift0(_, c, th, el) => pp_dexp_if(out, n, c, th, el)
+	  | D0Eift1(_, c, th, el, _) => pp_dexp_if(out, n, c, th, el)
+	  //
+	  // Top-level impl bodies still print a trailing `where:` block via pp_impl_body.
+	  | D0Ewhere(body0, _) => pp_d0exp_suite(out, n, body0)
+	  //
+	  // a `(a; b; ...)` SMCLN-sequence -> each on its own statement line.  The parse
   // SPLITS at the FIRST `;`: D0Elpar's d0explst holds the part BEFORE `;`, and the
   // RPAREN_cons2 holds the part AFTER (a comma-list).  We APPEND the two so every
   // statement appears (the last across both lists is the value -> a suite).
@@ -1027,11 +1271,49 @@ and
 pp_dexp_letdecl(out: FILR, n: sint, dc: d0ecl): void =
 (
   case+ dc.node() of
-  // a `val+ P = e` / `val P = e` value binding -> `let P = e` (or just the stmt
-  // if P is the void pattern `()` — a side-effecting binding).
-  | D0Cvaldclst(_, vds) => pp_dexp_valdcls(out, n, vds)
-  | _ => (ind(out, n); todo(out, "let-decl"))
+	  // a `val+ P = e` / `val P = e` value binding -> `let P = e` (or just the stmt
+	  // if P is the void pattern `()` — a side-effecting binding).
+	  | D0Cvaldclst(_, vds) => pp_dexp_valdcls(out, n, vds)
+	  | D0Cfundclst(_, _, fds) => pp_dexp_fundcl_local_list(out, n, fds)
+	  | D0Cimplmnt0(_, _, _, dqi, _, farg, _, _, body) => pp_dexp_impl_local(out, n, dqi, farg, body)
+	  | D0Csexpdef(_, _, _, _, _, _) => ()
+	  | D0Cstatic(_, dc1) => pp_dexp_letdecl(out, n, dc1)
+	  | D0Cextern(_, dc1) => pp_dexp_letdecl(out, n, dc1)
+	  | D0Ctkerr(_) => ()
+	  | D0Ctkskp(_) => ()
+	  | _ => (ind(out, n); todo(out, "let-decl"))
+	)
+and
+pp_dexp_impl_local(out: FILR, n: sint, dqi: d0qid, farg: f0arglst, body: d0exp): void =
+(
+  ind(out, n); ps(out, "@impl def "); ps(out, fname(d0qid_lexeme(dqi)));
+  pp_lam_farg_params(out, farg);
+  ps(out, ":"); nl(out);
+  pp_d0exp_suite(out, n+1, body)
 )
+and
+pp_dexp_fundcl_local_list(out: FILR, n: sint, fds: d0fundclist): void =
+(
+  case+ fds of
+  | list_nil() => ()
+  | list_cons(fd, rest) => (
+      pp_dexp_fundcl_local(out, n, fd);
+      (case+ rest of list_nil() => () | _ => nl(out));
+      pp_dexp_fundcl_local_list(out, n, rest))
+)
+and
+pp_dexp_fundcl_local(out: FILR, n: sint, fd: d0fundcl): void = let
+  val nm   = i0dnt_lexeme(d0fundcl_get_dpid(fd))
+  val farg = d0fundcl_get_farg(fd)
+  val tdxp = d0fundcl_get_tdxp(fd)
+in
+  ind(out, n); ps(out, "def "); ps(out, fname(nm));
+  pp_lam_farg_params(out, farg);
+  ps(out, ":"); nl(out);
+  (case+ tdxp of
+   | TEQD0EXPsome(_, body) => pp_d0exp_suite(out, n+1, body)
+   | TEQD0EXPnone() => (ind(out, n+1); todo(out, "fun-no-body")))
+end
 and
 pp_dexp_valdcls(out: FILR, n: sint, vds: d0valdclist): void =
 (
@@ -1052,11 +1334,29 @@ in
       // as a bare statement (no `let () =`).
       if dpat_is_void(dpat)
       then (ind(out, n); pp_dexp_stmt_inline(out, rhs); nl(out))
-      else (
-        ind(out, n); ps(out, "let "); pp_d0pat(out, dpat); ps(out, " = ");
-        pp_d0exp_inline(out, rhs); nl(out)))
+      else pp_dexp_val_rhs(out, n, dpat, rhs))
   | TEQD0EXPnone() => (ind(out, n); todo(out, "valdcl-no-rhs"))
 end
+and
+pp_dexp_val_rhs(out: FILR, n: sint, dpat: d0pat, rhs: d0exp): void =
+(
+  case+ rhs.node() of
+  | D0Eannot(rhs1, _) => pp_dexp_val_rhs(out, n, dpat, rhs1)
+  | D0Equal0(_, rhs1) => pp_dexp_val_rhs(out, n, dpat, rhs1)
+  | D0Eerrck(_, rhs1) => pp_dexp_val_rhs(out, n, dpat, rhs1)
+  | D0Elpar(_, list_cons(rhs1, list_nil()), _) => pp_dexp_val_rhs(out, n, dpat, rhs1)
+  | D0Ecas0(_, scrut, _, _, cls) => (
+      ind(out, n); ps(out, "let "); pp_d0pat(out, dpat); ps(out, " = match ");
+      pp_d0exp_inline(out, scrut); ps(out, ":"); nl(out);
+      pp_dexp_clauses(out, n+1, cls))
+  | D0Ecas1(_, scrut, _, _, cls, _) => (
+      ind(out, n); ps(out, "let "); pp_d0pat(out, dpat); ps(out, " = match ");
+      pp_d0exp_inline(out, scrut); ps(out, ":"); nl(out);
+      pp_dexp_clauses(out, n+1, cls))
+  | _ => (
+      ind(out, n); ps(out, "let "); pp_d0pat(out, dpat); ps(out, " = ");
+      pp_d0exp_inline(out, rhs); nl(out))
+)
 // is the pattern the void/unit pattern `()` (an empty paren group)?
 and
 dpat_is_void(dp: d0pat): bool =
@@ -1211,22 +1511,43 @@ pp_tcon_argty(out: FILR, se: s0exp): void =
 // with UNANNOTATED params (the .dats carries no param types — they are inferred,
 // which the frontend's inline-implement path accepts at nerror=0).
 //
-fun
-pp_fundcl_impl(out: FILR, n: sint, fd: d0fundcl): void = let
-  val nm   = i0dnt_lexeme(d0fundcl_get_dpid(fd))
-  val farg = d0fundcl_get_farg(fd)
-  val tdxp = d0fundcl_get_tdxp(fd)
+	fun
+	pp_impl_n(out: FILR, n: sint, dqi: d0qid, farg: f0arglst, body: d0exp): void =
+	(
+	  ind(out, n); ps(out, "@impl def "); ps(out, fname(d0qid_lexeme(dqi)));
+	  pp_farg_params(out, farg);
+	  ps(out, ":"); nl(out);
+	  pp_impl_body(out, n, body)
+	)
+	and
+	pp_fundcl_impl(out: FILR, n: sint, fd: d0fundcl): void = let
+	  val nm   = i0dnt_lexeme(d0fundcl_get_dpid(fd))
+	  val farg = d0fundcl_get_farg(fd)
+	  val tdxp = d0fundcl_get_tdxp(fd)
 in
   ind(out, n); ps(out, "@impl def "); ps(out, fname(nm));
   pp_farg_params(out, farg);
   ps(out, ":"); nl(out);
-  (case+ tdxp of
-   | TEQD0EXPsome(_, body) => pp_impl_body(out, n, body)
-   | TEQD0EXPnone() => (ind(out, n+1); todo(out, "impl-no-body")))
-end
-and
-pp_impl_body(out: FILR, n: sint, body: d0exp): void =
-(
+	  (case+ tdxp of
+	   | TEQD0EXPsome(_, body) => pp_impl_body(out, n, body)
+	   | TEQD0EXPnone() => (ind(out, n+1); todo(out, "impl-no-body")))
+	end
+	and
+	pp_fundcl_local(out: FILR, n: sint, fd: d0fundcl): void = let
+	  val nm   = i0dnt_lexeme(d0fundcl_get_dpid(fd))
+	  val farg = d0fundcl_get_farg(fd)
+	  val tdxp = d0fundcl_get_tdxp(fd)
+	in
+	  ind(out, n); ps(out, "def "); ps(out, fname(nm));
+	  pp_farg_params(out, farg);
+	  ps(out, ":"); nl(out);
+	  (case+ tdxp of
+	   | TEQD0EXPsome(_, body) => pp_impl_body(out, n, body)
+	   | TEQD0EXPnone() => (ind(out, n+1); todo(out, "fun-no-body")))
+	end
+	and
+	pp_impl_body(out: FILR, n: sint, body: d0exp): void =
+	(
   case+ body.node() of
   | D0Ewhere(body0, wdc) => (
       pp_d0exp_suite(out, n+1, body0);
@@ -1251,13 +1572,19 @@ pp_where_decls(out: FILR, n: sint, dcs: d0eclist): void =
       pp_where_decls(out, n, rest))
 )
 and
-pp_where_decl(out: FILR, n: sint, dc: d0ecl): void =
-(
-  case+ dc.node() of
-  | D0Cvaldclst(_, vds) => pp_dexp_valdcls(out, n, vds)
-  | D0Cfundclst(_, _, fds) => pp_fundcl_impl_list_n(out, n, fds)
-  | _ => (ind(out, n); todo(out, "where-decl"))
-)
+	pp_where_decl(out: FILR, n: sint, dc: d0ecl): void =
+	(
+	  case+ dc.node() of
+	  | D0Cvaldclst(_, vds) => pp_dexp_valdcls(out, n, vds)
+	  | D0Cfundclst(_, _, fds) => pp_fundcl_local_list_n(out, n, fds)
+	  | D0Cimplmnt0(_, _, _, dqi, _, farg, _, _, body) => pp_impl_n(out, n, dqi, farg, body)
+	  | D0Csexpdef(_, _, _, _, _, _) => ()
+	  | D0Cstatic(_, dc1) => pp_where_decl(out, n, dc1)
+	  | D0Cextern(_, dc1) => pp_where_decl(out, n, dc1)
+	  | D0Ctkerr(_) => ()
+	  | D0Ctkskp(_) => ()
+	  | _ => (ind(out, n); todo(out, "where-decl"))
+	)
 and
 pp_fundcl_impl_list_n(out: FILR, n: sint, fds: d0fundclist): void =
 (
@@ -1265,9 +1592,19 @@ pp_fundcl_impl_list_n(out: FILR, n: sint, fds: d0fundclist): void =
   | list_nil() => ()
   | list_cons(fd, rest) => (
       pp_fundcl_impl(out, n, fd);
-      (case+ rest of list_nil() => () | _ => nl(out));
-      pp_fundcl_impl_list_n(out, n, rest))
-)
+	      (case+ rest of list_nil() => () | _ => nl(out));
+	      pp_fundcl_impl_list_n(out, n, rest))
+	)
+	and
+	pp_fundcl_local_list_n(out: FILR, n: sint, fds: d0fundclist): void =
+	(
+	  case+ fds of
+	  | list_nil() => ()
+	  | list_cons(fd, rest) => (
+	      pp_fundcl_local(out, n, fd);
+	      (case+ rest of list_nil() => () | _ => nl(out));
+	      pp_fundcl_local_list_n(out, n, rest))
+	)
 // the (params) of a fun arg-list. Each f0arg is F0ARGdapp(d0pat); the d0pat is a
 // paren-group of the params (or a single).  F0ARGsapp `{a:t0}` would be a typaram
 // bracket; the corpus impls have none.
@@ -1546,12 +1883,19 @@ pp_priv_head(out: FILR, n: sint, head: d0eclist): void =
 and
 pp_priv_head_one(out: FILR, n: sint, dc: d0ecl): void =
 (
-  case+ dc.node() of
-  | D0Cdatatype(_, dts, _) => pp_d0typ_enum_list(out, n, dts)
-  | D0Cvaldclst(_, vds) => pp_priv_valdcls(out, n, vds)
-  | D0Cabsimpl(_, sqid, _, _, _, se) => pp_absimpl(out, n, sqid, se)
-  | _ => (ind(out, n); todo(out, "private-head decl"))
-)
+	  case+ dc.node() of
+	  | D0Cdatatype(_, dts, _) => pp_d0typ_enum_list(out, n, dts)
+	  | D0Cvaldclst(_, vds) => pp_priv_valdcls(out, n, vds)
+	  | D0Cfundclst(_, _, fds) => pp_fundcl_local_list_n(out, n, fds)
+	  | D0Cimplmnt0(_, _, _, dqi, _, farg, _, _, body) => pp_impl_n(out, n, dqi, farg, body)
+	  | D0Cabsimpl(_, sqid, _, _, _, se) => pp_absimpl(out, n, sqid, se)
+	  | D0Csexpdef(_, _, _, _, _, _) => ()
+	  | D0Cstatic(_, dc1) => pp_priv_head_one(out, n, dc1)
+	  | D0Cextern(_, dc1) => pp_priv_head_one(out, n, dc1)
+	  | D0Ctkerr(_) => ()
+	  | D0Ctkskp(_) => ()
+	  | _ => (ind(out, n); todo(out, "private-head decl"))
+	)
 and
 pp_absimpl(out: FILR, n: sint, sqid: s0qid, se: s0exp): void =
 (
@@ -1578,16 +1922,12 @@ pp_d0typ_enum_list(out: FILR, n: sint, dts: d0typlst): void =
       pp_d0typ_enum_list(out, n, rest))
 )
 and
-// `#implfun NAME(params) = body` (a D0Cimplmnt0) -> `@impl def NAME(params): body`.
-// Params are UNANNOTATED (the .dats carries no param types; the inline-implement
-// path infers them — verified nerror=0). The body is a `:`-suite at indent 1.
-pp_impl(out: FILR, dqi: d0qid, farg: f0arglst, body: d0exp): void = (
-  ps(out, "@impl def "); ps(out, fname(d0qid_lexeme(dqi)));
-  pp_farg_params(out, farg);
-  ps(out, ":"); nl(out);
-  pp_impl_body(out, 0, body)
-)
-and
+	// `#implfun NAME(params) = body` (a D0Cimplmnt0) -> `@impl def NAME(params): body`.
+	// Params are UNANNOTATED (the .dats carries no param types; the inline-implement
+	// path infers them — verified nerror=0). The body is a `:`-suite at indent 1.
+	pp_impl(out: FILR, dqi: d0qid, farg: f0arglst, body: d0exp): void =
+	  pp_impl_n(out, 0, dqi, farg, body)
+	and
 // the body of `#implfun` -> `@impl def` (one or more d0fundcl in a list).
 pp_fundcl_impl_list(out: FILR, fds: d0fundclist): void =
 (
