@@ -81,6 +81,7 @@ VALID=(
   "at_impl_alias_nodarg" # bodyless @template + farg-less @impl[Int] alias body    (no dynamic farg)
   "at_both_brackets"    # @template[A] def foo[C](x:A,y:C)->C: y ; @inst[Int]       (BOTH brackets)
   "at_sapp_empty_call"   # def zero[A](); @sapp[Int] zero() -> zero{Int}()          (empty dapp)
+  "at_inst_infix_operand" # @inst binds to call operand before infix equality
 )
 for base in "${VALID[@]}"; do
   py="$TESTDIR/${base}.pdats"

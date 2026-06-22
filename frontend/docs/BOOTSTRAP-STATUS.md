@@ -147,8 +147,15 @@ harnesses.
   `trans12`/`trans11`/`trans23` helpers, `xsymmap*`, `staexp0_print0`,
   `staexp1*`, selected `staexp2*` helpers, `filpath_{fpath0,print0,search}`,
   `gmacro1*`, `locinfo*`, `nmspace`, and the green `lexing0` helper subset.
-  The default dynamic corpus now validates 141/141 files; the default auto
-  corpus validates 142/142 files.
+  The default dynamic corpus now validates 142/142 files; the default auto
+  corpus validates 143/143 files.
+- `srcgen2/DATS/filpath.dats` now sits in the default corpus and reaches
+  `TODOpp=0` and `m3_nerror=0`. The blocker was expression-decorator
+  precedence: generated code such as
+  `@inst[Clst] @inst[cgtz] @inst[String] @inst[cgtz] gseq_z2cmp11(x1, x2) == 0`
+  must instantiate the `gseq_z2cmp11(...)` call before applying infix equality.
+  `@inst` and `@sapp` now bind as high-precedence expression decorators, with a
+  regression in `TEST/atmpl/at_inst_infix_operand.pdats`.
 - `build-pp-corpus.sh --out-dir RELPATH` now normalizes the report directory
   against `frontend/` before running pyprint from `XATSHOME`, so separate static
   and dynamic corpus summaries can be kept without path breakage.

@@ -217,8 +217,9 @@ in
           end
         // A-TEMPLATE: `@inst[T1, ..] e` — the EXPRESSION-position TEMPLATE INSTANTIATION decorator
         // (our FIRST non-declaration decorator). Parse the `[T1, ..]` type-arg list, then the
-        // following EXPRESSION it instantiates (recurse via p_expr — `@inst[Int] foo(x)` reads
-        // `foo(x)` as the inner call, so the postfix call binds to it, NOT the whole `@inst`).
+        // following high-precedence operand it instantiates. This keeps
+        // `@inst[Int] foo(x) == 0` parsed as `(@inst[Int] foo(x)) == 0`, not as
+        // `@inst[Int] (foo(x) == 0)`.
         // (The nested if is PARENTHESIZED — the ATS2 dialect rejects a bare `else if` after a
         // `let…end` then-branch; wrapping the continuation in `( if … )` is the codebase idiom.)
         else (if strn_eq(nm, "inst") then
@@ -229,9 +230,10 @@ in
             | PT_LBRACK() =>
               let
                 val @(ts, st3) = parse_deco_typeargs(st2)  // the `[T1, ..]` type-arg list
-                val @(e, st4) = p_expr(st3)                // the instantiated expression
+                val @(e, st4) = p_deco_operand(st3)        // the instantiated operand
+                val e1 = PyEinst(loc_span(locA, pyexp_loctn(e)), ts, e)
               in
-                @(PyEinst(loc_span(locA, pyexp_loctn(e)), ts, e), st4)
+                p_pratt_loop(e1, st4, 1, false)
               end
             | _ =>
               // RECOVERY: `@inst` with NO `[...]` brackets — advance once so parsing progresses.
@@ -247,9 +249,10 @@ in
             | PT_LBRACK() =>
               let
                 val @(ts, st3) = parse_deco_typeargs(st2)
-                val @(e, st4) = p_expr(st3)
+                val @(e, st4) = p_deco_operand(st3)
+                val e1 = PyEsapp(loc_span(locA, pyexp_loctn(e)), ts, e)
               in
-                @(PyEsapp(loc_span(locA, pyexp_loctn(e)), ts, e), st4)
+                p_pratt_loop(e1, st4, 1, false)
               end
             | _ =>
               let val st3 = ps_diag(st2, ps_peek_loctn(st2),
@@ -274,6 +277,67 @@ in
     let val @(islam, e, st1) = p_try_lambda(st) in
       if islam then @(e, st1) else p_pratt(st, 1)
     end
+end
+//
+// A-TEMPLATE operand parser: expression decorators bind like unary prefixes and stop before
+// lower-precedence infix operators. Nested decorators are allowed (`@inst[A] @inst[B] f(x)`).
+// Parentheses opt into decorating a whole expression: `@inst[A] (f(x) == y)`.
+and
+p_deco_operand(st: pstate): @(pyexp, pstate) = let
+  val nod = ps_peek(st)
+in
+  case+ nod of
+  | PT_AT() =>
+    let
+      val locA = ps_peek_loctn(st)
+      val st1 = ps_advance(st)
+    in
+      case+ ps_peek(st1) of
+      | PT_LIDENT(nm) =>
+        if strn_eq(nm, "inst") then
+          let
+            val st2 = ps_advance(st1)
+          in
+            case+ ps_peek(st2) of
+            | PT_LBRACK() =>
+              let
+                val @(ts, st3) = parse_deco_typeargs(st2)
+                val @(e, st4) = p_deco_operand(st3)
+              in
+                @(PyEinst(loc_span(locA, pyexp_loctn(e)), ts, e), st4)
+              end
+            | _ =>
+              let val st3 = ps_diag(st2, ps_peek_loctn(st2),
+                    "@inst must be followed by a '[' type-arg list (e.g. @inst[Int] foo(x))") in
+                @(PyEerror(locA, "@inst not followed by '[' type-args"), ps_advance(st3)) end
+          end
+        else (if strn_eq(nm, "sapp") then
+          let
+            val st2 = ps_advance(st1)
+          in
+            case+ ps_peek(st2) of
+            | PT_LBRACK() =>
+              let
+                val @(ts, st3) = parse_deco_typeargs(st2)
+                val @(e, st4) = p_deco_operand(st3)
+              in
+                @(PyEsapp(loc_span(locA, pyexp_loctn(e)), ts, e), st4)
+              end
+            | _ =>
+              let val st3 = ps_diag(st2, ps_peek_loctn(st2),
+                    "@sapp must be followed by a '[' type-arg list (e.g. @sapp[Int] foo(x))") in
+                @(PyEerror(locA, "@sapp not followed by '[' type-args"), ps_advance(st3)) end
+          end
+        else
+          let val st2 = ps_diag(st1, locA,
+                strn_append("only @inst / @sapp can decorate an expression operand; got @", nm)) in
+            @(PyEerror(locA, strn_append("invalid operand decorator: @", nm)), ps_advance(st2)) end)
+      | _ =>
+        let val st2 = ps_diag(st1, ps_peek_loctn(st1),
+              "expected an expression decorator name after '@'") in
+          @(PyEerror(locA, "expected expression decorator name"), ps_advance(st2)) end
+    end
+  | _ => p_unary(st)
 end
 //
 // ---- lambda detection + parse ----------------------------------------------
