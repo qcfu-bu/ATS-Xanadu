@@ -1960,6 +1960,11 @@ pp_dexp_val_rhs(out: FILR, n: sint, dpat: d0pat, rhs: d0exp): void =
   | D0Ewhere(rhs1, wdc) => (
       pp_dexp_where_decls(out, n, wdc);
       pp_dexp_val_rhs(out, n, dpat, rhs1))
+  | D0Elet0(_, decls, _, body, _) => (
+      PYPP_type_scope_push();
+      pp_dexp_letdecls(out, n, decls);
+      pp_dexp_val_body_seq(out, n, dpat, body);
+      PYPP_type_scope_pop())
   | D0Ecas0(_, scrut, _, _, cls) => (
       ind(out, n); ps(out, "let "); pp_d0pat(out, dpat); ps(out, " = match ");
       pp_d0exp_inline(out, scrut); ps(out, ":"); nl(out);
@@ -1971,6 +1976,16 @@ pp_dexp_val_rhs(out: FILR, n: sint, dpat: d0pat, rhs: d0exp): void =
   | _ => (
       ind(out, n); ps(out, "let "); pp_d0pat(out, dpat); ps(out, " = ");
       pp_d0exp_inline(out, rhs); nl(out))
+)
+and
+pp_dexp_val_body_seq(out: FILR, n: sint, dpat: d0pat, body: d0explst): void =
+(
+  case+ body of
+  | list_nil() => (ind(out, n); todo(out, "let-body-empty"))
+  | list_cons(rhs, list_nil()) => pp_dexp_val_rhs(out, n, dpat, rhs)
+  | list_cons(stmt, rest) => (
+      ind(out, n); pp_dexp_stmt_inline(out, stmt); nl(out);
+      pp_dexp_val_body_seq(out, n, dpat, rest))
 )
 // is the pattern the void/unit pattern `()` (an empty paren group)?
 and
