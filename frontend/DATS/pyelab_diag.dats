@@ -73,6 +73,7 @@ case+ e of
 // B-LINEAR: &/!/move/swap harvest poison nodes of their operand sub-exprs.
 | PCEaddr(_, lv) => harv_exp(lv, acc)
 | PCEderef(_, p) => harv_exp(p, acc)
+| PCEfold(_, p) => harv_exp(p, acc)
 | PCEmove(_, lv, rv) => harv_exp(rv, harv_exp(lv, acc))
 | PCEswap(_, lv, rv) => harv_exp(rv, harv_exp(lv, acc))
 )
@@ -204,6 +205,7 @@ case+ e of
 // B-LINEAR: &/!/move/swap use pyrt iff an operand sub-expr does.
 | PCEaddr(_, lv) => uses_exp(lv)
 | PCEderef(_, p) => uses_exp(p)
+| PCEfold(_, p) => uses_exp(p)
 | PCEmove(_, lv, rv) => b_or(uses_exp(lv), uses_exp(rv))
 | PCEswap(_, lv, rv) => b_or(uses_exp(lv), uses_exp(rv))
 )

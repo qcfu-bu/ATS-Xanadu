@@ -387,7 +387,13 @@ case+ hd of
       case+ args of
       | list_cons(arg, list_nil()) => fc_fv_exp(bnd, fv, arg)
       | _ => fc_fv_explst(bnd, fc_fv_exp(bnd, fv, hd), args))
-    else fc_fv_explst(bnd, fc_fv_exp(bnd, fv, hd), args)
+    else (
+      if strn_eq(nm, "fold")
+      then (
+        case+ args of
+        | list_cons(arg, list_nil()) => fc_fv_exp(bnd, fv, arg)
+        | _ => fc_fv_explst(bnd, fc_fv_exp(bnd, fv, hd), args))
+      else fc_fv_explst(bnd, fc_fv_exp(bnd, fv, hd), args))
 | _ => fc_fv_explst(bnd, fc_fv_exp(bnd, fv, hd), args)
 )
 and
@@ -596,7 +602,13 @@ case+ hd of
       case+ args of
       | list_cons(arg, list_nil()) => PCEllazy(loc, el_exp(encl, arg))
       | _ => PCEapp(loc, el_exp(encl, hd), el_explst(encl, args)))
-    else PCEapp(loc, el_exp(encl, hd), el_explst(encl, args))
+    else (
+      if strn_eq(nm, "fold")
+      then (
+        case+ args of
+        | list_cons(arg, list_nil()) => PCEfold(loc, el_exp(encl, arg))
+        | _ => PCEapp(loc, el_exp(encl, hd), el_explst(encl, args)))
+      else PCEapp(loc, el_exp(encl, hd), el_explst(encl, args)))
 | _ => PCEapp(loc, el_exp(encl, hd), el_explst(encl, args))
 )
 //

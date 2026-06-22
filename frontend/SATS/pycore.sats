@@ -213,11 +213,12 @@ pcexp =
 //                `PCEvar name` for v1 (field/index later).
 | PCEvarcell of (loctn, strn, pytypopt, pcexp(*init*), pcexp(*body*))
 | PCEassign of (loctn, pcexp(*lval*), pcexp(*rval*))
-// B-LINEAR: address-of `&x` -> D2Eaddr ; deref `!p` -> D2Eeval ; move `x :=> y` -> D2Exazgn ;
-// swap `x :=: y` -> D2Exchng. All proven nerror=0 (SPIKE BL-ADDR/BL-DERF2/BL-MV/BL-SW). The
-// move/swap l-values pair with `var` cells (PCEvarcell).
+// B-LINEAR: address-of `&x` -> D2Eaddr ; deref `!p` -> D2Eeval ; generated `fold(x)` ->
+// D2Efold ; move `x :=> y` -> D2Exazgn ; swap `x :=: y` -> D2Exchng. The move/swap l-values pair
+// with `var` cells (PCEvarcell).
 | PCEaddr   of (loctn, pcexp(*lval*))
 | PCEderef  of (loctn, pcexp(*ptr*))
+| PCEfold   of (loctn, pcexp(*open view value*))
 | PCEmove   of (loctn, pcexp(*lval*), pcexp(*rval*))
 | PCEswap   of (loctn, pcexp(*lval*), pcexp(*rval*))
 | PCEletfun of (loctn, list(pcfundcl), pcexp)

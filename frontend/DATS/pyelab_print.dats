@@ -303,6 +303,8 @@ case+ e of
   ( ps(out, "(Eaddr"); print_span(out, loc); ps(out, " &"); pp_exp(out, lv, ind); ps(out, ")") )
 | PCEderef(loc, p) =>
   ( ps(out, "(Ederef"); print_span(out, loc); ps(out, " !"); pp_exp(out, p, ind); ps(out, ")") )
+| PCEfold(loc, p) =>
+  ( ps(out, "(Efold"); print_span(out, loc); ps(out, " fold "); pp_exp(out, p, ind); ps(out, ")") )
 | PCEmove(loc, lv, rv) =>
   ( ps(out, "(Emove"); print_span(out, loc); ps(out, " ");
     pp_exp(out, lv, ind); ps(out, " :=> "); pp_exp(out, rv, ind); ps(out, ")") )

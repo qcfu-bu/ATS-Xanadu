@@ -847,6 +847,12 @@ case+ e of
   in
     d2exp_make_node(loc, D2Eeval(d2ptr))
   end
+// BOOTSTRAP-PARITY: generated ATS `$fold(x)` prints as `fold(x)` and maps to D2Efold.
+| PCEfold(loc, e1) => let
+    val d2e1 = pl_exp(env, e1)
+  in
+    d2exp_make_node(loc, D2Efold(d2e1))
+  end
 // B-LINEAR: MOVE `lv :=> rv` -> D2Exazgn. f0_xazgn (trans2a_dynexp.dats:3210) typechecks rv
 // against lv's type, like := (B-LIN spike BL-MV-proven nerror=0).
 | PCEmove(loc, lv, rv) => let

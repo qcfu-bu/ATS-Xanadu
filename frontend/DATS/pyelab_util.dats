@@ -44,6 +44,7 @@ case+ e of
 | PCEinst(loc, _, _) => loc
 | PCEwhere(loc, _, _) => loc
 | PCEaddr(loc, _) => loc      | PCEderef(loc, _) => loc
+| PCEfold(loc, _) => loc
 | PCEmove(loc, _, _) => loc   | PCEswap(loc, _, _) => loc
 )
 //

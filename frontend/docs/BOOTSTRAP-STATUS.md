@@ -130,9 +130,10 @@ harnesses.
 - Dynamic reparse/typecheck triage: protect the 166-file DATS/UTIL
   `TODOpp=0` pyprint-only baseline while classifying M3 type errors versus
   driver/runtime crashes. Generated pattern forms such as `@(C)(...)`, `!p`,
-  `~C(...)`, and applied lowercase constructor patterns now parse/elaborate/lower;
-  the next high-value targets are the remaining typecheck errors and unresolved
-  dynamic helper names surfaced by generated Pythonic files.
+  `~C(...)`, applied lowercase constructor patterns, and generated `fold(e)`
+  calls now parse/elaborate/lower; the next high-value targets are the remaining
+  typecheck errors and unresolved dynamic helper names surfaced by generated
+  Pythonic files.
 - Slash-identifier fidelity: keep `$` <-> `/` round-trip support covered by
   regression tests and expand the corpus audit around collision-prone names.
 

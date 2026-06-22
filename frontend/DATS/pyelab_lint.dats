@@ -128,6 +128,7 @@ case+ e of
 // B-LINEAR: &/!/move/swap — walk operand sub-exprs NON-tail (a deref/move is never a loop tail-call).
 | PCEaddr(_, lv) => lint_exp(lv, false, acc)
 | PCEderef(_, p) => lint_exp(p, false, acc)
+| PCEfold(_, p) => lint_exp(p, false, acc)
 | PCEmove(_, lv, rv) => lint_exp(rv, false, lint_exp(lv, false, acc))
 | PCEswap(_, lv, rv) => lint_exp(rv, false, lint_exp(lv, false, acc))
 )
