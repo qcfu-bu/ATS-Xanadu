@@ -146,6 +146,11 @@ function XATS2GO_gochar_esc(c0) {
   if (c0 <= 0xffff) { return "\\\\u" + c0.toString(16).padStart(4, "0"); }
   return "\\\\U" + c0.toString(16).padStart(8, "0");
 }
+// Backend-owned adapter for raw FILR char output. The ATS-facing order is
+// (filr, char); the JS node primitive is (char, filr).
+function XATS2GO_chrfpr(filr, c0) {
+  return XATS2JS_NODE_char_fprint(c0, filr);
+}
 //==XATS2GO-JSSHIM-END==
 EOF
 

@@ -41,6 +41,14 @@ Mirrors xats2js/srcgen2/DATS/xats2js_myenv0.dats.
 (* ****** ****** *)
 (* ****** ****** *)
 //
+#extern
+fun
+XATS2GO_chrfpr
+  (filr: FILR, c0: char): void = $extnam()
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
 (* ****** ****** *)
 // local
 (* ****** ****** *)
@@ -143,6 +151,12 @@ strnfpr(
 filr, strn) =
 (
 strn_fprint(strn, filr))
+//
+#implfun
+chrfpr(
+filr, c0) =
+(
+XATS2GO_chrfpr(filr, c0))
 //
 #implfun
 nindfpr(

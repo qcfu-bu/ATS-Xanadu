@@ -90,6 +90,10 @@ strnfpr
 (filr: FILR, strn: strn): void
 //
 fun
+chrfpr
+(filr: FILR, c0: char): void
+//
+fun
 nindstrnfpr
 (filr: FILR
 ,nind: sint, strn: strn): void

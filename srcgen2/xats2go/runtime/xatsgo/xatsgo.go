@@ -333,6 +333,29 @@ var Xats_XATS2GO_gochar_esc = func(c0 any) any {
 	return q
 }
 
+// Xats_XATS2GO_chrfpr writes one raw character to a FILR-like writer. It is
+// the Go-host counterpart of the JS shim adapter used while self-host smoke
+// still runs through the xats2js-generated compiler bundle.
+var Xats_XATS2GO_chrfpr = func(filr any, c0 any) any {
+	var r rune
+	switch v := c0.(type) {
+	case int32:
+		r = rune(v)
+	case int:
+		r = rune(v)
+	default:
+		rs := []rune(fmt.Sprint(v))
+		if len(rs) == 0 {
+			return XATSNIL()
+		}
+		r = rs[0]
+	}
+	if w, ok := filr.(interface{ Write([]byte) (int, error) }); ok {
+		_, _ = w.Write([]byte(string(r)))
+	}
+	return XATSNIL()
+}
+
 // Xats_dflt_print mirrors XATS2JS_dflt_print: f0.toString() pushed, where
 // .toString() is JS Number formatting -> see XatsFloatToString (JS-compatible).
 var Xats_dflt_print = func(f0 any) any {

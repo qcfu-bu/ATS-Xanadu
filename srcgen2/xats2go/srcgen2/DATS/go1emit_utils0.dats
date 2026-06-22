@@ -115,7 +115,7 @@ val c1 =
 if ok then c0 else '_')
 in//let
 (
-  char_fprint(c1, filr)) end
+  chrfpr(filr, c1)) end
 //
 in//let
 (
@@ -155,7 +155,9 @@ if
 if
 (sname = "symbl_get_name") then true else
 if
-(sname = "strnfpr") then true else false)
+(sname = "strnfpr") then true else
+if
+(sname = "chrfpr") then true else false)
 in//let
 (
 if
@@ -242,12 +244,12 @@ let
 foritm$work<char>(c0) =
 (
 case+ c0 of
-| '\n' => strn_fprint("\\n", filr)
-| '\t' => strn_fprint("\\t", filr)
-| '\r' => strn_fprint("\\r", filr)
-| '\"' => strn_fprint("\\\"", filr)
-| '\\' => strn_fprint("\\\\", filr)
-| _(*else*) => char_fprint(c0, filr))
+| '\n' => strnfpr(filr, "\\n")
+| '\t' => strnfpr(filr, "\\t")
+| '\r' => strnfpr(filr, "\\r")
+| '\"' => strnfpr(filr, "\\\"")
+| '\\' => strnfpr(filr, "\\\\")
+| _(*else*) => chrfpr(filr, c0))
 in//let
 (
   strn_foritm(cs)) end
@@ -353,10 +355,10 @@ loop2(i0+1)
 (
 // a RAW (unescaped) control byte -> the matching Go escape; else verbatim.
 case+ c0 of
-| '\n' => (strn_fprint("\\n", filr); loop1(i0+1))
-| '\t' => (strn_fprint("\\t", filr); loop1(i0+1))
-| '\r' => (strn_fprint("\\r", filr); loop1(i0+1))
-| _(*else*) => (char_fprint(c0, filr); loop1(i0+1)))
+| '\n' => (strnfpr(filr, "\\n"); loop1(i0+1))
+| '\t' => (strnfpr(filr, "\\t"); loop1(i0+1))
+| '\r' => (strnfpr(filr, "\\r"); loop1(i0+1))
+| _(*else*) => (chrfpr(filr, c0); loop1(i0+1)))
 end//let//end-of-[loop1(i0)]
 //
 and
@@ -367,7 +369,7 @@ if // if
 then//then
 (
 // a trailing bare backslash (malformed source) -> a literal `\\` (Go-valid).
-strn_fprint("\\\\", filr)) else
+strnfpr(filr, "\\\\")) else
 let
   val c1 = rep1[i1]
 in (*let*)
@@ -379,7 +381,7 @@ then//then
 loop1(i1+1)) else
 (
 // `\`+c is an already-valid Go escape (\n \t \" \\ \r ...) -> pass through.
-char_fprint('\\', filr); char_fprint(c1, filr); loop1(i1+1))
+chrfpr(filr, '\\'); chrfpr(filr, c1); loop1(i1+1))
 end//let//end-of-[loop2(i1)]
 //
 in//let
