@@ -46,12 +46,15 @@
 //   PYPP_capitalize : uppercase the first character.
 //   PYPP_dollar_fix : rewrite `$`-in-ident to Koka-style `/`.
 //   PYPP_xname/PYPP_pname : synthesized positional typaram/param names.
+//   PYPP_source_set/PYPP_import_stem : normalize source-relative #staload paths.
 #extern fun PYPP_capitalize(s: strn): strn = $extnam()
 #extern fun PYPP_dollar_fix(s: strn): strn = $extnam()
 // synthesized positional names (string-building done in JS to avoid the ATS
 // string-append template): "X"+i (a typaram), "a"/"b".../"x"+i (a parameter).
 #extern fun PYPP_xname(i: sint): strn = $extnam()
 #extern fun PYPP_pname(i: sint): strn = $extnam()
+#extern fun PYPP_source_set(s: strn): void = $extnam()
+#extern fun PYPP_import_stem(raw: strn): strn = $extnam()
 // CAPITALIZE-SCOPING (dynamic side): the file-local name registry. PYPP_local_add
 // records a name DEFINED IN THIS FILE (a datatype type-name or data-constructor,
 // in its lowercase ATS spelling); PYPP_local_has tests membership. Only file-local
@@ -1085,10 +1088,8 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   // a top-level value binding (`val name = e`) -> `@static let name = e`.
   | D0Cvaldclst(_, vds) => (pp_topval(out, vds); true)
   //
-  // `#staload "x"` (a .sats interface) -> a deferred-import comment (the abstract
-  // type interface; for THIS standalone round-trip the rep is in-file).
-  | D0Cstaload(_, _, ge) => (
-      ps(out, "# staload "); pp_g0exp(out, ge); ps(out, "  (TODO: import)"); nl(out); true)
+  // `#staload "x"` (a .sats interface) -> a scoped Pythonic import of the interface.
+  | D0Cstaload(_, _, ge) => (pp_staload(out, ge); true)
   //
   // #abstype T <= REP / #abstbox T(x0:t0)  ->  @abstract type T[X0] <= REP
   | D0Cabstype(_, sid, tmas, _, tdef) => let
@@ -1170,6 +1171,20 @@ pp_g0exp(out: FILR, ge: g0exp): void =
   | G0Eint(t0) => (case+ t0 of T0INTsome(tok) => ps(out, tok_lexeme(tok)) | T0INTnone(tok) => ps(out, tok_lexeme(tok)))
   | G0Estr(t0) => (case+ t0 of T0STRsome(tok) => ps(out, tok_lexeme(tok)) | T0STRnone(tok) => ps(out, tok_lexeme(tok)))
   | _ => ps(out, "# TODO(pp): g0exp")
+)
+and
+g0exp_lexeme(ge: g0exp): strn =
+(
+  case+ ge.node() of
+  | G0Eid0(id) => i0dnt_lexeme(id)
+  | G0Eint(t0) => (case+ t0 of T0INTsome(tok) => tok_lexeme(tok) | T0INTnone(tok) => tok_lexeme(tok))
+  | G0Estr(t0) => (case+ t0 of T0STRsome(tok) => tok_lexeme(tok) | T0STRnone(tok) => tok_lexeme(tok))
+  | _ => "?"
+)
+and
+pp_staload(out: FILR, ge: g0exp): void =
+(
+  ps(out, "from \""); ps(out, PYPP_import_stem(g0exp_lexeme(ge))); ps(out, "\" import *"); nl(out)
 )
 //
 (* ****** ****** *)
@@ -1289,6 +1304,7 @@ pyprint_of_fpath(stadyn, fpath, out) = let
   // them (a datatype defined anywhere — incl. inside a `local` head — capitalizes
   // at every use site; prelude names stay lowercase to resolve against pyrt).
   val () = PYPP_local_reset()
+  val () = PYPP_source_set(fpath)
   val () =
     if stadyn >= 1
     then PYPP_capall_set(false)

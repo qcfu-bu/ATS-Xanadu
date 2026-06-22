@@ -48,6 +48,13 @@
 //
 fun ats_name(name: strn): strn = pylower_ats_name(name)
 fun ats_sym(name: strn): sym_t = symbl_make_name(ats_name(name))
+fun lowercase_nullary_datacon(s: strn): bool =
+(
+  if strn_eq(s, "list_nil") then true
+  else if strn_eq(s, "optn_nil") then true
+  else if strn_eq(s, "list_vt_nil") then true
+  else strn_eq(s, "optn_vt_nil")
+)
 //
 (* ****** ****** *)
 //
@@ -275,10 +282,64 @@ in
   list_sing(f2arg_make_node(loc, F2ARGdapp(0(*npf*), dps)))
 end
 //
+// Imported-signature-backed `@impl def`: ATS `#implfun f(x) = ...` usually omits
+// parameter annotations in the .dats because the .sats signature is already loaded. When a
+// surface parameter annotation is missing, use the resolved d2cst's S2Efun1 argument types so
+// trans2a gives binders the same types as the declared signature.
+fun
+pl_one_param_s2e(loc: loctn, nm: strn, s2e: s2exp): d2pat = let
+  val d2v = d2var_new2_name(loc, ats_sym(nm))
+  val d2p = d2pat_var(loc, d2v)
+in
+  d2pat_make_node(loc, D2Pannot(d2p, s1exp_none0(loc), s2e))
+end
+//
+fun
+pl_params_typed_sig
+(env: !tr12env, loc: loctn, params: list(strn), ptypes: list(pytypopt), sigargs: s2explst): f2arglst = let
+  fun
+  loop(ps: list(strn), ts: list(pytypopt), ss: s2explst): d2patlst =
+    case+ ps of
+    | list_nil() => list_nil()
+    | list_cons(nm, prest) =>
+      (
+      case+ ts of
+      | list_cons(PyTypSome(t), trest) =>
+          list_cons(pl_one_param(env, loc, nm, PyTypSome(t)), loop(prest, trest, ss))
+      | list_cons(PyTypNone(), trest) =>
+          (case+ ss of
+           | list_cons(s2e, srest) => list_cons(pl_one_param_s2e(loc, nm, s2e), loop(prest, trest, srest))
+           | list_nil() => list_cons(pl_one_param(env, loc, nm, PyTypNone()), loop(prest, trest, list_nil())))
+      | list_nil() =>
+          (case+ ss of
+           | list_cons(s2e, srest) => list_cons(pl_one_param_s2e(loc, nm, s2e), loop(prest, list_nil(), srest))
+           | list_nil() => list_cons(pl_one_param(env, loc, nm, PyTypNone()), loop(prest, list_nil(), list_nil())))
+      )
+  val dps = loop(params, ptypes, sigargs)
+in
+  list_sing(f2arg_make_node(loc, F2ARGdapp(0(*npf*), dps)))
+end
+//
 // M5a: a surface return annotation -> the d2fundcl/lambda's s2res (S2RESsome). PyTypNone -> none.
 fun
 pl_sres(env: !tr12env, ret: pytypopt): s2res =
 ( case+ ret of PyTypNone() => S2RESnone() | PyTypSome(t) => pylower_sres(env, t) )
+//
+fun
+d2c_fun_args(d2c: d2cst): s2explst =
+(
+  case+ d2cst_get_sexp(d2c).node() of
+  | S2Efun1(_, _, args, _) => args
+  | _ => list_nil()
+)
+//
+fun
+pl_sres_sig(env: !tr12env, ret: pytypopt): s2res =
+(
+  case+ ret of
+  | PyTypSome(_) => pl_sres(env, ret)
+  | PyTypNone() => S2RESnone()
+)
 //
 // DEP (Stages 1–2): push a def's quantifier s2vars into the current lam-scope so the member
 // param/return types resolve them (`Vec[A, n]` -> `A`/`n` via resolve_typ's S2ITMvar arm). The
@@ -493,7 +554,10 @@ case+ e of
 //
 // PCEvar : an ordinary var/fun reference (template A). A BARE operator name (not applied) is
 // not a runnable value in v1, but resolve it as-is for recovery (deferred).
-| PCEvar(loc, name) => pl_var(env, loc, ats_sym(name))
+| PCEvar(loc, name) =>
+    if lowercase_nullary_datacon(name)
+      then pl_con_value(env, loc, ats_sym(name))
+      else pl_var(env, loc, ats_sym(name))
 // PCEcon : UIDENT -> a d2con reference (template A resolves it to D2ITMcon). CRITICAL: a
 // NULLARY con used as a VALUE (`Nothing`, `Empty`, a nullary exn con) must be APPLIED to zero
 // args — wrapped in D2Edap0 — exactly as the list-literal path wraps `list_nil()` (M16) and the
@@ -1109,15 +1173,16 @@ in
           | list_nil() => list_nil()
           | list_cons(_, _) => list_sing(t2iag_make_s2es(loc, pylower_typlst(env, tias_typs)))
         ): t2iaglst
+      val sigargs = d2c_fun_args(d2c)
       // build + bind the (typed) params, lower the body, pop — the fun-body scope dance. The fresh
       // template tqas vars are bound FIRST so the param types / body resolve them.
       val () = tr12env_pshlam0(env)
       val () = tr12env_add0_tqas(env, tqas)
-      val f2as = pl_params_typed(env, loc, pnames, ptypes)
+      val f2as = pl_params_typed_sig(env, loc, pnames, ptypes, sigargs)
       val () = tr12env_add0_f2arglst(env, f2as)
       val d2body = pl_exp(env, body)
       val () = tr12env_poplam0(env)
-      val sres = pl_sres(env, ret)
+      val sres = pl_sres_sig(env, ret)
     in
       d2ecl_make_node
         (loc, D2Cimplmnt0(tknd, list_nil()(*sqas*), tqas,

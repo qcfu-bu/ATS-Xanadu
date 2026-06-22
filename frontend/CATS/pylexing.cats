@@ -74,6 +74,11 @@ function PYL_ats_name(s) {
   if (s === "/" || s === "//") return s;
   return s.split("/").join("$");
 }
+function PYL_uncapitalize(s) {
+  s = String(s);
+  if (s.length === 0) return s;
+  return s.charAt(0).toLowerCase() + s.slice(1);
+}
 //
 // Slice bytes [lo, hi) of the current buffer back into a JS (UTF-8) string. Used
 // to materialize a token's lexeme (identifier / literal text) for PT_*(strn).

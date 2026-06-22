@@ -16,33 +16,38 @@ harnesses.
 - The primary driver is `DATS/pyfront_m3.dats`; `build-m3.sh` is the closest
   full pipeline gate.
 - Current reported green checks include `build-m1.sh`, `build-m3.sh`,
-  `build-pp.sh`, `build-m16.sh --reuse-bundle`, and
-  `build-robust.sh --reuse-bundle`.
+  `build-pp.sh`, `build-pp-corpus.sh --reuse-bundle`,
+  `build-m16.sh --reuse-bundle`, and `build-robust.sh --reuse-bundle`.
 - `build-roundtrip.sh` is a gap-analysis reporter, not a green regression gate.
 - Canonical ATS ingestion exists through `pyprint`:
   `d0parsed_from_fpath` -> `DATS/pyprint.dats` -> Pythonic text.
   It is still a tracer-grade surface transliterator with visible `# TODO(pp)`
   fallbacks.
+- The default corpus audit now pretty-prints and reparses/typechecks both
+  `srcgen2/SATS/xstamp0.sats` and `srcgen2/DATS/filpath_drpth0.dats` with
+  `TODOpp=0` and `m3_nerror=0`.
 
 ## End-goal blockers
 
 1. Pretty-printer breadth is the main blocker. It must become corpus-grade for
    `srcgen1/prelude` and `srcgen2/{SATS,DATS,UTIL}` before self-hosting is
    meaningful.
-2. Include/import/load semantics are not faithful yet. `#include`/`#staload`
-   currently print as TODO comments in some pyprint paths, while the Pythonic
-   frontend supports only a scoped ATS `.sats` import subset.
+2. Include/import/load semantics are not faithful yet. `#staload` now
+   pretty-prints to a scoped ATS `.sats` import, but `#include` still prints as
+   an inert comment and needs a real Pythonic load/include story.
 3. Identifier fidelity now has the first end-to-end path: pyprint emits ATS `$`
    names as slash-separated Pythonic names, the lexer accepts slash-separated
    identifier segments, and lowering maps them back before symbol lookup. The
    remaining work is collision-policy and corpus-scale validation.
-4. Lowercase ATS type/constructor names require systematic pretty-printer
-   capitalization plus collision handling. The `xstamp0_ucase` probe proves the
-   uppercased variant typechecks; faithful lowercase input still reports errors.
-5. Dynamic conversion is still incomplete. `#absimpl` now prints as
-   `@impl type`, but `filpath_drpth0.dats` still exposes typecheck gaps around
-   dynamic local ordering/import semantics, and richer expression/pattern forms
-   need corpus-driven expansion.
+4. Lowercase ATS type/constructor names require systematic policy. The frontend
+   now handles Pythonic capitalized local types lowered back to ATS names and
+   whitelisted lowercase prelude constructor patterns (`list_cons`, `list_nil`,
+   `optn_*`, plus `_vt` variants), but faithful lowercase type declarations in
+   hand-written round-trip fixtures still report parser errors.
+5. Dynamic conversion is still incomplete, but the first real dynamic compiler
+   file is now green: `#absimpl` prints as `@impl type`, `#staload` imports the
+   interface, and `filpath_drpth0.dats` reparses/typechecks with `nerror=0`.
+   Richer expression/pattern forms need corpus-driven expansion.
 6. Full self-host validation needs corpus automation: pretty-print each file,
    reparse/lower/typecheck it, then eventually compare stock vs Pythonic backend
    outputs and stage2/stage3 compiler artifacts.
@@ -51,8 +56,9 @@ harnesses.
 
 - Round-trip reporter hygiene: keep `build-roundtrip.sh` current with actual
   outcomes and make stale expected-failure comments disappear.
-- Pretty-printer corpus audit: add a reporting harness that summarizes per-file
-  `# TODO(pp)` count and reparse `nerror`.
+- Pretty-printer corpus audit: keep expanding `build-pp-corpus.sh` beyond the
+  current two-file smoke corpus and track per-file `# TODO(pp)` count and
+  reparse `nerror`.
 - Slash-identifier fidelity: keep `$` <-> `/` round-trip support covered by
   regression tests and expand the corpus audit around collision-prone names.
 
@@ -60,7 +66,7 @@ harnesses.
 
 1. Stabilize reporting harnesses so every known gap is visible and current.
 2. Close small pyprint TODOs that already have parser/lowering support
-   (import comment forms, overload precedence output, more local-head decls).
+   (include/load forms, overload precedence output, more local-head decls).
 3. Implement identifier fidelity and collision checks for pretty-printer naming.
 4. Expand pyprint declaration/expression coverage against the prelude corpus.
 5. Add corpus-level round-trip/typecheck automation, then backend diffing.

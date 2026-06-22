@@ -6,6 +6,7 @@
 //   PYPP_capitalize -> uppercase the first char (rule 1: type/cons names)
 //   PYPP_dollar_fix -> '$' -> '/'  (rule 2; Koka-style module/name spelling)
 //   PYPP_xname/PYPP_pname -> synthesized positional typaram/param names
+//   PYPP_source_set / PYPP_import_stem -> normalize ATS #staload paths for import
 //   PYPP_argv_path  -> process.argv[2] or ""
 ////////////////////////////////////////////////////////////////////////.
 //
@@ -26,6 +27,38 @@ function PYPP_xname(i) { return "X" + String(i); }
 function PYPP_pname(i) {
   var t = ["a", "b", "c", "d", "e"];
   return (i >= 0 && i < t.length) ? t[i] : ("x" + String(i));
+}
+//
+var PYPP_source_path = "";
+function PYPP_source_set(s) { PYPP_source_path = String(s || ""); return; }
+function PYPP_unquote(s) {
+  s = String(s);
+  if (s.length >= 2 && s.charAt(0) === '"' && s.charAt(s.length - 1) === '"') {
+    return s.substring(1, s.length - 1);
+  }
+  return s;
+}
+function PYPP_strip_ext(s) {
+  s = String(s);
+  return s.replace(/\.(sats|hats)$/i, "");
+}
+function PYPP_import_stem(raw) {
+  var path = require("path").posix;
+  raw = PYPP_unquote(raw);
+  var src = PYPP_source_path;
+  var resolved = raw;
+  if (raw.indexOf(".") === 0) {
+    resolved = path.normalize(path.join(path.dirname(src || "."), raw));
+  } else {
+    resolved = path.normalize(raw);
+  }
+  if (path.isAbsolute(resolved)) {
+    var rel = path.relative(process.cwd(), resolved);
+    if (rel !== "" && rel.indexOf("..") !== 0) resolved = rel;
+    else resolved = resolved.replace(/^\/+/, "");
+  }
+  resolved = resolved.replace(/^\/+/, "");
+  return PYPP_strip_ext(resolved);
 }
 //
 function PYPP_argv_path() {

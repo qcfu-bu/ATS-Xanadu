@@ -52,6 +52,9 @@
 //
 fun ats_name(name: strn): strn = pylower_ats_name(name)
 fun ats_sym(name: strn): sym_t = symbl_make_name(ats_name(name))
+#extern fun PYL_uncapitalize(s: strn): strn = $extnam()
+fun ats_uncap_sym(name: strn): sym_t = symbl_make_name(PYL_uncapitalize(ats_name(name)))
+fun ats_type_sym(name: strn): sym_t = ats_uncap_sym(name)
 //
 (* ****** ****** *)
 //
@@ -422,7 +425,7 @@ fun
 build_sexpdef(env: !tr12env, loc: loctn, name: strn, rhs: s2exp): d2ecl = let
   val s2t  = rhs.sort()                 // the alias inherits the RHS's sort
   val tdef = s2exp_stpize(rhs)          // the erased styp form (f0_sexpdef tdef)
-  val s2c  = s2cst_make_idst(loc, ats_sym(name), s2t)
+  val s2c  = s2cst_make_idst(loc, ats_type_sym(name), s2t)
   val () = s2cst_set_sexp(s2c, rhs)
   val () = s2cst_set_styp(s2c, tdef)
   val () = tr12env_add1_s2cst(env, s2c)
@@ -481,7 +484,7 @@ build_abstype
       if list_nilq(tvs)
         then abs_sort_of(mode)
         else S2Tfun1(mk_type_sorts(tvs), abs_sort_of(mode))
-    val s2c = s2cst_make_idst(loc, ats_sym(name), s2t)
+    val s2c = s2cst_make_idst(loc, ats_type_sym(name), s2t)
     val () = tr12env_add1_s2cst(env, s2c)
     val atdf =
       ( case+ repopt of
@@ -498,26 +501,32 @@ build_abstype
 // If the name does NOT resolve to an s2cst (a forward/typo `assume`), emit a benign no-op (the
 // using-decls will errck as unresolved — a graceful failure, never a crash).
 fun
-build_absimpl(env: !tr12env, loc: loctn, name: strn, rhs: s2exp): d2ecl = let
-  val sopt = tr12env_find_s2itm(env, ats_sym(name))
-in
-  case+ sopt of
+build_absimpl_from_item(loc: loctn, rhs: s2exp, s2i: s2itm): d2ecl =
+(
+  case+ s2i of
+  | S2ITMcst(s2cs) =>
+      if list_nilq(s2cs) then d2ecl_make_node(loc, D2Cnone0())
+      else let
+        val s2c  = s2cs.head()
+        val simp = simpl_make_node(loc, SIMPLone1(s2c))
+        val tok  = token_make_node(loc, T_ABSIMPL())
+      in
+        d2ecl_make_node(loc, D2Cabsimpl(tok, simp, rhs))
+      end
+  | _ => d2ecl_make_node(loc, D2Cnone0())
+)
+//
+fun
+build_absimpl(env: !tr12env, loc: loctn, name: strn, rhs: s2exp): d2ecl =
+(
+  case+ tr12env_find_s2itm(env, ats_sym(name)) of
   | ~optn_vt_cons(s2i) =>
-    (
-      case+ s2i of
-      | S2ITMcst(s2cs) =>
-          if list_nilq(s2cs) then d2ecl_make_node(loc, D2Cnone0())
-          else let
-            val s2c  = s2cs.head()
-            val simp = simpl_make_node(loc, SIMPLone1(s2c))
-            val tok  = token_make_node(loc, T_ABSIMPL())
-          in
-            d2ecl_make_node(loc, D2Cabsimpl(tok, simp, rhs))
-          end
-      | _ => d2ecl_make_node(loc, D2Cnone0())
-    )
-  | ~optn_vt_nil() => d2ecl_make_node(loc, D2Cnone0())
-end
+      build_absimpl_from_item(loc, rhs, s2i)
+  | ~optn_vt_nil() =>
+      (case+ tr12env_find_s2itm(env, ats_uncap_sym(name)) of
+       | ~optn_vt_cons(s2i) => build_absimpl_from_item(loc, rhs, s2i)
+       | ~optn_vt_nil() => d2ecl_make_node(loc, D2Cnone0()))
+)
 //
 (* ****** ****** *)
 //
@@ -882,7 +891,7 @@ case+ d of
   if list_nilq(tvs) then let
     // ---- MONOMORPHIC enum (tvs empty): the M5b.3 path. M5b.6a: the sort is mode-selected
     //      (boxed tbox by default, linear vtbx for @linear) via dt_sort_of. ----------------
-    val s2c = s2cst_make_idst(loc, ats_sym(name), dt_sort_of(mode))
+    val s2c = s2cst_make_idst(loc, ats_type_sym(name), dt_sort_of(mode))
     val () = tr12env_add1_s2cst(env, s2c)               // register the TYPE first (recursion)
     val s2e_self = s2exp_cst(s2c)                        // the datatype's own s2exp
     // NB: do NOT name this `cons` — that collides with the prelude list-constructor overload
@@ -902,7 +911,7 @@ case+ d of
     // arrow + the bound s2vars are CONSISTENT with the boxed result (no latent tflt-in-tbox shape).
     val s2vs   = mk_param_s2vars_dt(tvs, mode)
     val s2t    = S2Tfun1(mk_type_sorts_dt(tvs, mode), dt_sort_of(mode))
-    val s2c    = s2cst_make_idst(loc, ats_sym(name), s2t)
+    val s2c    = s2cst_make_idst(loc, ats_type_sym(name), s2t)
     val () = tr12env_add1_s2cst(env, s2c)               // register the TYPE first (recursion)
     // (2) push a param lam-scope + bind the s2vars BEFORE building the cons (so an arg type `A`
     //     — and a self-recursive arg `Tree[A]` — resolves to its s2var / the registered s2cst).
@@ -1078,7 +1087,7 @@ case+ d of
 // static expr resolves `Name`), and emit D2Cstacst0(s2c, sort2).
 | PCCstacst(loc, name, srt) => let
     val s2t = sort2_of_name(srt)
-    val s2c = s2cst_make_idst(loc, ats_sym(name), s2t)
+    val s2c = s2cst_make_idst(loc, ats_type_sym(name), s2t)
     val () = tr12env_add1_s2cst(env, s2c)
   in
     d2ecl_make_node(loc, D2Cstacst0(s2c, s2t))

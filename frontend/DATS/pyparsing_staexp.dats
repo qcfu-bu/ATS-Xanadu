@@ -462,6 +462,25 @@ case+ ps_peek(st) of
 //  PATTERN PARSER (internal recursion group: p_pat / p_pat_*)
 // ==================================================================
 //
+fun
+lowercase_nullary_datacon(s: strn): bool =
+(
+  if strn_eq(s, "list_nil") then true
+  else if strn_eq(s, "optn_nil") then true
+  else if strn_eq(s, "list_vt_nil") then true
+  else strn_eq(s, "optn_vt_nil")
+)
+//
+fun
+lowercase_datacon(s: strn): bool =
+(
+  if lowercase_nullary_datacon(s) then true
+  else if strn_eq(s, "list_cons") then true
+  else if strn_eq(s, "optn_cons") then true
+  else if strn_eq(s, "list_vt_cons") then true
+  else strn_eq(s, "optn_vt_cons")
+)
+//
 // p_pat: pat_atom [ 'as' LIDENT ]. A trailing `:` is DELIBERATELY NOT consumed here
 // (it is the block-header in `case pat:` / `for pat in e:` and the annotation in
 // `let pat : T = e`, which the binding parser handles). See M2-REPORT for the choice.
@@ -501,29 +520,38 @@ in
   | PT_USCORE() => @(PyPwild(loc), ps_advance(st))
   | PT_LIDENT(s) =>
     let val st1 = ps_advance(st) in
-      // GAP C (crash-safety): a lowercase identifier is a VARIABLE pattern and CANNOT take
-      // arguments. A `lident(args)` in pattern position (e.g. `case list_cons(a, b):`) is
-      // malformed — a constructor pattern needs an UPPERCASE name. Previously the parser
-      // returned the bare `PyPvar` here WITHOUT consuming the trailing `(args)`, leaving the
-      // cursor stuck at `(`; the downstream `expect_colon_e` then recorded a diagnostic but
-      // did not advance, and the case-arm/suite recovery spun without progress -> unbounded
-      // recursion -> SIGSEGV. The fix: detect the `(`, CONSUME the bogus arg list as a pattern
-      // sequence (so the cursor advances PAST `)` to the `:`), emit a survivable diagnostic,
-      // and return a PyPerror. The parser then makes forward progress (clean parse error +
-      // nerror>0, never a loop). (Per the capitalize decision the bootstrap emits UPPERCASE
-      // cons, so this is purely crash-safety, not a feature.)
-      case+ ps_peek(st1) of
-      | PT_LPAREN() =>
+      if lowercase_datacon(s) then
         let
-          val @(_args, st2) = p_pat_seq(ps_advance(st1))   // ADVANCE past the bogus (args)
-          val locR = ps_peek_loctn(st2)
-          val st3 = expect_rparen(st2, locR)
-          val st4 = ps_diag(st3, loc_span(loc, locR),
-            "a constructor pattern needs an uppercase name (a lowercase variable pattern cannot be applied to arguments)")
+          val @(sargs, st1b) = p_pat_sargs(st1)
         in
-          @(PyPerror(loc_span(loc, locR), "lowercase con-application pattern"), st4)
+          case+ ps_peek(st1b) of
+          | PT_LPAREN() =>
+            let
+              val @(args, st2) = p_pat_seq(ps_advance(st1b))
+              val locR = ps_peek_loctn(st2)
+              val st3 = expect_rparen(st2, locR)
+            in
+              @(PyPcon(loc_span(loc, locR), s, sargs, args), st3)
+            end
+          | _ =>
+              @(PyPcon(loc, s, sargs, list_nil()), st1b)
         end
-      | _ => @(PyPvar(loc, s), st1)
+      else
+        // GAP C (crash-safety): a lowercase identifier is usually a VARIABLE pattern and CANNOT
+        // take arguments. Unknown `lident(args)` still consumes the bogus arg list and reports a
+        // survivable diagnostic; known ATS/prelude lowercase constructors are handled above.
+        case+ ps_peek(st1) of
+        | PT_LPAREN() =>
+          let
+            val @(_args, st2) = p_pat_seq(ps_advance(st1))   // ADVANCE past the bogus (args)
+            val locR = ps_peek_loctn(st2)
+            val st3 = expect_rparen(st2, locR)
+            val st4 = ps_diag(st3, loc_span(loc, locR),
+              "a constructor pattern needs an uppercase name (a lowercase variable pattern cannot be applied to arguments)")
+          in
+            @(PyPerror(loc_span(loc, locR), "lowercase con-application pattern"), st4)
+          end
+        | _ => @(PyPvar(loc, s), st1)
     end
   | PT_UIDENT(s) =>
     let

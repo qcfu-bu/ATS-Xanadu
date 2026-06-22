@@ -32,12 +32,15 @@
 (* ****** ****** *)
 //
 #extern fun PYL_ats_name(s: strn): strn = $extnam()
+#extern fun PYL_uncapitalize(s: strn): strn = $extnam()
 //
 #implfun
 pylower_ats_name(name) = PYL_ats_name(name)
 //
 fun ats_name(name: strn): strn = pylower_ats_name(name)
 fun ats_sym(name: strn): sym_t = symbl_make_name(ats_name(name))
+fun ats_type_name(name: strn): strn = PYL_uncapitalize(ats_name(name))
+fun ats_type_sym(name: strn): sym_t = symbl_make_name(ats_type_name(name))
 //
 (* ****** ****** *)
 //
@@ -100,6 +103,7 @@ typ_alias(name: strn): strn =
   if strn_eq(name, "Int") then "the_s2exp_sint0"
   else if strn_eq(name, "Bool") then "the_s2exp_bool0"
   else if strn_eq(name, "String") then "the_s2exp_strn0"
+  else if strn_eq(name, "strn") then "the_s2exp_strn0"
   else if strn_eq(name, "Char") then "the_s2exp_char0"
   else if strn_eq(name, "Float") then "the_s2exp_dflt0"
   // DEP: a BARE `SInt` (no index args) is the EXISTENTIAL int — the SAME `the_s2exp_sint0`
@@ -168,8 +172,7 @@ end
 // S2Ecst; an overloaded set takes the head; a static var -> S2Evar; unbound -> s2exp_none0.
 //
 fun
-resolve_typ(env: !tr12env, loc: loctn, name: strn): s2exp = let
-  val key = ats_sym(typ_alias(name))
+resolve_typ_key(env: !tr12env, key: sym_t): s2exp = let
   val sopt = tr12env_find_s2itm(env, key)
 in
   case+ sopt of
@@ -182,6 +185,16 @@ in
       | S2ITMenv(_)    => s2exp_none0()
     )
   | ~optn_vt_nil() => s2exp_none0()
+end
+//
+fun
+resolve_typ(env: !tr12env, loc: loctn, name: strn): s2exp = let
+  val name0 = typ_alias(name)
+  val exact = resolve_typ_key(env, ats_sym(name0))
+in
+  case+ exact.node() of
+  | S2Enone0() => resolve_typ_key(env, ats_type_sym(name0))
+  | _ => exact
 end
 //
 (* ****** ****** *)
