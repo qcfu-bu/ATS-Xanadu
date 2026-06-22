@@ -791,6 +791,59 @@ pp_tmag_names(tmas: t0maglst): list(strn) =
       | T0MAGnone(_) => pp_tmag_names(rest)
     )
 )
+fun
+t0arg_name(tag: t0arg): strn =
+(
+  case+ tag.node() of
+  | T0ARGsome(_, optn_cons(tok)) => tok_lexeme(tok)
+  | _ => ""
+)
+fun
+t0arg_datatype_names(i: sint, tags: t0arglst): list(strn) =
+(
+  case+ tags of
+  | list_nil() => list_nil()
+  | list_cons(tag, rest) => let
+      val nm = t0arg_name(tag)
+      val py = (if strn_eq(nm, "") then xname(i) else tyname(nm)): strn
+    in
+      list_cons(py, t0arg_datatype_names(i+1, rest))
+    end
+)
+fun
+t0arg_raw_names(i: sint, tags: t0arglst): list(strn) =
+(
+  case+ tags of
+  | list_nil() => list_nil()
+  | list_cons(tag, rest) => let
+      val nm = t0arg_name(tag)
+      val raw = (if strn_eq(nm, "") then xname(i) else nm): strn
+    in
+      list_cons(raw, t0arg_raw_names(i+1, rest))
+    end
+)
+fun
+pp_tmag_datatype_names(tmas: t0maglst): list(strn) =
+(
+  case+ tmas of
+  | list_nil() => list_nil()
+  | list_cons(tm, rest) => (
+      case+ tm.node() of
+      | T0MAGlist(_, tags, _) => list_append(t0arg_datatype_names(0, tags), pp_tmag_datatype_names(rest))
+      | T0MAGnone(_) => pp_tmag_datatype_names(rest)
+    )
+)
+fun
+pp_tmag_raw_names(tmas: t0maglst): list(strn) =
+(
+  case+ tmas of
+  | list_nil() => list_nil()
+  | list_cons(tm, rest) => (
+      case+ tm.node() of
+      | T0MAGlist(_, tags, _) => list_append(t0arg_raw_names(0, tags), pp_tmag_raw_names(rest))
+      | T0MAGnone(_) => pp_tmag_raw_names(rest)
+    )
+)
 //
 // the s0maglst form (used by #typedef's parametric args, e.g. tmpmap(x0:t0)).
 fun
@@ -1066,7 +1119,9 @@ and
 	)
 	and
 	pp_dexp_apps_from(out: FILR, hd: d0exp, rest: d0explst): void =
-	let
+	if dexp_is_nullary_local_con_call(hd, rest)
+	then pp_d0exp_inline(out, hd)
+	else let
 	  val tail0 = dexp_skip_postfix(rest)
 	in
 	  if dexp_tail_starts_cmp(tail0)
@@ -1197,6 +1252,43 @@ and
 	  | D0Esarg(_, _, _) => true
 	  | D0Etarg(_, _, _) => true
 	  | _ => false
+	)
+	and
+	dexp_is_local_con_head(de: d0exp): bool =
+	(
+	  case+ de.node() of
+	  | D0Eid0(id) => PYPP_con_has(i0dnt_lexeme(id))
+	  | _ => false
+	)
+	and
+	dexp_is_nullary_local_con_call(hd: d0exp, rest: d0explst): bool =
+	(
+	  if dexp_is_local_con_head(hd)
+	  then dexp_is_empty_call_tail(rest)
+	  else false
+	)
+	and
+	dexp_is_empty_call_tail(des: d0explst): bool =
+	(
+	  case+ des of
+	  | list_nil() => false
+	  | list_cons(de, rest) => (
+	      case+ de.node() of
+	      | D0Elpar(_, list_nil(), _) => dexp_tail_ignorable(rest)
+	      | D0Esarg(_, _, _) => dexp_is_empty_call_tail(rest)
+	      | D0Etarg(_, _, _) => dexp_is_empty_call_tail(rest)
+	      | _ => false)
+	)
+	and
+	dexp_tail_ignorable(des: d0explst): bool =
+	(
+	  case+ des of
+	  | list_nil() => true
+	  | list_cons(de, rest) => (
+	      case+ de.node() of
+	      | D0Esarg(_, _, _) => dexp_tail_ignorable(rest)
+	      | D0Etarg(_, _, _) => dexp_tail_ignorable(rest)
+	      | _ => false)
 	)
 	and
 	dexp_skip_postfix(des: d0explst): d0explst =
@@ -1366,7 +1458,7 @@ pp_d0exp_suite(out: FILR, n: sint, de: d0exp): void =
           case+ des of
           | list_nil() => (ind(out, n); ps(out, "()"); nl(out))
           | list_cons(de1, list_nil()) => pp_d0exp_suite(out, n, de1)
-          | _ => pp_dexp_stmts(out, n, des)))
+          | _ => (ind(out, n); ps(out, "("); pp_dexp_seq_inline(out, des); ps(out, ")"); nl(out))))
   //
   | D0Eannot(de1, _) => pp_d0exp_suite(out, n, de1)
   | D0Equal0(_, de1) => pp_d0exp_suite(out, n, de1)
@@ -1407,6 +1499,10 @@ pp_dexp_stmt_inline(out: FILR, de: d0exp): void =
 (
   case+ de.node() of
   | D0Eapps(des) => pp_dexp_stmt_apps(out, des)
+  | D0Elpar(_, list_cons(de1, list_nil()), _) => pp_dexp_stmt_inline(out, de1)
+  | D0Eannot(de1, _) => pp_dexp_stmt_inline(out, de1)
+  | D0Equal0(_, de1) => pp_dexp_stmt_inline(out, de1)
+  | D0Eerrck(_, de1) => pp_dexp_stmt_inline(out, de1)
   | _ => pp_d0exp_inline(out, de)
 )
 // detect `lhs[] := rhs` : the apps list is [lhs; D0Ebrckt([]); :=; rhs ...]. The
@@ -1494,6 +1590,7 @@ pp_dexp_letdecl(out: FILR, n: sint, dc: d0ecl): void =
 	  // a `val+ P = e` / `val P = e` value binding -> `let P = e` (or just the stmt
 	  // if P is the void pattern `()` — a side-effecting binding).
 	  | D0Cvaldclst(_, vds) => pp_dexp_valdcls(out, n, vds)
+	  | D0Cvardclst(_, vds) => pp_dexp_vardcls(out, n, vds)
 	  | D0Cfundclst(_, _, fds) => pp_dexp_fundcl_local_list(out, n, fds)
 	  | D0Cimplmnt0(_, _, _, dqi, _, farg, _, _, body) => pp_dexp_impl_local(out, n, dqi, farg, body)
 	  | D0Csexpdef(_, _, _, _, _, _) => ()
@@ -1617,6 +1714,30 @@ in
       then (ind(out, n); pp_dexp_stmt_inline(out, rhs); nl(out))
       else pp_dexp_val_rhs(out, n, dpat, rhs))
   | TEQD0EXPnone() => (ind(out, n); todo(out, "valdcl-no-rhs"))
+end
+and
+pp_dexp_vardcls(out: FILR, n: sint, vds: d0vardclist): void =
+(
+  case+ vds of
+  | list_nil() => ()
+  | list_cons(vd, rest) => (
+      pp_dexp_vardcl(out, n, vd);
+      pp_dexp_vardcls(out, n, rest))
+)
+and
+pp_dexp_vardcl(out: FILR, n: sint, vd: d0vardcl): void = let
+  val dpid = d0vardcl_get_dpid(vd)
+  val sres = d0vardcl_get_sres(vd)
+  val dini = d0vardcl_get_dini(vd)
+in
+  case+ dini of
+  | TEQD0EXPsome(_, rhs) => (
+      ind(out, n); ps(out, "var "); ps(out, fname(i0dnt_lexeme(dpid)));
+      (case+ sres of
+       | optn_cons(se) => (ps(out, ": "); pp_s0exp(out, se))
+       | optn_nil() => ());
+      ps(out, " = "); pp_d0exp_inline(out, rhs); nl(out))
+  | TEQD0EXPnone() => (ind(out, n); todo(out, "vardcl-no-rhs"))
 end
 and
 pp_dexp_val_rhs(out: FILR, n: sint, dpat: d0pat, rhs: d0exp): void =
@@ -1747,11 +1868,17 @@ fun
 pp_d0typ_enum(out: FILR, n: sint, dt: d0typ): void =
 (
   case+ dt.node() of
-  | D0TYPnode(nm, tmas, _, _, tcns) => (
+  | D0TYPnode(nm, tmas, _, _, tcns) => let
+      val raws = pp_tmag_raw_names(tmas)
+      val tps = pp_tmag_datatype_names(tmas)
+    in
       ind(out, n); ps(out, "enum "); ps(out, tyname_scoped(i0dnt_lexeme(nm)));
-      pp_names_brkt(out, pp_tmag_names(tmas));
+      pp_names_brkt(out, tps);
       ps(out, ":"); nl(out);
-      pp_d0tcns(out, n+1, tcns))
+      push_binders(raws);
+      pp_d0tcns(out, n+1, tcns);
+      pop_binders(raws)
+    end
 )
 and
 pp_d0tcns(out: FILR, n: sint, tcns: d0tcnlst): void =
