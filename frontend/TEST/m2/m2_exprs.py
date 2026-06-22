@@ -5,3 +5,4 @@ let d = -a + +b
 let e = (a, b, c)
 let f = xs[0].field
 let g = obj.method(a, b)[1]
+let h = ~ok

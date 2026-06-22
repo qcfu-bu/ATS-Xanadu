@@ -1248,6 +1248,7 @@ pp_d0exp_inline(out: FILR, de: d0exp): void =
       case+ des of
       | list_nil() => ps(out, "[]")
       | _ => (ps(out, "["); pp_dexp_seq_inline(out, des); ps(out, "]")))
+  | D0Edtsel(_, lab, opt) => pp_dexp_dtsel(out, lab, opt)
   //
 	  | D0Eannot(de1, _) => pp_d0exp_inline(out, de1)
 	  | D0Equal0(_, de1) => pp_d0exp_inline(out, de1)
@@ -1308,7 +1309,9 @@ and
 	)
 	and
 	pp_dexp_apps_from_plain(out: FILR, hd: d0exp, rest: d0explst): void =
-	if dexp_is_nullary_local_con_call(hd, rest)
+	if dexp_is_unary_not_app(hd, rest)
+	then pp_dexp_unary_not_app(out, rest)
+	else if dexp_is_nullary_local_con_call(hd, rest)
 	then pp_d0exp_inline(out, hd)
 	else let
 	  val tail0 = dexp_skip_postfix(rest)
@@ -1321,6 +1324,23 @@ and
 	    pp_dexp_infix_tail(out, tail1)
 	  end
 	end
+	and
+	dexp_is_unary_not_app(hd: d0exp, rest: d0explst): bool =
+	(
+	  if dexp_is_name(hd, "~")
+	  then (
+	    case+ rest of
+	    | list_cons(_, list_nil()) => true
+	    | _ => false)
+	  else false
+	)
+	and
+	pp_dexp_unary_not_app(out: FILR, rest: d0explst): void =
+	(
+	  case+ rest of
+	  | list_cons(arg, list_nil()) => (ps(out, "not "); pp_d0exp_inline(out, arg))
+	  | _ => (ps(out, "~"); pp_dexp_apps_args_fallback(out, rest))
+	)
 	and
 	pp_dexp_cmp_apps(out: FILR, hd: d0exp, rest: d0explst, tail0: d0explst): void =
 	(

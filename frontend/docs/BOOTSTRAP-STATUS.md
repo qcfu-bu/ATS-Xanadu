@@ -24,8 +24,9 @@ harnesses.
   static interface and dynamic compiler/utility slices have no visible
   `# TODO(pp)` fallbacks.
 - The default corpus audit now pretty-prints and reparses/typechecks both
-  `srcgen2/SATS/xstamp0.sats` and `srcgen2/DATS/filpath_drpth0.dats` with
-  `TODOpp=0` and `m3_nerror=0`.
+  `srcgen2/SATS/xstamp0.sats` and the dynamic compiler files
+  `srcgen2/DATS/filpath_drpth0.dats` and `srcgen2/DATS/parsing_tokbuf.dats`
+  with `TODOpp=0` and `m3_nerror=0`.
 - The expanded static interface slice
   `srcgen2/SATS/{filpath,xsymbol,locinfo,lexing0}.sats` now also reaches
   `TODOpp=0` and `m3_nerror=0`. This covers aliased `#staload`, symbolic
@@ -80,13 +81,16 @@ harnesses.
   `lexbuf0_cstrx1.dats`, `lexing0_utils2.dats`, `trans12_myenv0.dats`,
   `trans23_myenv0.dats`, and `trtmp3c_myenv0.dats` now reaches `TODOpp=0` and
   `m3_nerror=0`.
-- Focused M3 reparse/typecheck of the two former `$llazy(case ...)` files now
-  reaches real numeric verdicts: `lexbuf0_cstrx1.dats` reports `m3_nerror=28`
-  and `lexing0_utils2.dats` reports `m3_nerror=30`. The new `llazy:` syntax
-  and expression-position `llazy(expr)` shorthand both lower to
-  `D2El1azy(D1Eid0($llazy), ...)`; the remaining errors are older dynamic
-  reparse/typecheck gaps such as printed pattern forms and destructive update
-  helpers rather than lazy-value coverage.
+- The first focused parser implementation slice
+  `srcgen2/DATS/{parsing_basics,parsing_tokbuf,parsing_utils0,parsing_staexp,parsing_dynexp,parsing_decl00}.dats`
+  now has `TODOpp=0` across all six generated Pythonic files. Inline
+  dot-selector printing preserves record/tuple-slot update targets such as
+  `buf.2 := i0 + 1`, which clears and typechecks `parsing_tokbuf.dats`.
+  Expression-position ATS `~(...)` boolean negation now prints as Pythonic
+  `not (...)`, and the parser accepts `~expr` as a compatibility alias so older
+  generated code does not crash M2. The remaining parser-slice blocker is M3
+  runtime crashes on the larger generated parser files, not visible pyprint
+  fallbacks.
 - `build-pp-corpus.sh --out-dir RELPATH` now normalizes the report directory
   against `frontend/` before running pyprint from `XATSHOME`, so separate static
   and dynamic corpus summaries can be kept without path breakage.

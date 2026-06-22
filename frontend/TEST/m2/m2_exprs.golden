@@ -14,6 +14,8 @@
   (let imm@(5:0-5:19) (Pvar f@(5:4-5:5)) = (Efield field@(5:8-5:19) (Eindex@(5:8-5:13) (Evar xs@(5:8-5:10)) (Elit@(5:11-5:12) (int 0@(5:11-5:12)))))))
 (cstmt@(6:0-6:27)
   (let imm@(6:0-6:27) (Pvar g@(6:4-6:5)) = (Eindex@(6:8-6:27) (Eapp@(6:8-6:24) (Efield method@(6:8-6:18) (Evar obj@(6:8-6:11))) (args (Evar a@(6:19-6:20)) (Evar b@(6:22-6:23)))) (Elit@(6:25-6:26) (int 1@(6:25-6:26))))))
+(cstmt@(7:0-7:11)
+  (let imm@(7:0-7:11) (Pvar h@(7:4-7:5)) = (Euna not@(7:8-7:11) (Evar ok@(7:9-7:11)))))
 )
 ==== diagnostics ====
 (none)

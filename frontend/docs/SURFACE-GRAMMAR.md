@@ -266,7 +266,7 @@ branch    ::= expr | NEWLINE INDENT stmt { stmt } DEDENT
 (* precedence: lowest → highest; see §5.6 *)
 or_expr   ::= and_expr   { 'or'  and_expr }          (* short-circuit *)
 and_expr  ::= not_expr   { 'and' not_expr }          (* short-circuit *)
-not_expr  ::= 'not' not_expr | cmp_expr
+not_expr  ::= ('not'|'~') not_expr | cmp_expr        (* '~' accepted for pyprint compatibility *)
 cmp_expr  ::= add_expr [ ('=='|'!='|'<'|'<='|'>'|'>=') add_expr ]   (* non-chaining in v1 *)
 add_expr  ::= mul_expr   { ('+'|'-') mul_expr }
 mul_expr  ::= unary_expr { ('*'|'/'|'%'|'//') unary_expr }
@@ -276,7 +276,7 @@ pow_expr  ::= postfix [ '**' unary_expr ]            (* right-assoc *)
 postfix   ::= atom { call | index | field }
 call      ::= '(' [ exprs ] ')' [ trailing_lambda ]  (* trailing block lambda = last arg *)
 index     ::= '[' expr ']'
-field     ::= '.' LIDENT
+field     ::= '.' (LIDENT | INT)                     (* INT labels are tuple/slot selectors *)
 trailing_lambda ::= lamparams '=>' ( NEWLINE INDENT stmt { stmt } DEDENT )
 
 atom      ::= literal
@@ -326,7 +326,7 @@ type_atom ::= UIDENT                                   (* type constructor:  Int
 |---|---|---|---|
 | 1 | `or` | left | short-circuit → `if` |
 | 2 | `and` | left | short-circuit → `if` |
-| 3 | `not` _e_ | prefix | |
+| 3 | `not` _e_, `~` _e_ | prefix | `~` is accepted as a pyprint-compatible alias |
 | 4 | `== != < <= > >=` | non-assoc | no chaining in v1 |
 | 5 | `+ -` | left | |
 | 6 | `* / % //` | left | `//` = integer div |

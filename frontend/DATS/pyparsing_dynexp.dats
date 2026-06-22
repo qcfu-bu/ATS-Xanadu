@@ -424,7 +424,7 @@ in
     end
 end
 //
-// unary: ('-'|'+') unary | 'not' unary | pow. (pow handled in p_pratt via PyBpow.)
+// unary: ('-'|'+') unary | ('not'|'~') unary | pow. (pow handled in p_pratt via PyBpow.)
 and
 p_unary(st: pstate): @(pyexp, pstate) = let
   val nod = ps_peek(st)
@@ -438,6 +438,9 @@ in
     let val @(e, st1) = p_unary(ps_advance(st)) in
       @(PyEuna(loc_span(loc, pyexp_loctn(e)), PyUpos(), e), st1) end
   | PT_KW_NOT() =>
+    let val @(e, st1) = p_unary(ps_advance(st)) in
+      @(PyEuna(loc_span(loc, pyexp_loctn(e)), PyUnot(), e), st1) end
+  | PT_TILDE() =>
     let val @(e, st1) = p_unary(ps_advance(st)) in
       @(PyEuna(loc_span(loc, pyexp_loctn(e)), PyUnot(), e), st1) end
   // B-LINEAR: `&x` ADDRESS-OF and `!p` DEREFERENCE (expr position). Prefix operators, same
