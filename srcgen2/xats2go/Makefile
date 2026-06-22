@@ -497,6 +497,7 @@ check-go:
 ########################################################################
 SELFHOST_SMOKE_SRC ?= $(DATSDIR)/go1emit_utils0.dats
 SELFHOST_SMOKE_MIN_FUNCS ?= 1
+SELFHOST_STRICT_EXPECT_FUNCS ?= i0s00go1 i0c00go1
 SELFHOST_STRICT_INTERNAL_ROUTE_RE ?= xatsgo\.Xats_(d2cst|d2var|token_get_node|fprint_loctn_as_stamp)
 
 selfhost-smoke: $(GOPATCHED)
@@ -554,6 +555,12 @@ selfhost-strict: selfhost-smoke
 	  sed -n '1,20p' "$$WORK/$$NAME.strict-internal-routing.txt" >&2; \
 	  bad=1; \
 	fi; \
+	for f in $(SELFHOST_STRICT_EXPECT_FUNCS); do \
+	  if ! grep -n -E "^func[[:space:]]+$${f}_[A-Za-z0-9_]*[[:space:]]*\\(" "$$EMIT" > "$$WORK/$$NAME.strict-func-$$f.txt"; then \
+	    echo "!! selfhost-strict: expected package-level function $$f is missing" >&2; \
+	    bad=1; \
+	  fi; \
+	done; \
 	if [ "$$bad" -ne 0 ]; then \
 	  echo "!! inspect $$EMIT" >&2; \
 	  exit 1; \

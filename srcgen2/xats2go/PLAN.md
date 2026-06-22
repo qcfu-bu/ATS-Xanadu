@@ -527,7 +527,9 @@ ATS3 code* and fix whatever breaks. The failure set IS the prioritized work list
   as `d2cst_get_name`, `d2var_get_lctn`, `token_get_node`, `strnfpr`, and
   `fprint_loctn_as_stamp` now emit package symbols instead of fake
   `xatsgo.Xats_*` runtime hooks.  `make selfhost-strict` is therefore red only
-  on the next honest blocker: two private string/char escaping helper calls
+  on the next honest blocker, and now asserts that the probe still contains the
+  package-level functions exposing that blocker (`i0s00go1`, `i0c00go1`) so
+  inlining/skipping them cannot create a false green: two private string/char escaping helper calls
   (`f0_gostr`, `f0_gochr`) still lower to `I1Vnone0` and become
   `UNHANDLED i1val` in the single-file probe.  Rejected experiments: adding
   `mytmplib00.hats` did not improve the probe, and promoting those helpers

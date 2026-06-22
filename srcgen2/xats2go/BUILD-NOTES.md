@@ -48,7 +48,10 @@ regressing to "skip comments + main".
 **Self-hosting strict gate:** `make selfhost-strict` reuses the same
 `go1emit_utils0.dats` probe and emitted Go artifact, then fails if the generated
 Go still contains `UNHANDLED:` markers or compiler-internal names routed through
-the Go runtime such as `xatsgo.Xats_d2cst_get_name`. This target is a manager
+the Go runtime such as `xatsgo.Xats_d2cst_get_name`. It also asserts that the
+current probe still emitted the package-level helpers that expose the known
+blocker (`i0s00go1`, `i0c00go1` by default); removing those funcs is a false
+green, not progress. This target is a manager
 acceptance gate for the next self-hosting slice. Current status: package-level
 smoke passes, compiler-internal `xatsgo.Xats_*` routing has been removed from
 the probe, and the gate is now red only on two `UNHANDLED: i1val` sites caused
