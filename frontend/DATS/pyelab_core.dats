@@ -463,7 +463,7 @@ case+ ss of
       (case+ d of
        // SCOPING: a where-block on an inner def is ignored for FV purposes (its decls bind their own
        // names; the body's own FV over the def's params is what the capture-check needs).
-       | PyCfun(_, _, nm, _, params, _, fbody, _) =>
+       | PyCfun(_, _, nm, _, _, params, _, fbody, _) =>
            let val fv1 = fc_fv_stmts(fc_param_names(bnd, params), fv, fbody) in
              fc_fv_stmts(nameset_add(bnd, nm), fv1, rest) end
        | _ => fc_fv_stmts(bnd, fv, rest))
@@ -821,7 +821,7 @@ and
 el_local_decl(encl: nameset, loc: loctn, d: pydecl, kont: pcexp): pcexp =
 (
 case+ d of
-| PyCfun(floc, _decos, nm, _, params, ret, body, wheres) =>
+| PyCfun(floc, _decos, nm, _, _, params, ret, body, wheres) =>
     // an inner `def` binds its NAME (a function-local for later stmts: el_decl_name handles that);
     // its OWN params seed the inner body's enclosing-locals. (DECORATOR REWORK: a decorated inner
     // def — rare — is lowered as a plain inner def here; the proof/extern variants are top-level.)
@@ -847,7 +847,7 @@ and
 el_decl_name(encl: nameset, d: pydecl): nameset =
 (
 case+ d of
-| PyCfun(_, _, nm, _, _, _, _, _) => nameset_add(encl, nm)
+| PyCfun(_, _, nm, _, _, _, _, _, _) => nameset_add(encl, nm)
 | _ => encl
 )
 //

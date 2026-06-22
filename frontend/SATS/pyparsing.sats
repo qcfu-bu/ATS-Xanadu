@@ -467,16 +467,17 @@ pystmt =
 //
 //   PyCfun  : `[@decorators] def name [typarams] (params) [-> Ret]: <suite>`. Carries the
 //             decorator list (default `[]` = a plain def), the name (LIDENT), optional type
-//             params (rich pytyparam list — §5.7), value params, optional return type, and the
-//             body suite. Recursion grouping (adjacent defs = one mutually-recursive group, §5.2)
-//             is M3's concern; M2 emits one PyCfun per def and preserves adjacency via order in
-//             the module decl list. DECORATOR REWORK: the ATS-specific def VARIANTS that used to
-//             be dedicated keywords are now decorators on this base node — `@proof def` (was
-//             `prfun`), `@extern def` (was `extern def`), `@proof @extern def` (was `praxi`),
-//             `@impl def` (was `implement`), `@overload def` (was `overload`). The elaborator
-//             (pyelab_decl) inspects the decorators and routes to the SAME PyCore variant the
-//             keyword version produced (PCCprfun/PCCextern/PCCpraxi/PCCimplement/PCCoverload).
-//             An undecorated `def` is a plain PCCfun.
+//             params (rich pytyparam list — §5.7), whether a dynamic `(params)` group was actually
+//             present, value params, optional return type, and the body suite. Recursion grouping
+//             (adjacent defs = one mutually-recursive group, §5.2) is M3's concern; M2 emits one
+//             PyCfun per def and preserves adjacency via order in the module decl list. DECORATOR
+//             REWORK: the ATS-specific def VARIANTS that used to be dedicated keywords are now
+//             decorators on this base node — `@proof def` (was `prfun`), `@extern def` (was
+//             `extern def`), `@proof @extern def` (was `praxi`), `@impl def` (was `implement`),
+//             `@overload def` (was `overload`). The elaborator (pyelab_decl) inspects the
+//             decorators and routes to the SAME PyCore variant the keyword version produced
+//             (PCCprfun/PCCextern/PCCpraxi/PCCimplement/PCCoverload). An undecorated `def` is a
+//             plain PCCfun.
 //   PyCenum : `[decorators] enum Name [typarams]: <case suite>` — a datatype/ADT (§5.7).
 //             Each `case` line is a pydatacon. Decorators select the memory/repr mode.
 //   PyCstruct : `[decorators] struct Name [typarams]: <field suite>` — a record (§5.7).
@@ -495,7 +496,7 @@ pydecl =
 //   WRAPS the def's body expr in a PCEwhere(body, <elaborated where-decls>) PyCore expr, and M3
 //   lowers PCEwhere -> D2Ewhere(body, where_decls). (where IS an expression form, so it lives on the
 //   body expr — no PCCfun/fungroup-lowering changes.) SPIKE-PROVEN (S1).
-| PyCfun    of (loctn, list(pydecorator), strn, list(pytyparam), list(pyparam), pytypopt, list(pystmt), list(pydecl)(*where*))
+| PyCfun    of (loctn, list(pydecorator), strn, list(pytyparam), bool(*has darg*), list(pyparam), pytypopt, list(pystmt), list(pydecl)(*where*))
 //   SCOPING (bootstrap P1): PyCprivate carries a RUN of `private` decls — either a single
 //   `private def …` modifier (one-element run) or a `private:` block (the indented suite). The
 //   MODULE/SUITE lowering applies the capture-rest transform: the privates become the local-HEAD

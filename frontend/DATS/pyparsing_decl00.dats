@@ -287,6 +287,12 @@ p_decorators(st: pstate): @(list(pydecorator), pstate) =
 // decorator dispatch (which never reads the body of an @extern/praxi def) is correct.
 fun
 p_def(st: pstate, decos: list(pydecorator)): @(pydecl, pstate) = let
+  fun
+  has_deco(ds: list(pydecorator), name: strn): bool =
+  ( case+ ds of
+    | list_nil() => false
+    | list_cons(PyDecor(_, nm, _), rest) =>
+        if strn_eq(nm, name) then true else has_deco(rest, name) )
   val loc = ps_peek_loctn(st)
   val st1 = ps_advance(st)               // past 'def'
   // name: a LIDENT (ordinary def) OR a UIDENT. FFI (bootstrap P1, feature 3): the corpus's
@@ -303,16 +309,24 @@ p_def(st: pstate, decos: list(pydecorator)): @(pydecl, pstate) = let
       | PT_UIDENT(s) => @(s, ps_advance(st1))   // FFI: an uppercase-initial foreign function name
       | _ => @("?", ps_diag(st1, ps_peek_loctn(st1), "expected a function name")) )
   val @(tvs, st3) = p_typarams(st2)
-  // '(' params ')'
-  val st4 =
+  // '(' params ')' when present. A pretty-printed `#impltmp f<T> = body` has no
+  // dynamic farg at all, distinct from the nullary farg `f<T>()`; preserve that
+  // distinction as `has_darg=false` for `@impl def f: body`.
+  val @(has_darg, params, st6) =
     ( case+ ps_peek(st3) of
-      | PT_LPAREN() => ps_advance(st3)
-      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected '(' after function name") )
-  val @(params, st5) = p_def_params(st4)
-  val st6 =
-    ( case+ ps_peek(st5) of
-      | PT_RPAREN() => ps_advance(st5)
-      | _ => ps_diag(st5, ps_peek_loctn(st5), "expected ')'") )
+      | PT_LPAREN() =>
+        let
+          val @(params, st5) = p_def_params(ps_advance(st3))
+          val st6 =
+            ( case+ ps_peek(st5) of
+              | PT_RPAREN() => ps_advance(st5)
+              | _ => ps_diag(st5, ps_peek_loctn(st5), "expected ')'") )
+        in
+          @(true, params, st6)
+        end
+      | _ =>
+        if has_deco(decos, "impl") then @(false, list_nil(), st3)
+        else @(true, list_nil(), ps_diag(st3, ps_peek_loctn(st3), "expected '(' after function name")) )
   // optional return type
   val @(ropt, st7) =
     ( case+ ps_peek(st6) of
@@ -343,7 +357,7 @@ p_def(st: pstate, decos: list(pydecorator)): @(pydecl, pstate) = let
         end
       | _ => @(list_nil(), st9) )
 in
-  @(PyCfun(loc, decos, nm, tvs, params, ropt, body, wheres), st10)
+  @(PyCfun(loc, decos, nm, tvs, has_darg, params, ropt, body, wheres), st10)
 end
 //
 // def params: param { ',' param } until ')'. param ::= LIDENT [ ':' type ].

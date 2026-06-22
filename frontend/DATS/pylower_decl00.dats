@@ -701,7 +701,7 @@ in
   | PCEGSome(body) =>
       // INLINE body: the GENERIC implement (tias=[] — not instantiated; this is the generic body).
       // Params/return are inferred from the d2cst's fn type (untyped here — see none_types above).
-      let val decl_impl = lower_implement(env, loc, name, pnames, none_types(pnames), PyTypNone(), body, list_nil()) in
+      let val decl_impl = lower_implement(env, loc, name, true, pnames, none_types(pnames), PyTypNone(), body, list_nil()) in
         list_cons(decl_ext, list_sing(decl_impl))
       end
 end
@@ -1158,8 +1158,8 @@ case+ d of
 // ATS-parity: an `implement NAME(params) -> Ret: body` -> a D2Cimplmnt0. lower_implement (in
 // pylower_dynexp, where pl_exp/pl_params_typed are in scope) RESOLVES the pre-declared d2cst by
 // name, binds the params, lowers the body, and assembles the node (MONOMORPHIC). SPIKE-PROVEN.
-| PCCimplement(loc, name, pnames, ptypes, ret, body, tias) =>
-    lower_implement(env, loc, name, pnames, ptypes, ret, body, tias)
+| PCCimplement(loc, name, has_darg, pnames, ptypes, ret, body, tias) =>
+    lower_implement(env, loc, name, has_darg, pnames, ptypes, ret, body, tias)
 //
 // A-TEMPLATE: a `@template[A] def foo[C](...) [: body]` -> a TEMPLATE extern (+ optional generic
 // implement). lower_template builds the template d2cst (non-empty tqas + s2exp_uni0 poly wrap) and,

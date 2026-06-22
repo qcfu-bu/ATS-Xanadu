@@ -241,7 +241,7 @@ lint_decl(d: pcdecl, acc: list(pcdiag)): list(pcdiag) =
 case+ d of
 | PCCfun(_, _, _, fs) => lint_loops_fundcls(fs, acc)
 | PCCval(_, _, e) => lint_loops_exp(e, acc)
-| PCCimplement(_, _, _, _, _, body, _) => lint_loops_exp(body, acc) // an implement body is a fun body — lint its loops.
+| PCCimplement(_, _, _, _, _, _, body, _) => lint_loops_exp(body, acc) // an implement body is a fun body — lint its loops.
 // A-TEMPLATE: a template's INLINE body (when present) is a generic-implement body — lint its loops.
 | PCCtempl(_, _, _, _, _, _, _, bodyopt) =>
     (case+ bodyopt of PCEGNone() => acc | PCEGSome(b) => lint_loops_exp(b, acc))

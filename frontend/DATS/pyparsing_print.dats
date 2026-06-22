@@ -472,10 +472,11 @@ pp_decl(out: FILR, d: pydecl, ind: sint): void =
 (
 nl(out); print_indent(out, ind);
 case+ d of
-| PyCfun(loc, decos, nm, tvs, params, ropt, body, wheres) =>
+| PyCfun(loc, decos, nm, tvs, has_darg, params, ropt, body, wheres) =>
   ( ps(out, "(def "); ps(out, nm); print_span(out, loc);
     pp_decolst(out, decos);   // DECORATOR REWORK: prints " (deco ...)" only when non-empty (no golden drift for a plain def)
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_typaramlst(out, tvs); ps(out, ")")) );
+    ( if has_darg then () else ps(out, " (no-darg)") );
     ps(out, " (params"); pp_paramlst(out, params); ps(out, ")");
     ( case+ ropt of
       | PyTypNone() => ()

@@ -1382,6 +1382,16 @@ and
 	  else ""
 	end
 	and
+	farg_has_dapp(farg: f0arglst): bool =
+	(
+	  case+ farg of
+	  | list_nil() => false
+	  | list_cons(fa, rest) => (
+	      case+ fa.node() of
+	      | F0ARGdapp(_) => true
+	      | _ => farg_has_dapp(rest))
+	)
+	and
 	pp_lam_farg_params(out: FILR, farg: f0arglst): void = (
 	  ps(out, "(");
 	  pp_lam_farg_dapps(out, farg);
@@ -1697,7 +1707,7 @@ pp_dexp_impl_local
 in
   ind(out, n); ps(out, "@impl"); push_binders(raws); pp_impl_tias(out, tias);
   ps(out, " def "); ps(out, fname(d0qid_lexeme(dqi)));
-  pp_lam_farg_params(out, farg);
+  (if farg_has_dapp(farg) then pp_lam_farg_params(out, farg) else ());
   ps(out, ":"); nl(out);
   pp_dexp_fun_body(out, n, body);
   pop_binders(raws)
@@ -2050,7 +2060,7 @@ end
 	in
 	  ind(out, n); ps(out, "@impl"); push_binders(raws); pp_impl_tias(out, tias);
 	  ps(out, " def "); ps(out, fname(d0qid_lexeme(dqi)));
-	  pp_farg_params(out, farg);
+	  (if farg_has_dapp(farg) then pp_farg_params(out, farg) else ());
 	  ps(out, ":"); nl(out);
 	  pp_impl_body(out, n, body);
 	  pop_binders(raws)

@@ -1319,7 +1319,7 @@ end
 fun
 pl_implement
 ( env: !tr12env, loc: loctn, name: strn
-, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt, body: pcexp
+, has_darg: bool, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt, body: pcexp
 , tias_typs: list(pytyp)): d2ecl = let
   // resolve the pre-declared d2cst by name (mirror f1_dqid: find_d2itm -> D2ITMcst head).
   val d2copt =
@@ -1358,12 +1358,20 @@ in
           | list_cons(_, _) => list_nil()
           | list_nil() => (if list_nilq(tqas) then d2c_fun_args(d2c) else list_nil())
         ): s2explst
-      // build + bind the (typed) params, lower the body, pop — the fun-body scope dance. The fresh
-      // template tqas vars are bound FIRST so the param types / body resolve them.
+      // Build + bind the (typed) params, lower the body, pop — the fun-body scope dance. The fresh
+      // template tqas vars are bound FIRST so the param types / body resolve them. A pretty-printed
+      // farg-less `#impltmp f<T> = body` uses `@impl[T] def f: body`, which must preserve an EMPTY
+      // f2arglst; `@impl[T] def f(): body` remains the distinct nullary dynamic farg.
       val () = tr12env_pshlam0(env)
       val () = tr12env_add0_tqas(env, tqas)
-      val f2as = pl_params_typed_sig(env, loc, pnames, ptypes, sigargs)
-      val () = tr12env_add0_f2arglst(env, f2as)
+      val f2as =
+        ( if has_darg
+          then pl_params_typed_sig(env, loc, pnames, ptypes, sigargs)
+          else list_nil() ): f2arglst
+      val () =
+        ( if has_darg
+          then tr12env_add0_f2arglst(env, f2as)
+          else () )
       val d2body = pl_exp(env, body)
       val () = tr12env_poplam0(env)
       val sres = pl_sres_sig(env, ret)
@@ -1482,8 +1490,8 @@ end
 #implfun pylower_explst(env, es) = pl_explst(env, es)
 #implfun params_to_f2arglst(env, loc, params) = pl_params(loc, params)
 #implfun lower_fungroup(env, loc, tvs, mets, fdcls) = pl_fungroup(env, loc, tvs, mets, fdcls)
-#implfun lower_implement(env, loc, name, pnames, ptypes, ret, body, tias_typs) =
-  pl_implement(env, loc, name, pnames, ptypes, ret, body, tias_typs)
+#implfun lower_implement(env, loc, name, has_darg, pnames, ptypes, ret, body, tias_typs) =
+  pl_implement(env, loc, name, has_darg, pnames, ptypes, ret, body, tias_typs)
 // proof-function group (prfun): the funkind-parameterized fun-group with FNKprfn1.
 #implfun lower_prfungroup(env, loc, tvs, fdcls) =
   pl_fungroup_fnk(env, loc, FNKprfn1, tvs, list_nil()(*no metric*), fdcls)

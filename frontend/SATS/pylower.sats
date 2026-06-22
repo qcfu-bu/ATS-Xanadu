@@ -139,7 +139,7 @@ fun mk_param_s2vars(params: list(pcparam)): s2varlst
 fun
 lower_implement
 ( env: !tr12env, loc: loctn, name: strn
-, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt, body: pcexp
+, has_darg: bool, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt, body: pcexp
 , tias_typs: list(pytyp)): d2ecl
 //
 // A-TEMPLATE: lower a `@template[A, B] def foo[C, D](params) [-> Ret] [: body]` TEMPLATE

@@ -458,10 +458,11 @@ case+ d of
       | PyTypNone() => ()
       | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
     ps(out, ")") )
-| PCCimplement(loc, nm, pnames, _ptypes, ret, body, tias) =>
+| PCCimplement(loc, nm, has_darg, pnames, _ptypes, ret, body, tias) =>
   ( ps(out, "(implement "); ps(out, nm); print_span(out, loc);
     // A-TEMPLATE: render the `@impl[Int, ..]` instantiation type-args (empty for a bare @impl).
     ( case+ tias of list_nil() => () | _ => (ps(out, " [tias"); pp_typlst(out, tias); ps(out, "]")) );
+    ( if has_darg then () else ps(out, " (no-darg)") );
     ps(out, " (params"); pp_strnlst(out, pnames); ps(out, ")");
     ( case+ ret of
       | PyTypNone() => ()

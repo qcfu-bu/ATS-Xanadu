@@ -12,6 +12,7 @@
 # DECLARED+INSTANTIATED template reaches nerror=0 structurally; the SPIKE T1-T5 proved this):
 #   * at_decl_impl_inst.pdats — declare+inline-body + instantiate           (nerror=0)
 #   * at_separate_impl.pdats  — bodyless declare + separate @impl[Int]       (nerror=0)
+#   * at_impl_alias_nodarg.pdats — farg-less @impl[Int] alias body           (nerror=0)
 #   * at_both_brackets.pdats  — @template[A] AND foo[C] polymorphic coexist  (nerror=0)
 #   * at_neg_inst.pdats       — NEGATIVE control: @inst[Int] id("hi")        (nerror>0 — REAL check)
 # The negative control MUST fail to typecheck — if it reaches nerror=0 the wiring is fake.
@@ -75,6 +76,7 @@ nerror_of() {
 VALID=(
   "at_decl_impl_inst"   # @template[A] def id(x:A)->A: x ; @inst[Int] id(5)       (declare+inline+inst)
   "at_separate_impl"    # bodyless @template + @impl[Int] def pick + @inst[Int]    (separate impl)
+  "at_impl_alias_nodarg" # bodyless @template + farg-less @impl[Int] alias body    (no dynamic farg)
   "at_both_brackets"    # @template[A] def foo[C](x:A,y:C)->C: y ; @inst[Int]       (BOTH brackets)
 )
 for base in "${VALID[@]}"; do

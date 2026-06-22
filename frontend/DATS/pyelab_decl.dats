@@ -325,7 +325,7 @@ fun
 elab_decl(d: pydecl): list(pcdecl) =
 (
 case+ d of
-| PyCfun(loc, decos, nm, tps, params, ret, body, wheres) =>
+| PyCfun(loc, decos, nm, tps, has_darg, params, ret, body, wheres) =>
     // DECORATOR REWORK: a `def` with its decorator list. Route to the SAME PyCore variant the
     // keyword version produced, based on the decorators (the L2 lowering is reused unchanged):
     //   @proof @extern  -> PCCpraxi    (proof + bodyless = the old `praxi`)
@@ -397,7 +397,7 @@ case+ d of
               | list_nil() => body0
               | _ => PCEwhere(loc, body0, elab_decls(wheres)) )
         in
-          list_sing(PCCimplement(loc, nm, param_names_d(params), param_types_d(params), ret,
+          list_sing(PCCimplement(loc, nm, has_darg, param_names_d(params), param_types_d(params), ret,
                                  body1, decos_impl_types(decos)))
         end
       else

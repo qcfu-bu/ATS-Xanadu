@@ -222,7 +222,7 @@ case+ ss of
   | PySblock(loc, body) => fl_suite(encl, list_append(body, rest), accs, muts, mts)
   | PySdecl(loc, d) =>
       (case+ d of
-       | PyCfun(floc, _decos, nm, _, params, ret, fbody, wheres) =>
+       | PyCfun(floc, _decos, nm, _, _, params, ret, fbody, wheres) =>
            // SCOPING: an inner def in flow-mode MAY carry a `where:` block — wrap its body in
            // PCEwhere (M3 -> D2Ewhere); EMPTY where => no wrap (byte-identical to before).
            let
