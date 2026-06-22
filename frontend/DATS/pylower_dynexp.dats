@@ -48,12 +48,28 @@
 //
 fun ats_name(name: strn): strn = pylower_ats_name(name)
 fun ats_sym(name: strn): sym_t = symbl_make_name(ats_name(name))
+//
+#impltmp forall$test<cgtz>(c0) = char_isdigit<>(c0)
+//
+fun strn_all_digits(s: strn): bool =
+(
+  if strn_eq(s, "") then false else strn_forall<>(s)
+)
+//
+fun field_label(name: strn): label =
+(
+  if strn_all_digits(name)
+  then LABint(gint_parse_sint(name))
+  else LABsym(ats_sym(name))
+)
+//
 fun lowercase_nullary_datacon(s: strn): bool =
 (
   if strn_eq(s, "list_nil") then true
   else if strn_eq(s, "optn_nil") then true
   else if strn_eq(s, "list_vt_nil") then true
-  else strn_eq(s, "optn_vt_nil")
+  else if strn_eq(s, "optn_vt_nil") then true
+  else strn_eq(s, "strmcon_vt_nil")
 )
 //
 (* ****** ****** *)
@@ -84,6 +100,14 @@ fun tok_dot(loc: loctn): token = token_make_node(loc, T_DOT())
 // D2Eraise with a T_DLR_RAISE token and D2Etry0 with a T_TRY token (SPIKE-PROVEN).
 fun tok_raise(loc: loctn): token = token_make_node(loc, T_DLR_RAISE())
 fun tok_try(loc: loctn): token = token_make_node(loc, T_TRY())
+//
+fun
+d2pat_is_none0(d2p: d2pat): bool =
+(
+  case+ d2pat_get_node(d2p) of
+  | D2Pnone0() => true
+  | _ => false
+)
 //
 fun
 pcpat_has_con(p: pcpat): bool =
@@ -551,22 +575,27 @@ case+ p of
     // then the value-arg D2Pdapp applies to the sapp (my_d2pat_dapp, trans12_dynexp.dats:306). The
     // fresh s2vars are registered into the arm scope by tr12env_add0_d2gpt's D2Psapp walk
     // (trans12_myenv0.dats:2020). EMPTY sargs => `phd` is just the con (byte-identical pre-C path).
+    // If the constructor did not resolve, keep the single D2Pnone0 poison bare; applying it as
+    // D2Pdap0/D2Pdapp can crash stock trans2a before tread3a can count the error.
     val phd =
       (
-        case+ sargs of
-        | list_nil() => con_hd
-        | list_cons _ =>
-            let val s2vs = mk_sarg_s2vars(sargs) in d2pat_sapp(loc, con_hd, s2vs) end
+        if d2pat_is_none0(con_hd) then con_hd else
+        (
+          case+ sargs of
+          | list_nil() => con_hd
+          | list_cons _ =>
+              let val s2vs = mk_sarg_s2vars(sargs) in d2pat_sapp(loc, con_hd, s2vs) end
+        )
       ): d2pat
   in
+    if d2pat_is_none0(phd) then phd else
     case+ args of
     // NULLARY con pattern (e.g. `Nothing`, `Red`): MUST be wrapped in D2Pdap0 (#21, M5b-spike
     // proven). A bare d2pat_con is typed as the raw `() -> T` con-FUNCTION type and fails to
     // unify with the scrutinee `T`; trans2a's f0_dap0 rewrites D2Pdap0(con) -> dapp(con,-1,[]),
     // applying the con-function to ZERO args to yield the RESULT type `T`. (Dormant until now —
-    // no nullary con pattern had ever been typechecked.) When `phd` is an unresolved D2Pnone0,
-    // the dap0 wrapper is benign (the node is already a poison placeholder). NB: an unpack with NO
-    // value args (`VNil{n}`) also takes the dap0 path — the sapp-wrapped con dap0'd to its result.
+    // no nullary con pattern had ever been typechecked.) NB: an unpack with NO value args
+    // (`VNil{n}`) also takes the dap0 path — the sapp-wrapped con dap0'd to its result.
     | list_nil() => d2pat_make_node(loc, D2Pdap0(phd))
     | list_cons(_, _) =>
         let val dps = pl_patlst(env, args) in d2pat_make_node(loc, D2Pdapp(phd, (-1), dps)) end
@@ -871,7 +900,7 @@ case+ e of
 | PCEfield(loc, e1, name) => let
     val d2e1 = pl_exp(env, e1)
     val drxp = d2rxp_new1(loc)
-    val lab  = LABsym(ats_sym(name))
+    val lab  = field_label(name)
   in
     d2exp_make_node(loc, D2Eproj(tok_val(loc), drxp, lab, d2e1))
   end
@@ -1301,7 +1330,11 @@ in
           | list_nil() => list_nil()
           | list_cons(_, _) => list_sing(t2iag_make_s2es(loc, pylower_typlst(env, tias_typs)))
         ): t2iaglst
-      val sigargs = d2c_fun_args(d2c)
+      // For generic/template impls, the declared signature args mention declaration-side
+      // tqas variables. Let D2Cimplmnt0 check unannotated binders against the fresh impl tqas
+      // instead of stamping stale declaration vars onto the param patterns.
+      val sigargs =
+        (if list_nilq(tqas) then d2c_fun_args(d2c) else list_nil()): s2explst
       // build + bind the (typed) params, lower the body, pop — the fun-body scope dance. The fresh
       // template tqas vars are bound FIRST so the param types / body resolve them.
       val () = tr12env_pshlam0(env)

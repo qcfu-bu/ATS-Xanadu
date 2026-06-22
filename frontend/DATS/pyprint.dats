@@ -216,6 +216,16 @@ fun
 todo(out: FILR, what: strn): void =
   (ps(out, "# TODO(pp): "); ps(out, what); nl(out))
 //
+fun
+g0exp_lexeme(ge: g0exp): strn =
+(
+  case+ ge.node() of
+  | G0Eid0(id) => i0dnt_lexeme(id)
+  | G0Eint(t0) => (case+ t0 of T0INTsome(tok) => tok_lexeme(tok) | T0INTnone(tok) => tok_lexeme(tok))
+  | G0Estr(t0) => (case+ t0 of T0STRsome(tok) => tok_lexeme(tok) | T0STRnone(tok) => tok_lexeme(tok))
+  | _ => "?"
+)
+//
 (* ****** ****** *)
 //
 // ====================== TYPE (s0exp) emission ===============================
@@ -834,12 +844,32 @@ fun
 ind(out: FILR, n: sint): void =
   if n <= 0 then () else (ps(out, "    "); ind(out, n-1))
 //
+fun
+pp_symload_alias(out: FILR, n: sint, sym: s0ymb, dqi: d0qid, prec: g0expopt): void = let
+  val nm  = fname(s0ymb_lexeme(sym))
+  val tgt = fname(d0qid_lexeme(dqi))
+in
+  ind(out, n);
+  (case+ prec of
+   | optn_cons(ge) => (ps(out, "@overload["); ps(out, g0exp_lexeme(ge)); ps(out, "] "))
+   | optn_nil() => ps(out, "@overload "));
+  ps(out, nm); ps(out, " = "); ps(out, tgt); nl(out)
+end
+//
 (* ****** ****** *)
 //
 // ====================== DYNAMIC side: d0pat ===============================
 //
 // a pattern. Constructor names capitalize ONLY if file-local (conname_scoped);
 // prelude cons (list_cons/list_nil) stay verbatim. Variables/wildcards verbatim.
+//
+fun
+dpat_is_tilde(dp: d0pat): bool =
+(
+  case+ dp.node() of
+  | D0Pid0(id) => strn_eq(i0dnt_lexeme(id), "~")
+  | _ => false
+)
 //
 fun
 pp_d0pat(out: FILR, dp: d0pat): void =
@@ -880,9 +910,36 @@ pp_dpat_apps(out: FILR, dps: d0patlst): void =
 (
   case+ dps of
   | list_nil() => ()
-  | list_cons(hd, rest) => (
-      pp_d0pat(out, hd);
-      pp_dpat_apps_args(out, rest))
+  // Stock ATS parses `~ C(args)` as an application headed by `~` plus a
+  // parenthesized constructor head. Pythonic spells that prefix directly.
+  | list_cons(hd, list_cons(arg0, rest)) =>
+      if dpat_is_tilde(hd) then
+        (
+          case+ arg0.node() of
+          | D0Plpar(_, list_cons(inner, list_nil()), _) =>
+              (ps(out, "~"); pp_d0pat(out, inner); pp_dpat_apps_args(out, rest))
+          | _ =>
+              (ps(out, "~"); pp_d0pat(out, arg0); pp_dpat_apps_args(out, rest))
+        )
+      else
+        (pp_d0pat(out, hd); pp_dpat_apps_args(out, list_cons(arg0, rest)))
+  | list_cons(hd, rest) =>
+      (
+        case+ hd.node() of
+        | D0Papps(list_cons(phd, list_cons(arg0, list_nil()))) =>
+            if dpat_is_tilde(phd) then
+              (
+                case+ arg0.node() of
+                | D0Plpar(_, list_cons(inner, list_nil()), _) =>
+                    (ps(out, "~"); pp_d0pat(out, inner); pp_dpat_apps_args(out, rest))
+                | _ =>
+                    (ps(out, "~"); pp_d0pat(out, arg0); pp_dpat_apps_args(out, rest))
+              )
+            else
+              (pp_d0pat(out, hd); pp_dpat_apps_args(out, rest))
+        | _ =>
+            (pp_d0pat(out, hd); pp_dpat_apps_args(out, rest))
+      )
 )
 and
 pp_dpat_apps_args(out: FILR, dps: d0patlst): void =
@@ -1291,8 +1348,12 @@ pp_d0exp_suite(out: FILR, n: sint, de: d0exp): void =
 	  | D0Eift0(_, c, th, el) => pp_dexp_if(out, n, c, th, el)
 	  | D0Eift1(_, c, th, el, _) => pp_dexp_if(out, n, c, th, el)
 	  //
+	  // Suite-position `e where { decls }`: hoist the backwards-scoped decls before
+	  // the expression so side-effecting `val () = ...` where decls are preserved.
 	  // Top-level impl bodies still print a trailing `where:` block via pp_impl_body.
-	  | D0Ewhere(body0, _) => pp_d0exp_suite(out, n, body0)
+	  | D0Ewhere(body0, wdc) => (
+	      pp_dexp_where_decls(out, n, wdc);
+	      pp_d0exp_suite(out, n, body0))
 	  //
 	  // a `(a; b; ...)` SMCLN-sequence -> each on its own statement line.  The parse
   // SPLITS at the FIRST `;`: D0Elpar's d0explst holds the part BEFORE `;`, and the
@@ -1303,6 +1364,7 @@ pp_d0exp_suite(out: FILR, n: sint, de: d0exp): void =
       | d0exp_RPAREN_cons2(_, des2, _) => pp_dexp_stmts(out, n, list_append(des, des2))
       | _ => (
           case+ des of
+          | list_nil() => (ind(out, n); ps(out, "()"); nl(out))
           | list_cons(de1, list_nil()) => pp_d0exp_suite(out, n, de1)
           | _ => pp_dexp_stmts(out, n, des)))
   //
@@ -1621,7 +1683,7 @@ pp_dexp_clause(out: FILR, n: sint, cl: d0cls): void =
   | D0CLSgpt(gpt) => (
       ind(out, n); ps(out, "case ");
       pp_dexp_gpt(out, gpt); ps(out, ":"); nl(out);
-      ind(out, n+1); todo(out, "empty match-arm body"))
+      ind(out, n+1); ps(out, "()"); nl(out))
 )
 // the guarded-pattern of a match arm: a plain pattern, or `p when guards`.
 and
@@ -1838,7 +1900,8 @@ and
 	  | D0Cimplmnt0(_, _, _, dqi, _, farg, _, _, body) => pp_impl_n(out, n, dqi, farg, body)
 	  | D0Csexpdef(_, sid, smas, _, _, se) => pp_typedef(out, n, sid, smas, se)
 	  | D0Cstatic(_, dc1) => pp_where_decl(out, n, dc1)
-	  | D0Cextern(_, dc1) => pp_where_decl(out, n, dc1)
+	  | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
+	  | D0Csymload(_, sym, _, dqi, prec) => pp_symload_alias(out, n, sym, dqi, prec)
 	  | D0Ctkerr(_) => ()
 	  | D0Ctkskp(_) => ()
 	  | _ => (ind(out, n); todo(out, "where-decl"))
@@ -1976,17 +2039,11 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   // #absimpl T = REP  ->  @impl type T = REP
   | D0Cabsimpl(_, sqid, smas, _, _, se) => (pp_absimpl(out, 0, sqid, smas, se); true)
   //
+  // #extern fun f(...): R  ->  @extern def f(...) -> R
+  | D0Cextern(_, dc1) => (pp_dexp_extern_decl(out, 0, dc1); true)
+  //
   // #symload NAME with FN [of prec]  ->  @overload[prec] NAME = FN
-  | D0Csymload(_, sym, _, dqi, prec) => let
-      val nm  = fname(s0ymb_lexeme(sym))
-      val tgt = fname(d0qid_lexeme(dqi))
-    in
-      (case+ prec of
-       | optn_cons(ge) => (ps(out, "@overload["); ps(out, g0exp_lexeme(ge)); ps(out, "] "))
-       | optn_nil() => ps(out, "@overload "));
-      ps(out, nm); ps(out, " = "); ps(out, tgt); nl(out);
-      true
-    end
+  | D0Csymload(_, sym, _, dqi, prec) => (pp_symload_alias(out, 0, sym, dqi, prec); true)
   //
   // #define NAME val  ->  @static let NAME = val   (a module-level binding; the
   // @static marker mirrors the hand-translation so it lowers as a static const,
@@ -2066,15 +2123,6 @@ g0exp_is_id(ge: g0exp, s: strn): bool =
   | _ => false
 )
 and
-g0exp_lexeme(ge: g0exp): strn =
-(
-  case+ ge.node() of
-  | G0Eid0(id) => i0dnt_lexeme(id)
-  | G0Eint(t0) => (case+ t0 of T0INTsome(tok) => tok_lexeme(tok) | T0INTnone(tok) => tok_lexeme(tok))
-  | G0Estr(t0) => (case+ t0 of T0STRsome(tok) => tok_lexeme(tok) | T0STRnone(tok) => tok_lexeme(tok))
-  | _ => "?"
-)
-and
 g0exp_import_path(ge: g0exp): strn =
 (
   case+ ge.node() of
@@ -2151,7 +2199,8 @@ pp_priv_head_one(out: FILR, n: sint, dc: d0ecl): void =
 	  | D0Cabsimpl(_, sqid, smas, _, _, se) => pp_absimpl(out, n, sqid, smas, se)
 	  | D0Csexpdef(_, sid, smas, _, _, se) => pp_typedef(out, n, sid, smas, se)
 	  | D0Cstatic(_, dc1) => pp_priv_head_one(out, n, dc1)
-	  | D0Cextern(_, dc1) => pp_priv_head_one(out, n, dc1)
+	  | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
+	  | D0Csymload(_, sym, _, dqi, prec) => pp_symload_alias(out, n, sym, dqi, prec)
 	  | D0Ctkerr(_) => ()
 	  | D0Ctkskp(_) => ()
 	  | _ => (ind(out, n); todo(out, "private-head decl"))

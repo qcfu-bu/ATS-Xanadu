@@ -532,7 +532,8 @@ lowercase_nullary_datacon(s: strn): bool =
   if strn_eq(s, "list_nil") then true
   else if strn_eq(s, "optn_nil") then true
   else if strn_eq(s, "list_vt_nil") then true
-  else strn_eq(s, "optn_vt_nil")
+  else if strn_eq(s, "optn_vt_nil") then true
+  else strn_eq(s, "strmcon_vt_nil")
 )
 //
 fun
@@ -542,7 +543,8 @@ lowercase_datacon(s: strn): bool =
   else if strn_eq(s, "list_cons") then true
   else if strn_eq(s, "optn_cons") then true
   else if strn_eq(s, "list_vt_cons") then true
-  else strn_eq(s, "optn_vt_cons")
+  else if strn_eq(s, "optn_vt_cons") then true
+  else strn_eq(s, "strmcon_vt_cons")
 )
 //
 // p_pat: pat_atom [ 'as' LIDENT ]. A trailing `:` is DELIBERATELY NOT consumed here

@@ -726,6 +726,51 @@ end
 // `@overload def`) passes 0 — the stock default, byte-identical to before this slice. The standalone
 // overload-ALIAS path (PCCsymalias) passes the parsed `@overload[N]` precedence (or 0 if none).
 fun
+d2itm_same_single_name(d2i0: d2itm, d2i1: d2itm): bool =
+(
+case+ d2i0 of
+| D2ITMvar(d2v0) =>
+    (case+ d2i1 of
+     | D2ITMvar(d2v1) => strn_eq(symbl_get_name(d2var_get_name(d2v0)), symbl_get_name(d2var_get_name(d2v1)))
+     | _ => false)
+| D2ITMcon(d2cs0) =>
+    (case+ d2i1 of
+     | D2ITMcon(d2cs1) =>
+         if list_singq(d2cs0) then
+           (
+             if list_singq(d2cs1) then
+               strn_eq(symbl_get_name(d2con_get_name(d2cs0.head())), symbl_get_name(d2con_get_name(d2cs1.head())))
+             else false
+           )
+         else false
+     | _ => false)
+| D2ITMcst(d2cs0) =>
+    (case+ d2i1 of
+     | D2ITMcst(d2cs1) =>
+         if list_singq(d2cs0) then
+           (
+             if list_singq(d2cs1) then
+               strn_eq(symbl_get_name(d2cst_get_name(d2cs0.head())), symbl_get_name(d2cst_get_name(d2cs1.head())))
+             else false
+           )
+         else false
+     | _ => false)
+| D2ITMsym(_, _) => false
+)
+//
+fun
+d2ptmlst_has_same_target(d2ps: d2ptmlst, d2i0: d2itm): bool =
+(
+case+ d2ps of
+| list_nil() => false
+| list_cons(d2p, rest) =>
+    (case+ d2p of
+     | D2PTMsome(_, d2i1) =>
+         if d2itm_same_single_name(d2i0, d2i1) then true else d2ptmlst_has_same_target(rest, d2i0)
+     | D2PTMnone(_) => d2ptmlst_has_same_target(rest, d2i0))
+)
+//
+fun
 build_overload(env: !tr12env, loc: loctn, name: strn, impl: strn, pval: sint): d2ecl = let
   val sym_nm  = ats_sym(name)
   val implopt = tr12env_find_d2itm(env, ats_sym(impl))
@@ -743,7 +788,9 @@ in
            | D2ITMsym(_, ps) => ps
            | _ => list_sing(D2PTMsome(0, other)))
         ): list(d2ptm)
-      val ditm_nm = D2ITMsym(sym_nm, list_cons(dptm, d2ps))
+      val d2ps =
+        if d2ptmlst_has_same_target(d2ps, ditm_impl) then d2ps else list_cons(dptm, d2ps)
+      val ditm_nm = D2ITMsym(sym_nm, d2ps)
       val () = tr12env_add0_d2itm(env, sym_nm, ditm_nm)   // *** makes NAME resolve to IMPL ***
       val tknd = token_make_node(loc, T_VAL(VLKval))       // a benign token slot (node is a record)
     in

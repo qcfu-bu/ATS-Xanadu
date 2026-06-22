@@ -421,7 +421,7 @@ in
 end
 //
 // postfix: atom { call | index | field }. call = '(' [args] ')'; index = '[' e ']';
-// field = '.' LIDENT. Left-assoc chain.
+// field = '.' (LIDENT | INT). Integer labels are tuple projections (`x.0`).
 and
 p_postfix(st: pstate): @(pyexp, pstate) = let
   val @(a0, st1) = p_atom(st)
@@ -471,6 +471,13 @@ in
     let val st1 = ps_advance(st) in
       case+ ps_peek(st1) of
       | PT_LIDENT(nm) =>
+        let
+          val locn = ps_peek_loctn(st1)
+          val e1 = PyEfield(loc_span(loc0, locn), e0, nm)
+        in
+          p_postfix_loop(e1, ps_advance(st1))
+        end
+      | PT_INT(nm) =>
         let
           val locn = ps_peek_loctn(st1)
           val e1 = PyEfield(loc_span(loc0, locn), e0, nm)
