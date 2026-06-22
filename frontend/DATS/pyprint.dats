@@ -49,6 +49,7 @@
 //   PYPP_source_set/PYPP_import_stem : normalize source-relative #staload paths.
 #extern fun PYPP_capitalize(s: strn): strn = $extnam()
 #extern fun PYPP_dollar_fix(s: strn): strn = $extnam()
+#extern fun PYPP_value_name(s: strn): strn = $extnam()
 // synthesized positional names (string-building done in JS to avoid the ATS
 // string-append template): "X"+i (a typaram), "a"/"b".../"x"+i (a parameter).
 #extern fun PYPP_xname(i: sint): strn = $extnam()
@@ -65,6 +66,8 @@
 #extern fun PYPP_type_has(s: strn): bool = $extnam()
 #extern fun PYPP_con_add(s: strn): void = $extnam()
 #extern fun PYPP_con_has(s: strn): bool = $extnam()
+#extern fun PYPP_value_add(s: strn): void = $extnam()
+#extern fun PYPP_value_has(s: strn): bool = $extnam()
 #extern fun PYPP_binder_push(s: strn): void = $extnam()
 #extern fun PYPP_binder_pop(s: strn): void = $extnam()
 #extern fun PYPP_binder_has(s: strn): bool = $extnam()
@@ -162,6 +165,13 @@ fun rewrite_dollar(s: strn): strn = PYPP_dollar_fix(s)
 // a FUNCTION / VALUE name: keep case, but $->/.
 fun fname(s: strn): strn = rewrite_dollar(s)
 //
+// a dynamic VALUE binder/reference name. The Pythonic lexer treats leading
+// uppercase as constructor/type-shaped, so uppercase ATS values need a stable
+// lower-case escape. Leading `$free`-style names also lose the leading `$`.
+fun vname(s: strn): strn = PYPP_value_name(s)
+fun vname_bind(s: strn): strn =
+  if strn_eq(s, "_") then "_" else let val () = PYPP_value_add(s) in vname(s) end
+//
 // primitive ATS type names whose Pythonic spellings are not just first-letter capitalization.
 fun tyname_primitive(s: strn): strn = let
   val r = rewrite_dollar(s)
@@ -204,6 +214,11 @@ end
 // Prelude cons (list_cons, list_nil, ...) stay verbatim.
 fun conname_scoped(s: strn): strn =
   if PYPP_con_has(s) then PYPP_capitalize(rewrite_dollar(s)) else rewrite_dollar(s)
+//
+fun val_or_con_name(s: strn): strn =
+  if PYPP_con_has(s) then PYPP_capitalize(rewrite_dollar(s))
+  else if PYPP_value_has(s) then vname(s)
+  else rewrite_dollar(s)
 //
 (* ****** ****** *)
 //
@@ -973,9 +988,12 @@ pp_d0pat(out: FILR, dp: d0pat): void =
 (
   case+ dp.node() of
   //
-  // a bare id: a variable pattern, or a nullary con. We treat lexeme via
-  // conname_scoped (file-local cons capitalize; `_` wildcard + vars pass through).
-  | D0Pid0(id) => ps(out, conname_scoped(i0dnt_lexeme(id)))
+  // a bare id: either a variable pattern or a nullary constructor. Known
+  // file-local constructors keep constructor spelling; value binders are tracked.
+  | D0Pid0(id) =>
+      let val s = i0dnt_lexeme(id) in
+        if PYPP_con_has(s) then ps(out, conname_scoped(s)) else ps(out, vname_bind(s))
+      end
   //
   | D0Pint(t0) => (case+ t0 of T0INTsome(t) => ps(out, tok_lexeme(t)) | T0INTnone(t) => ps(out, tok_lexeme(t)))
   | D0Pstr(t0) => (case+ t0 of T0STRsome(t) => ps(out, tok_lexeme(t)) | T0STRnone(t) => ps(out, tok_lexeme(t)))
@@ -1003,6 +1021,13 @@ pp_d0pat(out: FILR, dp: d0pat): void =
 )
 // a constructor-pattern apps list: head con + paren arg-groups.
 and
+pp_d0pat_head(out: FILR, dp: d0pat): void =
+(
+  case+ dp.node() of
+  | D0Pid0(id) => ps(out, conname_scoped(i0dnt_lexeme(id)))
+  | _ => pp_d0pat(out, dp)
+)
+and
 pp_dpat_apps(out: FILR, dps: d0patlst): void =
 (
   case+ dps of
@@ -1014,12 +1039,12 @@ pp_dpat_apps(out: FILR, dps: d0patlst): void =
         (
           case+ arg0.node() of
           | D0Plpar(_, list_cons(inner, list_nil()), _) =>
-              (ps(out, "~"); pp_d0pat(out, inner); pp_dpat_apps_args(out, rest))
+              (ps(out, "~"); pp_d0pat_head(out, inner); pp_dpat_apps_args(out, rest))
           | _ =>
-              (ps(out, "~"); pp_d0pat(out, arg0); pp_dpat_apps_args(out, rest))
+              (ps(out, "~"); pp_d0pat_head(out, arg0); pp_dpat_apps_args(out, rest))
         )
       else
-        (pp_d0pat(out, hd); pp_dpat_apps_args(out, list_cons(arg0, rest)))
+        (pp_d0pat_head(out, hd); pp_dpat_apps_args(out, list_cons(arg0, rest)))
   | list_cons(hd, rest) =>
       (
         case+ hd.node() of
@@ -1028,14 +1053,14 @@ pp_dpat_apps(out: FILR, dps: d0patlst): void =
               (
                 case+ arg0.node() of
                 | D0Plpar(_, list_cons(inner, list_nil()), _) =>
-                    (ps(out, "~"); pp_d0pat(out, inner); pp_dpat_apps_args(out, rest))
+                    (ps(out, "~"); pp_d0pat_head(out, inner); pp_dpat_apps_args(out, rest))
                 | _ =>
-                    (ps(out, "~"); pp_d0pat(out, arg0); pp_dpat_apps_args(out, rest))
+                    (ps(out, "~"); pp_d0pat_head(out, arg0); pp_dpat_apps_args(out, rest))
               )
             else
-              (pp_d0pat(out, hd); pp_dpat_apps_args(out, rest))
+              (pp_d0pat_head(out, hd); pp_dpat_apps_args(out, rest))
         | _ =>
-            (pp_d0pat(out, hd); pp_dpat_apps_args(out, rest))
+            (pp_d0pat_head(out, hd); pp_dpat_apps_args(out, rest))
       )
 )
 and
@@ -1081,7 +1106,7 @@ pp_d0exp_inline(out: FILR, de: d0exp): void =
 (
   case+ de.node() of
   //
-  | D0Eid0(id) => ps(out, conname_scoped(i0dnt_lexeme(id)))
+  | D0Eid0(id) => ps(out, val_or_con_name(i0dnt_lexeme(id)))
   | D0Eopid(oid) => pp_d0eid(out, oid)
   //
   | D0Eint(t0) => (case+ t0 of T0INTsome(t) => ps(out, tok_lexeme(t)) | T0INTnone(t) => ps(out, tok_lexeme(t)))
@@ -1729,7 +1754,7 @@ pp_dexp_fundcl_local(out: FILR, n: sint, fd: d0fundcl): void = let
   val tdxp = d0fundcl_get_tdxp(fd)
 in
   ind(out, n); ps(out, "def "); ps(out, fname(nm));
-  pp_lam_farg_params(out, farg);
+  pp_sig_farg_params(out, farg);
   ps(out, ":"); nl(out);
   (case+ tdxp of
    | TEQD0EXPsome(_, body) => pp_dexp_fun_body(out, n, body)
@@ -2085,7 +2110,7 @@ in
 	  val tdxp = d0fundcl_get_tdxp(fd)
 	in
 	  ind(out, n); ps(out, "def "); ps(out, fname(nm));
-	  pp_farg_params(out, farg);
+	  pp_sig_farg_params(out, farg);
 	  ps(out, ":"); nl(out);
 	  (case+ tdxp of
 	   | TEQD0EXPsome(_, body) => pp_impl_body(out, n, body)

@@ -19,7 +19,13 @@ function PYPP_capitalize(s) {
 }
 //
 function PYPP_dollar_fix(s) {
-  return String(s).split("$").join("/");
+  s = String(s);
+  if (s.charAt(0) === "$") s = s.slice(1);
+  return s.split("$").join("/");
+}
+function PYPP_value_name(s) {
+  s = PYPP_dollar_fix(s);
+  return /^[A-Z]/.test(s) ? ("xatsv_" + s) : s;
 }
 // synthesized positional names (string-building stays in JS; the ATS side has no
 // string-append). a typaram X0, X1, ...; a parameter a/b/c/d/e then x5, x6, ...
@@ -87,9 +93,11 @@ function PYPP_argv_stadyn() {
 // membership at every name-emission site.
 var PYPP_type_set = {};
 var PYPP_con_set = {};
+var PYPP_value_set = {};
 function PYPP_local_reset() {
   PYPP_type_set = {};
   PYPP_con_set = {};
+  PYPP_value_set = {};
 }
 function PYPP_local_add(s) {
   PYPP_type_set[String(s)] = true;
@@ -104,6 +112,8 @@ function PYPP_type_add(s) { PYPP_type_set[String(s)] = true; return; }
 function PYPP_type_has(s) { return PYPP_type_set[String(s)] === true; }
 function PYPP_con_add(s) { PYPP_con_set[String(s)] = true; return; }
 function PYPP_con_has(s) { return PYPP_con_set[String(s)] === true; }
+function PYPP_value_add(s) { PYPP_value_set[String(s)] = true; return; }
+function PYPP_value_has(s) { return PYPP_value_set[String(s)] === true; }
 var PYPP_binder_stack = [];
 function PYPP_binder_push(s) { PYPP_binder_stack.push(String(s)); return; }
 function PYPP_binder_pop(s) {
