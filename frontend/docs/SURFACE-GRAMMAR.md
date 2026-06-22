@@ -291,14 +291,20 @@ literal   ::= INT | FLOAT | STRING | CHAR | 'true' | 'false'
 ### 5.5 Patterns & types
 
 ```
-pattern   ::= pat_app [ 'as' LIDENT ]
-pat_app   ::= UIDENT '(' pattern { ',' pattern } ')'  (* constructor app:  Node(l, x, r) *)
-            | UIDENT                                   (* nullary constructor:  Leaf *)
+pattern   ::= pat_prefix [ 'as' LIDENT ]
+pat_prefix::= '!' pat_prefix                           (* generated view/read pattern *)
+            | '~' pat_prefix                           (* linear consume/free pattern *)
+            | '@' '(' con_name ')' [ '(' pat_seq ')' ] (* generated flat/viewbox pattern *)
+            | pat_atom
+pat_atom  ::= con_name '(' pat_seq ')'                 (* constructor app: Node(l, x, r) *)
+            | UIDENT                                   (* nullary constructor: Leaf *)
             | LIDENT                                   (* variable binding *)
             | '_'                                      (* wildcard *)
             | literal                                  (* incl. true / false *)
             | '(' pattern { ',' pattern } ')'          (* tuple pattern *)
             | '{' field_pat { ',' field_pat } '}'      (* record pattern *)
+pat_seq   ::= pattern { ',' pattern }
+con_name  ::= UIDENT | LIDENT                          (* applied lowercase heads are constructor-shaped *)
 field_pat ::= LIDENT '=' pattern
 
 type      ::= type_arrow

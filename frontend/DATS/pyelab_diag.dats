@@ -242,6 +242,8 @@ case+ p of
 | PCPcon(_, nm, _, args) => b_or(is_pyrt_name(nm), uses_patlst(args))
 | PCPtup(_, ps0) => uses_patlst(ps0)
 | PCPas(_, _, inner) => uses_pat(inner)  // M7: recurse into the as-pattern's inner pattern
+| PCPbang(_, inner) => uses_pat(inner)
+| PCPflat(_, inner) => uses_pat(inner)
 | _ => false
 )
 //

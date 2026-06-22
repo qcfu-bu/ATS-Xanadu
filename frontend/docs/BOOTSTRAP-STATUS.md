@@ -102,8 +102,9 @@ harnesses.
 4. Lowercase ATS type/constructor names require systematic policy. The frontend
    now handles Pythonic capitalized local types lowered back to ATS names and
    whitelisted lowercase prelude constructor patterns (`list_cons`, `list_nil`,
-   `optn_*`, plus `_vt` variants), but faithful lowercase type declarations in
-   hand-written round-trip fixtures still report parser errors.
+   `optn_*`, plus `_vt` variants). Applied lowercase pattern heads are now
+   constructor-shaped and resolve in lowering, but faithful lowercase type
+   declarations in hand-written round-trip fixtures still report parser errors.
 5. Dynamic conversion is still incomplete, but the first real dynamic compiler
    file is now green: `#absimpl` prints as `@impl type`, `#staload` imports the
    interface, and `filpath_drpth0.dats` reparses/typechecks with `nerror=0`.
@@ -128,9 +129,10 @@ harnesses.
   reparse `nerror`.
 - Dynamic reparse/typecheck triage: protect the 166-file DATS/UTIL
   `TODOpp=0` pyprint-only baseline while classifying M3 type errors versus
-  driver/runtime crashes. The next high-value targets include generated pattern
-  forms such as `@(C)(...)`, `~C(...)`, `!x`, lowercase constructor patterns,
-  and unresolved dynamic helper names surfaced by the generated Pythonic files.
+  driver/runtime crashes. Generated pattern forms such as `@(C)(...)`, `!p`,
+  `~C(...)`, and applied lowercase constructor patterns now parse/elaborate/lower;
+  the next high-value targets are the remaining typecheck errors and unresolved
+  dynamic helper names surfaced by generated Pythonic files.
 - Slash-identifier fidelity: keep `$` <-> `/` round-trip support covered by
   regression tests and expand the corpus audit around collision-prone names.
 

@@ -57,6 +57,7 @@ case+ p of
 | PyPcon(loc, _, _, _) => loc | PyPtup(loc, _) => loc
 | PyPrec(loc, _) => loc       | PyPlit(loc, _) => loc
 | PyPas(loc, _, _) => loc     | PyPann(loc, _, _) => loc
+| PyPbang(loc, _) => loc      | PyPflat(loc, _) => loc
 | PyPfree(loc, _) => loc
 | PyPerror(loc, _) => loc
 )

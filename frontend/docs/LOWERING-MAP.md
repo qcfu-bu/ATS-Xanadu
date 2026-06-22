@@ -62,6 +62,9 @@
 | `42` / `"s"` / `true` | `D2Pint`/`D2Pstr`/`D2Pbtf` | literal patterns (token-wrapped like exprs) |
 | `p as x` | `D2Prfpt(p, tok, D2Pvar d2v)` | as-pattern |
 | `p: T` | `D2Pannot(p, s1e, s2e)` | annotated pattern |
+| `!p` | `D2Pbang(p)` | generated ATS view/read pattern prefix |
+| `@p` / `@(C)(...)` | `D2Pflat(p)` | generated ATS flat/viewbox pattern prefix |
+| `~p` | `D2Pfree(p)` | linear consume/free pattern prefix |
 
 > **Binding rule:** every `D2Pvar` in a pattern is a fresh `d2var`. After lowering
 > a binding pattern, register it with `tr12env_add0_d2pat(env, d2p)` so the

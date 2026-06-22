@@ -187,13 +187,15 @@ ptnode =
                     //       Lexed BEFORE `:=` so the 3-byte form wins the longest match.)
 | PT_SWAP    of ()  // :=:  (SWAP; B-LINEAR, §B. Lowers to D2Exchng. Lexed BEFORE `:=`.)
 | PT_AMP     of ()  // &    (ADDRESS-OF prefix; B-LINEAR, §B. Lowers to D2Eaddr.)
-| PT_BANG    of ()  // !    (DEREFERENCE prefix in expr position; B-LINEAR, §B. Lowers to
-                    //       D2Eeval. Single `!` — `!=` is matched first as PT_NEQ.)
+| PT_BANG    of ()  // !    (DEREFERENCE prefix in expr position / view-read prefix in pattern
+                    //       position; B-LINEAR, §B. Lowers to D2Eeval or D2Pbang. Single `!` —
+                    //       `!=` is matched first as PT_NEQ.)
 | PT_TILDE   of ()  // ~    (LINEAR-CONSUME pattern prefix `~p`; B-LINEAR, §B. Lowers to D2Pfree.)
 | PT_FATARROW of () // =>   (lambda arrow)
 | PT_ARROW   of ()  // ->   (type / return arrow)
 | PT_COLON   of ()  // :    (annotation / block-header)
-| PT_AT      of ()  // @    (decorator marker; '@' LIDENT, SURFACE-GRAMMAR §5.7)
+| PT_AT      of ()  // @    (decorator marker; '@' LIDENT, SURFACE-GRAMMAR §5.7; also
+                    //       generated flat/viewbox pattern prefix `@(C)(...)` -> D2Pflat)
 | PT_BAR     of ()  // |    (sum-type / data-constructor separator; SURFACE-GRAMMAR
                     //       §5.2 `datacon { '|' datacon }`. NOTE: `|` is used in the
                     //       grammar but is MISSING from the §5.1 lexical list and the

@@ -533,7 +533,8 @@ lowercase_nullary_datacon(s: strn): bool =
   else if strn_eq(s, "optn_nil") then true
   else if strn_eq(s, "list_vt_nil") then true
   else if strn_eq(s, "optn_vt_nil") then true
-  else strn_eq(s, "strmcon_vt_nil")
+  else if strn_eq(s, "strmcon_vt_nil") then true
+  else strn_eq(s, "strxcon_vt_nil")
 )
 //
 fun
@@ -544,7 +545,8 @@ lowercase_datacon(s: strn): bool =
   else if strn_eq(s, "optn_cons") then true
   else if strn_eq(s, "list_vt_cons") then true
   else if strn_eq(s, "optn_vt_cons") then true
-  else strn_eq(s, "strmcon_vt_cons")
+  else if strn_eq(s, "strmcon_vt_cons") then true
+  else strn_eq(s, "strxcon_vt_cons")
 )
 //
 // p_pat: pat_atom [ 'as' LIDENT ]. A trailing `:` is DELIBERATELY NOT consumed here
@@ -575,6 +577,14 @@ p_pat_atom(st: pstate): @(pypat, pstate) = let
   val nod = ps_peek(st)
 in
   case+ nod of
+  // BOOTSTRAP-PARITY: generated ATS view patterns mark carried fields as `!p`.
+  // Preserve the prefix so lowering can emit the existing ATS `D2Pbang` node.
+  | PT_BANG() =>
+    let
+      val @(p1, st1) = p_pat_atom(ps_advance(st))
+    in
+      @(PyPbang(loc_span(loc, pypat_loctn(p1)), p1), st1)
+    end
   // B-LINEAR: `~p` — the LINEAR-CONSUME prefix. Consume `~`, parse the inner pattern atom,
   // wrap in PyPfree. (Typically `~VCons(x, rest)` — the inner is a con pattern.)
   | PT_TILDE() =>
@@ -583,6 +593,9 @@ in
     in
       @(PyPfree(loc_span(loc, pypat_loctn(p1)), p1), st1)
     end
+  // BOOTSTRAP-PARITY: ATS viewboxed constructor patterns print as `@(C)(args)`.
+  // Preserve the wrapper so lowering can emit the existing ATS `D2Pflat` node.
+  | PT_AT() => p_pat_at(st)
   | PT_USCORE() => @(PyPwild(loc), ps_advance(st))
   | PT_LIDENT(s) =>
     let val st1 = ps_advance(st) in
@@ -603,19 +616,33 @@ in
               @(PyPcon(loc, s, sargs, list_nil()), st1b)
         end
       else
-        // GAP C (crash-safety): a lowercase identifier is usually a VARIABLE pattern and CANNOT
-        // take arguments. Unknown `lident(args)` still consumes the bogus arg list and reports a
-        // survivable diagnostic; known ATS/prelude lowercase constructors are handled above.
+        // BOOTSTRAP-PARITY: a bare lowercase identifier is still a fresh variable
+        // binder, but an APPLIED lowercase head is constructor-shaped in ATS output
+        // (`strxcon_vt_cons(...)`, source-defined lowercase datacons, ...). Let
+        // lowering resolve the constructor name instead of rejecting it syntactically.
         case+ ps_peek(st1) of
         | PT_LPAREN() =>
           let
-            val @(_args, st2) = p_pat_seq(ps_advance(st1))   // ADVANCE past the bogus (args)
+            val @(args, st2) = p_pat_seq(ps_advance(st1))
             val locR = ps_peek_loctn(st2)
             val st3 = expect_rparen(st2, locR)
-            val st4 = ps_diag(st3, loc_span(loc, locR),
-              "a constructor pattern needs an uppercase name (a lowercase variable pattern cannot be applied to arguments)")
           in
-            @(PyPerror(loc_span(loc, locR), "lowercase con-application pattern"), st4)
+            @(PyPcon(loc_span(loc, locR), s, list_nil(), args), st3)
+          end
+        | PT_LBRACE() =>
+          let
+            val @(sargs, st1b) = p_pat_sargs(st1)
+          in
+            case+ ps_peek(st1b) of
+            | PT_LPAREN() =>
+              let
+                val @(args, st2) = p_pat_seq(ps_advance(st1b))
+                val locR = ps_peek_loctn(st2)
+                val st3 = expect_rparen(st2, locR)
+              in
+                @(PyPcon(loc_span(loc, locR), s, sargs, args), st3)
+              end
+            | _ => @(PyPcon(loc_span(loc, ps_peek_loctn(st1b)), s, sargs, list_nil()), st1b)
           end
         | _ => @(PyPvar(loc, s), st1)
     end
@@ -664,6 +691,69 @@ in
           @(PyPerror(loc, "expected a pattern"), st1) end
     end
 end
+//
+and
+p_pat_at(st: pstate): @(pypat, pstate) = let
+  val locA = ps_peek_loctn(st)
+  val st1 = ps_advance(st)
+in
+  case+ ps_peek(st1) of
+  | PT_LPAREN() =>
+    let
+      val st2 = ps_advance(st1)
+    in
+      case+ ps_peek(st2) of
+      | PT_UIDENT(nm) =>
+        let
+          val st3 = ps_advance(st2)
+          val @(sargs, st3b) = p_pat_sargs(st3)
+          val locR0 = ps_peek_loctn(st3b)
+          val st4 = expect_rparen(st3b, locR0)
+        in
+          p_pat_at_finish(locA, locR0, nm, sargs, st4)
+        end
+      | PT_LIDENT(nm) =>
+        let
+          val st3 = ps_advance(st2)
+          val @(sargs, st3b) = p_pat_sargs(st3)
+          val locR0 = ps_peek_loctn(st3b)
+          val st4 = expect_rparen(st3b, locR0)
+        in
+          p_pat_at_finish(locA, locR0, nm, sargs, st4)
+        end
+      | _ =>
+        let
+          val loc = ps_peek_loctn(st2)
+          val st3 = ps_diag(st2, loc, "expected a constructor name inside '@(...)' pattern")
+        in
+          @(PyPerror(loc_span(locA, loc), "expected '@(Constructor)' pattern"), st3)
+        end
+    end
+  | _ =>
+    let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected '(' after '@' in pattern") in
+      @(PyPerror(locA, "expected '@(...)' pattern"), st2) end
+end
+//
+and
+p_pat_at_finish
+(locA: loctn, locH: loctn, nm: strn, sargs: list(strn), st: pstate): @(pypat, pstate) =
+(
+case+ ps_peek(st) of
+| PT_LPAREN() =>
+  let
+    val @(args, st1) = p_pat_seq(ps_advance(st))
+    val locR = ps_peek_loctn(st1)
+    val st2 = expect_rparen(st1, locR)
+  in
+    let val p1 = PyPcon(loc_span(locA, locR), nm, sargs, args) in
+      @(PyPflat(loc_span(locA, locR), p1), st2)
+    end
+  end
+| _ =>
+  let val p1 = PyPcon(loc_span(locA, locH), nm, sargs, list_nil()) in
+    @(PyPflat(loc_span(locA, locH), p1), st)
+  end
+)
 //
 and
 p_pat_seq(st: pstate): @(pypatlst, pstate) =

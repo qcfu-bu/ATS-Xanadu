@@ -225,6 +225,10 @@ case+ p of
 | PyPann(loc, p1, t) =>
   ( ps(out, "(Pann"); print_span(out, loc); ps(out, " ");
     pp_pat(out, p1); ps(out, " : "); pp_typ(out, t); ps(out, ")") )
+| PyPbang(loc, p1) =>
+  ( ps(out, "(Pbang"); print_span(out, loc); ps(out, " !"); pp_pat(out, p1); ps(out, ")") )
+| PyPflat(loc, p1) =>
+  ( ps(out, "(Pflat"); print_span(out, loc); ps(out, " @"); pp_pat(out, p1); ps(out, ")") )
 // B-LINEAR: the LINEAR-CONSUME pattern `~p`.
 | PyPfree(loc, p1) =>
   ( ps(out, "(Pfree"); print_span(out, loc); ps(out, " ~"); pp_pat(out, p1); ps(out, ")") )

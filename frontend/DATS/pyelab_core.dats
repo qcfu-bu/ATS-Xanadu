@@ -173,6 +173,8 @@ case+ p of
 // D2Prfpt so `x` is usable in the arm body.
 | PyPas(loc, p1, nm) => PCPas(loc, nm, el_pat(p1))
 | PyPann(_, p1, _) => el_pat(p1)
+| PyPbang(loc, p1) => PCPbang(loc, el_pat(p1))
+| PyPflat(loc, p1) => PCPflat(loc, el_pat(p1))
 // B-LINEAR: `~p` -> PCPfree(loc, <elaborated p>). M3 lowers it to D2Pfree wrapping the inner.
 | PyPfree(loc, p1) => PCPfree(loc, el_pat(p1))
 // GAP C (crash-safety): a malformed pattern (e.g. `case list_cons(a,b):` — a lowercase
@@ -305,6 +307,8 @@ case+ p of
 | PyPlit(_, _)      => s
 | PyPas(_, p1, nm)  => nameset_add(fc_pat_names(s, p1), nm)
 | PyPann(_, p1, _)  => fc_pat_names(s, p1)
+| PyPbang(_, p1)    => fc_pat_names(s, p1)
+| PyPflat(_, p1)    => fc_pat_names(s, p1)
 // B-LINEAR: `~p` binds the names of its inner consumed pattern (x, rest in `~VCons(x, rest)`).
 | PyPfree(_, p1)    => fc_pat_names(s, p1)
 | PyPerror(_, _)    => s

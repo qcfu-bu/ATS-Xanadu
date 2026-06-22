@@ -117,6 +117,8 @@ case+ p of
 | PCPtup(_, ps) => pcpatlst_has_con(ps)
 | PCPrec(_, fs) => pcpfieldlst_has_con(fs)
 | PCPas(_, _, p1) => pcpat_has_con(p1)
+| PCPbang(_, p1) => pcpat_has_con(p1)
+| PCPflat(_, p1) => pcpat_has_con(p1)
 | PCPfree(_, p1) => pcpat_has_con(p1)
 | _ => false
 )
@@ -658,6 +660,16 @@ case+ p of
       val d2pbind = d2pat_var(loc, d2v)
     in
       d2pat_make_node(loc, D2Prfpt(d2pinner, tok_val(loc), d2pbind))
+    end
+// BOOTSTRAP-PARITY: generated ATS pattern prefixes `!p` and `@p` map directly
+// onto the stock L2 pattern nodes used by trans2a/trans23.
+| PCPbang(loc, inner) =>
+    let val d2pinner = pl_pat(env, inner) in
+      d2pat_make_node(loc, D2Pbang(d2pinner))
+    end
+| PCPflat(loc, inner) =>
+    let val d2pinner = pl_pat(env, inner) in
+      d2pat_make_node(loc, D2Pflat(d2pinner))
     end
 // B-LINEAR: the LINEAR-CONSUME pattern `~p` -> D2Pfree wrapping the inner pattern. f0_free
 // (trans2a_dynexp.dats:700) is a structural pass-through — it re-typechecks the inner pattern

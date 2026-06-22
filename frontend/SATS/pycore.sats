@@ -110,6 +110,9 @@ pclit =
 //             it to L2 `D2Prfpt(<inner>, AS-tok, D2Pvar x)` (dynexp2.sats:757), so `x` is a
 //             fresh, registered binder usable in the arm body (the dropped-binding bug fix).
 //
+//   PCPbang : `!p` — generated view/read pattern prefix. Lowers to `D2Pbang`.
+//   PCPflat : `@p` — generated flat/viewbox pattern prefix. Lowers to `D2Pflat`.
+//
 //  (No annotated-pattern node in v1: the elaborator drops a surface `p:T` to its head pattern
 //   `p`; additive to add later if a surface feature needs the annotation.)
 // ==================================================================
@@ -123,6 +126,8 @@ pcpat =
 | PCPrec  of (loctn, list(pcpfield))
 | PCPlit  of (loctn, pclit)
 | PCPas   of (loctn, strn(*name*), pcpat(*inner*))
+| PCPbang of (loctn, pcpat(*inner*))
+| PCPflat of (loctn, pcpat(*inner*))
 // B-LINEAR: the LINEAR-CONSUME pattern `~p` — wraps the inner consumed pattern. Lowers to the
 // D2Pfree node (f0_free is a structural pass-through; SPIKE BL-LIN nerror=0).
 | PCPfree of (loctn, pcpat(*inner*))

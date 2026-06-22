@@ -207,6 +207,8 @@ pytfield =
 //   PyPlit   : a literal pattern (incl. true/false). Carries the literal node.
 //   PyPas    : `p as x` — an as-pattern binding the whole match to LIDENT.
 //   PyPann   : `p : T` — an annotated pattern (kept for completeness; param sites).
+//   PyPbang  : `!p` — ATS generated view/read pattern prefix.
+//   PyPflat  : `@p` — ATS generated flat/viewbox pattern prefix.
 //   PyPerror : a pattern we could not parse (recovery).
 //
 and
@@ -219,6 +221,8 @@ pypat =
 | PyPlit   of (loctn, pylit)
 | PyPas    of (loctn, pypat, strn)
 | PyPann   of (loctn, pypat, pytyp)
+| PyPbang  of (loctn, pypat)
+| PyPflat  of (loctn, pypat)
 // B-LINEAR: the LINEAR-CONSUME pattern `~p` — frees/consumes the matched linear value.
 // The inner `pypat` is the con-pattern being consumed (`~VCons(x, rest)`). Lowers to the
 // D2Pfree node wrapping the inner pattern (SPIKE BL-LIN proved f0_free is a pass-through).

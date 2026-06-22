@@ -54,7 +54,8 @@ case+ p of
 | PCPvar(loc, _) => loc   | PCPwild(loc) => loc
 | PCPcon(loc, _, _, _) => loc | PCPtup(loc, _) => loc
 | PCPrec(loc, _) => loc   | PCPlit(loc, _) => loc
-| PCPas(loc, _, _) => loc | PCPfree(loc, _) => loc
+| PCPas(loc, _, _) => loc | PCPbang(loc, _) => loc
+| PCPflat(loc, _) => loc  | PCPfree(loc, _) => loc
 )
 //
 #implfun

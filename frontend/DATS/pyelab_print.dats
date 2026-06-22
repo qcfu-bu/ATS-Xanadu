@@ -182,6 +182,10 @@ case+ p of
 | PCPas(loc, nm, inner) =>
   ( ps(out, "(Pas "); ps(out, nm); print_span(out, loc);
     ps(out, " "); pp_pat(out, inner); ps(out, ")") )
+| PCPbang(loc, inner) =>
+  ( ps(out, "(Pbang"); print_span(out, loc); ps(out, " !"); pp_pat(out, inner); ps(out, ")") )
+| PCPflat(loc, inner) =>
+  ( ps(out, "(Pflat"); print_span(out, loc); ps(out, " @"); pp_pat(out, inner); ps(out, ")") )
 // B-LINEAR: the linear-consume pattern `~p`.
 | PCPfree(loc, inner) =>
   ( ps(out, "(Pfree"); print_span(out, loc); ps(out, " ~"); pp_pat(out, inner); ps(out, ")") )
