@@ -9,13 +9,20 @@
 # staloads xsymbol.sats, so `import_identity_bridge` catches duplicate L2 identity bugs where the
 # importer reparses the same `.sats` instead of reusing the stock parsed-file cache.
 #
+# `selector_call_bridge` catches ATS-style dot selectors such as `pos.ntot()`: these must lower as
+# `D2Edtsel` selector applications, not as record projection followed by a zero-arg call.
+#
 # EXPECT: nerror (after tread3a) = 0 — the exports resolve via the SCOPED merge and shared cache.
 from frontend.TEST.m7imp.lib import lib_double
 from srcgen2.SATS.xsymbol import symbl_get_name
 from srcgen2.SATS.filpath import fpath_make_absolute, fpath_get_fnm2
+from srcgen2.SATS.locinfo import postn_get_ntot
 
 def f(x: Int) -> Int:
     lib_double(x)
 
 def import_identity_bridge() -> String:
     symbl_get_name(fpath_get_fnm2(fpath_make_absolute("m7imp-id")))
+
+def selector_call_bridge(pos) -> Int:
+    pos.ntot()

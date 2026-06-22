@@ -76,6 +76,9 @@ fun tok_case(loc: loctn): token = token_make_node(loc, T_CASE(CSKcas0))
 // (inexhaustive match). T_TRCD20(0) selects TRCDflt0, the FLAT (unboxed) record `@{...}` the
 // Pythonic `{l=e,...}` lowers to. (Verified: T_LBRACE -> hard crash in trans23_d2valdcl.)
 fun tok_rec(loc: loctn): token = token_make_node(loc, T_TRCD20(0))
+// the dot-selector kind-token for D2Edtsel (`x.sel(args)`). Stock trans12 preserves the dot
+// token here; trans2a then rewrites the selector app to the #symload bucket for `sel`.
+fun tok_dot(loc: loctn): token = token_make_node(loc, T_DOT())
 // EXN: the `$raise`/`try` kind-tokens for D2Eraise/D2Etry0 (the tknd is only destructured by
 // trans23 — its presence/kind is what matters, not the lexeme). The stock parser builds
 // D2Eraise with a T_DLR_RAISE token and D2Etry0 with a T_TRY token (SPIKE-PROVEN).
@@ -582,6 +585,18 @@ case+ fs of
 )
 //
 and
+selector_dpis(env: !tr12env, name: strn): d2ptmlst = let
+  val dopt = tr12env_find_d2itm(env, ats_sym(name))
+in
+  case+ dopt of
+  | ~optn_vt_cons(d2i) =>
+      (case+ d2i of
+       | D2ITMsym(_, dpis) => dpis
+       | _ => list_nil())
+  | ~optn_vt_nil() => list_nil()
+end
+//
+and
 pl_exp(env: !tr12env, e: pcexp): d2exp =
 (
 case+ e of
@@ -982,6 +997,7 @@ pl_app
 (env: !tr12env, loc: loctn, hd: pcexp, args: list(pcexp)): d2exp =
 (
 case+ hd of
+| PCEfield(hloc, obj, name) => pl_selector_app(env, loc, hloc, obj, name, args)
 | PCEvar(hloc, name) => let
     val nargs = list_length(args)
     // a 1-arg `-`/`+` is UNARY (op_remap_unary); everything else (incl. 1-arg `print` and all
@@ -1015,6 +1031,18 @@ case+ hd of
         let val d2es = pl_explst(env, args) in d2exp_dapp(loc, d2f, (-1), d2es) end
   end
 )
+and
+pl_selector_app
+(env: !tr12env, loc: loctn, hloc: loctn, obj: pcexp, name: strn, args: list(pcexp)): d2exp =
+let
+  val lab = LABsym(ats_sym(name))
+  val dpis = selector_dpis(env, name)
+  val darg = optn_cons(pl_explst(env, args)) : d2explstopt
+  val dsel = d2exp_make_node(hloc, D2Edtsel(tok_dot(hloc), lab, dpis, (-1), darg))
+  val dobj = pl_exp(env, obj)
+in
+  d2exp_dapp(loc, dsel, (-1), list_sing(dobj))
+end
 //
 // template F : lower one (recursive/mutual) fun group to a D2Cfundclst d2ecl. Mirrors
 // trans12_decl00.dats f0_fundclst: bind the group's NAMES first (a Python def group is
