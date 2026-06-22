@@ -675,14 +675,14 @@ fun
 i1val_p1cn
 ( env0:
 ! envi0i1
-, i0f0: i0pat
+, ipat: i0pat
 , ival: i1val
 , ipcn: (sint)): i1val =
 let
 val loc0 = ival.lctn()
 in//let
 i1val_make_node
-(loc0, I1Vp1cn(i0f0, ival, ipcn))
+(loc0, I1Vp1cn(ipat, ival, ipcn))
 end(*let*)//end-of-[i1val_p1cn(env0,...)]
 //
 fun
@@ -1283,6 +1283,8 @@ ival: i1val,
 env0: !envi0i1): d2sublst =
 let
 //
+val ipat0 = ipat
+//
 val-
 I0Pdapp
 (i0f0
@@ -1304,7 +1306,7 @@ list_cons(i0p1, i0ps) =>
 let
 val i1v1 =
 i1val_p1cn
-(env0, i0f0, ival, ipcn)
+(env0, ipat0, ival, ipcn)
 val dvvs =
 i0bnd_trxi0i1(i0p1,i1v1,env0)
 in//let
@@ -1663,6 +1665,8 @@ iexp.node() of
 |I0Eraise _ => f0_raise(iexp, env0)
 |I0Edl0az _ => f0_dl0az(env0, iexp)
 |I0Edl1az _ => f0_dl1az(env0, iexp)
+|I0Efold _ => f0_fold(env0, iexp)
+|I0Efree _ => f0_free(env0, iexp)
 |I0El0azy _ => f0_l0azy(env0, iexp)
 |I0El1azy _ => f0_l1azy(env0, iexp)
 //
@@ -2840,6 +2844,52 @@ in//let
 (
 i1val_dl1az(env0, loc0, i1f0))
 end(*let*)//end-of-[f0_dl1az(env0,iexp)]
+//
+(* ****** ****** *)
+
+fun
+f0_fold
+(
+env0: !envi0i1,
+iexp: i0exp): i1val =
+let
+//
+val loc0 = iexp.lctn()
+//
+val-
+I0Efold
+(   i0v0   ) = iexp.node()
+//
+val i1v0 =
+(
+  i0exp_trxi0i1(i0v0, env0))
+//
+in//let
+(
+i1val_fold(env0, loc0, i1v0))
+end(*let*)//end-of-[f0_fold(env0,iexp)]
+//
+fun
+f0_free
+(
+env0: !envi0i1,
+iexp: i0exp): i1val =
+let
+//
+val loc0 = iexp.lctn()
+//
+val-
+I0Efree
+(   i0v0   ) = iexp.node()
+//
+val i1v0 =
+(
+  i0exp_trxi0i1(i0v0, env0))
+//
+in//let
+(
+i1val_free(env0, loc0, i1v0))
+end(*let*)//end-of-[f0_free(env0,iexp)]
 //
 (* ****** ****** *)
 

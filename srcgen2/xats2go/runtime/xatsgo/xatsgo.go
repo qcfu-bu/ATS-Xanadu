@@ -24,6 +24,7 @@ package xatsgo
 import (
 	"fmt"
 	"math"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -114,6 +115,26 @@ func XATSNIL() any { return nil }
 // where ATS proved the value is never demanded, so nil is the faithful image.
 func XATSTOP0() any { return nil }
 
+// XatsA0Ref is the boxed cell for ATS a0ref. These are real prelude
+// primitives, not generated-local placeholders: if emitted code references a
+// missing ref variable, Go compilation should still fail at that variable.
+type XatsA0Ref struct {
+	val any
+}
+
+var Xats_a0ref_make_1val = func(x any) any {
+	return &XatsA0Ref{val: x}
+}
+
+var Xats_a0ref_get = func(r any) any {
+	return r.(*XatsA0Ref).val
+}
+
+var Xats_a0ref_set = func(r any, x any) any {
+	r.(*XatsA0Ref).val = x
+	return XATSNIL()
+}
+
 // ===========================================================================
 // LAZY — call-by-need (memoized) and call-by-name thunks
 // ===========================================================================
@@ -200,6 +221,10 @@ type XatsCon struct {
 	// types by Name (mirrors the JS backend's XATSCTAG(name, ctag) which compares
 	// BOTH name and ctag). For ordinary datatype values Name is the zero "".
 	Name string
+}
+
+func Xats_as_con(x any) *XatsCon {
+	return x.(*XatsCon)
 }
 
 // Xats_list_length: a prelude `list` is a *XatsCon — list_nil = Tag 0 (no
@@ -417,6 +442,11 @@ var Xats_sint_gte_sint = func(i1 any, i2 any) any { return i1.(int) >= i2.(int) 
 var Xats_sint_eq_sint = func(i1 any, i2 any) any { return i1.(int) == i2.(int) }
 var Xats_sint_neq_sint = func(i1 any, i2 any) any { return i1.(int) != i2.(int) }
 
+// Generic-integer equality specialized to sint/sint. The emitted fallback can
+// name this prelude primitive directly when equality flows through a generic
+// gint surface instead of the concrete sint operator.
+var Xats_gint_eq_sint_sint = func(i1 any, i2 any) bool { return i1.(int) == i2.(int) }
+
 // -- float (dflt) arithmetic / compare (any-typed fallback) ------------------
 
 var Xats_dflt_add_dflt = func(f1 any, f2 any) any { return f1.(float64) + f2.(float64) }
@@ -515,6 +545,10 @@ func gsPrintOne(x any) {
 	thePrintStore = append(thePrintStore, xatsValueString(x))
 }
 
+func gsPrerrOne(x any) {
+	fmt.Fprint(os.Stderr, xatsValueString(x))
+}
+
 var Xats_gs_print_a0 = func() any { return XATSNIL() }
 var Xats_gs_print_a1 = func(x0 any) any { gsPrintOne(x0); return XATSNIL() }
 var Xats_gs_print_a2 = func(x0 any, x1 any) any {
@@ -564,5 +598,21 @@ var Xats_gs_println_a4 = func(x0 any, x1 any, x2 any, x3 any) any {
 	gsPrintOne(x2)
 	gsPrintOne(x3)
 	XATS2JS_strn_print("\n")
+	return XATSNIL()
+}
+
+var Xats_gs_prerrln_n0 = func() any {
+	fmt.Fprint(os.Stderr, "\n")
+	return XATSNIL()
+}
+var Xats_gs_prerrln_n1 = func(x0 any) any {
+	gsPrerrOne(x0)
+	fmt.Fprint(os.Stderr, "\n")
+	return XATSNIL()
+}
+var Xats_gs_prerrln_n2 = func(x0 any, x1 any) any {
+	gsPrerrOne(x0)
+	gsPrerrOne(x1)
+	fmt.Fprint(os.Stderr, "\n")
 	return XATSNIL()
 }

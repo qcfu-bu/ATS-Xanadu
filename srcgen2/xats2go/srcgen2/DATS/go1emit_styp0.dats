@@ -778,7 +778,7 @@ end//endof[gorender_trcd(knd,npf,ltps)]
 [go_s2cst_is_datatype]: does this [s2cst] name a DATATYPE (have an associated
 constructor list)?  [s2cst_get_d2cs] returns optn_vt_cons(_) for a datatype; the
 result is a LINEAR optn_vt, freed after the boolean test.  Defined BEFORE
-[gotype_of_styp] (an [#implfun]) so the datatype arms there can call it.
+[gotype_of_styp] (an [#implfun]) so the canonical head mapper can call it.
 *)
 fun
 go_s2cst_is_datatype
@@ -791,22 +791,75 @@ in//let
   | ~optn_vt_cons(_) => true
 end//let//endof[go_s2cst_is_datatype(s2c0)]
 //
+(*
+[go_prelude_boxed_datatype_headq]: prelude datatype heads that may surface
+without an attached constructor list in the statyp/i0typ value we receive.
+They still have the uniform boxed datatype runtime shape.
+*)
+fun
+go_prelude_boxed_datatype_headq
+(nm: strn): bool =
+(
+case+ nm of
+| "optn" => true
+| "optn_t0_i0_tx" => true
+| "list" => true
+| "list_t0_i0_tx" => true
+| "optn_vt" => true
+| "optn_vt_i0_vx" => true
+| "list_vt" => true
+| "list_vt_i0_vx" => true
+| _(*else*) => false
+)
+//
+fun
+go_s2cst_is_boxed_datatype
+(s2c0: s2cst): bool =
+let
+  val nm = symbl_get_name(s2c0.name())
+in
+  if go_prelude_boxed_datatype_headq(nm)
+  then true else go_s2cst_is_datatype(s2c0)
+end//endof[go_s2cst_is_boxed_datatype(s2c0)]
+//
+fun
+goty_of_s2cst_head
+(s2c0: s2cst): strn =
+let
+  val nm0 = symbl_get_name(s2c0.name())
+  val gt = gotype_of_symname(nm0)
+in
+  if (gt = "any")
+  then
+    (
+    if go_s2cst_is_boxed_datatype(s2c0)
+    then "*xatsgo.XatsCon"
+    else
+      let
+        val opt0 = s2cst_get_styp(s2c0)
+      in
+        case+ opt0 of
+        | ~optn_vt_nil() => "any"
+        | ~optn_vt_cons(t2p1) =>
+          (
+          case+ t2p1.node() of
+          |T2Pcst(s2c1) =>
+            let
+              val nm1 = symbl_get_name(s2c1.name())
+            in
+              if (nm0 = nm1) then "any" else gotype_of_styp(t2p1)
+            end
+          | _(*expanded typedef*) => gotype_of_styp(t2p1))
+      end)
+  else gt
+end//endof[goty_of_s2cst_head(s2c0)]
+//
 #implfun
 gotype_of_styp
 (t2p0) =
 (
 case+ t2p0.node() of
-|T2Pcst(s2c0) =>
-  let
-    val gt = gotype_of_symname(symbl_get_name(s2c0.name()))
-  in
-    // M2.7: a bare DATATYPE cst (no scalar mapping) -> the uniform boxed
-    // datatype type "*xatsgo.XatsCon" (so a datatype-typed param/result/field
-    // is a concrete *XatsCon, projectable + recursively matchable, not `any`).
-    if (gt = "any")
-    then (if go_s2cst_is_datatype(s2c0) then "*xatsgo.XatsCon" else "any")
-    else gt
-  end
+|T2Pcst(s2c0) => goty_of_s2cst_head(s2c0)
 //
 // a FUNCTION type -> a Go `func(...)...` type, so a higher-order parameter
 // or a closure-returning result is callable/assignable (not opaque `any`).
@@ -842,21 +895,21 @@ case+ t2p0.node() of
       else
         // M2.7: a PARAMETERIZED datatype application (e.g. `mylist(sint)`) ->
         // the uniform boxed datatype "*xatsgo.XatsCon"; else by head name.
-        let val gt = gotype_of_symname(hdnm) in
-          if (gt = "any")
-          then (if go_s2cst_is_datatype(s2c0) then "*xatsgo.XatsCon" else "any")
-          else gt
-        end))
+        goty_of_s2cst_head(s2c0)))
     end
   | _(*else*) => "any")
 //
 // chase through the trivial type wrappers that the front-end leaves on
-// scalars (top0/top1 = un/de-initialized; none1 = optional witness).
+// scalars and prelude aliases (top0/top1 = un/de-initialized; none1 =
+// optional witness; exi0/uni0/lam1 = typedef/static abstraction wrappers).
 |T2Ptop0(t2p1) => gotype_of_styp(t2p1)
 |T2Ptop1(t2p1) => gotype_of_styp(t2p1)
 |T2Plft (t2p1) => gotype_of_styp(t2p1)
 |T2Pnone1(t2p1) => gotype_of_styp(t2p1)
 |T2Parg1(_, t2p1) => gotype_of_styp(t2p1)
+|T2Pexi0(_, t2p1) => gotype_of_styp(t2p1)
+|T2Puni0(_, t2p1) => gotype_of_styp(t2p1)
+|T2Plam1(_, t2p1) => gotype_of_styp(t2p1)
 //
 // an EXISTENTIAL type variable (T2Pxtv) carries its SOLVED static type once
 // the front-end has resolved it (x2t2p_get_styp).  An unannotated local
@@ -924,23 +977,25 @@ it -- lazily, only for the temps the emitter queries.
 //
 [i0typ] (intrep0.sats) is a near-mirror of [s2typ], so the SCALAR cases map
 the same way [gotype_of_styp] maps [s2typ]:
-  - I0Tcst(s2cst)            : a bare scalar type constant  -> by its name
+  - I0Tcst(s2cst)            : bare scalar/datatype head -> by the canonical
+                               s2cst-head mapper
   - I0Tapps(I0Tcst(nm), as)  : an APPLIED abstract type-ctor; the prelude
                                scalars are gint_type(KIND,i)/gflt_type(KIND)/
                                bool_type(b)/char_type(c) -> width from the
                                KIND [I0Ttext] for the gint/gflt family, else
-                               by the head name.  (Same shape gotype_of_styp
-                               handles for T2Papps.)
+                               by the canonical s2cst-head mapper.  (Same
+                               shape gotype_of_styp handles for T2Papps.)
   - I0Ttext(nm, _)           : an external $extype name directly -> by name
   - I0Tlft/top0/top1/none1/  : trivial wrappers the front-end leaves on a
     exi0/uni0/apps-of-quant.   scalar -> chase through to the carried type
   - I0Tnone1(s2typ)          : carries an [s2typ] verbatim -> delegate to the
                                proven [gotype_of_styp]
 //
-DEFERRED to "any" (M2.6b/M2.7 make these value-typed -- recording a wrong
-concrete type here would break [go build], so we are deliberately conservative):
+Also concretely recovered here:
   - I0Ttrcd(trcdknd, npf, _) : flat/boxed tuples + records (M2.6b)
-  - I0Ttcon(d2con, _)        : datatype-constructor applications (M2.7)
+
+DEFERRED to "any" (recording a wrong concrete type here would break [go build],
+so we are deliberately conservative):
   - I0Tvar(s2var)            : a polymorphic type variable (pre-monomorphization)
   - I0Tnone0 / anything else : unknown
 //
@@ -1038,7 +1093,7 @@ case+ hd.node() of
       // gflt KIND distinguishes float/double, but both -> float64.
       let val gt = goty_of_i0text_in_args(args)
       in if (gt = "any") then "float64" else gt end)
-    else gotype_of_symname(hdnm)))
+    else goty_of_s2cst_head(s2c0)))
   end
 | _(*non-cst head*) => "any"
 )//endof[goty_of_i0t_apps(hd,args)]
@@ -1069,7 +1124,7 @@ case+ ityp.node() of
 //
 // a bare scalar type constant (the s2cst NAME is the ATS type symbol).
 |I0Tcst(s2c0) =>
-  gotype_of_symname(symbl_get_name(s2c0.name()))
+  goty_of_s2cst_head(s2c0)
 //
 // an applied abstract type-ctor: the prelude scalars (gint_type/gflt_type/
 // bool_type/char_type/...) -- map by head + KIND-arg (see goty_of_i0t_apps).
@@ -1245,6 +1300,9 @@ case+ t2p0.node() of
 |T2Plft (t1) => gotrcd_struct_body_styp(t1)
 |T2Pnone1(t1) => gotrcd_struct_body_styp(t1)
 |T2Parg1(_, t1) => gotrcd_struct_body_styp(t1)
+|T2Pexi0(_, t1) => gotrcd_struct_body_styp(t1)
+|T2Puni0(_, t1) => gotrcd_struct_body_styp(t1)
+|T2Plam1(_, t1) => gotrcd_struct_body_styp(t1)
 |T2Pxtv(xt2p) =>
   let
     val sln = x2t2p_get_styp(xt2p)
@@ -2417,22 +2475,24 @@ case+ xs of
 (*
 [styp_is_datatype]: is this field [s2typ] a DATATYPE application?  Its head is a
 [T2Pcst] (bare datatype like `intlist`) or [T2Papps(T2Pcst, _)] (parameterized,
-like `mylist(sint)`) whose [s2cst] has constructors.  Chases the trivial wrappers
-the front-end leaves on a field type.  ([go_s2cst_is_datatype] is defined before
-[gotype_of_styp] so the styp arm can call it too.)
+like `mylist(sint)`) whose [s2cst] has constructors or is a known prelude boxed
+datatype head.  Chases the trivial wrappers the front-end leaves on a field type.
 *)
 fun
 styp_is_datatype
 (t2p0: s2typ): bool =
 (
 case+ t2p0.node() of
-|T2Pcst(s2c0) => go_s2cst_is_datatype(s2c0)
+|T2Pcst(s2c0) => go_s2cst_is_boxed_datatype(s2c0)
 |T2Papps(t2hd, _) => styp_is_datatype(t2hd)
 |T2Ptop0(t1) => styp_is_datatype(t1)
 |T2Ptop1(t1) => styp_is_datatype(t1)
 |T2Plft (t1) => styp_is_datatype(t1)
 |T2Pnone1(t1) => styp_is_datatype(t1)
 |T2Parg1(_, t1) => styp_is_datatype(t1)
+|T2Pexi0(_, t1) => styp_is_datatype(t1)
+|T2Puni0(_, t1) => styp_is_datatype(t1)
+|T2Plam1(_, t1) => styp_is_datatype(t1)
 | _(*else*) => false
 )
 //

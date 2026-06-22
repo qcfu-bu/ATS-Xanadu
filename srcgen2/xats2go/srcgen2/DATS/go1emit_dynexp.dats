@@ -137,19 +137,24 @@ fun
 i1valgo1_list
 ( filr: FILR
 , i1vs: i1valist): void =
+let
+fun
+loop
+( i1vs: i1valist
+, i0: sint): void =
 (
-list_iforitm(i1vs)) where
-{
-#typedef x0 = i1val
-#typedef xs = i1valist
-#impltmp
-iforitm$work<x0>(i0, x0) =
-(
-if
-(i0 >= 1)
-then strnfpr(filr, ", ");
-i1valgo1(filr, x0))
-}(*where*)//endof[i1valgo1_list(...)]
+case+ i1vs of
+|list_nil() => ()
+|list_cons(i1v, i1vs) =>
+ (
+ if
+ (i0 >= 1)
+ then strnfpr(filr, ", ");
+ i1valgo1(filr, i1v);
+ loop(i1vs, i0+1)))
+in
+loop(i1vs, 0)
+end//endof[i1valgo1_list(...)]
 //
 (* ****** ****** *)
 //
@@ -194,35 +199,44 @@ fun
 i1trcd_emit_litvals
 ( filr: FILR
 , i1vs: i1valist): void =
+let
+fun
+loop
+( i1vs: i1valist
+, i0: sint): void =
 (
-list_iforitm(i1vs)) where
-{
-#typedef x0 = i1val
-#typedef xs = i1valist
-#impltmp
-iforitm$work<x0>(i0, x0) =
-(
-if (i0 >= 1) then strnfpr(filr, ", ");
-i1valgo1(filr, x0))
-}(*where*)//endof[i1trcd_emit_litvals(filr,i1vs)]
+case+ i1vs of
+|list_nil() => ()
+|list_cons(i1v, i1vs) =>
+ (
+ if (i0 >= 1) then strnfpr(filr, ", ");
+ i1valgo1(filr, i1v);
+ loop(i1vs, i0+1)))
+in
+loop(i1vs, 0)
+end//endof[i1trcd_emit_litvals(filr,i1vs)]
 //
 fun
 i1trcd_emit_rcdvals
 ( filr: FILR
 , livs: l1i1vlst): void =
+let
+fun
+loop
+( livs: l1i1vlst
+, i0: sint): void =
 (
-list_iforitm(livs)) where
-{
-#typedef x0 = l1i1v
-#typedef xs = l1i1vlst
-#impltmp
-iforitm$work<x0>(i0, lv0) =
+case+ livs of
+|list_nil() => ()
+|list_cons(lv0, livs) =>
 let
   val-I1LAB(_, iv1) = lv0
 in
-  (if (i0 >= 1) then strnfpr(filr, ", "); i1valgo1(filr, iv1))
-end
-}(*where*)//endof[i1trcd_emit_rcdvals(filr,livs)]
+  (if (i0 >= 1) then strnfpr(filr, ", "); i1valgo1(filr, iv1); loop(livs, i0+1))
+end)
+in
+loop(livs, 0)
+end//endof[i1trcd_emit_rcdvals(filr,livs)]
 //
 (*
 =======================================================================
@@ -352,8 +366,9 @@ i1con_proj_go1emit
 , idx: sint
 , gty: strn): void =
 (
+strnfpr(filr, "xatsgo.Xats_as_con(");
 i1valgo1(filr, iroot);
-strnfpr(filr, ".Args["); i0i00go1(filr, idx); strnfpr(filr, "]");
+strnfpr(filr, ").Args["); i0i00go1(filr, idx); strnfpr(filr, "]");
 (
 if (gty = "any") then ()
 else (strnfpr(filr, ".("); strnfpr(filr, gty); strnfpr(filr, ")"))))
@@ -382,27 +397,89 @@ case+ ipat.node() of
 | _(*else*) => optn_nil()
 )//endof[dcon_of_i0pat(ipat)]
 //
+fun
+drop_pf_i0ps_for_proj
+(npf: sint, i0ps: i0patlst): i0patlst =
+(
+if (npf <= 0) then i0ps else
+(
+case+ i0ps of
+|list_nil() => i0ps
+|list_cons(_, i0ps1) => drop_pf_i0ps_for_proj(npf-1, i0ps1))
+)
+//
+fun
+list_nth_i0pat
+(i0ps: i0patlst, n: sint): optn(i0pat) =
+(
+case+ i0ps of
+|list_nil() => optn_nil()
+|list_cons(i0p1, i0ps1) =>
+  (if (n <= 0) then optn_cons(i0p1) else list_nth_i0pat(i0ps1, n-1))
+)
+//
+fun
+goty_of_ipat_value
+(ipat: i0pat): strn =
+(
+case+ ipat.node() of
+|I0Pvar(d2v) => gotype_of_styp(d2var_get_styp(d2v))
+|I0Pint _ => "int"
+|I0Pbtf _ => "bool"
+|I0Pchr _ => "rune"
+|I0Pflt _ => "float64"
+|I0Pstr _ => "string"
+|I0Pbang(ip1) => goty_of_ipat_value(ip1)
+|I0Pflat(ip1) => goty_of_ipat_value(ip1)
+|I0Pfree(ip1) => goty_of_ipat_value(ip1)
+|I0Ptapq(ip1, _) => goty_of_ipat_value(ip1)
+|I0Pcon _ => "*xatsgo.XatsCon"
+|I0Pdap1 _ => "*xatsgo.XatsCon"
+|I0Pdapp _ => "*xatsgo.XatsCon"
+| _(*else*) => "any"
+)
+//
+fun
+goty_of_p1cn_subpat
+(ipat: i0pat, pind: sint): strn =
+(
+case+ ipat.node() of
+|I0Pdapp(_, npf1, i0ps) =>
+  (
+  case+ list_nth_i0pat(drop_pf_i0ps_for_proj(npf1, i0ps), pind) of
+  |optn_nil() => "any"
+  |optn_cons(ip1) => goty_of_ipat_value(ip1))
+|I0Pbang(ip1) => goty_of_p1cn_subpat(ip1, pind)
+|I0Pflat(ip1) => goty_of_p1cn_subpat(ip1, pind)
+|I0Pfree(ip1) => goty_of_p1cn_subpat(ip1, pind)
+|I0Ptapq(ip1, _) => goty_of_p1cn_subpat(ip1, pind)
+| _(*else*) => "any"
+)
+//
 (*
-[goty_of_p1cn]: the Go field type for an [I1Vp1cn(i0pat, _, pind)] -- the [pind]-th
-value field of the constructor [i0pat] names.  Returns the scalar Go type when
-recoverable; for a DATATYPE-typed field (the recursive case, e.g. a list's
-cons-tail), [gotype_of_dcon_field] yields "any" (datatypes are not scalars), so a
-caller wanting `*xatsgo.XatsCon` recursion must assert at the use site -- BUT the
-IR projection is consumed positionally and we cannot prove the datatype identity
-here, so we conservatively keep "any" and let the value flow as `any`.  (A
-recursive list-sum still works: the cons-tail flows as `any` into the recursive
-call, whose datatype PARAMETER is typed `*xatsgo.XatsCon`, and Go's assignment
-from `any` to `*xatsgo.XatsCon` is... NOT implicit.  So we DO need the assertion.
-See [goty_of_dcon_field_rec].)
+[goty_of_p1cn]: the Go field type for an [I1Vp1cn(i0pat, _, pind)].
+When lowering can preserve the full applied parent pattern, recover the field
+type from its [pind]-th value subpattern first (for example, the payload in
+`optn_cons(dcls)` is typed from [dcls]'s [d2var] static type).  This is the
+critical polymorphic-constructor case: the bare constructor type only says the
+field has type `a`, but the subpattern still knows the instantiated type.  If
+the carried pattern is only the constructor head, fall back to the constructor
+static type.
 *)
 fun
 goty_of_p1cn
 (ipat: i0pat, pind: sint): strn =
+let
+  val gt0 = goty_of_p1cn_subpat(ipat, pind)
+in
+if (gt0 = "any") then
 (
 case+ dcon_of_i0pat(ipat) of
 |optn_nil() => "any"
 |optn_cons(dcon) => gotype_of_dcon_field(dcon, pind)
-)//endof[goty_of_p1cn(ipat,pind)]
+)
+else gt0
+end//endof[goty_of_p1cn(ipat,pind)]
 //
 (*
 i1ins_is_construct: is this ins a tuple/record CONSTRUCTION?  (See the SATS
@@ -787,8 +864,9 @@ assertion is emitted on the LVALUE side (a `.(T)` is not addressable in Go).
 *)
 |I1Vlpcn(lab0, iroot) =>
   (
+  strnfpr(filr, "xatsgo.Xats_as_con(");
   i1valgo1(filr, iroot);
-  strnfpr(filr, ".Args["); i0lab_int_go1(filr, lab0); strnfpr(filr, "]"))
+  strnfpr(filr, ").Args["); i0lab_int_go1(filr, lab0); strnfpr(filr, "]"))
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -1246,8 +1324,9 @@ generic/untyped projection form kept for totality.
 *)
 |I1INSpcon(lab0, i1v1) =>
   (
+  strnfpr(filr, "xatsgo.Xats_as_con(");
   i1valgo1(filr, i1v1);
-  strnfpr(filr, ".Args["); i0lab_int_go1(filr, lab0); strnfpr(filr, "]"))
+  strnfpr(filr, ").Args["); i0lab_int_go1(filr, lab0); strnfpr(filr, "]"))
 //
 (* ****** ****** *)
 //
@@ -1489,8 +1568,9 @@ i0pck_con_tag
 , casval: i1val
 , dcon: d2con): void =
 (
+strnfpr(filr, "xatsgo.Xats_as_con(");
 i1valgo1(filr, casval);
-strnfpr(filr, ".Tag == ");
+strnfpr(filr, ").Tag == ");
 i0i00go1(filr, d2con_get_ctag(dcon));
 // EXCEPTIONS: an excptcon's ctag is the shared sentinel -1, so the tag test
 // alone is ambiguous between exception types -- AND in the NAME to disambiguate
@@ -1504,9 +1584,9 @@ let
   val nm = d2con_get_name(dcon)
   #impltmp g_print$out<>() = filr
 in
-  strnfpr(filr, " && ");
+  strnfpr(filr, " && xatsgo.Xats_as_con(");
   i1valgo1(filr, casval);
-  strnfpr(filr, ".Name == ");
+  strnfpr(filr, ").Name == ");
   prints('"'); prints(nm); prints('"')
 end
 else ((*ordinary datatype con -- tag suffices*))))
@@ -1584,11 +1664,10 @@ case+ ipat.node() of
     // `<scrut>.Tag == <ctag>` then `&& <subtest_i>` for each non-trivial value
     // sub-pattern.  [npf1] proof sub-patterns are dropped (value index resets to
     // 0 post-drop), matching the IR's I1Vp1cn [pind].  Sub-pattern tests project
-    // `<scrut>.Args[i]` (typed via the con's field type) and recurse.  [i0f0]
-    // (the I0Pcon pattern) is passed so the sub-root I1Vp1cn carries it for the
-    // field-type recovery (goty_of_p1cn).
+    // `<scrut>.Args[i]` and recurse.  The full parent pattern [ipat] is passed
+    // so [goty_of_p1cn] can recover polymorphic field types from its subpattern.
     i0pck_con_tag(filr, casval, dcon);
-    i0pck_args(filr, casval, i0f0, 0, drop_pf_i0p(npf1, i0ps)))
+    i0pck_args(filr, casval, ipat, 0, drop_pf_i0p(npf1, i0ps)))
   |optn_nil() =>
     (
     strnfpr(filr, "false /* UNHANDLED I0Pdapp (non-con head) */");
@@ -1607,20 +1686,20 @@ case+ ipat.node() of
 sub-pattern (var/wildcard -- [i0pat_allq]) matches unconditionally and is
 SKIPPED (no `&& true` noise); a non-trivial one (a literal, or a NESTED
 constructor) emits ` && (...test of scrut.Args[i].(T)...)`.  The projected
-sub-root is an [I1Vp1cn(i0f0, casval, i0)] i1val -- the SAME node the front-end
+sub-root is an [I1Vp1cn(ipat0, casval, i0)] i1val -- the SAME node the front-end
 inlines for a sub-pattern variable -- so re-rooting [i0pckgo1] on it makes a
 literal sub-pattern test `scrut.Args[i].(T) == lit` and a nested constructor
 sub-pattern test that asserts the field to a boxed XatsCon pointer and then tests
-its .Tag (recursing through the boxed datatype).  [i0f0] is the constructor
-pattern (carries the [d2con] for the field type); [i0] is the VALUE-field index
-(proof sub-patterns already dropped).  This is the [and] continuation of
-[i0pckgo1] above (one mutual-recursion group).
+its .Tag (recursing through the boxed datatype).  [ipat0] is the full parent
+pattern when available; [i0] is the VALUE-field index (proof sub-patterns already
+dropped).  This is the [and] continuation of [i0pckgo1] above (one
+mutual-recursion group).
 *)
 and
 i0pck_args
 ( filr: FILR
 , casval: i1val
-, i0f0: i0pat
+, ipat0: i0pat
 , i0: sint
 , i0ps: i0patlst): void =
 (
@@ -1629,16 +1708,16 @@ case+ i0ps of
 |list_cons(ip1, i0ps1) =>
   (
   if i0pat_allq(ip1)
-  then i0pck_args(filr, casval, i0f0, i0+1, i0ps1)
+  then i0pck_args(filr, casval, ipat0, i0+1, i0ps1)
   else
     let
       val loc0 = i1val_lctn$get(casval)
-      val subroot = i1val_make_node(loc0, I1Vp1cn(i0f0, casval, i0))
+      val subroot = i1val_make_node(loc0, I1Vp1cn(ipat0, casval, i0))
       val () = strnfpr(filr, " && (")
       val () = i0pckgo1(filr, subroot, ip1)
       val () = strnfpr(filr, ")")
     in
-      i0pck_args(filr, casval, i0f0, i0+1, i0ps1)
+      i0pck_args(filr, casval, ipat0, i0+1, i0ps1)
     end)
 )//endof[i0pck_args(...)]
 //

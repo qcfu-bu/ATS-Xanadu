@@ -205,6 +205,8 @@ I0Eassgn _ => f0_assgn(i0e0, enw0)
 |I0Eraise _ => f0_raise(i0e0, enw0)
 |I0Edl0az _ => f0_dl0az(i0e0, enw0)
 |I0Edl1az _ => f0_dl1az(i0e0, enw0)
+|I0Efold _ => f0_fold(i0e0, enw0)
+|I0Efree _ => f0_free(i0e0, enw0)
 |I0El0azy _ => f0_l0azy(i0e0, enw0)
 |I0El1azy _ => f0_l1azy(i0e0, enw0)
 //
@@ -774,6 +776,62 @@ in//let
 i0exp(loc0, i0t0, I0Edl1az(i0e1)))
 //
 end(*let*)//end-of-[f0_dl1az(i0e0,enw0)]
+//
+(* ****** ****** *)
+
+fun
+f0_fold
+(
+i0e0: i0exp,
+enw0: !enwd3i0): i0exp =
+let
+//
+val
+loc0 = i0e0.lctn((*0*))
+val
+i0t0 = i0e0.ityp((*0*))
+//
+val-
+I0Efold
+( i0e1 ) = i0e0.node()
+//
+val i0e1 =
+(
+  i0exp_tryd3i0(i0e1, enw0))
+//
+in//let
+//
+(
+i0exp(loc0, i0t0, I0Efold(i0e1)))
+//
+end(*let*)//end-of-[f0_fold(i0e0,enw0)]
+//
+fun
+f0_free
+(
+i0e0: i0exp,
+enw0: !enwd3i0): i0exp =
+let
+//
+val
+loc0 = i0e0.lctn((*0*))
+val
+i0t0 = i0e0.ityp((*0*))
+//
+val-
+I0Efree
+( i0e1 ) = i0e0.node()
+//
+val i0e1 =
+(
+  i0exp_tryd3i0(i0e1, enw0))
+//
+in//let
+//
+(
+i0exp(loc0, i0t0, I0Efree(i0e1)))
+//
+end(*let*)//end-of-[f0_free(i0e0,enw0)]
 //
 (* ****** ****** *)
 

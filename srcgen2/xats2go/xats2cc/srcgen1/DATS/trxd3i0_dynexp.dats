@@ -984,6 +984,12 @@ d3e0.node() of
 |D3Edl1az _ =>
 (
   f0_dl1az(d3e0, env0))
+|D3Efold _ =>
+(
+  f0_fold(d3e0, env0))
+|D3Efree _ =>
+(
+  f0_free(d3e0, env0))
 //
 (* ****** ****** *)
 //
@@ -2237,6 +2243,57 @@ in//let
 (
 i0exp(loc0, i0t0, I0Edl1az(i0e1)))
 end(*let*)//end-of-[f0_dl1az(d3e0,env0)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+fun
+f0_fold
+(d3e0: d3exp
+,env0: !envd3i0): i0exp =
+let
+//
+val-
+D3Efold d3e1 = d3e0.node()
+//
+val loc0 = d3e0.lctn((*0*))
+val t2p0 = d3e0.styp((*0*))
+val i0t0 =
+(
+  s2typ_trxd3i0(t2p0, env0))
+//
+val i0e1 =
+(
+  d3exp_trxd3i0(d3e1, env0))
+//
+in//let
+(
+i0exp(loc0, i0t0, I0Efold(i0e1)))
+end(*let*)//end-of-[f0_fold(d3e0,env0)]
+//
+fun
+f0_free
+(d3e0: d3exp
+,env0: !envd3i0): i0exp =
+let
+//
+val-
+D3Efree d3e1 = d3e0.node()
+//
+val loc0 = d3e0.lctn((*0*))
+val t2p0 = d3e0.styp((*0*))
+val i0t0 =
+(
+  s2typ_trxd3i0(t2p0, env0))
+//
+val i0e1 =
+(
+  d3exp_trxd3i0(d3e1, env0))
+//
+in//let
+(
+i0exp(loc0, i0t0, I0Efree(i0e1)))
+end(*let*)//end-of-[f0_free(d3e0,env0)]
 //
 (* ****** ****** *)
 (* ****** ****** *)

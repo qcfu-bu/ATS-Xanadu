@@ -63,37 +63,41 @@ strnfpr(filr, "\n"))//endfun
 //
 #implfun
 i1dclist_go1emit
-  (dcls, env0) =
+  (dcls, env0) = let
+fun
+loop
+( dcls: i1dclist
+, env0: !envx2go): void =
 (
-list_foritm$e1nv<x0><e1>(dcls, env0)
-) where
-{
-#vwtpdef e1 = envx2go
-#typedef x0 = i1dcl
-#impltmp
-foritm$e1nv$work
-<x0><e1>(dcl1, env0) =
-(
-  i1dcl_go1emit(dcl1, env0))
-}(*where*)//endof[i1dclist_go1emit(dcls,env0)]
+case+ dcls of
+| list_nil() => ()
+| list_cons(dcl1, dcls) =>
+  (
+  i1dcl_go1emit(dcl1, env0);
+  loop(dcls, env0)))
+in
+loop(dcls, env0)
+end//endof[i1dclist_go1emit(dcls,env0)]
 //
 (* ****** ****** *)
 //
 #implfun
 i1valdclist_go1emit
-  (i1vs, env0) =
+  (i1vs, env0) = let
+fun
+loop
+( i1vs: i1valdclist
+, env0: !envx2go): void =
 (
-list_foritm$e1nv<x0><e1>(i1vs, env0)
-) where
-{
-#vwtpdef e1 = envx2go
-#typedef x0 = i1valdcl
-#impltmp
-foritm$e1nv$work
-<x0><e1>(idcl, env0) =
-(
-  i1valdcl_go1emit(idcl, env0))
-}(*where*)//endof[i1valdclist_go1emit(i1vs,env0)]
+case+ i1vs of
+| list_nil() => ()
+| list_cons(idcl, i1vs) =>
+  (
+  i1valdcl_go1emit(idcl, env0);
+  loop(i1vs, env0)))
+in
+loop(i1vs, env0)
+end//endof[i1valdclist_go1emit(i1vs,env0)]
 //
 (* ****** ****** *)
 //
@@ -126,24 +130,26 @@ case+ dopt of
 //
 #implfun
 i1dclist_go1emit_funs
-  (dcls, env0) =
+  (dcls, env0) = let
+fun
+loop
+( dcls: i1dclist
+, env0: !envx2go): void =
 (
-list_foritm$e1nv<x0><e1>(dcls, env0)
-) where
-{
-#vwtpdef e1 = envx2go
-#typedef x0 = i1dcl
-#impltmp
-foritm$e1nv$work
-<x0><e1>(dcl1, env0) =
-(
-// delegate EVERY decl: i1dcl_go1emit_fun unwraps the env/wrapper nodes
-// (I1Ddclenv / I1Dtmpsub) and emits ONLY the function group inside (if
-// any), skipping everything else.  (Top-level functions surface wrapped
-// as I1Ddclenv(I1Dfundclst(...), freevars), so a bare I1Dfundclst check
-// would miss them.)
-i1dcl_go1emit_fun(dcl1, env0))
-}(*where*)//endof[i1dclist_go1emit_funs(dcls,env0)]
+case+ dcls of
+| list_nil() => ()
+| list_cons(dcl1, dcls) =>
+  (
+  // delegate EVERY decl: i1dcl_go1emit_fun unwraps the env/wrapper nodes
+  // (I1Ddclenv / I1Dtmpsub) and emits ONLY the function group inside (if
+  // any), skipping everything else.  (Top-level functions surface wrapped
+  // as I1Ddclenv(I1Dfundclst(...), freevars), so a bare I1Dfundclst check
+  // would miss them.)
+  i1dcl_go1emit_fun(dcl1, env0);
+  loop(dcls, env0)))
+in
+loop(dcls, env0)
+end//endof[i1dclist_go1emit_funs(dcls,env0)]
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -152,17 +158,10 @@ i1dcl_go1emit_fun(dcl1, env0))
 i1parsed_go1emit
   (ipar, filr) = let
 //
-// touch the pipeline output: pulling these out of [ipar] proves the real
-// frontend/trxd3i0/trxi0i1 spine produced the IR that reaches here.
+// The parsed declaration list is the IR payload consumed by the two emission
+// passes below.
 //
-val stadyn = i1parsed_stadyn$get(ipar)
-val nerror = i1parsed_nerror$get(ipar)
 val parsed = i1parsed_parsed$get(ipar)
-//
-val () =
-prerrsln("[go1emit] i1parsed: stadyn=", stadyn)
-val () =
-prerrsln("[go1emit] i1parsed: nerror=", nerror)
 //
 // M1 IR-DUMP (debug aid): print the whole i1parsed to stderr so the emitted
 // Go can be checked against the EXACT IR nodes it came from.  DISABLED as of
@@ -177,7 +176,6 @@ prerrsln("[go1emit] i1parsed: nerror=", nerror)
 // emitter working for mutation programs.  (Re-enable for a non-`var` program
 // by uncommenting if you need the spec dump.)
 //
-val () = prerrsln("[go1emit] IR-DUMP-DISABLED (M2.6c: var/lvalue programs crash the copied i1parsed_fprint)")
 (*
 val () = prerrsln("[go1emit] IR-DUMP-BEGIN")
 val () =
