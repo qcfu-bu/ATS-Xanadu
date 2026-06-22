@@ -1654,6 +1654,50 @@ pp_define_g0exp_is_id(ge: g0exp, s: strn): bool =
   | G0Eid0(id) => i0dnt_lexeme(id) = s
   | _ => false
 )
+// Render constructor/exception payload types without adding a second set of
+// parentheses around the source `of (...)` group.
+and
+pp_tcon_argty(out: FILR, se: s0exp): void =
+(
+  case+ se.node() of
+  | S0Elpar(_, ses, _) => pp_s0exp_seq(out, ses)
+  | S0Etup1(_, _, ses, _) => pp_s0exp_seq(out, ses)
+  | _ => pp_s0exp(out, se)
+)
+and
+pp_excptcon_list(out: FILR, n: sint, tcns: d0tcnlst): void =
+(
+  case+ tcns of
+  | list_nil() => ()
+  | list_cons(tcn, rest) => (
+      pp_excptcon(out, n, tcn);
+      pp_excptcon_list(out, n, rest))
+)
+and
+pp_excptcon(out: FILR, n: sint, tcn: d0tcn): void =
+(
+  case+ tcn.node() of
+  | D0TCNnode(_, nm, _s0is, ofty) => (
+      ind(out, n); ps(out, "exception "); ps(out, conname_scoped(i0dnt_lexeme(nm)));
+      (case+ ofty of
+       | optn_cons(se) =>
+           if s0exp_is_nullary_payload(se)
+           then ()
+           else (ps(out, "("); pp_tcon_argty(out, se); ps(out, ")"))
+       | optn_nil() => ());
+      nl(out))
+)
+and
+s0exp_is_nullary_payload(se: s0exp): bool =
+(
+  case+ se.node() of
+  | S0Elpar(_, list_nil(), _) => true
+  | S0Etup1(_, _, list_nil(), _) => true
+  | S0Eannot(se1, _) => s0exp_is_nullary_payload(se1)
+  | S0Equal0(_, se1) => s0exp_is_nullary_payload(se1)
+  | S0Eerrck(_, se1) => s0exp_is_nullary_payload(se1)
+  | _ => false
+)
 //
 (* ****** ****** *)
 //
@@ -1847,6 +1891,7 @@ pp_dexp_letdecl(out: FILR, n: sint, dc: d0ecl): void =
 	        PYPP_type_add(i0dnt_lexeme(sid));
 	        pp_typedef(out, n, sid, smas, se))
 	  | D0Cdefine(_, gid, _, gedf) => pp_define(out, n, gid, gedf)
+	  | D0Cexcptcon(_, _, tcns) => pp_excptcon_list(out, n, tcns)
 	  | D0Cstatic(_, dc1) => pp_dexp_letdecl(out, n, dc1)
 	  | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
 	  | D0Ctkerr(_) => ()
@@ -2213,52 +2258,7 @@ pp_d0tcn(out: FILR, n: sint, tcn: d0tcn): void =
        | optn_nil() => ());
       nl(out))
 )
-// the `of` argument type of a constructor.  A paren-group `(strn)` renders its
-// inner element(s); a tuple `(a, b)` renders comma-separated.  pp_s0exp already
-// unwraps S0Elpar/S0Etup1, but here we want the BARE element list (no extra
-// parens, since we already emitted the enclosing `(...)`).
-and
-pp_tcon_argty(out: FILR, se: s0exp): void =
-(
-  case+ se.node() of
-  | S0Elpar(_, ses, _) => pp_s0exp_seq(out, ses)
-  | S0Etup1(_, _, ses, _) => pp_s0exp_seq(out, ses)
-  | _ => pp_s0exp(out, se)
-)
-and
-pp_excptcon_list(out: FILR, n: sint, tcns: d0tcnlst): void =
-(
-  case+ tcns of
-  | list_nil() => ()
-  | list_cons(tcn, rest) => (
-      pp_excptcon(out, n, tcn);
-      pp_excptcon_list(out, n, rest))
-)
-and
-pp_excptcon(out: FILR, n: sint, tcn: d0tcn): void =
-(
-  case+ tcn.node() of
-  | D0TCNnode(_, nm, _s0is, ofty) => (
-      ind(out, n); ps(out, "exception "); ps(out, conname_scoped(i0dnt_lexeme(nm)));
-      (case+ ofty of
-       | optn_cons(se) =>
-           if s0exp_is_nullary_payload(se)
-           then ()
-           else (ps(out, "("); pp_tcon_argty(out, se); ps(out, ")"))
-       | optn_nil() => ());
-      nl(out))
-)
-and
-s0exp_is_nullary_payload(se: s0exp): bool =
-(
-  case+ se.node() of
-  | S0Elpar(_, list_nil(), _) => true
-  | S0Etup1(_, _, list_nil(), _) => true
-  | S0Eannot(se1, _) => s0exp_is_nullary_payload(se1)
-  | S0Equal0(_, se1) => s0exp_is_nullary_payload(se1)
-  | S0Eerrck(_, se1) => s0exp_is_nullary_payload(se1)
-  | _ => false
-)
+//
 fun
 pp_absimpl(out: FILR, n: sint, sqid: s0qid, smas: s0maglst, se: s0exp): void = let
   val raws = pp_smag_raw_names(smas)
@@ -2416,6 +2416,7 @@ and
 	      PYPP_type_add(i0dnt_lexeme(sid));
 	      pp_typedef(out, n, sid, smas, se))
 	  | D0Cdefine(_, gid, _, gedf) => pp_define(out, n, gid, gedf)
+	  | D0Cexcptcon(_, _, tcns) => pp_excptcon_list(out, n, tcns)
 	  | D0Cstatic(_, dc1) => pp_where_decl(out, n, dc1)
 	  | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
 	  | D0Csymload(_, sym, _, dqi, prec) => pp_symload_alias(out, n, sym, dqi, prec)
