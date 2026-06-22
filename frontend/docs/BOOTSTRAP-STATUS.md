@@ -33,14 +33,17 @@ harnesses.
   template binders on extern constants, and parsed/erased `!T` viewtype
   parameter syntax.
 - The next static interface slice
-  `srcgen2/SATS/{xbasics,lexbuf0,xfixity,staexp0,parsing}.sats` now reaches
+  `srcgen2/SATS/{xbasics,lexbuf0,xfixity,staexp0,dynexp0,parsing}.sats`
+  now reaches
   `TODOpp=0` and `m3_nerror=0`. This adds symbolic overload aliases for
   `&`, `<<`, `>>`, and `>>>`, unary static `#define` expressions such as
   `-1`, parsed/erased `~T` linear/viewtype parameter syntax, by-reference
   view-change argument syntax such as `&SInt >> _`, and arrow result spines
   whose result is itself an applied type.
-- In the same audit batch, `srcgen2/SATS/dynexp0.sats` still makes the M3
-  reparse driver segfault after pretty-printing with `TODOpp=0`.
+- The Pythonic raw lexer now uses an iterative JS-backed scanner in
+  `CATS/pylexing.cats`. The ATS scanner remains as the readable spec, but the
+  production path no longer exhausts Node's stack on large pretty-printed
+  compiler interfaces such as `dynexp0.sats`.
 
 ## End-goal blockers
 

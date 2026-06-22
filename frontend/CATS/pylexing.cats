@@ -94,6 +94,316 @@ function PYL_slice(lo, hi) {
     return Buffer.from(sub).toString("utf8");
   }
 }
+
+////////////////////////////////////////////////////////////////////////.
+//
+// Iterative raw scanner.
+//
+// The original ATS scanner remains as the executable specification in
+// DATS/pylexing_token.dats, but its self-tail recursion is emitted as plain
+// JavaScript recursion. Large pretty-printed compiler interfaces can exceed
+// Node's call stack before the parser even runs. This helper mirrors the raw
+// scanner's token rules while using ordinary JS loops and an iterative list
+// construction pass.
+//
+function PYL__postn(ntot, nrow, ncol) {
+  return XATSCAPP("POSTN", [0, ntot | 0, nrow | 0, ncol | 0]);
+}
+function PYL__loc(src, b, e) {
+  return XATSCAPP("LOCTN", [0, src, PYL__postn(b.i, b.r, b.c), PYL__postn(e.i, e.r, e.c)]);
+}
+function PYL__tok(src, node, b, e) {
+  return XATSCAPP("PYTOKEN", [0, node, PYL__loc(src, b, e)]);
+}
+function PYL__node(name, tag, arg) {
+  return arguments.length >= 3 ? XATSCAPP(name, [tag, arg]) : XATSCAPP(name, [tag]);
+}
+function PYL__list_from_array(xs) {
+  var res = XATSCAPP("list_nil", [0]);
+  for (var i = xs.length - 1; i >= 0; --i) {
+    res = XATSCAPP("list_cons", [1, xs[i], res]);
+  }
+  return res;
+}
+function PYL__is_lower(b) { return 97 <= b && b <= 122; }
+function PYL__is_upper(b) { return 65 <= b && b <= 90; }
+function PYL__is_alpha(b) { return PYL__is_lower(b) || PYL__is_upper(b); }
+function PYL__is_digit(b) { return 48 <= b && b <= 57; }
+function PYL__is_alnum(b) { return PYL__is_alpha(b) || PYL__is_digit(b); }
+function PYL__is_under(b) { return b === 95; }
+function PYL__is_idcont(b) { return PYL__is_alnum(b) || PYL__is_under(b); }
+function PYL__is_idstart(b) { return PYL__is_alpha(b) || PYL__is_under(b); }
+function PYL__is_hex(b) {
+  return PYL__is_digit(b) || (97 <= b && b <= 102) || (65 <= b && b <= 70);
+}
+function PYL__is_oct(b) { return 48 <= b && b <= 55; }
+function PYL__is_bin(b) { return b === 48 || b === 49; }
+function PYL__is_inws(b) { return b === 32 || b === 9 || b === 13 || b === 12 || b === 11; }
+
+const PYL__KW = Object.freeze({
+  "let": ["PT_KW_LET", 0],
+  "mut": ["PT_KW_MUT", 1],
+  "var": ["PT_KW_VAR", 2],
+  "def": ["PT_KW_DEF", 3],
+  "if": ["PT_KW_IF", 4],
+  "elif": ["PT_KW_ELIF", 5],
+  "else": ["PT_KW_ELSE", 6],
+  "while": ["PT_KW_WHILE", 7],
+  "for": ["PT_KW_FOR", 8],
+  "in": ["PT_KW_IN", 9],
+  "match": ["PT_KW_MATCH", 10],
+  "case": ["PT_KW_CASE", 11],
+  "break": ["PT_KW_BREAK", 12],
+  "continue": ["PT_KW_CONTINUE", 13],
+  "return": ["PT_KW_RETURN", 14],
+  "import": ["PT_KW_IMPORT", 15],
+  "from": ["PT_KW_FROM", 16],
+  "type": ["PT_KW_TYPE", 17],
+  "enum": ["PT_KW_ENUM", 18],
+  "struct": ["PT_KW_STRUCT", 19],
+  "exception": ["PT_KW_EXCEPTION", 20],
+  "raise": ["PT_KW_RAISE", 21],
+  "try": ["PT_KW_TRY", 22],
+  "except": ["PT_KW_EXCEPT", 23],
+  "as": ["PT_KW_AS", 24],
+  "forall": ["PT_KW_FORALL", 25],
+  "exists": ["PT_KW_EXISTS", 26],
+  "at": ["PT_KW_AT", 27],
+  "where": ["PT_KW_WHERE", 28],
+  "private": ["PT_KW_PRIVATE", 29],
+  "and": ["PT_KW_AND", 30],
+  "or": ["PT_KW_OR", 31],
+  "not": ["PT_KW_NOT", 32],
+  "true": ["PT_TRUE", 40],
+  "false": ["PT_FALSE", 41]
+});
+
+function PYL_scan_raw_iter(src, text) {
+  PYL_load(text);
+  var out = [];
+  var i = 0, r = 0, c = 0;
+  var bol = true;
+
+  function pos() { return { i: i, r: r, c: c }; }
+  function byte(k) {
+    var j = i + (k | 0);
+    return (j < 0 || j >= PYL__len) ? -1 : (PYL__bytes[j] | 0);
+  }
+  function adv1() {
+    var b = byte(0);
+    i += 1;
+    if (b === 10) { r += 1; c = 0; }
+    else { c += 1; }
+  }
+  function advn(n) {
+    for (var k = 0; k < n; ++k) adv1();
+  }
+  function emit(name, tag, b, arg) {
+    var node = arguments.length >= 4 ? PYL__node(name, tag, arg) : PYL__node(name, tag);
+    out.push(PYL__tok(src, node, b, pos()));
+  }
+  function emit_fixed(name, tag, n) {
+    var b = pos();
+    advn(n);
+    emit(name, tag, b);
+  }
+
+  function scan_ident() {
+    var b = pos();
+    var first = byte(0);
+    function segment() {
+      while (PYL__is_idcont(byte(0))) adv1();
+    }
+    segment();
+    while (byte(0) === 47 && PYL__is_idstart(byte(1))) {
+      adv1();
+      segment();
+    }
+    var lx = PYL_slice(b.i, i);
+    if (lx === "_") emit("PT_USCORE", 35, b);
+    else if (PYL__is_upper(first)) emit("PT_UIDENT", 33, b, lx);
+    else {
+      var kw = PYL__KW[lx];
+      if (kw) emit(kw[0], kw[1], b);
+      else emit("PT_LIDENT", 34, b, lx);
+    }
+  }
+
+  function run(pred) {
+    while (pred(byte(0))) adv1();
+  }
+
+  function scan_number() {
+    var b = pos();
+    var b0 = byte(0), b1 = byte(1);
+    if (b0 === 48 && (b1 === 120 || b1 === 88)) {
+      advn(2); run(PYL__is_hex);
+      emit("PT_INT", 36, b, PYL_slice(b.i, i));
+    } else if (b0 === 48 && (b1 === 111 || b1 === 79)) {
+      advn(2); run(PYL__is_oct);
+      emit("PT_INT", 36, b, PYL_slice(b.i, i));
+    } else if (b0 === 48 && (b1 === 98 || b1 === 66)) {
+      advn(2); run(PYL__is_bin);
+      emit("PT_INT", 36, b, PYL_slice(b.i, i));
+    } else {
+      run(PYL__is_digit);
+      if (!(byte(0) === 46 && PYL__is_digit(byte(1)))) {
+        emit("PT_INT", 36, b, PYL_slice(b.i, i));
+      } else {
+        adv1();
+        run(PYL__is_digit);
+        var be = byte(0);
+        if (be === 101 || be === 69) {
+          var save = pos();
+          adv1();
+          if (byte(0) === 43 || byte(0) === 45) adv1();
+          if (PYL__is_digit(byte(0))) {
+            run(PYL__is_digit);
+          } else {
+            i = save.i; r = save.r; c = save.c;
+          }
+        }
+        emit("PT_FLOAT", 37, b, PYL_slice(b.i, i));
+      }
+    }
+  }
+
+  function scan_quoted(q) {
+    var b = pos();
+    adv1();
+    var closed = false;
+    while (true) {
+      var bb = byte(0);
+      if (bb < 0 || bb === 10) break;
+      if (bb === 92) {
+        adv1();
+        if (byte(0) < 0) break;
+        adv1();
+      } else if (bb === q) {
+        adv1();
+        closed = true;
+        break;
+      } else {
+        adv1();
+      }
+    }
+    var lx = PYL_slice(b.i, i);
+    if (!closed) emit("PT_ERROR", 80, b, lx);
+    else if (q === 34) emit("PT_STRING", 38, b, lx);
+    else emit("PT_CHAR", 39, b, lx);
+  }
+
+  function scan_block_comment() {
+    var opening = pos();
+    advn(2);
+    var depth = 1;
+    while (true) {
+      var bb = byte(0);
+      if (bb < 0) {
+        var e = { i: opening.i + 2, r: opening.r, c: opening.c + 2 };
+        var node = PYL__node("PT_ERROR", 80, PYL_slice(opening.i, opening.i + 2));
+        out.push(PYL__tok(src, node, opening, e));
+        bol = false;
+        return;
+      }
+      if (bb === 40 && byte(1) === 42) {
+        advn(2); depth += 1;
+      } else if (bb === 42 && byte(1) === 41) {
+        advn(2); depth -= 1;
+        if (depth <= 0) return;
+      } else {
+        adv1();
+      }
+    }
+  }
+
+  function scan_op() {
+    var b0 = byte(0), b1 = byte(1), b2 = byte(2);
+    if (b0 === 58 && b1 === 61 && b2 === 62) emit_fixed("PT_MOVE", 57, 3);
+    else if (b0 === 58 && b1 === 61 && b2 === 58) emit_fixed("PT_SWAP", 58, 3);
+    else if (b0 === 61 && b1 === 61) emit_fixed("PT_EQEQ", 49, 2);
+    else if (b0 === 33 && b1 === 61) emit_fixed("PT_NEQ", 50, 2);
+    else if (b0 === 60 && b1 === 61) emit_fixed("PT_LTE", 52, 2);
+    else if (b0 === 62 && b1 === 61) emit_fixed("PT_GTE", 54, 2);
+    else if (b0 === 47 && b1 === 47) emit_fixed("PT_SLASH2", 46, 2);
+    else if (b0 === 42 && b1 === 42) emit_fixed("PT_STAR2", 48, 2);
+    else if (b0 === 61 && b1 === 62) emit_fixed("PT_FATARROW", 62, 2);
+    else if (b0 === 45 && b1 === 62) emit_fixed("PT_ARROW", 63, 2);
+    else if (b0 === 58 && b1 === 61) emit_fixed("PT_COLONEQ", 56, 2);
+    else if (b0 === 43) emit_fixed("PT_PLUS", 42, 1);
+    else if (b0 === 45) emit_fixed("PT_MINUS", 43, 1);
+    else if (b0 === 42) emit_fixed("PT_STAR", 44, 1);
+    else if (b0 === 47) emit_fixed("PT_SLASH", 45, 1);
+    else if (b0 === 37) emit_fixed("PT_PERCENT", 47, 1);
+    else if (b0 === 61) emit_fixed("PT_EQ", 55, 1);
+    else if (b0 === 60) emit_fixed("PT_LT", 51, 1);
+    else if (b0 === 62) emit_fixed("PT_GT", 53, 1);
+    else if (b0 === 58) emit_fixed("PT_COLON", 64, 1);
+    else if (b0 === 64) emit_fixed("PT_AT", 65, 1);
+    else if (b0 === 38) emit_fixed("PT_AMP", 59, 1);
+    else if (b0 === 33) emit_fixed("PT_BANG", 60, 1);
+    else if (b0 === 126) emit_fixed("PT_TILDE", 61, 1);
+    else if (b0 === 124) emit_fixed("PT_BAR", 66, 1);
+    else if (b0 === 44) emit_fixed("PT_COMMA", 67, 1);
+    else if (b0 === 46) emit_fixed("PT_DOT", 68, 1);
+    else if (b0 === 40) emit_fixed("PT_LPAREN", 69, 1);
+    else if (b0 === 41) emit_fixed("PT_RPAREN", 70, 1);
+    else if (b0 === 91) emit_fixed("PT_LBRACK", 71, 1);
+    else if (b0 === 93) emit_fixed("PT_RBRACK", 72, 1);
+    else if (b0 === 123) emit_fixed("PT_LBRACE", 73, 1);
+    else if (b0 === 125) emit_fixed("PT_RBRACE", 74, 1);
+    else {
+      var b = pos();
+      adv1();
+      emit("PT_ERROR", 80, b, PYL_slice(b.i, i));
+    }
+  }
+
+  while (true) {
+    var bb = byte(0);
+    if (bb < 0) {
+      var e = pos();
+      out.push(PYL__tok(src, PYL__node("PT_EOF", 79), e, e));
+      return PYL__list_from_array(out);
+    } else if (bb === 10) {
+      var b = pos();
+      adv1();
+      emit("PT_NL_RAW", 75, b);
+      bol = true;
+    } else if (bb === 92) {
+      var b1 = byte(1), b2 = byte(2);
+      if (b1 === 10) advn(2);
+      else if (b1 === 13 && b2 === 10) advn(3);
+      else { scan_op(); bol = false; }
+    } else if (bol && bb === 9) {
+      var tb = pos();
+      adv1();
+      emit("PT_ERROR", 80, tb, PYL_slice(tb.i, i));
+      bol = true;
+    } else if (PYL__is_inws(bb)) {
+      adv1();
+    } else if (bb === 35) {
+      while (byte(0) >= 0 && byte(0) !== 10) adv1();
+    } else if (bb === 40 && byte(1) === 42) {
+      scan_block_comment();
+    } else if (PYL__is_idstart(bb)) {
+      scan_ident();
+      bol = false;
+    } else if (PYL__is_digit(bb)) {
+      scan_number();
+      bol = false;
+    } else if (bb === 34) {
+      scan_quoted(34);
+      bol = false;
+    } else if (bb === 39) {
+      scan_quoted(39);
+      bol = false;
+    } else {
+      scan_op();
+      bol = false;
+    }
+  }
+}
 //
 // Read a whole file as UTF-8 text (for the file driver / golden harness). On
 // failure returns the empty string (the lexer then yields just EOF).

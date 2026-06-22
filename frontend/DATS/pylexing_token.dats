@@ -37,6 +37,7 @@
 #extern fun PYL_len((*0*)): sint = $extnam()
 #extern fun PYL_byte_at(i: sint): sint = $extnam()
 #extern fun PYL_slice(lo: sint, hi: sint): strn = $extnam()
+#extern fun PYL_scan_raw_iter(src: lcsrc, text: strn): pytokenlst = $extnam()
 //
 (* ****** ****** *)
 //
@@ -528,12 +529,11 @@ end (* end of [scan_loop] *)
 // ---- the public raw-scan entry ---------------------------------------------
 //
 #implfun
-pylex_text(src, text) = let
-  val _ = PYL_load(text)     // (re)load the byte buffer for THIS lex (pure per call)
-in
-  // bol=true: input starts at the beginning of (logical) line 0.
-  scan_loop(src, cur_init(), true, list_nil())
-end (* end of [pylex_text] *)
+pylex_text(src, text) =
+  // The ATS scanner above is the readable spec, but xats2js emits its tail
+  // recursion as JS calls. Use the iterative CATS implementation for production
+  // so large pretty-printed compiler files do not exhaust Node's call stack.
+  PYL_scan_raw_iter(src, text)
 //
 (* ****** ****** *)
 //

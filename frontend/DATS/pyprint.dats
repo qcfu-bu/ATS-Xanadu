@@ -455,6 +455,69 @@ pp_darg_dyn(out: FILR, dargs: d0arglst): void =
     )
 )
 //
+fun
+pp_s0exp_formal(out: FILR, i: sint, se: s0exp): void =
+  (ps(out, pname_at(i)); ps(out, ": "); pp_s0exp(out, se))
+//
+fun
+pp_s0exp_formals_seq(out: FILR, i: sint, ses: s0explst): void =
+(
+  case+ ses of
+  | list_nil() => ()
+  | list_cons(se, rest) => (
+      pp_s0exp_formal(out, i, se);
+      (case+ rest of list_nil() => () | _ => ps(out, ", "));
+      pp_s0exp_formals_seq(out, i+1, rest))
+)
+//
+fun
+pp_s0exp_formals(out: FILR, arg: s0exp): void =
+(
+  ps(out, "(");
+  (case+ arg.node() of
+   | S0Elpar(_, ses, _) => pp_s0exp_formals_seq(out, 0, ses)
+   | S0Etup1(_, _, ses, _) => pp_s0exp_formals_seq(out, 0, ses)
+   | _ => pp_s0exp_formal(out, 0, arg));
+  ps(out, ")")
+)
+//
+fun
+pp_fun_sig_from_result(out: FILR, se: s0exp): bool =
+(
+  case+ se.node() of
+  | S0Eapps(ses) => pp_fun_sig_from_apps(out, ses)
+  | _ => false
+)
+and
+pp_fun_sig_from_apps(out: FILR, ses: s0explst): bool =
+(
+  case+ ses of
+  | list_cons(arg, list_cons(arr, res)) =>
+      if s0exp_is_arrow(arr)
+      then (pp_s0exp_formals(out, arg); ps(out, " -> "); pp_apps(out, res); true)
+      else false
+  | _ => false
+)
+//
+fun
+pp_dynconst_fun_tail(out: FILR, dargs: d0arglst, sres: s0res): void =
+(
+  case+ dargs of
+  | list_nil() => (
+      case+ sres of
+      | S0RESsome(_, se) =>
+          if pp_fun_sig_from_result(out, se)
+          then ()
+          else (ps(out, "() -> "); pp_s0exp(out, se))
+      | S0RESnone() => ps(out, "() -> Void"))
+  | _ => (
+      pp_darg_dyn(out, dargs);
+      ps(out, " -> ");
+      (case+ sres of
+       | S0RESsome(_, se) => pp_s0exp(out, se)
+       | S0RESnone() => ps(out, "Void")))
+)
+//
 (* ****** ****** *)
 //
 // ====================== bodyless val / fun (D0Cdynconst) ===================
@@ -478,11 +541,7 @@ in
   ps(out, "@extern"); nl(out);
   ps(out, "def "); ps(out, fname(nm));
   pp_names_brkt(out, tps);
-  pp_darg_dyn(out, dargs);
-  ps(out, " -> ");
-  (case+ sres of
-   | S0RESsome(_, se) => pp_s0exp(out, se)
-   | S0RESnone() => ps(out, "Void"));
+  pp_dynconst_fun_tail(out, dargs, sres);
   nl(out)
 end
 //
@@ -1041,8 +1100,9 @@ fun
 pp_d0typ_enum(out: FILR, n: sint, dt: d0typ): void =
 (
   case+ dt.node() of
-  | D0TYPnode(nm, _tmas, _, _, tcns) => (
+  | D0TYPnode(nm, tmas, _, _, tcns) => (
       ind(out, n); ps(out, "enum "); ps(out, tyname_scoped(i0dnt_lexeme(nm)));
+      pp_names_brkt(out, pp_tmag_names(tmas));
       ps(out, ":"); nl(out);
       pp_d0tcns(out, n+1, tcns))
 )
