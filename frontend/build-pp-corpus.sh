@@ -36,6 +36,8 @@ REBUILD_PP=0
 REUSE_ONLY=0
 DO_REPARSE=1
 FILES=()
+DEFAULT_DYNAMIC_LIST="$HERE/CORPUS/pp-default-dynamic.files"
+DEFAULT_AUTO_LIST="$HERE/CORPUS/pp-default-auto.files"
 
 usage() {
   cat <<'EOF'
@@ -162,8 +164,8 @@ done
 if [ "${#FILES[@]}" -eq 0 ]; then
   case "$MODE" in
     static) FILES=("srcgen2/SATS/xstamp0.sats") ;;
-    dynamic) FILES=("srcgen2/DATS/filpath_drpth0.dats" "srcgen2/DATS/parsing_basics.dats" "srcgen2/DATS/parsing_tokbuf.dats" "srcgen2/DATS/parsing_utils0.dats" "srcgen2/DATS/parsing_staexp.dats" "srcgen2/DATS/parsing_dynexp.dats" "srcgen2/DATS/parsing_decl00.dats" "srcgen2/DATS/parsing.dats" "frontend/TEST/roundtrip/uppercase_values.dats" "frontend/TEST/roundtrip/local_type_alias.dats" "frontend/TEST/roundtrip/generic_impl_sapp.dats" "frontend/TEST/roundtrip/imported_nullary_con.dats" "frontend/TEST/roundtrip/stmt_where_shadow.dats" "frontend/TEST/roundtrip/plain_fun_helper.dats" "frontend/TEST/roundtrip/local_impltmp_inst.dats" "frontend/TEST/roundtrip/paren_infix_grouping.dats" "frontend/TEST/roundtrip/local_alias_shadow_endloc.dats" "frontend/TEST/roundtrip/import_symload_dedup.dats" "frontend/TEST/roundtrip/hof_arrow_arg.dats" "frontend/TEST/roundtrip/empty_local_head.dats" "frontend/TEST/roundtrip/nested_where_chain.dats" "frontend/TEST/roundtrip/imported_macro_const.dats" "frontend/TEST/roundtrip/local_define_const.dats") ;;
-    auto) FILES=("srcgen2/SATS/xstamp0.sats" "srcgen2/DATS/filpath_drpth0.dats" "srcgen2/DATS/parsing_basics.dats" "srcgen2/DATS/parsing_tokbuf.dats" "srcgen2/DATS/parsing_utils0.dats" "srcgen2/DATS/parsing_staexp.dats" "srcgen2/DATS/parsing_dynexp.dats" "srcgen2/DATS/parsing_decl00.dats" "srcgen2/DATS/parsing.dats" "frontend/TEST/roundtrip/uppercase_values.dats" "frontend/TEST/roundtrip/local_type_alias.dats" "frontend/TEST/roundtrip/generic_impl_sapp.dats" "frontend/TEST/roundtrip/imported_nullary_con.dats" "frontend/TEST/roundtrip/stmt_where_shadow.dats" "frontend/TEST/roundtrip/plain_fun_helper.dats" "frontend/TEST/roundtrip/local_impltmp_inst.dats" "frontend/TEST/roundtrip/paren_infix_grouping.dats" "frontend/TEST/roundtrip/local_alias_shadow_endloc.dats" "frontend/TEST/roundtrip/import_symload_dedup.dats" "frontend/TEST/roundtrip/hof_arrow_arg.dats" "frontend/TEST/roundtrip/empty_local_head.dats" "frontend/TEST/roundtrip/nested_where_chain.dats" "frontend/TEST/roundtrip/imported_macro_const.dats" "frontend/TEST/roundtrip/local_define_const.dats") ;;
+    dynamic) add_file_list "$DEFAULT_DYNAMIC_LIST" ;;
+    auto) add_file_list "$DEFAULT_AUTO_LIST" ;;
   esac
 fi
 

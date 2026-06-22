@@ -15,6 +15,8 @@
 #           loop -> SIGSEGV; now it reaches a COUNTED type error (rc != 139, nerror>0).
 #   GAP D — expression-position `_` is ATS top/omitted value, not unit. It must be
 #           contextually typed in annotation and constructor-argument positions.
+#   GAP E — statement `if` branch bodies sequence into the following suite tail; a
+#           final void expression in the branch must not replace the function value.
 #
 # Each fixture rides the SAME M3 driver path (frontend/DATS/pyfront_m3.dats = the full
 # lex -> parse -> elab -> lower -> trans2a -> trsym2b -> t2read0 -> trans23 -> tread3a
@@ -143,10 +145,26 @@ else
   FAIL=1
 fi
 
+# ---- GAP E: dyn_stmt_if_continue — statement-if branches continue to suite tail --------
+echo "----------------------------------------------------------------------"
+py="$TESTDIR/dyn_stmt_if_continue.pdats"
+echo ">> [GAP E] $py  (statement if branch continues to suite tail ; expect nerror=0)"
+echo "-- source --"; cat "$py"
+run_fixture "$py"
+echo ">> rc=$RC  nerror (after tread3a) = ${NE:-<none>}"
+if [ "${NE:-X}" = "0" ]; then
+  echo ">> PASS  (GAP E: statement if branch SEQUENCES into the following tail, nerror=0)"
+else
+  echo "!! FAIL  (GAP E expected nerror=0; got ${NE:-<none>})" >&2
+  grep -E "F3PERR0-ERROR|elab-diag" "$ERRF" | head -8 >&2
+  FAIL=1
+fi
+
 echo "======================================================================"
 if [ "$FAIL" -ne 0 ]; then echo ">> DYN: FAIL (see failures above)"; exit 1; fi
 echo ">> DYN: PASS (GAP A private-head TYPECHECKS nerror=0 [codegen-lib gap noted];"
 echo "            GAP B r[]/r[]:=  LOWER+TYPECHECK nerror=0;  GAP C lowercase con-app pattern"
 echo "            is crash-safe with counted nerror>0; GAP D expression underscore"
-echo "            LOWERS as ATS top and TYPECHECKS nerror=0.)"
+echo "            LOWERS as ATS top; GAP E statement if continues to the suite tail;"
+echo "            all expected-success fixtures TYPECHECK nerror=0.)"
 exit 0

@@ -757,6 +757,9 @@ case+ body of
 // lambda that references such a binder is caught as a capture.
 and
 el_pure(encl: nameset, ss: list(pystmt), muts: nameset, mts: muttypes, tail: pcexp): pcexp =
+  el_pure_go(encl, ss, muts, mts, tail, true)
+and
+el_pure_go(encl: nameset, ss: list(pystmt), muts: nameset, mts: muttypes, tail: pcexp, tail_expr: bool): pcexp =
 (
 case+ ss of
 | list_nil() => tail
@@ -775,7 +778,7 @@ case+ ss of
         // the binder is a FUNCTION-LOCAL for everything after it (capture-check scope).
         val encl1 = fc_pat_names(encl, p)
       in
-        PCElet(loc, el_pat(p), ann, el_exp(encl, rhs), el_pure(encl1, rest, newmuts, newmts, tail))
+        PCElet(loc, el_pat(p), ann, el_exp(encl, rhs), el_pure_go(encl1, rest, newmuts, newmts, tail, tail_expr))
       end
   | PySvar(loc, nm, ann, rhs) =>
       // a MUTABLE CELL `var nm [: T] = rhs`. CRITICAL: a `var` is an IN-PLACE cell, NOT a
@@ -783,7 +786,7 @@ case+ ss of
       // never threads it). It DOES extend `encl` (a function-local for the capture check)
       // and scopes the rest of the suite via PCEvarcell's body.
       let val encl1 = nameset_add(encl, nm) in
-        PCEvarcell(loc, nm, ann, el_exp(encl, rhs), el_pure(encl1, rest, muts, mts, tail))
+        PCEvarcell(loc, nm, ann, el_exp(encl, rhs), el_pure_go(encl1, rest, muts, mts, tail, tail_expr))
       end
   | PySassign(loc, lv, rhs) =>
       // a CELL ASSIGNMENT `lv := rhs` -> PCEassign (lowers to D2Eassgn). DISTINCT from the
@@ -792,7 +795,7 @@ case+ ss of
       // GAP B: a ref-cell lvalue `r[] := rhs` becomes `a0ref_set(r, rhs)`; a named `var` cell
       // `x := rhs` stays PCEassign (D2Eassgn). el_cellassign dispatches on the lvalue shape.
       PCEseq(loc, el_cellassign(encl, loc, lv, rhs),
-             el_pure(encl, rest, muts, mts, tail))
+             el_pure_go(encl, rest, muts, mts, tail, tail_expr))
   // B-LINEAR: MOVE `lv :=> rhs` -> PCEmove (D2Exazgn) ; SWAP `lv :=: rhs` -> PCEswap (D2Exchng).
   // Both sides are existing l-values (var cells); they bind no new name. UNLIKE `:=` (D2Eassgn,
   // returns void), `:=>`/`:=:` return the l-value's TYPE — so a NON-TAIL move/swap cannot go in a
@@ -804,23 +807,23 @@ case+ ss of
        | list_nil() => PCEmove(loc, el_exp(encl, lv), el_exp(encl, rhs))
        | list_cons(_, _) =>
            PCElet(loc, PCPwild(loc), PyTypNone(), PCEmove(loc, el_exp(encl, lv), el_exp(encl, rhs)),
-                  el_pure(encl, rest, muts, mts, tail)))
+                  el_pure_go(encl, rest, muts, mts, tail, tail_expr)))
   | PySswap(loc, lv, rhs) =>
       (case+ rest of
        | list_nil() => PCEswap(loc, el_exp(encl, lv), el_exp(encl, rhs))
        | list_cons(_, _) =>
            PCElet(loc, PCPwild(loc), PyTypNone(), PCEswap(loc, el_exp(encl, lv), el_exp(encl, rhs)),
-                  el_pure(encl, rest, muts, mts, tail)))
+                  el_pure_go(encl, rest, muts, mts, tail, tail_expr)))
   | PySreassign(loc, lv, rhs) =>
       let val nm = lv_name(lv) in
         if strn_eq(nm, "")
           then PCEseq(loc, PCEapp(loc, PCEvar(loc, "set!"),
                                   list_cons(el_exp(encl, lv), list_sing(el_exp(encl, rhs)))),
-                      el_pure(encl, rest, muts, mts, tail))
+                      el_pure_go(encl, rest, muts, mts, tail, tail_expr))
         else if nameset_mem(muts, nm)
-          then PCElet(loc, PCPvar(pyexp_loctn(lv), nm), PyTypNone(), el_exp(encl, rhs), el_pure(encl, rest, muts, mts, tail))
+          then PCElet(loc, PCPvar(pyexp_loctn(lv), nm), PyTypNone(), el_exp(encl, rhs), el_pure_go(encl, rest, muts, mts, tail, tail_expr))
         else PCEseq(loc, PCEerror(loc, strn_append("reassignment to non-mut binding: ", nm)),
-                    el_pure(encl, rest, muts, mts, tail))
+                    el_pure_go(encl, rest, muts, mts, tail, tail_expr))
       end
   | PySexpr(loc, e) =>
       // M4 FIX: the LAST expression-statement of a suite IS the suite's tail value (el_suite_tail
@@ -833,45 +836,62 @@ case+ ss of
       // tail position is checked against the body's earlier lets (the precomputed `tail` used the
       // def-level encl). Identical PyCore otherwise — el_exp is pure.
       (case+ rest of
-       | list_nil() => el_exp(encl, e)
-       | list_cons(_, _) => PCEseq(loc, el_exp(encl, e), el_pure(encl, rest, muts, mts, tail)))
-  | PySif(loc, gs, els) => el_pure_if(encl, loc, gs, els, muts, mts, rest, tail)
+       | list_nil() => if tail_expr then el_exp(encl, e) else PCEseq(loc, el_exp(encl, e), tail)
+       | list_cons(_, _) => PCEseq(loc, el_exp(encl, e), el_pure_go(encl, rest, muts, mts, tail, tail_expr)))
+  | PySif(loc, gs, els) => el_pure_if(encl, loc, gs, els, muts, mts, rest, tail, tail_expr)
   | PySwhile(loc, cond, body, wels) =>
-      elab_while_value(encl, loc, cond, body, wels, muts, mts, el_pure(encl, rest, muts, mts, tail))
+      elab_while_value(encl, loc, cond, body, wels, muts, mts, el_pure_go(encl, rest, muts, mts, tail, tail_expr))
   | PySfor(loc, pat, iter, body, fels) =>
-      elab_for_value(encl, loc, pat, iter, body, fels, muts, mts, el_pure(fc_pat_names(encl, pat), rest, muts, mts, tail))
-  | PySblock(loc, body) => el_pure(encl, body, muts, mts, el_pure(encl, rest, muts, mts, tail))
+      elab_for_value(encl, loc, pat, iter, body, fels, muts, mts, el_pure_go(fc_pat_names(encl, pat), rest, muts, mts, tail, tail_expr))
+  | PySblock(loc, body) =>
+      let
+        val kont = el_pure_go(encl, rest, muts, mts, tail, tail_expr)
+        val btail = (case+ rest of list_nil() => tail_expr | _ => false)
+      in
+        el_pure_go(encl, body, muts, mts, kont, btail)
+      end
   | PySdecl(loc, d) =>
       if local_groupable_fun(d) then
         let
           val @(fds, rest1, fnms) = take_local_fungroup(encl, ss)
           val encl1 = nameset_union(encl, fnms)
         in
-          PCEletfun(loc, fds, el_pure(encl1, rest1, muts, mts, tail))
+          PCEletfun(loc, fds, el_pure_go(encl1, rest1, muts, mts, tail, tail_expr))
         end
       else
-        el_local_decl(encl, loc, d, el_pure(el_decl_name(encl, d), rest, muts, mts, tail))
+        el_local_decl(encl, loc, d, el_pure_go(el_decl_name(encl, d), rest, muts, mts, tail, tail_expr))
   | PySreturn(loc, _) => PCEerror(loc, "return outside a function")
   | PySbreak(loc) => PCEerror(loc, "break outside a loop")
   | PyScontinue(loc) => PCEerror(loc, "continue outside a loop")
-  | PySerror(loc, msg) => PCEseq(loc, PCEerror(loc, msg), el_pure(encl, rest, muts, mts, tail))
+  | PySerror(loc, msg) => PCEseq(loc, PCEerror(loc, msg), el_pure_go(encl, rest, muts, mts, tail, tail_expr))
   )
 )
 //
 and
 el_pure_if
 (encl: nameset, loc: loctn, gs: list(pyguard), els: pystmtlstopt, muts: nameset, mts: muttypes,
- rest: list(pystmt), tail: pcexp): pcexp =
+ rest: list(pystmt), tail: pcexp, tail_expr: bool): pcexp =
 (
 case+ gs of
 | list_nil() =>
     (case+ els of
-     | PyElseNone() => el_pure(encl, rest, muts, mts, tail)
-     | PyElseSome(body) => el_pure(encl, body, muts, mts, el_pure(encl, rest, muts, mts, tail)))
+     | PyElseNone() => el_pure_go(encl, rest, muts, mts, tail, tail_expr)
+     | PyElseSome(body) =>
+         let
+           val kont = el_pure_go(encl, rest, muts, mts, tail, tail_expr)
+           val btail = (case+ rest of list_nil() => tail_expr | _ => false)
+         in
+           el_pure_go(encl, body, muts, mts, kont, btail)
+         end)
 | list_cons(PyGuard(gloc, c, body), grest) =>
-    PCEif(gloc, el_exp(encl, c),
-          el_pure(encl, body, muts, mts, el_pure(encl, rest, muts, mts, tail)),
-          el_pure_if(encl, loc, grest, els, muts, mts, rest, tail))
+    let
+      val kont = el_pure_go(encl, rest, muts, mts, tail, tail_expr)
+      val btail = (case+ rest of list_nil() => tail_expr | _ => false)
+    in
+      PCEif(gloc, el_exp(encl, c),
+            el_pure_go(encl, body, muts, mts, kont, btail),
+            el_pure_if(encl, loc, grest, els, muts, mts, rest, tail, tail_expr))
+    end
 )
 //
 and

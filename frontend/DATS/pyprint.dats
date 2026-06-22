@@ -2081,8 +2081,8 @@ pp_dexp_impl_local
   val raws = impl_farg_raw_names(tqas, farg)
   val tps = impl_farg_names(tqas, farg)
 in
-  ind(out, n); ps(out, "@impl"); push_binders(raws); pp_impl_tias(out, tias);
-  ps(out, " def "); ps(out, fname(d0qid_lexeme(dqi)));
+  ind(out, n); ps(out, "@impl"); push_binders(raws); pp_impl_tias(out, tias); nl(out);
+  ind(out, n); ps(out, "def "); ps(out, fname(d0qid_lexeme(dqi)));
   pp_names_brkt(out, tps);
   (if farg_has_dapp(farg) then pp_lam_farg_params(out, farg) else ());
   ps(out, ":"); nl(out);
@@ -2806,7 +2806,8 @@ end
 //
 // `#implfun f(args) = body`  parses to a D0Cfundclst(FUN, _, [d0fundcl]).  Each
 // d0fundcl has dpid (name), farg (f0arglst), and tdxp (the `= body`).  We emit
-//   `@impl def f(params): <body-suite>`
+//   `@impl`
+//   `def f(params): <body-suite>`
 // with UNANNOTATED params (the .dats carries no param types — they are inferred,
 // which the frontend's inline-implement path accepts at nerror=0).
 //
@@ -2817,8 +2818,8 @@ end
 	  val raws = impl_farg_raw_names(tqas, farg)
 	  val tps = impl_farg_names(tqas, farg)
 	in
-	  ind(out, n); ps(out, "@impl"); push_binders(raws); pp_impl_tias(out, tias);
-	  ps(out, " def "); ps(out, fname(d0qid_lexeme(dqi)));
+	  ind(out, n); ps(out, "@impl"); push_binders(raws); pp_impl_tias(out, tias); nl(out);
+	  ind(out, n); ps(out, "def "); ps(out, fname(d0qid_lexeme(dqi)));
 	  pp_names_brkt(out, tps);
 	  (if farg_has_dapp(farg) then pp_farg_params(out, farg) else ());
 	  ps(out, ":"); nl(out);
@@ -2833,7 +2834,8 @@ end
 	  val raws = farg_sapp_raw_names(farg)
 	  val tps = farg_sapp_names(farg)
 in
-  ind(out, n); ps(out, "@impl def "); ps(out, fname(nm)); push_binders(raws);
+  ind(out, n); ps(out, "@impl"); nl(out);
+  ind(out, n); ps(out, "def "); ps(out, fname(nm)); push_binders(raws);
   pp_names_brkt(out, tps);
   pp_farg_params(out, farg);
   ps(out, ":"); nl(out);
@@ -3104,12 +3106,12 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   // `excptcon E of (T)` -> `exception E(T)`.
   | D0Cexcptcon(_, _, tcns) => (pp_excptcon_list(out, 0, tcns); true)
   //
-  // `#implfun f(args) = body`  ->  `@impl def f(args): body`.  `#implfun` lexes to
+  // `#implfun f(args) = body`  ->  `@impl` + `def f(args): body`.  `#implfun` lexes to
   // T_IMPLMNT(IMPLfun) and parses to D0Cimplmnt0 (the implement decl): name (d0qid),
   // f0arglst (params), s0res, and the d0exp body.
   | D0Cimplmnt0(_, _, tqas, dqi, tias, farg, _, _, body) => (pp_impl(out, tqas, dqi, tias, farg, body); true)
   // an ordinary `fun f(x) = e` reaches here as D0Cfundclst. It creates a fresh
-  // function binding, unlike `@impl def`, which requires an existing signature.
+  // function binding, unlike an `@impl`-decorated def, which requires an existing signature.
   | D0Cfundclst(_, _, fds) => (pp_fundcl_local_list_n(out, 0, fds); true)
   //
   // a top-level value binding (`val name = e`) -> `@static let name = e`.
@@ -3364,13 +3366,13 @@ pp_d0typ_enum_list(out: FILR, n: sint, dts: d0typlst): void =
       pp_d0typ_enum_list(out, n, rest))
 )
 and
-	// `#implfun NAME(params) = body` (a D0Cimplmnt0) -> `@impl def NAME(params): body`.
+	// `#implfun NAME(params) = body` (a D0Cimplmnt0) -> `@impl` + `def NAME(params): body`.
 	// Params are UNANNOTATED (the .dats carries no param types; the inline-implement
 	// path infers them — verified nerror=0). The body is a `:`-suite at indent 1.
 	pp_impl(out: FILR, tqas: t0qaglst, dqi: d0qid, tias: t0iaglst, farg: f0arglst, body: d0exp): void =
 	  pp_impl_n(out, 0, tqas, dqi, tias, farg, body)
 	and
-// the body of `#implfun` -> `@impl def` (one or more d0fundcl in a list).
+	// the body of `#implfun` -> `@impl` + `def` (one or more d0fundcl in a list).
 pp_fundcl_impl_list(out: FILR, fds: d0fundclist): void =
 (
   case+ fds of

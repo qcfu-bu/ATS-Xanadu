@@ -25,7 +25,8 @@ harnesses.
   `# TODO(pp)` fallbacks.
 - The default corpus audit now pretty-prints and reparses/typechecks
   `srcgen2/SATS/xstamp0.sats`, `srcgen2/DATS/filpath_drpth0.dats`, the full
-  `srcgen2/DATS/parsing*.dats` parser implementation slice, and the focused
+  `srcgen2/DATS/parsing*.dats` parser implementation slice, the green
+  `pread00*`, `tread01*`, and `tread12*` reader/checker slices, and the focused
   round-trip fixtures with `TODOpp=0` and `m3_nerror=0`.
 - The expanded static interface slice
   `srcgen2/SATS/{filpath,xsymbol,locinfo,lexing0}.sats` now also reaches
@@ -107,6 +108,11 @@ harnesses.
   `parsing_basics.dats`, `parsing_tokbuf.dats`, `parsing_utils0.dats`,
   `parsing_staexp.dats`, `parsing_dynexp.dats`, `parsing_decl00.dats`, and
   `parsing.dats`.
+- The first reader/checker expansion slice
+  `srcgen2/DATS/{pread00,tread01,tread12}*.dats` now reaches `TODOpp=0` and
+  `m3_nerror=0` across fifteen generated files. The last blocker in that slice
+  was statement-`if` continuation handling: a side-effecting branch body must
+  sequence into the following suite tail instead of replacing the function value.
 - `build-pp-corpus.sh --out-dir RELPATH` now normalizes the report directory
   against `frontend/` before running pyprint from `XATSHOME`, so separate static
   and dynamic corpus summaries can be kept without path breakage.
@@ -116,7 +122,7 @@ harnesses.
 1. Pretty-printer breadth is now marker-free for the audited `srcgen2/SATS`
    interface corpus and the 166-file `srcgen2/DATS`/`srcgen2/UTIL` pyprint-only
    slice. The parser implementation slice no longer crashes in layout/reparse,
-   and all six first parser implementation files now reparse/typecheck. The
+   and all seven first parser implementation files now reparse/typecheck. The
    next breadth blocker is scaling that same `TODOpp=0` plus `m3_nerror=0`
    treatment into larger parser/compiler slices, then `srcgen1/prelude` and
    backend comparison.
