@@ -32,8 +32,11 @@ harnesses.
   `trans23_myenv0.dats`, and `trtmp3c_myenv0.dats`, the first green
   `dynexp0`/`dynexp1`/`dynexp2`/`dynexp3` helper sub-slice, the reporter and reader
   expansion slices, the `trtmp3b`/`trtmp3c` template-pass slice, the
-  support/type-kernel `statyp2` plus `xstamp0`/`xsymbol`/`xlabel0` slice, and
-  the focused round-trip fixtures with `TODOpp=0` and `m3_nerror=0`.
+  support/type-kernel `statyp2` plus `xstamp0`/`xsymbol`/`xlabel0` slice, the
+  compiler-support expansion slice covering green `trans*`, `staexp*`,
+  `xsymmap*`, `filpath*`, `gmacro1*`, `locinfo*`, `nmspace`, and `lexing0`
+  helpers, and the focused round-trip fixtures with `TODOpp=0` and
+  `m3_nerror=0`.
 - The expanded static interface slice
   `srcgen2/SATS/{filpath,xsymbol,locinfo,lexing0}.sats` now also reaches
   `TODOpp=0` and `m3_nerror=0`. This covers aliased `#staload`, symbolic
@@ -138,6 +141,14 @@ harnesses.
   reaches `TODOpp=0` and `m3_nerror=0`. It covers the `statyp2*`,
   `xstamp0*`, `xsymbol*`, and `xlabel0*` files now promoted into the default
   manifests.
+- The compiler-support expansion slice now sits in the default corpus and
+  reaches `TODOpp=0` and `m3_nerror=0`. It adds forty generated compiler
+  support files: `trans3a*`, green `trans2a*` helpers, selected
+  `trans12`/`trans11`/`trans23` helpers, `xsymmap*`, `staexp0_print0`,
+  `staexp1*`, selected `staexp2*` helpers, `filpath_{fpath0,print0,search}`,
+  `gmacro1*`, `locinfo*`, `nmspace`, and the green `lexing0` helper subset.
+  The default dynamic corpus now validates 141/141 files; the default auto
+  corpus validates 142/142 files.
 - `build-pp-corpus.sh --out-dir RELPATH` now normalizes the report directory
   against `frontend/` before running pyprint from `XATSHOME`, so separate static
   and dynamic corpus summaries can be kept without path breakage.
@@ -147,10 +158,11 @@ harnesses.
 1. Pretty-printer breadth is now marker-free for the audited `srcgen2/SATS`
    interface corpus and the 166-file `srcgen2/DATS`/`srcgen2/UTIL` pyprint-only
    slice. The parser implementation slice no longer crashes in layout/reparse,
-   and all seven first parser implementation files now reparse/typecheck. The
-   next breadth blocker is scaling that same `TODOpp=0` plus `m3_nerror=0`
-   treatment into larger parser/compiler slices, then `srcgen1/prelude` and
-   backend comparison.
+   all seven first parser implementation files now reparse/typecheck, and the
+   default dynamic corpus validates 141 generated files. The next breadth
+   blocker is scaling that same `TODOpp=0` plus `m3_nerror=0` treatment into the
+   remaining compiler/backend slices, then `srcgen1/prelude` and backend
+   comparison.
 2. Include/import/load semantics are not faithful yet. Bare and aliased
    `#staload` now pretty-print to scoped ATS `.sats` imports, but `#include`
    still prints as an inert comment and needs a real Pythonic load/include
