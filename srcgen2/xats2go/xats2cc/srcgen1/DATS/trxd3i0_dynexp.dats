@@ -257,6 +257,9 @@ d3p0.node() of
 |D3Pannot _ =>
 (
   f0_annot(d3p0, env0))
+|D3Perrck(_, d3p1) =>
+(
+  d3pat_trxd3i0(d3p1, env0))
 //
 (* ****** ****** *)
 //
@@ -1038,6 +1041,13 @@ D3Esynext _ =>
 //
 |D3Enone1 _ => i0exp_none1(d3e0)
 |D3Enone2 _ => i0exp_none1(d3e0)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+|D3Eerrck(_, d3e1) =>
+(
+  d3exp_trxd3i0(d3e1, env0))
 //
 (* ****** ****** *)
 (* ****** ****** *)

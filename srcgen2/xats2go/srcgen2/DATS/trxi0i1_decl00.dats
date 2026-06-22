@@ -804,6 +804,26 @@ idcl.node() of
 (
   f0_fundclst
   (idcl, i0ws, env0))
+|I0Dstatic(tknd, idcl1) =>
+let
+val loc0 = idcl.lctn((*void*))
+val idcl1 =
+(
+  i0dclenv_trxi0i1
+  (idcl1, i0ws, env0))
+in//let
+  i1dcl(loc0, I1Dstatic(tknd, idcl1))
+end//let
+|I0Dtmpsub(svts, idcl1) =>
+let
+val loc0 = idcl.lctn((*void*))
+val idcl1 =
+(
+  i0dclenv_trxi0i1
+  (idcl1, i0ws, env0))
+in//let
+  i1dcl(loc0, I1Dtmpsub(svts, idcl1))
+end//let
 //
 |
 _(*otherwise*) =>
@@ -904,6 +924,14 @@ idcl.node() of
 (
   f0_fundclst
   (idcl, i0ws, env0))
+|I1Dstatic(_, idcl1) =>
+(
+  i1dclenv_fenvins
+  (idcl1, i0ws, env0))
+|I1Dtmpsub(_, idcl1) =>
+(
+  i1dclenv_fenvins
+  (idcl1, i0ws, env0))
 //
 |
 _(*otherwise*) => ((*void*))

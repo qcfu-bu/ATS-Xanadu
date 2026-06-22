@@ -56,7 +56,7 @@ fun
 fprintln
 (filr: FILR): void =
 (
-strn_fprint("\n", filr))//endfun
+strnfpr(filr, "\n"))//endfun
 //
 (* ****** ****** *)
 (* ****** ****** *)

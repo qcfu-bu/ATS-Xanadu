@@ -182,7 +182,7 @@ idcl.node() of
   f0_dclst0(idcl, enw0))
 |I0Dlocal0 _ =>
 (
-  f0_dclst0(idcl, enw0))
+  f0_local0(idcl, enw0))
 //
 (* ****** ****** *)
 //

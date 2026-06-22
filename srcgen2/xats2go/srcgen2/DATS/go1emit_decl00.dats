@@ -67,7 +67,7 @@ fun
 fprintln
 (filr: FILR): void =
 (
-strn_fprint("\n", filr))//endfun
+strnfpr(filr, "\n"))//endfun
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -318,7 +318,7 @@ let
   //
   fun
   loop
-  (i0: sint, ts: i1tnmlst, gs: list(strn)): void =
+  (need_sep: bool, ts: i1tnmlst, gs: list(strn)): void =
   (
   case+ ts of
   |list_nil() => ((*void*))
@@ -331,14 +331,14 @@ let
       |list_cons(g1, gs1) => @(g1, gs1))
       val () =
       (
-      if (i0 >= 1) then strnfpr(filr, ", ");
+      if need_sep then strnfpr(filr, ", ");
       i1tnmgo1(filr, p1); strnfpr(filr, " "); strnfpr(filr, goty))
     in
-      loop(i0+1, ts1, gs1)
+      loop(true, ts1, gs1)
     end
   )
 in
-  loop(0, ptnms, ptys)
+  loop(false, ptnms, ptys)
 end//endof[localfun_emit_params(filr,fjas,ptys)]
 //
 (*
@@ -422,8 +422,7 @@ in//let
         nindfpr(filr, envx2go_nind$get(env0));
         strnfpr(filr, "panic(\"xats2go: local function with no body\")");
         strnfpr(filr, "\n");
-        envx2go_decnind(env0, 1(*--*));
-        prerrsln("[go1emit] NOTE: local I1Dfundcl with no body (TEQI1CMPnone)"))
+        envx2go_decnind(env0, 1(*--*)))
       |TEQI1CMPsome(_, icmp) =>
         let
           val hastc = i1cmp_body_has_tailcall(icmp)
@@ -481,8 +480,7 @@ in//let
   |list_cons _ =>
     (
     nindfpr(filr, envx2go_nind$get(env0));
-    strnfpr(filr, "// UNHANDLED: template local fundclst"); strnfpr(filr, "\n");
-    prerrsln("[go1emit] UNHANDLED: template local I1Dfundclst (M3)"))
+    strnfpr(filr, "// unsupported template local fundclst"); strnfpr(filr, "\n"))
 end//let//endof[f0_localfun(dcl1,env0)]
 //
 (* ****** ****** *)
@@ -867,6 +865,10 @@ i1dcl_go1emit_fun
 case+ dcl0.node() of
 |I1Dfundclst _ => f0_fundclst(dcl0, env0)
 |I1Dimplmnt0 _ => f0_implmnt0(dcl0, env0)
+|I1Dlocal0(head, body) =>
+  (
+  i1dclist_go1emit_funs(head, env0);
+  i1dclist_go1emit_funs(body, env0))
 |I1Ddclenv(idcl1, _) => i1dcl_go1emit_fun(idcl1, env0)
 |I1Dtmpsub(_, idcl1) => i1dcl_go1emit_fun(idcl1, env0)
 |I1Dstatic(_, idcl1) => i1dcl_go1emit_fun(idcl1, env0)
@@ -899,10 +901,8 @@ case+ tqas of
   (
   // a TEMPLATE function group (has static template args) -- M3 scope.
   nindfpr(filr, env0.nind());
-  strnfpr(filr, "// UNHANDLED: template fundclst @ ");
-  loctn_fprint(loc0, filr); strnfpr(filr, "\n");
-  prerrsln
-    ("[go1emit] UNHANDLED: template I1Dfundclst (M3)"))
+  strnfpr(filr, "// unsupported template fundclst @ ");
+  loctn_fprint(loc0, filr); strnfpr(filr, "\n"))
 //
 end//let//endof[f0_fundclst(dcl0,env0)]
 //
@@ -997,23 +997,20 @@ if
 dimpl_tempq(dimp)
 then
   (
-  emit_comment("UNHANDLED: template I1Dimplmnt0");
-  prerrsln("[go1emit] UNHANDLED: template I1Dimplmnt0 (M3)"))
+  emit_comment("unsupported template I1Dimplmnt0"))
 else
 if
-~implfunq(tknd)
+implfunq(tknd)
 then
-  (
-  emit_comment("UNHANDLED: non-#implfun I1Dimplmnt0");
-  prerrsln("[go1emit] UNHANDLED: non-#implfun I1Dimplmnt0"))
-else
   (
   case+ dimpl_dcstopt(dimp) of
   |optn_cons(dcst) => emit_implfun(dcst)
   |optn_nil() =>
     (
-    emit_comment("UNHANDLED: unresolved I1Dimplmnt0");
-    prerrsln("[go1emit] UNHANDLED: unresolved DIMPLnon1 I1Dimplmnt0")))
+    emit_comment("unsupported unresolved I1Dimplmnt0")))
+else
+  (
+  emit_comment("unsupported non-#implfun I1Dimplmnt0"))
 //
 end//let//endof[f0_implmnt0(dcl0,env0)]
 //
@@ -1066,29 +1063,29 @@ let
 //
 fnx
 loop_fjas
-( i0: sint
+( need_sep: bool
 , fjas: fjarglst
-, tys: list(strn)): @(sint, list(strn)) =
+, tys: list(strn)): @(bool, list(strn)) =
 (
 case+ fjas of
-|list_nil() => @(i0, tys)
+|list_nil() => @(need_sep, tys)
 |list_cons(fja1, fjas1) =>
   let
     val-FJARGdarg(i1bs) = fja1.node()
-    val (i1, tys1) = loop_bnds(i0, i1bs, tys)
+    val (need_sep1, tys1) = loop_bnds(need_sep, i1bs, tys)
   in
-    loop_fjas(i1, fjas1, tys1)
+    loop_fjas(need_sep1, fjas1, tys1)
   end
 )
 //
 and
 loop_bnds
-( i0: sint
+( need_sep: bool
 , i1bs: i1bndlst
-, tys: list(strn)): @(sint, list(strn)) =
+, tys: list(strn)): @(bool, list(strn)) =
 (
 case+ i1bs of
-|list_nil() => @(i0, tys)
+|list_nil() => @(need_sep, tys)
 |list_cons(ibnd, i1bs1) =>
   let
     val-I1BNDcons(itnm, _, _) = ibnd
@@ -1100,16 +1097,16 @@ case+ i1bs of
       |list_cons(t1, tys1) => @(t1, tys1))
     val () =
       (
-      if (i0 >= 1) then strnfpr(filr, ", ");
+      if need_sep then strnfpr(filr, ", ");
       i1tnmgo1(filr, itnm);
       strnfpr(filr, " ");
       strnfpr(filr, goty))
   in
-    loop_bnds(i0+1, i1bs1, tys1)
+    loop_bnds(true, i1bs1, tys1)
   end
 )
 //
-val _ = loop_fjas(0, fjas, argtys)
+val _ = loop_fjas(false, fjas, argtys)
 //
 in//let
 ((*void*)) end
@@ -1186,8 +1183,7 @@ case+ tdxp of
   envx2go_incnind(env0, 1(*++*));
   nindfpr(filr, env0.nind());
   strnfpr(filr, "panic(\"xats2go: function with no body\")\n");
-  envx2go_decnind(env0, 1(*--*));
-  prerrsln("[go1emit] NOTE: I1Dfundcl with no body (TEQI1CMPnone)"))
+  envx2go_decnind(env0, 1(*--*)))
 |TEQI1CMPsome(_, icmp) =>
   let
     val hastc = i1cmp_body_has_tailcall(icmp)
