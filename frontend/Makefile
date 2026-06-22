@@ -9,6 +9,7 @@ USER_PP_OUT := $(filter command line environment environment override,$(origin P
 PP_OUT ?= $(BUILD)/pp-corpus-make
 PP_MODE ?= auto
 PP_FILE_LIST ?= CORPUS/pp-default-auto.files
+PP_JOBS ?= 8
 PP_REPARSE ?= 1
 PP_STRICT ?= 1
 
@@ -17,7 +18,9 @@ M3_BUNDLE := $(BUILD)/pyfront-m3.js
 PP_BUNDLE_SRC := DATS/pyprint.dats DATS/pyprint_main.dats CATS/pyprint.cats build-pp-corpus.sh
 M3_BUNDLE_SRC := $(wildcard SATS/*.sats DATS/*.dats CATS/*.cats pyrt/*.sats) build-m3.sh
 
+ifeq ($(origin PP_FILES),undefined)
 PP_FILES := $(shell sed -e '/^[[:space:]]*\#/d' -e '/^[[:space:]]*$$/d' "$(PP_FILE_LIST)")
+endif
 PP_ITEM_DIR := $(PP_OUT)/items
 PP_SUMMARY := $(PP_OUT)/summary.tsv
 PP_AUTO_OUT := $(if $(USER_PP_OUT),$(PP_OUT),$(BUILD)/pp-corpus-make-auto)
@@ -40,12 +43,14 @@ PP_SUMMARIES := $(foreach f,$(PP_FILES),$(PP_ITEM_DIR)/$(call pp_slug,$(f))/summ
 
 help:
 	@echo "Targets:"
-	@echo "  make -j8 pp-corpus-auto       # default static+dynamic corpus in parallel"
-	@echo "  make -j8 pp-corpus-dynamic    # default dynamic corpus in parallel"
+	@echo "  make pp-corpus-auto           # default static+dynamic corpus in parallel (PP_JOBS=$(PP_JOBS))"
+	@echo "  make pp-corpus-dynamic        # default dynamic corpus in parallel (PP_JOBS=$(PP_JOBS))"
 	@echo "  make -j8 pp-corpus PP_FILE_LIST=PATH PP_MODE=auto PP_OUT=BUILD/pp-corpus-make-custom"
+	@echo "  make -j8 pp-corpus PP_MODE=dynamic PP_FILES='file1.dats file2.dats' PP_OUT=BUILD/probe"
 	@echo "  make pp-bundles               # build/rebuild shared pyprint + M3 bundles"
 	@echo ""
 	@echo "Options:"
+	@echo "  PP_JOBS=8                     # jobs used by pp-corpus-auto/dynamic wrappers"
 	@echo "  PP_REPARSE=0                  # translate only, skip M3 reparse"
 	@echo "  PP_STRICT=0                   # keep the summary even when TODO/M3 checks fail"
 	@echo "  PP_OUT=BUILD/dir              # output directory"
@@ -60,10 +65,10 @@ $(M3_BUNDLE): $(M3_BUNDLE_SRC)
 	@bash build-m3.sh
 
 pp-corpus-auto:
-	+$(MAKE) pp-corpus PP_MODE=auto PP_FILE_LIST=CORPUS/pp-default-auto.files PP_OUT=$(PP_AUTO_OUT)
+	+$(MAKE) -j$(PP_JOBS) pp-corpus PP_MODE=auto PP_FILE_LIST=CORPUS/pp-default-auto.files PP_OUT=$(PP_AUTO_OUT)
 
 pp-corpus-dynamic:
-	+$(MAKE) pp-corpus PP_MODE=dynamic PP_FILE_LIST=CORPUS/pp-default-dynamic.files PP_OUT=$(PP_DYNAMIC_OUT)
+	+$(MAKE) -j$(PP_JOBS) pp-corpus PP_MODE=dynamic PP_FILE_LIST=CORPUS/pp-default-dynamic.files PP_OUT=$(PP_DYNAMIC_OUT)
 
 pp-corpus: $(PP_SUMMARY)
 	@true
