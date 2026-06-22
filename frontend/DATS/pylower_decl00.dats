@@ -50,6 +50,11 @@
 //
 (* ****** ****** *)
 //
+fun ats_name(name: strn): strn = pylower_ats_name(name)
+fun ats_sym(name: strn): sym_t = symbl_make_name(ats_name(name))
+//
+(* ****** ****** *)
+//
 // ---- datatype (enum) lowering: PCCdata -> D2Cdatatype (M5b.3; SPIKE-PROVEN recipe,
 //      LOWERING-MAP §3.3). Mirrors trans12_d1tsc/trans12_d1tcn: register the TYPE first
 //      (so a con's own arg types + the matching function resolve it), then build each con
@@ -81,7 +86,7 @@ case+ dc of
 | PCDataCon(cloc, cname, argtyps) => let
     val argSexps = pylower_typlst(env, argtyps)  // aliases Int -> the_s2exp_sint0, params -> s2var
     val conSexp = s2exp_fun1_nil0((-1)(*npf*), argSexps, self)
-    val tok = token_make_node(cloc, T_IDALP(cname))
+    val tok = token_make_node(cloc, T_IDALP(ats_name(cname)))
     val con = d2con_make_idtp(tok, tqas, conSexp)
     val () = d2con_set_ctag(con, i)
   in
@@ -205,7 +210,7 @@ case+ params of
 | list_cons(p, rest) =>
     let
       val+ PCParam(_, name, _, _) = p
-      val s2v = s2var_make_idst(symbl_make_name(name), psort2_of_dt(p, mode))
+      val s2v = s2var_make_idst(ats_sym(name), psort2_of_dt(p, mode))
     in list_cons(s2v, mk_param_s2vars_dt(rest, mode)) end
 )
 //
@@ -225,7 +230,7 @@ case+ params of
 | list_cons(p, rest) =>
     let
       val+ PCParam(_, name, _, _) = p
-      val s2v = s2var_make_idst(symbl_make_name(name), psort2_of_rcd(p, mode))
+      val s2v = s2var_make_idst(ats_sym(name), psort2_of_rcd(p, mode))
     in list_cons(s2v, mk_param_s2vars_rcd(rest, mode)) end
 )
 //
@@ -290,7 +295,7 @@ case+ params of
 | list_cons(p, rest) =>
     let
       val+ PCParam(_, name, _, _) = p
-      val s2v = s2var_make_idst(symbl_make_name(name), psort2_of(p))
+      val s2v = s2var_make_idst(ats_sym(name), psort2_of(p))
     in list_cons(s2v, mk_param_s2vars(rest)) end
 )
 //
@@ -380,7 +385,7 @@ case+ fs of
 | list_nil() => list_nil()
 | list_cons(PCField(floc, fname, ftyp), rest) =>
     let
-      val lab = LABsym(symbl_make_name(fname))
+      val lab = LABsym(ats_sym(fname))
       val s2e = pylower_typ(env, ftyp)
     in
       list_cons(S2LAB(lab, s2e), pylower_pcfields(env, rest))
@@ -417,7 +422,7 @@ fun
 build_sexpdef(env: !tr12env, loc: loctn, name: strn, rhs: s2exp): d2ecl = let
   val s2t  = rhs.sort()                 // the alias inherits the RHS's sort
   val tdef = s2exp_stpize(rhs)          // the erased styp form (f0_sexpdef tdef)
-  val s2c  = s2cst_make_idst(loc, symbl_make_name(name), s2t)
+  val s2c  = s2cst_make_idst(loc, ats_sym(name), s2t)
   val () = s2cst_set_sexp(s2c, rhs)
   val () = s2cst_set_styp(s2c, tdef)
   val () = tr12env_add1_s2cst(env, s2c)
@@ -476,7 +481,7 @@ build_abstype
       if list_nilq(tvs)
         then abs_sort_of(mode)
         else S2Tfun1(mk_type_sorts(tvs), abs_sort_of(mode))
-    val s2c = s2cst_make_idst(loc, symbl_make_name(name), s2t)
+    val s2c = s2cst_make_idst(loc, ats_sym(name), s2t)
     val () = tr12env_add1_s2cst(env, s2c)
     val atdf =
       ( case+ repopt of
@@ -494,7 +499,7 @@ build_abstype
 // using-decls will errck as unresolved — a graceful failure, never a crash).
 fun
 build_absimpl(env: !tr12env, loc: loctn, name: strn, rhs: s2exp): d2ecl = let
-  val sopt = tr12env_find_s2itm(env, symbl_make_name(name))
+  val sopt = tr12env_find_s2itm(env, ats_sym(name))
 in
   case+ sopt of
   | ~optn_vt_cons(s2i) =>
@@ -527,7 +532,7 @@ end
 // (trans23 treats it as an unconstrained tyvar — a benign, characterized degenerate case).
 fun
 resolve_typ_name(env: !tr12env, name: strn): s2exp = let
-  val sopt = tr12env_find_s2itm(env, symbl_make_name(name))
+  val sopt = tr12env_find_s2itm(env, ats_sym(name))
 in
   case+ sopt of
   | ~optn_vt_cons(s2i) =>
@@ -580,7 +585,7 @@ build_extern
     | PyTypNone()  => resolve_typ_name(env, "void")
     ): s2exp
   val sfun     = s2exp_fun1_nil0((-1)(*npf*), argtyps, restyp)
-  val tok_id   = token_make_node(loc, T_IDALP(name))
+  val tok_id   = token_make_node(loc, T_IDALP(ats_name(name)))
   val tok_fnk  = token_make_node(loc, T_FUN(FNKfn2))
   val d2c      = d2cst_make_idtp(tok_fnk, tok_id, list_nil()(*tqas*), sfun)
   val () = tr12env_add1_d2cst(env, d2c)              // register so a call to `name` resolves
@@ -648,7 +653,7 @@ build_template_extern
       else s2exp_uni0(c_s2vs, list_nil()(*s2ps*), inner) ): s2exp
   // the TEMPLATE quantifier group {A,B} on the d2cst (NON-EMPTY -> d2cst_tempq=true).
   val tqas    = list_sing(t2qag_make_s2vs(loc, a_s2vs)) : t2qaglst
-  val tok_id  = token_make_node(loc, T_IDALP(name))
+  val tok_id  = token_make_node(loc, T_IDALP(ats_name(name)))
   val tok_fnk = token_make_node(loc, T_FUN(FNKfn2))
   val d2c     = d2cst_make_idtp(tok_fnk, tok_id, tqas, sfun)
   val () = tr12env_add1_d2cst(env, d2c)              // register so @impl/@inst resolve to it
@@ -712,8 +717,8 @@ end
 // overload-ALIAS path (PCCsymalias) passes the parsed `@overload[N]` precedence (or 0 if none).
 fun
 build_overload(env: !tr12env, loc: loctn, name: strn, impl: strn, pval: sint): d2ecl = let
-  val sym_nm  = symbl_make_name(name)
-  val implopt = tr12env_find_d2itm(env, symbl_make_name(impl))
+  val sym_nm  = ats_sym(name)
+  val implopt = tr12env_find_d2itm(env, ats_sym(impl))
 in
   case+ implopt of
   | ~optn_vt_cons(ditm_impl) => let
@@ -877,7 +882,7 @@ case+ d of
   if list_nilq(tvs) then let
     // ---- MONOMORPHIC enum (tvs empty): the M5b.3 path. M5b.6a: the sort is mode-selected
     //      (boxed tbox by default, linear vtbx for @linear) via dt_sort_of. ----------------
-    val s2c = s2cst_make_idst(loc, symbl_make_name(name), dt_sort_of(mode))
+    val s2c = s2cst_make_idst(loc, ats_sym(name), dt_sort_of(mode))
     val () = tr12env_add1_s2cst(env, s2c)               // register the TYPE first (recursion)
     val s2e_self = s2exp_cst(s2c)                        // the datatype's own s2exp
     // NB: do NOT name this `cons` — that collides with the prelude list-constructor overload
@@ -897,7 +902,7 @@ case+ d of
     // arrow + the bound s2vars are CONSISTENT with the boxed result (no latent tflt-in-tbox shape).
     val s2vs   = mk_param_s2vars_dt(tvs, mode)
     val s2t    = S2Tfun1(mk_type_sorts_dt(tvs, mode), dt_sort_of(mode))
-    val s2c    = s2cst_make_idst(loc, symbl_make_name(name), s2t)
+    val s2c    = s2cst_make_idst(loc, ats_sym(name), s2t)
     val () = tr12env_add1_s2cst(env, s2c)               // register the TYPE first (recursion)
     // (2) push a param lam-scope + bind the s2vars BEFORE building the cons (so an arg type `A`
     //     — and a self-recursive arg `Tree[A]` — resolves to its s2var / the registered s2cst).
@@ -986,7 +991,7 @@ case+ d of
     val s2e_exn  = s2exp_cst(the_s2cst_excptn())
     val argSexps = pylower_typlst(env, argtyps)    // aliases Int -> the_s2exp_sint0
     val conSexp  = s2exp_fun1_nil0((-1)(*npf*), argSexps, s2e_exn)
-    val tok      = token_make_node(loc, T_IDALP(name))
+    val tok      = token_make_node(loc, T_IDALP(ats_name(name)))
     val con      = d2con_make_idtp(tok, list_nil()(*tqas*), conSexp)
     val d2cs     = list_sing(con)
     val () = tr12env_add1_d2conlst(env, d2cs)      // register the con (so raise/except resolve)
@@ -1038,12 +1043,12 @@ case+ d of
 // ATS-parity: a `sortdef Name = SORT` SORT ALIAS -> a D2Csortdef. SPIKE-PROVEN (dep-spike P6(A)):
 // map the RHS sort-reference string to a sort2 (the same SInt/Type/Prop vocab psort2_of uses), wrap
 // it in S2TEXsrt, REGISTER the alias under its name via tr12env_add0_s2tex (so a later `[n: Name]`
-// resolves it), and emit D2Csortdef(symbl_make_name(name), s2tex).
+// resolves it), and emit D2Csortdef(ats_sym(name), s2tex).
 | PCCsortdef(loc, name, srt) => let
     val s2tx = S2TEXsrt(sort2_of_name(srt))
-    val () = tr12env_add0_s2tex(env, symbl_make_name(name), s2tx)
+    val () = tr12env_add0_s2tex(env, ats_sym(name), s2tx)
   in
-    d2ecl_make_node(loc, D2Csortdef(symbl_make_name(name), s2tx))
+    d2ecl_make_node(loc, D2Csortdef(ats_sym(name), s2tx))
   end
 //
 // A-QUANT: a `@sort type Nat = {a: SInt | a >= 0}` SUBSET (refined) SORT -> a D2Csortdef carrying
@@ -1051,21 +1056,21 @@ case+ d of
 // 1291): build the binder s2var at its psort2_of carrier sort (mk_param_s2vars on the singleton),
 // push a lam-scope + bind it so the guards resolve `a`, lower each guard via pylower_typ (sort
 // bool), pop, assemble S2TEXsub(s2v, [guards]), REGISTER the sort under its name (tr12env_add0_s2tex
-// — so a later `[n: Nat]` resolves it), and emit D2Csortdef(symbl_make_name(name), s2tex).
+// — so a later `[n: Nat]` resolves it), and emit D2Csortdef(ats_sym(name), s2tex).
 | PCCsortsub(loc, name, binder, guards) => let
     val s2vs = mk_param_s2vars(list_sing(binder))
     val s2v1 =
       ( case+ s2vs of
         | list_cons(v, _) => v
-        | list_nil() => s2var_make_idst(symbl_make_name(name), the_sort2_int0) )  // defensive
+        | list_nil() => s2var_make_idst(ats_sym(name), the_sort2_int0) )  // defensive
     val () = tr12env_pshlam0(env)
     val () = bind_param_s2vars(env, s2vs)
     val s2ps = lower_sub_guards(env, guards)
     val () = tr12env_poplam0(env)
     val s2tx = S2TEXsub(s2v1, s2ps)
-    val () = tr12env_add0_s2tex(env, symbl_make_name(name), s2tx)
+    val () = tr12env_add0_s2tex(env, ats_sym(name), s2tx)
   in
-    d2ecl_make_node(loc, D2Csortdef(symbl_make_name(name), s2tx))
+    d2ecl_make_node(loc, D2Csortdef(ats_sym(name), s2tx))
   end
 //
 // ATS-parity: a `stacst Name : SORT` STATIC-CONSTANT decl -> a D2Cstacst0. SPIKE-PROVEN (P6(B)):
@@ -1073,7 +1078,7 @@ case+ d of
 // static expr resolves `Name`), and emit D2Cstacst0(s2c, sort2).
 | PCCstacst(loc, name, srt) => let
     val s2t = sort2_of_name(srt)
-    val s2c = s2cst_make_idst(loc, symbl_make_name(name), s2t)
+    val s2c = s2cst_make_idst(loc, ats_sym(name), s2t)
     val () = tr12env_add1_s2cst(env, s2c)
   in
     d2ecl_make_node(loc, D2Cstacst0(s2c, s2t))

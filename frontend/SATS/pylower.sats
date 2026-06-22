@@ -60,6 +60,11 @@ fun pylower_sres(env: !tr12env, t: pytyp): s2res
 fun op_remap(name: strn): strn
 fun op_remap_unary(name: strn): strn
 //
+// Surface identifier fidelity: pretty-printing maps ATS `$` names to Koka-style `/`
+// segments; lowering maps those identifier names back before symbol lookup/registration.
+// This is for identifiers, not operator tokens.
+fun pylower_ats_name(name: strn): strn
+//
 (* ****** ****** *)
 //
 // ---- dynexp (expressions / patterns / literals) ----------------------------

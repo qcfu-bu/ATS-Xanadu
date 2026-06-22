@@ -44,12 +44,7 @@
 // string transforms done in the JS glue (frontend/CATS/pyprint.cats) — trivial in
 // JS, and avoids the dependently-typed strn_get$at surgery in ATS.
 //   PYPP_capitalize : uppercase the first character.
-//   PYPP_dollar_fix : rewrite the `$`-in-ident.  The DESIGN decision (BOOTSTRAP-
-//     PLAN) is Koka-style `$`->`/`; HOWEVER our frontend lexer does NOT yet accept
-//     `/` inside an identifier (it lexes as the division op), so for the TRACER we
-//     emit `$`->`_` (what the reference _ucase translation uses, reaching nerror=0).
-//     Switching to `/` is parser-breadth work (lexer ident-char set), not a P2
-//     pretty-printer concern — see the TODO note at the call site.
+//   PYPP_dollar_fix : rewrite `$`-in-ident to Koka-style `/`.
 //   PYPP_xname/PYPP_pname : synthesized positional typaram/param names.
 #extern fun PYPP_capitalize(s: strn): strn = $extnam()
 #extern fun PYPP_dollar_fix(s: strn): strn = $extnam()
@@ -57,9 +52,6 @@
 // string-append template): "X"+i (a typaram), "a"/"b".../"x"+i (a parameter).
 #extern fun PYPP_xname(i: sint): strn = $extnam()
 #extern fun PYPP_pname(i: sint): strn = $extnam()
-// whether a name contains a `$` (so we can emit the visible $->/ divergence note).
-#extern fun PYPP_has_dollar(s: strn): bool = $extnam()
-//
 // CAPITALIZE-SCOPING (dynamic side): the file-local name registry. PYPP_local_add
 // records a name DEFINED IN THIS FILE (a datatype type-name or data-constructor,
 // in its lowercase ATS spelling); PYPP_local_has tests membership. Only file-local
@@ -109,6 +101,15 @@ d0qid_lexeme(q: d0qid): strn =
   | D0QIDsome(_, id) => i0dnt_lexeme(id)
 )
 //
+// s0qid (qualified static-id): same rule as d0qid; drop the qualifier.
+fun
+s0qid_lexeme(q: s0qid): strn =
+(
+  case+ q of
+  | S0QIDnone(id) => i0dnt_lexeme(id)
+  | S0QIDsome(_, id) => i0dnt_lexeme(id)
+)
+//
 // s0ymb (the symload alias name): an i0dnt or a [] bracket symbol.
 fun
 s0ymb_lexeme(sym: s0ymb): strn =
@@ -120,9 +121,8 @@ s0ymb_lexeme(sym: s0ymb): strn =
 //
 (* ****** ****** *)
 //
-// rule 2: `$`-in-ident.  Design target = `/` (Koka-style); emitted as `_` until
-// the lexer accepts `/` in idents (see PYPP_dollar_fix note). rule 3 (qualified
-// `$M.x` -> bare `x`) is handled at the qualifier level (we take bare names).
+// rule 2: `$`-in-ident -> `/` (Koka-style). rule 3 (qualified `$M.x` -> bare `x`)
+// is handled at the qualifier level (we take bare names).
 fun rewrite_dollar(s: strn): strn = PYPP_dollar_fix(s)
 //
 // a FUNCTION / VALUE name: keep case, but $->/.
@@ -372,11 +372,6 @@ pp_dynconst_fun(out: FILR, dcd: d0cstdcl): void = let
   val sres  = d0cstdcl_get_sres(dcd)
   val tps   = darg_squa_names(dargs)
 in
-  // VISIBLE divergence note: the `$`-in-ident name is rendered with `_` (design
-  // target is Koka `/`, but the lexer doesn't accept `/` in idents yet).
-  (if PYPP_has_dollar(nm)
-   then todo(out, "$-in-ident rendered '_' (design target '/'; lexer ident-char gap)")
-   else ());
   ps(out, "@extern"); nl(out);
   ps(out, "def "); ps(out, fname(nm));
   pp_names_brkt(out, tps);
@@ -1125,6 +1120,9 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   // bodyless val / fun (in a .sats interface)  ->  @static let / @extern def
   | D0Cdynconst(tok, _, dcds) => (pp_dynconst(out, tok, dcds); true)
   //
+  // #absimpl T = REP  ->  @impl type T = REP
+  | D0Cabsimpl(_, sqid, _, _, _, se) => (pp_absimpl(out, 0, sqid, se); true)
+  //
   // #symload NAME with FN [of prec]  ->  @overload NAME = FN
   | D0Csymload(_, sym, _, dqi, _) => let
       val nm  = fname(s0ymb_lexeme(sym))
@@ -1204,7 +1202,7 @@ pp_local(out: FILR, head: d0eclist, body: d0eclist): void = (
   pp_walk(out, body)
 )
 and
-// the HEAD of a local: datatypes -> enum; val-bindings -> `let`; #absimpl -> TODO.
+// the HEAD of a local: datatypes -> enum; val-bindings -> `let`; #absimpl -> `@impl type`.
 pp_priv_head(out: FILR, n: sint, head: d0eclist): void =
 (
   case+ head of
@@ -1219,11 +1217,15 @@ pp_priv_head_one(out: FILR, n: sint, dc: d0ecl): void =
   case+ dc.node() of
   | D0Cdatatype(_, dts, _) => pp_d0typ_enum_list(out, n, dts)
   | D0Cvaldclst(_, vds) => pp_priv_valdcls(out, n, vds)
-  // #absimpl X = T (abstract-type impl) — implements a type DECLARED in the .sats;
-  // standalone (no interface) it cannot typecheck, so we mark it a VISIBLE gap.
-  | D0Cabsimpl(_, _, _, _, _, _) => (
-      ind(out, n); todo(out, "#absimpl (abstract-type impl needs the .sats interface)"))
+  | D0Cabsimpl(_, sqid, _, _, _, se) => pp_absimpl(out, n, sqid, se)
   | _ => (ind(out, n); todo(out, "private-head decl"))
+)
+and
+pp_absimpl(out: FILR, n: sint, sqid: s0qid, se: s0exp): void =
+(
+  ind(out, n); ps(out, "@impl"); nl(out);
+  ind(out, n); ps(out, "type "); ps(out, tyname(s0qid_lexeme(sqid)));
+  ps(out, " = "); pp_s0exp(out, se); nl(out)
 )
 and
 pp_priv_valdcls(out: FILR, n: sint, vds: d0valdclist): void =

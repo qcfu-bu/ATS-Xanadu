@@ -1,4 +1,4 @@
-# PROBE: same translation, but (a) import commented out (crashes the resolver),
+# PROBE: same translation, but (a) import commented out (keeps this probe focused),
 # (b) @overload alias lines removed (wrong shape), (c) lowercase abstract/alias names
 # left AS-IS to confirm the case-rule rejection. Everything else faithful.
 

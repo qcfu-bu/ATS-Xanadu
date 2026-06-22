@@ -31,6 +31,16 @@
 //
 (* ****** ****** *)
 //
+#extern fun PYL_ats_name(s: strn): strn = $extnam()
+//
+#implfun
+pylower_ats_name(name) = PYL_ats_name(name)
+//
+fun ats_name(name: strn): strn = pylower_ats_name(name)
+fun ats_sym(name: strn): sym_t = symbl_make_name(ats_name(name))
+//
+(* ****** ****** *)
+//
 // ---- surface-operator -> prelude-name remap (LOWERING-MAP §3.4, M3-REPORT table) --------
 //
 // PROBE-VERIFIED (the crux of M3): the prelude binds `+ - * / % == < ...` as OVERLOAD
@@ -140,7 +150,7 @@ case+ bop of
 // name -> s2exp_none0 (benign; trans23 treats it as an unconstrained tyvar — characterized).
 fun
 resolve_typ_name(env: !tr12env, name: strn): s2exp = let
-  val sopt = tr12env_find_s2itm(env, symbl_make_name(name))
+  val sopt = tr12env_find_s2itm(env, ats_sym(name))
 in
   case+ sopt of
   | ~optn_vt_cons(s2i) =>
@@ -159,7 +169,7 @@ end
 //
 fun
 resolve_typ(env: !tr12env, loc: loctn, name: strn): s2exp = let
-  val key = symbl_make_name(typ_alias(name))
+  val key = ats_sym(typ_alias(name))
   val sopt = tr12env_find_s2itm(env, key)
 in
   case+ sopt of
@@ -280,7 +290,7 @@ case+ fs of
 | list_nil() => list_nil()
 | list_cons(PyTField(floc, fname, ftyp), rest) =>
     let
-      val lab = LABsym(symbl_make_name(fname))
+      val lab = LABsym(ats_sym(fname))
       val s2e = pylower_typ(env, ftyp)
     in
       list_cons(S2LAB(lab, s2e), pylower_tfields(env, rest))

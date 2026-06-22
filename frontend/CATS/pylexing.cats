@@ -65,6 +65,16 @@ function PYL_unquote(s) {
   return s;
 }
 //
+// Surface identifiers spell ATS '$' segments Koka-style with '/', e.g. `a0ref/get`.
+// Lowering resolves those names against the existing compiler/prelude spelling.
+// Keep real operator spellings alone; callers use this only for identifier names,
+// but the guard prevents accidental `/` division remapping in operator paths.
+function PYL_ats_name(s) {
+  s = String(s);
+  if (s === "/" || s === "//") return s;
+  return s.split("/").join("$");
+}
+//
 // Slice bytes [lo, hi) of the current buffer back into a JS (UTF-8) string. Used
 // to materialize a token's lexeme (identifier / literal text) for PT_*(strn).
 function PYL_slice(lo, hi) {

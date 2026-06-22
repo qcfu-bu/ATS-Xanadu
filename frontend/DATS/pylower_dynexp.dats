@@ -46,6 +46,11 @@
 //
 (* ****** ****** *)
 //
+fun ats_name(name: strn): strn = pylower_ats_name(name)
+fun ats_sym(name: strn): sym_t = symbl_make_name(ats_name(name))
+//
+(* ****** ****** *)
+//
 // the `val`/`=` token reused for synthesized binding tokens (its lexeme is irrelevant to
 // trans23; only its presence/kind matters). A LAM token for lambdas; a FUN token for groups.
 //
@@ -226,7 +231,7 @@ pl_params(loc: loctn, params: list(strn)): f2arglst = let
     case+ ps of
     | list_nil() => list_nil()
     | list_cons(nm, rest) =>
-        let val d2v = d2var_new2_name(loc, symbl_make_name(nm))
+        let val d2v = d2var_new2_name(loc, ats_sym(nm))
         in list_cons(d2pat_var(loc, d2v), loop(rest)) end
   val dps = loop(params)
 in
@@ -241,7 +246,7 @@ end
 //
 fun
 pl_one_param(env: !tr12env, loc: loctn, nm: strn, topt: pytypopt): d2pat = let
-  val d2v = d2var_new2_name(loc, symbl_make_name(nm))
+  val d2v = d2var_new2_name(loc, ats_sym(nm))
   val d2p = d2pat_var(loc, d2v)
 in
   case+ topt of
@@ -298,7 +303,7 @@ mk_sarg_s2vars(names: list(strn)): s2varlst =
 case+ names of
 | list_nil() => list_nil()
 | list_cons(nm, rest) =>
-    list_cons(s2var_make_idst(symbl_make_name(nm), the_sort2_int0), mk_sarg_s2vars(rest))
+    list_cons(s2var_make_idst(ats_sym(nm), the_sort2_int0), mk_sarg_s2vars(rest))
 )
 //
 // M5a: build a list of (possibly typed) param patterns, parallel to a name + type list.
@@ -363,10 +368,10 @@ pl_pat(env: !tr12env, p: pcpat): d2pat =
 (
 case+ p of
 | PCPvar(loc, name) =>
-    let val d2v = d2var_new2_name(loc, symbl_make_name(name)) in d2pat_var(loc, d2v) end
+    let val d2v = d2var_new2_name(loc, ats_sym(name)) in d2pat_var(loc, d2v) end
 | PCPwild(loc) => d2pat_make_node(loc, D2Pany())
 | PCPcon(loc, name, sargs, args) => let
-    val sym = symbl_make_name(name)
+    val sym = ats_sym(name)
     val dopt = tr12env_find_d2itm(env, sym)
     val con_hd =
       (
@@ -441,7 +446,7 @@ case+ p of
 | PCPas(loc, name, inner) =>
     let
       val d2pinner = pl_pat(env, inner)
-      val d2v = d2var_new2_name(loc, symbl_make_name(name))
+      val d2v = d2var_new2_name(loc, ats_sym(name))
       val d2pbind = d2pat_var(loc, d2v)
     in
       d2pat_make_node(loc, D2Prfpt(d2pinner, tok_val(loc), d2pbind))
@@ -472,7 +477,7 @@ case+ fs of
 | list_nil() => list_nil()
 | list_cons(PCPField(_, name, fp), rest) =>
     let
-      val lab = LABsym(symbl_make_name(name))
+      val lab = LABsym(ats_sym(name))
       val d2p = pl_pat(env, fp)
     in
       list_cons(D2LAB(lab, d2p), pl_pfieldlst(env, rest))
@@ -488,7 +493,7 @@ case+ e of
 //
 // PCEvar : an ordinary var/fun reference (template A). A BARE operator name (not applied) is
 // not a runnable value in v1, but resolve it as-is for recovery (deferred).
-| PCEvar(loc, name) => pl_var(env, loc, symbl_make_name(name))
+| PCEvar(loc, name) => pl_var(env, loc, ats_sym(name))
 // PCEcon : UIDENT -> a d2con reference (template A resolves it to D2ITMcon). CRITICAL: a
 // NULLARY con used as a VALUE (`Nothing`, `Empty`, a nullary exn con) must be APPLIED to zero
 // args — wrapped in D2Edap0 — exactly as the list-literal path wraps `list_nil()` (M16) and the
@@ -496,7 +501,7 @@ case+ e of
 // FUNCTION type, which then fails to unify with the result type `T` (D3Et2pck errck). An n-ary
 // con reaches here only as the head of a PCEapp (handled by pl_app -> D2Edapp); a BARE n-ary con
 // reference (a HOF-style partial con) stays unwrapped. So: wrap iff the resolved con is nullary.
-| PCEcon(loc, name) => pl_con_value(env, loc, symbl_make_name(name))
+| PCEcon(loc, name) => pl_con_value(env, loc, ats_sym(name))
 //
 // template B : application f(a,b) -> D2Edapp(d2f, -1, args). Empty arg list -> D2Edap0.
 // OPERATOR-HEADED applications are remapped to their concrete prelude `sint_*` function by
@@ -572,7 +577,7 @@ case+ e of
       | PyTypNone() => optn_nil()
       | PyTypSome(t) => optn_cons(pylower_typ(env, t))
       ): s2expopt
-    val d2v = d2var_new2_name(loc, symbl_make_name(nm))
+    val d2v = d2var_new2_name(loc, ats_sym(nm))
     val dvar = d2vardcl_make_args(loc, d2v, optn_nil()(*vpid*), sres, TEQD2EXPsome(tok_val(loc), d2init))
     val () = tr12env_add0_d2var(env, d2v)          // register AFTER the init is lowered
     val decl = d2ecl_make_node(loc, D2Cvardclst(tok_var(loc), list_sing(dvar)))
@@ -694,7 +699,7 @@ case+ e of
 | PCEfield(loc, e1, name) => let
     val d2e1 = pl_exp(env, e1)
     val drxp = d2rxp_new1(loc)
-    val lab  = LABsym(symbl_make_name(name))
+    val lab  = LABsym(ats_sym(name))
   in
     d2exp_make_node(loc, D2Eproj(tok_val(loc), drxp, lab, d2e1))
   end
@@ -835,7 +840,7 @@ case+ fs of
 | list_nil() => list_nil()
 | list_cons(PCEField(floc, name, fe), rest) =>
     let
-      val lab = LABsym(symbl_make_name(name))
+      val lab = LABsym(ats_sym(name))
       val d2e = pl_exp(env, fe)
     in
       list_cons(D2LAB(lab, d2e), pl_efieldlst(env, rest))
@@ -892,7 +897,7 @@ case+ hd of
       // a no-op prefix (unary +): the application IS its single operand.
       (case+ args of list_cons(a, _) => pl_exp(env, a) | list_nil() => d2exp_none0(loc))
     else let
-      val d2f = pl_var(env, hloc, symbl_make_name(key))
+      val d2f = pl_var(env, hloc, ats_sym(key))
     in
       case+ args of
       | list_nil() => d2exp_make_node(loc, D2Edap0(d2f))
@@ -941,7 +946,7 @@ pl_fungroup_fnk(env: !tr12env, loc: loctn, fnk: funkind, tvs: list(pcparam), met
     case+ fs of
     | list_nil() => list_nil()
     | list_cons(PCFundcl(floc, nm, _, _, _, _, _), rest) =>
-        list_cons(d2var_new2_name(floc, symbl_make_name(nm)), names_d2vs(rest))
+        list_cons(d2var_new2_name(floc, ats_sym(nm)), names_d2vs(rest))
   //
   val d2vs = names_d2vs(fdcls)
   // recursive: bind the names BEFORE lowering the bodies (so self/mutual calls resolve).
@@ -1083,7 +1088,7 @@ pl_implement
   // resolve the pre-declared d2cst by name (mirror f1_dqid: find_d2itm -> D2ITMcst head).
   val d2copt =
     (
-    case+ tr12env_find_d2itm(env, symbl_make_name(name)) of
+    case+ tr12env_find_d2itm(env, ats_sym(name)) of
     | ~optn_vt_cons(d2i) =>
       (case+ d2i of
        | D2ITMcst(d2cs) => (if list_nilq(d2cs) then optn_nil() else optn_cons(d2cs.head()))
@@ -1156,7 +1161,7 @@ end
 // forward-reference another standalone `fun`).
 fun
 resolve_typ_name_d(env: !tr12env, name: strn): s2exp = let
-  val sopt = tr12env_find_s2itm(env, symbl_make_name(name))
+  val sopt = tr12env_find_s2itm(env, ats_sym(name))
 in
   case+ sopt of
   | ~optn_vt_cons(s2i) =>
@@ -1205,7 +1210,7 @@ pl_praxi
     | PyTypNone()  => resolve_typ_name_d(env, "void")
     ): s2exp
   val sfun     = s2exp_fun1_nil0((-1)(*npf*), argtyps, restyp)
-  val tok_id   = token_make_node(loc, T_IDALP(name))
+  val tok_id   = token_make_node(loc, T_IDALP(ats_name(name)))
   val tok_fnk  = token_make_node(loc, T_FUN(FNKpraxi))
   val d2c      = d2cst_make_idtp(tok_fnk, tok_id, list_nil()(*tqas*), sfun)
   val () = tr12env_add1_d2cst(env, d2c)              // register so a use of `name` resolves

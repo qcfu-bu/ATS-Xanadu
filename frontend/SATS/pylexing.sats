@@ -57,7 +57,9 @@
 //      PT_UIDENT — uppercase-initial: a type- or data-constructor (Int, List, Leaf).
 //      PT_LIDENT — lowercase-initial: a var / fun / type-var / field (x, sum, a).
 //    The lexer does the case split so the parser never consults name resolution.
-//    Both carry their lexeme (the identifier text).
+//    Both carry their lexeme (the identifier text). Slash-separated segments with
+//    no whitespace (`name/part`) are one identifier token; lowering maps `/` back
+//    to ATS `$` so pretty-printed compiler/prelude names resolve.
 //
 //  * LITERALS carry their *exact source lexeme* (quotes/prefix INCLUDED) as a strn
 //    plus a byte length, so the lowering can re-synthesize the ATS leaf token and

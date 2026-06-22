@@ -1,20 +1,22 @@
 #!/usr/bin/env bash
 ########################################################################
-# ROUND-TRIP VALIDATION GATE (bootstrap recon) — runs the FAITHFUL pythonic
+# ROUND-TRIP GAP-ANALYSIS REPORTER (bootstrap recon) — runs the FAITHFUL pythonic
 # translation of a real ATS3 compiler interface file (srcgen2/SATS/xstamp0.sats,
 # 133 lines) through the M3 driver and classifies the outcome PER FILE. This is a
-# GAP-ANALYSIS instrument (NOT a green regression gate): the faithful translation is
-# EXPECTED to fail, and the failures are the deliverable.
+# GAP-ANALYSIS instrument (NOT a green regression gate): non-passing fixtures are
+# the current implementation signals to investigate. The script always exits 0
+# once the reporter itself runs successfully.
 #
 # Files under frontend/TEST/roundtrip/:
-#   xstamp0.psats        — the FAITHFUL translation (expected: PARSE-ERROR + import CRASH).
+#   xstamp0.psats        — the FAITHFUL translation; still reports frontend errors.
 #   xstamp0_probe.psats  — import + @overload-alias removed; isolates the lowercase-type-name
-#                          rejection (expected: TYPE-ERROR, nerror=16, all "type name uppercase").
+#                          rejection, currently surfaced as parse diagnostics.
 #   xstamp0_ucase.psats  — same but type names UPPERCASED (NOT faithful — a diagnostic) to
-#                          confirm everything ELSE typechecks (expected: PASS, nerror=0).
-#   probe_overload.psats / probe_overload2.psats — the #symload-alias gap (expected: PARSE-ERROR).
-#   probe_import.psats   — dotted import of a missing .sats (expected: uncaught ENOENT CRASH).
-#   probe_qual.psats     — a $SYM.foo qualified-name in a type (expected: PARSE-ERROR).
+#                          confirm everything ELSE typechecks; currently PASS.
+#   probe_overload.psats — current supported #symload-alias smoke test; currently PASS.
+#   probe_overload2.psats — unsupported @overload-alias spelling; still parse-errors.
+#   probe_import.psats   — dotted import of a missing .sats; now a recoverable TYPE-ERROR.
+#   probe_qual.psats     — a $SYM.foo qualified-name in a type; still reports errors.
 #
 # Reuses the existing BUILD/pyfront-m3.js (run `bash frontend/build-m3.sh` first if absent).
 # PURELY ADDITIVE: reads only; writes outcome logs into BUILD/.
@@ -60,12 +62,12 @@ classify_one() {
     grep -E "parse: " "$out" | sed 's/^.*parse:/     parse:/' | sort -u | head -8
   else
     echo "   OUTCOME: TYPE-ERROR (nerror=${nerr:-?})"
-    grep -E "elab-diag" "$out" | head -6 | sed 's/^/     /'
+    grep -E "^RESULT:|elab-diag" "$out" | head -6 | sed 's/^/     /'
   fi
   return 0
 }
 
-echo ">> classifying round-trip fixtures (gap analysis; failures are EXPECTED)"
+echo ">> classifying round-trip fixtures (gap-analysis snapshot; reporter exits 0)"
 for f in \
   "$TESTDIR/xstamp0.psats" \
   "$TESTDIR/xstamp0_probe.psats" \
@@ -77,5 +79,5 @@ for f in \
   [ -f "$f" ] && classify_one "$f"
 done
 echo "----------------------------------------------------------------------"
-echo ">> ROUND-TRIP: done (this gate REPORTS; see frontend/docs for the gap analysis)."
+echo ">> ROUND-TRIP: done (report-only; see frontend/docs for the gap analysis)."
 exit 0

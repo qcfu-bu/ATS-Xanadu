@@ -207,14 +207,23 @@ mk_tok
 //
 // ---- scanners for multi-byte lexemes; each returns (token, cursor-after) ----
 //
-// identifier / keyword: consume idcont bytes, classify by start case.
+// identifier / keyword: consume idcont bytes, then zero or more slash-separated
+// identifier segments (`foo/bar/baz`) with NO whitespace. This gives Koka-style
+// surface names for ATS `$` identifiers while preserving spaced `a / b` division.
 //
 fun
 scan_ident
 (src: lcsrc, c0: cur): @(pytoken, cur) = let
 //
-fun loop(c: cur): cur =
-  if is_idcont(cur_byte(c)) then loop(cur_adv(c)) else c
+fun segment(c: cur): cur =
+  if is_idcont(cur_byte(c)) then segment(cur_adv(c)) else c
+and loop(c: cur): cur = let
+  val c1 = segment(c)
+in
+  if band(cur_byte(c1) = 47, is_idstart(cur_byte_at(c1, 1)))
+    then loop(cur_adv(c1))
+    else c1
+end
 //
 val c1 = loop(c0)
 val lx = PYL_slice(c0.0, c1.0)
