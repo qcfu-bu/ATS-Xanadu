@@ -235,6 +235,35 @@ in
     )
 end
 //
+// Call-head resolution is almost pl_var, except a singleton template constant (`fun<>`,
+// including prelude `$` helper names) must carry an explicit empty template application before
+// value application. Stock ATS reaches this as an empty tapp/tapq; direct L2 construction has to
+// spell it out so the later template passes see the nullary template call.
+fun
+pl_call_head(env: !tr12env, loc: loctn, hloc: loctn, sym: sym_t): d2exp = let
+  val dopt = tr12env_find_d2itm(env, sym)
+  val template_cst =
+    (
+    case+ dopt of
+    | ~optn_vt_cons(d2i) =>
+      (
+        case+ d2i of
+        | D2ITMcst(d2cs) =>
+            if list_singq(d2cs)
+              then let val d2c = d2cs.head() in
+                if d2cst_tempq(d2c) then optn_cons(d2c) else optn_nil()
+              end
+              else optn_nil()
+        | _ => optn_nil()
+      )
+    | ~optn_vt_nil() => optn_nil()
+    ) : optn(d2cst)
+in
+  case+ template_cst of
+  | ~optn_cons(d2c) => d2exp_tapp(loc, d2exp_cst(hloc, d2c), list_nil())
+  | ~optn_nil() => pl_var(env, hloc, sym)
+end
+//
 // resolve a bare CONSTRUCTOR NAME used as a VALUE. Identical to pl_var EXCEPT a single resolved
 // con whose arity is 0 (a nullary con: `Nothing`, `Empty`, a nullary exn con) is APPLIED to zero
 // args — wrapped in D2Edap0 — so it has its RESULT type, not its `() -> T` con-function type
@@ -1014,7 +1043,7 @@ case+ hd of
       // a no-op prefix (unary +): the application IS its single operand.
       (case+ args of list_cons(a, _) => pl_exp(env, a) | list_nil() => d2exp_none0(loc))
     else let
-      val d2f = pl_var(env, hloc, ats_sym(key))
+      val d2f = pl_call_head(env, loc, hloc, ats_sym(key))
     in
       case+ args of
       | list_nil() => d2exp_make_node(loc, D2Edap0(d2f))
