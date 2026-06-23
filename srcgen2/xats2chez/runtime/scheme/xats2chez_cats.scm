@@ -212,6 +212,19 @@
 (define (g_free x) (if #f #f))          ; linear free: GC no-op
 (define (XATS000_g_free x) (if #f #f))
 
+;; char classification for the lexer (a char is its ASCII integer code).
+(define (char_isdigit c) (and (>= c 48) (<= c 57)))
+(define (char_isalpha c) (or (and (>= c 65) (<= c 90)) (and (>= c 97) (<= c 122))))
+(define (char_isalnum c) (or (char_isalpha c) (char_isdigit c)))
+(define (char_isspace c) (or (= c 32) (= c 9) (= c 10) (= c 13) (= c 11) (= c 12)))
+(define (char_islower c) (and (>= c 97) (<= c 122)))
+(define (char_isupper c) (and (>= c 65) (<= c 90)))
+(define (ALNUM_q c) (or (char_isalnum c) (= c 95)))   ; alnum or underscore
+
+;; unsafe view casts: identities (the value representation is uniform).
+(define (UN_strn_vt_cast s) s)
+(define (UN_strn2string s) s)
+
 ;;;====================================================================
 ;;; end of [xats2chez_cats.scm]  (grows as more compiler units are compiled)
 ;;;====================================================================
