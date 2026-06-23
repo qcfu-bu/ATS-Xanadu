@@ -126,9 +126,11 @@
 (define (mydict_insert$any m k v) (hashtable-set! m k v))
 (define (mydict_keyq m k) (hashtable-contains? m k))
 (define (mydict_size m) (hashtable-size m))
-;; symbol-table search/insert (mydict specialized to symbols by the frontend).
-(define (symbl_search$opt m k) (mydict_search$opt m k))
-(define (symbl_insert$any m k v) (mydict_insert$any m k v))
+;; NB: symbl_search$opt / symbl_insert$any are NOT bridged here — they are
+;; template instances that CAPTURE the global symbol table (1-arg: the name),
+;; so their bodies must be emitted by the compiler (the next self-hosting
+;; frontier: emit template-instance bodies that close over module globals,
+;; rather than erasing them).
 
 ;;;--------------------------------------------------------------------
 ;;; jsdasz / a1sz — sized arrays (vector-backed).

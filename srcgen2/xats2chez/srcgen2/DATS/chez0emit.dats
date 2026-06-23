@@ -106,6 +106,18 @@ then (if (strn_get$at(nm, 0) = '_') then cz_str(filr, "_xunit") else cz_str(filr
 else cz_str(filr, nm)
 end//let
 //
+(* cz_dvar: a dynamic VARIABLE -> "<name>_<stamp>".  The stamp (unique per
+   binding) disambiguates distinct variables that share a source name across
+   scopes (e.g. many k0/x0 in compiler source) -- the same d2var renders the
+   same name at its binding and every reference, so they stay consistent. *)
+fun
+cz_dvar
+( filr: FILR, dvar: d2var): void =
+(
+cz_sym(filr, d2var_get_name(dvar));
+cz_str(filr, "_");
+cz_emit_uint(filr, stamp_get_uint(d2var_get_stmp(dvar))))
+//
 (* ****** ****** *)
 //
 (* cz_strlit: emit a string-literal token as a Scheme string literal.  The
@@ -348,7 +360,7 @@ cz_subbind
 (
 case+ sp.node() of
 | I0Pvar(dvar) =>
-  (cz_str(filr, "("); cz_sym(filr, d2var_get_name(dvar)); cz_str(filr, " ");
+  (cz_str(filr, "("); cz_dvar(filr, dvar); cz_str(filr, " ");
    cz_acc(filr, iscon, idx); cz_str(filr, ") "))
 | _(*else*) => ())
 //
@@ -403,7 +415,7 @@ case+ sp.node() of
 | I0Pvar(dvar) =>
   (
   cz_str(filr, "(define ");
-  cz_sym(filr, d2var_get_name(dvar));
+  cz_dvar(filr, dvar);
   cz_str(filr, " (");
   (if iscon then cz_str(filr, "XATSPCON") else cz_str(filr, "vector-ref"));
   cz_str(filr, " czdv"); cz_emit_uint(filr, freshn); cz_str(filr, " ");
@@ -458,7 +470,7 @@ cz_pat_binds
 (
 case+ pat.node() of
 | I0Pvar(dvar) =>
-  (cz_str(filr, "("); cz_sym(filr, d2var_get_name(dvar)); cz_str(filr, " czscrut)"))
+  (cz_str(filr, "("); cz_dvar(filr, dvar); cz_str(filr, " czscrut)"))
 | I0Pdapp(_, npf, sps) => cz_subbinds(filr, true, 0, ldrop_pat(sps, npf))
 | I0Ptup0(npf, sps) => cz_subbinds(filr, false, 0, ldrop_pat(sps, npf))
 | I0Ptup1(_, npf, sps) => cz_subbinds(filr, false, 0, ldrop_pat(sps, npf))
@@ -473,7 +485,7 @@ cz_param_pat
 (
 case+ ipat.node() of
 | I0Pvar(dvar) =>
-  (cz_str(filr, " "); cz_sym(filr, d2var_get_name(dvar)))
+  (cz_str(filr, " "); cz_dvar(filr, dvar))
 | I0Pany() => cz_str(filr, " _wild")
 | _(*else*) =>
   (cz_str(filr, " _unkp"); prerrsln("[chez0emit] UNHANDLED param-pat")))
@@ -544,7 +556,7 @@ case+ iexp.node() of
 //
 (* names *)
 | I0Ecst(dcst) => cz_sym(filr, d2cst_get_name(dcst))
-| I0Evar(ivar) => cz_sym(filr, d2var_get_name(i0var_dvar$get(ivar)))
+| I0Evar(ivar) => cz_dvar(filr, i0var_dvar$get(ivar))
 | I0Etop(xsym) => cz_sym(filr, xsym)
 //
 (* nullary data constructor -> #(ctag) *)
@@ -630,13 +642,13 @@ case+ iexp.node() of
 | I0Efix0(_, _, fid, fargs, body, _) =>
   (
   cz_str(filr, "(letrec ((");
-  cz_sym(filr, d2var_get_name(fid));
+  cz_dvar(filr, fid);
   cz_str(filr, " (lambda (");
   cz_fiarglst(filr, fargs);
   cz_str(filr, ") ");
   i0exp_cz0(filr, body);
   cz_str(filr, "))) ");
-  cz_sym(filr, d2var_get_name(fid));
+  cz_dvar(filr, fid);
   cz_str(filr, ")"))
 | I0Elet0(decls, body) =>
   (
@@ -878,7 +890,7 @@ case+ tdxp of
   | I0Pvar(dvar) =>
     (
     cz_str(filr, "(define ");
-    cz_sym(filr, d2var_get_name(dvar));
+    cz_dvar(filr, dvar);
     cz_str(filr, " ");
     i0exp_cz0(filr, iexp);
     cz_str(filr, ")\n"))
@@ -921,7 +933,7 @@ val dini = ivd0.dini()
 in//let
 (
 cz_str(filr, "(define ");
-cz_sym(filr, d2var_get_name(i0var_dvar$get(dpid)));
+cz_dvar(filr, i0var_dvar$get(dpid));
 cz_str(filr, " (box ");
 (
 case+ dini of
@@ -953,7 +965,7 @@ case+ tdxp of
 | TEQI0EXPsome(_, body) =>
   (
   cz_str(filr, "(define (");
-  cz_sym(filr, d2var_get_name(dpid));
+  cz_dvar(filr, dpid);
   cz_fiarglst(filr, farg);
   cz_str(filr, ") ");
   i0exp_cz0(filr, body);
