@@ -153,15 +153,31 @@ RUNTIME=(
   "$S1R/srcgen1_xatslib_node.js"
 )
 BUNDLE="$BUILD/pyfront-m3.js"
-cat "${RUNTIME[@]}" > "$BUNDLE"
-sed -E 's/jsx(...)tnm/js1\1tnm/g' "$LIB2OPT" >> "$BUNDLE"
-sed -E 's/jsx(...)tnm/js2\1tnm/g' "$LIB2CC"  >> "$BUNDLE"
-sed -E 's/jsx(...)tnm/js3\1tnm/g' "$LIB2JS"  >> "$BUNDLE"
+BUNDLE_RAW="$BUILD/pyfront-m3.raw.js"
+cat "${RUNTIME[@]}" > "$BUNDLE_RAW"
+sed -E 's/jsx(...)tnm/js1\1tnm/g' "$LIB2OPT" >> "$BUNDLE_RAW"
+sed -E 's/jsx(...)tnm/js2\1tnm/g' "$LIB2CC"  >> "$BUNDLE_RAW"
+sed -E 's/jsx(...)tnm/js3\1tnm/g' "$LIB2JS"  >> "$BUNDLE_RAW"
 # glue: M1 lexer glue (PYL_*) is needed by the lexer .cats refs; M3 glue (PYM_*) for the driver.
-cat "$HERE/CATS/pylexing.cats"  >> "$BUNDLE"
-cat "$HERE/CATS/pyfront_m3.cats" >> "$BUNDLE"
-for tj in "${TRANS_LIST[@]}"; do cat "$tj" >> "$BUNDLE"; done
-echo "   linked $(wc -l < "$BUNDLE") lines into $BUNDLE ($(du -h "$BUNDLE" | awk '{print $1}'))"
+cat "$HERE/CATS/pylexing.cats"  >> "$BUNDLE_RAW"
+cat "$HERE/CATS/pyfront_m3.cats" >> "$BUNDLE_RAW"
+for tj in "${TRANS_LIST[@]}"; do cat "$tj" >> "$BUNDLE_RAW"; done
+echo "   linked $(wc -l < "$BUNDLE_RAW") lines into $BUNDLE_RAW ($(du -h "$BUNDLE_RAW" | awk '{print $1}'))"
+
+# Minify with Closure (SIMPLE): shrinks the ~230MB raw reparse bundle to a few MB
+# and collapses generated-code frame overhead, so the deep-recursive M3 reparse
+# (d3parsed/tread3a/...) does not overflow Node's stack on large pretty-printed
+# files (e.g. xlibext_tmplib). Falls back to the raw bundle on failure (mirrors
+# build-pp-corpus.sh and language-server/build.sh).
+echo "   [closure] minify (SIMPLE): $BUNDLE_RAW -> $BUNDLE"
+if npx --yes google-closure-compiler -W QUIET --compilation_level SIMPLE \
+     --js="$BUNDLE_RAW" --js_output_file="$BUNDLE" 2>"$BUILD/pyfront-m3-closure.err"; then
+  echo "   [closure] ok: $(du -h "$BUNDLE" | cut -f1) (raw $(du -h "$BUNDLE_RAW" | cut -f1))"
+else
+  echo "!! closure minify failed (see $BUILD/pyfront-m3-closure.err); using raw bundle" >&2
+  tail -5 "$BUILD/pyfront-m3-closure.err" >&2 || true
+  cp "$BUNDLE_RAW" "$BUNDLE"
+fi
 
 # the runnable-program runtime (runtime + lib2xatsopt/js1) — for executing the emitted JS.
 RUNHDR="$BUILD/run-header.js"
