@@ -531,12 +531,21 @@ end
 // parameter annotations in the .dats because the .sats signature is already loaded. When a
 // surface parameter annotation is missing, use the resolved d2cst's S2Efun1 argument types so
 // trans2a gives binders the same types as the declared signature.
+//
+// FIDELITY: a call-by-REFERENCE signature arg (`&T` / `&T >> _`, i.e. S2Earg1(knd=-1, ..)) is
+// NOT a proper value type — annotating a value param pattern with it produces S2Eimpr at
+// typecheck. Stock trans12 never injects sig arg types onto an `#implfun`'s params; it leaves
+// the (unannotated) param bare and lets trans23 unify it against the d2cst signature. Mirror
+// that for the ref-arg case: emit a BARE param pattern (no D2Pannot) exactly as stock does.
 fun
 pl_one_param_s2e(loc: loctn, nm: strn, s2e: s2exp): d2pat = let
   val d2v = d2var_new2_name(loc, ats_sym(nm))
   val d2p = d2pat_var(loc, d2v)
 in
-  d2pat_make_node(loc, D2Pannot(d2p, s1exp_none0(loc), s2e))
+  case+ s2e.node() of
+  | S2Earg1(_(*knd*), _) => d2p   // ref/cbv-marked arg (`!T` / `&T`): bare param, like stock
+  | S2Eatx2(_(*bef*), _(*aft*)) => d2p   // transition arg (`&T >> _`): bare param, like stock
+  | _ => d2pat_make_node(loc, D2Pannot(d2p, s1exp_none0(loc), s2e))
 end
 //
 fun

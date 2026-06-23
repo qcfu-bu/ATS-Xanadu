@@ -55,6 +55,8 @@ srcgen2/DATS/t2read0.dats
 srcgen2/DATS/t2read0_decl00.dats
 srcgen2/DATS/t2read0_dynexp.dats
 srcgen2/DATS/t3read0.dats
+srcgen2/DATS/t3read0_decl00.dats
+srcgen2/DATS/t3read0_dynexp.dats
 srcgen2/DATS/t3read0_myenv0.dats
 srcgen2/DATS/tread01.dats
 srcgen2/DATS/tread01_decl00.dats
@@ -86,10 +88,12 @@ srcgen2/DATS/trsym2b_dynexp.dats
 srcgen2/DATS/trtmp3b.dats
 srcgen2/DATS/trtmp3b_decl00.dats
 srcgen2/DATS/trtmp3b_dynexp.dats
+srcgen2/DATS/trtmp3b_myenv0.dats
 srcgen2/DATS/trtmp3b_utils0.dats
 srcgen2/DATS/trtmp3c.dats
 srcgen2/DATS/trtmp3c_decl00.dats
 srcgen2/DATS/trtmp3c_dynexp.dats
+srcgen2/DATS/trtmp3c_myenv0.dats
 srcgen2/DATS/trtmp3c_utils0.dats
 srcgen2/DATS/trans3a.dats
 srcgen2/DATS/trans3a_decl00.dats
@@ -125,6 +129,7 @@ srcgen2/DATS/staexp1_print0.dats
 srcgen2/DATS/staexp2_inits0.dats
 srcgen2/DATS/staexp2_print0.dats
 srcgen2/DATS/staexp2_utils1.dats
+srcgen2/DATS/staexp2_utils2.dats
 srcgen2/DATS/filpath_fpath0.dats
 srcgen2/DATS/filpath_print0.dats
 srcgen2/DATS/filpath_search.dats
