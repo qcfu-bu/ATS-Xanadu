@@ -144,6 +144,56 @@
 (define (symbl_cmp a b) (g_cmp (symbl_get_name a) (symbl_get_name b)))
 
 ;;;--------------------------------------------------------------------
+;;; list_vt — linear lists (same vector rep as list: #(0) nil / #(1 h t) cons;
+;;; "_vt" = linear/at-view, but under Chez GC there is nothing to free).
+;;;--------------------------------------------------------------------
+(define (list_vt_free xs) (if #f #f))
+(define (list_vt_reverse0 xs)
+  (let loop ((xs xs) (acc (vector 0)))
+    (if (= (vector-ref xs 0) 0) acc
+        (loop (vector-ref xs 2) (vector 1 (vector-ref xs 1) acc)))))
+(define (list_vt_append0 xs ys)
+  (let loop ((xs (list_vt_reverse0 xs)) (acc ys))
+    (if (= (vector-ref xs 0) 0) acc
+        (loop (vector-ref xs 2) (vector 1 (vector-ref xs 1) acc)))))
+
+;;;--------------------------------------------------------------------
+;;; String building from char-code lists / functions; misc string ops.
+;;; A char is its integer code (see xats2chez_runtime.scm).
+;;;--------------------------------------------------------------------
+(define (strn_make_llist cs)
+  ;; cs : a list (#(0) | #(1 code rest)) of char codes -> a Scheme string
+  (let loop ((cs cs) (acc '()))
+    (if (= (vector-ref cs 0) 0)
+        (list->string (reverse acc))
+        (loop (vector-ref cs 2) (cons (integer->char (vector-ref cs 1)) acc)))))
+(define (strn_tabulate$f1un n f)
+  ;; build an n-char string s where s[i] = (integer->char (f i))
+  (let ((s (make-string n)))
+    (let loop ((i 0)) (if (< i n) (begin (string-set! s i (integer->char (f i))) (loop (+ i 1))) s))))
+(define (XATSOPT_strn_append_uint s u) (string-append s (number->string u)))
+(define (strn_append s t) (string-append s t))
+;; string -> a lazy char-code stream (strmcon: #(0) nil / #(1 code lazytail));
+;; the whole stream is a memoized l0azy thunk.  Used by the lexer's char source.
+(define (strn_strmize s)
+  (let ((n (string-length s)))
+    (let mk ((i 0))
+      (XATS000_l0azy
+        (lambda ()
+          (if (>= i n) (vector 0)
+              (vector 1 (char->integer (string-ref s i)) (mk (+ i 1)))))))))
+
+;;;--------------------------------------------------------------------
+;;; Variadic prerr (gs_prerrln_n* / gs_prerr_*) — like gs_print but to stderr.
+;;;--------------------------------------------------------------------
+(define (cats-prerr1 x) (display (xats_value_string x) (current-error-port)))
+(define (gs_prerr_n0) XATSTOP0)
+(define (gs_prerrln_n0) (newline (current-error-port)) XATSTOP0)
+(define (gs_prerrln_n1 a) (cats-prerr1 a) (gs_prerrln_n0))
+(define (gs_prerrln_n2 a b) (cats-prerr1 a) (cats-prerr1 b) (gs_prerrln_n0))
+(define (gs_prerrln_n3 a b c) (cats-prerr1 a) (cats-prerr1 b) (cats-prerr1 c) (gs_prerrln_n0))
+
+;;;--------------------------------------------------------------------
 ;;; Misc CATS floor.
 ;;;--------------------------------------------------------------------
 (define (g_free x) (if #f #f))          ; linear free: GC no-op
