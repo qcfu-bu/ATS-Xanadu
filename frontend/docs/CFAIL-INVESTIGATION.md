@@ -344,3 +344,71 @@ lands and these files become closeable. The `fxitm`/`a0ref`/array sub-cases have
   these 7 files cannot reach `m3_nerror=0`, independent of any frontend change.
 - `xatsopt_tcheck00/01` and `xlibext_jsemit` now fail *gracefully* (type-errors, no crash);
   `lexing0_print0`, `trans01_staexp`, `trans01_dynexp`, `xlibext_pyemit` still crash on C2.
+
+---
+
+## RE-DIAGNOSIS 2026-06-23 — `xatsopt_tcheck00/01`: the residual is `jsa1sz` (a JS-prelude abstype) unresolved in the verification prelude, NOT the C2/#13a overload gap
+
+The C2 framing above lumped `xatsopt_tcheck00/01` in with the abstract-alias / `#13a` cluster.
+A direct probe (`node --stack-size=8801 BUILD/pyfront-m3.js <emitted>.pp.pdats`, grep
+`F2PERR0`) pins it **more precisely**, and the verdict is **FAITHFUL lowering / context-side
+(harness-prelude) residual**, the same shape as OVERLOAD-13A — not a desugar bug and not the
+armless-`unify` C2 crash (these two files type-*error* gracefully, they do not cfail).
+
+### The single root error (everything else cascades from it)
+Both files have (under the `#if defq(_XATS2JS_)` backend branch our pp **correctly** selects):
+
+```
+type Argv = jsa1sz[String]          # original: `#typedef argv=jsa1sz(strn)`  (xatsopt_tcheck00.dats:112)
+def argv/loop(argv: Argv) -> ...    # length(argv) / argv[i] over an Argv
+```
+
+The L2 our frontend emits is **byte-faithful** to stock — `D2Csexpdef(argv; S2Eapps(HEAD;
+$list(the_s2exp_strn0)))` — the exact shape stock `trans12_from_fpath` produces for
+`#typedef argv=jsa1sz(strn)`. The ONLY divergence is the HEAD: ours is `S2Eerrck(1;S2Enone0())`
+(jsa1sz **unbound**) where stock's would be `S2Ecst(jsa1sz)`. The downstream `S2Ecst(argv)` errck
+on the param annotation and the `length(argv)` failure are pure cascades of that one unbound head
+(`argv`'s type is errck → its uses errck). The `length` overload itself resolves fine — the
+`D2Esym0(length; …)` bucket is fully populated (`a1sz_length`, `strm_length`, … all present).
+
+### Why `jsa1sz` is unbound (the real cause — harness prelude, not lowering)
+`jsa1sz` is declared **only in the JS-backend prelude** `srcgen1/prelude/DATS/CATS/JS/basics3.dats`
+(`abstype jsa1sz_tbox` + `typedef jsa1sz = jsa1sz_tbox`; verified in the lib2xatsopt L1 dump,
+`srcgen2/lib/lib2xatsopt.js:4685`). The M3 verification driver's prelude bootstrap
+`the_tr12env_pvsl00d` (`srcgen2/DATS/xglobal.dats:1040-1068`) loads only the **stock C-backend**
+prelude — `/prelude/basics0.sats`, `xsetup0.sats`, `excptn0.sats`, `prelude_sats.hats` — where the
+analogous type is `a1sz` (`prelude/SATS/axsz000.sats:53`), **not** `jsa1sz`. So `jsa1sz`/`pya1sz`
+have no static declaration in the reparse context.
+
+Minimal-reproducer matrix (hand-written `.pdats`, no frontend involvement, M3 driver):
+- `type Argv = a1sz[String]   ; … length(argv)` → **nerror=0 PASS** (stock C-prelude type)
+- `type Argv = jsa1sz[String] ; … length(argv)` → **nerror=8 FAIL** (`S2Enone0` head)
+- `type Argv = pya1sz[String] ; … length(argv)` → **nerror=8 FAIL** (`S2Enone0` head)
+
+This isolates the failure to *which prelude is loaded*, independent of our pretty-print/lowering.
+
+### Verdict: FAITHFUL (our side) / context-side (harness prelude) — left uncovered
+Our pp is right to select `_XATS2JS_` and emit `jsa1sz`: stock builds `xatsopt_tcheck00.dats`
+with the **JS backend** (`xats2js_jsemit00`, Makefile `srcgen2/xats2js/srcgen2/Makefile:69`),
+which loads the JS prelude that declares `jsa1sz`. Emitting the inactive `_XATS2PY_` branch
+(`pya1sz`) would not help (also unbound), and emitting both re-declares `Argv`. The fix would be
+to additionally `f0_pvsload` the JS prelude (`srcgen1/prelude/DATS/CATS/JS/basics3.dats`) into the
+M3 global env — a `pyrt_pvsload`-style out-of-band load — but `pyrt_pvsload` and the prelude
+bootstrap live in the **M3 pipeline driver `pyfront_m3.dats`, which is out of scope** for this
+task (the verification pipeline must not be modified). No green corpus file depends on any
+JS-only prelude type (`jsa1sz`/`pya1sz`/`jsobj`/`jshmap`), so these two `tcheck` files are the
+first to cross that boundary. **Left uncovered** (harness-prelude gap), exactly like #13a.
+
+> NB: the comment block at `frontend/DATS/pyprint.dats:3641` previously claimed "the M3 reparse
+> prelude … is srcgen1's JS one". That is **inaccurate** for the static prelude: `pvsl00d`
+> loads the stock C prelude (`a1sz`), so JS-only abstypes like `jsa1sz` are unbound at reparse.
+> The comment has been corrected to state this precisely (the active-backend SELECTION is still
+> `_XATS2JS_`, which is correct for codegen; only the static-decl availability is the gap).
+
+### Side win (same probe pass): `xglobal.dats` is now GREEN (nerror 0)
+`srcgen2/DATS/xglobal.dats` (the prelude-bootstrap module: `Sexpenv = topmap[s2itm]` used as a
+param/result type, `the_tsdenv/reset`, `f0_pvsload`) was nerror=12 in an earlier survey; under the
+current pipeline (after the non-functional-s2cst-preference + applied-con arity-selector
+`s2cst_selects_list` fidelity fixes, commits 6dc752f47 / nmspace) it reaches **m3_nerror=0**.
+Its `topmap[s2itm]` typedef-as-param resolves cleanly — those constructs are in the stock C
+prelude, so the harness-prelude gap above does not apply. Added to both corpus lists.

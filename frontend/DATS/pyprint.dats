@@ -3637,10 +3637,17 @@ pp_staload(out: FILR, ge: g0exp): void =
 // `#if`-guarded declarations select the active backend's prelude shim
 // (`#if defq(_XATS2JS_) #typedef argv=jsa1sz(strn) #endif` vs the `_XATS2PY_`/`_XATS2CC_`
 // variants — BOOTSTRAP-PLAN: 25 occurrences, backend-selection only, no `#elif`/arithmetic).
-// The frontend pipeline + the M3 reparse prelude both target the JS backend (the staloaded
-// prelude is srcgen1's JS one — `srcgen1/prelude/DATS/CATS/JS/*`), so ONLY `_XATS2JS_` is
-// active here. Emitting BOTH branches re-declares the same type (e.g. `Argv`) against two
-// different backend array types, which later uses (`argv[i]`, `length(argv)`) fail to resolve.
+// The frontend + the stock codegen both target the JS backend, so the ACTIVE-branch SELECTION
+// is `_XATS2JS_` (correct for codegen). Emitting BOTH branches re-declares the same type (e.g.
+// `Argv`) against two different backend array types, which later uses (`argv[i]`,
+// `length(argv)`) fail to resolve, so we emit only the one active branch.
+//   CAVEAT (verification prelude): the M3 reparse driver's STATIC prelude is the stock C one
+// (`the_tr12env_pvsl00d` loads `/prelude/basics0.sats` …, where `a1sz` lives), NOT the JS
+// prelude `srcgen1/prelude/DATS/CATS/JS/basics3.dats` that declares `jsa1sz`. So a file whose
+// active `_XATS2JS_` branch uses a JS-ONLY abstype (`jsa1sz`/`pya1sz`/`jsobj`/…) reparses with
+// that head UNBOUND (`S2Enone0`) — see docs/CFAIL-INVESTIGATION.md "RE-DIAGNOSIS … tcheck00/01".
+// That is a harness-prelude gap (the JS prelude is not f0_pvsload'd by the driver), not a
+// pretty-print bug; selecting `_XATS2JS_` here is still correct.
 //
 // THE ACTIVE-BACKEND POLICY: `_XATS2JS_` is the one active flag; every other backend defq
 // is inactive. To switch backends, change which name returns true here.

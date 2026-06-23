@@ -144,6 +144,7 @@ srcgen2/DATS/lexing0_token0.dats
 srcgen2/DATS/xsynoug.dats
 srcgen2/DATS/trans12.dats
 srcgen2/DATS/trsym2b_utils0.dats
+srcgen2/DATS/xglobal.dats
 srcgen2/DATS/xglobal_ext000.dats
 srcgen2/DATS/lexing0_print0.dats
 srcgen2/DATS/trans01_dynexp.dats
