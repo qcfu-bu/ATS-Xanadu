@@ -119,6 +119,17 @@
 (define (jshmap_set$at$raw m k v) (hashtable-set! m k v))
 (define (jshmap_insert$raw m k v) (hashtable-set! m k v))
 
+;; mydict — the dictionary template (key -> item), built on jshmap.  search$opt
+;; returns an option (#(0) none / #(1 item) some).  Polymorphic under Chez.
+(define (mydict_make_nil) (make-hashtable equal-hash equal?))
+(define (mydict_search$opt m k) (if (hashtable-contains? m k) (vector 1 (hashtable-ref m k #f)) (vector 0)))
+(define (mydict_insert$any m k v) (hashtable-set! m k v))
+(define (mydict_keyq m k) (hashtable-contains? m k))
+(define (mydict_size m) (hashtable-size m))
+;; symbol-table search/insert (mydict specialized to symbols by the frontend).
+(define (symbl_search$opt m k) (mydict_search$opt m k))
+(define (symbl_insert$any m k v) (mydict_insert$any m k v))
+
 ;;;--------------------------------------------------------------------
 ;;; jsdasz / a1sz — sized arrays (vector-backed).
 ;;;--------------------------------------------------------------------
