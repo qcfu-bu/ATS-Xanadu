@@ -280,6 +280,51 @@ case+ ilts of
 )//endof[binop_of_tnm_in_lets(stmp,ilts)]
 //
 (*
+[strn_foritm_callee_q]: does this dapp callee resolve (scope-walk) to a
+`strn_foritm` timp?  Such a dapp is emitted as a typed Go loop (go1emit_dynexp's
+[foritm_loop_emit]) that does NOT reference the callee temp -- so the liveness
+must NOT count it (else the dead timp-temp trips "declared and not used").  Same
+op-aware-liveness role as [is_native_binop_dapp].
+*)
+fun
+strn_foritm_tnm_in_lets
+(stmp: stamp, ilts: i1letlst): bool =
+(
+case+ ilts of
+|list_nil() => false
+|list_cons(ilt1, ilts1) =>
+  (
+  case+ ilt1 of
+  |I1LETnew1(itnm, iins) =>
+    (
+    if
+    stmp_eq(stmp, i1tnm_stmp$get(itnm))
+    then
+      (
+      case+ iins of
+      |I1INStimp(_, timp) =>
+        (symbl_get_name(timp.dcst().name()) = "strn_foritm")
+      | _(*else*) => false)
+    else strn_foritm_tnm_in_lets(stmp, ilts1))
+  |I1LETnew0(_) =>
+    strn_foritm_tnm_in_lets(stmp, ilts1))
+)//endof[strn_foritm_tnm_in_lets(stmp,ilts)]
+//
+fun
+strn_foritm_callee_q
+(callee: i1val, scp: i1cmp): bool =
+(
+case+ callee.node() of
+|I1Vtnm(itnm) =>
+  let
+    val-I1CMPcons(ilts, _) = scp
+  in
+    strn_foritm_tnm_in_lets(i1tnm_stmp$get(itnm), ilts)
+  end
+| _(*else*) => false
+)//endof[strn_foritm_callee_q(callee,scp)]
+//
+(*
 [binop_of_callee]: the callee of an I1INSdapp -> its native Go operator
 within scope [scp] (""(empty) if the callee is not a native-op temp).
 *)
@@ -294,6 +339,11 @@ case+ callee.node() of
   in
     binop_of_tnm_in_lets(i1tnm_stmp$get(itnm), ilts)
   end
+// A DIRECT cst callee (no op-temp indirection) -- e.g. a native scalar op
+// applied directly in a resolved template body (the `foritm$work` closure body
+// applies `char_gte` etc. this way, not via an I1INStimp op-temp).  Map by name
+// exactly like the temp case, so such ops also inline to native `(a OP b)`.
+|I1Vcst(dcst) => goop_of_name(symbl_get_name(dcst.name()))
 | _(*else*) => ""
 )//endof[binop_of_callee(callee,scp)]
 //
@@ -397,6 +447,8 @@ fn exists as the fallback).  The two arg vals ARE still counted.
 |I1INSdapp(iv0, ivs) =>
   (
   if is_native_binop_dapp(iv0, ivs, scp)
+  then used_in_vals(stmp, scp, ivs)
+  else if strn_foritm_callee_q(iv0, scp)
   then used_in_vals(stmp, scp, ivs)
   else lor(used_in_val(stmp, scp, iv0), used_in_vals(stmp, scp, ivs)))
 //

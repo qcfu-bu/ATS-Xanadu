@@ -973,6 +973,74 @@ case+ ival.node() of
 | _(*else*) => false
 )
 //
+(* ****** ****** *)
+//
+(*
+SELECTIVE MONOMORPHIZED foritm/$work: a `strn_foritm(s)` call is recognized by
+scope-walking the callee temp's binding [I1INStimp] for the resolved d2cst name
+"strn_foritm" -- the same scope-walk pattern as [i1val_pcon_tempq] above.  When
+matched, [I1INSdapp] emits a TYPED Go loop over the string that calls the
+[XATS_foritm_work] closure (emitted from the in-scope `foritm$work` #impltmp by
+go1emit_decl00), instead of the undefined `xatsgo.Xats_strn_foritm` runtime name.
+This adopts js1emit's effect (iterate + call the work body) but in concrete typed
+Go, scoped to this one template family so the conformance suite is untouched.
+*)
+fun
+tnm_is_strn_foritm
+(stmp: stamp, ilts: i1letlst): bool =
+(
+case+ ilts of
+|list_nil() => false
+|list_cons(ilt1, ilts1) =>
+  (
+  case+ ilt1 of
+  |I1LETnew1(itnm, iins) =>
+    (
+    if
+    (stamp_cmp(stmp, i1tnm_stmp$get(itnm)) = 0)
+    then
+      (
+      case+ iins of
+      |I1INStimp(_, timp) =>
+        (symbl_get_name(d2cst_get_name(t1imp_dcst$get(timp))) = "strn_foritm")
+      | _(*else*) => false)
+    else tnm_is_strn_foritm(stmp, ilts1))
+  |I1LETnew0(_) => tnm_is_strn_foritm(stmp, ilts1))
+)
+//
+fun
+callee_strn_foritm_q
+(ival: i1val, scp: i1cmp): bool =
+(
+case+ ival.node() of
+|I1Vtnm(itnm) =>
+  let val-I1CMPcons(ilts, _) = scp in
+    tnm_is_strn_foritm(i1tnm_stmp$get(itnm), ilts)
+  end
+| _(*else*) => false
+)
+//
+(*
+[foritm_loop_emit]: the typed Go loop for `strn_foritm(s)`.  Emitted inline as an
+IIFE (so it is an expression usable as an ANF temp's RHS):
+  func() any { XATS_n0 := strn_length(s); for i:=0; i<XATS_n0; i++ {
+    XATS_foritm_work(strn_get_at(s,i).(int32)) }; return XATSNIL() }()
+The char element is `int32` (strn_get_at returns it boxed as `any`); the closure
+param is typed `rune` (== int32), so the assertion `.(int32)` feeds it directly.
+*)
+fun
+foritm_loop_emit
+(filr: FILR, i1vs: i1valist): void =
+let
+  val-list_cons(sarg, _) = i1vs
+in
+  strnfpr(filr, "func() any { XATS_n0 := xatsgo.Xats_strn_length(");
+  i1valgo1(filr, sarg);
+  strnfpr(filr, "); for XATS_i := 0; XATS_i < XATS_n0; XATS_i++ { XATS_foritm_work(xatsgo.Xats_strn_get_at(");
+  i1valgo1(filr, sarg);
+  strnfpr(filr, ", XATS_i).(int32)) }; return xatsgo.XATSNIL() }()")
+end//endof[foritm_loop_emit(filr,i1vs)]
+//
 fun
 i1valgo1_binop_arg
 (filr: FILR, scp: i1cmp, ival: i1val, goty: strn): void =
@@ -1212,7 +1280,14 @@ let
 val dcst = t1imp_dcst$get(timp)
 in//let
 (
-  d2cstgo1(filr, dcst)) end
+// [strn_foritm] is handled at its I1INSdapp call site (a typed Go loop, see
+// [foritm_loop_emit]); its timp-temp is dead, so emit a DEFINED placeholder
+// instead of the undefined `xatsgo.Xats_strn_foritm` runtime name.  The
+// op-aware liveness ([strn_foritm_callee_q], go1emit_styp0) drops this binding
+// to `_ = xatsgo.XATSNIL`.
+if (symbl_get_name(d2cst_get_name(dcst)) = "strn_foritm")
+then strnfpr(filr, "xatsgo.XATSNIL")
+else d2cstgo1(filr, dcst)) end
 //
 (* ****** ****** *)
 //
@@ -1276,6 +1351,10 @@ by construction.  Any other callee (a plain temp holding a fn value -- e.g.
 a func-typed parameter, or a temp-bound lambda -- an I1Vcst/I1Vfid) falls
 through to the generic `<f>(<args>)` form.
 *)
+if callee_strn_foritm_q(i1f0, scp)
+then foritm_loop_emit(filr, i1vs)
+else
+(
 case+ i1f0.node() of
 |I1Vfenv(d2f0, _envs) =>
   (
@@ -1288,7 +1367,7 @@ case+ i1f0.node() of
   i1valgo1(filr, i1f0);
   strnfpr(filr, "(");
   i1valgo1_list(filr, i1vs);
-  strnfpr(filr, ")")))
+  strnfpr(filr, ")"))))
 end//let
 )//endof[I1INSdapp(i1f0,i1vs) -- datacon vs op vs call dispatch]
 //

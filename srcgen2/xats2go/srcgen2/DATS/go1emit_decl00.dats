@@ -33,6 +33,8 @@ dispatch, emitting Go. Only the constructors the M1 walking skeleton
 //
 (* ****** ****** *)
 //
+#staload // SYM =
+"./../../../SATS/xsymbol.sats"
 #staload // LOC =
 "./../../../SATS/locinfo.sats"
 #staload // BAS =
@@ -59,6 +61,7 @@ dispatch, emitting Go. Only the constructors the M1 walking skeleton
 #symload nind with envx2go_nind$get
 #symload node with token_get_node
 #symload node with dimpl_get_node
+#symload name with d2cst_get_name
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -493,12 +496,88 @@ else routes to the normal [i1dcl_go1emit].  This is what keeps nested funs OUT
 of the package-level hoisting (and a TOP-level fun -- handled by the two-pass
 walk -- never reaches here).
 *)
+(*
+[impl_name_of_idcl]: the name of the d2cst an I1Dimplmnt0 implements (unwrapping
+env/template wrappers); "" for a non-impl decl.  Used to recognize the
+`foritm$work` `$work`-hook so it can be emitted as a typed Go closure (the
+selective-monomorphized foritm/$work path) instead of being skipped.
+*)
+fun
+impl_name_of_idcl
+(idcl: i1dcl): strn =
+(
+case+ idcl.node() of
+|I1Dimplmnt0(_, _, _, dimp, _, _) =>
+  (
+  case+ dimp.node() of
+  |DIMPLone1(dcst) => symbl_get_name(dcst.name())
+  |DIMPLone2(dcst, _) => symbl_get_name(dcst.name())
+  |DIMPLnon1(_) => "")
+|I1Ddclenv(idcl2, _) => impl_name_of_idcl(idcl2)
+|I1Dtmpsub(_, idcl2) => impl_name_of_idcl(idcl2)
+|I1Dstatic(_, idcl2) => impl_name_of_idcl(idcl2)
+| _(*else*) => ""
+)//endof[impl_name_of_idcl(idcl)]
+//
+(*
+[unwrap_idcl]: strip env/template wrappers to the inner bare decl.
+*)
+fun
+unwrap_idcl
+(idcl: i1dcl): i1dcl =
+(
+case+ idcl.node() of
+|I1Ddclenv(idcl2, _) => unwrap_idcl(idcl2)
+|I1Dtmpsub(_, idcl2) => unwrap_idcl(idcl2)
+|I1Dstatic(_, idcl2) => unwrap_idcl(idcl2)
+| _(*else*) => idcl
+)//endof[unwrap_idcl(idcl)]
+//
+(*
+[foritm_work_emit]: emit the in-scope `#impltmp foritm$work<char>` body as a
+TYPED, NAMED Go closure `XATS_foritm_work := func(c0 rune) <ret> { <body> }`.
+The element type (char -> rune) is threaded via [gotypes_of_fjarglst] (the param
+d2var's styp), so the body's char comparisons typecheck natively; the closure
+captures surrounding locals (e.g. a `var n`) by Go lexical capture.  Paired with
+the loop emitted at the `strn_foritm` call site (go1emit_dynexp).  ASSUMPTION: at
+most one foritm$work per Go block (the common case); nested foritm would need a
+stamp-disambiguated name.
+*)
+fun
+foritm_work_emit
+( filr: FILR
+, dcl0: i1dcl
+, env0: !envx2go): void =
+let
+  val-
+  I1Dimplmnt0
+  (_, _, _, _, fjas, icmp) = unwrap_idcl(dcl0).node()
+  val bnds = binds_of_fjarglst(fjas)
+  val argtys = gotypes_of_fjarglst(fjas)
+  val retty = gotype_of_lam_ret(icmp, bnds)
+in
+  nindfpr(filr, env0.nind());
+  strnfpr(filr, "XATS_foritm_work := func(");
+  localfun_emit_params(filr, fjas, argtys);
+  strnfpr(filr, ") ");
+  strnfpr(filr, retty);
+  strnfpr(filr, " {\n");
+  envx2go_incnind(env0, 1(*++*));
+  i1cmp_go1emit_ret(icmp, list_nil(), bnds, env0);
+  envx2go_decnind(env0, 1(*--*));
+  nindfpr(filr, env0.nind());
+  strnfpr(filr, "}\n")
+end//endof[foritm_work_emit(filr,dcl0,env0)]
+//
 #implfun
 i1dcl_go1emit_local
 (dcl0, env0) =
 (
 if dcl_is_fundclst(dcl0)
 then f0_localfun(dcl0, env0)
+else
+if (impl_name_of_idcl(dcl0) = "foritm$work")
+then foritm_work_emit(env0.filr(), dcl0, env0)
 else i1dcl_go1emit(dcl0, env0)
 )//endof[i1dcl_go1emit_local(dcl0,env0)]
 //

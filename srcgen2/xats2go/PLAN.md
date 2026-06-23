@@ -595,6 +595,34 @@ ATS3 code* and fix whatever breaks. The failure set IS the prioritized work list
   `strn_print` (whose bodies bottom out in print primitives) correctly on the runtime path. NOTE a
   measured inconsistency to resolve: a toy `strn_foritm` test shows `dclq=Y` but the real
   `go1emit_utils0` target showed `dclq=n` — confirm the body is reliably present for the real target.
+- **[M3] `foritm`/`$work` family — ✅ DONE (test94), via TYPED RECONSTRUCTION not faithful inlining.**
+  KEY FINDINGS that reframed this: (1) faithful `dclq`-body inlining (js1emit's mechanism) STRUCTURALLY
+  works but does NOT transfer to typed Go — broad inlining regressed to 3/75 on three walls untyped JS
+  never faces: type-threading (`char`→`rune` not carried into inlined sigs), curried-alias arity
+  (`func() func(any)`), and CATS-primitive coverage. (2) The `$e1nv` linear-capture failure
+  (`go1emit_utils0`'s `strn_foritm`) is a SHARED assembled-pipeline limitation — BOTH the GO bundle and
+  the JS-oracle bundle hit the IDENTICAL 50 `$e1nv` errcks; only the complete `jsemit00` (same intrep1
+  pipeline) resolves it. So `lib2xats2cc` rebuilds are a dead end and the linear-capture case is not
+  differentially testable. (3) **The "monomorphization wall" was a framing error — the types are NOT
+  lost.** intrep0 carries full per-expression typing (`i0exp_ityp`, `i0typ_node` with `I0Tcst`/`I0Tapps`/
+  `I0Ttrcd`/`I0Ttcon`), and we already translate it (`gotype_of_i0typ`) + thread it across `trxi0i1`
+  (`go_tytab_record` captures `i0exp_ityp` at the chokepoint). intrep0 even carries the resolved template
+  instances (`I0Etimp`/`t0imp`, the analog of `t1imp`); intrep1's only edge is ANF+TCO. SOLUTION (Route B,
+  selective, typed): recognize the `foritm`/`$work` family BY NAME and emit a TYPED Go loop —
+  `foritm$work<char>` → `XATS_foritm_work := func(c0 rune) any {body}` (the `char`→`rune` comes from the
+  param d2var's styp via `gotypes_of_fjarglst` — exactly the "types are upstream" point), and
+  `strn_foritm(s)` → `func() any { n0 := strn_length(s); for i:=0;i<n0;i++ { XATS_foritm_work(strn_get_at(s,i).(int32)) }; return XATSNIL() }()`. Bottoms out only in existing primitives; sidesteps the curried-alias
+  wall by reconstruction. Name-gated so the 74 are untouched → **suite 75/75**. Supporting: `binop_of_callee`
+  now also recognizes a direct-`I1Vcst` native-op callee (closure bodies apply e.g. `char_gte` directly),
+  + a `strn_foritm_callee_q` liveness skip. test94 is GOLDEN-validated (`8 0 3`): js1emit inlines the
+  `gseq`/`a1ref` loop but its emitted JS references an undefined `env1` → runtime `ReferenceError` (the
+  documented js1emit closure-conversion bug, same precedent as test84/test75). **BONUS:** this also
+  resolved `strn_foritm` in the real `go1emit_utils0` self-host target (reconstruction needs only the
+  `foritm$work` `#impltmp`, present even when `dclq=n`), exposing 2 NEW unrelated gaps there (a
+  `goxtnm136` var-scope issue + an unknown string-escape) — fresh forcing-function discoveries.
+  **OPEN (architecture):** GENERAL faithful template inlining (beyond name-gated families) still needs
+  the typed-from-side-table path — confirm instance-body temps are `go_tytab`-recorded; if not, either
+  extend coverage or (the principled fallback for a typed backend) lower from intrep0 directly.
 - **[self-hosting] COMPLETE GAP INVENTORY (architect probe, all 16 GO_DATS emitted to Go).**
   Emitting every backend source through the bundle and diffing referenced-vs-defined `xatsgo.Xats_*`
   symbols (+ real `case false /* UNHANDLED */` codegen markers) yields the prioritized work map.
