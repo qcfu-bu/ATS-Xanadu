@@ -234,6 +234,17 @@
   (if (= 0 (string-length s)) (vector 0) (vector 1 (char->integer (string-ref s 0)))))
 (define (strn_tail$raw s) (substring s 1 (string-length s)))
 (define (strn_strxize s) (strn_strmize s))   ; strx == char stream variant
+(define (strn_get$at$raw s i) (char->integer (string-ref s i)))
+
+;; pointers (p2tr) — modeled as boxes (an address is a 1-slot cell).
+(define (p2tr_get p) (unbox p))
+(define (p2tr_set p v) (set-box! p v))
+
+;; bool / char arithmetic primitives.
+(define (bool_neg b) (not b))
+(define (char_add$sint c n) (+ c n))
+(define (char_sub$char a b) (- a b))
+(define (char_sub$sint c n) (- c n))
 
 ;;;====================================================================
 ;;; end of [xats2chez_cats.scm]  (grows as more compiler units are compiled)
