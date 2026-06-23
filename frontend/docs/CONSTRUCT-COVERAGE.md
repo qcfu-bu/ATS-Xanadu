@@ -24,13 +24,13 @@ Run `bash frontend/build-construct-coverage.sh` to regenerate. As of 2026-06-23:
 
 | datatype | emitted / total | missing |
 |---|---|---|
-| `d0ecl` (declarations)      | 23 / 34 | 11 |
+| `d0ecl` (declarations)      | 27 / 34 |  7 |
 | `d0exp` (dyn expressions)   | 23 / 29 |  6 |
 | `d0pat` (patterns)          | 11 / 13 |  2 |
 | `s0exp` (static/type exprs) |  7 / 18 | 11 |
 | `g0exp` (static/guard exprs)|  5 / 8  |  3 |
 
-~33 missing emitters total; the high-value clusters are below. A handful are minor
+~29 missing emitters total; the high-value clusters are below. A handful are minor
 literal/internal variants (`S0Echr/flt/str`, `G0Echr/flt`, `D0Esarglst`, `D0Psarg`,
 `D0Cdynxgen`, `D0CSTDCL`) — low priority, mostly rare or carried by other paths.
 (Error-recovery nodes `*errck`/`*tkerr`/`*tkskp`/`*synext` are excluded — not source
@@ -43,13 +43,20 @@ because those are implementation bodies; they are concentrated in `.sats` interf
 a few specialized `.dats`, and the prelude kernel — exactly the unexplored layer.
 
 ### Cluster A — static / sort kernel declarations (the interface + prelude kernel)
+> **2026-06-23 — DONE (4/5):** `D0Csortdef`, `D0Cstacst0`, `D0Cabssort`, `D0Cabsopen` now round-trip
+> FAITHFUL (zero structural L2-diff; fixtures in `frontend/TEST/l2diff/kernel/`). Surfaces:
+> `@sort type N = SInt` (sortdef), `@static let c: SInt` (stacst0), `@sort type N` *no RHS* (abssort),
+> `@open type T` (absopen). `D0Cdatasort` is DEFERRED — it embeds a full L1 `D1Cdatasort` node in
+> the raw L2's first field (NOT vestigial; it shows as a structural diff), which the L0→L2-direct
+> pyfront lowering does not build. See the deferral note at the end of this file.
+>
 | construct | ATS syntax | srcgen2 | prelude | layers needed |
 |---|---|---:|---:|---|
-| `D0Csortdef`  | `#sortdef`   | ~56 | 22 | PP+PR+LO+T |
-| `D0Cabssort`  | `#abssort`   | ~45 | 20 | PP+PR+LO+T |
-| `D0Cdatasort` | `datasort`   | ~50 |  1 | PP+PR+LO+T (needs L1) |
-| `D0Cstacst0`  | `#stacst`    |  *  |  * | PP+PR(partial)+LO+T |
-| `D0Cabsopen`  | `absopen`    | ~64 |  0 | PP+PR+LO+T |
+| `D0Csortdef`  | `#sortdef`   | ~56 | 22 | DONE (PP+PR+LO+T) |
+| `D0Cabssort`  | `#abssort`   | ~45 | 20 | DONE (PP+PR+LO+T) |
+| `D0Cdatasort` | `datasort`   | ~50 |  1 | DEFERRED (needs L1) |
+| `D0Cstacst0`  | `#stacst0`   |  *  | 57 | DONE (PP+PR+LO+T) |
+| `D0Cabsopen`  | `#absopen`   | ~64 |  0 | DONE (PP+PR+LO+T) |
 | `S0Euni0`     | `{..}` univ. type | ~6 | ~20 | PP+PR+LO+T |
 | `S0Eexi0`     | `[..]` exist. type | (with above) | | PP+PR+LO+T |
 | `S0Eop1/2/3`  | static prefix/infix/postfix ops | ~30 | ~33 | PP+PR+LO+T |
@@ -115,3 +122,20 @@ PP coverage is the first gate (can't parse/lower what isn't emitted). The PR/LO
 columns for the COVERED constructs are exercised by the green corpus, but the matrix
 should be completed with a per-construct round-trip test so PR/LO are verified
 independently, not inferred from corpus files.
+
+## DEFERRED: `D0Cdatasort` (`datasort T = C1 | C2 of (...)`) — needs L1
+The other four Cluster-A kernel decls lower L0→L2 directly (the pyfront frontend builds
+`d2ecl` nodes straight from its PyCore IR, never constructing intermediate L1 `d1ecl`s,
+mirroring how `D2Cdatatype`/`D2Cexcptcon` use a **vestigial** `d1ecl_none0(loc)` for their
+L1 slot — trans23 binds but never reads it). `datasort` is different: stock's `f0_datasort`
+(`trans12_decl00.dats:2580`) emits **`D2Cdatasort(d1cl, s2ts)`** whose FIRST field is the
+**whole L1 `D1Cdatasort(T_DATASORT(); [D1TSTnode(...S1TCNnode...)])` declaration tree** — and
+that field is **NOT vestigial in the raw L2** (the L2-DIFF compares the raw `d2parsed` BEFORE
+the post-passes; the stock side carries the full L1 body inline, so emitting `d1ecl_none0`
+would show as a structural divergence — exactly the `enum`→`D1Cnone0()` finding the L2-DIFF
+report already documented). Reaching FAITHFUL therefore requires synthesizing the L1
+`D1Cdatasort`/`D1TSTnode`/`S1TCNnode`/`S1Tid0`/`S1Tlist` nodes (plus fabricated `token`s for
+each con) — genuine L1 machinery the pyfront lowering does not have. The pyprint emitter
+emits a single `# TODO(pp): unmapped d0ecl` for it today (the lone such marker in
+`basics0.sats`); the surface + L1-building lowering is the follow-up. Suggested surface when
+done: `@sort enum tree: case Leaf | case Node(Tree, Tree)` (reuses `p_enumdecl`'s case-suite).

@@ -498,27 +498,30 @@ in
           | _ => @(PyTypNone(), st3) ): @(pytypopt, pstate)
     in
       @(PyCabstype(loc, decos, nm, tvs, repopt), st4) end
-  // @sort type Nat = <rhs> — a SORT declaration. The RHS is EITHER:
+  // @sort type Nat [= <rhs>] — a SORT declaration. WITHOUT a `=` RHS it is an ABSTRACT SORT
+  // (ATS-parity `#abssort Nat`) -> PyCabssort. WITH a `=` RHS it is a sort DEFINITION whose RHS is:
   //   * a sort-reference UIDENT (`SInt`/`Type`/...)        -> PyCsortdef (the old `sortdef` alias), OR
   //   * A-QUANT: a SUBSET `{ a: SInt | a >= 0 }`           -> PyCsortsub (the refined sortdef).
   // No typarams (a sort decl is monomorphic). The leading `{` after `=` selects the subset form.
   else if decos_has_p(decos, "sort") then
-    let
-      val st3 =
-        ( case+ ps_peek(st2) of
-          | PT_EQ() => ps_advance(st2)
-          | _ => ps_diag(st2, ps_peek_loctn(st2), "expected '=' in '@sort type' declaration") )
-    in
-      case+ ps_peek(st3) of
-      // A-QUANT subset sort: `{ binder | guard {, guard} }`.
-      | PT_LBRACE() => p_sort_subset(ps_advance(st3), loc, nm)
-      // plain sort alias: a sort-reference UIDENT.
-      | PT_UIDENT(s) => @(PyCsortdef(loc, nm, s), ps_advance(st3))
-      | _ =>
-        let val stE = ps_diag(st3, ps_peek_loctn(st3),
-                              "expected a sort name or a '{binder | guard}' subset after '='") in
-          @(PyCsortdef(loc, nm, "?"), stE) end
-    end
+    (
+      case+ ps_peek(st2) of
+      // NO `=` RHS -> an ABSTRACT SORT. The MISSING RHS is exactly what distinguishes abssort
+      // from a sort alias (`#abssort` vs `#sortdef`).
+      | PT_EQ() =>
+        let val st3 = ps_advance(st2) in
+          case+ ps_peek(st3) of
+          // A-QUANT subset sort: `{ binder | guard {, guard} }`.
+          | PT_LBRACE() => p_sort_subset(ps_advance(st3), loc, nm)
+          // plain sort alias: a sort-reference UIDENT.
+          | PT_UIDENT(s) => @(PyCsortdef(loc, nm, s), ps_advance(st3))
+          | _ =>
+            let val stE = ps_diag(st3, ps_peek_loctn(st3),
+                                  "expected a sort name or a '{binder | guard}' subset after '='") in
+              @(PyCsortdef(loc, nm, "?"), stE) end
+        end
+      | _ => @(PyCabssort(loc, nm), st2)
+    )
   // @static type X = <expr> — a STATIC-LEVEL DEFINITION; the RHS is a static EXPRESSION (v1: an int
   // literal). No typarams; `= <expr>`. PyCstadef, the old `stadef`.
   else if decos_has_p(decos, "static") then
@@ -531,6 +534,10 @@ in
     in
       @(PyCstadef(loc, nm, e), st4)
     end
+  // @open type Foo — OPEN an abstract type's representation (ATS-parity `#absopen Foo`). No typarams,
+  // no RHS — it just NAMES the already-declared abstract type to open. PyCabsopen.
+  else if decos_has_p(decos, "open") then
+    @(PyCabsopen(loc, nm), st2)
   // @impl type Foo [tvs] = T — gives an abstract type its hidden REPRESENTATION T.
   // Non-empty tvs mirror ATS `#absimpl Foo(a:type) = T`.
   else if decos_has_p(decos, "impl") then

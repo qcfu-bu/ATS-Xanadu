@@ -597,6 +597,14 @@ case+ d of
     // ATS-parity: `stadef Name = <expr>` -> a PCCstadef carrying the name + the ELABORATED static
     // body (v1: an int literal). M3 lowers the body to an s2exp (s2exp_int) + emits a D2Csexpdef.
     list_sing(PCCstadef(loc, nm, elab_exp(list_nil(), e)))
+| PyCabssort(loc, nm) =>
+    // ATS-parity: `@sort type Name` (no RHS) -> a PCCabssort carrying the sort NAME. M3 builds a
+    // t2abs + registers the sort alias + emits D2Cabssort. No imperative content.
+    list_sing(PCCabssort(loc, nm))
+| PyCabsopen(loc, nm) =>
+    // ATS-parity: `@open type Name` -> a PCCabsopen carrying the abstract type NAME. M3 resolves it
+    // against the env into a simpl + emits D2Cabsopen. No imperative content.
+    list_sing(PCCabsopen(loc, nm))
 | PyCimport(loc, imp) =>
     // M7-import (task #34): a USER `import M` / `from M import x` -> a PCCimport carrying the
     // RESOLVED XATSHOME-relative `.sats` path (v1 rule: dotted `a.b` -> `/a/b.sats`). M3

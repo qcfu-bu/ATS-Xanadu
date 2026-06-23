@@ -1356,9 +1356,16 @@ case+ d of
 // resolves it), and emit D2Csortdef(ats_sym(name), s2tex).
 | PCCsortdef(loc, name, srt) => let
     val s2tx = S2TEXsrt(sort2_of_name(srt))
+    // a SORT name is lowercase in ATS (`#sortdef num = int`); pyprint capitalizes it to the
+    // pythonic `@sort type Num = SInt` UIDENT, so uncapitalize (ats_type_sym) for the EMITTED
+    // D2Csortdef symbol — round-tripping stock's `D2Csortdef(num;…)`. Register the alias under BOTH
+    // the pythonic (capitalized) and the uncapitalized key so neither a pythonic use `[n: Num]` nor
+    // an ats-cased lookup misses it.
+    val sym = ats_type_sym(name)
+    val () = tr12env_add0_s2tex(env, sym, s2tx)
     val () = tr12env_add0_s2tex(env, ats_sym(name), s2tx)
   in
-    d2ecl_make_node(loc, D2Csortdef(ats_sym(name), s2tx))
+    d2ecl_make_node(loc, D2Csortdef(sym, s2tx))
   end
 //
 // A-QUANT: a `@sort type Nat = {a: SInt | a >= 0}` SUBSET (refined) SORT -> a D2Csortdef carrying
@@ -1398,6 +1405,48 @@ case+ d of
 // (P6(C)): lower the static body to an s2exp (v1: an int literal -> s2exp_int) and reuse build_sexpdef
 // (the alias mechanism — it sets the s2cst's sexp/styp at the RHS's sort + registers it).
 | PCCstadef(loc, name, body) => build_sexpdef(env, loc, name, stadef_body_sexp(body))
+//
+// ATS-parity: an `@sort type Name` (no RHS) ABSTRACT SORT -> a D2Cabssort. Mirrors stock f0_abssort
+// (trans12_decl00.dats:1153): build a t2abs from the (uncapitalized — sort names are lowercase in
+// ATS) sort symbol, register the alias S2TEXsrt(S2Tbas(T2Btabs)) under that name (so a later
+// `[n: Name]` resolves it), and emit D2Cabssort(<sym>). The name is uncapitalized to round-trip
+// stock's `D2Cabssort(myord)`; the alias is registered under both the ats-cased and pythonic keys.
+| PCCabssort(loc, name) => let
+    val sym  = ats_type_sym(name)
+    val tabs = t2abs_make_name(sym)
+    val s2tx = S2TEXsrt(S2Tbas(T2Btabs(tabs)))
+    val () = tr12env_add0_s2tex(env, sym, s2tx)
+    val () = tr12env_add0_s2tex(env, ats_sym(name), s2tx)
+  in
+    d2ecl_make_node(loc, D2Cabssort(sym))
+  end
+//
+// ATS-parity: an `@open type Name` -> a D2Cabsopen. Mirrors stock f0_absopen (trans12_decl00.dats:
+// 1904): build the s1qid `S1QIDnone(T_IDALP(name))` (the name uncapitalized — ATS type ids are
+// lowercase — round-tripping stock's `T_IDALP(mytype)`), RESOLVE it against the env to the abstract
+// type's s2cst bucket (the same S2ITMcst lookup build_absimpl uses), and assemble the simpl: a
+// SINGLE resolved s2cst collapses to SIMPLone1(s2c) (stock's list_singq branch), otherwise
+// SIMPLall1(sqid, s2cs) (an unresolved name keeps the EMPTY-list SIMPLall1, faithful to stock).
+| PCCabsopen(loc, name) => let
+    val tnm  = PYL_uncapitalize(ats_name(name))   // ats type ids are lowercase (ats_type_name local)
+    val itok = token_make_node(loc, T_IDALP(tnm))
+    val sqid = S1QIDnone(itok)
+    val s2cs =
+      ( case+ tr12env_find_s2itm(env, ats_uncap_sym(name)) of
+        | ~optn_vt_cons(s2i) =>
+          (case+ s2i of S2ITMcst(cs) => cs | _ => list_nil())
+        | ~optn_vt_nil() =>
+          (case+ tr12env_find_s2itm(env, ats_sym(name)) of
+           | ~optn_vt_cons(s2i) => (case+ s2i of S2ITMcst(cs) => cs | _ => list_nil())
+           | ~optn_vt_nil() => list_nil()) ): s2cstlst
+    val simp =
+      ( if list_singq(s2cs)
+          then simpl_make_node(loc, SIMPLone1(s2cs.head()))
+          else simpl_make_node(loc, SIMPLall1(sqid, s2cs)) )
+    val tok = token_make_node(loc, T_ABSOPEN())
+  in
+    d2ecl_make_node(loc, D2Cabsopen(tok, simp))
+  end
 //
 // ATS-parity: a `prfun NAME(params) -> Ret: body` proof FUNCTION -> a D2Cfundclst with the FNKprfn1
 // funkind. lower_prfungroup (pylower_dynexp) reuses the funkind-parameterized fun-group: the proof

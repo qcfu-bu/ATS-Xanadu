@@ -529,6 +529,10 @@ case+ d of
 | PCCstadef(loc, nm, e) =>
   ( ps(out, "(stadef "); ps(out, nm); print_span(out, loc);
     ps(out, " = "); pp_exp(out, e, ind + 1); ps(out, ")") )
+| PCCabssort(loc, nm) =>
+  ( ps(out, "(abssort "); ps(out, nm); print_span(out, loc); ps(out, ")") )
+| PCCabsopen(loc, nm) =>
+  ( ps(out, "(absopen "); ps(out, nm); print_span(out, loc); ps(out, ")") )
 | PCCprfun(loc, _tps, f) =>
   ( ps(out, "(prfun"); print_span(out, loc);
     pp_fundclst(out, list_sing(f), ind + 1); ps(out, ")") )

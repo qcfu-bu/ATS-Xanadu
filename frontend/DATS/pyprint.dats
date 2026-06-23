@@ -568,6 +568,20 @@ sort0_pyname(s: strn): strn =
   else tyname(s)
 )
 //
+// the pythonic SORT name of a `sort0` (a sort REFERENCE, e.g. the RHS of `#sortdef num = int`
+// or the `: int` of `#stacst0 c : int`). The kernel sort exprs in the SATS/prelude are bare
+// id sorts (`int`/`bool`/`type`/`addr`/...); map them through sort0_pyname so `int -> SInt`,
+// `bool -> SBool`, `type -> Type`, and a user sort name capitalizes (the round-trip the
+// `@sort type`/`@static let : SORT` parser+lowering accept).
+fun
+sort0_py(s0t: sort0): strn =
+(
+  case+ s0t.node() of
+  | S0Tid0(id) => sort0_pyname(i0dnt_lexeme(id))
+  | S0Tqid(_, st1) => sort0_py(st1)
+  | _ => "Type"
+)
+//
 (* ****** ****** *)
 //
 // ====================== sort-quantifier {a:s} -> [A] typaram ================
@@ -3705,6 +3719,60 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   // round-tripped L2 structurally identical to stock's. The path is normalized XATSHOME-relative.
   | D0Cinclude(_, _, ge) => (
       ps(out, "include \""); ps(out, PYPP_import_path(g0exp_import_path(ge))); ps(out, "\""); nl(out);
+      true
+    )
+  //
+  // ============ Cluster A — static / sort KERNEL declarations =================
+  //
+  // `#sortdef num = int`  ->  `@sort type Num = SInt`   (a SORT ALIAS). The RHS s0tdf is the
+  // sort being aliased; S0TDFsort carries the sort0 (the kernel forms are bare id-sorts, mapped
+  // via sort0_py: int->SInt, bool->SBool, type->Type). The alias name is a SORT id, capitalized
+  // to the pythonic UIDENT the `@sort type` parser expects (lowering uncapitalizes it back). The
+  // refined `S0TDFtsub` subset form is rare in the kernel; we emit the bare alias for it (defensive).
+  | D0Csortdef(_, sid, _, tdf) => (
+      ps(out, "@sort"); nl(out);
+      ps(out, "type "); ps(out, tyname(i0dnt_lexeme(sid))); ps(out, " = ");
+      (case+ tdf.node() of
+       | S0TDFsort(s0t) => ps(out, sort0_py(s0t))
+       | _ => ps(out, "Type"));
+      nl(out);
+      true
+    )
+  //
+  // `#stacst0 c : int`  ->  `@static let c: SInt`   (a STATIC CONSTANT decl). The `: sort0` is the
+  // constant's sort, rendered pythonically (int->SInt, ...). Parses back via the bodyless `@static
+  // let` path (pyelab_decl: bodyless + @static -> PCCstacst -> D2Cstacst0). The const name is a
+  // VALUE-level id and is kept lowercase (an `@static let` binder is a LIDENT var-pattern PyPvar —
+  // a UIDENT would parse as a constructor pattern and lose the name); lowering's ats_type_sym then
+  // leaves the lowercase name as-is for the s2cst symbol, matching stock's `D2Cstacst0(c; ...)`.
+  | D0Cstacst0(_, sid, _, _, srt) => (
+      ps(out, "@static"); nl(out);
+      ps(out, "let "); ps(out, fname(i0dnt_lexeme(sid))); ps(out, ": ");
+      ps(out, sort0_py(srt));
+      nl(out);
+      true
+    )
+  //
+  // `#abssort myord`  ->  `@sort type Myord`   (an ABSTRACT SORT — a `@sort type` with NO `= RHS`).
+  // The absence of the RHS is what distinguishes abssort from sortdef at the parser; lowering builds
+  // the t2abs (S2TEXsrt(S2Tbas(T2Btabs))) + emits D2Cabssort. Name capitalizes to a UIDENT.
+  | D0Cabssort(_, sid) => (
+      ps(out, "@sort"); nl(out);
+      ps(out, "type "); ps(out, tyname(i0dnt_lexeme(sid)));
+      nl(out);
+      true
+    )
+  //
+  // `#absopen mytype`  ->  `@open type Mytype`   (OPEN an abstract type's representation). The qual-id
+  // names the abstract type to open; we emit just its tail name (the kernel uses an unqualified id).
+  // Lowering resolves it against the env (f1_sqid) + emits D2Cabsopen. Name capitalizes to a UIDENT.
+  | D0Cabsopen(_, sqid) => (
+      ps(out, "@open"); nl(out);
+      ps(out, "type ");
+      (case+ sqid of
+       | S0QIDnone(id) => ps(out, tyname(i0dnt_lexeme(id)))
+       | S0QIDsome(_, id) => ps(out, tyname(i0dnt_lexeme(id))));
+      nl(out);
       true
     )
   //

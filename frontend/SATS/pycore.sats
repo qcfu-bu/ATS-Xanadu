@@ -499,6 +499,13 @@ pcdecl =
 | PCCsortsub of (loctn, strn(*name*), pcparam(*binder*), list(pytyp)(*guards*))
 | PCCstacst  of (loctn, strn(*name*), strn(*sort-ref*))
 | PCCstadef  of (loctn, strn(*name*), pcexp(*static body*))
+//   PCCabssort : an `@sort type Name` (no RHS) ABSTRACT SORT (ATS-parity `#abssort`). Carries the
+//                sort NAME. M3 builds a t2abs, registers S2TEXsrt(S2Tbas(T2Btabs)) under the name +
+//                emits D2Cabssort(<sym>).
+//   PCCabsopen : an `@open type Name` (ATS-parity `#absopen`). Carries the abstract type NAME. M3
+//                resolves it against the env into a `simpl` + emits D2Cabsopen(<tok>, <simpl>).
+| PCCabssort of (loctn, strn(*name*))
+| PCCabsopen of (loctn, strn(*name*))
 //   PCCprfun : a `prfun` proof FUNCTION (ATS-parity). Structurally PCCfun: carries its §5.7
 //              type/index params + a single elaborated PCFundcl (body present). M3 lowers it
 //              like PCCfun but swaps the funkind token to T_FUN(FNKprfn1).

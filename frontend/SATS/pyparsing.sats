@@ -575,6 +575,16 @@ pydecl =
 | PyCsortsub of (loctn, strn(*name*), pytyparam(*binder*), list(pytyp)(*guards*))
 | PyCstacst  of (loctn, strn(*name*), strn(*sort-ref*))
 | PyCstadef  of (loctn, strn(*name*), pyexp(*static body*))
+//   PyCabssort : `@sort type Name` (NO `= RHS`) — an ABSTRACT SORT (ATS-parity `#abssort Name`).
+//                Carries only the sort NAME (UIDENT). M3 builds a t2abs + registers the sort alias
+//                S2TEXsrt(S2Tbas(T2Btabs)) under the name + emits D2Cabssort(<sym>). The MISSING `=`
+//                RHS in a `@sort type` decl is what selects abssort over PyCsortdef in the parser.
+//   PyCabsopen : `@open type Name` — OPEN an abstract type's representation (ATS-parity `#absopen
+//                Name`). Carries the abstract type's NAME (UIDENT). M3 resolves the qualified-id
+//                against the env (the already-declared abstract type) into a `simpl` + emits
+//                D2Cabsopen(<tok>, <simpl>).
+| PyCabssort of (loctn, strn(*name*))
+| PyCabsopen of (loctn, strn(*name*))
 //   DECORATOR REWORK: the former PyCprfun / PyCprval / PyCpraxi (the keyword `prfun` / `prval` /
 //   `praxi` surface nodes) were REMOVED. Those PROOF variants are now @decorators on a plain
 //   `def`/`let`: `@proof def` (was prfun), `@proof let` (was prval), `@proof @extern def` (was

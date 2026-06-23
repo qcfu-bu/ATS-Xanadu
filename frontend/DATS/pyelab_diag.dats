@@ -143,6 +143,8 @@ case+ d of
 | PCCsortsub(_, _, _, _) => acc  // a subset sort carries a binder + raw guard types — no poison nodes.
 | PCCstacst(_, _, _) => acc      // a stacst carries only a name + a sort ref — no poison nodes.
 | PCCstadef(_, _, e) => harv_exp(e, acc) // a stadef BODY (an expr) may carry poison nodes.
+| PCCabssort(_, _) => acc        // an abssort carries only a sort name — no poison nodes.
+| PCCabsopen(_, _) => acc        // an absopen carries only a type name — no poison nodes.
 | PCCprfun(_, _, PCFundcl(_, _, _, _, _, body, _)) => harv_exp(body, acc) // a prfun BODY may carry poison.
 | PCCprval(_, _, _, e) => harv_exp(e, acc) // a prval RHS (an expr) may carry poison nodes.
 | PCCpraxi(_, _, _, _, _) => acc // a praxi carries only a signature — no poison nodes.

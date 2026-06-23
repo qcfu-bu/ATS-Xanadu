@@ -81,6 +81,7 @@ case+ d of
 | PCCsortdef(loc, _, _) => loc | PCCstacst(loc, _, _) => loc
 | PCCsortsub(loc, _, _, _) => loc
 | PCCstadef(loc, _, _) => loc
+| PCCabssort(loc, _) => loc | PCCabsopen(loc, _) => loc
 | PCCprfun(loc, _, _) => loc   | PCCprval(loc, _, _, _) => loc
 | PCCpraxi(loc, _, _, _, _) => loc
 | PCCprivate(loc, _) => loc
