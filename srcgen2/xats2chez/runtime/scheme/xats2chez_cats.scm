@@ -144,6 +144,32 @@
 (define (XATS2JS_a1sz_lget a i) (vector-ref a i))
 (define (XATS2JS_a1sz_lset a i x) (vector-set! a i x))
 
+;; a1sz / a1rf — sized / ref-counted arrays.  A char array is backed by a STRING
+;; (the lexer feeds lxbf1_make_strn a raw string), other element types by a
+;; vector; the ops dispatch on the runtime representation.  Char reads return the
+;; integer code (a char IS its code at runtime).
+(define (arr_length a) (if (string? a) (string-length a) (vector-length a)))
+(define (arr_get a i) (if (string? a) (char->integer (string-ref a i)) (vector-ref a i)))
+(define (arr_set a i x)
+  (if (string? a) (string-set! a i (integer->char x)) (vector-set! a i x)) XATSTOP0)
+(define (a1sz_length a) (arr_length a))
+(define (a1sz_get$at a i) (arr_get a i))
+(define (a1sz_set$at a i x) (arr_set a i x))
+(define (a1sz_lget$at a i) (arr_get a i))
+(define (a1sz_lset$at a i x) (arr_set a i x))
+(define (a1sz_make_nfun n f) (jsdasz_make_nfun n f))
+(define (a1sz_make_1val n x) (make-vector n x))
+;; make from a fill-WORK closure: work(i) supplies slot i (env captured in work).
+(define (a1sz_make_fwork n work) (jsdasz_make_nfun n work))
+(define (a1rf_length a) (arr_length a))
+(define (a1rf_get$at a i) (arr_get a i))
+(define (a1rf_set$at a i x) (arr_set a i x))
+(define (a1rf_lget$at a i) (arr_get a i))
+(define (a1rf_lset$at a i x) (arr_set a i x))
+(define (a1rf_make_nfun n f) (jsdasz_make_nfun n f))
+(define (a1rf_make_1val n x) (make-vector n x))
+(define (a1rf_make_fwork n work) (jsdasz_make_nfun n work))
+
 ;;;--------------------------------------------------------------------
 ;;; Symbols (symbl) — minimal: a symbol IS its interned name string, so two
 ;;; symbols with the same name are eq? (identity).  Enough for the symbol
