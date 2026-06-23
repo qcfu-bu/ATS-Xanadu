@@ -1084,9 +1084,25 @@ p_decl_block_loop(st) =
   | PT_EOF() => @(list_nil(), st)
   | PT_NEWLINE() => p_decl_block_loop(ps_advance(st))
   | _ =>
-    let val @(d, st1) = p_top_item(st) in
-      let val @(ds, st2) = p_decl_block_loop(st1) in
-        @(list_cons(d, ds), st2) end
+    let
+      // ROBUSTNESS: the same non-advancement guard p_stmt_list uses (pyparsing_dynexp). Without
+      // it, a decl that consumes NOTHING (e.g. an unparseable decorator type-arg like `@sapp[?]`,
+      // where `?` is not yet an accepted type) makes this loop recurse forever -> stack overflow.
+      // Detect the stuck position, resync past the offending line, and continue.
+      val+ PState(t0, _) = st
+      val @(d, st1) = p_top_item(st)
+      val+ PState(t1, _) = st1
+    in
+      if list_length(t0) = list_length(t1) then
+        let
+          val st2 = ps_resync(ps_diag(st1, ps_peek_loctn(st1), "skipping unparseable declaration"))
+          val @(ds, st3) = p_decl_block_loop(st2)
+        in
+          @(list_cons(d, ds), st3)
+        end
+      else
+        let val @(ds, st2) = p_decl_block_loop(st1) in
+          @(list_cons(d, ds), st2) end
     end )
 //
 (* ****** ****** *)
