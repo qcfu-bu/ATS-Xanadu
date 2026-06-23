@@ -36,6 +36,22 @@ LIB2OPT := $(SRCGEN2)/lib/lib2xatsopt.js
 LIB2CC  := $(FRONTEND)/BUILD/lib2xats2cc.js
 LIB2JS  := $(FRONTEND)/BUILD/lib2xats2js.js
 
+# Local forked xats2cc D3->intrep0 stage (adds I0Etry0 + try/raise lowering +
+# lazy I0El0azy/I0El1azy).  The chez bundle is built against THIS (its stamps
+# shift vs the prebuilt); the JS oracle keeps the OLD prebuilt cc.  Reused from
+# xats2go's fork, copied into srcgen2/xats2chez/xats2cc.
+XATS2CC_ROOT  := $(SRCGEN2)/xats2chez/xats2cc/srcgen1
+XATS2CC_LOCAL := $(XATS2CC_ROOT)/DATS
+XATS2CC_DATS  := \
+  intrep0.dats intrep0_print0.dats intrep0_utils0.dats \
+  trxd3i0.dats trxd3i0_print0.dats trxd3i0_myenv0.dats trxd3i0_statyp.dats \
+  trxd3i0_dynexp.dats trxd3i0_decl00.dats \
+  tryd3i0.dats tryd3i0_myenv0.dats tryd3i0_dynexp.dats tryd3i0_decl00.dats \
+  xats2cc_tmplib.dats
+XATS2CC_SRCALL := $(wildcard $(XATS2CC_ROOT)/SATS/*.sats) \
+                  $(wildcard $(XATS2CC_ROOT)/DATS/*.dats) \
+                  $(wildcard $(XATS2CC_ROOT)/HATS/*.hats)
+
 NODE  := node --stack-size=8801
 CHEZ  ?= chez --script
 
@@ -86,7 +102,9 @@ LIB2CHEZ := $(BUILD)/lib2xats2chez.js
 DRV_CHEZ := $(BUILD)/xats2chez_czemit01_dats.js
 
 OPT_JS1   := $(BUILD)/opt.js1.js
-CC_JS2    := $(BUILD)/cc.js2.js
+CC_JS2     := $(BUILD)/cc.js2.js
+CC_JS2_OLD := $(BUILD)/cc.js2.old.js
+LIB2CC_NEW := $(BUILD)/lib2xats2cc.new.js
 CHEZ_SHIM := $(BUILD)/i0varfst-shim.js
 SHIMNAMES := $(BUILD)/i0varfst-shim.optnames.js
 
@@ -161,8 +179,30 @@ $(OPT_JS1): $(LIB2OPT) | dirs
 	@echo ">> cache js1.lib2xatsopt.js (one-time ~171MB sed)"
 	@sed -E 's/jsx(...)tnm/js1\1tnm/g' $(LIB2OPT) > $@
 
-$(CC_JS2): $(LIB2CC) | dirs
-	@echo ">> cache js2.lib2xats2cc.js (prebuilt frontend cc, one-time sed)"
+# Build the NEW lib2xats2cc.js from the LOCAL forked stage (I0Etry0/try-raise/lazy):
+# transpile each .dats via jsemit00, namespace-sed (3-digit from 100), concat.
+$(LIB2CC_NEW): $(XATS2CC_SRCALL) | dirs
+	@echo ">> build lib2xats2cc.js from LOCAL fork ($(words $(XATS2CC_DATS)) files; +I0Etry0/try-raise/lazy)"
+	@: > $@; idx=100; \
+	for f in $(XATS2CC_DATS); do \
+	  t="$(BUILD)/xcc__$${f%.dats}_dats_out0.js"; \
+	  $(NODE) $(JSEMIT) "$(XATS2CC_LOCAL)/$$f" > "$$t" 2>"$$t.err"; \
+	  if [ "$$(wc -l < "$$t")" -lt $(MINLINES) ]; then \
+	    echo "!! xats2cc(local) transpile FAILED for $$f (see $$t.err)" >&2; tail -30 "$$t.err" >&2; rm -f $@; exit 1; \
+	  fi; \
+	  sed -e "s/jsxtnm/jsx$${idx}tnm/g" "$$t" >> $@; idx=$$((idx+1)); \
+	done; \
+	echo "   -> $@ ($$(wc -l < $@) lines, local fork)"
+
+# js2.cc NEW (local fork) — used by the chez bundle.
+$(CC_JS2): $(LIB2CC_NEW) | dirs
+	@echo ">> cache js2.lib2xats2cc.NEW.js (local fork)"
+	@sed -E 's/jsx(...)tnm/js2\1tnm/g' $(LIB2CC_NEW) > $@
+
+# js2.cc OLD (prebuilt frontend) — used by the JS oracle (stamp-matched to the
+# old JS driver + lib2xats2js, which know nothing of I0Etry0).
+$(CC_JS2_OLD): $(LIB2CC) | dirs
+	@echo ">> cache js2.lib2xats2cc.OLD.js (prebuilt, for JS oracle)"
 	@sed -E 's/jsx(...)tnm/js2\1tnm/g' $(LIB2CC) > $@
 
 ########################################################################
@@ -248,9 +288,9 @@ JSPATCHED := $(BUILD)/xats2js-ref-bundle.js
 
 # JS shim: like the chez shim but scans lib2xats2js too, so the missing
 # tokenfpr (referenced by js1emit on lambdas/fix) is no-op-defined.
-$(JS_SHIM): $(CC_JS2) $(SHIMNAMES) $(LIB2JS) $(JSSHIM) | dirs
-	@echo ">> cache i0varfst+tokenfpr shim (JS oracle)"
-	@cat $(CC_JS2) $(SHIMNAMES) $(LIB2JS) > $@.scan.tmp
+$(JS_SHIM): $(CC_JS2_OLD) $(SHIMNAMES) $(LIB2JS) $(JSSHIM) | dirs
+	@echo ">> cache i0varfst+tokenfpr shim (JS oracle; OLD cc)"
+	@cat $(CC_JS2_OLD) $(SHIMNAMES) $(LIB2JS) > $@.scan.tmp
 	@bash $(JSSHIM) $@.scan.tmp $@ >/dev/null \
 	  || { echo "!! JS shim gen failed" >&2; rm -f $@.scan.tmp; exit 1; }
 	@rm -f $@.scan.tmp
@@ -262,9 +302,9 @@ $(JDRV): $(JSDRIVER) | dirs
 	  echo "!! js driver transpile too small" >&2; \
 	  tail -40 $(BUILD)/transpile_jsdrv.err >&2; rm -f $@; exit 1; fi
 
-$(JSPATCHED): $(JS_SHIM) $(OPT_JS1) $(CC_JS2) $(LIB2JS) $(JDRV) | dirs
-	@echo ">> link JS-oracle reference bundle"
-	@cat $(JS_SHIM) $(RUNTIME) $(OPT_JS1) $(CC_JS2) \
+$(JSPATCHED): $(JS_SHIM) $(OPT_JS1) $(CC_JS2_OLD) $(LIB2JS) $(JDRV) | dirs
+	@echo ">> link JS-oracle reference bundle (OLD cc)"
+	@cat $(JS_SHIM) $(RUNTIME) $(OPT_JS1) $(CC_JS2_OLD) \
 	     <(sed -E 's/jsx(...)tnm/js3\1tnm/g' $(LIB2JS)) \
 	     $(JDRV) > $@
 	@echo "   -> $@"
@@ -350,5 +390,5 @@ clean:
 
 cleanall: clean
 	@echo ">> cleanall (also cached fixed libs; NEVER lib2xatsopt.js)"
-	@rm -f $(OPT_JS1) $(CC_JS2) $(CHEZ_SHIM) $(SHIMNAMES)
+	@rm -f $(OPT_JS1) $(CC_JS2) $(CC_JS2_OLD) $(LIB2CC_NEW) $(CHEZ_SHIM) $(SHIMNAMES)
 	@rm -rf $(V8CACHE)

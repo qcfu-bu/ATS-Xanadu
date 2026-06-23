@@ -28,7 +28,7 @@ the same xats2cc/srcgen1/SATS/intrep0.sats).
 (* ****** ****** *)
 //
 #staload ".\
-/../../../xats2cc\
+/../../xats2cc\
 /srcgen1/SATS/intrep0.sats"//...
 //
 (* ****** ****** *)

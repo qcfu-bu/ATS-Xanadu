@@ -33,7 +33,7 @@ CHEZ_DATS + the driver after editing it.
 (* ****** ****** *)
 //
 #staload ".\
-/../../../xats2cc\
+/../../xats2cc\
 /srcgen1/SATS/intrep0.sats"
 //
 (* ****** ****** *)

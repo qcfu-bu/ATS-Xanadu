@@ -48,11 +48,13 @@ NOTE (stamp discipline): keep the SATS stable; DATS-only edits are safe.
 "./../../../SATS/dynexp2.sats"
 #staload // LAB =
 "./../../../SATS/xlabel0.sats"
+#staload // STM =
+"./../../../SATS/xstamp0.sats"
 //
 (* ****** ****** *)
 //
 #staload ".\
-/../../../xats2cc\
+/../../xats2cc\
 /srcgen1/SATS/intrep0.sats"
 //
 #staload "./../SATS/chez0emit.sats"
@@ -197,12 +199,22 @@ case+ e0.node() of
 | I0Esapp(f0, _) => unwrap_con(f0)
 | _(*else*) => e0)
 //
-(* cz_ctag: a data constructor's tag, as an integer. *)
+(* cz_ctag: a data constructor's tag, as an integer.  EXCEPTION constructors all
+   share the sentinel ctag -1 (exceptions are an open sum), so they would be
+   indistinguishable by ctag; we use the constructor's UNIQUE stamp as the tag
+   instead.  This keeps construction/matching/projection uniform (regular
+   XATSCAPP/ctgeq/XATSPCON) and is invisible in stdout (the tag is never
+   printed), so it stays byte-equal to the JS backend's name-based matching. *)
 fun
 cz_ctag
 ( filr: FILR, dcon: d2con): void =
-(
-  prints(d2con_get_ctag(dcon))) where { #impltmp g_print$out<>() = filr }
+let
+val ct = d2con_get_ctag(dcon)
+in//let
+if (ct < 0)
+then (prints(stamp_get_uint(d2con_get_stmp(dcon)))) where { #impltmp g_print$out<>() = filr }
+else (prints(ct)) where { #impltmp g_print$out<>() = filr }
+end//let
 //
 (* cz_lab_idx: a (positional) label as an integer index. *)
 fun
@@ -560,6 +572,19 @@ case+ iexp.node() of
   cz_clslst(filr, clss);
   cz_str(filr, " (XATS000_cfail))))"))
 //
+(* exceptions: raise an exception value; try BODY with HANDLERS lowers to a
+   [guard] binding the exception to [czscrut] and dispatching the handler
+   clauses (re-raising if none match — guard's default).  The handler patterns
+   reuse the case machinery; exception constructors are tagged by stamp. *)
+| I0Eraise(_, exn) => (cz_str(filr, "(raise "); i0exp_cz0(filr, exn); cz_str(filr, ")"))
+| I0Etry0(_, body, handlers) =>
+  (
+  cz_str(filr, "(guard (czscrut ");
+  cz_try_clslst(filr, handlers);
+  cz_str(filr, " (else (raise czscrut))) ");
+  i0exp_cz0(filr, body);
+  cz_str(filr, ")"))
+//
 | _(*else*) =>
   (
   cz_str(filr, "(begin #f) ;; UNHANDLED-i0exp\n");
@@ -628,6 +653,46 @@ case+ gua.node() of
 | I0GUAexp(e0) => i0exp_cz0(filr, e0)
 | I0GUAmat(_, _) =>
   (cz_str(filr, "#t"); prerrsln("[chez0emit] UNHANDLED I0GUAmat")))
+//
+(* try-handler clauses -> guard cond-clauses: (<test> (let (<binds>) <body>)).
+   The guard var is [czscrut], matching the case machinery's scrutinee name. *)
+and
+cz_try_cls
+( filr: FILR, cls: i0cls): void =
+(
+case+ cls.node() of
+| I0CLScls(gpt, body) =>
+  (
+  case+ gpt.node() of
+  | I0GPTpat(pat) =>
+    (
+    cz_str(filr, "(");
+    cz_pat_test(filr, pat);
+    cz_str(filr, " (let (");
+    cz_pat_binds(filr, pat);
+    cz_str(filr, ") ");
+    i0exp_cz0(filr, body);
+    cz_str(filr, "))"))
+  | I0GPTgua(pat, guas) =>
+    (
+    cz_str(filr, "((and ");
+    cz_pat_test(filr, pat);
+    cz_str(filr, " ");
+    cz_gualst(filr, guas);
+    cz_str(filr, ") (let (");
+    cz_pat_binds(filr, pat);
+    cz_str(filr, ") ");
+    i0exp_cz0(filr, body);
+    cz_str(filr, "))")))
+| I0CLSgpt(_) => ())
+//
+and
+cz_try_clslst
+( filr: FILR, clss: i0clslst): void =
+(
+case+ clss of
+| list_nil() => ()
+| list_cons(c0, clss) => (cz_try_cls(filr, c0); cz_str(filr, " "); cz_try_clslst(filr, clss)))
 //
 (* emit each application argument, space-prefixed *)
 and
