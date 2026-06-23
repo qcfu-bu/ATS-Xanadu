@@ -171,8 +171,6 @@ s0ymb_lexeme(sym: s0ymb): strn =
   | S0YMBbrckt(_, _) => "[]"
 )
 //
-(* ****** ****** *)
-//
 // rule 2: `$`-in-ident -> `/` (Koka-style). Qualified static names preserve the module qualifier
 // as `M.x`; only the leading `$` on the qualifier token is removed.
 fun rewrite_dollar(s: strn): strn = PYPP_dollar_fix(s)
@@ -260,6 +258,52 @@ fun
 todo(out: FILR, what: strn): void =
   (ps(out, "# TODO(pp): "); ps(out, what); nl(out))
 //
+// a record/projection field label (l0abl): an integer index, a symbolic name, or an
+// invalid placeholder token. STANDALONE (not in the pp_* and-chains) so BOTH the static
+// (S0Ercd2) and dynamic (D0Ercd2/D0Prcd2) record-field emitters can call it. Placed after
+// `ps`/`fname`/`tok_lexeme` so its forward references resolve.
+fun
+pp_lab0(out: FILR, lab: l0abl): void =
+(
+  case+ lab.node() of
+  | L0ABLsome(l0) => (
+      case+ l0 of
+      | LABint(i) => gint_fprint$sint(i, out)
+      | LABsym(sym) => ps(out, fname(symbl_get_name(sym)))
+    )
+  | L0ABLnone(tok) => ps(out, tok_lexeme(tok))
+)
+//
+// RECORD-VARIANT prefix decode (Cluster D). The box/flat/linear kind of a record
+// `@{..}`/`$rec..{..}`/`#{..}` is packed into the T_TRCD20(n) token int (lexing0.sats:172);
+// stock decodes it to a trcdknd (staexp2.dats:1525 s2exp_r1cd / trans23 f0_rcd2):
+//   0 = @{}     -> TRCDflt0          (flat / unboxed)     -- our bare `{..}`
+//   1 = #{}     -> TRCDbox1          (boxed linear)
+//   2 = $rec{}  -> TRCDbox0|1        (boxed, linear-by-field)
+//   3 = $rectx{}-> TRCDbox0          (boxed)
+//   4 = $recvx{}-> TRCDbox1          (boxed linear / viewtype)
+//   5 = $recrf{}-> TRCDbox2          (ref)
+// We round-trip the kind via a prefix DECORATOR on the brace literal, reusing the
+// existing @boxed/@linear/@unboxed surface vocabulary (SURFACE-GRAMMAR §5.7), extended with
+// @vbox (`#{}`, int 1) and @ref (`$recrf`, int 5). The mapping is a BIJECTION on the TRCD20
+// int so the RAW token int (which the L2 dump preserves verbatim) round-trips structurally —
+// `#{}` (int 1) and `$recvx{}` (int 4) both decode to TRCDbox1 but stay DISTINCT tokens, so
+// they need distinct surfaces (@vbox vs @linear). The bare `{..}` stays flat (int 0), keeping
+// the existing single record form byte-stable. Placed before pp_s0exp so all three record
+// emitters (static / dynamic / pattern) resolve it.
+fun
+pp_rcd_prefix(out: FILR, tknd: token): void =
+(
+  case+ tknd.node() of
+  | T_TRCD20(0) => ()                       // flat   -> bare `{..}` (default)
+  | T_TRCD20(1) => ps(out, "@vbox ")        // #{}    -> TRCDbox1 (the `#`-sigil boxed-linear)
+  | T_TRCD20(2) => ps(out, "@rec ")         // $rec   -> boxed-or-linear by field (int 2)
+  | T_TRCD20(3) => ps(out, "@boxed ")       // $rectx -> TRCDbox0
+  | T_TRCD20(4) => ps(out, "@linear ")      // $recvx -> TRCDbox1 (viewtype)
+  | T_TRCD20(5) => ps(out, "@ref ")         // $recrf -> TRCDbox2
+  | _ => ()
+)
+//
 fun
 g0exp_lexeme(ge: g0exp): strn =
 (
@@ -325,6 +369,13 @@ pp_s0exp(out: FILR, se: s0exp): void =
   //
   // a flat / boxed tuple `@(a,b)` / `$(a,b)`  -> (A, B).
   | S0Etup1(_, _, ses, _) => pp_tuple(out, ses)
+  //
+  // RECORD-VARIANT type `@{x= int, y= int}` / `$rectx{..}` / `$recvx{..}` (Cluster D, S0Ercd2).
+  // -> `[@boxed|@linear ]{ x: Int, y: Int }`. The box/flat/linear kind rides the TRCD20 token
+  // (pp_rcd_prefix); type fields use `:` (matching the existing `struct`/PyTrec surface).
+  | S0Ercd2(tknd, _, lses, _) => (
+      pp_rcd_prefix(out, tknd);
+      ps(out, "{ "); pp_s0rcd_fields(out, lses); ps(out, " }"))
   //
   // a parenthesized single type (grouping) — render its contents.
   | S0Elpar(_, ses, _) => (
@@ -760,6 +811,20 @@ pp_s0exp_seq(out: FILR, ses: s0explst): void =
 and
 pp_typargs(out: FILR, ses: s0explst): void =
   (ps(out, "["); pp_s0exp_seq(out, ses); ps(out, "]"))
+// RECORD-VARIANT type fields: `x: Int, y: Int` from an l0s0elst (S0LAB(lab, =/:, type)).
+// Field names print verbatim (lowercase field labels); the field TYPE goes through pp_s0exp
+// (so it capitalizes per scoping). Type-record fields use `:` (matching the struct surface).
+and
+pp_s0rcd_fields(out: FILR, lses: l0s0elst): void =
+(
+  case+ lses of
+  | list_nil() => ()
+  | list_cons(S0LAB(lab, _, se), rest) => (
+      pp_lab0(out, lab); ps(out, ": "); pp_s0exp(out, se);
+      (case+ rest of list_nil() => () | _ => ps(out, ", "));
+      pp_s0rcd_fields(out, rest)
+    )
+)
 // the elements inside a flat tuple `@(a, b)` -> `(A, B)`.
 and
 pp_tuple(out: FILR, ses: s0explst): void =
@@ -1539,6 +1604,13 @@ pp_d0pat(out: FILR, dp: d0pat): void =
       | _ => pp_dpat_tuple(out, dps))
   | D0Ptup1(_, _, dps, _) => pp_dpat_tuple(out, dps)
   //
+  // RECORD-VARIANT pattern `@{x= a, y= b}` / `$rec..{..}` / `#{..}` (Cluster D, D0Prcd2).
+  // -> `[@boxed|@linear ]{ x = a, y = b }`. The box/flat/linear kind rides the TRCD20 token
+  // (pp_rcd_prefix). Record-pattern fields use `=` (the existing PyPrec surface).
+  | D0Prcd2(tknd, _, ldps, _) => (
+      pp_rcd_prefix(out, tknd);
+      ps(out, "{ "); pp_dpat_rcd_fields(out, ldps); ps(out, " }"))
+  //
   // `p as x` — render as `p as x` (our surface accepts as-patterns).
   | D0Paspt(_, dp1) => (ps(out, "_ as "); pp_d0pat(out, dp1))
   //
@@ -1700,6 +1772,19 @@ pp_dpat_seq(out: FILR, dps: d0patlst): void =
 and
 pp_dpat_tuple(out: FILR, dps: d0patlst): void =
   (ps(out, "("); pp_dpat_seq(out, dps); ps(out, ")"))
+// RECORD-VARIANT pattern fields: `x = a, y = b` from an l0d0plst (D0LAB(lab, =, pat)).
+// Field names print verbatim; the sub-pattern goes through pp_d0pat.
+and
+pp_dpat_rcd_fields(out: FILR, ldps: l0d0plst): void =
+(
+  case+ ldps of
+  | list_nil() => ()
+  | list_cons(D0LAB(lab, _, dp), rest) => (
+      pp_lab0(out, lab); ps(out, " = "); pp_d0pat(out, dp);
+      (case+ rest of list_nil() => () | _ => ps(out, ", "));
+      pp_dpat_rcd_fields(out, rest)
+    )
+)
 //
 (* ****** ****** *)
 //
@@ -1754,6 +1839,13 @@ pp_d0exp_inline(out: FILR, de: d0exp): void =
   // a tuple `@(a, b)` / `(a, b)`.
   | D0Etup1(_, _, des, _) => (ps(out, "("); pp_dexp_seq_inline(out, des); ps(out, ")"))
   //
+  // RECORD-VARIANT value `@{x= 1, y= 2}` / `$rec..{..}` / `#{..}` (Cluster D, D0Ercd2).
+  // -> `[@boxed|@linear ]{ x = 1, y = 2 }`. The box/flat/linear kind rides the TRCD20 token
+  // (pp_rcd_prefix). Record-literal fields use `=` (the existing PyErec surface).
+  | D0Ercd2(tknd, _, ldes, _) => (
+      pp_rcd_prefix(out, tknd);
+      ps(out, "{ "); pp_d0rcd_fields(out, ldes); ps(out, " }"))
+  //
   // the ref-cell deref `r[]` (empty bracket).  D0Ebrckt(LB, [], RB) on an id head
   // is parsed as an APPS [id; brckt]; a STANDALONE brckt has an empty arg list.
   | D0Ebrckt(_, des, _) => (
@@ -1792,6 +1884,19 @@ pp_d0exp_qual_tail_inline(out: FILR, de: d0exp): void =
   | D0Eopid(oid) => ps(out, fname(i0dnt_lexeme(oid)))
   | D0Eannot(de2, _) => pp_d0exp_qual_tail_inline(out, de2)
   | _ => pp_d0exp_inline(out, de)
+)
+// RECORD-VARIANT value fields: `x = 1, y = 2` from an l0d0elst (D0LAB(lab, =, expr)).
+// Field names print verbatim; the value expr goes through pp_d0exp_inline.
+and
+pp_d0rcd_fields(out: FILR, ldes: l0d0elst): void =
+(
+  case+ ldes of
+  | list_nil() => ()
+  | list_cons(D0LAB(lab, _, de), rest) => (
+      pp_lab0(out, lab); ps(out, " = "); pp_d0exp_inline(out, de);
+      (case+ rest of list_nil() => () | _ => ps(out, ", "));
+      pp_d0rcd_fields(out, rest)
+    )
 )
 // the d0eid (an operator-as-id) — a bare i0dnt (d0eid = i0dnt_tbox).
 and

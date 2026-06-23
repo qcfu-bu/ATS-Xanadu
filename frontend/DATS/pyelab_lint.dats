@@ -106,7 +106,7 @@ case+ e of
 | PCEseq(_, e1, e2) => lint_exp(e2, tail, lint_exp(e1, false, acc))
 | PCElam(_, _, _, _, body) => lint_exp(body, false, acc)
 | PCEtup(_, es) => lint_explst_nt(es, acc)
-| PCErec(_, fs) => lint_efields_nt(fs, acc)
+| PCErec(_, _, fs) => lint_efields_nt(fs, acc)
 | PCElist(_, es) => lint_explst_nt(es, acc)
 | PCEfield(_, e1, _) => lint_exp(e1, false, acc)
 // EXN: the raised sub-expr is NOT tail. A try's body + each handler body ARE in the try's
@@ -186,7 +186,7 @@ case+ e of
 | PCEcase(_, scrut, arms) => lint_loops_arms(arms, lint_loops_exp(scrut, acc))
 | PCEllazy(_, body) => lint_loops_exp(body, acc)
 | PCEtup(_, es) => lint_loops_explst(es, acc)
-| PCErec(_, fs) => lint_loops_efields(fs, acc)
+| PCErec(_, _, fs) => lint_loops_efields(fs, acc)
 | PCElist(_, es) => lint_loops_explst(es, acc)
 | PCEfield(_, e1, _) => lint_loops_exp(e1, acc)
 | PCEseq(_, e1, e2) => lint_loops_exp(e2, lint_loops_exp(e1, acc))

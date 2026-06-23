@@ -39,7 +39,7 @@ case+ e of
 | PyEuna(loc, _, _) => loc    | PyEif(loc, _, _) => loc
 | PyEmatch(loc, _, _) => loc  | PyEtup(loc, _) => loc
 | PyEllazy(loc, _) => loc
-| PyElist(loc, _) => loc      | PyErec(loc, _) => loc
+| PyElist(loc, _) => loc      | PyErec(loc, _, _) => loc
 | PyEfield(loc, _, _) => loc  | PyEindex(loc, _, _) => loc
 | PyElam(loc, _, _, _) => loc | PyEann(loc, _, _) => loc
 | PyEraise(loc, _) => loc     | PyEtry(loc, _, _) => loc
@@ -55,7 +55,7 @@ pypat_loctn(p) =
 case+ p of
 | PyPvar(loc, _) => loc       | PyPwild(loc) => loc
 | PyPcon(loc, _, _, _) => loc | PyPtup(loc, _) => loc
-| PyPrec(loc, _) => loc       | PyPlit(loc, _) => loc
+| PyPrec(loc, _, _) => loc    | PyPlit(loc, _) => loc
 | PyPas(loc, _, _) => loc     | PyPann(loc, _, _) => loc
 | PyPbang(loc, _) => loc      | PyPflat(loc, _) => loc
 | PyPfree(loc, _) => loc
@@ -69,7 +69,7 @@ case+ t of
 | PyTcon(loc, _, _) => loc    | PyTvar(loc, _) => loc
 | PyTidx(loc, _) => loc       | PyTbin(loc, _, _, _) => loc
 | PyTfun(loc, _, _, _) => loc | PyTtup(loc, _) => loc
-| PyTparen(loc, _) => loc     | PyTrec(loc, _) => loc
+| PyTparen(loc, _) => loc     | PyTrec(loc, _, _) => loc
 | PyTerror(loc, _) => loc
 | PyTquant(loc, _, _, _, _) => loc
 | PyTat(loc, _, _) => loc

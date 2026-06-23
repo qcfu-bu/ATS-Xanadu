@@ -59,6 +59,12 @@ print_indent(out: FILR, n: sint): void =
 //
 fun nl(out: FILR): void = ps(out, "\n")
 //
+// RECORD-VARIANT (Cluster D): the box/flat/linear record kind suffix ` knd=N` on Erec/Prec, printed
+// only when non-zero (0 = bare flat default) so existing flat-record core dumps stay byte-stable.
+fun
+pp_rcd_knd(out: FILR, knd: int): void =
+  if knd = 0 then () else (ps(out, " knd="); pi(out, knd))
+//
 (* ****** ****** *)
 //
 fun
@@ -175,8 +181,8 @@ case+ p of
     pp_patlst(out, args); ps(out, ")") )
 | PCPtup(loc, ps0) =>
   (ps(out, "(Ptup"); print_span(out, loc); pp_patlst(out, ps0); ps(out, ")"))
-| PCPrec(loc, fs) =>
-  (ps(out, "(Prec"); print_span(out, loc); pp_pfields(out, fs); ps(out, ")"))
+| PCPrec(loc, knd, fs) =>
+  (ps(out, "(Prec"); print_span(out, loc); pp_rcd_knd(out, knd); pp_pfields(out, fs); ps(out, ")"))
 | PCPlit(loc, lit) =>
   (ps(out, "(Plit"); print_span(out, loc); ps(out, " "); pp_lit(out, lit); ps(out, ")"))
 | PCPas(loc, nm, inner) =>
@@ -263,8 +269,8 @@ case+ e of
     pp_exp(out, body, ind + 1); ps(out, ")") )
 | PCEtup(loc, es) =>
   (ps(out, "(Etup"); print_span(out, loc); pp_explst(out, es, ind); ps(out, ")"))
-| PCErec(loc, fs) =>
-  (ps(out, "(Erec"); print_span(out, loc); pp_efields(out, fs, ind); ps(out, ")"))
+| PCErec(loc, knd, fs) =>
+  (ps(out, "(Erec"); print_span(out, loc); pp_rcd_knd(out, knd); pp_efields(out, fs, ind); ps(out, ")"))
 | PCElist(loc, es) =>
   (ps(out, "(Elist"); print_span(out, loc); pp_explst(out, es, ind); ps(out, ")"))
 | PCEfield(loc, e1, nm) =>

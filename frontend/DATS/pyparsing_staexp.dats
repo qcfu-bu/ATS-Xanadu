@@ -439,6 +439,31 @@ in
   | PT_AMP()     => p_type_byref(ps_advance(st), loc)
   | PT_LPAREN()  => p_type_paren(ps_advance(st), loc)
   | PT_LBRACE()  => p_type_record(ps_advance(st), loc)
+  // RECORD-VARIANT (Cluster D): `@boxed {..}` / `@linear {..}` / `@unboxed {..}` / `@ref {..}` — a
+  // record-kind decorator before a `{` selects the box/flat/linear/ref kind in TYPE position.
+  | PT_AT()      =>
+    let val st1 = ps_advance(st) in     // past '@'
+      case+ ps_peek(st1) of
+      | PT_LIDENT(nm) =>
+          let val @(knd, isr) = rcd_kind_of_deco(nm) in
+            if isr then
+              let val st2 = ps_advance(st1) in     // past the kind name
+                case+ ps_peek(st2) of
+                | PT_LBRACE() => p_type_record_kinded(ps_advance(st2), loc, knd)
+                | _ =>
+                    let val st3 = ps_diag(st2, ps_peek_loctn(st2),
+                          strn_append("@", strn_append(nm, " here expects a '{ ... }' record type"))) in
+                      @(PyTerror(loc, "record-kind decorator not followed by '{'"), st3) end
+              end
+            else
+              let val st2 = ps_diag(st1, loc,
+                    strn_append("unexpected type decorator @", nm)) in
+                @(PyTerror(loc, "unexpected type decorator"), st2) end
+          end
+      | _ =>
+          let val st2 = ps_diag(st1, loc, "expected a record-kind name after '@'") in
+            @(PyTerror(loc, "expected a record-kind name after '@'"), st2) end
+    end
   | _ =>
     let val st1 = ps_diag(st, loc, "expected a type") in
       @(PyTerror(loc, "expected a type"), st1) end
@@ -542,14 +567,18 @@ case+ ps_peek(st) of
   end
 )
 //
-// after '{' : a record type `{ x: Int, y: Int }`.
+// after '{' : a record type `{ x: Int, y: Int }`. RECORD-VARIANT: `knd` is the TRCD20 kind
+// (0=bare flat default; @boxed/@linear/.. prefix passes 3/4/.. via p_type_record_kinded).
 and
-p_type_record(st: pstate, locL: loctn): @(pytyp, pstate) = let
+p_type_record(st: pstate, locL: loctn): @(pytyp, pstate) =
+  p_type_record_kinded(st, locL, 0(*flat*))
+and
+p_type_record_kinded(st: pstate, locL: loctn, knd: int): @(pytyp, pstate) = let
   val @(fs, st1) = p_tfields(st)
   val locR = ps_peek_loctn(st1)
   val st2 = expect_rbrace(st1, locR)
 in
-  @(PyTrec(loc_span(locL, locR), fs), st2)
+  @(PyTrec(loc_span(locL, locR), knd, fs), st2)
 end
 //
 and
@@ -733,14 +762,7 @@ in
       | list_cons(p, list_nil()) => @(p, st2)            // single ⇒ unwrap
       | _ => @(PyPtup(loc_span(loc, locR), ps0), st2)
     end
-  | PT_LBRACE() =>
-    let
-      val @(fs, st1) = p_pfields(ps_advance(st))
-      val locR = ps_peek_loctn(st1)
-      val st2 = expect_rbrace(st1, locR)
-    in
-      @(PyPrec(loc_span(loc, locR), fs), st2)
-    end
+  | PT_LBRACE() => p_pat_record_kinded(ps_advance(st), loc, 0(*flat*))
   | _ =>
     let val @(islit, lit) = lit_of_node(loc, nod) in
       if islit then @(PyPlit(loc, lit), ps_advance(st))
@@ -751,11 +773,41 @@ in
 end
 //
 and
+// RECORD-VARIANT (Cluster D): a record PATTERN `[@boxed|@linear ]{ f = p, ... }`. `knd` is the
+// TRCD20 kind (0=bare flat default; @boxed/@linear/.. passes 3/4/..). Fields use '=' (PyPrec).
+p_pat_record_kinded(st: pstate, locL: loctn, knd: int): @(pypat, pstate) = let
+  val @(fs, st1) = p_pfields(st)
+  val locR = ps_peek_loctn(st1)
+  val st2 = expect_rbrace(st1, locR)
+in
+  @(PyPrec(loc_span(locL, locR), knd, fs), st2)
+end
+and
 p_pat_at(st: pstate): @(pypat, pstate) = let
   val locA = ps_peek_loctn(st)
   val st1 = ps_advance(st)
 in
   case+ ps_peek(st1) of
+  // RECORD-VARIANT: `@boxed {..}` / `@linear {..}` / `@unboxed {..}` / `@ref {..}` — a record-kind
+  // decorator (LIDENT) before a `{` selects the box/flat/linear/ref kind in PATTERN position. This
+  // is checked BEFORE the `@(Con)` flat-pattern path (which needs a `(`, not a kind name). A LIDENT
+  // that is NOT a record-kind name falls through to the error recovery below.
+  | PT_LIDENT(nm) =>
+    let val @(knd, isr) = rcd_kind_of_deco(nm) in
+      if isr then
+        let val st2 = ps_advance(st1) in    // past the kind name
+          case+ ps_peek(st2) of
+          | PT_LBRACE() => p_pat_record_kinded(ps_advance(st2), locA, knd)
+          | _ =>
+              let val st3 = ps_diag(st2, ps_peek_loctn(st2),
+                    strn_append("@", strn_append(nm, " here expects a '{ ... }' record pattern"))) in
+                @(PyPerror(locA, "record-kind decorator not followed by '{'"), st3) end
+        end
+      else
+        let val st2 = ps_diag(st1, locA,
+              strn_append("unexpected pattern decorator @", nm)) in
+          @(PyPerror(locA, "unexpected pattern decorator"), ps_advance(st2)) end
+    end
   | PT_LPAREN() =>
     let
       val st2 = ps_advance(st1)

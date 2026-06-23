@@ -166,7 +166,7 @@ case+ p of
 | PyPwild(loc) => PCPwild(loc)
 | PyPcon(loc, nm, sargs, args) => PCPcon(loc, nm, sargs, el_patlst(args))
 | PyPtup(loc, ps0) => PCPtup(loc, el_patlst(ps0))
-| PyPrec(loc, fs) => PCPrec(loc, el_pfields(fs))
+| PyPrec(loc, knd, fs) => PCPrec(loc, knd, el_pfields(fs))
 | PyPlit(loc, lit) => PCPlit(loc, el_lit(lit))
 // M7: `p as x` -> PCPas(loc, x, <elaborated p>). The surface PyPas is `(loc, inner, name)`;
 // PCPas reorders to `(loc, name, inner)`. The binding is no longer dropped — M3 lowers it to a
@@ -303,7 +303,7 @@ case+ p of
 | PyPwild(_)        => s
 | PyPcon(_, _, _, args) => fc_pat_names_lst(s, args)
 | PyPtup(_, ps0)    => fc_pat_names_lst(s, ps0)
-| PyPrec(_, fs)     => fc_pfield_names(s, fs)
+| PyPrec(_, _, fs)  => fc_pfield_names(s, fs)
 | PyPlit(_, _)      => s
 | PyPas(_, p1, nm)  => nameset_add(fc_pat_names(s, p1), nm)
 | PyPann(_, p1, _)  => fc_pat_names(s, p1)
@@ -356,7 +356,7 @@ case+ e of
 | PyEllazy(_, body) => fc_fv_stmts(bnd, fv, body)
 | PyEtup(_, es)   => fc_fv_explst(bnd, fv, es)
 | PyElist(_, es)  => fc_fv_explst(bnd, fv, es)
-| PyErec(_, fs)   => fc_fv_efields(bnd, fv, fs)
+| PyErec(_, _, fs) => fc_fv_efields(bnd, fv, fs)
 | PyEfield(_, e1, _) => fc_fv_exp(bnd, fv, e1)
 | PyEindex(_, e1, ix) => fc_fv_exp(bnd, fc_fv_exp(bnd, fv, e1), ix)
 | PyElam(_, _, params, body) =>
@@ -550,7 +550,7 @@ case+ e of
 | PyEllazy(loc, body) => PCEllazy(loc, el_func_body(encl, loc, body))
 | PyEtup(loc, es) => PCEtup(loc, el_explst(encl, es))
 | PyElist(loc, es) => PCElist(loc, el_explst(encl, es))
-| PyErec(loc, fs) => PCErec(loc, el_efields(encl, fs))
+| PyErec(loc, knd, fs) => PCErec(loc, knd, el_efields(encl, fs))
 | PyEfield(loc, e1, nm) => PCEfield(loc, el_exp(encl, e1), nm)
 | PyEindex(loc, e1, ix) =>
     PCEapp(loc, PCEvar(loc, "[]"), list_cons(el_exp(encl, e1), list_sing(el_exp(encl, ix))))

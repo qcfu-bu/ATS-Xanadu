@@ -95,10 +95,42 @@ a few specialized `.dats`, and the prelude kernel — exactly the unexplored lay
 | `D0Cextcode`| `%{ C %}` | 0 | 0 | defer (corpus-absent; error-clean if hit) |
 | `D0Cdyninit`| `dynload` | ~95 | 0 | PP+PR+LO+T |
 
-### Cluster D — records (boxed/flat/linear variants)
+### Cluster D — records (boxed/flat/linear variants) — ✅ DONE
 | construct | ATS syntax | srcgen2 | prelude | |
 |---|---|---:|---:|---|
-| `D0Ercd2` / `S0Ercd2` / `D0Prcd2` | `@{..}`/`${..}`/`~{..}` record value/type/pattern | ~10 | 1 | PP+PR+LO+T |
+| `D0Ercd2` / `S0Ercd2` / `D0Prcd2` | `@{..}`/`${..}`/`~{..}` record value/type/pattern | ~10 | 1 | ✅ PP+PR+LO+T |
+
+**Cluster D landed.** The box/flat/linear/ref kind is packed into the `T_TRCD20(n)` token int
+(`lexing0.sats:172`); stock decodes it to a `trcdknd` at `staexp2.dats:1525` (`s2exp_r1cd`) /
+`trans23_dynexp.dats:2230` (`f0_rcd2`). The pythonic surface round-trips the EXACT int via a prefix
+**record-kind decorator** on the brace literal (a BIJECTION on the ints, reusing `@boxed`/`@linear`/
+`@unboxed` + new `@vbox`/`@rec`/`@ref`; the bare `{..}` stays flat int 0, so the existing single
+record form is byte-stable):
+| surface | TRCD20 int | trcdknd | sigil it round-trips |
+|---|---:|---|---|
+| `{..}` (bare) | 0 | TRCDflt0 (flat) | `@{..}` |
+| `@vbox {..}` | 1 | TRCDbox1 | `#{..}` |
+| `@rec {..}` | 2 | TRCDbox0/1 | `$rec{..}` |
+| `@boxed {..}` | 3 | TRCDbox0 | `$rectx{..}`/`$rec_t0` |
+| `@linear {..}` | 4 | TRCDbox1 (vtbx) | `$recvx{..}`/`$rec_vt` |
+| `@ref {..}` | 5 | TRCDbox2 | `$recrf{..}`/`$rec_rf` |
+
+L2-diff FAITHFUL (0 triage diff vs stock): VALUE (`@{}`/`$rectx`/`$recvx`/`#{}`,
+`TEST/l2diff/rcd/rcd_value.dats`) + TYPE flat/boxed (`TEST/l2diff/rcd/rcd_type.sats`). PATTERN
+(`TEST/l2diff/rcd/rcd_pattern.pdats`) parses + lowers nerror=0 (flat int 0 + boxed int 3), producing
+the exact stock `D2Prcd2(T_TRCD20(knd), -1, [D2LAB...])` shape — but stock's parser has **no
+`T_TRCD20` pattern case** (`@{..}` patterns are unparseable in stock; `parsing_dynexp.dats:p1_d0pat_atm`
+only has `T_TRCD10`), so there is no stock surface to diff against; faithfulness is proven by the node
+shape matching `trans12_dynexp.dats:1525` (`f0_r1cd`). The `D2Prcd2` env-binding (`tr12env_add0_d2pat`'s
+`D2Prcd2` arm) calls `tr12env_add0_l2d2plst`, which is DECLARED (`trans12.sats:610`) but NEVER DEFINED
+in the deployed `lib2xatsopt.js` (dead code — never reached in stock); pylower works around it by
+extracting the field sub-patterns and binding them with the working `tr12env_add0_d2patlst`.
+
+**Deferred (clean, niche):** a LINEAR record TYPE inside a typedef RHS — `type X = $recvx{..}`. Stock's
+`f0_sexpdef` wraps the vtbx-sorted `S2Etrcd(TRCDbox1)` in an `S2Ecast(...; vtbx; type)` coercion (via
+`s2exp_stpize`, `trans12_decl00.dats:1439`) which the pyfront sexpdef lowering does not replicate; the
+record STRUCTURE matches stock exactly, only the typedef-level cast wrapper is missing. No such linear
+record-type aliases appear in the corpus (the value/pattern `$recvx` forms ARE faithful).
 
 ### Cluster E — macros + misc dyn exprs
 | construct | ATS syntax | srcgen2 | prelude | |

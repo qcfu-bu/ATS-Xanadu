@@ -50,6 +50,19 @@ fun ats_qualified_sym(name: strn): sym_t = symbl_make_name(PYL_ats_qualified_nam
 fun ats_type_name(name: strn): strn = PYL_uncapitalize(ats_name(name))
 fun ats_type_sym(name: strn): sym_t = symbl_make_name(ats_type_name(name))
 //
+// RECORD-VARIANT (Cluster D): decode the TRCD20 kind int of an inline record TYPE to the
+// (trcdknd, result-sort) pair stock's s2exp_r1cd builds (staexp2.dats:1525). 0=@{}=flat ->
+// (TRCDflt0, type); 1=#{} / 4=$recvx=linear -> (TRCDbox1, vtbx); 3=$rectx=boxed -> (TRCDbox0, tbox);
+// 5=$recrf=ref -> (TRCDbox2, tbox). Any other int falls back to the flat default.
+fun
+rcd_type_kind_sort(knd: int): @(trcdknd, sort2) =
+  if knd = 1 then @(TRCDbox1, the_sort2_vtbx) else  // #{}     boxed-linear
+  if knd = 2 then @(TRCDbox0, the_sort2_tbox) else  // $rec    boxed (non-linear-field default)
+  if knd = 3 then @(TRCDbox0, the_sort2_tbox) else  // $rectx  boxed
+  if knd = 4 then @(TRCDbox1, the_sort2_vtbx) else  // $recvx  linear/viewtype
+  if knd = 5 then @(TRCDbox2, the_sort2_tbox) else  // $recrf  ref
+  @(TRCDflt0, the_sort2_type)  // 0 = @{} flat (and the fallback)
+//
 (* ****** ****** *)
 //
 // ---- surface-operator -> prelude-name remap (LOWERING-MAP §3.4, M3-REPORT table) --------
@@ -698,9 +711,18 @@ case+ t of
       s2exp_make_node(the_sort2_type, S2Etrcd(TRCDflt0, (-1)(*npf*), l2elts))
     end
 | PyTparen(_, body) => pylower_typ(env, body)
-| PyTrec(loc, flds) =>                // M5b.4: a boxed (default) record type — S2Etrcd.
-    let val l2flds = pylower_tfields(env, flds) in
-      s2exp_make_node(the_sort2_tbox, S2Etrcd(TRCDbox0, (-1)(*npf*), l2flds))
+| PyTrec(loc, knd, flds) =>
+    // RECORD-VARIANT (Cluster D): an inline record TYPE `[@boxed|@linear ]{ x: Int, y: Int }`. The
+    // `knd` int (the TRCD20 selector from the surface decorator) decodes to the (trcdknd, sort) pair
+    // stock's s2exp_r1cd produces (staexp2.dats:1525): 0=@{}->(TRCDflt0, type) FLAT [the bare `{..}`];
+    // 3=$rectx->(TRCDbox0, tbox) BOXED; 4=$recvx->(TRCDbox1, vtbx) LINEAR/viewtype; 1=#{}->(TRCDbox1,
+    // vtbx); 5=$recrf->(TRCDbox2, tbox). We return the bare S2Etrcd at its NATURAL result sort; the
+    // typedef/struct level adds any S2Ecast coercion (stock f0_sexpdef does the same for a vtbx RHS).
+    let
+      val l2flds = pylower_tfields(env, flds)
+      val @(tknd, srt) = rcd_type_kind_sort(knd)
+    in
+      s2exp_make_node(srt, S2Etrcd(tknd, (-1)(*npf*), l2flds))
     end
 // A-QUANT: an EXPLICIT quantified type `forall[n: SInt | g] T` / `exists[m: SInt] T`. Mirror the
 // def-param quantifier dance (pl_fungroup_fnk / dep-spike P2/P3, a-quant SX-EXI): build one s2var

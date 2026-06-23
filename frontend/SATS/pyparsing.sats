@@ -174,7 +174,12 @@ pytyp =
 | PyTfun   of (loctn, list(pytyp), pytyp, strn(*arrow tag; ""=bare*))
 | PyTtup   of (loctn, list(pytyp))
 | PyTparen of (loctn, pytyp)
-| PyTrec   of (loctn, list(pytfield))
+// RECORD-VARIANT (Cluster D): a record TYPE `[@boxed|@linear ]{ x: Int, y: Int }`. The `int`
+// carries the TRCD20 kind packed by the surface decorator (0=flat `{..}` default, 3=@boxed
+// boxed, 4=@linear linear/viewtype, 1=#{} boxed-linear, 5=@ref). Lowers to S2Etrcd with the
+// decoded (trcdknd, sort): 0->(TRCDflt0,type), 3->(TRCDbox0,tbox), 4->(TRCDbox1,vtbx wrapped
+// in S2Ecast to type — stock f0_sexpdef behavior for a vtbx RHS at a type-sorted typedef).
+| PyTrec   of (loctn, int(*trcd-kind*), list(pytfield))
 // A-QUANT: an EXPLICIT quantified type — `forall[n: SInt | g] <type>` (universal) or
 // `exists[m: SInt | m <= n] <type>` (existential). The `int` tag is 0=forall / 1=exists.
 // The binder list `list(pytyparam)` + the OPTIONAL guard `pyguardopt` reuse the EXISTING
@@ -229,7 +234,10 @@ pypat =
 | PyPwild  of (loctn)
 | PyPcon   of (loctn, strn, list(strn)(*sargs*), list(pypat))
 | PyPtup   of (loctn, list(pypat))
-| PyPrec   of (loctn, list(pypfield))
+// RECORD-VARIANT (Cluster D): a record PATTERN `[@boxed|@linear ]{ f = p, ... }`. The `int` is
+// the TRCD20 kind (0=flat default, 3=@boxed, 4=@linear, 1=#{}, 5=@ref); lowers to D2Prcd2 with
+// the kind token T_TRCD20(int).
+| PyPrec   of (loctn, int(*trcd-kind*), list(pypfield))
 | PyPlit   of (loctn, pylit)
 | PyPas    of (loctn, pypat, strn)
 | PyPann   of (loctn, pypat, pytyp)
@@ -316,7 +324,10 @@ pyexp =
 | PyEllazy of (loctn, list(pystmt))
 | PyEtup   of (loctn, list(pyexp))
 | PyElist  of (loctn, list(pyexp))
-| PyErec   of (loctn, list(pyefield))
+// RECORD-VARIANT (Cluster D): a record VALUE `[@boxed|@linear ]{ f = e, ... }`. The `int` is the
+// TRCD20 kind (0=flat default, 3=@boxed, 4=@linear, 1=#{}, 5=@ref); lowers to D2Ercd2 with the
+// kind token T_TRCD20(int).
+| PyErec   of (loctn, int(*trcd-kind*), list(pyefield))
 | PyEfield of (loctn, pyexp, strn)
 | PyEindex of (loctn, pyexp, pyexp)
 | PyElam   of (loctn, bool(*@func*), list(pyparam), list(pystmt))
@@ -748,6 +759,10 @@ fun parse_pattern(st: pstate): @(pypat, pstate)
 // so `Int` / `List[Int]` / a bare index all parse). Lives in staexp (where parse_type is in scope);
 // used by BOTH decl00 (@impl decorator payload) and dynexp (@inst/@sapp expr decorator payload).
 fun parse_deco_typeargs(st: pstate): @(list(pytyp), pstate)
+// RECORD-VARIANT (Cluster D): map a record-kind decorator name (`boxed`/`linear`/`unboxed`/`ref`)
+// to @(TRCD20-int, is-record-deco). Shared by the value (dynexp), type (staexp) and pattern parsers
+// so `@boxed {..}` / `@linear {..}` select the box/flat/linear/ref record kind consistently.
+fun rcd_kind_of_deco(nm: strn): @(int, bool)
 fun parse_expr(st: pstate): @(pyexp, pstate)
 fun parse_suite(st: pstate): @(pystmtlst, pstate)
 fun parse_decl(st: pstate): @(pydecl, pstate)

@@ -37,7 +37,7 @@ case+ e of
 | PCEletfun(loc, _, _) => loc | PCEif(loc, _, _, _) => loc
 | PCEcase(loc, _, _) => loc   | PCEtup(loc, _) => loc
 | PCEllazy(loc, _) => loc
-| PCErec(loc, _) => loc       | PCElist(loc, _) => loc
+| PCErec(loc, _, _) => loc    | PCElist(loc, _) => loc
 | PCEfield(loc, _, _) => loc  | PCEseq(loc, _, _) => loc
 | PCEunit(loc) => loc         | PCEtop(loc) => loc
 | PCEerror(loc, _) => loc
@@ -56,7 +56,7 @@ pcpat_loctn(p) =
 case+ p of
 | PCPvar(loc, _) => loc   | PCPwild(loc) => loc
 | PCPcon(loc, _, _, _) => loc | PCPtup(loc, _) => loc
-| PCPrec(loc, _) => loc   | PCPlit(loc, _) => loc
+| PCPrec(loc, _, _) => loc | PCPlit(loc, _) => loc
 | PCPas(loc, _, _) => loc | PCPbang(loc, _) => loc
 | PCPflat(loc, _) => loc  | PCPfree(loc, _) => loc
 )

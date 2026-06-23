@@ -101,9 +101,12 @@ fun tok_var(loc: loctn): token = token_make_node(loc, T_VAR(VRKvar))
 fun tok_case(loc: loctn): token = token_make_node(loc, T_CASE(CSKcas0))
 // the record kind-token for D2Ercd2/D2Prcd2: trans23 f0_rcd2 does a PARTIAL `case-` over
 // T_TRCD20(n) ONLY (trans23_dynexp.dats:2230-2242 / 240) — a T_LBRACE token CRASHES it
-// (inexhaustive match). T_TRCD20(0) selects TRCDflt0, the FLAT (unboxed) record `@{...}` the
-// Pythonic `{l=e,...}` lowers to. (Verified: T_LBRACE -> hard crash in trans23_d2valdcl.)
-fun tok_rec(loc: loctn): token = token_make_node(loc, T_TRCD20(0))
+// (inexhaustive match). RECORD-VARIANT (Cluster D): the `knd` int (0..5) is the box/flat/linear/ref
+// selector trans23 decodes (0=@{}->TRCDflt0 flat; 3=$rectx->TRCDbox0 boxed; 4=$recvx->TRCDbox1
+// linear/vtbx; 1=#{}->TRCDbox1; 5=$recrf->TRCDbox2 ref). tok_rec keeps the FLAT default (knd 0) so
+// the existing single record form `{l=e,...}` is byte-stable; tok_rec_knd carries the surface kind.
+fun tok_rec_knd(loc: loctn, knd: int): token = token_make_node(loc, T_TRCD20(knd))
+fun tok_rec(loc: loctn): token = tok_rec_knd(loc, 0)
 // the dot-selector kind-token for D2Edtsel (`x.sel(args)`). Stock trans12 preserves the dot
 // token here; trans2a then rewrites the selector app to the #symload bucket for `sel`.
 fun tok_dot(loc: loctn): token = token_make_node(loc, T_DOT())
@@ -112,6 +115,41 @@ fun tok_dot(loc: loctn): token = token_make_node(loc, T_DOT())
 // D2Eraise with a T_DLR_RAISE token and D2Etry0 with a T_TRY token (SPIKE-PROVEN).
 fun tok_raise(loc: loctn): token = token_make_node(loc, T_DLR_RAISE())
 fun tok_try(loc: loctn): token = token_make_node(loc, T_TRY())
+//
+// RECORD-VARIANT (Cluster D): register a pattern's binders in the tr12env. We CANNOT call the stock
+// `tr12env_add0_d2pat` on a `D2Prcd2`: its arm (trans12_myenv0.dats:2060) calls
+// `tr12env_add0_l2d2plst`, which is DECLARED (trans12.sats:610) but NEVER DEFINED in the deployed
+// lib2xatsopt.js (record patterns are unreachable in the stock parser — it has no T_TRCD20 pattern
+// case — so that env-binding arm is dead code never linked; verified `ReferenceError:
+// tr12env_add0_l2d2plst_13094 is not defined`). We work around the lib gap by extracting the field
+// sub-patterns from the l2d2plst (D2LAB(lab, =, p)) and binding them with the WORKING
+// `tr12env_add0_d2patlst` — identical to what the missing helper would do (it just forwards each
+// field pattern). All non-record patterns delegate unchanged to the stock `tr12env_add0_d2pat`.
+fun
+pl_add0_d2pat(env: !tr12env, d2p: d2pat): void =
+(
+  case+ d2pat_get_node(d2p) of
+  | D2Prcd2(_, _, ldps) =>
+      tr12env_add0_d2patlst(env, l2d2plst_pats(ldps))
+  | _ => tr12env_add0_d2pat(env, d2p)
+)
+and
+// extract the field sub-patterns (the `d2pat` inside each D2LAB(lab, =, pat)) of a record pattern.
+l2d2plst_pats(ldps: l2d2plst): d2patlst =
+(
+  case+ ldps of
+  | list_nil() => list_nil()
+  | list_cons(D2LAB(_, d2p1), rest) => list_cons(d2p1, l2d2plst_pats(rest))
+)
+// register a guarded-pattern's binders, going through pl_add0_d2pat (so a record pattern dodges the
+// lib gap above). Mirrors stock tr12env_add0_d2gpt (which is a thin `add0_d2pat` over the gpt's pat).
+and
+pl_add0_d2gpt(env: !tr12env, dgpt: d2gpt): void =
+(
+  case+ dgpt.node() of
+  | D2GPTpat(d2p1) => pl_add0_d2pat(env, d2p1)
+  | D2GPTgua(d2p1, _) => pl_add0_d2pat(env, d2p1)
+)
 //
 fun
 d2pat_is_none0(d2p: d2pat): bool =
@@ -127,7 +165,7 @@ pcpat_has_con(p: pcpat): bool =
 case+ p of
 | PCPcon _ => true
 | PCPtup(_, ps) => pcpatlst_has_con(ps)
-| PCPrec(_, fs) => pcpfieldlst_has_con(fs)
+| PCPrec(_, _, fs) => pcpfieldlst_has_con(fs)
 | PCPas(_, _, p1) => pcpat_has_con(p1)
 | PCPbang(_, p1) => pcpat_has_con(p1)
 | PCPflat(_, p1) => pcpat_has_con(p1)
@@ -811,9 +849,10 @@ case+ p of
   end
 | PCPtup(loc, ps) =>
     let val dps = pl_patlst(env, ps) in d2pat_make_node(loc, D2Ptup0((-1), dps)) end
-| PCPrec(loc, fs) =>
-    // { f = p, g = q } -> D2Prcd2(REC-tok, -1, [D2LAB(LABsym f, p), ...]). NAME labels.
-    let val ldps = pl_pfieldlst(env, fs) in d2pat_make_node(loc, D2Prcd2(tok_rec(loc), (-1), ldps)) end
+| PCPrec(loc, knd, fs) =>
+    // RECORD-VARIANT: `[@boxed|@linear ]{ f = p, g = q }` -> D2Prcd2(T_TRCD20(knd), -1, [D2LAB(f, p),
+    // ...]). NAME labels. `knd` carries the box/flat/linear/ref selector (0=flat default).
+    let val ldps = pl_pfieldlst(env, fs) in d2pat_make_node(loc, D2Prcd2(tok_rec_knd(loc, knd), (-1), ldps)) end
 | PCPlit(loc, lit) =>
     // Literal patterns are checked against the scrutinee type (trans23_d2pat_tpck pushes the
     // scrutinee's styp DOWN), so they need no own stamp — leaving them UNSTAMPED avoids the
@@ -1051,7 +1090,7 @@ case+ e of
           end
       ): d2exp
     val () = bind_let_styp(d2p, d2rhs)           // M4: fresh tyvar binder (unless RHS is none0)
-    val () = tr12env_add0_d2pat(env, d2p)        // non-rec: bind after RHS
+    val () = pl_add0_d2pat(env, d2p)             // non-rec: bind after RHS (RECORD-safe)
     val dval = d2valdcl_make_args(loc, d2p, TEQD2EXPsome(tknd, d2rhs), WTHS2EXPnone())
     val decl = d2ecl_make_node(loc, D2Cvaldclst(tknd, list_sing(dval)))
     val d2body = pl_exp(env, body)
@@ -1204,11 +1243,12 @@ case+ e of
 | PCEtup(loc, es) =>
     let val d2es = pl_explst(env, es) in d2exp_make_node(loc, D2Etup0((-1), d2es)) end
 //
-// PCErec : { f = a, g = b } -> D2Ercd2(REC-tok, -1, [D2LAB(LABsym f, a), ...]). Labels are NAME
-// labels (LABsym). npf=-1 (no proof fields). Mirrors trans12 f0_r1cd.
-| PCErec(loc, fields) =>
+// PCErec : RECORD-VARIANT `[@boxed|@linear ]{ f = a, g = b }` -> D2Ercd2(T_TRCD20(knd), -1, [D2LAB(f,
+// a), ...]). Labels are NAME labels (LABsym). npf=-1 (no proof fields). `knd` carries the
+// box/flat/linear/ref selector (0=flat default). Mirrors trans12 f0_r1cd.
+| PCErec(loc, knd, fields) =>
     let val ldes = pl_efieldlst(env, fields) in
-      d2exp_make_node(loc, D2Ercd2(tok_rec(loc), (-1), ldes))
+      d2exp_make_node(loc, D2Ercd2(tok_rec_knd(loc, knd), (-1), ldes))
     end
 //
 // PCElist : [a, b, c] -> a prelude list_cons/list_nil chain (there is NO D2Elist node; ATS
@@ -1329,7 +1369,7 @@ pl_arm(env: !tr12env, arm: pcarm): d2cls = let
       | PCEGNone() => d2gpt_make_node(loc, D2GPTpat(d2p))
       | PCEGSome(g) => let
           val () = tr12env_pshlam0(env)            // enter the guard scope
-          val () = tr12env_add0_d2pat(env, d2p)    // pattern vars visible to the guard
+          val () = pl_add0_d2pat(env, d2p)         // pattern vars visible to the guard (RECORD-safe)
           val d2g = pl_exp(env, g)
           val () = tr12env_poplam0(env)            // exit the guard scope
           val dgua = d2gua_make_node(loc, D2GUAexp(d2g))
@@ -1337,9 +1377,10 @@ pl_arm(env: !tr12env, arm: pcarm): d2cls = let
           d2gpt_make_node(loc, D2GPTgua(d2p, list_sing(dgua)))
         end
     ): d2gpt
-  // the matched clause: a fresh scope binding the gpt's vars for the body.
+  // the matched clause: a fresh scope binding the gpt's vars for the body. RECORD-VARIANT: bind via
+  // pl_add0_d2gpt so a `D2Prcd2` record pattern dodges the undefined-lib-helper gap (see pl_add0_d2pat).
   val () = tr12env_pshlam0(env)
-  val () = tr12env_add0_d2gpt(env, dgpt)
+  val () = pl_add0_d2gpt(env, dgpt)
   val d2body = pl_exp(env, body)
   val () = tr12env_poplam0(env)
 in
@@ -1974,7 +2015,7 @@ pl_prval(env: !tr12env, loc: loctn, p: pcpat, ann: pytypopt, rhs: pcexp): d2ecl 
     | PyTypSome(t) => d2exp_make_node(loc, D2Eannot(d2rhs0, s1exp_none0(loc), pylower_typ(env, t)))
     ): d2exp
   val () = bind_let_styp(d2p, d2rhs)
-  val () = tr12env_add0_d2pat(env, d2p)
+  val () = pl_add0_d2pat(env, d2p)               // RECORD-safe pattern binder
   val dval = d2valdcl_make_args(loc, d2p, TEQD2EXPsome(tknd, d2rhs), WTHS2EXPnone())
 in
   d2ecl_make_node(loc, D2Cvaldclst(tknd, list_sing(dval)))

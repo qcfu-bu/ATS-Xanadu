@@ -60,6 +60,26 @@ case+ nod of
 | _ => @(false, PyLbool(loc, false))
 )
 //
+// ---- RECORD-VARIANT (Cluster D): record-kind decorator -> @(TRCD20-int, is-record-deco) ----
+//
+// A record-kind decorator IMMEDIATELY before a `{` selects the box/flat/linear/ref record kind
+// (packed as the T_TRCD20 int the stock decode reads — staexp2.dats:1525). The mapping is a
+// BIJECTION on the TRCD20 ints so a pretty-printed record round-trips its EXACT raw token (the L2
+// dump keeps the token verbatim). Reuses the @boxed/@linear/@unboxed vocabulary (SURFACE-GRAMMAR
+// §5.7) + @vbox/@rec/@ref for the remaining ints. Returns @(0, false) for any other name (NOT a
+// record decorator — leave it to func/inst/sapp/declaration handling).
+//   @unboxed -> 0 (TRCDflt0 flat = bare `{..}`)   @vbox -> 1 (#{}, TRCDbox1)   @rec -> 2 ($rec)
+//   @boxed   -> 3 (TRCDbox0)                       @linear -> 4 (TRCDbox1)      @ref -> 5 (TRCDbox2)
+#implfun
+rcd_kind_of_deco(nm) =
+  if strn_eq(nm, "unboxed") then @(0, true) else
+  if strn_eq(nm, "vbox")    then @(1, true) else
+  if strn_eq(nm, "rec")     then @(2, true) else
+  if strn_eq(nm, "boxed")   then @(3, true) else
+  if strn_eq(nm, "linear")  then @(4, true) else
+  if strn_eq(nm, "ref")     then @(5, true) else @(0, false)
+  // (the bool is the validity flag; the int is meaningful only when the bool is true)
+//
 // ---- operator-as-value: node → @(symbol-string, is-operator) for `op<operator>` ----
 //
 // Maps an operator TOKEN to its symbol string (the SAME names bop_sym/uop_sym give the call-head
@@ -201,6 +221,26 @@ in
     in
       case+ ps_peek(st1) of
       | PT_LIDENT(nm) =>
+        // RECORD-VARIANT (Cluster D): `@boxed {..}` / `@linear {..}` / `@unboxed {..}` / `@ref {..}`
+        // — a record-kind decorator immediately before a `{` selects the box/flat/linear/ref kind.
+        // If the decorator name matches but no `{` follows, fall through (could be a different `@nm`).
+        (if (let val @(_, isr) = rcd_kind_of_deco(nm) in isr end) then
+          let
+            val @(knd, _) = rcd_kind_of_deco(nm)
+            val st2 = ps_advance(st1)  // past the kind name
+          in
+            case+ ps_peek(st2) of
+            | PT_LBRACE() =>
+                let val @(e, st3) = p_record_expr_kinded(ps_advance(st2), locA, knd) in
+                  p_pratt_loop(e, st3, 1, false)
+                end
+            | _ =>
+                // `@boxed`/etc not before a `{` in expression position — recovery (consume the name).
+                let val st3 = ps_diag(st2, ps_peek_loctn(st2),
+                      strn_append("@", strn_append(nm, " here expects a '{ ... }' record literal"))) in
+                  @(PyEerror(locA, "record-kind decorator not followed by '{'"), ps_advance(st3)) end
+          end
+        else
         if strn_eq(nm, "func") then
           let
             val st2 = ps_advance(st1)  // past 'func'
@@ -265,7 +305,7 @@ in
           let val st2 = ps_diag(st1, locA,
                 strn_append("only @func / @inst / @sapp are valid in expression position; got @", nm)) in
             @(PyEerror(locA, strn_append("invalid decorator in expression position: @", nm)), ps_advance(st2)) end)
-        )
+        ))  // close the (if rcd_kind_of_deco …) record-variant branch
       | _ =>
         // RECOVERY: `@` not followed by a name — advance once past whatever follows.
         let val st2 = ps_diag(st1, ps_peek_loctn(st1),
@@ -708,14 +748,19 @@ case+ ps_peek(st) of
   end
 )
 //
-// after '{' : record literal `{ f = e, ... }` — value fields use '='.
+// after '{' : record literal `{ f = e, ... }` — value fields use '='. RECORD-VARIANT: `knd` is the
+// TRCD20 kind (0=bare flat `{..}`; a @boxed/@linear/.. decorator prefix passes 3/4/.. — see
+// p_record_expr_kinded). The bare brace path passes 0 so the existing single record form is stable.
 and
-p_record_expr(st: pstate, locL: loctn): @(pyexp, pstate) = let
+p_record_expr(st: pstate, locL: loctn): @(pyexp, pstate) =
+  p_record_expr_kinded(st, locL, 0(*flat*))
+and
+p_record_expr_kinded(st: pstate, locL: loctn, knd: int): @(pyexp, pstate) = let
   val @(fs, st1) = p_efields(st)
   val locR = ps_peek_loctn(st1)
   val st2 = expect_rbrace_e(st1, locR)
 in
-  @(PyErec(loc_span(locL, locR), fs), st2)
+  @(PyErec(loc_span(locL, locR), knd, fs), st2)
 end
 //
 and

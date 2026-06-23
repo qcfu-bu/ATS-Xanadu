@@ -61,6 +61,13 @@ print_indent(out: FILR, n: sint): void =
 //
 fun nl(out: FILR): void = ps(out, "\n")
 //
+// RECORD-VARIANT (Cluster D): the box/flat/linear record kind suffix `[ knd=N]` on Trec/Erec/Prec.
+// Printed ONLY when the kind is non-zero (0 = the bare flat `{..}` default), so existing flat-record
+// goldens stay byte-stable; a @boxed/@linear/.. record dumps `knd=3`/`knd=4`/.. for round-trip proof.
+fun
+pp_rcd_knd(out: FILR, knd: int): void =
+  if knd = 0 then () else (ps(out, " knd="); pi(out, knd))
+//
 (* ****** ****** *)
 //
 // ---- operator tags + literals (no recursion) -------------------------------
@@ -145,8 +152,8 @@ case+ t of
   (ps(out, "(Ttup"); print_span(out, loc); pp_typlst(out, ts); ps(out, ")"))
 | PyTparen(loc, t) =>
   (ps(out, "(Tparen"); print_span(out, loc); ps(out, " "); pp_typ(out, t); ps(out, ")"))
-| PyTrec(loc, fs) =>
-  (ps(out, "(Trec"); print_span(out, loc); pp_tfields(out, fs); ps(out, ")"))
+| PyTrec(loc, knd, fs) =>
+  (ps(out, "(Trec"); print_span(out, loc); pp_rcd_knd(out, knd); pp_tfields(out, fs); ps(out, ")"))
 // A-QUANT: a quantified type `forall[..]/exists[..] T` — print the kind, binders, optional guard, body.
 | PyTquant(loc, kind, binders, gopt, body) =>
   ( ps(out, "(Tquant ");
@@ -220,8 +227,8 @@ case+ p of
     pp_patlst(out, args); ps(out, ")") )
 | PyPtup(loc, ps0) =>
   (ps(out, "(Ptup"); print_span(out, loc); pp_patlst(out, ps0); ps(out, ")"))
-| PyPrec(loc, fs) =>
-  (ps(out, "(Prec"); print_span(out, loc); pp_pfields(out, fs); ps(out, ")"))
+| PyPrec(loc, knd, fs) =>
+  (ps(out, "(Prec"); print_span(out, loc); pp_rcd_knd(out, knd); pp_pfields(out, fs); ps(out, ")"))
 | PyPlit(loc, lit) =>
   (ps(out, "(Plit"); print_span(out, loc); ps(out, " "); pp_lit(out, lit); ps(out, ")"))
 | PyPas(loc, p1, nm) =>
@@ -300,8 +307,8 @@ case+ e of
   (ps(out, "(Etup"); print_span(out, loc); pp_explst(out, es); ps(out, ")"))
 | PyElist(loc, es) =>
   (ps(out, "(Elist"); print_span(out, loc); pp_explst(out, es); ps(out, ")"))
-| PyErec(loc, fs) =>
-  (ps(out, "(Erec"); print_span(out, loc); pp_efields(out, fs); ps(out, ")"))
+| PyErec(loc, knd, fs) =>
+  (ps(out, "(Erec"); print_span(out, loc); pp_rcd_knd(out, knd); pp_efields(out, fs); ps(out, ")"))
 | PyEfield(loc, e1, nm) =>
   ( ps(out, "(Efield "); ps(out, nm); print_span(out, loc); ps(out, " ");
     pp_exp(out, e1); ps(out, ")") )

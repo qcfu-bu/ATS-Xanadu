@@ -135,7 +135,9 @@ pcpat =
 | PCPwild of (loctn)
 | PCPcon  of (loctn, strn, list(strn)(*sargs*), list(pcpat))
 | PCPtup  of (loctn, list(pcpat))
-| PCPrec  of (loctn, list(pcpfield))
+// RECORD-VARIANT (Cluster D): the `int` carries the TRCD20 kind (0=flat, 1/3/4/5 boxed/linear/ref)
+// threaded from the surface PyPrec; pylower emits D2Prcd2 with token T_TRCD20(int).
+| PCPrec  of (loctn, int(*trcd-kind*), list(pcpfield))
 | PCPlit  of (loctn, pclit)
 | PCPas   of (loctn, strn(*name*), pcpat(*inner*))
 | PCPbang of (loctn, pcpat(*inner*))
@@ -240,7 +242,9 @@ pcexp =
 | PCEcase   of (loctn, pcexp, list(pcarm))
 | PCEllazy  of (loctn, pcexp)
 | PCEtup    of (loctn, list(pcexp))
-| PCErec    of (loctn, list(pcefield))
+// RECORD-VARIANT (Cluster D): the `int` carries the TRCD20 kind (0=flat, 1/3/4/5 boxed/linear/ref)
+// threaded from the surface PyErec; pylower emits D2Ercd2 with token T_TRCD20(int).
+| PCErec    of (loctn, int(*trcd-kind*), list(pcefield))
 | PCElist   of (loctn, list(pcexp))
 | PCEfield  of (loctn, pcexp, strn)
 | PCEseq    of (loctn, pcexp, pcexp)
