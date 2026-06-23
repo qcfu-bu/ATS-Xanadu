@@ -74,10 +74,34 @@ bash frontend/build-l2diff.sh frontend/TEST/l2diff/lets.dats 1 \
 #   -> L2DIFF: FAITHFUL — zero structural diff   (exit 0)
 ```
 
-`build-l2diff.sh <F> [stadyn] [--pythonic P]`: `stadyn` 0=static/1=dynamic (inferred
-from the extension when omitted); `--pythonic P` supplies a hand-written pythonic for
-the pyfront side instead of `pyprint(F)`. Exit 0 = structurally identical = faithful;
-exit 1 = divergent (the diff at `BUILD/<base>.l2diff.diff` pinpoints the node).
+`build-l2diff.sh <F> [stadyn] [--pythonic P] [--triage]`: `stadyn` 0=static/1=dynamic
+(inferred from the extension when omitted); `--pythonic P` supplies a hand-written
+pythonic for the pyfront side instead of `pyprint(F)`. Exit 0 = structurally identical =
+faithful; exit 1 = divergent (the diff at `BUILD/<base>.l2diff.diff` pinpoints the node).
+
+### `--triage` — the cascade-immune root-divergence view
+
+The default normalizer **canonicalizes** stamps by first occurrence (rule 4 below), which
+is exactly right for an exact-faithfulness proof but has one hazard: **a single
+inserted/removed node shifts every later stamp by one**, so one root divergence cascades
+into thousands of changed lines. `filpath_drpth0.dats`'s lone `#define`→value-binding
+extra binder shifts `x(2)→x(3)→…` through the whole body → **9965 changed lines**, almost
+all cascade.
+
+`--triage` **strips** every stamp to a single placeholder instead — paren-stamp
+`name(NNN)→name(#)` (keep the load-bearing name), bracket-stamp `name[NNN]→[#]` (drop the
+synthesized name) — with **no positional counter and no digit guard**, so even the low
+1–2-digit binder stamps collapse and an inserted/removed node is **one** diff line, not a
+cascade. Token-literal carriers whose paren holds a value not a stamp (`T_INT01(0)`,
+`LABint(1)`, `T_TRCD10(…)`, any `T_*`) are left intact. On `filpath_drpth0.dats` the diff
+drops **9965 → 21**, surfacing the two real roots (the `#define`→`D2Cvaldclst`, the
+include-path strings) instead of burying them.
+
+Use the default (canonicalize) mode for the exact-faithfulness gate; use `--triage` to MAP
+the diverging constructs. The two modes write **separate** artifacts
+(`BUILD/<base>.l2diff.diff` vs `BUILD/<base>.l2triage.diff`) so they never clobber each
+other. The corpus-wide triage MAP is `frontend/docs/L2-FAITHFULNESS.md` — the
+faithfulness analog of `CONSTRUCT-COVERAGE.md`.
 
 ## Normalization (the crux)
 

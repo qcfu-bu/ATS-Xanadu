@@ -44,9 +44,10 @@
 # PURELY ADDITIVE: writes only into BUILD/.
 #
 # Usage:
-#   bash frontend/build-l2diff.sh <F.sats|F.dats> [stadyn]
+#   bash frontend/build-l2diff.sh <F.sats|F.dats> [stadyn] [--pythonic P] [--triage]
 #       stadyn: 0 = static .sats (default), 1 = dynamic .dats. (Inferred from the
 #       extension when omitted: .dats -> 1, else 0.)
+#       --triage: cascade-immune root-divergence map (strips stamps; see below).
 ########################################################################
 set -uo pipefail
 
@@ -59,16 +60,28 @@ L2DUMP="$BUILD/pyfront-l2dump.js"
 
 F="${1:-}"
 if [ -z "$F" ]; then
-  echo "usage: bash frontend/build-l2diff.sh <F.sats|F.dats> [stadyn] [--pythonic <P>]" >&2
+  echo "usage: bash frontend/build-l2diff.sh <F.sats|F.dats> [stadyn] [--pythonic <P>] [--triage]" >&2
   exit 2
 fi
 # --pythonic <P> : use the GIVEN hand-written pythonic P for the pyfront side instead
 # of pyprint(F). Lets us validate the harness mechanics (normalization -> zero diff)
 # against a known-faithful hand translation, independent of pyprint's current fidelity.
+#
+# --triage : CASCADE-IMMUNE mode. The default mode CANONICALIZES stamps by first
+# occurrence, so identical structures compare equal — but ONE inserted/removed node
+# shifts every later stamp, cascading a single root divergence into thousands of changed
+# lines (e.g. filpath_drpth0: one #define->value-binding extra binder -> ~9965 diff
+# lines). Triage instead STRIPS stamps entirely (name(NNNN)->name(#), name[NNNN]->[#]),
+# so an inserted/removed node is just ONE diff line — the ROOT structural divergences
+# stay visible, not buried under a stamp cascade. Use --triage to MAP the diverging
+# constructs; use the default canonicalize mode for exact-faithfulness proof (it can
+# distinguish a stamp-level structural difference that stripping would hide).
 HANDPY=""
+TRIAGE=0
 for i in "$@"; do
   if [ "$i" = "--pythonic" ]; then HANDPY="__next__"; continue; fi
-  if [ "$HANDPY" = "__next__" ]; then HANDPY="$i"; fi
+  if [ "$HANDPY" = "__next__" ]; then HANDPY="$i"; continue; fi
+  if [ "$i" = "--triage" ]; then TRIAGE=1; fi
 done
 # stadyn: explicit numeric arg2, else inferred from the extension.
 if [ "${2:-}" = "0" ] || [ "${2:-}" = "1" ]; then
@@ -102,9 +115,18 @@ fi
 PY="$BUILD/${BASE}.l2diff.${PEXT}"
 STOCK_RAW="$BUILD/${BASE}.l2diff.stock.raw"
 PYF_RAW="$BUILD/${BASE}.l2diff.pyfront.raw"
-STOCK_N="$BUILD/${BASE}.l2diff.stock.norm"
-PYF_N="$BUILD/${BASE}.l2diff.pyfront.norm"
-DIFF="$BUILD/${BASE}.l2diff.diff"
+# triage normalizes/diffs into separate files so the two modes never clobber each other.
+if [ "$TRIAGE" = "1" ]; then
+  STOCK_N="$BUILD/${BASE}.l2triage.stock.norm"
+  PYF_N="$BUILD/${BASE}.l2triage.pyfront.norm"
+  DIFF="$BUILD/${BASE}.l2triage.diff"
+  MODELABEL="L2TRIAGE (stamps STRIPPED, cascade-immune)"
+else
+  STOCK_N="$BUILD/${BASE}.l2diff.stock.norm"
+  PYF_N="$BUILD/${BASE}.l2diff.pyfront.norm"
+  DIFF="$BUILD/${BASE}.l2diff.diff"
+  MODELABEL="L2DIFF (stamps CANONICALIZED, exact-faithfulness)"
+fi
 
 ########################################################################
 # (a) the pythonic surface text: pyprint(F), OR the given hand-written --pythonic P
@@ -167,36 +189,84 @@ normalize() {
         for (i = 1; i <= n; i++) if (parts[i] != "") print parts[i]
       }
     ' \
-  | awk '
-      # 4 + 5. stamps:
-      #   - bracket-stamp  name[NNNN]  -> [SK]  (DROP the synthesized binder name:
-      #       itm/Itm/X0/x0/... are positional/internal vars whose name + leading-case
-      #       vary with order + pyprint capitalize-scoping; the canonical id identifies
-      #       the var structurally).
-      #   - paren-stamp    name(NNNN)  -> name(SK)  (KEEP the symbol name — d2cst/d2con
-      #       names are stable + load-bearing; canonicalize only the numeric stamp id).
-      #   K = a per-dump sequential id assigned BY FIRST OCCURRENCE, so identical
-      #   structures yield identical canonical stamps. 3-digit guard so token lengths
-      #   like T_STRN1_clsd("..";29) are never touched.
+  | awk -v triage="$TRIAGE" '
+      # 4 + 5. stamps. Two modes (see header), selected by `triage`:
+      #
+      #   CANONICALIZE (triage=0, exact-faithfulness proof):
+      #     - bracket-stamp  name[NNNN]  -> [SK]  (DROP the synthesized binder name:
+      #         itm/Itm/X0/x0/... are positional/internal vars whose name + leading-case
+      #         vary with order + pyprint capitalize-scoping; the canonical id identifies
+      #         the var structurally).
+      #     - paren-stamp    name(NNNN)  -> name(SK)  (KEEP the symbol name — d2cst/d2con
+      #         names are stable + load-bearing; canonicalize only the numeric stamp id).
+      #     K = a per-dump sequential id assigned BY FIRST OCCURRENCE, so identical
+      #     structures yield identical canonical stamps. The hazard: one inserted/removed
+      #     node shifts every later K -> a single root divergence cascades to thousands
+      #     of changed lines.
+      #
+      #   TRIAGE (triage=1, cascade-immune ROOT-divergence map):
+      #     - bracket-stamp  name[NNN]  -> [#]       (DROP the name, as in canonicalize:
+      #         synthesized binder names + leading-case vary, itm/Itm/X0/x0)
+      #     - paren-stamp    name(NNN)  -> name(#)   (KEEP the symbol name)
+      #     Stamps are STRIPPED to a single placeholder, NOT numbered, and with NO
+      #     digit guard — so even the LOW (1-2 digit) d2var binder stamps x(2)/y(6)/...
+      #     collapse. That is the whole point: the #define cascade is precisely a chain
+      #     of low binder stamps shifted by +1 from one extra binder; numbering them
+      #     (canonicalize) or guarding them (3-digit) re-exposes the shift, stripping
+      #     them does not. An inserted/removed node is then just ONE diff line.
+      #     A paren/bracket-number is a STAMP only when it directly follows an
+      #     IDENTIFIER name (so bare label/literal parens like ;35) are never matched),
+      #     and we still SKIP the token-literal carriers whose paren holds a real value,
+      #     not a stamp: T_INT01(0) (an int literal), LABint(1) (a tuple label),
+      #     T_TRCD10(2) (a token record arity). Those are matched by the T_*/LABint
+      #     name and left intact.
+      #
+      #   The CANONICALIZE branch keeps the original 3-digit guard (token lengths like
+      #   T_STRN1_clsd("..";29) are never touched there because they are not
+      #   name-anchored stamps).
       {
         line = $0
-        out = ""; rest = line
-        while (match(rest, /[A-Za-z_][A-Za-z0-9_$]*\[[0-9][0-9][0-9]+\]|\([0-9][0-9][0-9]+\)/)) {
-          pre = substr(rest, 1, RSTART-1)
-          tok = substr(rest, RSTART, RLENGTH)
-          if (substr(tok,1,1) == "(") {
-            num = substr(tok, 2, length(tok)-2)
-            if (!(num in seen)) seen[num] = ++ctr
-            out = out pre "(S" seen[num] ")"
-          } else {
-            b = index(tok, "[")
-            num = substr(tok, b+1, length(tok)-b-1)
-            if (!(num in seen)) seen[num] = ++ctr
-            out = out pre "[S" seen[num] "]"
+        if (triage == "1") {
+          # name-anchored, no digit guard; skip literal carriers (T_*, LABint).
+          out = ""; rest = line
+          while (match(rest, /[A-Za-z_][A-Za-z0-9_$]*\[[0-9]+\]|[A-Za-z_][A-Za-z0-9_$]*\([0-9]+\)/)) {
+            pre = substr(rest, 1, RSTART-1)
+            tok = substr(rest, RSTART, RLENGTH)
+            # split the name from the [..] / (..) bracket (bp>0 means a bracket-stamp).
+            bp = index(tok, "[")
+            if (bp > 0) { nm = substr(tok, 1, bp-1) } else { nm = substr(tok, 1, index(tok, "(")-1) }
+            if (nm ~ /^T_/ || nm == "LABint" || nm == "LABext") {
+              # literal carrier: the number is a value, not a stamp -> keep it.
+              out = out pre tok
+            } else if (bp > 0) {
+              # bracket-stamp: DROP the synthesized binder name (case-flips), keep [#].
+              out = out pre "[#]"
+            } else {
+              # paren-stamp: KEEP the symbol name (d2cst/d2con names load-bearing).
+              out = out pre nm "(#)"
+            }
+            rest = substr(rest, RSTART+RLENGTH)
           }
-          rest = substr(rest, RSTART+RLENGTH)
+          print out rest
+        } else {
+          out = ""; rest = line
+          while (match(rest, /[A-Za-z_][A-Za-z0-9_$]*\[[0-9][0-9][0-9]+\]|\([0-9][0-9][0-9]+\)/)) {
+            pre = substr(rest, 1, RSTART-1)
+            tok = substr(rest, RSTART, RLENGTH)
+            if (substr(tok,1,1) == "(") {
+              num = substr(tok, 2, length(tok)-2)
+              if (!(num in seen)) seen[num] = ++ctr
+              out = out pre "(S" seen[num] ")"
+            } else {
+              b = index(tok, "[")
+              num = substr(tok, b+1, length(tok)-b-1)
+              if (!(num in seen)) seen[num] = ++ctr
+              out = out pre "[S" seen[num] "]"
+            }
+            rest = substr(rest, RSTART+RLENGTH)
+          }
+          print out rest
         }
-        print out rest
       }
     '
 }
@@ -209,17 +279,17 @@ echo "   pyfront norm: $(wc -l < "$PYF_N") lines"
 ########################################################################
 # (d) diff
 ########################################################################
-echo ">> [d] structural diff (stock vs pyfront)"
+echo ">> [d] structural diff (stock vs pyfront) [$MODELABEL]"
 if diff -u "$STOCK_N" "$PYF_N" > "$DIFF" 2>&1; then
   echo "======================================================================"
-  echo ">> L2DIFF: FAITHFUL — zero structural diff for $BASE"
+  echo ">> $MODELABEL: FAITHFUL — zero structural diff for $BASE"
   echo ">>   stock L2 (trans02_from_fpath) == pythonic L2 (pyfront(pyprint($BASE)))"
   echo "======================================================================"
   exit 0
 else
   NLINES="$(grep -cE '^[+-]' "$DIFF")"
   echo "======================================================================"
-  echo ">> L2DIFF: DIVERGENT — $NLINES changed lines for $BASE (see $DIFF)"
+  echo ">> $MODELABEL: DIVERGENT — $NLINES changed lines for $BASE (see $DIFF)"
   echo ">>   the round-trip is NOT structurally faithful here; first diverging nodes:"
   grep -E '^[+-][^+-]' "$DIFF" | head -20 | sed 's/^/     /'
   echo "======================================================================"
