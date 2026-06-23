@@ -7,6 +7,44 @@ The tree now contains a working Pythonic lexer/parser/elaborator/lowerer, a
 partial canonical-ATS-to-Pythonic pretty-printer, and milestone/round-trip
 harnesses.
 
+## 2026-06-22 session checkpoint
+
+- **Bundle builds now closure-minify.** `build-pp-corpus.sh` runs
+  `google-closure-compiler --compilation_level SIMPLE` after linking the pyprint
+  bundle (183MB raw -> ~5MB), falling back to raw on failure. Output is
+  semantics-preserving and it collapses generated-code frame overhead, hardening
+  the deep-recursive pyprint passes against Node stack overflow on large files.
+- **Default auto corpus = 166/166 green (TODOpp=0, m3_nerror=0); dynamic = 164/164.**
+  Newly closed this session: `trans12.dats`, `xglobal_ext000.dats` (promotions),
+  `trsym2b_utils0.dats` (where-wrapped if-condition decls hoisted into scope),
+  `xfixity.dats` (local `exception` decls in body suites were silently dropped by
+  `el_local_decl` in `pyelab_core.dats` — now registered), and
+  `t3read0_myenv0.dats` (pyprint dropped a datatype's `where { ... }` forward-ref
+  helper datatype — now emitted + name-registered).
+- **Remaining uncovered srcgen2 (15 files), now triaged into clusters:**
+  1. **#13a overload/template residual (5):** `staexp0`, `staexp2`,
+     `lexing0_utils1`, `trans12_decl00`, `trans23_dynexp`. Operator/print/selector
+     names left unresolved (the long-standing `$`-template/overload-resolution gap).
+     Deepest.
+  2. **`#if defq(_XATS2JS_)` backend conditional-compilation (3):** `xglobal`,
+     `xatsopt_tcheck00`, `xatsopt_tcheck01`. pyprint can't evaluate the `#if defq`
+     and emits BOTH backend branches (e.g. `type Argv = jsa1sz[String]` AND
+     `pya1sz[String]`), so later uses typecheck against the wrong array type. Needs
+     a build-flag selector that emits only the active backend branch. Bounded.
+  3. **Infra-crash, fail before an m3 verdict (7):** `lexing0_print0`,
+     `trans01_dynexp`, `trans01_staexp`, `xlibext`, `xlibext_jsemit`,
+     `xlibext_pyemit`, `xlibext_tmplib`. Need crash classification (pyprint
+     overflow vs M3 parse crash vs driver/empty-output) — end-goal blocker #7.
+- **Next frontier mapped: `srcgen1/prelude` (124 files).** See
+  `PRELUDE-FRONTIER.md`. 96/124 emit marker-free but only ~6/16 sampled reparse
+  clean; genuinely new work is the static/sort kernel declaration emitters
+  (`#abssort`/`#stacst0`/`#sexpdef`/`#sortdef`/`#abstype`, 73% in
+  `basics0.sats`+`fixity0.sats`), the `?T` top-type parse error, the
+  `$extnam()+#impltmp where{}` FFI-shim crash, and the fixity DSL.
+- **Recommended order:** (a) `#if defq` selector (closes 3, bounded); (b) infra-crash
+  classifier (makes the 7 legible); (c) the #13a overload residual (hardest, 5);
+  then the prelude static/sort-kernel emitters.
+
 ## Current state
 
 - Pythonic source to ATS compiler pipeline is implemented as:
