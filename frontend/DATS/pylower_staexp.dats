@@ -156,6 +156,37 @@ case+ bop of
 //
 (* ****** ****** *)
 //
+// FIDELITY (overloaded type-con selection): a `#typedef T` may be registered TWICE under the
+// SAME name with DIFFERENT arities — e.g. `nint = [i|i>=0]sint(i)` (sort `type`) AND
+// `nint(n:i0) = [n>=0]sint(n)` (sort `(i0)->type`, basics0.sats:732 vs :742). A BARE (non-applied)
+// type annotation `x: nint` must select the NON-FUNCTIONAL one. Stock does exactly this in
+// `s2cst_select$any` (trans12.dats:96-134, "HX-2019-02: a non-functional s2cst is preferred over
+// functional ones"): walk the list, skip every s2cst whose `.sort()` is functional, take the
+// first non-functional; only if all are functional fall back to the head. Taking a blind
+// `s2cs.head()` instead picked the FUNCTIONAL `nint(n:i0)`, whose styp is a `T2Plam1`; trans2a's
+// `f0_annot` hnfiz0's the annotation, the lambda survives into the var's styp, and `tread3a_s2typ`
+// (whose `T2Plam1` arm — like `T2Pbas` — does not exist) falls through its exhaustive `case+` to a
+// hard `XATS000_cfail`. Faithful selection keeps the bare `nint` (`T2Pcst`), matching stock.
+fun
+s2cstlst_pick(s2cs: s2cstlst): s2exp =
+(
+  if list_nilq(s2cs) then s2exp_none0()
+  else (
+    case+ loop(s2cs) of
+    | ~optn_vt_cons(s2c) => s2exp_cst(s2c)
+    | ~optn_vt_nil()     => s2exp_cst(s2cs.head())  // all functional -> stock's f0_test2 head
+  )
+) where {
+  fun
+  loop(xs: s2cstlst): s2cstopt_vt =
+  (
+    case+ xs of
+    | list_nil() => optn_vt_nil()
+    | list_cons(x1, xs1) =>
+        if sort2_funq(x1.sort()) then loop(xs1) else optn_vt_cons(x1)
+  )
+}
+//
 // DEP: resolve a RAW (prelude) static name to its head s2cst s2exp, with NO surface aliasing —
 // used for the registered parametric int/bool sexpdefs `the_s2exp_sint1`/`the_s2exp_bool1` (the
 // indexed-primitive heads). Mirrors the spike's resolve_typ_name (S2ITMcst -> head). An unbound
@@ -168,8 +199,7 @@ in
   | ~optn_vt_cons(s2i) =>
     (
       case+ s2i of
-      | S2ITMcst(s2cs) =>
-          if list_nilq(s2cs) then s2exp_none0() else s2exp_cst(s2cs.head())
+      | S2ITMcst(s2cs) => s2cstlst_pick(s2cs)
       | S2ITMvar(s2v)  => s2exp_var(s2v)
       | S2ITMenv(_)    => s2exp_none0()
     )
@@ -177,7 +207,8 @@ in
 end
 //
 // resolve a type NAME to an s2exp (LOWERING-MAP §3.5). On a hit with a single s2cst, emit
-// S2Ecst; an overloaded set takes the head; a static var -> S2Evar; unbound -> s2exp_none0.
+// S2Ecst; an overloaded set prefers the non-functional s2cst (s2cstlst_pick, faithful to stock's
+// s2cst_select$any); a static var -> S2Evar; unbound -> s2exp_none0.
 //
 fun
 resolve_typ_key(env: !tr12env, key: sym_t): s2exp = let
@@ -187,8 +218,7 @@ in
   | ~optn_vt_cons(s2i) =>
     (
       case+ s2i of
-      | S2ITMcst(s2cs) =>
-        if list_nilq(s2cs) then s2exp_none0() else s2exp_cst(s2cs.head())
+      | S2ITMcst(s2cs) => s2cstlst_pick(s2cs)
       | S2ITMvar(s2v)  => s2exp_var(s2v)
       | S2ITMenv(_)    => s2exp_none0()
     )
@@ -199,8 +229,7 @@ fun
 s2itm_to_typ(s2i: s2itm): s2exp =
 (
   case+ s2i of
-  | S2ITMcst(s2cs) =>
-    if list_nilq(s2cs) then s2exp_none0() else s2exp_cst(s2cs.head())
+  | S2ITMcst(s2cs) => s2cstlst_pick(s2cs)
   | S2ITMvar(s2v)  => s2exp_var(s2v)
   | S2ITMenv(_)    => s2exp_none0()
 )

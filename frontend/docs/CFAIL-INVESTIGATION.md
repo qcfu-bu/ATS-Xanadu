@@ -8,6 +8,78 @@ when the M3 bundle reparses the pretty-printed Pythonic for 7 bootstrap compiler
 - Probe recipe: `cd frontend && bash build-pp-corpus.sh --stadyn auto --reuse-bundle --no-reparse --out-dir BUILD/_cf <file>`,
   then `node --stack-size=8801 BUILD/pyfront-m3.raw.js <emitted>.pp.pdats`
 
+---
+
+## UPDATE (2026-06 — re-diagnosis under the FULL stock pipeline) — C2 was a FRONTEND BUG, now FIXED
+
+The C2 cluster below was *mis-attributed* to a stock/M3-driver limitation. Re-diagnosis under the
+current M3 driver (`pyfront_m3.dats` now runs the FULL stock `tread12 -> trans2a -> trsym2b ->
+t2read0 -> trans23` sequence, identical to `trans03_from_fpath`) shows C2 was a **frontend
+fidelity bug in our type-name resolution**, and it is now **FIXED** in `pylower_staexp.dats`.
+
+### The real root cause — wrong overloaded-`#typedef` selection (a `T2Plam1`, not a `T2Pbas`)
+
+The crash is **not** about a `T2Pbas` head at all. The crashing node is a **`T2Plam1`**
+(`s2varlst(*arg*), s2typ` — an *un-applied parametric typedef body*). `tread3a_s2typ`
+(`tread3a_staexp.dats:259`) has no `T2Plam1` arm (just like it has no `T2Pbas` arm) and no
+catch-all, so a `T2Plam1` falls through its exhaustive `case+` to `XATS000_cfail`.
+
+How a `T2Plam1` reached `tread3a`: a `#typedef T` can be registered **twice under the same name
+with different arities** — e.g. in `prelude/basics0.sats`:
+```
+#typedef nint = [i:i0 | i >= 0] sint(i)      // line 732, sort `type`           (bare, NON-functional)
+#typedef nint(n:i0) = [ n >= 0 ] sint(n)     // line 742, sort `(i0) -> type`    (parametric, FUNCTIONAL)
+```
+A **bare** annotation `x: nint` must select the NON-functional `nint`. Our `resolve_typ_key` /
+`resolve_typ_name` / `s2itm_to_typ` (`pylower_staexp.dats`) took a blind `s2cs.head()`, which
+picked the **functional** `nint(n:i0)`. Its styp is a `T2Plam1`. `trans2a`'s `f0_annot`
+(`trans2a_dynexp.dats`) does `t2p2 = s2typ_hnfiz0(s2exp_stpize(s2e2))` and stores `t2p2` as the
+pattern var's styp; the lambda survives into the var's styp, and `tread3a_s2typ` later cfails on it.
+
+Stock never does this: `s2cst_select$any` (`trans12.dats:96-134`, comment *“HX-2019-02: a
+non-functional s2cst is preferred over functional ones”*) walks the overload list, **skips every
+functional s2cst**, and takes the first non-functional one (falling back to the head only if all
+are functional). So stock keeps `nint` as `T2Pcst(nint)` (`tread3a` handles `T2Pcst`).
+
+### Evidence (faithful-vs-fidelity, decisive)
+
+A harness that drives the **stock** `trans03_from_fpath` (from the same raw bundle) on
+`fun foo(i0: nint): void = ()`:
+```
+[STOCK] nerror = 0    T2Plam1(tag9) reached tread3a: 0 times
+```
+Our pipeline on the equivalent `def foo(i0: nint) -> Void: ()`: cfail, with the crashing node
+captured as `[9 (=T2Plam1), <s2var n:int0>, <body T2Papps(sint,...)>]` = the functional
+`nint(n:i0)` definiens. Instrumenting `s2typ_hnfiz0` confirmed our pipeline HNFs
+`T2Pcst("nint"@basics0.sats:740, sort (i0)->type)` → `T2Plam1`, while stock’s `nint` is the bare
+`T2Pcst@basics0.sats:730, sort type` and never becomes a lambda. **Same source, different
+selection → fidelity bug, frontend-fixable.**
+
+### The fix (purely additive, `frontend/DATS/pylower_staexp.dats`)
+
+Added `s2cstlst_pick(s2cs)` — a faithful port of stock’s `s2cst_select$any`: prefer the first
+s2cst whose `.sort()` is **not** `sort2_funq`, else fall back to the head. Routed the three
+type-name resolvers (`resolve_typ_name`, `resolve_typ_key`, `s2itm_to_typ`) through it instead of
+`s2cs.head()`. `sort2_funq`/`s2cst_get_sort` come in via `libxatsopt.hats` (already included).
+
+### Result
+
+- `def foo(i0: nint/Nint/sint) -> Void: ()` — was cfail, now **nerror=0**.
+- **Files closed (cfail → nerror=0): `lexing0_print0.dats`, `trans01_dynexp.dats`,
+  `trans01_staexp.dats`** — all three added to `pp-default-auto.files` + `pp-default-dynamic.files`.
+- Strict gate `make -j8 pp-corpus-auto PP_STRICT=1`: **167 / 167** (was 164), exit 0, no regression.
+- `xlibext_jsemit.dats` / `xlibext_pyemit.dats`: the cfail is **gone** (was a crash, now a clean
+  `nerror=1` graceful type-error). The residual is a *different* gap: the `fpath_char$strmize`
+  template result `strn_strmize(...) : strm_vt(char)` vs the template’s expected
+  `lazy_vt_vx(strmcon_vt(char))` does not HNF-unify in the M3 driver’s template-result path
+  (`strm_vt`/`stream_vt` `#sexpdef` chain + the `cgtz`-vs-`char_type` char refinement). Stock
+  closes the original file at `nerror=0`; this is a separate template-result-unification residual,
+  not the `T2Plam1` selection bug, and is left uncovered for now.
+
+The historical (now-superseded) two-cluster diagnosis follows below for context.
+
+---
+
 ## TL;DR
 
 There are **two distinct root causes**, both surfacing as the *same* stock crash
