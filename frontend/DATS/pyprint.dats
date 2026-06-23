@@ -2882,17 +2882,71 @@ pp_d0gua_inline(out: FILR, g: d0gua): void =
 //
 // an `if c: t else: e`.
 //
+// A `where`-wrapped CONDITION (`if (t where { val t = ... }) then ...`) has its
+// helper decls in expression-level backwards scope in ATS. The Pythonic surface
+// has no `where:` after a condition, so when the condition reduces (under thin
+// transparent wrappers) to a `D0Ewhere`, hoist its decls as in-scope `let`-lines
+// just before the `if` and render the if on the unwrapped condition — exactly as
+// pp_dexp_val_rhs does for a `where`-wrapped val rhs. This is GATED on
+// dexp_cond_has_where(c): a condition with no `where` is unchanged (falls through
+// to the original inline rendering, so non-where files are byte-identical).
+//
 and
 pp_dexp_if(out: FILR, n: sint, c: d0exp, th: d0exp_THEN, el: d0exp_ELSE): void = (
-  ind(out, n); ps(out, "if "); pp_d0exp_inline(out, c); ps(out, ":"); nl(out);
-  (case+ th of
-   | d0exp_THEN_some(_, te) => pp_d0exp_suite(out, n+1, te)
-   | d0exp_THEN_none(_) => (ind(out, n+1); todo(out, "if-then-empty")));
-  (case+ el of
-   | d0exp_ELSE_some(_, ee) => (
-       ind(out, n); ps(out, "else:"); nl(out);
-       pp_d0exp_suite(out, n+1, ee))
-   | d0exp_ELSE_none(_) => ())
+  if dexp_cond_has_where(c)
+  then pp_dexp_if_where(out, n, c, th, el)
+  else (
+    ind(out, n); ps(out, "if "); pp_d0exp_inline(out, c); ps(out, ":"); nl(out);
+    (case+ th of
+     | d0exp_THEN_some(_, te) => pp_d0exp_suite(out, n+1, te)
+     | d0exp_THEN_none(_) => (ind(out, n+1); todo(out, "if-then-empty")));
+    (case+ el of
+     | d0exp_ELSE_some(_, ee) => (
+         ind(out, n); ps(out, "else:"); nl(out);
+         pp_d0exp_suite(out, n+1, ee))
+     | d0exp_ELSE_none(_) => ()))
+)
+// total: peels only the thin transparent wrappers that pp_d0exp_inline itself sees
+// through, reporting true exactly when the condition's core is a `D0Ewhere`. Every
+// recursive arm strips one constructor, so it terminates on every d0exp.
+and
+dexp_cond_has_where(c: d0exp): bool =
+(
+  case+ c.node() of
+  | D0Ewhere(_, _) => true
+  | D0Elpar(_, list_cons(c0, list_nil()), _) => dexp_cond_has_where(c0)
+  | D0Eannot(c0, _) => dexp_cond_has_where(c0)
+  | D0Equal0(_, c0) => dexp_cond_has_where(c0)
+  | D0Eerrck(_, c0) => dexp_cond_has_where(c0)
+  | _ => false
+)
+// total: only entered after dexp_cond_has_where(c) is true, so a `D0Ewhere` is
+// reachable through the wrapper arms; each arm strips one constructor toward it.
+// The final `_` arm is a safe fallback (renders the if inline, never throws or
+// loops) and is unreachable for a where-carrying condition.
+and
+pp_dexp_if_where(out: FILR, n: sint, c: d0exp, th: d0exp_THEN, el: d0exp_ELSE): void =
+(
+  case+ c.node() of
+  | D0Ewhere(c0, wdc) => (
+      PYPP_type_scope_push();
+      pp_dexp_where_decls(out, n, wdc);
+      pp_dexp_if_where(out, n, c0, th, el);
+      PYPP_type_scope_pop())
+  | D0Elpar(_, list_cons(c0, list_nil()), _) => pp_dexp_if_where(out, n, c0, th, el)
+  | D0Eannot(c0, _) => pp_dexp_if_where(out, n, c0, th, el)
+  | D0Equal0(_, c0) => pp_dexp_if_where(out, n, c0, th, el)
+  | D0Eerrck(_, c0) => pp_dexp_if_where(out, n, c0, th, el)
+  | _ => (
+      ind(out, n); ps(out, "if "); pp_d0exp_inline(out, c); ps(out, ":"); nl(out);
+      (case+ th of
+       | d0exp_THEN_some(_, te) => pp_d0exp_suite(out, n+1, te)
+       | d0exp_THEN_none(_) => (ind(out, n+1); todo(out, "if-then-empty")));
+      (case+ el of
+       | d0exp_ELSE_some(_, ee) => (
+           ind(out, n); ps(out, "else:"); nl(out);
+           pp_d0exp_suite(out, n+1, ee))
+       | d0exp_ELSE_none(_) => ()))
 )
 //
 (* ****** ****** *)
