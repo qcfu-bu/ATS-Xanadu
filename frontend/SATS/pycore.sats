@@ -190,6 +190,8 @@ pcpfield =
 //              surface `match` lower here. Arms are (pat, body-expr).
 //   PCEllazy : linear lazy value `llazy: suite` / `llazy(expr)` -> D2El1azy.
 //              The body is already the suite-folded thunk expression.
+//   PCElazy  : NON-LINEAR lazy value `lazy: suite` / `lazy(expr)` -> D2El0azy. Sibling of
+//              PCEllazy; the body is the suite-folded thunk expression.
 //   PCEtup   : tuple `(e, e)` — accumulator tuples at loop boundaries (§5) and surface tuples.
 //   PCErec   : record literal `{ f = e, ... }`.
 //   PCElist  : list literal `[ e, e ]`.
@@ -239,7 +241,7 @@ pcexp =
 //                SSA-rebind `PCElet` the `=` path emits. M3 lowers it to L2 `D2Eassgn`
 //                (typecheck checks rval against lval's type, returns void). The `lval` is a
 //                `PCEvar name` for v1 (field/index later).
-| PCEvarcell of (loctn, strn, pytypopt, pcexp(*init*), pcexp(*body*))
+| PCEvarcell of (loctn, strn, pytypopt, pcexpopt(*init: absent = uninitialized*), pcexp(*body*))
 | PCEassign of (loctn, pcexp(*lval*), pcexp(*rval*))
 // B-LINEAR: address-of `&x` -> D2Eaddr ; deref `!p` -> D2Eeval ; generated `fold(x)` ->
 // D2Efold ; move `x :=> y` -> D2Exazgn ; swap `x :=: y` -> D2Exchng. The move/swap l-values pair
@@ -253,6 +255,7 @@ pcexp =
 | PCEif     of (loctn, pcexp, pcexp, pcexp)
 | PCEcase   of (loctn, pcexp, list(pcarm))
 | PCEllazy  of (loctn, pcexp)
+| PCElazy   of (loctn, pcexp)
 | PCEtup    of (loctn, list(pcexp))
 // RECORD-VARIANT (Cluster D): the `int` carries the TRCD20 kind (0=flat, 1/3/4/5 boxed/linear/ref)
 // threaded from the surface PyErec; pylower emits D2Ercd2 with token T_TRCD20(int).

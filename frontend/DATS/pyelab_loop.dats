@@ -162,8 +162,14 @@ case+ ss of
       // a MUTABLE CELL declared INSIDE a loop body. CRITICAL: a `var` is NEVER a loop
       // accumulator — it does NOT enter `accs`/`muts`/`mts`. It is an in-place cell scoping
       // the rest of THIS loop-body suite (PCEvarcell's body); it extends `encl` only.
-      let val encl1 = nameset_add(encl, nm) in
-        PCEvarcell(loc, nm, ann, elab_exp(encl, rhs), fl_suite(encl1, rest, accs, muts, mts))
+      let
+        val encl1 = nameset_add(encl, nm)
+        val initopt =
+          (case+ rhs of
+           | PyExpSome(e) => PCEGSome(elab_exp(encl, e))
+           | PyExpNone() => PCEGNone()): pcexpopt
+      in
+        PCEvarcell(loc, nm, ann, initopt, fl_suite(encl1, rest, accs, muts, mts))
       end
   | PySassign(loc, lv, rhs) =>
       // a CELL ASSIGNMENT inside a loop body -> PCEassign (D2Eassgn), in place. DISTINCT from

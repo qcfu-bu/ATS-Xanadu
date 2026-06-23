@@ -204,10 +204,21 @@ in
         let val @(islam, e, st1) = p_try_lambda(st) in
           if islam then @(e, st1) else p_pratt(st, 1)
         end)
+    else (if strn_eq(nm, "lazy")
+    then (
+      // NON-LINEAR lazy suite `lazy: <suite>` (sibling of `llazy:`). Only the COLON form is the
+      // suite; a bare `lazy` (or `lazy(e)`) stays an ordinary name/call (the elaborator special-
+      // cases the inline call). Disambiguated by the following token, exactly like `llazy`.
+      case+ ps_peek2(st) of
+      | PT_COLON() => p_lazy_expr(st)
+      | _ =>
+        let val @(islam, e, st1) = p_try_lambda(st) in
+          if islam then @(e, st1) else p_pratt(st, 1)
+        end)
     else
       let val @(islam, e, st1) = p_try_lambda(st) in
         if islam then @(e, st1) else p_pratt(st, 1)
-      end
+      end)
   | PT_KW_RAISE() => p_raise_expr(st)
   | PT_KW_TRY()   => p_try_expr(st)
   // MISC (Cluster E): `fix NAME(params)[: RET] => body` — the ATS recursive lambda (D2Efix0).
@@ -887,6 +898,17 @@ in
   @(PyEllazy(loc, body), st3)
 end
 //
+// lazy_expr ::= 'lazy' ':' suite   (NON-LINEAR sibling of llazy)
+and
+p_lazy_expr(st: pstate): @(pyexp, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'lazy'
+  val st2 = expect_colon_e(st1)
+  val @(body, st3) = parse_suite(st2)
+in
+  @(PyElazy(loc, body), st3)
+end
+//
 and
 p_case_arms(st: pstate): @(list(pyarm), pstate) =
 (
@@ -1392,13 +1414,26 @@ p_var_stmt(st: pstate): @(pystmt, pstate) = let
       | PT_COLON() =>
         let val @(t, st3) = parse_type(ps_advance(st2)) in @(PyTypSome(t), st3) end
       | _ => @(PyTypNone(), st2) )
-  val st4 =
+  // The init is OPTIONAL: `var x: T` (no `=`) is an UNINITIALIZED cell (ATS-parity). When
+  // present, `= e` gives the initializer. A no-init `var` ends at the statement terminator
+  // (NEWLINE / DEDENT / EOF); the type annotation should be present so trans2a can type the
+  // l-value (we do not enforce that here — a missing annotation surfaces downstream).
+  val @(rhsopt, st5) =
     ( case+ ps_peek(st3) of
-      | PT_EQ() => ps_advance(st3)
-      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected '=' in var declaration") )
-  val @(rhs, st5) = p_expr_or_tuple(st4)
+      | PT_EQ() =>
+        let val @(rhs, st5) = p_expr_or_tuple(ps_advance(st3)) in @(PyExpSome(rhs), st5) end
+      | PT_NEWLINE() => @(PyExpNone(), st3)
+      | PT_DEDENT() => @(PyExpNone(), st3)
+      | PT_EOF() => @(PyExpNone(), st3)
+      | _ =>
+        let val st5 = ps_diag(st3, ps_peek_loctn(st3), "expected '=' or end of statement in var declaration")
+            val @(rhs, st6) = p_expr_or_tuple(st5) in @(PyExpSome(rhs), st6) end )
+  val locend =
+    ( case+ rhsopt of
+      | PyExpSome(rhs) => pyexp_loctn(rhs)
+      | PyExpNone() => ps_peek_loctn(st3) )
 in
-  @(PySvar(loc_span(loc, pyexp_loctn(rhs)), nm, topt, rhs), st5)
+  @(PySvar(loc_span(loc, locend), nm, topt, rhsopt), st5)
 end
 //
 // return [exprs]

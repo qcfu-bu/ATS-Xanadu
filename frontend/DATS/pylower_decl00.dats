@@ -492,9 +492,12 @@ case+ m of
 // `_` and never inspect it — so it is safe at typecheck (the abstract singleton typechecks
 // identically with or without it). We mirror exactly: lower the REP via pylower_typ (a primitive
 // inherits the resolve_typ mitigation; a param resolves via S2ITMvar), wrap A2TDFlteq, and carry
-// it for round-trip. We do NOT bind the (rare) tvs while lowering the REP — the stock corpus reps
-// are CLOSED prelude types (`uint`, `int`, `size_t`); a param-mentioning REP is out of v1 scope
-// (it would degrade to s2exp_none0 via resolve_typ, still benign).
+// it for round-trip. A PARAM-MENTIONING REP (`abstype GSEQ_type(xs, x0) <= xs`, where the `<= xs`
+// REP names a type param) is lowered with the tvs bound in a lam-scope (mk_param_s2vars +
+// bind_param_s2vars, bracketed by pshlam0/poplam0 — the build_extern recipe); without this the
+// param `xs` lowers to an errck. The bound is CODEGEN-ONLY (trans23/trans2a pass the a2tdf through
+// as `_`), so it never affects the abstract singleton's typecheck — but it must be WELL-FORMED for
+// the reparse to reach nerror=0 (the prelude gcls/gasq/gseq classes all use a param REP).
 fun
 build_abstype
 ( env: !tr12env, loc: loctn, name: strn
@@ -509,7 +512,16 @@ build_abstype
     val atdf =
       ( case+ repopt of
         | PyTypNone()  => A2TDFsome()
-        | PyTypSome(t) => A2TDFlteq(pylower_typ(env, t)) ): a2tdf
+        | PyTypSome(t) =>
+          let
+            val s2vs = mk_param_s2vars(tvs)
+            val () = tr12env_pshlam0(env)
+            val () = bind_param_s2vars(env, s2vs)
+            val reps2e = pylower_typ(env, t)
+            val () = tr12env_poplam0(env)
+          in
+            A2TDFlteq(reps2e)
+          end ): a2tdf
   in
     d2ecl_make_node(loc, D2Cabstype(s2c, atdf))
   end

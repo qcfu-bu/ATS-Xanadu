@@ -303,6 +303,9 @@ case+ e of
 | PyEllazy(loc, body) =>
   ( ps(out, "(Ellazy"); print_span(out, loc);
     pp_stmtlst(out, body, 1); ps(out, ")") )
+| PyElazy(loc, body) =>
+  ( ps(out, "(Elazy"); print_span(out, loc);
+    pp_stmtlst(out, body, 1); ps(out, ")") )
 | PyEtup(loc, es) =>
   (ps(out, "(Etup"); print_span(out, loc); pp_explst(out, es); ps(out, ")"))
 | PyElist(loc, es) =>
@@ -430,7 +433,10 @@ case+ s of
     ( case+ topt of
       | PyTypNone() => ()
       | PyTypSome(t) => (ps(out, " : "); pp_typ(out, t)) );
-    ps(out, " = "); pp_exp(out, rhs); ps(out, ")") )
+    ( case+ rhs of
+      | PyExpNone() => ()
+      | PyExpSome(e) => (ps(out, " = "); pp_exp(out, e)) );
+    ps(out, ")") )
 | PySassign(loc, lv, rhs) =>
   ( ps(out, "(assign"); print_span(out, loc); ps(out, " ");
     pp_exp(out, lv); ps(out, " := "); pp_exp(out, rhs); ps(out, ")") )

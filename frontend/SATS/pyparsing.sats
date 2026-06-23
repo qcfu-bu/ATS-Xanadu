@@ -291,6 +291,8 @@ pylit =
 //   PyEllazy : `llazy: suite` — a linear lazy value. The suite is elaborated like a
 //              function/match arm body and lowers to ATS `D2El1azy`. The elaborator
 //              also accepts expression-position `llazy(expr)` as the same lazy value.
+//   PyElazy  : `lazy: suite` — a NON-LINEAR lazy value, the sibling of PyEllazy. Lowers
+//              to ATS `D2El0azy` (the `$lazy` head). `lazy(expr)` is also accepted inline.
 //   PyEtup   : `( e, e )` tuple (also a bare `a, b` in return/RHS positions, §5.4 exprs).
 //              A 0-tuple `()` is unit; a 1-element parenthesized expr is NOT a tuple
 //              (the parser returns the inner expr directly).
@@ -322,6 +324,7 @@ pyexp =
 | PyEif    of (loctn, list(pyguard), pyexp)
 | PyEmatch of (loctn, pyexp, list(pyarm))
 | PyEllazy of (loctn, list(pystmt))
+| PyElazy  of (loctn, list(pystmt))  // `lazy: suite` — a NON-LINEAR lazy value (ATS `$lazy` -> D2El0azy)
 | PyEtup   of (loctn, list(pyexp))
 | PyElist  of (loctn, list(pyexp))
 // RECORD-VARIANT (Cluster D): a record VALUE `[@boxed|@linear ]{ f = e, ... }`. The `int` is the
@@ -465,7 +468,9 @@ and pyfield      = PyField of (loctn, strn, pytyp)
 //                 rebindable functional binding the loop elaborator THREADS as an
 //                 accumulator; a `var` is an aliasable IN-PLACE cell that is NOT threaded.
 //                 Binder is a bare NAME (LIDENT; field/index lvalues are a later slice),
-//                 with an optional type annotation and a mandatory init expression.
+//                 with an optional type annotation and an OPTIONAL init expression. The
+//                 no-init form `var x: T` (PyExpNone) is an UNINITIALIZED cell (ATS-parity;
+//                 the type annotation is then required so trans2a can type the l-value).
 //   PySassign   : `lvalue := e` — a CELL ASSIGNMENT (the `:=` operator). DISTINCT from
 //                 `PySreassign` (the `=` SSA reassign). The lvalue is a `pyexp` (a var
 //                 NAME for v1; field/index later) so the elaborator inspects it; it lowers
@@ -494,7 +499,7 @@ and pyfield      = PyField of (loctn, strn, pytyp)
 and
 pystmt =
 | PyDlet      of (loctn, list(pydecorator), bool, pypat, pytypopt, pyexp)
-| PySvar      of (loctn, strn, pytypopt, pyexp)
+| PySvar      of (loctn, strn, pytypopt, pyexpopt(*init: absent = uninitialized `var x: T`*))
 | PySassign   of (loctn, pyexp(*lval*), pyexp(*rval*))
 // B-LINEAR: MOVE `x :=> y` (consume y into x) and SWAP `x :=: y`. Statement-level siblings of
 // PySassign — distinct operators (PT_MOVE / PT_SWAP). Lower (via PCEmove/PCEswap) to D2Exazgn /

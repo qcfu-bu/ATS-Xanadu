@@ -250,7 +250,10 @@ case+ e of
     pp_exp(out, body, ind + 1); ps(out, ")") )
 | PCEvarcell(loc, nm, ann, init, body) =>
   ( ps(out, "(Evarcell"); print_span(out, loc); ps(out, " "); ps(out, nm);
-    pp_anncolon(out, ann); ps(out, " := "); pp_exp(out, init, ind);
+    pp_anncolon(out, ann);
+    (case+ init of
+     | PCEGNone() => ()
+     | PCEGSome(e) => (ps(out, " := "); pp_exp(out, e, ind)));
     nl(out); print_indent(out, ind + 1); ps(out, "in ");
     pp_exp(out, body, ind + 1); ps(out, ")") )
 | PCEassign(loc, lv, rv) =>
@@ -272,6 +275,9 @@ case+ e of
     pp_exp(out, scrut, ind); pp_armlst(out, arms, ind + 1); ps(out, ")") )
 | PCEllazy(loc, body) =>
   ( ps(out, "(Ellazy"); print_span(out, loc); ps(out, " ");
+    pp_exp(out, body, ind + 1); ps(out, ")") )
+| PCElazy(loc, body) =>
+  ( ps(out, "(Elazy"); print_span(out, loc); ps(out, " ");
     pp_exp(out, body, ind + 1); ps(out, ")") )
 | PCEtup(loc, es) =>
   (ps(out, "(Etup"); print_span(out, loc); pp_explst(out, es, ind); ps(out, ")"))

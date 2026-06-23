@@ -1171,7 +1171,15 @@ case+ e of
 // A `var` is NEVER a loop accumulator (the elaborator never put nm in `muts`/`accs`).
 | PCEvarcell(loc, nm, ann, init, body) => let
     val () = tr12env_pshlet0(env)
-    val d2init = pl_exp(env, init)
+    // init OPTIONAL: present -> TEQD2EXPsome(=, e); absent -> TEQD2EXPnone (an uninitialized
+    // `var x: T`, ATS-parity — trans12 handles X2NAMnone, trans2a types the cell as a left-value
+    // of the annotation T). The init is lowered in the OUTER let-scope BEFORE the binder registers.
+    val dini =
+      (
+      case+ init of
+      | PCEGSome(e) => TEQD2EXPsome(tok_val(loc), pl_exp(env, e))
+      | PCEGNone() => TEQD2EXPnone()
+      ): teqd2exp
     val sres =
       (
       case+ ann of
@@ -1179,7 +1187,7 @@ case+ e of
       | PyTypSome(t) => optn_cons(pylower_typ(env, t))
       ): s2expopt
     val d2v = d2var_new2_name(loc, ats_sym(nm))
-    val dvar = d2vardcl_make_args(loc, d2v, optn_nil()(*vpid*), sres, TEQD2EXPsome(tok_val(loc), d2init))
+    val dvar = d2vardcl_make_args(loc, d2v, optn_nil()(*vpid*), sres, dini)
     val () = tr12env_add0_d2var(env, d2v)          // register AFTER the init is lowered
     val decl = d2ecl_make_node(loc, D2Cvardclst(tok_var(loc), list_sing(dvar)))
     val d2body = pl_exp(env, body)
@@ -1294,6 +1302,16 @@ case+ e of
     case+ d2e1.node() of
     | D2Eseqn(d2es, d2e2) => d2exp_make_node(loc, D2El1azy(d1f0, d2e2, d2es))
     | _ => d2exp_make_node(loc, D2El1azy(d1f0, d2e1, list_nil()))
+  end
+//
+// PCElazy : NON-LINEAR `lazy: suite` / `lazy(e)` -> ATS `$lazy` value (D2El0azy). Unlike the linear
+// `$llazy`, stock f1_mklaz0 does NOT split a leading seqn into a frees field — the whole body is the
+// thunk (D2El0azy carries just the `$lazy` head d1exp and the body d2exp).
+| PCElazy(loc, body) => let
+    val d1f0 = d1exp_make_node(loc, D1Eid0(symbl_make_name("$lazy")))
+    val d2e1 = pl_exp(env, body)
+  in
+    d2exp_make_node(loc, D2El0azy(d1f0, d2e1))
   end
 //
 // PCEtup : (a, b) -> D2Etup0(-1, [..]).
@@ -1503,7 +1521,17 @@ pl_app
 (
 case+ hd of
 | PCEfield(hloc, obj, name) => pl_selector_app(env, loc, hloc, obj, name, args)
-| PCEvar(hloc, name) => let
+| PCEvar(hloc, name) =>
+  // LAZY special forms FIRST: an INLINE call `lazy(e)` (`$lazy`) -> D2El0azy, `llazy(e)`
+  // (`$llazy`) -> D2El1azy. Stock trans12 (f1_mklaz0/f1_mklaz1) special-cases these heads;
+  // they are NOT ordinary calls. The pyprint emits the head verbatim with the `$` dropped, so
+  // `lazy`/`llazy`/`$lazy`/`$llazy` all reach here. The single arg is the thunk body; for
+  // `$llazy` a leading seqn's effects ride in the third (frees) field (mirrors f1_mklaz1). The
+  // suite form `llazy:` is handled separately (PCEllazy). This dialect has no `case when`-guard,
+  // so the lazy-head check is an `if` at the top of the ordinary PCEvar-call arm.
+  if pcvar_is_lazy_head(name)
+  then pl_lazy_app(env, loc, hloc, name, args)
+  else let
     val nargs = list_length(args)
     // a 1-arg `-`/`+` is UNARY (op_remap_unary); everything else (incl. 1-arg `print` and all
     // binary operators) goes through op_remap. Nested-if (no andalso/orelse in this dialect).
@@ -1547,6 +1575,46 @@ case+ hd of
         let val d2es = pl_explst(env, args) in d2exp_dapp(loc, d2f, (-1), d2es) end
   end
 )
+//
+// a LAZY-form head: `lazy`/`$lazy` (non-linear) or `llazy`/`$llazy` (linear). The pyprint drops
+// the leading `$`, so accept both spellings (stock keys on the `$`-prefixed symbl).
+and
+pcvar_is_lazy_head(name: strn): bool =
+  if strn_eq(name, "lazy") then true
+  else if strn_eq(name, "$lazy") then true
+  else if strn_eq(name, "llazy") then true
+  else strn_eq(name, "$llazy")
+and
+pcvar_is_llazy_head(name: strn): bool =
+  if strn_eq(name, "llazy") then true else strn_eq(name, "$llazy")
+//
+// lower an INLINE lazy call `lazy(e)` / `llazy(e)` to the stock L2 node. The d1exp head carries
+// the `$`-prefixed symbl exactly as stock trans12 builds it (D2El0azy/D2El1azy's first field is the
+// `$lazy`/`$llazy` d1exp). A missing argument is a defensive no-op (lower as the bare body none0).
+and
+pl_lazy_app
+(env: !tr12env, loc: loctn, hloc: loctn, name: strn, args: list(pcexp)): d2exp = let
+  val islin = pcvar_is_llazy_head(name)
+  // the single arg is the thunk body; a no-arg `lazy()` is malformed — lower the body as none0
+  // (defensive recovery, never reached for the well-formed FFI shims).
+  val d2body =
+    (case+ args of
+     | list_cons(a, _) => pl_exp(env, a)
+     | list_nil() => d2exp_none0(loc))
+in
+  if islin then let
+    val d1f0 = d1exp_make_node(hloc, D1Eid0(symbl_make_name("$llazy")))
+  in
+    case+ d2body.node() of
+    | D2Eseqn(d2es, d2e2) => d2exp_make_node(loc, D2El1azy(d1f0, d2e2, d2es))
+    | _ => d2exp_make_node(loc, D2El1azy(d1f0, d2body, list_nil()))
+  end
+  else let
+    val d1f0 = d1exp_make_node(hloc, D1Eid0(symbl_make_name("$lazy")))
+  in
+    d2exp_make_node(loc, D2El0azy(d1f0, d2body))
+  end
+end
 and
 pl_selector_app
 (env: !tr12env, loc: loctn, hloc: loctn, obj: pcexp, name: strn, args: list(pcexp)): d2exp =

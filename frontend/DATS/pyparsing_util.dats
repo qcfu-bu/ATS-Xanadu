@@ -38,7 +38,7 @@ case+ e of
 | PyEapp(loc, _, _) => loc    | PyEbin(loc, _, _, _) => loc
 | PyEuna(loc, _, _) => loc    | PyEif(loc, _, _) => loc
 | PyEmatch(loc, _, _) => loc  | PyEtup(loc, _) => loc
-| PyEllazy(loc, _) => loc
+| PyEllazy(loc, _) => loc     | PyElazy(loc, _) => loc
 | PyElist(loc, _) => loc      | PyErec(loc, _, _) => loc
 | PyEfield(loc, _, _) => loc  | PyEindex(loc, _, _) => loc
 | PyElam(loc, _, _, _) => loc | PyEann(loc, _, _) => loc

@@ -435,7 +435,14 @@ in
   // `[A]` is attached by p_type_app_loop's PyTcon arm (giving `PyTcon("?", [A])`).
   // Lowering resolves the head "?" against the prelude sexpdef, reproducing the stock
   // `S2Eapps([?, A])` -> S2Etop0(A). (A bare `?` with no `[...]` stays `PyTcon("?", [])`.)
-  | PT_QMARK()   => @(PyTcon(loc, "?", list_nil()), ps_advance(st))
+  // The lexer splits `?!` into `?` + `!`; in TYPE position a `?` immediately followed by `!`
+  // is the DISTINCT view operator `?!` (ATS `#sexpdef ?! = top1_vt_t0`, the discard-on-write
+  // top view). Combine them into a single `PyTcon("?!", ...)` head (the trailing `[A]` is then
+  // attached by the app-loop), so the emitted `?![A]` round-trips like `?[A]`.
+  | PT_QMARK()   =>
+    (case+ ps_peek(ps_advance(st)) of
+     | PT_BANG() => @(PyTcon(loc, "?!", list_nil()), ps_advance(ps_advance(st)))
+     | _ => @(PyTcon(loc, "?", list_nil()), ps_advance(st)))
   | PT_AMP()     => p_type_byref(ps_advance(st), loc)
   | PT_LPAREN()  => p_type_paren(ps_advance(st), loc)
   | PT_LBRACE()  => p_type_record(ps_advance(st), loc)

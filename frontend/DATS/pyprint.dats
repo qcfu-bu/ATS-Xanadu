@@ -2432,6 +2432,9 @@ and
 	dexp_is_llazy_head(de: d0exp): bool =
 	  if dexp_is_name(de, "$llazy") then true else dexp_is_name(de, "llazy")
 	and
+	dexp_is_lazy_head(de: d0exp): bool =
+	  if dexp_is_name(de, "$lazy") then true else dexp_is_name(de, "lazy")
+	and
 	dexp_binop_py(de: d0exp): strn = let
 	  val oper = dexp_name(de)
 	in
@@ -2770,39 +2773,41 @@ pp_dexp_stmt_apps(out: FILR, des: d0explst): void =
   then pp_dexp_assign(out, des)
   else pp_dexp_apps(out, des)
 )
+// A `$lazy(BODY)` / `$llazy(BODY)` apps -> the Pythonic suite `lazy:` / `llazy:` over BODY. BODY
+// is rendered through the generic suite printer, so a `let…in case`/`let…in e`/bare `case`/seq all
+// round-trip (the parser's `lazy:`/`llazy:` suite folds it back to the thunk). Returns true if the
+// apps was a lazy head (and thus consumed); false to let the caller fall back to the inline path.
 and
 pp_dexp_llazy_case_suite(out: FILR, n: sint, des: d0explst): bool =
 (
   case+ des of
   | list_cons(hd, list_cons(arg, list_nil())) =>
       if dexp_is_llazy_head(hd)
-      then pp_dexp_llazy_case_arg_suite(out, n, arg)
-      else false
+      then pp_dexp_llazy_case_arg_suite(out, n, "llazy", arg)
+      else (if dexp_is_lazy_head(hd)
+            then pp_dexp_llazy_case_arg_suite(out, n, "lazy", arg)
+            else false)
   | _ => false
 )
 and
-pp_dexp_llazy_case_arg_suite(out: FILR, n: sint, arg: d0exp): bool =
+pp_dexp_llazy_case_arg_suite(out: FILR, n: sint, kw: strn, arg: d0exp): bool =
 (
   case+ arg.node() of
-  | D0Elpar(_, list_cons(de, list_nil()), _) => pp_dexp_llazy_case_exp_suite(out, n, de)
-  | D0Eannot(de1, _) => pp_dexp_llazy_case_arg_suite(out, n, de1)
-  | D0Equal0(_, de1) => pp_dexp_llazy_case_arg_suite(out, n, de1)
-  | D0Eerrck(_, de1) => pp_dexp_llazy_case_arg_suite(out, n, de1)
-  | _ => pp_dexp_llazy_case_exp_suite(out, n, arg)
+  | D0Elpar(_, list_cons(de, list_nil()), _) => pp_dexp_llazy_case_exp_suite(out, n, kw, de)
+  | D0Eannot(de1, _) => pp_dexp_llazy_case_arg_suite(out, n, kw, de1)
+  | D0Equal0(_, de1) => pp_dexp_llazy_case_arg_suite(out, n, kw, de1)
+  | D0Eerrck(_, de1) => pp_dexp_llazy_case_arg_suite(out, n, kw, de1)
+  | _ => pp_dexp_llazy_case_exp_suite(out, n, kw, arg)
 )
 and
-pp_dexp_llazy_case_exp_suite(out: FILR, n: sint, de: d0exp): bool =
+pp_dexp_llazy_case_exp_suite(out: FILR, n: sint, kw: strn, de: d0exp): bool =
 (
-  case+ de.node() of
-  | D0Ecas0(_, scrut, _, _, cls) => (
-      ind(out, n); ps(out, "llazy:"); nl(out);
-      pp_dexp_match(out, n+1, scrut, cls);
-      true)
-  | D0Ecas1(_, scrut, _, _, cls, _) => (
-      ind(out, n); ps(out, "llazy:"); nl(out);
-      pp_dexp_match(out, n+1, scrut, cls);
-      true)
-  | _ => false
+  // `kw:` opens the lazy suite; the body goes through the generic suite printer (let/case/seq/expr
+  // all supported). General — no longer limited to a bare `case` body (the FFI shims wrap a
+  // `let…in case` in `$lazy`, and `strm`/`gseq` build lazy `let` thunks).
+  ind(out, n); ps(out, kw); ps(out, ":"); nl(out);
+  pp_d0exp_suite(out, n+1, de);
+  true
 )
 // does this apps-list contain a `:=` infix op? (a ref-set).
 and
@@ -3173,7 +3178,16 @@ in
        | optn_cons(se) => (ps(out, ": "); pp_s0exp(out, se))
        | optn_nil() => ());
       ps(out, " = "); pp_d0exp_inline(out, rhs); nl(out))
-  | TEQD0EXPnone() => (ind(out, n); todo(out, "vardcl-no-rhs"))
+  // UNINITIALIZED cell `var x: T` (no init). ATS-parity: the source has no RHS. The Pythonic
+  // surface emits a bare `var x: T` (the no-init p_var_stmt form), which round-trips to a
+  // PCEvarcell with PCEGNone -> d2vardcl with TEQD2EXPnone. The type annotation is REQUIRED
+  // (trans2a types the cell's l-value from it); the prelude always supplies it.
+  | TEQD0EXPnone() => (
+      ind(out, n); ps(out, "var "); ps(out, fname(i0dnt_lexeme(dpid)));
+      (case+ sres of
+       | optn_cons(se) => (ps(out, ": "); pp_s0exp(out, se))
+       | optn_nil() => ());
+      nl(out))
 end
 and
 pp_dexp_val_rhs(out: FILR, n: sint, dpat: d0pat, rhs: d0exp): void =
@@ -4042,6 +4056,9 @@ and
 		(
 		  case+ dc.node() of
 	  | D0Cvaldclst(_, vds) => pp_dexp_valdcls(out, n, vds)
+	  // a `var` cell declared in a where-clause (`var r0: r0 = r0`, or the no-init `var x: T`).
+	  // Reuse the suite var-printer so both forms (init / no-init) round-trip the same way.
+	  | D0Cvardclst(_, vds) => pp_dexp_vardcls(out, n, vds)
 	  | D0Cfundclst(_, _, fds) => pp_fundcl_local_list_n(out, n, fds)
 	  | D0Cimplmnt0(tknd, sqas, tqas, dqi, tias, farg, _, _, body) => pp_impl_n(out, n, tknd, sqas, tqas, dqi, tias, farg, body)
 	  | D0Csexpdef(_, sid, smas, _, _, se) => (

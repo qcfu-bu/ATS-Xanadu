@@ -55,12 +55,14 @@ case+ e of
 | PCEfix(_, _, _, _, _, body) => harv_exp(body, acc)  // MISC: a fix BODY may carry poison nodes.
 | PCEexists(_, _, _) => acc   // MISC: exists carries only int literals — no poison nodes.
 | PCElet(_, _, _, rhs, body) => harv_exp(body, harv_exp(rhs, acc))
-| PCEvarcell(_, _, _, init, body) => harv_exp(body, harv_exp(init, acc))
+| PCEvarcell(_, _, _, init, body) =>
+    harv_exp(body, (case+ init of PCEGNone() => acc | PCEGSome(e) => harv_exp(e, acc)))
 | PCEassign(_, lv, rv) => harv_exp(rv, harv_exp(lv, acc))
 | PCEletfun(_, fs, body) => harv_exp(body, harv_fundcls(fs, acc))
 | PCEif(_, c, t, f) => harv_exp(f, harv_exp(t, harv_exp(c, acc)))
 | PCEcase(_, scrut, arms) => harv_arms(arms, harv_exp(scrut, acc))
 | PCEllazy(_, body) => harv_exp(body, acc)
+| PCElazy(_, body) => harv_exp(body, acc)
 | PCEtup(_, es) => harv_explst(es, acc)
 | PCErec(_, _, fs) => harv_efields(fs, acc)
 | PCElist(_, es) => harv_explst(es, acc)
@@ -196,12 +198,14 @@ case+ e of
 | PCEfix(_, _, _, _, _, body) => uses_exp(body)
 | PCEexists(_, _, _) => false
 | PCElet(_, _, _, rhs, body) => b_or(uses_exp(rhs), uses_exp(body))
-| PCEvarcell(_, _, _, init, body) => b_or(uses_exp(init), uses_exp(body))
+| PCEvarcell(_, _, _, init, body) =>
+    b_or((case+ init of PCEGNone() => false | PCEGSome(e) => uses_exp(e)), uses_exp(body))
 | PCEassign(_, lv, rv) => b_or(uses_exp(lv), uses_exp(rv))
 | PCEletfun(_, fs, body) => b_or(uses_fundcls(fs), uses_exp(body))
 | PCEif(_, c, t, f) => b_or(uses_exp(c), b_or(uses_exp(t), uses_exp(f)))
 | PCEcase(_, scrut, arms) => b_or(uses_exp(scrut), uses_arms(arms))
 | PCEllazy(_, body) => uses_exp(body)
+| PCElazy(_, body) => uses_exp(body)
 | PCEtup(_, es) => uses_explst(es)
 | PCErec(_, _, fs) => uses_efields(fs)
 | PCElist(_, es) => uses_explst(es)

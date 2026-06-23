@@ -967,6 +967,13 @@ p_overload_name(st: pstate): @(strn, pstate, bool) =
   case+ ps_peek(st) of
   | PT_LIDENT(s) => @(s, ps_advance(st), true)
   | PT_UIDENT(s) => @(s, ps_advance(st), true)
+  // KEYWORD-NAMED overloads: the stock prelude `#symload`s the names `forall`/`exists`/`type`
+  // (e.g. `#symload forall with list_forall`). These lex as the quantifier / type KEYWORDS, but
+  // here they are an overload-alias NAME slot, so accept them by their original spelling. They
+  // round-trip to the same `#symload <kw>` (the lowering keys only on the lexeme string).
+  | PT_KW_FORALL() => @("forall", ps_advance(st), true)
+  | PT_KW_EXISTS() => @("exists", ps_advance(st), true)
+  | PT_KW_TYPE()   => @("type", ps_advance(st), true)
   | PT_PLUS()    => @("+", ps_advance(st), true)
   | PT_MINUS()   => @("-", ps_advance(st), true)
   | PT_STAR()    => @("*", ps_advance(st), true)
@@ -1197,7 +1204,14 @@ in
   // @impl / @sort / @static) — p_typedecl dispatches on them to the right AST node (PyCabstype /
   // PyCassume / PyCsortdef / PyCstadef); an undecorated `type` is a plain alias (PyCtype). The
   // mode decorators (@boxed/@unboxed/@linear) also ride here for @abstract.
-  | PT_KW_TYPE()   => p_typedecl(st0, decos)
+  // `@overload[N] type = g_type` — the prelude `#symload type with g_type`. `type` lexes as the
+  // type-decl keyword, but with an `@overload` decorator it is an overload-alias NAME, NOT a type
+  // decl; route it to the alias parser. A plain (or otherwise-decorated) `type` is the usual alias.
+  // (This dialect has no `case when`-guards, so the discriminator is an `if` inside the arm.)
+  | PT_KW_TYPE()   =>
+    if decos_has_p(decos, "overload")
+    then p_overload_alias(st0, decos, locD)
+    else p_typedecl(st0, decos)
   | PT_KW_EXCEPTION() =>
     // EXN: `exception E(T...)` takes NO decorators in v1 (it is a single exn constructor,
     // not a mode-bearing type decl). If any precede it, reject for recovery (mirrors def).
@@ -1242,6 +1256,11 @@ in
   // the `@overload` decorator and falls back to the error path when it is absent.)
   | PT_LIDENT _ => p_overload_alias(st0, decos, locD)
   | PT_UIDENT _ => p_overload_alias(st0, decos, locD)
+  // KEYWORD-NAMED overload aliases `@overload[N] forall = ...` / `exists` (the stock prelude
+  // `#symload`s these quantifier names). They are only a decl when `@overload` is present;
+  // p_overload_alias re-checks the decorator and produces the proper diagnostic otherwise.
+  | PT_KW_FORALL() => p_overload_alias(st0, decos, locD)
+  | PT_KW_EXISTS() => p_overload_alias(st0, decos, locD)
   | PT_PLUS() => p_overload_alias(st0, decos, locD)
   | PT_MINUS() => p_overload_alias(st0, decos, locD)
   | PT_STAR() => p_overload_alias(st0, decos, locD)

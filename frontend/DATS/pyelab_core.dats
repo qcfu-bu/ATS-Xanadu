@@ -354,6 +354,7 @@ case+ e of
 | PyEif(_, gs, els)   => fc_fv_exp(bnd, fc_fv_guards(bnd, fv, gs), els)
 | PyEmatch(_, scrut, arms) => fc_fv_arms(bnd, fc_fv_exp(bnd, fv, scrut), arms)
 | PyEllazy(_, body) => fc_fv_stmts(bnd, fv, body)
+| PyElazy(_, body) => fc_fv_stmts(bnd, fv, body)
 | PyEtup(_, es)   => fc_fv_explst(bnd, fv, es)
 | PyElist(_, es)  => fc_fv_explst(bnd, fv, es)
 | PyErec(_, _, fs) => fc_fv_efields(bnd, fv, fs)
@@ -455,10 +456,12 @@ case+ ss of
       // field — index 2 — is irrelevant to free-variable analysis; ignored.)
       fc_fv_stmts(fc_pat_names(bnd, p), fc_fv_exp(bnd, fv, rhs), rest)
   | PySvar(_, nm, _, rhs) =>
-      // a `var` cell: the init RHS sees the OLD bnd; the cell NAME is bound for later stmts
-      // (a function-local, exactly like a `let` binder — so a later @func lambda referencing
-      // it is caught as a capture).
-      fc_fv_stmts(nameset_add(bnd, nm), fc_fv_exp(bnd, fv, rhs), rest)
+      // a `var` cell: the init RHS (if present) sees the OLD bnd; the cell NAME is bound for
+      // later stmts (a function-local, exactly like a `let` binder — so a later @func lambda
+      // referencing it is caught as a capture). A no-init `var x: T` references nothing.
+      let val fv1 = (case+ rhs of | PyExpSome(e) => fc_fv_exp(bnd, fv, e) | PyExpNone() => fv) in
+        fc_fv_stmts(nameset_add(bnd, nm), fv1, rest)
+      end
   | PySassign(_, lv, rhs) =>
       // a cell assignment `lv := rhs`: lvalue + rhs both referenced under the current bnd
       // (it binds NO new name — the cell already exists).
@@ -554,6 +557,7 @@ case+ e of
 | PyEif(loc, gs, els) => el_eguards(encl, gs, el_exp(encl, els))
 | PyEmatch(loc, scrut, arms) => PCEcase(loc, el_exp(encl, scrut), el_arms(encl, arms))
 | PyEllazy(loc, body) => PCEllazy(loc, el_func_body(encl, loc, body))
+| PyElazy(loc, body) => PCElazy(loc, el_func_body(encl, loc, body))
 | PyEtup(loc, es) => PCEtup(loc, el_explst(encl, es))
 | PyElist(loc, es) => PCElist(loc, el_explst(encl, es))
 | PyErec(loc, knd, fs) => PCErec(loc, knd, el_efields(encl, fs))
@@ -625,13 +629,20 @@ case+ hd of
       case+ args of
       | list_cons(arg, list_nil()) => PCEllazy(loc, el_exp(encl, arg))
       | _ => PCEapp(loc, el_exp(encl, hd), el_explst(encl, args)))
+    // NON-LINEAR inline lazy `lazy(e)` -> PCElazy (sibling of the llazy(e) case above). A non-
+    // 1-arg `lazy(...)` is an ordinary call (recovery). Mirrors the `$lazy` head in stock trans12.
+    else (if strn_eq(nm, "lazy")
+    then (
+      case+ args of
+      | list_cons(arg, list_nil()) => PCElazy(loc, el_exp(encl, arg))
+      | _ => PCEapp(loc, el_exp(encl, hd), el_explst(encl, args)))
     else (
       if strn_eq(nm, "fold")
       then (
         case+ args of
         | list_cons(arg, list_nil()) => PCEfold(loc, el_exp(encl, arg))
         | _ => PCEapp(loc, el_exp(encl, hd), el_explst(encl, args)))
-      else PCEapp(loc, el_exp(encl, hd), el_explst(encl, args)))
+      else PCEapp(loc, el_exp(encl, hd), el_explst(encl, args))))
 | _ => PCEapp(loc, el_exp(encl, hd), el_explst(encl, args))
 )
 //
@@ -805,8 +816,15 @@ case+ ss of
       // `let mut` SSA accumulator — it does NOT enter `muts`/`mts` (so the loop desugaring
       // never threads it). It DOES extend `encl` (a function-local for the capture check)
       // and scopes the rest of the suite via PCEvarcell's body.
-      let val encl1 = nameset_add(encl, nm) in
-        PCEvarcell(loc, nm, ann, el_exp(encl, rhs), el_pure_go(encl1, rest, muts, mts, tail, tail_expr))
+      let
+        val encl1 = nameset_add(encl, nm)
+        // init is OPTIONAL: `var x: T` (no `=`) -> PCEGNone (uninitialized cell).
+        val initopt =
+          (case+ rhs of
+           | PyExpSome(e) => PCEGSome(el_exp(encl, e))
+           | PyExpNone() => PCEGNone()): pcexpopt
+      in
+        PCEvarcell(loc, nm, ann, initopt, el_pure_go(encl1, rest, muts, mts, tail, tail_expr))
       end
   | PySassign(loc, lv, rhs) =>
       // a CELL ASSIGNMENT `lv := rhs` -> PCEassign (lowers to D2Eassgn). DISTINCT from the
