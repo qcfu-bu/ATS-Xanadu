@@ -9,7 +9,7 @@ HERE="$(cd "$(dirname "$0")/.." && pwd)"
 export XATSHOME="${XATSHOME:-/Users/qcfu/Projects/ATS-Xanadu}"
 BUNDLE="$HERE/srcgen2/BUILD/xats2chez-bundle.js"
 CACHE="$HERE/srcgen2/BUILD/selfhost/fxp"; mkdir -p "$CACHE"
-RT="$HERE/runtime/scheme/xats2chez_cats.scm $HERE/runtime/scheme/xats2chez_runtime.scm"
+RT="$HERE/runtime/scheme/xats2chez_cats.scm $HERE/runtime/scheme/xats2chez_runtime.scm $HERE/runtime/scheme/xats2chez_collrt.scm $HERE/runtime/scheme/xats2chez_generics.scm"
 UNITS="$(grep -vE '^\s*#|^\s*$' "$1")"
 
 srcof() { for d in "$XATSHOME/srcgen2/DATS" "$XATSHOME/prelude/DATS"; do

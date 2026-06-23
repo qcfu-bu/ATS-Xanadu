@@ -303,9 +303,44 @@
           (vector 0 (fopr (XATSPCON c 0)) (strx_vt_map0 (XATSPCON c 1) fopr))))))))
 (define (strn_get$at$raw s i) (char->integer (string-ref s i)))
 
-;; pointers (p2tr) — modeled as boxes (an address is a 1-slot cell).
+;; pointers (p2tr / a0ptr) — modeled as boxes (an address is a 1-slot cell).
 (define (p2tr_get p) (unbox p))
 (define (p2tr_set p v) (set-box! p v))
+(define (a0ptr_make_1val v) (box v))
+(define (a0ptr_get p) (unbox p))
+(define (a0ptr_set p v) (set-box! p v) XATSTOP0)
+(define (a0ptr_free p) XATSTOP0)
+(define (a0ptr2ref p) p)        ; ptr<->ref cast: identity (both are boxes)
+(define (p2tr x) x)             ; p2tr cast: identity in the uniform rep
+
+;;;--------------------------------------------------------------------
+;;; XATSOPT_* — the compiler's global-dict + file-path + file-IO floor.
+;;; mydict is the global symbol dictionary (a hashtable keyed by equal?).
+;;; A file path (fpath) is represented as a native string here (fpath_encode
+;;; flattens whatever structured path to its string form).
+;;;--------------------------------------------------------------------
+(define (XATSOPT_mydict_make_nil) (make-hashtable equal-hash equal?))
+(define (XATSOPT_mydict_search$opt m k)
+  (if (hashtable-contains? m k) (vector 1 (hashtable-ref m k #f)) (vector 0)))
+(define (XATSOPT_mydict_insert$any m k v) (hashtable-set! m k v) XATSTOP0)
+(define (XATSOPT_mydict_get_keys m) (cz-list->list_vt (vector->list (hashtable-keys m))))
+(define (XATSOPT_XATSHOME_get)
+  (or (getenv "XATSHOME") "/Users/qcfu/Projects/ATS-Xanadu"))
+;; fpath: a structured path flattens to a string; if it's already a string, id.
+(define (fpath_encode fpx) (if (string? fpx) fpx (xats_value_string fpx)))
+(define (XATSOPT_fpath_rexists fp) (file-exists? (fpath_encode fp)))
+(define (XATSOPT_fpath_full$read fp)
+  (let ((p (open-input-file (fpath_encode fp))))
+    (let ((s (get-string-all p))) (close-input-port p) s)))
+(define (XATSOPT_fpath_char$strmize fp) (strn_strxize (XATSOPT_fpath_full$read fp)))
+(define (XATSOPT_mya1sz_strmize a)        ; vector/string -> a strm_vt of its items
+  (let ((n (if (string? a) (string-length a) (vector-length a))))
+    (let mk ((i 0))
+      (XATS000_l1azy
+       (lambda (_)
+         (if (>= i n) (vector 0)
+             (vector 1 (if (string? a) (char->integer (string-ref a i)) (vector-ref a i))
+                     (mk (+ i 1)))))))))
 
 ;; bool / char arithmetic primitives.
 (define (bool_neg b) (not b))
