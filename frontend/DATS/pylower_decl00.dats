@@ -54,6 +54,13 @@ fun ats_name(name: strn): strn = pylower_ats_name(name)
 fun ats_sym(name: strn): sym_t = symbl_make_name(ats_name(name))
 #extern fun PYL_uncapitalize(s: strn): strn = $extnam()
 #extern fun PYL_has_hats_ext(s: strn): bool = $extnam()
+// faithful #include: the CURRENT file's stadyn (0=.psats, 1=.pdats), set by the driver before
+// lowering. `lower_include` reads it for the `D2Cinclude(knd0;...)` knd0 (= the INCLUDING file's
+// stadyn, exactly stock's `f00` parse flag) when PCCinclude carries the ~1 "infer" sentinel.
+#extern fun PYL_cur_stadyn_get((*void*)): sint = $extnam()
+// faithful #include: strip the leading '/' to the XATSHOME-RELATIVE form (`srcgen2/HATS/x.hats`).
+// The emitted D2Cinclude FPATH carries this RELATIVE fnm1 (matching stock fsrch_dcurrent), not abs.
+#extern fun PYL_strip_leading_slash(s: strn): strn = $extnam()
 // qualified-name helpers (shared with pylower_staexp): `M.x` -> head `$M.`, tail `x`, has-dot test.
 #extern fun PYL_is_qualified_name(s: strn): bool = $extnam()
 #extern fun PYL_qual_head_key(s: strn): strn = $extnam()  // "M.x" -> "$M."
@@ -1016,26 +1023,50 @@ end
 and
 lower_include(env: !tr12env, loc: loctn, path: strn, knd0: sint): d2ecl = let
   val abspath = strn_append(the_XATSHOME(), path)
+  // The XATSHOME-RELATIVE form (`srcgen2/HATS/x.hats`) — the FPATH fnm1 stock's fsrch_dcurrent yields
+  // (resolution relative to the source's drpth, NOT an absolute path). Used for the emitted D2Cinclude
+  // FPATH so the round-tripped node matches stock's exactly.
+  val relpath = PYL_strip_leading_slash(path)
+  // The PARSE kind of the INCLUDED file: a `.hats`/`.sats` parses static (the included headers are
+  // interfaces), a `.dats` dynamic — inferred from the extension via fname_stadyn (mirroring stock's
+  // knd1 in trans01 f0_include). `.hats` has no stadyn of its own (it splices into the includer), so
+  // it parses STATIC (1 in this codebase's static-kind convention used by cached_d1parsed_from_fpath).
   val pknd =
     if PYL_has_hats_ext(path)
       then 1
-      else knd0
+      else (let val k = fname_stadyn(path) in if k < 0 then 1 else k end)
+  // The NODE knd0 = the INCLUDING file's stadyn (stock's `f00` parse flag, NOT the included file's).
+  // PCCinclude carries ~1 (the surface `include` -> infer the current file's stadyn from the driver);
+  // a non-negative knd0 (the legacy `.hats`-via-import path) is honored as-is.
+  val nknd = if knd0 < 0 then PYL_cur_stadyn_get() else knd0
 in
   if ~fpath_rexists(abspath) then build_missing_import(loc, abspath)
   else let
-    val fpth = fpath_make_absolute(abspath)
-    val @(_shrd, dpar1) = cached_d1parsed_from_fpath(pknd, fpth, abspath)
+    // The d1parsed is parsed/cached via the ABSOLUTE path (a stable read + cache identity). The
+    // EMITTED FPATH, however, carries the RELATIVE fnm1 (fpath_make_relative) so the round-tripped
+    // D2Cinclude's `FPATH(srcgen2/HATS/x.hats)` matches stock's fsrch_dcurrent resolution exactly.
+    val fpth_abs = fpath_make_absolute(abspath)
+    val @(_shrd, dpar1) = cached_d1parsed_from_fpath(pknd, fpth_abs, abspath)
     val dopt =
       (
         case+ d1parsed_get_parsed(dpar1) of
         | optn_nil() => optn_nil()
         | optn_cons(d1cs) => optn_cons(trans12_d1eclist(env, d1cs))
       ) : d2eclistopt
-    val tok  = token_make_node(loc, T_VAL(VLKval))
-    val gsrc = g1exp_make_node(loc, G1Eid0(symbl_make_name(path)))
-    val fopt = optn_cons(fpth) : fpathopt
+    // tknd = T_SRP_INCLUDE (stock's include token, an EXACT match — the trans12/reader passes only
+    // read knd0/fopt/dopt, but matching it keeps the round-tripped node byte-identical here). gsrc =
+    // a G1Estr of the (quoted) RELATIVE path: stock carries the ORIGINAL source-relative lexeme
+    // (`"./../HATS/x.hats"`) which pyprint normalizes away, so the STRING CONTENT necessarily differs
+    // (a pyprint path-normalization artifact, not an include-structure divergence); the NODE SHAPE
+    // (G1Estr, not a synthesized G1Eid0) matches.
+    val tok  = token_make_node(loc, T_SRP_INCLUDE())
+    val qpath = strn_append("\"", strn_append(relpath, "\""))
+    val gtok = token_make_node(loc, T_STRN1_clsd(qpath, strn_length(qpath)))
+    val gsrc = g1exp_make_node(loc, G1Estr(gtok))
+    val fpth_rel = fpath_make_relative(relpath, relpath)
+    val fopt = optn_cons(fpth_rel) : fpathopt
   in
-    d2ecl_make_node(loc, D2Cinclude(knd0, tok, gsrc, fopt, dopt))
+    d2ecl_make_node(loc, D2Cinclude(nknd, tok, gsrc, fopt, dopt))
   end
 end
 //
@@ -1127,6 +1158,13 @@ case+ d of
 // LSP dep-graph). The module driver threads `env` left-to-right, so an import declared before its
 // uses registers FIRST — its exports are then visible to the following decls. See lower_import.
 | PCCimport(loc, path, knd0, is_python, aopt) => lower_import(env, loc, path, knd0, is_python, aopt)
+//
+// FAITHFUL #include: `include "PATH"` -> the stock inline-expansion. lower_include parses PATH
+// (d0parsed_from_fpath -> trans01) and `trans12_d1eclist`s the included d1 decls into THIS env,
+// SPLICING them under a D2Cinclude(knd0, ...) — byte-identical to stock f0_include @ trans12_decl00.
+// knd0 = ~1 here means "the current file's stadyn" (the INCLUDING file's, = stock's `f00`); the
+// driver sets it via PYL_cur_stadyn_set before lowering. Distinct from PCCimport (a D2Cstaload).
+| PCCinclude(loc, path, knd0) => lower_include(env, loc, path, knd0)
 //
 // a datatype (enum) -> a real D2Cdatatype (M5b.3; SPIKE-PROVEN, see lower_datacon above).
 // (1) create the type s2cst (boxed datatype — the §5.7 default; decorators/sorts are a later

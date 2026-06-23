@@ -155,6 +155,11 @@ kw_of_lident(s: strn): ptnode =
   else if s = "return" then PT_KW_RETURN()
   else if s = "import" then PT_KW_IMPORT()
   else if s = "from" then PT_KW_FROM()
+  // INCLUDE (faithful #include): `include "PATH"` is a TEXTUAL/inline expansion of PATH's
+  // declarations into THIS file's L2 tree — the EXACT semantics of stock ATS `#include` (NOT a
+  // staload/import, which merely merges a sealed module's env). A genuine decl keyword (distinct
+  // from `import`/`from`), so it is a reserved word, NOT a LIDENT.
+  else if s = "include" then PT_KW_INCLUDE()
   else if s = "type" then PT_KW_TYPE()
   else if s = "enum" then PT_KW_ENUM()
   else if s = "struct" then PT_KW_STRUCT()

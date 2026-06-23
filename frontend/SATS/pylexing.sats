@@ -234,6 +234,14 @@ ptnode =
 // (the CATS scanner must emit PT_QMARK with the SAME tag — see pylexing.cats).
 | PT_QMARK  of ()   // ?  (the `?` static / top-view operator in a TYPE position)
 //
+// INCLUDE (faithful #include): `include "PATH"` is a TEXTUAL/inline expansion of PATH's decls into
+// THIS file's L2 tree — the EXACT semantics of stock ATS `#include` (NOT a staload/import). A genuine
+// decl keyword, distinct from `import`/`from`. APPENDED LAST (after PT_QMARK) so its constructor tag
+// (82) does NOT renumber any existing token — the CATS scanner's PYL__KW table maps `include` to the
+// SAME tag 82 (see pylexing.cats). Inserting it MID-DATATYPE would shift every later operator's tag
+// and desync the hand-tagged JS scanner (a `=` would lex as `>=`, etc.).
+| PT_KW_INCLUDE of ()   // include (faithful #include: TEXTUAL inline expansion of PATH's decls)
+//
 (* ****** ****** *)
 //
 // A `pytoken` pairs a kind with its source span (half-open [pbeg, pend)).

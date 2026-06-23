@@ -847,6 +847,26 @@ p_import_names(st: pstate): @(list(strn), pstate) =
 //
 (* ****** ****** *)
 //
+// ---- include (faithful #include) ----
+//
+// 'include' STRING   — the TEXTUAL inline-expansion form (stock ATS `#include "PATH"`). The path is
+// a STRING literal ONLY (mirroring stock, which always quotes the include path); we keep the RAW
+// lexeme (quotes included), unquoting at lowering. Distinct from import (a dotted modpath / sealed
+// module): an include INLINES the referenced file's decls into THIS file's L2 tree.
+fun
+p_include(st: pstate): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)   // consume the `include` keyword
+in
+  case+ ps_peek(st1) of
+  | PT_STRING(s) => @(PyCinclude(loc, s), ps_advance(st1))
+  | _ =>
+    let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected a \"PATH\" string after 'include'") in
+      @(PyCerror(loc, "expected a path string after 'include'"), st2) end
+end
+//
+(* ****** ****** *)
+//
 // GAP1 (overload-ALIAS): file-local helpers for the STANDALONE `@overload NAME = TARGET` decl, used
 // by parse_decl below. Defined here (before parse_decl) so they are in scope; neither calls back into
 // parse_decl, so they live in their own `fun … and …` group rather than parse_decl's #implfun.
@@ -1023,6 +1043,9 @@ in
             ps_diag(st1, locD, "decorators are not allowed on an 'exception'")) end )
   | PT_KW_IMPORT() => p_import(st0)
   | PT_KW_FROM()   => p_import(st0)
+  // INCLUDE (faithful #include): `include "PATH"` — a TEXTUAL inline expansion (distinct from
+  // import/from, which merge a sealed module's env). Takes NO decorators (like import).
+  | PT_KW_INCLUDE() => p_include(st0)
   // SCOPING (bootstrap P1): `private` — a decl-MODIFIER (`private def helper(...)` — one decl) or a
   // `private:` BLOCK (an indented suite of private decls). It is the OUTERMOST modifier (it takes no
   // PRECEDING decorators; an inner `private @impl def` re-enters parse_decl which parses those). The
@@ -1192,6 +1215,9 @@ in
   | PT_KW_IMPORT() =>
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_FROM()   =>
+    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+  | PT_KW_INCLUDE() =>
+    // INCLUDE (faithful #include): a single-line `include "PATH"` — consume its trailing NEWLINE.
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | _ =>
     // a top-level STATEMENT (let / expr / if / while / for / match / break / ...).

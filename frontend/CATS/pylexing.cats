@@ -73,6 +73,27 @@ function PYL_has_hats_ext(s) {
   s = PYL_unquote(s);
   return /\.hats$/i.test(String(s));
 }
+// faithful #include path-resolution helper: true iff the (already-unquoted) path begins with '/'.
+// An `include "PATH"` path is XATSHOME-relative; the elaborator ensures a single leading '/' so
+// M3's strn_append(the_XATSHOME(), path) reconstructs the absolute path (mirroring PCCimport).
+function PYL_has_leading_slash(s) {
+  s = String(s);
+  return s.length > 0 && s.charCodeAt(0) === 47;
+}
+// faithful #include: strip the single leading '/' so the path is XATSHOME-RELATIVE. The emitted
+// D2Cinclude FPATH must carry the RELATIVE fnm1 (e.g. `srcgen2/HATS/x.hats`), matching stock's
+// fsrch_dcurrent resolution (which is relative to the source's drpth), NOT an absolute path.
+function PYL_strip_leading_slash(s) {
+  s = String(s);
+  return (s.length > 0 && s.charCodeAt(0) === 47) ? s.slice(1) : s;
+}
+// faithful #include: the CURRENT file's stadyn (0=static .psats, 1=dynamic .pdats). The driver sets
+// it BEFORE lowering (mirroring stock's `f00` parse flag, which becomes the `D2Cinclude(knd0;...)`
+// knd0 = the INCLUDING file's stadyn — NOT the included file's). `lower_include` reads it so an
+// included file's D2Cinclude knd0 matches stock exactly. Default 0 (the static-tracer default).
+var PYL_cur_stadyn = 0;
+function PYL_cur_stadyn_set(n) { PYL_cur_stadyn = (Number(n) === 1) ? 1 : 0; return; }
+function PYL_cur_stadyn_get() { return PYL_cur_stadyn; }
 //
 // Surface identifiers spell ATS '$' segments Koka-style with '/', e.g. `a0ref/get`.
 // Lowering resolves those names against the existing compiler/prelude spelling.
@@ -201,7 +222,11 @@ const PYL__KW = Object.freeze({
   "or": ["PT_KW_OR", 31],
   "not": ["PT_KW_NOT", 32],
   "true": ["PT_TRUE", 40],
-  "false": ["PT_FALSE", 41]
+  "false": ["PT_FALSE", 41],
+  // INCLUDE (faithful #include): PT_KW_INCLUDE is APPENDED LAST in the ptnode datatype (after
+  // PT_QMARK=81) so adding it renumbers NOTHING; its constructor tag is 82. Keep in lock-step with
+  // the SATS declaration order (a mid-datatype insert would desync every later operator tag here).
+  "include": ["PT_KW_INCLUDE", 82]
 });
 
 function PYL_scan_raw_iter(src, text) {

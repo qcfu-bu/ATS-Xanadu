@@ -68,6 +68,7 @@ case+ d of
 | PCCdata(loc, _, _, _, _) => loc | PCCfun(loc, _, _, _) => loc
 | PCCval(loc, _, _) => loc     | PCCstaload(loc, _) => loc
 | PCCimport(loc, _, _, _, _) => loc
+| PCCinclude(loc, _, _) => loc
 | PCCalias(loc, _, _, _) => loc
 | PCCrecord(loc, _, _, _, _) => loc
 | PCCexcept(loc, _, _) => loc

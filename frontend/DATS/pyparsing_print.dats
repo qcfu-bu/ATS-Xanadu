@@ -545,6 +545,8 @@ case+ d of
     ps(out, " = "); pp_exp(out, e); ps(out, ")") )
 | PyCimport(loc, imp) =>
   (ps(out, "(import"); print_span(out, loc); ps(out, " "); pp_import(out, imp); ps(out, ")"))
+| PyCinclude(loc, path) =>
+  (ps(out, "(include"); print_span(out, loc); ps(out, " "); ps(out, path); ps(out, ")"))
 | PyCsymalias(loc, nm, tgt, prec) =>
   ( ps(out, "(symalias "); ps(out, nm); print_span(out, loc);
     ps(out, " = "); ps(out, tgt);

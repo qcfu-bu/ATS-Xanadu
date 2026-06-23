@@ -48,6 +48,9 @@
 // Explicit quoted ATS paths can name `.sats` or `.hats` directly; dotted imports without an
 // extension keep the v1 rule and append `.sats`.
 #extern fun PYL_has_ats_ext(s: strn): bool = $extnam()
+// faithful #include: true iff the unquoted path already begins with '/'. The elaborator uses it to
+// ensure exactly one leading '/' so M3 rebuilds the absolute path via strn_append(XATSHOME, path).
+#extern fun PYL_has_leading_slash(s: strn): bool = $extnam()
 //
 (* ****** ****** *)
 //
@@ -316,6 +319,19 @@ in
     else strn_append("/", strn_append(path, ".sats"))
 end
 //
+// resolve an `include "PATH"` raw lexeme -> the XATSHOME-relative path (a leading `/`). UNLIKE
+// modpath_to_sats, an include path is a VERBATIM file path (with its own extension — `.hats`/`.sats`/
+// `.dats`) so we never append `.sats`; we just unquote + ensure the single leading `/` (so M3's
+// `strn_append(the_XATSHOME(), path)` reconstructs the absolute path). pyprint emits the already-
+// XATSHOME-relative path (PYPP_import_path normalizes the source-relative `./../HATS/x.hats`).
+fun
+include_path_resolve(raw: strn): strn =
+let
+  val p = PYL_unquote(raw)
+in
+  if PYL_has_leading_slash(p) then p else strn_append("/", p)
+end
+//
 (* ****** ****** *)
 //
 // Adjacent undecorated, non-generic defs form one mutual-recursive group (§5.2).
@@ -565,6 +581,14 @@ case+ d of
       | PyImpFrom(iloc, segs, _star, _names) =>
           list_sing(PCCimport(iloc, modpath_to_sats(segs), 0(*static*), false(*is_python*), optn_nil()))
     )
+| PyCinclude(loc, raw) =>
+    // FAITHFUL #include: `include "PATH"` -> a PCCinclude carrying the XATSHOME-relative path (a
+    // leading `/` so M3's `strn_append(the_XATSHOME(), path)` rebuilds the absolute path, exactly as
+    // PCCimport does). The RAW lexeme keeps its quotes; PYL_unquote strips them. The load kind is
+    // -1 (the INFER sentinel): the NODE knd0 = the CURRENT file's stadyn (stock's `f00`), filled at
+    // lowering from PYL_cur_stadyn (the driver sets it). M3 routes it to lower_include (the stock
+    // inline-expansion), so the included file's decls SPLICE into THIS file's L2 tree.
+    list_sing(PCCinclude(loc, include_path_resolve(raw), (-1)))
 | PyCsymalias(loc, nm, tgt, prec) =>
     // GAP1: a STANDALONE overload-ALIAS `@overload NAME = TARGET` (+ `@overload[N]` precedence) ->
     // a PCCsymalias passed straight through. M3 (build_overload) resolves TARGET's d2itm and

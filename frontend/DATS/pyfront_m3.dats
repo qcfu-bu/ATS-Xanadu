@@ -58,6 +58,8 @@
 #extern fun PYM_mark(s: strn): void = $extnam()
 #extern fun PYM_readfile(path: strn): strn = $extnam()
 #extern fun PYM_argv_path((*0*)): strn = $extnam()
+// faithful #include: set this file's stadyn so lower_include stamps D2Cinclude knd0 (pylexing.cats).
+#extern fun PYL_cur_stadyn_set(n: sint): void = $extnam()
 //
 (* ****** ****** *)
 //
@@ -88,6 +90,7 @@ end
 #implfun
 pyfront_d2parsed_of_fpath(stadyn, src, text) = let
   //
+  val () = PYL_cur_stadyn_set(stadyn)   // faithful #include: D2Cinclude knd0 = this file's stadyn
   // lex + parse (pyparse_module = pylex_layout + parse) -> PyAST ; elaborate -> PyCore.
   val ast  = pyparse_module(src, text)
   val core = pyelab_module(ast)

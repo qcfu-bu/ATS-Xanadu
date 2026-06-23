@@ -55,6 +55,7 @@ case+ nod of
 | PT_KW_RETURN() => "KW_RETURN"
 | PT_KW_IMPORT() => "KW_IMPORT"
 | PT_KW_FROM() => "KW_FROM"
+| PT_KW_INCLUDE() => "KW_INCLUDE"
 | PT_KW_TYPE() => "KW_TYPE"
 | PT_KW_ENUM() => "KW_ENUM"
 | PT_KW_STRUCT() => "KW_STRUCT"

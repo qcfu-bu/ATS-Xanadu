@@ -14,7 +14,7 @@
 **   bodyless val x: T                     -> @static let x: T
 **   #symload NAME with FN [of N]          -> @overload NAME = FN
 **   #define NAME val                      -> let NAME = val
-**   #include "x"                          -> from "x" import *
+**   #include "x"                          -> include "x"   (TEXTUAL inline expansion, NOT a staload)
 **
 ** REWRITE RULES:
 **   (1) CAPITALIZE type & data-constructor names (positionally: type exprs,
@@ -3661,9 +3661,13 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   // #define NAME val  ->  let name = val   (dynamic macro-constant model).
   | D0Cdefine(_, gid, _, gedf) => (pp_define(out, 0, gid, gedf); true)
   //
-  // #include "x" -> import the ATS header/interface into this Pythonic module.
+  // #include "x" -> the FAITHFUL pythonic `include "x"`. Stock `#include` is a TEXTUAL/inline
+  // expansion (it splices the referenced file's decls into THIS file's tree), NOT a staload/env
+  // merge — so it maps to the distinct `include` keyword (lowered via lower_include -> D2Cinclude),
+  // not `from "x" import *` (which is a #staload -> D2Cstaload). This makes an include-bearing file's
+  // round-tripped L2 structurally identical to stock's. The path is normalized XATSHOME-relative.
   | D0Cinclude(_, _, ge) => (
-      ps(out, "from \""); ps(out, PYPP_import_path(g0exp_import_path(ge))); ps(out, "\" import *"); nl(out);
+      ps(out, "include \""); ps(out, PYPP_import_path(g0exp_import_path(ge))); ps(out, "\""); nl(out);
       true
     )
   //

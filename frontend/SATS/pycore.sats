@@ -376,6 +376,16 @@ pcdecl =
 | PCCval     of (loctn, pcpat, pcexp)
 | PCCstaload of (loctn, strn)
 | PCCimport  of (loctn, strn(*resolved XATSHOME-rel .sats path*), sint(*0=static*), bool(*is_python: defer*), optn(strn)(*named alias: `import M as SYM` <-> ATS `#staload SYM = "M"`*))
+//   PCCinclude : a FAITHFUL `#include` — the surface `include "PATH"` (PyCinclude). Carries the
+//                RESOLVED XATSHOME-relative path (the SAME normalization PCCimport applies) + the
+//                load kind (0=static, 1=dynamic, inferred at lowering from the extension). M3
+//                (pylower_decl00) routes it to `lower_include` — the EXACT stock `#include` inline-
+//                expansion: parse PATH (d0parsed_from_fpath -> trans01) then `trans12_d1eclist` the
+//                included d1 decls and SPLICE them under a `D2Cinclude(knd0, tok, gsrc, fopt, dopt)`,
+//                byte-identical to stock f0_include @ trans12_decl00.dats:2200. Distinct from
+//                PCCimport (a sealed-module env merge -> D2Cstaload): an include INLINES the decls
+//                into THIS file's L2 tree, so an include-bearing file's L2 == stock's.
+| PCCinclude of (loctn, strn(*resolved XATSHOME-rel path*), sint(*stadyn kind; ~1 = infer*))
 | PCCalias   of (loctn, strn, list(pcparam), pytyp)
 | PCCrecord  of (loctn, strn, list(pcparam), list(pcfield), pcmode)
 //   PCCabstype : an `abstype Name [tvs] [<= REP]` OPAQUE type declaration (ATS-parity). Carries

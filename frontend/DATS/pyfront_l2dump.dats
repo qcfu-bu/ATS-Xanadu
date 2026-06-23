@@ -64,6 +64,9 @@
 #extern fun PYL2_argv_mode((*0*)): strn = $extnam()
 #extern fun PYL2_argv_path((*0*)): strn = $extnam()
 #extern fun PYL2_argv_stadyn((*0*)): sint = $extnam()
+// faithful #include: set the CURRENT file's stadyn so `lower_include` stamps the D2Cinclude knd0
+// with the INCLUDING file's stadyn (stock's `f00`), not the included file's. (pylexing.cats glue.)
+#extern fun PYL_cur_stadyn_set(n: sint): void = $extnam()
 //
 (* ****** ****** *)
 //
@@ -88,6 +91,7 @@ end
 //
 #implfun
 pyfront_d2parsed_of_fpath(stadyn, src, text) = let
+  val () = PYL_cur_stadyn_set(stadyn)   // faithful #include: D2Cinclude knd0 = this file's stadyn
   val ast  = pyparse_module(src, text)
   val core = pyelab_module(ast)
   val+ PCModule(decls, elab_diags) = core

@@ -451,6 +451,8 @@ case+ d of
   ( ps(out, "(import "); ps(out, path); print_span(out, loc);
     (case+ aopt of optn_cons(nm) => (ps(out, " as "); ps(out, nm)) | optn_nil() => ());
     ps(out, ")") )
+| PCCinclude(loc, path, _knd) =>
+  (ps(out, "(include "); ps(out, path); print_span(out, loc); ps(out, ")"))
 | PCCalias(loc, nm, tvs, typ) =>
   ( ps(out, "(alias "); ps(out, nm); print_span(out, loc);
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_pcparams(out, tvs); ps(out, ")")) );

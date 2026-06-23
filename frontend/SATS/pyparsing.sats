@@ -576,6 +576,15 @@ pydecl =
 //   praxi — proof + bodyless). The elaborator inspects the decorators and routes to the SAME
 //   PyCore variant they used to (PCCprfun / PCCprval / PCCpraxi), reusing the proven L2 lowering.
 | PyCimport of (loctn, pyimport)
+//   PyCinclude : a FAITHFUL `#include` — `include "PATH"` TEXTUALLY/inline-EXPANDS the referenced
+//                file's declarations into THIS file's L2 tree (the EXACT semantics of stock ATS
+//                `#include`, distinct from `#staload`/`import` which merely merge a sealed module's
+//                env). Carries the RAW path-string lexeme (quotes included; unquoted at lowering).
+//                The elaborator passes it straight through to PCCinclude; M3 (pylower_decl00) loads
+//                the file via the stock parse path (d0parsed_from_fpath -> trans01 -> trans12) and
+//                SPLICES the resulting d2 decls under a D2Cinclude — byte-identical to stock's
+//                f0_include, so an include-bearing file's round-tripped L2 matches stock's exactly.
+| PyCinclude of (loctn, strn(*raw path lexeme, quotes included*))
 //   PyCsymalias : a STANDALONE overload-ALIAS decl `@overload NAME = TARGET` (+ optional
 //                 `@overload[N]` precedence) — the ATS-parity `#symload NAME with TARGET [of N]`.
 //                 There is NO `def` here: it RE-EXPORTS an already-existing function TARGET into
