@@ -1017,6 +1017,13 @@ case+ d of
       end
 | PyCtype(_, _, _, _, _) =>
     PCEwhere(loc, kont, elab_decls(list_sing(d)))
+// EXN: a local `exception E(T...)` statement in a body suite declares an exn CONSTRUCTOR
+// scoped over the REST of the suite (a `raise E` / `except E` that follows must resolve it).
+// Mirror the PyCtype arm: backwards-scope the decl over `kont` via PCEwhere (M3 -> D2Ewhere),
+// which lowers `PCCexcept` to a registered D2Cexcptcon BEFORE the continuation is checked.
+// Without this the decl was silently dropped by the catch-all (-> unresolved D1Eid0(E) errck).
+| PyCexcept(_, _, _) =>
+    PCEwhere(loc, kont, elab_decls(list_sing(d)))
 | _ => kont
 )
 //

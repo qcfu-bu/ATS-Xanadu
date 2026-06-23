@@ -120,6 +120,7 @@ srcgen2/DATS/xatsopt_utils0.dats
 srcgen2/DATS/xbasics.dats
 srcgen2/DATS/xbasics_print0.dats
 srcgen2/DATS/xerrory.dats
+srcgen2/DATS/xfixity.dats
 srcgen2/DATS/xsymmap.dats
 srcgen2/DATS/xsymmap_stkmap.dats
 srcgen2/DATS/xsymmap_topmap.dats
