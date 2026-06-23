@@ -134,10 +134,17 @@ end
 // the M4-recovery HARD LESSON, now obsolete). See M13a-REPORT.
 #implfun
 pyfront_d3parsed_of_fpath(stadyn, src, text) = let
+  // Feed our desugared L2 through the compiler's REAL post-L2 pipeline, in the
+  // exact order of stock trans03_from_fpath (trans23.dats:87-92): tread12 ->
+  // trans2a -> trsym2b -> t2read0 -> trans23. We are parser+desugar only — every
+  // pass below is the stock compiler's own API; we do not reimplement any of them.
+  // A failure here therefore means our desugar produced L2 that differs from what
+  // stock trans02_from_fpath produces (a desugar bug), NOT a missing frontend pass.
   val dpar = pyfront_d2parsed_of_fpath(stadyn, src, text)
-  val dpar = d2parsed_of_trans2a(dpar)   // overload resolution (L2)  — trans03_from_fpath:89
-  val ( ) = d2parsed_by_trsym2b(dpar)    // symbol resolution (L2)    — trans03_from_fpath:90
-  val dpar = d2parsed_of_t2read0(dpar)   // L2 read/check             — trans03_from_fpath:92
+  val dpar = d2parsed_of_tread12(dpar)   // L1->L2 read/check (con stpize) — trans03_from_fpath:87
+  val dpar = d2parsed_of_trans2a(dpar)   // overload resolution (L2)      — trans03_from_fpath:89
+  val ( ) = d2parsed_by_trsym2b(dpar)    // symbol resolution (L2)        — trans03_from_fpath:90
+  val dpar = d2parsed_of_t2read0(dpar)   // L2 read/check                 — trans03_from_fpath:92
 in
   d3parsed_of_trans23(dpar)
 end

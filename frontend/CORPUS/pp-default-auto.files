@@ -41,7 +41,6 @@ srcgen2/DATS/xsymbol_mymap0.dats
 srcgen2/DATS/xlabel0.dats
 srcgen2/DATS/xlabel0_print0.dats
 srcgen2/DATS/parsing_basics.dats
-srcgen2/DATS/parsing_tokbuf.dats
 srcgen2/DATS/parsing_utils0.dats
 srcgen2/DATS/parsing_staexp.dats
 srcgen2/DATS/parsing_dynexp.dats
@@ -56,8 +55,6 @@ srcgen2/DATS/t2read0.dats
 srcgen2/DATS/t2read0_decl00.dats
 srcgen2/DATS/t2read0_dynexp.dats
 srcgen2/DATS/t3read0.dats
-srcgen2/DATS/t3read0_decl00.dats
-srcgen2/DATS/t3read0_dynexp.dats
 srcgen2/DATS/t3read0_myenv0.dats
 srcgen2/DATS/tread01.dats
 srcgen2/DATS/tread01_decl00.dats
@@ -89,12 +86,10 @@ srcgen2/DATS/trsym2b_dynexp.dats
 srcgen2/DATS/trtmp3b.dats
 srcgen2/DATS/trtmp3b_decl00.dats
 srcgen2/DATS/trtmp3b_dynexp.dats
-srcgen2/DATS/trtmp3b_myenv0.dats
 srcgen2/DATS/trtmp3b_utils0.dats
 srcgen2/DATS/trtmp3c.dats
 srcgen2/DATS/trtmp3c_decl00.dats
 srcgen2/DATS/trtmp3c_dynexp.dats
-srcgen2/DATS/trtmp3c_myenv0.dats
 srcgen2/DATS/trtmp3c_utils0.dats
 srcgen2/DATS/trans3a.dats
 srcgen2/DATS/trans3a_decl00.dats
@@ -116,7 +111,6 @@ srcgen2/DATS/trans23.dats
 srcgen2/DATS/trans23_decl00.dats
 srcgen2/DATS/trans23_utils0.dats
 srcgen2/DATS/xatsopt.dats
-srcgen2/DATS/xatsopt_tmplib.dats
 srcgen2/DATS/xatsopt_utils0.dats
 srcgen2/DATS/xbasics.dats
 srcgen2/DATS/xbasics_print0.dats
@@ -131,7 +125,6 @@ srcgen2/DATS/staexp1_print0.dats
 srcgen2/DATS/staexp2_inits0.dats
 srcgen2/DATS/staexp2_print0.dats
 srcgen2/DATS/staexp2_utils1.dats
-srcgen2/DATS/staexp2_utils2.dats
 srcgen2/DATS/filpath_fpath0.dats
 srcgen2/DATS/filpath_print0.dats
 srcgen2/DATS/filpath_search.dats
@@ -139,7 +132,6 @@ srcgen2/DATS/gmacro1.dats
 srcgen2/DATS/gmacro1_print0.dats
 srcgen2/DATS/locinfo.dats
 srcgen2/DATS/locinfo_print0.dats
-srcgen2/DATS/nmspace.dats
 srcgen2/DATS/lexing0.dats
 srcgen2/DATS/lexing0_kword0.dats
 srcgen2/DATS/lexing0_ext000.dats

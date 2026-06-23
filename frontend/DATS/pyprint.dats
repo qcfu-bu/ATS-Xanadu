@@ -535,6 +535,36 @@ pp_tuple(out: FILR, ses: s0explst): void =
 //
 (* ****** ****** *)
 //
+// extract the (optional) sort name of a static binder, and map ATS index sorts
+// to their Pythonic surface spellings.  Defined here (before the quantifier
+// emitters that use them) so the `{n:nat}` -> `[N: SInt]` annotation resolves.
+fun
+sort0_name(opt: sort0opt): strn =
+(
+  case+ opt of
+  | optn_nil() => ""
+  | optn_cons(s0t) => (
+      case+ s0t.node() of
+      | S0Tid0(id) => i0dnt_lexeme(id)
+      | _ => ""
+    )
+)
+fun
+sort0_pyname(s: strn): strn =
+(
+  if strn_eq(s, "") then ""
+  else if strn_eq(s, "t0") then "Type"
+  else if strn_eq(s, "type") then "Type"
+  else if strn_eq(s, "i0") then "SInt"
+  else if strn_eq(s, "int") then "SInt"
+  else if strn_eq(s, "nat") then "SInt"
+  else if strn_eq(s, "b0") then "SBool"
+  else if strn_eq(s, "bool") then "SBool"
+  else tyname(s)
+)
+//
+(* ****** ****** *)
+//
 // ====================== sort-quantifier {a:s} -> [A] typaram ================
 //
 // emit the type-params bracket from a list of static-quantifier args. Each
@@ -548,16 +578,28 @@ collect_squa_names(sqs: s0qualst): list(strn) =
   | list_nil() => list_nil()
   | list_cons(sq, rest) => (
       case+ sq.node() of
-      | S0QUAvars(ids, _) => list_append(squa_idnames(ids), collect_squa_names(rest))
+      | S0QUAvars(ids, sopt) =>
+          list_append(squa_idnames(ids, sort0_pyname(sort0_name(sopt))), collect_squa_names(rest))
       | S0QUAprop(_) => collect_squa_names(rest)
     )
 )
 and
-squa_idnames(ids: i0dntlst): list(strn) =
+// render each quantifier binder as `N` or, when the surface carries a sort
+// (e.g. `{n:nat}` / `{n:int}` / `{b:bool}`), as `N: SInt` / `B: SBool` so the
+// index keeps its INT/BOOL sort (a bare `[N]` would default to `type`, which
+// breaks `list_vt[..., N]` where N is the length index).
+squa_idnames(ids: i0dntlst, sn: strn): list(strn) =
 (
   case+ ids of
   | list_nil() => list_nil()
-  | list_cons(id, rest) => list_cons(tyname(i0dnt_lexeme(id)), squa_idnames(rest))
+  | list_cons(id, rest) => let
+      val nm = tyname(i0dnt_lexeme(id))
+      val one =
+        if strn_eq(sn, "") then nm
+        else strn_append(strn_append(nm, ": "), sn)
+    in
+      list_cons(one, squa_idnames(rest, sn))
+    end
 )
 and
 collect_squa_raw_names(sqs: s0qualst): list(strn) =
@@ -585,7 +627,15 @@ collect_q0arg_names(qas: q0arglst): list(strn) =
   | list_nil() => list_nil()
   | list_cons(qa, rest) => (
       case+ qa.node() of
-      | Q0ARGsome(id, _) => list_cons(tyname(i0dnt_lexeme(id)), collect_q0arg_names(rest))
+      | Q0ARGsome(id, sopt) => let
+          val nm = tyname(i0dnt_lexeme(id))
+          val sn = sort0_pyname(sort0_name(sopt))
+          val one =
+            if strn_eq(sn, "") then nm
+            else strn_append(strn_append(nm, ": "), sn)
+        in
+          list_cons(one, collect_q0arg_names(rest))
+        end
       | _ => collect_q0arg_names(rest)
     )
 )
@@ -905,27 +955,6 @@ fun
 gen_xnames(i: sint, n: sint): list(strn) =
   if i >= n then list_nil() else list_cons(xname(i), gen_xnames(i+1, n))
 //
-fun
-sort0_name(opt: sort0opt): strn =
-(
-  case+ opt of
-  | optn_nil() => ""
-  | optn_cons(s0t) => (
-      case+ s0t.node() of
-      | S0Tid0(id) => i0dnt_lexeme(id)
-      | _ => ""
-    )
-)
-fun
-sort0_pyname(s: strn): strn =
-(
-  if strn_eq(s, "") then ""
-  else if strn_eq(s, "t0") then "Type"
-  else if strn_eq(s, "type") then "Type"
-  else if strn_eq(s, "i0") then "SInt"
-  else if strn_eq(s, "int") then "SInt"
-  else tyname(s)
-)
 fun
 sarg_name(sag: s0arg): strn =
 (
@@ -2369,8 +2398,12 @@ pp_dexp_fundcl_local(out: FILR, n: sint, fd: d0fundcl): void = let
   val farg = d0fundcl_get_farg(fd)
   val sres = d0fundcl_get_sres(fd)
   val tdxp = d0fundcl_get_tdxp(fd)
+  val raws = farg_sapp_raw_names(farg)
+  val tps  = farg_sapp_names(farg)
 in
+  push_binders(raws);
   ind(out, n); ps(out, "def "); ps(out, fname(nm));
+  pp_names_brkt(out, tps);
   pp_sig_farg_params(out, farg);
   (case+ sres of
    | S0RESsome(_, se) => (ps(out, " -> "); pp_s0exp(out, se))
@@ -2378,7 +2411,8 @@ in
   ps(out, ":"); nl(out);
   (case+ tdxp of
    | TEQD0EXPsome(_, body) => pp_dexp_fun_body(out, n, body)
-   | TEQD0EXPnone() => (ind(out, n+1); todo(out, "fun-no-body")))
+   | TEQD0EXPnone() => (ind(out, n+1); todo(out, "fun-no-body")));
+  pop_binders(raws)
 end
 and
 	pp_dexp_fun_body(out: FILR, n: sint, body: d0exp): void =
@@ -3168,8 +3202,12 @@ pp_fundcl_local(out: FILR, n: sint, fd: d0fundcl): void = let
   val farg = d0fundcl_get_farg(fd)
   val sres = d0fundcl_get_sres(fd)
   val tdxp = d0fundcl_get_tdxp(fd)
+  val raws = farg_sapp_raw_names(farg)
+  val tps  = farg_sapp_names(farg)
 in
+  push_binders(raws);
   ind(out, n); ps(out, "def "); ps(out, fname(nm));
+  pp_names_brkt(out, tps);
   pp_sig_farg_params(out, farg);
   (case+ sres of
    | S0RESsome(_, se) => (ps(out, " -> "); pp_s0exp(out, se))
@@ -3177,7 +3215,8 @@ in
   ps(out, ":"); nl(out);
   (case+ tdxp of
    | TEQD0EXPsome(_, body) => pp_impl_body(out, n, body)
-	   | TEQD0EXPnone() => (ind(out, n+1); todo(out, "fun-no-body")))
+	   | TEQD0EXPnone() => (ind(out, n+1); todo(out, "fun-no-body")));
+  pop_binders(raws)
 	end
 	and
 	pp_impl_body(out: FILR, n: sint, body: d0exp): void =

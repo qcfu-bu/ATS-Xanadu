@@ -1,11 +1,42 @@
 # Bootstrap status and active backlog
 
-Date: 2026-06-22
+Date: 2026-06-23
 
 This note reconciles the older planning docs with the current repository state.
 The tree now contains a working Pythonic lexer/parser/elaborator/lowerer, a
 partial canonical-ATS-to-Pythonic pretty-printer, and milestone/round-trip
 harnesses.
+
+## 2026-06-23 — faithful verification pipeline (the M3 reparse now INVOKES the compiler)
+
+- **Design re-anchored:** the frontend is strictly parser + desugar / pretty-print.
+  It does NOT reimplement, work around, or satisfy any compiler pass (no overload
+  resolution, no linearity/viewtype checking — there is none at level-1 anyway).
+  Verification works by handing our desugared L2 to the compiler's OWN passes and
+  letting them typecheck it.
+- **Fix:** `pyfront_d3parsed_of_fpath` (frontend/DATS/pyfront_m3.dats) was running
+  only 4 of the compiler's 5 post-L2 passes — it skipped `d2parsed_of_tread12`.
+  It now runs the exact stock `trans03_from_fpath` sequence (trans23.dats:87-92):
+  `tread12 -> trans2a -> trsym2b -> t2read0 -> trans23`. Every line is a stock
+  compiler API call.
+- **Consequence — honest baseline dropped 166 -> 158.** The previously-skipped
+  `tread12` check exposed 8 FALSE GREENS: files that passed the partial pipeline
+  but have a genuine pretty-print/desugar fidelity bug (our emitted L2 differs
+  from what stock `trans02_from_fpath` produces). They are moved OUT of the strict
+  gate into `CORPUS/pp-faithful-pending.files` (documented per-file) until fixed.
+  The default auto corpus is now **158/158 green** (dynamic 156/156), honestly.
+- **Real fidelity fix landed:** pyprint was DROPPING function static quantifiers —
+  `fun f {n:nat} .<n>. (...: list_vt(t, n))` rendered without the `{n:nat}` binder,
+  leaving the index `n` unbound. pyprint now emits `def f[N: SInt](...)` (sorts
+  `nat`/`int`->`SInt`, `bool`->`SBool`). This is necessary but not sufficient for
+  the 8 pending files; their residuals are distinct (template-impl param/signature
+  unification `S2Eimpr` ×5, `@impl` instantiation, datatype head sort, `list_vt`
+  dual-arity) — see `pp-faithful-pending.files`.
+- **Selector files** (`staexp0`/`staexp2`/`trans23_dynexp`) still fail under the
+  faithful pipeline (only `trans12_decl00` improved 4->2). They lower the dotted
+  selectors FAITHFULLY (byte-identical `D2Esym0` overload bucket — verified) so
+  resolution is the compiler's job; their residual is a separate desugar gap to
+  diagnose, not overload-resolution logic for us to write. See `OVERLOAD-13A.md`.
 
 ## 2026-06-22 session checkpoint
 
