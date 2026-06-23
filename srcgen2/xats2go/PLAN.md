@@ -623,6 +623,34 @@ ATS3 code* and fix whatever breaks. The failure set IS the prioritized work list
   **OPEN (architecture):** GENERAL faithful template inlining (beyond name-gated families) still needs
   the typed-from-side-table path — confirm instance-body temps are `go_tytab`-recorded; if not, either
   extend coverage or (the principled fallback for a typed backend) lower from intrep0 directly.
+- **[ARCHITECTURE] TYPED intrep1 CONFIRMED → GROUND-UP TYPED EMITTER (approved direction).**
+  CONFIRMED empirically: removing the `i1dcl_preludeq` guard, the faithfully-inlined `gseq→a1ref→loop`
+  chain emits FULLY TYPED with no new code — `go_tytab` already reaches instance-body temps (counter→`int`,
+  element→`rune`, native compares). So the "monomorphization wall" never existed; intrep1 IS effectively
+  typed via the existing `i0exp_ityp → go_tytab_record → gotype_of_i0typ` propagation. The residual blocker
+  to general (no-name-gating) faithful inlining is NOT types — it is two bounded, non-type problems:
+  (W2) collapse curried template-aliases (`func() func(any){return next}`) to direct application; and
+  (W3) the inlined prelude bodies bottom out in the **CATS primitive layer** (`XATS2JS_*`/`XATS000_*`) which
+  has no Go impl — the same floor `srcgen2_prelude.js` gives the JS backend, which today's design sidesteps
+  by hand-writing one idiomatic `Xats_<fn>` per prelude fn (doesn't scale; the foritm saga). **RUNTIME
+  MODEL DECISION = HYBRID:** keep hand-written idiomatic Go runtime for the common/hot prelude surface
+  (print/strings/lists/arith) AND faithfully inline everything else onto a Go CATS primitive floor — gated
+  by a "has-idiomatic-runtime" REGISTRY (NOT per-template name recognition): a prelude fn routes to its
+  runtime name iff registered, else its carried `dclq` body is faithfully+typed-inlined. General, idiomatic
+  where it counts, self-hosting-capable; mirrors the JS backend bottoming out in its runtime.
+  Why Go ≤ C in difficulty: Go gives for free the three hardest things an ATS3→C backend builds by hand —
+  closures (native func literals, no closure conversion), memory (GC → fold/free no-ops), uniform repr
+  (`any`/interfaces, generics optional). The recent pain was emitting from an erased IR, not Go being hard.
+  **PHASED PLAN (75 differential tests held as the invariant throughout; runtime+harness+oracle reused):**
+  (1) typed-IR contract — make "every temp resolves to a concrete `i0typ` via `go_tytab`" an invariant
+  (close residual record-coverage gaps); (2) CATS primitive floor in Go (`Xats_XATS2JS_*`/`Xats_XATS000_*`),
+  ported from the `srcgen2_prelude.js` contract; (3) type-driven leaf+data emission — concrete scalars,
+  per-datatype TYPED tagged structs/interfaces (retire `*XatsCon{[]any}`), typed tuples/records, native
+  ops; (4) faithful typed inlining + alias-collapse (the general path; no name-gating) gated by the
+  runtime registry; (5) control flow + TCO ported from the proven intrep1 shape; (6) self-host probe.
+  FIRST MILESTONE (vertical slice through 1/2/4): faithful TYPED inline of the foritm/`$work` family WITHOUT
+  name-gating, via the hybrid registry + alias-collapse + the foritm CATS subset, with the 74 untouched
+  (registered) — replacing test94's name-gated reconstruction with the general faithful-inline path.
 - **[self-hosting] COMPLETE GAP INVENTORY (architect probe, all 16 GO_DATS emitted to Go).**
   Emitting every backend source through the bundle and diffing referenced-vs-defined `xatsgo.Xats_*`
   symbols (+ real `case false /* UNHANDLED */` codegen markers) yields the prioritized work map.
