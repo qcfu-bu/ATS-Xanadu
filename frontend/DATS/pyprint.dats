@@ -575,7 +575,36 @@ pp_prefix_update_or_generic(out: FILR, mark: strn, rest: s0explst): void =
     pp_update_lhs(out, rest);
     ps(out, " >> ");
     pp_update_rhs(out, rest))
-  else (ps(out, mark); pp_apps_generic(out, rest))
+  else (
+    // PARENTHESIZED view-change: `&(?list(a) >> list(a, m+n))` — the `>>` spine lives INSIDE a
+    // single `(...)` group, so the top-level has_gtgt missed it. Unwrap the lone paren and render
+    // the view-change on its inner spine (`&?list[A] >> list[A, M+N]`); the surface `&`-reference +
+    // `>>` view-change reparse the SAME as the unparenthesized form.
+    case+ rest of
+    | list_cons(se0, list_nil()) =>
+      (case+ se0.node() of
+       | S0Elpar(_, inner, _) =>
+           // the paren's inner s0explst is usually a SINGLE element: either the flat `>>` spine, or
+           // (the common case) ONE S0Eapps wrapping it. Unwrap a lone S0Eapps to reach the spine.
+           let val spine = lpar_inner_spine(inner) in
+             if s0explst_has_gtgt(spine)
+             then ( ps(out, mark); pp_update_lhs(out, spine); ps(out, " >> "); pp_update_rhs(out, spine) )
+             else (ps(out, mark); pp_apps_generic(out, rest))
+           end
+       | _ => (ps(out, mark); pp_apps_generic(out, rest)))
+    | _ => (ps(out, mark); pp_apps_generic(out, rest))
+  )
+)
+and
+// the view-change spine inside a `&(...)` / `!(...)` paren: a lone `S0Eapps` element unwraps to its
+// own spine (`(?list(a) >> _)` parses as `[S0Eapps([?,list,(a),>>,...])]`); otherwise the list is
+// already the flat spine. Lets pp_prefix_update_or_generic find a parenthesized `>>`.
+lpar_inner_spine(inner: s0explst): s0explst =
+(
+  case+ inner of
+  | list_cons(se, list_nil()) =>
+      (case+ se.node() of S0Eapps(ses) => ses | _ => inner)
+  | _ => inner
 )
 and
 // does this apps spine contain a top-level `->` (i.e. it is an arrow TYPE)? The arrow may sit at
