@@ -13,7 +13,7 @@ HERE="$(cd "$(dirname "$0")/.." && pwd)"
 export XATSHOME="${XATSHOME:-/Users/qcfu/Projects/ATS-Xanadu}"
 BUNDLE="$HERE/srcgen2/BUILD/xats2chez-bundle.js"
 CACHE="$HERE/srcgen2/BUILD/selfhost/cache"; mkdir -p "$CACHE"
-RT="$HERE/runtime/scheme/xats2chez_cats.scm $HERE/runtime/scheme/xats2chez_runtime.scm"
+RT="$HERE/runtime/scheme/xats2chez_cats.scm $HERE/runtime/scheme/xats2chez_runtime.scm $HERE/runtime/scheme/xats2chez_collrt.scm"
 LIST="$1"; DRIVER="${2:-}"
 
 srcof() { for d in "$XATSHOME/srcgen2/DATS" "$XATSHOME/prelude/DATS"; do
@@ -54,8 +54,13 @@ for u in $UNITS; do
 done
 
 # ---- assemble the image ----
+# Order: runtime floor (cats/runtime/collrt) -> compiled units -> GENERICS layer
+# (loaded LAST so its correct polymorphic g_cmp/char_eq/strn_make_llist win over
+# the type-erased per-unit instances that clobber each other) -> driver.
+GENRT="$HERE/runtime/scheme/xats2chez_generics.scm"
 IMG="$HERE/srcgen2/BUILD/selfhost/broad.scm"
 cat $RT > "$IMG"
 for u in $UNITS; do [ -f "$CACHE/$u.scm" ] && cat "$CACHE/$u.scm" >> "$IMG"; done
+cat "$GENRT" >> "$IMG"
 [ -n "$DRIVER" ] && [ -f "$DRIVER" ] && cat "$DRIVER" >> "$IMG"
 echo ">> image: $(grep -c '(define' "$IMG") defines"

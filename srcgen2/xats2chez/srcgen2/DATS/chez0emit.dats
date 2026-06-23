@@ -818,6 +818,17 @@ fun
 cz_empty_iclist((*void*)): list( @(sym_t, list(sym_t)) ) = list_nil()
 val the_cz_iconts = a0ref_make_1val(cz_empty_iclist())
 //
+(* the_cz_scopeconts: the continuation names bound IN SCOPE (as lifted trailing
+   params) of the instance currently being emitted.  A call whose callee is one
+   of these is calling the LOCAL param -- NOT the global mapped instance -- so it
+   must NOT inject (the global map keys by NAME and reuses names like exists$test
+   across scopes; without this a call (exists$test x1) inside lifted list_exists
+   wrongly becomes (exists$test x1 exists$test0) with exists$test0 unbound). *)
+val the_cz_scopeconts = a0ref_make_1val(cz_empty_symlist())
+fun
+cz_app_symlist( xs: list(sym_t), ys: list(sym_t)): list(sym_t) =
+(case+ xs of list_nil() => ys | list_cons(x0, xs) => list_cons(x0, cz_app_symlist(xs, ys)))
+//
 fun
 cz_map_has( name: sym_t): bool =
 let
@@ -1013,7 +1024,12 @@ cz_exp_conts
 ( fexp: i0exp): list(sym_t) =
 (
 case+ fexp.node() of
-| I0Ecst(dcst) => cz_map_lookup(d2cst_get_name(dcst))
+| I0Ecst(dcst) =>
+  (* a callee bound as an in-scope lifted param is the LOCAL continuation, not the
+     global instance of the same name -- calling it injects nothing. *)
+  if cz_sym_memb(d2cst_get_name(dcst), a0ref_get(the_cz_scopeconts))
+  then cz_empty_symlist()
+  else cz_map_lookup(d2cst_get_name(dcst))
 | I0Etimp(f0, _) => cz_exp_conts(f0)
 | I0Etapq(f0, _) => cz_exp_conts(f0)
 | I0Etapp(f0, _) => cz_exp_conts(f0)
@@ -1537,7 +1553,7 @@ case+ idcl.node() of
   case+ conts of
   | list_cons(_, _) =>   (* LIFTED higher-order impl: trailing free-cont params *)
     (cz_str(filr, "(define ("); cz_dimpl_name(filr, dimp); cz_fiarglst(filr, fargs);
-     cz_emit_conts(filr, conts); cz_str(filr, ") "); i0exp_cz0(filr, body); cz_str(filr, ")\n"))
+     cz_emit_conts(filr, conts); cz_str(filr, ") "); cz_body_scoped(filr, conts, body); cz_str(filr, ")\n"))
   | list_nil() =>
     (case+ fargs of
      | list_nil() =>   (* point-free template alias: #implfun f = g -> forwarding lambda *)
@@ -1583,6 +1599,18 @@ case+ idcls of
 | list_nil() => ()
 | list_cons(idcl, idcls) => (i0dcl_cz0(filr, idcl); i0dclist_cz0(filr, idcls)))
 //
+(* cz_body_scoped: emit a lifted instance's BODY with its lifted continuations
+   [conts] pushed onto the in-scope set, so calls to those conts inside the body
+   resolve to the local params (no re-injection).  Restores the prior set after. *)
+and
+cz_body_scoped
+( filr: FILR, conts: list(sym_t), body: i0exp): void =
+let
+val saved = a0ref_get(the_cz_scopeconts)
+val () = a0ref_set(the_cz_scopeconts, cz_app_symlist(conts, saved))
+val () = i0exp_cz0(filr, body)
+in a0ref_set(the_cz_scopeconts, saved) end
+//
 (* ===== template-instance HOISTING (monomorphization output) =====
    A template instance I0Etimp carries its implementation (i0dclopt).  Rather
    than erasing it, we HOIST each unique instance's body to a top-level define,
@@ -1613,7 +1641,7 @@ cz_str(filr, ")) ");
  | list_cons(_, _) =>
    (cz_str(filr, "(lambda ("); cz_fiarglst(filr, fargs);
     cz_emit_conts(filr, cz_map_lookup(d2cst_get_name(dc))); cz_str(filr, ") ");
-    i0exp_cz0(filr, body); cz_str(filr, ")"))
+    cz_body_scoped(filr, cz_map_lookup(d2cst_get_name(dc)), body); cz_str(filr, ")"))
  | list_nil() =>
    (case+ fargs of
     | list_nil() => (cz_str(filr, "(lambda czfwd (apply "); i0exp_cz0(filr, body); cz_str(filr, " czfwd))"))

@@ -213,15 +213,16 @@
 (define (XATSOPT_strn_append_uint s u) (string-append s (number->string u)))
 (define (strn_append s t) (string-append s t))
 ;; string -> a LINEAR lazy char-code stream (strm_vt = LEVEL-1 lazy, forced by
-;; XATS000_dl1az -- the lexer's lxbf1_getc1 forces it that way).  strmcon: #(0)
-;; nil / #(1 code lazytail).  l1azy thunk takes a dummy linear arg.
+;; XATS000_dl1az).  strmcon_vt: nil = #(0), cons = #(1 code lazytail)  (the
+;; CANONICAL tags from the JS precats: strmcon_vt_nil tag 0 / cons tag 1).  A
+;; strm_vt TERMINATES with nil at end-of-string.  l1azy thunk takes a dummy arg.
 (define (strn_strmize s)
   (let ((n (string-length s)))
     (let mk ((i 0))
       (XATS000_l1azy
         (lambda (_)
-          (if (>= i n) (vector 1)
-              (vector 0 (char->integer (string-ref s i)) (mk (+ i 1)))))))))
+          (if (>= i n) (vector 0)
+              (vector 1 (char->integer (string-ref s i)) (mk (+ i 1)))))))))
 
 ;;;--------------------------------------------------------------------
 ;;; Variadic prerr (gs_prerrln_n* / gs_prerr_*) — like gs_print but to stderr.
@@ -262,16 +263,36 @@
 ;; unsafe view casts: identities (the value representation is uniform).
 (define (UN_strn_vt_cast s) s)
 (define (UN_strn2string s) s)
+;; $UNSAFE.cast0 / cast1 (non-linear / linear unsafe cast) -- identity in the
+;; uniform value rep.  e.g. char_make_code(i0) = cast01(i0) (a char IS its code).
+(define (cast01 x) x)
+(define (cast10 x) x)
 
 ;; more string ops (the lexer's char source).
 (define (strn_head$opt s)
   (if (= 0 (string-length s)) (vector 0) (vector 1 (char->integer (string-ref s 0)))))
 (define (strn_tail$raw s) (substring s 1 (string-length s)))
-(define (strn_strxize s) (strn_strmize s))   ; strx == char stream variant
 
-;; strx_vt_map0(xs[, fopr]): lazily map a char-code stream through fopr (the
-;; lexer's char source applies map$fopr0: code>0 ? code : -1 for EOF).  A
-;; bodyless prelude higher-order primitive -- lambda-lifting injects fopr.
+;; strn_strxize(s): string -> a strx_vt(char) = an INFINITE level-1 lazy char
+;; stream.  A strx_vt has a SINGLE constructor strxcon_vt_cons = #(0 code tail)
+;; (no nil) -- end-of-string is NOT termination but CNUL ('\000' = code 0)
+;; FOREVER (matches the prelude strn_strxize auxtail).  lxbf1_make_strn maps it
+;; through map$fopr0 (code>0 ? code : -1) so EOF surfaces as -1 forever, which
+;; lxbf1_getc1 needs (getc1 matches only strxcon_vt_cons; a nil would cfail).
+(define (strn_strxize s)
+  (let ((n (string-length s)))
+    (define (auxtail) (XATS000_l1azy (lambda (_) (vector 0 0 (auxtail)))))
+    (let mk ((i 0))
+      (XATS000_l1azy
+        (lambda (_)
+          (if (>= i n) (XATS000_dl1az (auxtail))
+              (vector 0 (char->integer (string-ref s i)) (mk (+ i 1)))))))))
+
+;; strx_vt_map0(xs[, fopr]): lazily map a strx_vt char stream through fopr (the
+;; lexer's char source applies map$fopr0: code>0 ? code : -1 for EOF).  A strx_vt
+;; is INFINITE (only strxcon_vt_cons = #(0 head tail)), so every forced cell is a
+;; cons -- map head, recurse on tail.  A bodyless prelude higher-order primitive;
+;; lambda-lifting injects fopr (1-arg form is an inert fallback).
 (define strx_vt_map0
   (case-lambda
     ((xs) xs)
@@ -279,8 +300,7 @@
      (XATS000_l1azy
       (lambda (_)
         (let ((c (XATS000_dl1az xs)))
-          (if (= (vector-ref c 0) 1) (vector 1)
-              (vector 0 (fopr (XATSPCON c 0)) (strx_vt_map0 (XATSPCON c 1) fopr)))))))))
+          (vector 0 (fopr (XATSPCON c 0)) (strx_vt_map0 (XATSPCON c 1) fopr))))))))
 (define (strn_get$at$raw s i) (char->integer (string-ref s i)))
 
 ;; pointers (p2tr) — modeled as boxes (an address is a 1-slot cell).
