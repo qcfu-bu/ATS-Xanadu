@@ -113,7 +113,24 @@
     (else #t)))
 (define (gseq_memberq xs x0)
   (gseq_exists xs (lambda (x1) (g_eq x0 x1))))
+;; list_exists is the list instance of the same generic — same polymorphic body.
+(define (list_exists xs test) (gseq_exists xs test))
+
+;;;--------------------------------------------------------------------
+;;; Option (optn) constructors + a few stream/list reifiers that the COMPILER
+;;; source references from the FROZEN prelude (measured floor, not recompiled).
+;;; option: none = #(0), some(x) = #(1 x).
+;;;--------------------------------------------------------------------
+(define (optn_nil) (vector 0))
+(define (optn_cons x) (vector 1 x))
+;; strm_vt_listize0: force a lazy strm_vt (l1azy -> strmcon_vt nil=#(0)/cons=#(1 h
+;; lazytail)) fully into a list_vt (#(0) nil / #(1 h t) cons).
+(define (strm_vt_listize0 xs)
+  (let loop ((s (XATS000_dl1az xs)))
+    (if (= (vector-ref s 0) 0) (vector 0)
+        (vector 1 (vector-ref s 1) (loop (XATS000_dl1az (vector-ref s 2)))))))
 
 ;;;====================================================================
-;;; end of [xats2chez_generics.scm]  (grows as more collisions surface)
+;;; end of [xats2chez_generics.scm]  (the FROZEN prelude floor; grows as the
+;;; compiler source references more prelude symbols — measured, not guessed)
 ;;;====================================================================
