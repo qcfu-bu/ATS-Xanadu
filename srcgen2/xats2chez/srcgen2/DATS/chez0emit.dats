@@ -216,6 +216,18 @@ then (prints(stamp_get_uint(d2con_get_stmp(dcon)))) where { #impltmp g_print$out
 else (prints(ct)) where { #impltmp g_print$out<>() = filr }
 end//let
 //
+(* cz_dimpl_name: the name of the d2cst that an I0Dimplmnt0 (#implfun/implement)
+   implements — the monomorphic instance name used at call sites. *)
+fun
+cz_dimpl_name
+( filr: FILR, dimp: dimpl): void =
+(
+case+ dimp.node() of
+| DIMPLone1(dcst) => cz_sym(filr, d2cst_get_name(dcst))
+| DIMPLone2(dcst, _) => cz_sym(filr, d2cst_get_name(dcst))
+| _(*else*) =>
+  (cz_str(filr, "_unkimpl"); prerrsln("[chez0emit] UNHANDLED dimpl name")))
+//
 (* cz_lab_idx: a (positional) label as an integer index. *)
 fun
 cz_lab_idx
@@ -310,7 +322,12 @@ case+ sp.node() of
   (cz_str(filr, "(= "); cz_acc(filr, iscon, idx); cz_str(filr, " "); cz_chrtok(filr, t0); cz_str(filr, ")"))
 | I0Pstr(t0) =>
   (cz_str(filr, "(string=? "); cz_acc(filr, iscon, idx); cz_str(filr, " "); cz_strlit(filr, t0); cz_str(filr, ")"))
-| _(*else: nested con/tuple pattern*) =>
+| I0Pbtf(s0) =>
+  (cz_str(filr, "(eq? "); cz_acc(filr, iscon, idx); cz_str(filr, " ");
+   (if (symbl_cmp(s0, TRUE_symbl) = 0) then cz_str(filr, "#t") else cz_str(filr, "#f")); cz_str(filr, ")"))
+| I0Pdap1(p0) =>
+  (cz_str(filr, "(XATS000_ctgeq "); cz_acc(filr, iscon, idx); cz_str(filr, " "); cz_funpat_ctag(filr, p0); cz_str(filr, ")"))
+| _(*else: deeper nested con/tuple pattern*) =>
   (cz_str(filr, "#f"); prerrsln("[chez0emit] UNHANDLED nested sub-pattern")))
 //
 (* cz_subbind: bind a var sub-pattern's name to its projected field. *)
@@ -355,8 +372,12 @@ case+ pat.node() of
 | I0Pint(t0) => (cz_str(filr, "(= czscrut "); cz_inttok(filr, t0); cz_str(filr, ")"))
 | I0Pchr(t0) => (cz_str(filr, "(= czscrut "); cz_chrtok(filr, t0); cz_str(filr, ")"))
 | I0Pstr(t0) => (cz_str(filr, "(string=? czscrut "); cz_strlit(filr, t0); cz_str(filr, ")"))
+| I0Pbtf(s0) =>
+  (if (symbl_cmp(s0, TRUE_symbl) = 0) then cz_str(filr, "(eq? czscrut #t)") else cz_str(filr, "(eq? czscrut #f)"))
 | I0Pcon(dcon) =>
   (cz_str(filr, "(XATS000_ctgeq czscrut "); cz_ctag(filr, dcon); cz_str(filr, ")"))
+| I0Pdap1(p0) =>
+  (cz_str(filr, "(XATS000_ctgeq czscrut "); cz_funpat_ctag(filr, p0); cz_str(filr, ")"))
 | I0Pdapp(fpat, npf, sps) =>
   (cz_str(filr, "(and (XATS000_ctgeq czscrut "); cz_funpat_ctag(filr, fpat); cz_str(filr, ")");
    cz_subtests(filr, true, 0, ldrop_pat(sps, npf)); cz_str(filr, ")"))
@@ -365,7 +386,10 @@ case+ pat.node() of
 | I0Ptup1(_, npf, sps) =>
   (cz_str(filr, "(and #t"); cz_subtests(filr, false, 0, ldrop_pat(sps, npf)); cz_str(filr, ")"))
 | _(*else*) =>
-  (cz_str(filr, "#f"); prerrsln("[chez0emit] UNHANDLED pat-test")))
+  (
+  cz_str(filr, "#f");
+  prerrsln("[chez0emit] UNHANDLED-pat-test-NODE:");
+  i0pat_fprint(pat, g_stderr((*0*))); prerrsln("")))
 //
 (* cz_pat_binds: emit the let-binding-list CONTENT for a pattern. *)
 fun
@@ -438,6 +462,9 @@ case+ iexp.node() of
   | T_INT02(_, rep) => cz_str(filr, rep)
   | T_INT03(_, rep, _) => cz_str(filr, rep))
 | I0Ei00(i00) => (prints(i00)) where { #impltmp g_print$out<>() = filr }
+| I0Ebtf(s0) =>
+  (if (symbl_cmp(s0, TRUE_symbl) = 0) then cz_str(filr, "#t") else cz_str(filr, "#f"))
+| I0Eb00(b0) => (if b0 then cz_str(filr, "#t") else cz_str(filr, "#f"))
 | I0Eflt(tflt) =>
   (
   case- tflt.node() of
@@ -447,6 +474,10 @@ case+ iexp.node() of
 | I0Ef00(f00) => (prints(f00)) where { #impltmp g_print$out<>() = filr }
 | I0Estr(tstr) => cz_strlit(filr, tstr)
 | I0Es00(s00) => (cz_str(filr, "\""); cz_str(filr, s00); cz_str(filr, "\""))
+(* error / untranslated nodes -> the unit value (no Scheme misbehavior). *)
+| I0Enone0() => cz_str(filr, "(if #f #f)")
+| I0Enone1 _ => cz_str(filr, "(if #f #f)")
+| I0Enone2 _ => cz_str(filr, "(if #f #f)")
 | I0Ec00(c00) =>
   (cz_str(filr, "(XATSCHR0 \""); cz_char_esc(filr, c00); cz_str(filr, "\")"))
 | I0Echr(tchr) => cz_chrtok(filr, tchr)
@@ -596,7 +627,9 @@ case+ iexp.node() of
 | _(*else*) =>
   (
   cz_str(filr, "(begin #f) ;; UNHANDLED-i0exp\n");
-  prerrsln("[chez0emit] UNHANDLED i0exp"))
+  prerrsln("[chez0emit] UNHANDLED-i0exp-NODE:");
+  i0exp_fprint(iexp, g_stderr((*0*)));
+  prerrsln(""))
 )//endof[i0exp_cz0]
 //
 (* one match clause -> (when <test> (let (<binds>) [<when guards>] (czret <body>))) *)
@@ -869,6 +902,15 @@ case+ idcl.node() of
 | I0Dvaldclst(_, ivs0) => i0valdclist_cz0(filr, ivs0)
 | I0Dvardclst(_, ivs0) => i0vardclist_cz0(filr, ivs0)
 | I0Dfundclst(_, _, _, _, ifs0) => i0fundclist_cz0(filr, ifs0)
+(* template implementation (#implfun/implement) -> a (define (name params) body) *)
+| I0Dimplmnt0(_, _, _, dimp, fargs, body, _) =>
+  (
+  cz_str(filr, "(define (");
+  cz_dimpl_name(filr, dimp);
+  cz_fiarglst(filr, fargs);
+  cz_str(filr, ") ");
+  i0exp_cz0(filr, body);
+  cz_str(filr, ")\n"))
 | I0Ddclst0(idcls) => i0dclist_cz0(filr, idcls)
 | I0Dlocal0(ihead, ibody) =>
   (i0dclist_cz0(filr, ihead); i0dclist_cz0(filr, ibody))
@@ -892,7 +934,9 @@ case+ idcl.node() of
 | _(*else*) =>
   (
   cz_str(filr, ";; UNHANDLED-i0dcl\n");
-  prerrsln("[chez0emit] UNHANDLED i0dcl"))
+  prerrsln("[chez0emit] UNHANDLED-i0dcl-NODE:");
+  i0dcl_fprint(idcl, g_stderr((*0*)));
+  prerrsln(""))
 )//endof[i0dcl_cz0]
 //
 and
