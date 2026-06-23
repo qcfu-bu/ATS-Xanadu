@@ -237,6 +237,12 @@ case+ e of
   ( ps(out, "(Elam"); (if is_func then ps(out, "@func") else ()); print_span(out, loc);
     ps(out, " (params"); pp_params_typed(out, ps0, ptypes);
     ps(out, ") "); pp_exp(out, body, ind); ps(out, ")") )
+| PCEfix(loc, nm, ps0, ptypes, _ret, body) =>
+  ( ps(out, "(Efix "); ps(out, nm); print_span(out, loc);
+    ps(out, " (params"); pp_params_typed(out, ps0, ptypes);
+    ps(out, ") "); pp_exp(out, body, ind); ps(out, ")") )
+| PCEexists(loc, _ws, _ss) =>
+  ( ps(out, "(Eexists"); print_span(out, loc); ps(out, ")") )
 | PCElet(loc, p, ann, rhs, body) =>
   ( ps(out, "(Elet"); print_span(out, loc); ps(out, " ");
     pp_pat(out, p); pp_anncolon(out, ann); ps(out, " = "); pp_exp(out, rhs, ind);
@@ -459,6 +465,8 @@ case+ d of
     ps(out, ")") )
 | PCCinclude(loc, path, _knd) =>
   (ps(out, "(include "); ps(out, path); print_span(out, loc); ps(out, ")"))
+| PCCdyninit(loc, path) =>
+  (ps(out, "(dyninit "); ps(out, path); print_span(out, loc); ps(out, ")"))
 | PCCalias(loc, nm, tvs, typ) =>
   ( ps(out, "(alias "); ps(out, nm); print_span(out, loc);
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_pcparams(out, tvs); ps(out, ")")) );

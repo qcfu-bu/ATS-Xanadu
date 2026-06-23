@@ -319,6 +319,12 @@ case+ e of
   ( ps(out, "(Elam"); (if is_func then ps(out, "@func") else ()); print_span(out, loc);
     ps(out, " (params"); pp_paramlst(out, params); ps(out, ")");
     pp_stmtlst(out, body, 1); ps(out, ")") )
+| PyEfix(loc, nm, params, _ret, body) =>
+  ( ps(out, "(Efix "); ps(out, nm); print_span(out, loc);
+    ps(out, " (params"); pp_paramlst(out, params); ps(out, ")");
+    pp_stmtlst(out, body, 1); ps(out, ")") )
+| PyEexists(loc, _ws, _ss) =>
+  ( ps(out, "(Eexists"); print_span(out, loc); ps(out, ")") )
 | PyEann(loc, e1, t) =>
   ( ps(out, "(Eann"); print_span(out, loc); ps(out, " ");
     pp_exp(out, e1); ps(out, " : "); pp_typ(out, t); ps(out, ")") )
@@ -557,6 +563,8 @@ case+ d of
   (ps(out, "(import"); print_span(out, loc); ps(out, " "); pp_import(out, imp); ps(out, ")"))
 | PyCinclude(loc, path) =>
   (ps(out, "(include"); print_span(out, loc); ps(out, " "); ps(out, path); ps(out, ")"))
+| PyCdyninit(loc, path) =>
+  (ps(out, "(dyninit"); print_span(out, loc); ps(out, " "); ps(out, path); ps(out, ")"))
 | PyCsymalias(loc, nm, tgt, prec) =>
   ( ps(out, "(symalias "); ps(out, nm); print_span(out, loc);
     ps(out, " = "); ps(out, tgt);

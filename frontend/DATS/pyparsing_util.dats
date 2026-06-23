@@ -42,6 +42,8 @@ case+ e of
 | PyElist(loc, _) => loc      | PyErec(loc, _, _) => loc
 | PyEfield(loc, _, _) => loc  | PyEindex(loc, _, _) => loc
 | PyElam(loc, _, _, _) => loc | PyEann(loc, _, _) => loc
+| PyEfix(loc, _, _, _, _) => loc
+| PyEexists(loc, _, _) => loc
 | PyEraise(loc, _) => loc     | PyEtry(loc, _, _) => loc
 | PyEop(loc, _) => loc        | PyEinst(loc, _, _) => loc | PyEsapp(loc, _, _) => loc
 | PyEaddr(loc, _) => loc      | PyEderef(loc, _) => loc
@@ -104,6 +106,7 @@ case+ d of
 | PyCstadef(loc, _, _) => loc
 | PyCimport(loc, _) => loc          | PyCstmt(loc, _) => loc
 | PyCinclude(loc, _) => loc
+| PyCdyninit(loc, _) => loc
 | PyCsymalias(loc, _, _, _) => loc
 | PyCfixity(loc, _, _, _) => loc
 | PyCerror(loc, _) => loc

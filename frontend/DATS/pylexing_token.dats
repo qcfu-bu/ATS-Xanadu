@@ -205,6 +205,10 @@ kw_of_lident(s: strn): ptnode =
   else if s = "prefix" then PT_KW_PREFIX()
   else if s = "postfix" then PT_KW_POSTFIX()
   else if s = "nonfix" then PT_KW_NONFIX()
+  // MISC (Cluster E): the ATS dyn-load + recursive-lambda keywords kept in lock-step with the CATS
+  // scanner's PYL__KW table. `initialize` (D2Cdyninit) + `fix` (D2Efix0). Reserved words.
+  else if s = "initialize" then PT_KW_INITIALIZE()
+  else if s = "fix" then PT_KW_FIX()
   else if s = "true" then PT_TRUE()
   else if s = "false" then PT_FALSE()
   else PT_LIDENT(s)

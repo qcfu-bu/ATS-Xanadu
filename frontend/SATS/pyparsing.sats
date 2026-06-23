@@ -331,6 +331,20 @@ pyexp =
 | PyEfield of (loctn, pyexp, strn)
 | PyEindex of (loctn, pyexp, pyexp)
 | PyElam   of (loctn, bool(*@func*), list(pyparam), list(pystmt))
+//   PyEfix   : MISC (Cluster E) — a RECURSIVE lambda `fix NAME(params)[: RET] => body` (the ATS
+//              `fix`/`fix@`). NAME self-binds the lambda in its own body (recursion). The `pytypopt`
+//              is the OPTIONAL result-type annotation (stock `fix f(...): R => e`). The body is a
+//              SUITE (a pystmt list), like PyElam. Lowers to D2Efix0(T_FIX(0); fid; f2arglst; s2res;
+//              F1UNARRWdflt(); body).
+| PyEfix   of (loctn, strn(*self-name*), list(pyparam), pytypopt(*ret*), list(pystmt))
+//   PyEexists : MISC (Cluster E) — the EXPRESSION-position existential-witness form `exists {W..}
+//               (S..)` (the ATS `$exists{..}(..)`; D1Eexists). DISTINCT from the type-level
+//               `exists[..] T` quantifier (PyTquant): this is a DYN expr that packs a static witness
+//               into an existential scope. The deployed stock trans12 does NOT lower this — it leaves
+//               it as a D2Enone1(D1Eexists(..)) poison wrapper — so it is faithful ONLY for the
+//               int-literal corpus form: the witnesses + the scope value are INT literals (the
+//               `$exists{1}(1)` shape). Carries the witness int-lexemes + the scope int-lexemes.
+| PyEexists of (loctn, list(strn)(*witness int-lexemes*), list(strn)(*scope int-lexemes*))
 | PyEann   of (loctn, pyexp, pytyp)
 //   PyEraise : `raise e` — raise an exception (EXN). `e` is an exn-typed expression
 //              (a constructor application `E(args)` or a nullary `E`). The whole
@@ -617,6 +631,13 @@ pydecl =
 //                SPLICES the resulting d2 decls under a D2Cinclude — byte-identical to stock's
 //                f0_include, so an include-bearing file's round-tripped L2 matches stock's exactly.
 | PyCinclude of (loctn, strn(*raw path lexeme, quotes included*))
+//   PyCdyninit : a faithful ATS `#dyninit "PATH"` dyn-loading-init decl — the surface `initialize
+//                "PATH"` (Cluster E, project-owner-LOCKED). Carries the RAW path-string lexeme
+//                (quotes included; unquoted at lowering). The elaborator passes it straight through
+//                to PCCdyninit; M3 lowers it to the stock D2Cdyninit(T_SRP_DYNINIT(); G1Estr(...))
+//                — byte-identical to stock's f0_dyninit, so a `#dyninit`-bearing file's round-tripped
+//                L2 matches stock's exactly.
+| PyCdyninit of (loctn, strn(*raw path lexeme, quotes included*))
 //   PyCsymalias : a STANDALONE overload-ALIAS decl `@overload NAME = TARGET` (+ optional
 //                 `@overload[N]` precedence) — the ATS-parity `#symload NAME with TARGET [of N]`.
 //                 There is NO `def` here: it RE-EXPORTS an already-existing function TARGET into

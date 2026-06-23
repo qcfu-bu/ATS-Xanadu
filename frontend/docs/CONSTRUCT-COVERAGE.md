@@ -24,11 +24,19 @@ Run `bash frontend/build-construct-coverage.sh` to regenerate. As of 2026-06-23:
 
 | datatype | emitted / total | missing |
 |---|---|---|
-| `d0ecl` (declarations)      | 27 / 34 |  7 |
-| `d0exp` (dyn expressions)   | 23 / 29 |  6 |
-| `d0pat` (patterns)          | 11 / 13 |  2 |
-| `s0exp` (static/type exprs) | 14 / 18 |  4 |
+| `d0ecl` (declarations)      | 30 / 34 |  4 |
+| `d0exp` (dyn expressions)   | 28 / 29 |  1 |
+| `d0pat` (patterns)          | 12 / 13 |  1 |
+| `s0exp` (static/type exprs) | 15 / 18 |  3 |
 | `g0exp` (static/guard exprs)|  5 / 8  |  3 |
+
+> **2026-06-23 — Cluster E (+1 d0ecl `D0Cdyninit`, +3 d0exp `D0Efix0`/`D0Etry0`/`D0Eexists`):**
+> `initialize "PATH"` (= `#dyninit`), `fix f(a): R => e`, `try:`/`except:` (the ATS→py emit half), and
+> the expr-position `exists {W}(S)` (= `$exists`) now round-trip FAITHFUL (zero structural L2-diff,
+> EXACT + triage; `frontend/TEST/l2diff/misc/`). d0ecl 27→30, d0exp 25→28 (the s0exp work above
+> separately closed a d0exp/d0pat emitter). `D0Cmacdef` is the only Cluster-E DEFERRAL (no live stock
+> L2 — the deployed parser does not parse `#macdef`). The 4 remaining d0ecl gaps are `D0Cmacdef`
+> (deferred), `D0Cdatasort` (deferred, needs L1), `D0Cdynxgen`/`D0Cextcode` (rare/corpus-absent).
 
 > **2026-06-23 — s0exp +7 (`S0Euni0`/`S0Eexi0`/`S0Eop1`/`S0Eop2`/`S0Estr`/`S0Echr`/`S0Eflt`):**
 > The universal `{..} T` (`forall[..]`) and existential `[..] T` (`exists[..]`) type quantifiers, the
@@ -126,7 +134,7 @@ exactly there (faithful to the stock quirk).
 |---|---|---:|---:|---|
 | `D0Eextnam` | `$extnam(...)` | ~30 | **665** | PP+PR+LO+T — the dominant prelude construct |
 | `D0Cextcode`| `%{ C %}` | 0 | 0 | defer (corpus-absent; error-clean if hit) |
-| `D0Cdyninit`| `dynload` | ~95 | 0 | PP+PR+LO+T |
+| `D0Cdyninit`| `#dyninit` | ~95 | 0 | ✅ PP+PR+LO+T — `initialize "PATH"` (Cluster E) |
 
 ### Cluster D — records (boxed/flat/linear variants) — ✅ DONE
 | construct | ATS syntax | srcgen2 | prelude | |
@@ -165,14 +173,45 @@ extracting the field sub-patterns and binding them with the working `tr12env_add
 record STRUCTURE matches stock exactly, only the typedef-level cast wrapper is missing. No such linear
 record-type aliases appear in the corpus (the value/pattern `$recvx` forms ARE faithful).
 
-### Cluster E — macros + misc dyn exprs
-| construct | ATS syntax | srcgen2 | prelude | |
-|---|---|---:|---:|---|
-| `D0Cmacdef` | `macdef` | ~25 | 0 | PP+PR+LO+T |
-| `D0Etry0`   | `try` (ATS→py direction) | 3 | 3 | PP only (py→L2 try already works) |
-| `D0Eexists` | `$exists{..}` | low | low | PP+PR+LO+T |
-| `D0Efix0`   | `fix`/`fix@` recursive lambda | low | low | PP+PR+LO+T |
-| `D0Cdynxgen`/`D0CSTDCL` | (rare/internal) | — | — | investigate; likely defer |
+### Cluster E — macros + misc dyn exprs — ✅ DONE (4/5; `macdef` deferred)
+> **2026-06-23 — DONE (4/5):** `D0Cdyninit`, `D0Efix0`, `D0Etry0`, `D0Eexists` now round-trip
+> FAITHFUL (zero structural L2-diff, EXACT + triage; fixtures in `frontend/TEST/l2diff/misc/`).
+> `D0Cmacdef` is DEFERRED (no live stock L2 — the deployed parser does not parse `#macdef`).
+>
+| construct | ATS syntax | pythonic surface | stock L2 | |
+|---|---|---|---|---|
+| `D0Cdyninit`| `#dyninit "PATH"` | `initialize "PATH"` | `D2Cdyninit(T_SRP_DYNINIT(); G1Estr("PATH";len))` | ✅ PP+PR+LO+T |
+| `D0Efix0`   | `fix f(a): R => e` | `fix f(a): R => e` | `D2Efix0(T_FIX(0); fid; F2ARGdapp(-1;..); s2res; F1UNARRWdflt(); body)` | ✅ PP+PR+LO+T |
+| `D0Etry0`   | `try E with \| p => h` | `try:`/`except p:` | `D2Etry0(T_TRY(); body; [D2CLScls(..)])` | ✅ PP+PR+LO+T |
+| `D0Eexists` | `$exists{W}(S)` | `exists {W} (S)` | `D2Enone1(D1Eexists(T_DLR_EXISTS(); [D1Esarg([S1Eint(W)])]; D1El1st([D1Eint(S)])))` | ✅ PP+PR+LO+T (int-literal form) |
+| `D0Cmacdef` | `#macdef NAME = body` | (`macro NAME = ..`) | — (errck poison; unparsed) | DEFERRED (needs L1) |
+| `D0Cdynxgen`/`D0CSTDCL` | (rare/internal) | — | — | defer (corpus-absent) |
+
+**Cluster E landed (4/5).** Two new lexer keywords APPENDED LAST in `ptnode` (tags 89/90; CATS
+`PYL__KW` maps them): `initialize` (→ `D2Cdyninit`, mirrors `#include`'s parse/elab/lower) and `fix`
+(→ `D2Efix0`, mirrors the lambda path plus a self-name `d2var` bound first for recursion, `npf=-1`,
+and the optional `: R` result type). The expression-position `exists {W}(S)` REUSES the existing
+`PT_KW_EXISTS` token, disambiguated from the TYPE-level `exists[..]` quantifier (`PyTquant`) by
+POSITION — only an EXPR-position `exists` reaches the new `p_exists_expr`. The `try` half was
+EMITTER-only: py→L2 (`PyEtry` → `PCEtry` → `D2Etry0`) already round-tripped, so only the ATS→py
+pyprint (`D0Etry0` → `try:`/`except:`) was added.
+
+**`D0Eexists` is a stock POISON node** — the deployed `trans12_dynexp` never lowers `$exists` (the
+`_(*otherwise*) => d2exp_none1` fallthrough), so the stock L2 is `D2Enone1(D1Eexists(..))`, a raw L1
+node wrapped in the "not-lowered" wrapper. The pyfront builds the EXACT L1 tree (`D1Esarg`/`S1Eint`/
+`D1El1st`/`D1Eint`) and wraps it `d2exp_none1` — faithful for the int-literal corpus form
+(`$exists{1}(1)`, test10). A GENERAL (non-literal) witness/scope would need s0exp→s1exp + d0exp→d1exp
+L1 lowering the pyfront lacks (it goes straight to L2) — out of scope, and never used in the corpus.
+
+**`D0Cmacdef` is DEFERRED (clean, non-corpus).** The DEPLOYED stock parser
+(`parsing_decl00.dats` + the `tread01` reader the `trans02_from_fpath` pipeline uses) has NO `#macdef`
+case — `D0Cmacdef` is constructed only in the alternate `pread00_decl00.dats` reader, NOT wired into
+the deployed compiler. So `#macdef NAME = body` does not parse in deployed ATS3: it produces a chain
+of `D0Ctkerr`/`D0Ctkskp` poison nodes (8 errors for `#macdef m1 = 1`), so there is no faithful stock
+L2 to round-trip against. Even on the pread00 path, macdef lowers to `D2Cd1ecl(D1Cmacdef(.., dedf))`
+where `dedf` is a `D1Cexp` — an L1 MACRO TREE (`trans01_d0exp` of the body) that the pyfront's
+L0→L2-direct lowering cannot build (the SAME L1-machinery gap that defers `datasort`). See
+`frontend/TEST/l2diff/misc/macdef1.dats` for the deferral marker.
 
 \* `$extnam`/`#stacst` exact counts noisy under grep; treat as "present, needs support".
 
@@ -197,7 +236,9 @@ compiler resolve), and ONE focused test per construct. Ordered by leverage:
 3. ~~**Cluster B — fixity DSL**~~ ✅ DONE — `fixity0.sats` round-trips (33 decls, 0 TODO(pp)); the
    FIXED Pratt table suffices for the corpus (no source-configurability built — verdict above).
 4. **Cluster D — record variants** — boxed/flat/linear `@{}`/`${}`/`~{}`.
-5. **Cluster E — macros + misc** — `macdef`, `try`-emit, `exists`, `fix`.
+5. ~~**Cluster E — macros + misc**~~ ✅ DONE (4/5) — `initialize` (`#dyninit`), `fix` (`D0Efix0`),
+   `try`-emit (`D0Etry0`), `exists` (`$exists`, int-literal form) all FAITHFUL; `macdef` DEFERRED
+   (deployed parser does not parse `#macdef` — no live stock L2; needs an L1 macro tree).
 
 Once these land, the SATS and prelude pass because their *constructs* are covered —
 and the matrix is re-runnable (the audit script in this doc's commit) to prove no

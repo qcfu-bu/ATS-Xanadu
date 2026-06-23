@@ -263,6 +263,17 @@ ptnode =
 // so those decls round-trip FAITHFULLY (knd 0, not folded into infixl). APPENDED LAST (tag 88).
 | PT_KW_INFIX0  of ()   // infix0  PREC NAME(s)  (non-assoc infix; tag 88)
 //
+// MISC (Cluster E): the ATS-direct dyn-loading + recursive-lambda keywords. Both APPENDED LAST in
+// the ptnode datatype (after PT_KW_INFIX0=88) so their constructor tags 89/90 renumber NOTHING — the
+// CATS scanner's PYL__KW table maps the two lexemes to the SAME tags (see pylexing.cats). A
+// mid-datatype insert would desync every later operator's hand-coded tag in the JS scanner.
+//   `initialize "PATH"` — the ATS `#dyninit "PATH"` dyn-loading decl (D0Cdyninit -> D2Cdyninit). The
+//     project-owner-LOCKED pythonic surface for the stock dynload-init construct. (tag 89)
+| PT_KW_INITIALIZE of () // initialize "PATH"   (dyn-load init: D2Cdyninit; tag 89)
+//   `fix f(args): R => e` — the ATS `fix`/`fix@` RECURSIVE lambda (D0Efix0 -> D2Efix0). The
+//     self-reference name `f` binds the lambda in its own body. (tag 90)
+| PT_KW_FIX    of ()   // fix f(args): R => e  (recursive lambda: D2Efix0; tag 90)
+//
 (* ****** ****** *)
 //
 // A `pytoken` pairs a kind with its source span (half-open [pbeg, pend)).

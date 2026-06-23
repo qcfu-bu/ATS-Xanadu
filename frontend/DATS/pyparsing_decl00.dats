@@ -934,6 +934,21 @@ in
       @(PyCerror(loc, "expected a path string after 'include'"), st2) end
 end
 //
+// MISC (Cluster E): `initialize "PATH"` — the ATS `#dyninit "PATH"` dyn-loading-init decl. A STRING
+// literal follows the keyword (mirroring stock, which always quotes the path). We keep the RAW lexeme
+// (quotes included); the elaborator unquotes. Single-line (NEWLINE-terminated by p_top_item).
+fun
+p_dyninit(st: pstate): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)   // consume the `initialize` keyword
+in
+  case+ ps_peek(st1) of
+  | PT_STRING(s) => @(PyCdyninit(loc, s), ps_advance(st1))
+  | _ =>
+    let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected a \"PATH\" string after 'initialize'") in
+      @(PyCerror(loc, "expected a path string after 'initialize'"), st2) end
+end
+//
 (* ****** ****** *)
 //
 // GAP1 (overload-ALIAS): file-local helpers for the STANDALONE `@overload NAME = TARGET` decl, used
@@ -1197,6 +1212,9 @@ in
   // INCLUDE (faithful #include): `include "PATH"` — a TEXTUAL inline expansion (distinct from
   // import/from, which merge a sealed module's env). Takes NO decorators (like import).
   | PT_KW_INCLUDE() => p_include(st0)
+  // MISC (Cluster E): `initialize "PATH"` — the ATS `#dyninit "PATH"` dyn-load init. Single-line decl.
+  // Takes NO decorators (like include/import).
+  | PT_KW_INITIALIZE() => p_dyninit(st0)
   // FIXITY (Cluster B): `infixl 50 +` / `nonfix foo` — the ATS operator-precedence keywords kept
   // VERBATIM. Single-line decls (NEWLINE-terminated, consumed by p_top_item). Take NO decorators.
   | PT_KW_INFIXL()  => p_fixity(st0)
@@ -1377,6 +1395,9 @@ in
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | PT_KW_INCLUDE() =>
     // INCLUDE (faithful #include): a single-line `include "PATH"` — consume its trailing NEWLINE.
+    let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+  // MISC (Cluster E): a single-line `initialize "PATH"` — consume its trailing NEWLINE, like include.
+  | PT_KW_INITIALIZE() =>
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   // FIXITY (Cluster B): single-line fixity decls (`infixl 50 +`, `nonfix foo`) — consume trailing NEWLINE.
   | PT_KW_INFIXL()  => let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end

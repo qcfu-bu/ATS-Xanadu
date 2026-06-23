@@ -214,6 +214,18 @@ pcexp =
 | PCEcon    of (loctn, strn)
 | PCEapp    of (loctn, pcexp, list(pcexp))
 | PCElam    of (loctn, bool(*@func*), list(strn), list(pytypopt), pcexp)
+//   PCEfix   : MISC (Cluster E) — a RECURSIVE lambda `fix NAME(params)[: RET] => body` (the ATS
+//              `fix`). NAME self-binds the lambda in its body. Carries the self-name, the param
+//              names + their type annots (like PCElam), the OPTIONAL result type, and the body expr.
+//              M3 lowers it (pl_exp) to D2Efix0(T_FIX(0); <self-d2var>; f2arglst; s2res;
+//              F1UNARRWdflt(); body): push a fix scope, bind the self-var + params, lower the body.
+| PCEfix    of (loctn, strn(*self-name*), list(strn), list(pytypopt), pytypopt(*ret*), pcexp)
+//   PCEexists : MISC (Cluster E) — the expr-position `$exists{W..}(S..)` (PyEexists -> D1Eexists).
+//               Carries the witness int-lexemes + the scope int-lexemes. M3 lowers it (pl_exp) to
+//               D2Enone1(D1Eexists(T_DLR_EXISTS(); [D1Esarg([S1Eint(W)..])]; D1El1st([D1Eint(S)..]))),
+//               EXACTLY the poison wrapper the deployed stock trans12 leaves (it never lowers
+//               $exists). Faithful only for the int-literal corpus form.
+| PCEexists of (loctn, list(strn)(*witness int-lexemes*), list(strn)(*scope int-lexemes*))
 | PCElet    of (loctn, pcpat, pytypopt, pcexp, pcexp)
 //   PCEvarcell : a MUTABLE CELL binding `var name [: T] = init in body` (ATS-parity
 //                var/mutation). DISTINCT from `PCElet`: the elaborator emits this for a
@@ -402,6 +414,14 @@ pcdecl =
 //                PCCimport (a sealed-module env merge -> D2Cstaload): an include INLINES the decls
 //                into THIS file's L2 tree, so an include-bearing file's L2 == stock's.
 | PCCinclude of (loctn, strn(*resolved XATSHOME-rel path*), sint(*stadyn kind; ~1 = infer*))
+//   PCCdyninit : the surface `initialize "PATH"` (PyCdyninit) — the ATS `#dyninit "PATH"`
+//                dyn-loading-init decl. Carries the VERBATIM path content (unquoted; re-quoted at
+//                lowering). Unlike PCCinclude this does NOT splice the target's decls — stock keeps
+//                the path-string verbatim (NO XATSHOME normalization, NO file load). M3
+//                (pylower_decl00) routes it to `lower_dyninit`, building D2Cdyninit(T_SRP_DYNINIT();
+//                G1Estr(T_STRN1_clsd("PATH";len))), byte-identical to stock f0_dyninit @
+//                trans12_decl00.dats:2520.
+| PCCdyninit of (loctn, strn(*verbatim path content, unquoted*))
 | PCCalias   of (loctn, strn, list(pcparam), pytyp)
 | PCCrecord  of (loctn, strn, list(pcparam), list(pcfield), pcmode)
 //   PCCabstype : an `abstype Name [tvs] [<= REP]` OPAQUE type declaration (ATS-parity). Carries

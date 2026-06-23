@@ -105,6 +105,8 @@ case+ e of
       else lint_exp(body, tail, acc)
 | PCEseq(_, e1, e2) => lint_exp(e2, tail, lint_exp(e1, false, acc))
 | PCElam(_, _, _, _, body) => lint_exp(body, false, acc)
+| PCEfix(_, _, _, _, _, body) => lint_exp(body, false, acc)
+| PCEexists(_, _, _) => acc   // MISC: exists carries only int literals — nothing to lint.
 | PCEtup(_, es) => lint_explst_nt(es, acc)
 | PCErec(_, _, fs) => lint_efields_nt(fs, acc)
 | PCElist(_, es) => lint_explst_nt(es, acc)
@@ -177,6 +179,8 @@ case+ e of
 | PCEletfun(_, fs, body) => lint_loops_exp(body, lint_loops_fundcls(fs, acc))
 | PCEapp(_, hd, args) => lint_loops_explst(args, lint_loops_exp(hd, acc))
 | PCElam(_, _, _, _, body) => lint_loops_exp(body, acc)
+| PCEfix(_, _, _, _, _, body) => lint_loops_exp(body, acc)
+| PCEexists(_, _, _) => acc
 | PCElet(_, _, _, rhs, body) => lint_loops_exp(body, lint_loops_exp(rhs, acc))
 // a var cell scopes its body — a generated loop nested inside (the var-in-loop case) MUST
 // be reached by the loop-lint, so recurse into BOTH the init and the body.

@@ -52,6 +52,8 @@ case+ e of
 | PCEtop(_) => acc
 | PCEapp(_, hd, args) => harv_explst(args, harv_exp(hd, acc))
 | PCElam(_, _, _, _, body) => harv_exp(body, acc)
+| PCEfix(_, _, _, _, _, body) => harv_exp(body, acc)  // MISC: a fix BODY may carry poison nodes.
+| PCEexists(_, _, _) => acc   // MISC: exists carries only int literals — no poison nodes.
 | PCElet(_, _, _, rhs, body) => harv_exp(body, harv_exp(rhs, acc))
 | PCEvarcell(_, _, _, init, body) => harv_exp(body, harv_exp(init, acc))
 | PCEassign(_, lv, rv) => harv_exp(rv, harv_exp(lv, acc))
@@ -126,6 +128,7 @@ case+ d of
 | PCCstaload(_, _) => acc
 | PCCimport(_, _, _, _, _) => acc  // a USER import carries only a module path — no poison nodes.
 | PCCinclude(_, _, _) => acc     // an include carries only a path — no poison nodes (the included file's are reported on ITS own check).
+| PCCdyninit(_, _) => acc        // MISC: a dyninit carries only a verbatim path — no poison nodes.
 | PCCalias(_, _, _, _) => acc   // a type alias carries only a surface type — no poison nodes.
 | PCCrecord(_, _, _, _, _) => acc // a struct record carries only field types — no poison nodes.
 | PCCexcept(_, _, _) => acc      // EXN: an exception decl carries only arg types — no poison nodes.
@@ -190,6 +193,8 @@ case+ e of
 | PCEerror(_, _) => false
 | PCEapp(_, hd, args) => b_or(uses_exp(hd), uses_explst(args))
 | PCElam(_, _, _, _, body) => uses_exp(body)
+| PCEfix(_, _, _, _, _, body) => uses_exp(body)
+| PCEexists(_, _, _) => false
 | PCElet(_, _, _, rhs, body) => b_or(uses_exp(rhs), uses_exp(body))
 | PCEvarcell(_, _, _, init, body) => b_or(uses_exp(init), uses_exp(body))
 | PCEassign(_, lv, rv) => b_or(uses_exp(lv), uses_exp(rv))

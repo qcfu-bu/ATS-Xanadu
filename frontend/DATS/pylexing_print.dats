@@ -79,6 +79,8 @@ case+ nod of
 | PT_KW_PREFIX() => "KW_PREFIX"
 | PT_KW_POSTFIX() => "KW_POSTFIX"
 | PT_KW_NONFIX() => "KW_NONFIX"
+| PT_KW_INITIALIZE() => "KW_INITIALIZE"
+| PT_KW_FIX() => "KW_FIX"
 //
 | PT_UIDENT(_) => "UIDENT"
 | PT_LIDENT(_) => "LIDENT"

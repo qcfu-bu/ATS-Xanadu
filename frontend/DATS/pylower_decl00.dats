@@ -1137,6 +1137,22 @@ in
 end
 //
 and
+// MISC (Cluster E): `initialize "PATH"` -> D2Cdyninit(T_SRP_DYNINIT(); G1Estr(T_STRN1_clsd("PATH";len))).
+// Stock's f0_dyninit keeps the path-string VERBATIM. We re-quote the unquoted `path` content and build
+// the same T_STRN1_clsd carrier the lexer would for a `"PATH"` literal: rep = the QUOTED lexeme, len =
+// its quoted length (matching stock's `G1Estr(T_STRN1_clsd("foo/bar.dats";14))`). The tknd is the stock
+// dyninit keyword token T_SRP_DYNINIT (the trans12/reader passes it through; matching it keeps the
+// round-tripped node byte-identical). No file load, no env effect — it is a pure dyn-load-init marker.
+lower_dyninit(env: !tr12env, loc: loctn, path: strn): d2ecl = let
+  val tknd = token_make_node(loc, T_SRP_DYNINIT())
+  val qpath = strn_append("\"", strn_append(path, "\""))
+  val gtok = token_make_node(loc, T_STRN1_clsd(qpath, strn_length(qpath)))
+  val gsrc = g1exp_make_node(loc, G1Estr(gtok))
+in
+  d2ecl_make_node(loc, D2Cdyninit(tknd, gsrc))
+end
+//
+and
 cached_d2parsed_from_fpath(knd0: sint, fpth: fpath, abspath: strn): @(sint, d2parsed) = let
   val fnm2 = fpath_get_fnm2(fpth)
   val opt2 = the_d2parenv_pvsfind(fnm2)
@@ -1231,6 +1247,11 @@ case+ d of
 // knd0 = ~1 here means "the current file's stadyn" (the INCLUDING file's, = stock's `f00`); the
 // driver sets it via PYL_cur_stadyn_set before lowering. Distinct from PCCimport (a D2Cstaload).
 | PCCinclude(loc, path, knd0) => lower_include(env, loc, path, knd0)
+//
+// MISC (Cluster E): `initialize "PATH"` -> D2Cdyninit(T_SRP_DYNINIT(); G1Estr("PATH";len)). Stock's
+// f0_dyninit (trans12_decl00.dats:2520) keeps the path-string VERBATIM (no XATSHOME normalization, no
+// file load) — so we re-quote the verbatim content and emit the exact node. lower_dyninit below.
+| PCCdyninit(loc, path) => lower_dyninit(env, loc, path)
 //
 // a datatype (enum) -> a real D2Cdatatype (M5b.3; SPIKE-PROVEN, see lower_datacon above).
 // (1) create the type s2cst (boxed datatype — the §5.7 default; decorators/sorts are a later

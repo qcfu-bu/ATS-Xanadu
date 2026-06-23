@@ -362,6 +362,12 @@ case+ e of
 | PyElam(_, _, params, body) =>
     // a nested lambda: its params are bound WITHIN its body; collect its body's FV.
     fc_fv_stmts(fc_param_names(bnd, params), fv, body)
+// MISC (Cluster E): a recursive lambda `fix f(params) => body` — the self-name `f` AND the params
+// are bound within the body; collect the body's free vars under that extended binding set.
+| PyEfix(_, nm, params, _, body) =>
+    fc_fv_stmts(fc_param_names(nameset_add(bnd, nm), params), fv, body)
+// MISC (Cluster E): `exists {W..}(S..)` names no LOCAL (only int literals) — no free vars.
+| PyEexists(_, _, _) => fv
 | PyEann(_, e1, _) => fc_fv_exp(bnd, fv, e1)
 // EXN: raise scans its sub-expr; try scans its body suite + the except arms (the arm
 // patterns bind names in their own handlers — fc_fv_arms handles that subtraction).
@@ -574,6 +580,20 @@ case+ e of
         else lamexp
     end
 | PyEann(_, e1, _) => el_exp(encl, e1)
+// MISC (Cluster E): a recursive lambda `fix f(params)[: R] => body` -> PCEfix. The self-name `f` and
+// the params are bound IN the body (recursion); el_func_body folds the body suite to one value-expr.
+// (Not @func — a fix is a first-class recursive closure; no capture check, mirroring an undecorated
+// lambda.)
+| PyEfix(loc, nm, params, retopt, body) =>
+    let
+      val encl_inner = fc_param_names(nameset_add(encl, nm), params)
+    in
+      PCEfix(loc, nm, el_param_names(params), el_param_types(params), retopt,
+             el_func_body(encl_inner, loc, body))
+    end
+// MISC (Cluster E): `exists {W..}(S..)` -> PCEexists (pass-through; the witness/scope are literal
+// lexemes, no name resolution).
+| PyEexists(loc, ws, ss) => PCEexists(loc, ws, ss)
 // EXN: raise -> PCEraise. The raised value (a con application) is an ordinary expr.
 | PyEraise(loc, e1) => PCEraise(loc, el_exp(encl, e1))
 // EXN: try -> PCEtry. The body SUITE folds to one value-expr via el_func_body (same as a

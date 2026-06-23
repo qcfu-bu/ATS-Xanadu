@@ -92,6 +92,22 @@ fun lowercase_nullary_datacon(s: strn): bool =
 fun tok_val(loc: loctn): token = token_make_node(loc, T_VAL(VLKval))
 fun tok_vlp(loc: loctn): token = token_make_node(loc, T_VAL(VLKvlp))
 fun tok_lam(loc: loctn): token = token_make_node(loc, T_LAM(0(*lam0*)))
+// MISC (Cluster E): the `fix` kind-token for D2Efix0. T_FIX(0) = stock `fix` (knd 0; `fix@` = 1).
+fun tok_fix(loc: loctn): token = token_make_node(loc, T_FIX(0(*fix0*)))
+// MISC (Cluster E): the `$exists` witness/scope int-literal builders. Each lexeme -> an S1Eint /
+// D1Eint over a T_INT01 token (the stock int-literal carrier), preserving the RAW lexeme.
+fun exists_s1ints(loc: loctn, xs: list(strn)): s1explst =
+( case+ xs of
+  | list_nil() => list_nil()
+  | list_cons(s, rest) =>
+      list_cons(s1exp_make_node(loc, S1Eint(token_make_node(loc, T_INT01(s)))),
+                exists_s1ints(loc, rest)) )
+fun exists_d1ints(loc: loctn, xs: list(strn)): d1explst =
+( case+ xs of
+  | list_nil() => list_nil()
+  | list_cons(s, rest) =>
+      list_cons(d1exp_make_node(loc, D1Eint(token_make_node(loc, T_INT01(s)))),
+                exists_d1ints(loc, rest)) )
 fun tok_fun(loc: loctn): token = token_make_node(loc, T_FUN(FNKfn2(*tailrec*)))
 // the `var` kind-token for D2Cvardclst (ATS-parity var/mutation). VRKvar is the only var
 // kind (xbasics.sats:184). trans23 only destructures the token's kind, not its lexeme.
@@ -1068,6 +1084,47 @@ case+ e of
     val () = tr12env_poplam0(env)
   in
     d2exp_make_node(loc, D2Elam0(tok_lam(loc), f2as, S2RESnone(), F1UNARRWdflt(loc), d2body))
+  end
+//
+// MISC (Cluster E): a RECURSIVE lambda `fix f(params)[: R] => body` -> D2Efix0(T_FIX(0); <fid>;
+// f2arglst; s2res; F1UNARRWdflt(); body). Mirrors the PCElam lowering, plus: (1) a d2var `fid` for the
+// self-name, REGISTERED in the fix scope BEFORE the body lowers (so a `f(...)` call in the body
+// resolves to the recursive binder), and (2) the OPTIONAL result-type -> s2res (pl_sres). The token
+// is T_FIX(0) (the stock `fix`, knd 0 — `fix@` would be knd 1; the pythonic surface has only `fix`).
+| PCEfix(loc, nm, params, ptypes, retopt, body) => let
+    // Stock's `fix` builds the arg group with npf = -1 (no proof-arg `|` separator) — NOT the npf=0
+    // that pl_params_typed uses. Build the param patterns via pl_one_param (shared with the lambda
+    // path), then assemble the F2ARGdapp(-1) directly so the fix node matches stock byte-for-byte.
+    // ORDER: allocate `fid` (the self-name d2var) BEFORE the params — stock's trans01 binds the
+    // fixed-point name first, then the args, so the d2var STAMPS match stock's allocation order.
+    val sres = pl_sres(env, retopt)
+    val fid  = d2var_new2_name(loc, ats_sym(nm))
+    val dps = pl_param_pats(env, loc, params, ptypes)
+    val f2as = list_sing(f2arg_make_node(loc, F2ARGdapp((-1)(*npf*), dps)))
+    val () = tr12env_pshlam0(env)
+    val () = tr12env_add0_d2var(env, fid)            // the self-name (recursion) — bound first
+    val () = tr12env_add0_f2arglst(env, f2as)        // then the parameters
+    val d2body = pl_exp(env, body)
+    val () = tr12env_poplam0(env)
+  in
+    d2exp_make_node(loc, D2Efix0(tok_fix(loc), fid, f2as, sres, F1UNARRWdflt(loc), d2body))
+  end
+//
+// MISC (Cluster E): `exists {W..}(S..)` -> D2Enone1(D1Eexists(T_DLR_EXISTS(); [D1Esarg([S1Eint(W)..])];
+// D1El1st([D1Eint(S)..]))). This builds the EXACT L1 node the deployed stock trans12 leaves wrapped in
+// D2Enone1 (it never lowers $exists — the `_(*otherwise*) => d2exp_none1` fallthrough). The witnesses
+// are a SINGLE D1Esarg group of S1Eint statics; the scope is a D1El1st of D1Eint literals. Faithful
+// only for the int-literal corpus form.
+| PCEexists(loc, ws, ss) => let
+    val tknd = token_make_node(loc, T_DLR_EXISTS())
+    val s1es = exists_s1ints(loc, ws)                              // [S1Eint(W)..]
+    val sarg = d1exp_make_node(loc, D1Esarg(s1es))                 // D1Esarg([S1Eint(W)..])
+    val sargs = list_sing(sarg) : d1explst                         // [D1Esarg(..)] (one witness group)
+    val d1es = exists_d1ints(loc, ss)                              // [D1Eint(S)..]
+    val scope = d1exp_make_node(loc, D1El1st(d1es))               // D1El1st([D1Eint(S)..])
+    val d1ex = d1exp_make_node(loc, D1Eexists(tknd, sargs, scope))
+  in
+    d2exp_none1(d1ex)
   end
 //
 // template C/E : `let val p = rhs in body`. A single immutable binding (SSA rebind), local

@@ -631,6 +631,12 @@ case+ d of
     // lowering from PYL_cur_stadyn (the driver sets it). M3 routes it to lower_include (the stock
     // inline-expansion), so the included file's decls SPLICE into THIS file's L2 tree.
     list_sing(PCCinclude(loc, include_path_resolve(raw), (-1)))
+| PyCdyninit(loc, raw) =>
+    // MISC (Cluster E): `initialize "PATH"` -> a PCCdyninit carrying the VERBATIM path content
+    // (PYL_unquote strips the lexeme's quotes). Unlike PCCinclude, the path is NOT XATSHOME-
+    // normalized and NOT loaded — stock f0_dyninit keeps the path-string verbatim. M3
+    // (lower_dyninit) re-quotes it into G1Estr(T_STRN1_clsd("PATH";len)).
+    list_sing(PCCdyninit(loc, PYL_unquote(raw)))
 | PyCsymalias(loc, nm, tgt, prec) =>
     // GAP1: a STANDALONE overload-ALIAS `@overload NAME = TARGET` (+ `@overload[N]` precedence) ->
     // a PCCsymalias passed straight through. M3 (build_overload) resolves TARGET's d2itm and

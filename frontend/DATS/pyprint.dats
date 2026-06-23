@@ -59,6 +59,8 @@
 #extern fun PYPP_pname(i: sint): strn = $extnam()
 #extern fun PYPP_source_set(s: strn): void = $extnam()
 #extern fun PYPP_import_path(raw: strn): strn = $extnam()
+// MISC (Cluster E): unquote a `"..."` string lexeme (verbatim content for `initialize "PATH"`).
+#extern fun PYPP_unquote(raw: strn): strn = $extnam()
 #extern fun PYPP_import_stem(raw: strn): strn = $extnam()
 // CAPITALIZE-SCOPING (dynamic side): file-local type/constructor registries. Type aliases must
 // capitalize in type position (`key` -> `Key`) without rewriting value variables named `key`.
@@ -1826,6 +1828,22 @@ pp_d0exp_inline(out: FILR, de: d0exp): void =
 	| D0Elam0(_, farg, _, _, body, _) => (
 	      pp_lam_farg_params(out, farg); ps(out, " => "); pp_d0exp_inline(out, body))
 	  //
+	  // MISC (Cluster E): a RECURSIVE lambda `fix f(params): R => e` (D0Efix0) -> the pythonic
+	  // `fix f(params)[: R] => e`. The self-name is the d0pid; params reuse the lambda-arg emit; the
+	  // optional s0res result-type is emitted `: T`. py->L2 (PyEfix -> PCEfix -> D2Efix0) round-trips.
+	| D0Efix0(_, dpid, farg, sres, _, body, _) => (
+	      ps(out, "fix "); ps(out, val_or_con_name(i0dnt_lexeme(dpid)));
+	      pp_lam_farg_params(out, farg);
+	      (case+ sres of S0RESsome(_, se) => (ps(out, ": "); pp_s0exp(out, se)) | S0RESnone() => ());
+	      ps(out, " => "); pp_d0exp_inline(out, body))
+	  //
+	  // MISC (Cluster E): the EXPRESSION-position `$exists{W..}(S..)` (D0Eexists) -> the pythonic
+	  // `exists {W..} (S..)`. The witness statics ride D0Esarg groups; the scope is the inner d0exp.
+	  // Disambiguated from the type-level `exists[..]` by being an EXPR (this is a d0exp, not an s0exp).
+	| D0Eexists(_, sargs, scope) => (
+	      ps(out, "exists "); pp_exists_witness(out, sargs);
+	      ps(out, " "); pp_exists_scope(out, scope))
+	  //
 	  // a parenthesized / sequence group.  Preserve single-elem source parens:
 	  // `a + (b - c)` must not reparse as `(a + b) - c`.
   // SMCLN-sequence (cons2) at expression position -> a (a; b) we render inline
@@ -1864,6 +1882,39 @@ pp_d0exp_inline(out: FILR, de: d0exp): void =
 	  //
 	  | _ => ps(out, "# TODO(pp): d0exp-inline")
 	)
+// MISC (Cluster E): the `$exists` witness `{W..}` — a d0explst of D0Esarg(_, s0explst, _) groups. Emit
+// `{ s0exp, ... }` flattening the per-group statics (the corpus form is a single `{1}` group).
+and
+pp_exists_witness(out: FILR, sargs: d0explst): void = (
+  ps(out, "{"); pp_exists_witness_sargs(out, sargs, true); ps(out, "}"))
+and
+pp_exists_witness_sargs(out: FILR, sargs: d0explst, first: bool): void =
+(
+  case+ sargs of
+  | list_nil() => ()
+  | list_cons(sa, rest) => (
+      case+ sa.node() of
+      | D0Esarg(_, ses, _) => (pp_exists_witness_statics(out, ses, first); pp_exists_witness_sargs(out, rest, false))
+      | _ => pp_exists_witness_sargs(out, rest, first))
+)
+and
+pp_exists_witness_statics(out: FILR, ses: s0explst, first: bool): void =
+(
+  case+ ses of
+  | list_nil() => ()
+  | list_cons(se, rest) => (
+      (if first then () else ps(out, ", ")); pp_s0exp(out, se);
+      pp_exists_witness_statics(out, rest, false))
+)
+// the `$exists` scope `(S..)` — the inner d0exp. A D0Elpar wraps the scope value-list; emit each as a
+// comma-separated paren group. A bare scope d0exp is emitted in a single paren.
+and
+pp_exists_scope(out: FILR, scope: d0exp): void =
+(
+  case+ scope.node() of
+  | D0Elpar(_, des, _) => (ps(out, "("); pp_dexp_seq_inline(out, des); ps(out, ")"))
+  | _ => (ps(out, "("); pp_d0exp_inline(out, scope); ps(out, ")"))
+)
 // a qualified dynamic expression `$M.x` -> `M.x`: keep the module qualifier (the named staload
 // alias), drop the leading `$`. An empty/bare qualifier renders just the inner expression.
 and
@@ -2534,6 +2585,11 @@ pp_d0exp_suite(out: FILR, n: sint, de: d0exp): void =
   | D0Ecas0(_, scrut, _, _, cls) => pp_dexp_match(out, n, scrut, cls)
   | D0Ecas1(_, scrut, _, _, cls, _) => pp_dexp_match(out, n, scrut, cls)
   //
+  // MISC (Cluster E): `try BODY with | p => e | ...` (D0Etry0) -> the Pythonic `try:` / `except p:`
+  // form. The BODY is the SMCLN-sequence d0explst; each clause `| p => e` becomes an `except <pat>:`
+  // handler-suite. py->L2 (PCEtry -> D2Etry0) already round-trips; this is the ATS->py emit half.
+  | D0Etry0(_, body, _, _, cls, _) => pp_dexp_try(out, n, body, cls)
+  //
   // `if c then t else e`.
 	  | D0Eift0(_, c, th, el) => pp_dexp_if(out, n, c, th, el)
 	  | D0Eift1(_, c, th, el, _) => pp_dexp_if(out, n, c, th, el)
@@ -3046,6 +3102,13 @@ pp_dexp_val_rhs(out: FILR, n: sint, dpat: d0pat, rhs: d0exp): void =
       PYPP_type_scope_pop())
   | D0Eift0(_, c, th, el) => pp_dexp_val_if_rhs(out, n, dpat, c, th, el)
   | D0Eift1(_, c, th, el, _) => pp_dexp_val_if_rhs(out, n, dpat, c, th, el)
+  // MISC (Cluster E): `val P = try BODY with | p => e ...` -> `let P = try:` then the body-suite and
+  // `except p:` handler-suites. The try is a VALUE in ATS; the pyfront re-parses `let P = try:`
+  // (PyEtry rhs) -> PCEtry -> D2Etry0.
+  | D0Etry0(_, body, _, _, cls, _) => (
+      ind(out, n); ps(out, "let "); pp_d0pat(out, dpat); ps(out, " = try:"); nl(out);
+      pp_dexp_stmts(out, n+1, body);
+      pp_dexp_except_clauses(out, n, cls))
   | D0Ecas0(_, scrut, _, _, cls) => (
       ind(out, n); ps(out, "let "); pp_d0pat(out, dpat); ps(out, " = match ");
       pp_d0exp_inline(out, scrut); ps(out, ":"); nl(out);
@@ -3341,6 +3404,40 @@ and
 pp_dexp_match(out: FILR, n: sint, scrut: d0exp, cls: d0clslst): void = (
   ind(out, n); ps(out, "match "); pp_d0exp_inline(out, scrut); ps(out, ":"); nl(out);
   pp_dexp_clauses(out, n+1, cls)
+)
+//
+// MISC (Cluster E): `try:` / `except <pat>:` emit for D0Etry0. The body is the SMCLN-sequence
+// d0explst (rendered as a suite — each stmt on its own line); each ATS clause `| p => e` becomes an
+// `except <pat>:` handler-suite. The clause uses pp_dexp_clause_except (an `except`-spelled twin of
+// pp_dexp_clause, which spells `case`). Mirrors the pyfront p_try_expr surface exactly so the emitted
+// text re-parses (PCEtry) and lowers to the same D2Etry0.
+and
+pp_dexp_try(out: FILR, n: sint, body: d0explst, cls: d0clslst): void = (
+  ind(out, n); ps(out, "try:"); nl(out);
+  pp_dexp_stmts(out, n+1, body);
+  pp_dexp_except_clauses(out, n, cls)
+)
+and
+pp_dexp_except_clauses(out: FILR, n: sint, cls: d0clslst): void =
+(
+  case+ cls of
+  | list_nil() => ()
+  | list_cons(cl, rest) => (
+      pp_dexp_except_clause(out, n, cl);
+      pp_dexp_except_clauses(out, n, rest))
+)
+and
+pp_dexp_except_clause(out: FILR, n: sint, cl: d0cls): void =
+(
+  case+ cl.node() of
+  | D0CLScls(gpt, _, body) => (
+      ind(out, n); ps(out, "except ");
+      pp_dexp_gpt(out, gpt); ps(out, ":"); nl(out);
+      pp_d0exp_suite(out, n+1, body))
+  | D0CLSgpt(gpt) => (
+      ind(out, n); ps(out, "except ");
+      pp_dexp_gpt(out, gpt); ps(out, ":"); nl(out);
+      ind(out, n+1); ps(out, "()"); nl(out))
 )
 and
 pp_dexp_clauses(out: FILR, n: sint, cls: d0clslst): void =
@@ -4054,6 +4151,14 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
       true
     )
   //
+  // MISC (Cluster E): `#dyninit "PATH"` -> the FAITHFUL pythonic `initialize "PATH"` (D0Cdyninit ->
+  // D2Cdyninit). The path is kept VERBATIM (no normalization — stock f0_dyninit keeps it verbatim);
+  // we emit the raw string lexeme content (g0exp_dyninit_path unquotes the carrier).
+  | D0Cdyninit(_, ge) => (
+      ps(out, "initialize \""); ps(out, g0exp_dyninit_path(ge)); ps(out, "\""); nl(out);
+      true
+    )
+  //
   // ============ Cluster B — fixity DSL (operator-precedence declarations) ======
   //
   // `#infixl + of 50` -> `infixl 50 +` : the ATS fixity keywords are KEPT VERBATIM in the pythonic
@@ -4199,6 +4304,17 @@ g0exp_import_path(ge: g0exp): strn =
   | G0Eerrck(_, ge1) => g0exp_import_path(ge1)
   | _ => "?"
 )
+and
+// MISC (Cluster E): the VERBATIM dyninit path content (NO XATSHOME normalization — stock keeps the
+// path-string verbatim). The G0Estr carrier's lexeme is the QUOTED source lexeme (`"foo/bar.dats"`);
+// strip the surrounding quotes so the emit re-quotes exactly once (`initialize "foo/bar.dats"`).
+g0exp_dyninit_path(ge: g0exp): strn =
+( case+ ge.node() of
+  | G0Estr(t0) =>
+    let val raw = (case+ t0 of T0STRsome(tok) => tok_lexeme(tok) | T0STRnone(tok) => tok_lexeme(tok))
+    in PYPP_unquote(raw) end
+  | G0Eerrck(_, ge1) => g0exp_dyninit_path(ge1)
+  | _ => g0exp_import_path(ge) )
 and
 g0explst_import_path(ges: g0explst): strn =
 (

@@ -210,6 +210,12 @@ in
       end
   | PT_KW_RAISE() => p_raise_expr(st)
   | PT_KW_TRY()   => p_try_expr(st)
+  // MISC (Cluster E): `fix NAME(params)[: RET] => body` — the ATS recursive lambda (D2Efix0).
+  | PT_KW_FIX()   => p_fix_expr(st)
+  // MISC (Cluster E): `exists {W..} (S..)` in EXPRESSION position — the ATS `$exists{..}(..)`
+  // existential-witness expr (D1Eexists). Disambiguated from the TYPE-level `exists[..]` (PyTquant,
+  // which is reached only inside a type) by POSITION: only an EXPR-position `exists` reaches here.
+  | PT_KW_EXISTS() => p_exists_expr(st)
   | PT_AT()       =>
     // M7-closures: a `@func` prefix on a lambda in EXPRESSION position opts the lambda into
     // being NON-capturing (enforced by the elaborator's capture check). Only `@func` is valid
@@ -935,6 +941,88 @@ p_try_expr(st: pstate): @(pyexp, pstate) = let
 in
   @(PyEtry(loc, body, hs), st4)
 end
+//
+// MISC (Cluster E): `fix NAME(params)[: RET] => body` — the ATS recursive lambda (D2Efix0). NAME
+// self-binds the lambda in its own body (recursion). The params + optional `: RET` parse exactly
+// like p_params + a def's return-type; the body (after `=>`) is an inline expr or a block suite
+// (reusing p_lam_body). Mirrors stock's `fix f(args): R => e`.
+and
+p_fix_expr(st: pstate): @(pyexp, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'fix'
+  // the self-reference NAME (a LIDENT).
+  val @(nm, st2) =
+    ( case+ ps_peek(st1) of
+      | PT_LIDENT(s) => @(s, ps_advance(st1))
+      | _ => @("_fix", ps_diag(st1, ps_peek_loctn(st1), "expected a name after 'fix'")) )
+  // the parameter list `(params)`.
+  val locL = ps_peek_loctn(st2)
+  val st3 =
+    ( case+ ps_peek(st2) of
+      | PT_LPAREN() => ps_advance(st2)
+      | _ => ps_diag(st2, locL, "expected '(' after the fix name") )
+  val @(prms, st4) = p_params(st3)
+  val locR = ps_peek_loctn(st4)
+  val st5 = expect_rparen_e(st4, locR)
+  // the OPTIONAL result-type annotation `: RET`.
+  val @(retopt, st6) =
+    ( case+ ps_peek(st5) of
+      | PT_COLON() =>
+        let val @(t, st5b) = parse_type(ps_advance(st5)) in @(PyTypSome(t), st5b) end
+      | _ => @(PyTypNone(), st5) )
+  // the `=>` then the body (inline expr or block suite — reuse p_lam_body).
+  val st7 =
+    ( case+ ps_peek(st6) of
+      | PT_FATARROW() => ps_advance(st6)
+      | _ => ps_diag(st6, ps_peek_loctn(st6), "expected '=>' in a fix expression") )
+  val @(body, st8) = p_lam_body(st7)
+in
+  @(PyEfix(loc, nm, prms, retopt, body), st8)
+end
+//
+// MISC (Cluster E): `exists {W..} (S..)` in EXPRESSION position — the ATS `$exists{..}(..)`. The
+// witnesses `{W..}` are STATIC int literals; the scope `(S..)` are dyn int literals. Faithful only for
+// the int-literal corpus form (`$exists{1}(1)`) — the deployed stock trans12 leaves $exists as a
+// D2Enone1 poison wrapper, so general (non-literal) witnesses/scope are out of scope.
+and
+p_exists_expr(st: pstate): @(pyexp, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st1 = ps_advance(st)               // past 'exists'
+  // the witness brace `{W..}` (comma-separated int literals).
+  val st2 =
+    ( case+ ps_peek(st1) of
+      | PT_LBRACE() => ps_advance(st1)
+      | _ => ps_diag(st1, ps_peek_loctn(st1), "expected '{' after an expression-position 'exists'") )
+  val @(ws, st3) = p_int_lexemes(st2)
+  val st4 =
+    ( case+ ps_peek(st3) of
+      | PT_RBRACE() => ps_advance(st3)
+      | _ => ps_diag(st3, ps_peek_loctn(st3), "expected '}' to close the exists witness") )
+  // the scope paren `(S..)` (comma-separated int literals).
+  val st5 =
+    ( case+ ps_peek(st4) of
+      | PT_LPAREN() => ps_advance(st4)
+      | _ => ps_diag(st4, ps_peek_loctn(st4), "expected '(' for the exists scope") )
+  val @(ss, st6) = p_int_lexemes(st5)
+  val locR = ps_peek_loctn(st6)
+  val st7 = expect_rparen_e(st6, locR)
+in
+  @(PyEexists(loc, ws, ss), st7)
+end
+//
+// MISC (Cluster E): a comma-separated list of INT-literal lexemes (the exists witness/scope). Stops
+// at the first non-INT (the closing brace/paren). Recovery-tolerant: a stray token ends the list.
+and
+p_int_lexemes(st: pstate): @(list(strn), pstate) =
+( case+ ps_peek(st) of
+  | PT_INT(s) =>
+    let val st1 = ps_advance(st) in
+      case+ ps_peek(st1) of
+      | PT_COMMA() =>
+        let val @(rest, st2) = p_int_lexemes(ps_advance(st1)) in @(list_cons(s, rest), st2) end
+      | _ => @(list_cons(s, list_nil()), st1)
+    end
+  | _ => @(list_nil(), st) )
 //
 // { except_clause } until something that is not 'except'.
 and

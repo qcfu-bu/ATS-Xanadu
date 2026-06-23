@@ -250,7 +250,12 @@ const PYL__KW = Object.freeze({
   "prefix":  ["PT_KW_PREFIX", 85],
   "postfix": ["PT_KW_POSTFIX", 86],
   "nonfix":  ["PT_KW_NONFIX", 87],
-  "infix0":  ["PT_KW_INFIX0", 88]
+  "infix0":  ["PT_KW_INFIX0", 88],
+  // MISC (Cluster E): the ATS dyn-load + recursive-lambda keywords. APPENDED LAST in the ptnode
+  // datatype (after PT_KW_INFIX0=88) so tags 89/90 renumber NOTHING. Keep in lock-step with
+  // pylexing.sats's PT_KW_INITIALIZE / PT_KW_FIX constructor positions.
+  "initialize": ["PT_KW_INITIALIZE", 89],
+  "fix":        ["PT_KW_FIX", 90]
 });
 
 function PYL_scan_raw_iter(src, text) {

@@ -33,6 +33,8 @@ case+ e of
 | PCElit(loc, _) => loc       | PCEvar(loc, _) => loc
 | PCEcon(loc, _) => loc       | PCEapp(loc, _, _) => loc
 | PCElam(loc, _, _, _, _) => loc | PCElet(loc, _, _, _, _) => loc
+| PCEfix(loc, _, _, _, _, _) => loc
+| PCEexists(loc, _, _) => loc
 | PCEvarcell(loc, _, _, _, _) => loc | PCEassign(loc, _, _) => loc
 | PCEletfun(loc, _, _) => loc | PCEif(loc, _, _, _) => loc
 | PCEcase(loc, _, _) => loc   | PCEtup(loc, _) => loc
@@ -69,6 +71,7 @@ case+ d of
 | PCCval(loc, _, _) => loc     | PCCstaload(loc, _) => loc
 | PCCimport(loc, _, _, _, _) => loc
 | PCCinclude(loc, _, _) => loc
+| PCCdyninit(loc, _) => loc
 | PCCalias(loc, _, _, _) => loc
 | PCCrecord(loc, _, _, _, _) => loc
 | PCCexcept(loc, _, _) => loc
