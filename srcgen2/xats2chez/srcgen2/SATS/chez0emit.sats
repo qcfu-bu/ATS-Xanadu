@@ -49,6 +49,13 @@ fun
 i0parsed_chez0emit
 (ipar: i0parsed, filr: FILR): void
 //
+(* chez0emit_seed_one: seed one (instance-name, continuation-name) pair into the
+   global lambda-lifting map BEFORE emitting, so cross-file call sites inject the
+   right continuations.  The driver calls this for each "--czmap NAME CONT". *)
+fun
+chez0emit_seed_one
+(name: strn, cont: strn): void
+//
 (* ****** ****** *)
 (* ****** ****** *)
 //

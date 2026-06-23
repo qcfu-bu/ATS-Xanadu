@@ -147,11 +147,9 @@ if
 (i0 < n0)
 then
 (
-  loop(i0+1)) where
-{
-val () =
-xatsopt_flag$pvsadd0(argv[i0])
-}
+if (strn_eq(argv[i0], "--czmap") * (i0+2 < n0))
+then (chez0emit_seed_one(argv[i0+1], argv[i0+2]); loop(i0+3))
+else (xatsopt_flag$pvsadd0(argv[i0]); loop(i0+1)))
 }(*where*)//end-of-[argv$loop(argv)]
 //
 (* ****** ****** *)

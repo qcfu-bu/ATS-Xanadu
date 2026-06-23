@@ -267,6 +267,19 @@
   (if (= 0 (string-length s)) (vector 0) (vector 1 (char->integer (string-ref s 0)))))
 (define (strn_tail$raw s) (substring s 1 (string-length s)))
 (define (strn_strxize s) (strn_strmize s))   ; strx == char stream variant
+
+;; strx_vt_map0(xs[, fopr]): lazily map a char-code stream through fopr (the
+;; lexer's char source applies map$fopr0: code>0 ? code : -1 for EOF).  A
+;; bodyless prelude higher-order primitive -- lambda-lifting injects fopr.
+(define strx_vt_map0
+  (case-lambda
+    ((xs) xs)
+    ((xs fopr)
+     (XATS000_l0azy
+      (lambda ()
+        (let ((c (XATS000_dl0az xs)))
+          (if (= (vector-ref c 0) 0) (vector 0)
+              (vector 1 (fopr (XATSPCON c 0)) (strx_vt_map0 (XATSPCON c 1) fopr)))))))))
 (define (strn_get$at$raw s i) (char->integer (string-ref s i)))
 
 ;; pointers (p2tr) — modeled as boxes (an address is a 1-slot cell).

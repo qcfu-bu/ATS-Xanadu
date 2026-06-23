@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # selfhost_broad.sh — compile a broad set of compiler .dats (prelude + frontend)
-# to Scheme, cached + parallel, concatenate with the CATS runtime, and report
-# the closure status (defines + undefined symbols).  Chez top-level allows
-# forward refs, so concat order is irrelevant; we just need every called symbol
-# defined SOMEWHERE in the image.
+# to Scheme and concatenate with the CATS runtime.  TWO PHASES so cross-file
+# higher-order template continuations resolve:
+#   phase 1: compile each file, collect its per-file lambda-lifting map (the
+#            ";;LIFTED name conts" dump comments) into a GLOBAL map.
+#   phase 2: recompile each file seeding that global map (--czmap NAME CONT), so
+#            a call site whose callee is defined+lifted in another file injects
+#            the right continuations.
 #   tools/selfhost_broad.sh <unitlist-file> [driver.scm]
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
@@ -13,41 +16,46 @@ CACHE="$HERE/srcgen2/BUILD/selfhost/cache"; mkdir -p "$CACHE"
 RT="$HERE/runtime/scheme/xats2chez_cats.scm $HERE/runtime/scheme/xats2chez_runtime.scm"
 LIST="$1"; DRIVER="${2:-}"
 
-# resolve a unit name to its .dats (prelude or frontend)
 srcof() { for d in "$XATSHOME/srcgen2/DATS" "$XATSHOME/prelude/DATS"; do
   [ -f "$d/$1.dats" ] && { echo "$d/$1.dats"; return; }; done; echo ""; }
 
-# compile one unit to cache (skip if cached & newer than source)
-compile1() {
-  local u="$1" src; src="$(srcof "$u")"
-  [ -n "$src" ] || { echo "MISS-SRC $u" >&2; return; }
-  local out="$CACHE/$u.scm"
-  if [ -f "$out" ] && [ "$out" -nt "$src" ]; then return; fi
-  node --stack-size=8801 "$BUNDLE" "$src" 2>/dev/null > "$out.raw"
-  awk '/^;;==XATS2CHEZ-BEGIN==/{ff=1;next}/^;;==XATS2CHEZ-END==/{ff=0}ff' "$out.raw" > "$out"
-  rm -f "$out.raw"
-}
-export -f compile1 srcof
-export XATSHOME BUNDLE CACHE
-
 UNITS="$(grep -vE '^\s*#|^\s*$' "$LIST")"
-echo ">> compiling $(echo "$UNITS"|wc -w|tr -d ' ') units (parallel)..."
-echo "$UNITS" | xargs -P 8 -n 1 bash -c 'compile1 "$0"'
+NU=$(echo "$UNITS" | wc -w | tr -d ' ')
 
+# ---- phase 1: compile each unit (no seeding), extract Scheme to <u>.p1.scm ----
+echo ">> phase 1: compiling $NU units..."
+for u in $UNITS; do
+  src="$(srcof "$u")"; [ -n "$src" ] || { echo "MISS-SRC $u" >&2; continue; }
+  node --stack-size=8801 "$BUNDLE" "$src" 2>/dev/null > "$CACHE/$u.p1.raw"
+  awk '/^;;==XATS2CHEZ-BEGIN==/{f=1;next}/^;;==XATS2CHEZ-END==/{f=0}f' "$CACHE/$u.p1.raw" > "$CACHE/$u.p1.scm"
+  rm -f "$CACHE/$u.p1.raw"
+done
+
+# ---- build the GLOBAL lifting map from all ";;LIFTED name cont..." dumps ----
+# emit one "--czmap NAME CONT" per (name,cont), deduplicated.
+GMAP="$CACHE/.global.czmap"
+grep -hE '^;;LIFTED ' "$CACHE"/*.p1.scm 2>/dev/null \
+  | awk '{for(i=3;i<=NF;i++) print $2, $i}' | sort -u > "$GMAP"
+# bodyless higher-order prelude primitives (provided by the CATS runtime) whose
+# continuation can't be discovered from a body -- seed them so call sites inject.
+printf 'strx_vt_map0 map$fopr0\n' >> "$GMAP"
+sort -u "$GMAP" -o "$GMAP"
+CZARGS=()
+while read -r name cont; do [ -n "$name" ] && CZARGS+=(--czmap "$name" "$cont"); done < "$GMAP"
+echo ">> global map: $(wc -l < "$GMAP" | tr -d ' ') (instance,continuation) pairs"
+
+# ---- phase 2: recompile each unit seeding the global map ----
+echo ">> phase 2: recompiling with global map..."
+for u in $UNITS; do
+  src="$(srcof "$u")"; [ -n "$src" ] || continue
+  node --stack-size=8801 "$BUNDLE" "$src" "${CZARGS[@]}" 2>/dev/null > "$CACHE/$u.raw"
+  awk '/^;;==XATS2CHEZ-BEGIN==/{f=1;next}/^;;==XATS2CHEZ-END==/{f=0}f' "$CACHE/$u.raw" > "$CACHE/$u.scm"
+  rm -f "$CACHE/$u.raw"
+done
+
+# ---- assemble the image ----
 IMG="$HERE/srcgen2/BUILD/selfhost/broad.scm"
 cat $RT > "$IMG"
 for u in $UNITS; do [ -f "$CACHE/$u.scm" ] && cat "$CACHE/$u.scm" >> "$IMG"; done
 [ -n "$DRIVER" ] && [ -f "$DRIVER" ] && cat "$DRIVER" >> "$IMG"
 echo ">> image: $(grep -c '(define' "$IMG") defines"
-python3 - "$IMG" <<'PY'
-import re,sys
-img=open(sys.argv[1]).read()
-ld=set(re.findall(r'\(define\s+\(?([A-Za-z_][\w$]*)',img))
-ld|=set(re.findall(r'\(\(([A-Za-z_][\w$]*)\s',img))
-for p in re.findall(r'\(lambda \(([^)]*)\)',img): ld|=set(p.split())
-called=re.findall(r'\(([A-Za-z_][\w$]*)',img)
-sb=set('define lambda let letrec if cond when begin case and or set! vector vector-ref vector-set! box unbox set-box! display call/1cc quotient remainder string string-append string-length string-ref string=? string<? string>? substring number->string char->integer integer->char reverse list->vector list->string make-string make-vector string-set! guard raise error eq? equal? not min max abs newline current-error-port make-hashtable hashtable-ref hashtable-set! hashtable-size hashtable-contains? equal-hash string-hash bitwise-and bitwise-ior bitwise-xor bitwise-arithmetic-shift'.split())
-und=sorted({c for c in called if c not in ld and c not in sb and ('_' in c or '$' in c) and not re.match(r'^(czscrut|czret|czlz|czdv)',c)})
-print(f">> undefined ({len(und)}):")
-for i in range(0,len(und),6): print("   "+" ".join(und[i:i+6]))
-PY

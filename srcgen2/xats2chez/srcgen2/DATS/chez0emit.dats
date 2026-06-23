@@ -838,6 +838,48 @@ case+ conts of
 | list_nil() => ()  (* closed instance: nothing to lift *)
 | _ => if cz_map_has(name) then () else a0ref_set(the_cz_iconts, list_cons( @(name, conts), a0ref_get(the_cz_iconts) )))
 //
+(* cz_snoc: append [x] to the END of [xs] (preserves continuation order). *)
+fun
+cz_snoc( xs: list(sym_t), x: sym_t): list(sym_t) =
+(case+ xs of list_nil() => list_cons(x, cz_empty_symlist()) | list_cons(h, t) => list_cons(h, cz_snoc(t, x)))
+//
+(* cz_map_seed_one: SEED one (instance -> continuation) pair from the GLOBAL map
+   (collected across all closure files), so cross-file call sites inject too.
+   Appends (dedup) -- multi-continuation instances seed via several calls. *)
+fun
+cz_map_seed_one( name: sym_t, cont: sym_t): void =
+let
+fun
+upd( xs: list( @(sym_t, list(sym_t)) )): list( @(sym_t, list(sym_t)) ) =
+(
+case+ xs of
+| list_nil() => list_cons( @(name, list_cons(cont, cz_empty_symlist())), cz_empty_iclist() )
+| list_cons(kv, rest) =>
+  if cz_sym_eq(name, kv.0)
+  then (if cz_sym_memb(cont, kv.1) then xs else list_cons( @(kv.0, cz_snoc(kv.1, cont)), rest ))
+  else list_cons(kv, upd(rest)))
+in
+a0ref_set(the_cz_iconts, upd(a0ref_get(the_cz_iconts)))
+end
+//
+(* cz_map_override: a LOCALLY-defined instance's ACTUAL free conts win over any
+   seeded (global-map) entry -- continuation NAMES (map$fopr0..) are reused
+   across files with different bodies, so a seed must never lift a local instance
+   whose own body doesn't need it.  Empty conts => remove (locally closed). *)
+fun
+cz_map_override( name: sym_t, conts: list(sym_t)): void =
+let
+fun
+rm( xs: list( @(sym_t, list(sym_t)) )): list( @(sym_t, list(sym_t)) ) =
+(case+ xs of list_nil() => cz_empty_iclist()
+ | list_cons(kv, rest) => if cz_sym_eq(name, kv.0) then rm(rest) else list_cons(kv, rm(rest)))
+val removed = rm(a0ref_get(the_cz_iconts))
+in
+case+ conts of
+| list_nil() => a0ref_set(the_cz_iconts, removed)
+| _ => a0ref_set(the_cz_iconts, list_cons( @(name, conts), removed ))
+end
+//
 (* pass-0 visited set (by instance stamp) -- prevents infinite recursion when an
    instance body re-references the instance (directly or mutually). *)
 val the_cz_mapseen = a0ref_make_1val(cz_empty_uintlist())
@@ -871,7 +913,7 @@ let
 val stmp = stamp_get_uint(d2cst_get_stmp(dc))
 in//let
 if cz_mapseen_testadd(stmp) then ()
-else (cz_map_add(d2cst_get_name(dc), collect_free_conts(body)); cz_map_exp(body))
+else (cz_map_override(d2cst_get_name(dc), collect_free_conts(body)); cz_map_exp(body))
 end//let
 and
 cz_map_exp
@@ -1727,6 +1769,13 @@ case+ ifs of
 (* ****** ****** *)
 //
 #implfun
+chez0emit_seed_one
+(name, cont) =
+cz_map_seed_one(symbl_make_name(name), symbl_make_name(cont))
+//
+(* ****** ****** *)
+//
+#implfun
 i0parsed_chez0emit
 (ipar, filr) =
 let
@@ -1740,7 +1789,8 @@ case+ parsed of
 | optn_cons(idcls) =>
   (
   (* pass 0: build the free-continuation map for every higher-order instance,
-     BEFORE any emission, so call-site injection (pass 1/2) sees it complete *)
+     BEFORE any emission, so call-site injection (pass 1/2) sees it complete.
+     (The global map seeded via chez0emit_seed_one is already in place.) *)
   cz_map_dclist(idcls);
   (* dump the per-file lifted map as comments -- the harness greps these across
      all files to build a GLOBAL map (CZ_GLOBAL_MAP) that seeds pass 0 so
