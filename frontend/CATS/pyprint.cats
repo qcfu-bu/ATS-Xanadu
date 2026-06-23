@@ -41,7 +41,11 @@ function PYPP_identish(s) {
 function PYPP_string_literal(s) {
   s = String(s);
   if (s.length >= 2 && s.charAt(0) === '"' && s.charAt(s.length - 1) === '"') {
-    return '"' + s.substring(1, s.length - 1).replace(/\\\r?\n[ \t]*/g, "") + '"';
+    return '"' + s.substring(1, s.length - 1)
+      .replace(/\\\r?\n[ \t]*/g, "")
+      .replace(/\r\n/g, "\\n")
+      .replace(/\r/g, "\\n")
+      .replace(/\n/g, "\\n") + '"';
   }
   return s.replace(/\\\r?\n[ \t]*/g, "");
 }
