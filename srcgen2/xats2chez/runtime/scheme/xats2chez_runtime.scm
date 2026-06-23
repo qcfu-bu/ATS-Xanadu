@@ -46,6 +46,9 @@
 (define XATSTOP0 (if #f #f))           ; the unit/void value
 (define (XATSSTR0 cs) cs)
 (define (XATSSTRN cs) cs)
+;; char literal: emitter writes XATSCHR0("<glyph>"); runtime -> integer code
+;; (mirrors JS charCodeAt(0)).  A char is its integer code at runtime.
+(define (XATSCHR0 s) (char->integer (string-ref s 0)))
 
 ;;;--------------------------------------------------------------------
 ;;; The print store (mirrors srcgen2_prelude.js lines 48-100, 938-943).
@@ -85,6 +88,67 @@
 (define (console_log x)         (XATS2JS_console_log x))
 ;; the_print_store_log() = console_log(the_print_store_flush())
 (define (the_print_store_log)   (console_log (the_print_store_flush)))
+
+;;;--------------------------------------------------------------------
+;;; Prelude scalar ops (monomorphic instances the emitter emits by name).
+;;; Integer (sint) arithmetic matches ATS/C semantics: truncating division
+;;; (quotient, toward zero) and dividend-signed remainder.  Print ops push
+;;; the value's string form onto the print store (like strn_print).
+;;;--------------------------------------------------------------------
+
+;; integer arithmetic
+(define (sint_add$sint a b) (+ a b))
+(define (sint_sub$sint a b) (- a b))
+(define (sint_mul$sint a b) (* a b))
+(define (sint_div$sint a b) (quotient a b))   ; trunc toward 0
+(define (sint_mod$sint a b) (remainder a b))  ; sign of dividend
+(define (sint_neg$sint a)   (- a))
+
+;; integer comparison -> bool
+(define (sint_lt$sint  a b) (< a b))
+(define (sint_gt$sint  a b) (> a b))
+(define (sint_lte$sint a b) (<= a b))
+(define (sint_gte$sint a b) (>= a b))
+(define (sint_eq$sint  a b) (= a b))
+(define (sint_neq$sint a b) (not (= a b)))
+
+;; bool ops
+(define (bool_eq  a b) (eq? a b))
+(define (bool_neq a b) (not (eq? a b)))
+(define (bool_not a)   (not a))
+
+;; float (dflt) arithmetic / comparison
+(define (dflt_add$dflt a b) (fl+ a b))
+(define (dflt_sub$dflt a b) (fl- a b))
+(define (dflt_mul$dflt a b) (fl* a b))
+(define (dflt_div$dflt a b) (fl/ a b))
+(define (dflt_neg$dflt a)   (fl- a))
+(define (dflt_lt$dflt  a b) (fl< a b))
+(define (dflt_gt$dflt  a b) (fl> a b))
+(define (dflt_lte$dflt a b) (fl<= a b))
+(define (dflt_gte$dflt a b) (fl>= a b))
+(define (dflt_eq$dflt  a b) (fl= a b))
+(define (dflt_neq$dflt a b) (not (fl= a b)))
+
+;; char ops: a char is its integer code (matches JS charCodeAt).
+(define (char_eq  a b) (= a b))
+(define (char_neq a b) (not (= a b)))
+(define (char_lt  a b) (< a b))
+(define (char_gt  a b) (> a b))
+
+;; print ops (match JS String(): ints decimal, bools "true"/"false",
+;; floats via Number.toString() — whole-valued floats print without ".0",
+;; a char prints as its single glyph).
+(define (xats_sint_tostring n) (number->string n))
+(define (xats_bool_tostring b) (if b "true" "false"))
+(define (xats_dflt_tostring x)
+  (if (and (flonum? x) (integer? x) (not (infinite? x)) (not (nan? x)))
+      (number->string (exact x))     ; 2.0 -> "2"  (JS Number.toString)
+      (number->string x)))           ; 2.5 -> "2.5"
+(define (sint_print n) (XATS2JS_strn_print (xats_sint_tostring n)))
+(define (bool_print b) (XATS2JS_strn_print (xats_bool_tostring b)))
+(define (dflt_print x) (XATS2JS_strn_print (xats_dflt_tostring x)))
+(define (char_print c) (XATS2JS_strn_print (string (integer->char c))))
 
 ;;;====================================================================
 ;;; end of [xats2chez_runtime.scm]

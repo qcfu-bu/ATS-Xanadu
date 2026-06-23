@@ -210,9 +210,9 @@ dump/%: $(CHEZBUNDLE)
 	echo "--- intrep0 dump (stderr) ---"; \
 	sed -n '/intrep0 dump BEGIN/,/intrep0 dump END/p' "$$WORK/stderr.txt" || true; \
 	if [ "$$RC" -ne 0 ]; then echo "!! emitter exit $$RC" >&2; tail -40 "$$WORK/stderr.txt" >&2; exit "$$RC"; fi; \
-	awk '/^;;==XATS2CHEZ-BEGIN==/{f=1;next} /^;;==XATS2CHEZ-END==/{f=0} f' "$$WORK/stdout.txt" > "$$WORK/$*.scm"; \
-	echo "--- emitted Scheme: $$WORK/$*.scm ---"; \
-	cat "$$WORK/$*.scm"
+	awk '/^;;==XATS2CHEZ-BEGIN==/{f=1;next} /^;;==XATS2CHEZ-END==/{f=0} f' "$$WORK/stdout.txt" > "$$WORK/$*.dump.scm"; \
+	echo "--- emitted Scheme: $$WORK/$*.dump.scm ---"; \
+	cat "$$WORK/$*.dump.scm"
 
 ########################################################################
 # run/NAME — emit Scheme and run it on Chez.
