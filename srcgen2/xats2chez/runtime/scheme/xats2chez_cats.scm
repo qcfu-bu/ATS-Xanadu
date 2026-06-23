@@ -221,9 +221,19 @@
 (define (char_isupper c) (and (>= c 65) (<= c 90)))
 (define (ALNUM_q c) (or (char_isalnum c) (= c 95)))   ; alnum or underscore
 
+(define (char_isxdigit c) (or (char_isdigit c) (and (>= c 65)(<= c 70)) (and (>= c 97)(<= c 102))))
+(define (char_code c) c)            ; a char IS its code
+(define (char_make_sint n) n)       ; int -> char: identity (codes)
+
 ;; unsafe view casts: identities (the value representation is uniform).
 (define (UN_strn_vt_cast s) s)
 (define (UN_strn2string s) s)
+
+;; more string ops (the lexer's char source).
+(define (strn_head$opt s)
+  (if (= 0 (string-length s)) (vector 0) (vector 1 (char->integer (string-ref s 0)))))
+(define (strn_tail$raw s) (substring s 1 (string-length s)))
+(define (strn_strxize s) (strn_strmize s))   ; strx == char stream variant
 
 ;;;====================================================================
 ;;; end of [xats2chez_cats.scm]  (grows as more compiler units are compiled)
