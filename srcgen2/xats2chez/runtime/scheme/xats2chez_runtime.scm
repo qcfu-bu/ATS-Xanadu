@@ -150,6 +150,34 @@
 (define (dflt_print x) (XATS2JS_strn_print (xats_dflt_tostring x)))
 (define (char_print c) (XATS2JS_strn_print (string (integer->char c))))
 
+;;;--------------------------------------------------------------------
+;;; Prelude list ops.  A list is a constructor vector:
+;;;   list_nil  = #(0)            list_cons(h,t) = #(1 h t)
+;;;--------------------------------------------------------------------
+(define (list_nil) (vector 0))
+(define (list_cons h t) (vector 1 h t))
+(define (list_length xs)
+  (let loop ((xs xs) (n 0))
+    (if (= (vector-ref xs 0) 0) n (loop (vector-ref xs 2) (+ n 1)))))
+(define (list_reverse xs)
+  (let loop ((xs xs) (acc (vector 0)))
+    (if (= (vector-ref xs 0) 0) acc
+        (loop (vector-ref xs 2) (vector 1 (vector-ref xs 1) acc)))))
+
+;;;--------------------------------------------------------------------
+;;; Prelude string (strn) ops.  ATS strings are Scheme strings; a char is an
+;;; integer code, so strn_get_at returns the code.
+;;;--------------------------------------------------------------------
+(define (strn_length s) (string-length s))
+(define (strn_eq a b) (string=? a b))
+(define (strn_neq a b) (not (string=? a b)))
+(define (strn_lt a b) (string<? a b))
+(define (strn_gt a b) (string>? a b))
+(define (strn_append a b) (string-append a b))
+(define (strn_get_at s i) (char->integer (string-ref s i)))
+(define (strn_get$at s i) (char->integer (string-ref s i)))
+(define (XATS000_strn_get_at_raw s i) (char->integer (string-ref s i)))
+
 ;;;====================================================================
 ;;; end of [xats2chez_runtime.scm]
 ;;;====================================================================

@@ -207,6 +207,52 @@ case+ lab of
 | LABsym(_) =>
   (cz_str(filr, "0"); prerrsln("[chez0emit] UNHANDLED record (symbol) label -> 0")))
 //
+(* label_eq / field_pos / cz_proj_idx: resolve a projection label to a vector
+   index.  A positional LABint is the index directly; a record's symbol label
+   is resolved to its position in the record TYPE's field list (I0Ttrcd) — this
+   is the work trxi0i1 would otherwise do, recovered here from the tuple's
+   ityp since this backend emits straight from intrep0. *)
+fun
+label_eq
+( a: label, b: label): bool =
+(
+case+ a of
+| LABint(i0) => (case+ b of | LABint(j0) => (i0 = j0) | LABsym(_) => false)
+| LABsym(s0) => (case+ b of | LABsym(t0) => (symbl_cmp(s0, t0) = 0) | LABint(_) => false))
+//
+fun
+field_pos
+( target: label, fields: l0i0tlst, idx: sint): sint =
+(
+case+ fields of
+| list_nil() => idx
+| list_cons(f0, fs) =>
+  let val+ I0LAB(flab, _) = f0 in
+    if label_eq(flab, target) then idx else field_pos(target, fs, idx+1)
+  end)
+//
+fun
+cz_proj_idx_sym
+( filr: FILR, ty: i0typ, lab: label): void =
+(
+case+ ty.node() of
+| I0Ttrcd(_, _, fields) => cz_emit_int(filr, field_pos(lab, fields, 0))
+| I0Tlft(t1) => cz_proj_idx_sym(filr, t1, lab)
+| I0Ttop0(t1) => cz_proj_idx_sym(filr, t1, lab)
+| I0Ttop1(t1) => cz_proj_idx_sym(filr, t1, lab)
+| I0Tapps(f1, _) => cz_proj_idx_sym(filr, f1, lab)
+| _(*else*) =>
+  (cz_str(filr, "0"); prerrsln("[chez0emit] record field index unresolved -> 0")))
+//
+(* cz_proj_idx: the index for a projection of [tup] by label [lab]. *)
+fun
+cz_proj_idx
+( filr: FILR, tup: i0exp, lab: label): void =
+(
+case+ lab of
+| LABint(i0) => cz_emit_int(filr, i0)
+| LABsym(_) => cz_proj_idx_sym(filr, tup.ityp(), lab))
+//
 (* cz_funpat_ctag: the ctag of the constructor in a (possibly wrapped) datacon
    application pattern's function position. *)
 fun
@@ -406,9 +452,9 @@ case+ iexp.node() of
 | I0Epcon(_, lab, con) =>
   (cz_str(filr, "(XATSPCON "); i0exp_cz0(filr, con); cz_str(filr, " "); cz_lab_idx(filr, lab); cz_str(filr, ")"))
 | I0Epflt(_, lab, tup) =>
-  (cz_str(filr, "(vector-ref "); i0exp_cz0(filr, tup); cz_str(filr, " "); cz_lab_idx(filr, lab); cz_str(filr, ")"))
+  (cz_str(filr, "(vector-ref "); i0exp_cz0(filr, tup); cz_str(filr, " "); cz_proj_idx(filr, tup, lab); cz_str(filr, ")"))
 | I0Eproj(_, lab, tup) =>
-  (cz_str(filr, "(vector-ref "); i0exp_cz0(filr, tup); cz_str(filr, " "); cz_lab_idx(filr, lab); cz_str(filr, ")"))
+  (cz_str(filr, "(vector-ref "); i0exp_cz0(filr, tup); cz_str(filr, " "); cz_proj_idx(filr, tup, lab); cz_str(filr, ")"))
 //
 (* mutable vars / lvalues.  A [var] is a Scheme box; reading its content is
    (unbox p); taking its address is the box itself; assignment writes through
@@ -630,10 +676,10 @@ case+ lval.node() of
    cz_str(filr, " "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
 | I0Eproj(_, lab, base) =>
   (cz_str(filr, "(vector-set! "); i0exp_cz0(filr, base); cz_str(filr, " ");
-   cz_lab_idx(filr, lab); cz_str(filr, " "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
+   cz_proj_idx(filr, base, lab); cz_str(filr, " "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
 | I0Epflt(_, lab, base) =>
   (cz_str(filr, "(vector-set! "); i0exp_cz0(filr, base); cz_str(filr, " ");
-   cz_lab_idx(filr, lab); cz_str(filr, " "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
+   cz_proj_idx(filr, base, lab); cz_str(filr, " "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
 | I0Epcon(_, lab, base) =>
   (cz_str(filr, "(vector-set! "); i0exp_cz0(filr, base); cz_str(filr, " (+ ");
    cz_lab_idx(filr, lab); cz_str(filr, " 1) "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
