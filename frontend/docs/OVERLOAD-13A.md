@@ -1,5 +1,20 @@
 # #13a — dotted overloaded selectors: the missing `tread12` pass (and why it can't be added yet)
 
+> **RE-DIAGNOSIS 2026-06-23 (current `tread12`-included pipeline).** Everything below this banner is
+> the ORIGINAL investigation, written BEFORE `d2parsed_of_tread12` was committed to the M3 driver
+> (`pyfront_m3.dats:144`, commit d7253f16b). `tread12` IS NOW in the pipeline in stock order
+> (`tread12 → trans2a → trsym2b → t2read0 → trans23`). It did **not** close `staexp0`/`staexp2` as
+> Stage 3 predicted. The precise residual is now characterized in the new section
+> **"## RE-DIAGNOSIS: the residual is an overload-bucket unify under `#absimpl` (compiler's job)"**
+> at the BOTTOM of this file. TL;DR of the re-diagnosis: the dotted-selector failure is NOT a
+> pretty-print/desugar fidelity gap — our L2 is faithful (a direct call, an untyped-param receiver,
+> and the no-`#absimpl` case all resolve; only the staloaded-con-binder + local-`#absimpl`-candidate
+> intersection fails, inside the compiler's own `match2a_d2cst` overload unify). A scope-bounding
+> "fix" (bounding the `private:` capture-rest body at the next sibling private) DOES close `staexp0`
+> but **regresses 5 green files** (`dynexp1/2/3`, `statyp2`, `locinfo`) by scoping the GLOBAL
+> `#absimpl` transparency those files legitimately rely on — so it is a workaround, reverted. Gate
+> held at **163/163**, tree clean, files left uncovered (compiler's job).
+
 Investigation of the residual **#13a overload-resolution** failure that blocks five bootstrap
 compiler files from reaching `m3_nerror=0` on the M3 Pythonic round-trip.
 
@@ -190,3 +205,73 @@ After each stage: `bash build-m3.sh` (`M3: PASS`), then `make -j8 pp-corpus-auto
 - **Closed this session:** none (report-only). The path is: make the frontend lower
   viewtypes/linearity faithfully (Stage 2), then add `tread12` (Stage 3).
 - **Audit:** `166 / 166`, total `# TODO(pp): 0`, zero `m3_nerror>0` — unchanged, tree clean.
+
+(* ============================================================================ *)
+
+## RE-DIAGNOSIS: the residual is an overload-bucket unify under `#absimpl` (compiler's job)
+
+**Pipeline NOW (verified `pyfront_m3.dats:143-149`):**
+`tread12 → trans2a → trsym2b → t2read0 → trans23`, exact stock `trans03_from_fpath` order.
+`d2parsed_of_tread12` IS committed. Probing `staexp0` under it: **still 6** (`tread12` did NOT
+close it — Stage 3's prediction was wrong). Re-probe recipe unchanged
+(`bash build-pp-corpus.sh --stadyn auto --reuse-bundle --out-dir BUILD/_sel srcgen2/DATS/staexp0.dats`).
+
+### The 6 `staexp0` errors are all the SAME shape
+All six are a dotted `id0.lctn()` (or `s0t2.lctn()`) where the **receiver is a con-pattern field
+binder bound by a STALOADED constructor** — `S0QIDnone(id0)`/`S0QIDsome(tok,id0)`/the `d0qid` twins
+(`id0 : i0dnt`), and `s0exp_annotopt`'s `s0t2` from `optn_cons(s0t2)`. `tok.lctn()` (offs 13 of
+`tok.lctn()+id0.lctn()`) RESOLVES; `id0.lctn()` (offs 26) does not. `staexp2`'s residual is the same
+family (`s2v0.sort()`/`s2c0.sort()` on `s2var`/`s2cst`; `s2c1.sort()`/`.sexp()` con-binders) — after
+this re-diagnosis it is **5 → 1** under the scope hack, the last being a separate `list_map`/template
+issue, NOT a selector. `trans23_dynexp` is unrelated (a setter-arity `darg.styp(targ)` + a `where:`/
+`list_ziprev` element-type mismatch).
+
+### Minimal repro bisection (the decisive evidence)
+Building tiny `.pdats` that staload the same SATS header and add ONE function:
+
+| repro | construct | result |
+|---|---|---|
+| 1 | `s0qid_get_lctn` with `id0.lctn()`, **no** `#absimpl` in file | **nerror=0** |
+| 4/5 | + local `datatype i0dnt_` and `#absimpl i0dnt_tbox = i0dnt_` (the `private:` block) | **FAILS** |
+| 6 | the `enum`/datatype WITHOUT the `#absimpl` | **nerror=0** |
+| 7 | the selector placed **before** the `#absimpl` (capture-rest scope excludes it) | **nerror=0** |
+| 8 | `#absimpl` present, but a **direct call** `i0dnt_get_lctn(id0)` (no overload bucket) | **nerror=0** |
+| 9 | `#absimpl` present, dotted `id0.lctn()` on an **untyped param** (no con binder) | **nerror=0** |
+
+So the failure needs the **intersection** of (a) an `#absimpl` that makes the *local* overload
+candidate `i0dnt_get_lctn`'s `xtyp` stpize TRANSPARENT (`i0dnt_tbox → i0dnt_`, via trans2a
+`f0_absimpl`'s `s2abs_set_styp`, `trans2a_decl00.dats:404`), (b) a receiver whose `xtyp` is the
+STALOADED constructor's FROZEN-OPAQUE arg type (`S0QIDnone`'s `xtyp` was stpized at SATS-load when
+`i0dnt_tbox` had no styp, and `tread12_d2con`/`tread12_d2conlst` only re-stpizes constructors
+DECLARED IN THIS FILE — `tread12_decl00.dats:1281`, the `D2Cdatatype` arm — never a staloaded con),
+and (c) the OVERLOAD-BUCKET path (`match2a_d2cst` / `trsym2b_dynexp f0_sym0`), which reads
+`d2cst_get_xtyp(candidate)` = `i0dnt_` and unifies it against the receiver `i0dnt_tbox`.
+
+A **direct call** (repro 8), an **untyped param** receiver (repro 9, a fresh tyvar that unifies
+either way), and the **no-`#absimpl`** case (repro 1/6) all resolve. Only the bucket-match of an
+opaque-vs-transparent abstract pair fails. That unify is the compiler's own `match2a_*`
+(`trsym2b_utils0.dats:147`) — identical code to stock, run in stock order on a byte-faithful bucket.
+
+### Faithful-vs-fidelity verdict: COMPILER'S JOB
+Our L2 emission is faithful: the dotted selector lowers to the standard `D2Esym0` overload bucket
+(prior investigation verified byte-identity), the con-pattern binds correctly, and the SAME construct
+resolves the moment the bucket is bypassed (direct call) or the abstract pair is consistent (param /
+no-absimpl). The residual is the compiler reconciling a frozen-opaque staloaded-con arg type against
+a stpized-transparent local-candidate `xtyp` **inside overload resolution** — not a pretty-print or
+desugar divergence.
+
+### Why the scope hack is NOT a faithful fix (reverted)
+Bounding the `private:` capture-rest body at the next sibling `private:` (so an `#absimpl`'s
+transparency does not "leak" past the original `local…end`) reorders enough to keep the candidate
+`xtyp` opaque, and it **closes `staexp0` (6→0)** and trims `staexp2` (5→1). BUT it is WRONG: an
+`#absimpl` is a **GLOBAL** mutation of the public abstract `s2cst` (the whole point — it gives the
+opaque type its representation everywhere after). `locinfo.dats` relies on exactly that: `local
+datatype postn … #absimpl postn_tbox = postn end` then a SIBLING `local datatype loctn = LOCTN of
+(lcsrc, postn, postn) … end` — the second block references `postn` (= the public `postn_tbox`)
+transparently. Scoping the absimpl breaks `dynexp1/2/3`, `statyp2`, `locinfo` (`159/164` on the
+gate). Reverted. The capture-rest nesting IS a structural divergence from stock's sibling
+`D2Clocal0`s, but it is NOT what blocks these selectors, and "fixing" it costs more green files than
+it buys.
+
+### Audit (re-diagnosis): `163 / 163`, total `# TODO(pp): 0`, zero `m3_nerror>0` — tree clean, files
+left uncovered (`staexp0`, `staexp2`, `trans23_dynexp` stay out of the default gate). Report-only.
