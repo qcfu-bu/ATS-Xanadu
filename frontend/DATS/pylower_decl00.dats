@@ -54,6 +54,10 @@ fun ats_name(name: strn): strn = pylower_ats_name(name)
 fun ats_sym(name: strn): sym_t = symbl_make_name(ats_name(name))
 #extern fun PYL_uncapitalize(s: strn): strn = $extnam()
 #extern fun PYL_has_hats_ext(s: strn): bool = $extnam()
+// qualified-name helpers (shared with pylower_staexp): `M.x` -> head `$M.`, tail `x`, has-dot test.
+#extern fun PYL_is_qualified_name(s: strn): bool = $extnam()
+#extern fun PYL_qual_head_key(s: strn): strn = $extnam()  // "M.x" -> "$M."
+#extern fun PYL_qual_tail_name(s: strn): strn = $extnam() // "M.x" -> "x"
 fun ats_uncap_sym(name: strn): sym_t = symbl_make_name(PYL_uncapitalize(ats_name(name)))
 fun ats_type_sym(name: strn): sym_t = ats_uncap_sym(name)
 //
@@ -804,10 +808,30 @@ case+ d2ps of
      | D2PTMnone(_) => d2ptmlst_has_same_target(rest, d2i0))
 )
 //
+// resolve an overload-TARGET d2itm: a bare `x` via tr12env_find_d2itm; a QUALIFIED `M.x` (a named
+// staload member, `@overload TRUE = SYM.TRUE_symbl`) via the `$M.` namespace env then the member.
+// Mirrors stock f0_qual0 (trans12_dynexp.dats) — the SAME mechanism resolve_typ_qualified uses for
+// types, on the d2 (dynamic) side.
+fun
+resolve_overload_target(env: !tr12env, impl: strn): d2itmopt_vt =
+  if ~PYL_is_qualified_name(impl) then tr12env_find_d2itm(env, ats_sym(impl))
+  else let
+    val head = PYL_qual_head_key(impl)        // "$M."
+    val tail = PYL_qual_tail_name(impl)        // "x"
+    val sopt = tr12env_find_s2itm(env, symbl_make_name(head))
+  in
+    case+ sopt of
+    | ~optn_vt_nil() => optn_vt_nil()
+    | ~optn_vt_cons(s2i) =>
+      (case+ s2i of
+       | S2ITMenv(envs) => f2envlst_find_d2itm(envs, symbl_make_name(tail))
+       | _ => optn_vt_nil())
+  end
+//
 fun
 build_overload(env: !tr12env, loc: loctn, name: strn, impl: strn, pval: sint): d2ecl = let
   val sym_nm  = ats_sym(name)
-  val implopt = tr12env_find_d2itm(env, ats_sym(impl))
+  val implopt = resolve_overload_target(env, impl)
 in
   case+ implopt of
   | ~optn_vt_cons(ditm_impl) => let
@@ -859,7 +883,7 @@ end
 // `path` is the XATSHOME-RELATIVE `.sats` path (e.g. "/frontend/TEST/m7imp/lib.sats"); we prepend
 // `the_XATSHOME()` exactly as `f0_pvsload` does (xglobal.dats:741-748). `knd0`=0 (static `.sats`).
 fun
-lower_import(env: !tr12env, loc: loctn, path: strn, knd0: sint, is_python: bool): d2ecl =
+lower_import(env: !tr12env, loc: loctn, path: strn, knd0: sint, is_python: bool, aopt: optn(strn)): d2ecl =
   if is_python then
     // DEFERRED: a Python-surface `.psats`/`.pdats` module needs recursing OUR frontend (lex/parse/
     // elab/lower) — the stock `d0parsed_from_fpath` only parses ATS surface, so we CANNOT load it
@@ -872,6 +896,17 @@ lower_import(env: !tr12env, loc: loctn, path: strn, knd0: sint, is_python: bool)
     // path so nested staloads/imports extend THIS file's env, matching stock `#include`.
     lower_include(env, loc, path, knd0)
   else let
+    // NAMED-ALIAS namespace key (round-trip of ATS `#staload SYM = "..."`). The stock compiler
+    // registers a named staload's f2env under `$SYM.` (= DLRDT(SYM) = "$"+SYM+".") — see
+    // g1exp_nmspace + f0_staload in trans12_decl00.dats. A bare import keeps the `$.` key
+    // (DLRDT_symbl). The `$SYM.` head is exactly what PYL_qual_head_key("SYM.x") returns, so the
+    // existing resolve_typ_qualified / qualified-name lookup resolves `SYM.x` through this env.
+    val gsym =
+      ( case+ aopt of
+        | optn_cons(alias) => symbl_make_name(strn_append(strn_append("$", alias), "."))
+        | optn_nil()       => DLRDT_symbl ) : sym_t
+    val is_named =
+      ( case+ aopt of optn_cons(_) => true | optn_nil() => false ) : bool
     // the absolute path: prepend XATSHOME (mirrors f0_pvsload's `strn_append(XATSHOME, fnam)`).
     val abspath = strn_append(the_XATSHOME(), path)
   in
@@ -897,10 +932,14 @@ lower_import(env: !tr12env, loc: loctn, path: strn, knd0: sint, is_python: bool)
       //     = F2ENV(lcsrc, g1mac, s2tex, s2itm, d2itm) from `dpar.t2penv()` — the EXACT value the
       //     stock bare-staload path passes to `tr12env_add1_f2env` (trans12_decl00.dats:2374)).
       val fenv = f2env_of_d2parsed(dpar2)
-      // (3) SCOPED MERGE: register the f2env under `$.` in THIS file's env (NOT global). After this,
-      //     the module's exports resolve by bare name in `env` for all SUBSEQUENT decls.
-      val () = tr12env_add1_f2env(env, DLRDT_symbl, fenv)
-      val () = promote_import_symloads(env, dpar2)
+      // (3) SCOPED MERGE: register the f2env under `gsym` in THIS file's env (NOT global). For a bare
+      //     import gsym = `$.` (DLRDT_symbl), so exports resolve by BARE name for SUBSEQUENT decls;
+      //     for `import M as SYM` gsym = `$SYM.`, so they resolve ONLY through `SYM.x` (mirroring
+      //     stock f0_staload, which registers under g1exp_nmspace's `$SYM.`). The symload-promotion
+      //     (bare-name re-export of imported overload aliases) runs ONLY for the bare case — stock
+      //     gates `f0_staload_aft` on `gsym = DLRDT_symbl` (trans12_decl00.dats:2381-2385) too.
+      val () = tr12env_add1_f2env(env, gsym, fenv)
+      val () = if is_named then () else promote_import_symloads(env, dpar2)
       // (4) the emitted node: a real D2Cstaload carrying the resolved fpath (LSP dep-graph) + the
       //     f2env. `gsrc` = a minimal G1Eid0(path-as-symbol) src (vestigial for typecheck; the
       //     dep-graph reads `fopt`, not `gsrc`). tknd = a T_STALOAD-ish token is not required by
@@ -1087,7 +1126,7 @@ case+ d of
 // its f2env into THIS file's `env` (per-file, NO global leak) + emit a real D2Cstaload (for the
 // LSP dep-graph). The module driver threads `env` left-to-right, so an import declared before its
 // uses registers FIRST — its exports are then visible to the following decls. See lower_import.
-| PCCimport(loc, path, knd0, is_python) => lower_import(env, loc, path, knd0, is_python)
+| PCCimport(loc, path, knd0, is_python, aopt) => lower_import(env, loc, path, knd0, is_python, aopt)
 //
 // a datatype (enum) -> a real D2Cdatatype (M5b.3; SPIKE-PROVEN, see lower_datacon above).
 // (1) create the type s2cst (boxed datatype — the §5.7 default; decorators/sorts are a later

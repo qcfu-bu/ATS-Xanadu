@@ -339,6 +339,10 @@ pcfundcl =
 //              fenv)` — per-file, NO global pervasive leak (contrast `filpath_pvsload`, which
 //              merges into the GLOBAL pervasive env and would pollute every later check). It emits
 //              a real `D2Cstaload` (for the LSP dep-graph), NOT a `D2Cnone0`.
+//              The trailing `optn(strn)` is the NAMED ALIAS of `import M as SYM` (round-trip of
+//              ATS `#staload SYM = "M"`): when present, M3 registers the module's `f2env` under
+//              `$SYM.` (`symbl_make_name(DLRDT(SYM))`, mirroring `g1exp_nmspace`+`f0_staload`)
+//              instead of the bare `$.`, so `SYM.x` qualified references resolve through it.
 //   PCCalias : a plain `type X = T` alias -> a D2Csexpdef. Carries the alias NAME, its
 //              type-param names (a non-empty list is the parametric path), and the aliased
 //              SURFACE type (`pytyp`). M3 lowers the surface type via `pylower_typ` (inheriting
@@ -371,7 +375,7 @@ pcdecl =
 | PCCfun     of (loctn, list(pcparam), list(pytyp)(*metric*), list(pcfundcl))
 | PCCval     of (loctn, pcpat, pcexp)
 | PCCstaload of (loctn, strn)
-| PCCimport  of (loctn, strn(*resolved XATSHOME-rel .sats path*), sint(*0=static*), bool(*is_python: defer*))
+| PCCimport  of (loctn, strn(*resolved XATSHOME-rel .sats path*), sint(*0=static*), bool(*is_python: defer*), optn(strn)(*named alias: `import M as SYM` <-> ATS `#staload SYM = "M"`*))
 | PCCalias   of (loctn, strn, list(pcparam), pytyp)
 | PCCrecord  of (loctn, strn, list(pcparam), list(pcfield), pcmode)
 //   PCCabstype : an `abstype Name [tvs] [<= REP]` OPAQUE type declaration (ATS-parity). Carries

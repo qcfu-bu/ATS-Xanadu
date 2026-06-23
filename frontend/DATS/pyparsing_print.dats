@@ -635,8 +635,10 @@ and
 pp_import(out: FILR, imp: pyimport): void =
 (
 case+ imp of
-| PyImpModule(loc, segs) =>
-  (ps(out, "(module"); print_span(out, loc); pp_strlst(out, segs); ps(out, ")"))
+| PyImpModule(loc, segs, aopt) =>
+  ( ps(out, "(module"); print_span(out, loc); pp_strlst(out, segs);
+    (case+ aopt of optn_cons(nm) => (ps(out, " as "); ps(out, nm)) | optn_nil() => ());
+    ps(out, ")") )
 | PyImpFrom(loc, segs, star, names) =>
   ( ps(out, "(from"); print_span(out, loc);
     ps(out, " (path"); pp_strlst(out, segs); ps(out, ")");

@@ -25,6 +25,7 @@ PP_ITEM_DIR := $(PP_OUT)/items
 PP_SUMMARY := $(PP_OUT)/summary.tsv
 PP_AUTO_OUT := $(if $(USER_PP_OUT),$(PP_OUT),$(BUILD)/pp-corpus-make-auto)
 PP_DYNAMIC_OUT := $(if $(USER_PP_OUT),$(PP_OUT),$(BUILD)/pp-corpus-make-dynamic)
+PP_STATIC_OUT := $(if $(USER_PP_OUT),$(PP_OUT),$(BUILD)/pp-corpus-make-static)
 
 pp_slug = $(subst /,_,$(subst ..,_,$(1)))
 
@@ -39,12 +40,13 @@ endif
 PP_TARGETS := $(foreach f,$(PP_FILES),$(PP_ITEM_DIR)/$(call pp_slug,$(f)).done)
 PP_SUMMARIES := $(foreach f,$(PP_FILES),$(PP_ITEM_DIR)/$(call pp_slug,$(f))/summary.tsv)
 
-.PHONY: help pp-bundles pp-corpus pp-corpus-auto pp-corpus-dynamic clean-pp-corpus
+.PHONY: help pp-bundles pp-corpus pp-corpus-auto pp-corpus-dynamic pp-corpus-static clean-pp-corpus
 
 help:
 	@echo "Targets:"
 	@echo "  make pp-corpus-auto           # default static+dynamic corpus in parallel (PP_JOBS=$(PP_JOBS))"
 	@echo "  make pp-corpus-dynamic        # default dynamic corpus in parallel (PP_JOBS=$(PP_JOBS))"
+	@echo "  make pp-corpus-static         # default SATS interface corpus in parallel (PP_JOBS=$(PP_JOBS))"
 	@echo "  make -j8 pp-corpus PP_FILE_LIST=PATH PP_MODE=auto PP_OUT=BUILD/pp-corpus-make-custom"
 	@echo "  make -j8 pp-corpus PP_MODE=dynamic PP_FILES='file1.dats file2.dats' PP_OUT=BUILD/probe"
 	@echo "  make pp-bundles               # build/rebuild shared pyprint + M3 bundles"
@@ -69,6 +71,9 @@ pp-corpus-auto:
 
 pp-corpus-dynamic:
 	+$(MAKE) -j$(PP_JOBS) pp-corpus PP_MODE=dynamic PP_FILE_LIST=CORPUS/pp-default-dynamic.files PP_OUT=$(PP_DYNAMIC_OUT)
+
+pp-corpus-static:
+	+$(MAKE) -j$(PP_JOBS) pp-corpus PP_MODE=static PP_FILE_LIST=CORPUS/pp-default-static.files PP_OUT=$(PP_STATIC_OUT)
 
 pp-corpus: $(PP_SUMMARY)
 	@true
@@ -100,4 +105,4 @@ endef
 $(foreach file,$(PP_FILES),$(eval $(call PP_ITEM_template,$(file))))
 
 clean-pp-corpus:
-	rm -rf "$(PP_OUT)" "$(BUILD)/pp-corpus-make-auto" "$(BUILD)/pp-corpus-make-dynamic"
+	rm -rf "$(PP_OUT)" "$(BUILD)/pp-corpus-make-auto" "$(BUILD)/pp-corpus-make-dynamic" "$(BUILD)/pp-corpus-make-static"

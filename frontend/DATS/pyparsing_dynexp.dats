@@ -575,6 +575,16 @@ in
         in
           p_postfix_loop(e1, ps_advance(st1))
         end
+      // a UIDENT after `.` is a MODULE-ALIAS member that is itself a constructor/value with an
+      // uppercase ATS name (`SYM.DLR_symbl`, `MAP.TopMap`). Accept it as a field name; lowering's
+      // module-alias check resolves `M.X` qualified-name (else it falls back to a record field).
+      | PT_UIDENT(nm) =>
+        let
+          val locn = ps_peek_loctn(st1)
+          val e1 = PyEfield(loc_span(loc0, locn), e0, nm)
+        in
+          p_postfix_loop(e1, ps_advance(st1))
+        end
       | PT_INT(nm) =>
         let
           val locn = ps_peek_loctn(st1)

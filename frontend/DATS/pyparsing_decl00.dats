@@ -770,8 +770,21 @@ in
     let
       val st1 = ps_advance(st)
       val @(segs, st2) = p_modpath(st1)
+      // optional `as NAME` -> the named-alias of `#staload NAME = "modpath"`.
+      val @(aopt, st3) =
+        ( case+ ps_peek(st2) of
+          | PT_KW_AS() =>
+            let val st2a = ps_advance(st2) in
+              case+ ps_peek(st2a) of
+              | PT_UIDENT(nm) => @(optn_cons(nm), ps_advance(st2a))
+              | PT_LIDENT(nm) => @(optn_cons(nm), ps_advance(st2a))
+              | _ =>
+                let val st2b = ps_diag(st2a, ps_peek_loctn(st2a), "expected an alias name after 'as'") in
+                  @(optn_nil(), st2b) end
+            end
+          | _ => @(optn_nil(), st2) ) : @(optn(strn), pstate)
     in
-      @(PyCimport(loc, PyImpModule(loc, segs)), st2)
+      @(PyCimport(loc, PyImpModule(loc, segs, aopt)), st3)
     end
   | PT_KW_FROM() =>
     let
@@ -914,10 +927,15 @@ p_overload_alias(st: pstate, decos: list(pydecorator), loc: loctn): @(pydecl, ps
           val st2 = ps_advance(st1)   // consume '='
         in
           case+ ps_peek(st2) of
+          // the TARGET may be a QUALIFIED name `M.x` (a named-staload member, e.g.
+          // `@overload TRUE = SYM.TRUE_symbl` <-> ATS `#symload TRUE with $SYM.TRUE_symbl`).
+          // p_overload_target_name joins a trailing `.name` into one dotted target string.
           | PT_LIDENT(tgt) =>
-              @(PyCsymalias(loc, nm, tgt, decos_overload_prec_p(decos)), ps_advance(st2))
+              let val @(tgt1, st3) = p_overload_target_name(tgt, ps_advance(st2)) in
+                @(PyCsymalias(loc, nm, tgt1, decos_overload_prec_p(decos)), st3) end
           | PT_UIDENT(tgt) =>
-              @(PyCsymalias(loc, nm, tgt, decos_overload_prec_p(decos)), ps_advance(st2))
+              let val @(tgt1, st3) = p_overload_target_name(tgt, ps_advance(st2)) in
+                @(PyCsymalias(loc, nm, tgt1, decos_overload_prec_p(decos)), st3) end
           | _ =>
             let val st3 = ps_diag(st2, ps_peek_loctn(st2), "expected a target function after '=' in an overload alias") in
               @(PyCerror(loc, "expected an overload-alias target"), st3) end
@@ -926,6 +944,23 @@ p_overload_alias(st: pstate, decos: list(pydecorator), loc: loctn): @(pydecl, ps
         let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected '=' in an overload alias (@overload NAME = TARGET)") in
           @(PyCerror(loc, "expected '=' in an overload alias"), st2) end
   end
+//
+// after the first target segment, join a trailing `.name` (qualified module member) into one
+// dotted target string `M.x` (the lowering's symalias resolver routes a `.`-bearing target through
+// the qualified-name path). A bare target has no trailing dot and returns unchanged.
+and
+p_overload_target_name(seg0: strn, st: pstate): @(strn, pstate) =
+( case+ ps_peek(st) of
+  | PT_DOT() =>
+    let val st1 = ps_advance(st) in
+      case+ ps_peek(st1) of
+      | PT_LIDENT(s1) => @(strn_append(strn_append(seg0, "."), s1), ps_advance(st1))
+      | PT_UIDENT(s1) => @(strn_append(strn_append(seg0, "."), s1), ps_advance(st1))
+      | _ =>
+        let val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected a member name after '.' in an overload target") in
+          @(seg0, st2) end
+    end
+  | _ => @(seg0, st) )
 //
 // read the `@overload[N]` PRECEDENCE off the decorator list (parser-side). Returns the parsed N,
 // or `~1` when no `@overload[N]` bracket was given (the default-precedence sentinel the lowering

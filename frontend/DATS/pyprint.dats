@@ -1185,14 +1185,29 @@ end
 fun
 pp_symload_alias(out: FILR, n: sint, sym: s0ymb, dqi: d0qid, prec: g0expopt): void = let
   val nm  = fname(s0ymb_lexeme(sym))
-  val tgt = fname(d0qid_lexeme(dqi))
 in
   ind(out, n);
   (case+ prec of
    | optn_cons(ge) => (ps(out, "@overload["); ps(out, g0exp_lexeme(ge)); ps(out, "] "))
    | optn_nil() => ps(out, "@overload "));
-  ps(out, nm); ps(out, " = "); ps(out, tgt); nl(out)
+  ps(out, nm); ps(out, " = ");
+  // the TARGET: keep the module qualifier of `$M.x` (-> `M.x`) — a named staload registers `x`
+  // under `$M.`, so dropping the qualifier leaves it unresolved. A bare target prints verbatim.
+  pp_d0qid_target(out, dqi); nl(out)
 end
+and
+pp_d0qid_target(out: FILR, dqi: d0qid): void =
+(
+  case+ dqi of
+  | D0QIDnone(id) => ps(out, fname(i0dnt_lexeme(id)))
+  | D0QIDsome(tok, id) => let
+      val q = qualname(tok)
+    in
+      if strn_eq(q, "")
+      then ps(out, fname(i0dnt_lexeme(id)))
+      else (ps(out, q); ps(out, "."); ps(out, rewrite_dollar(i0dnt_lexeme(id))))
+    end
+)
 //
 (* ****** ****** *)
 //
@@ -1474,12 +1489,36 @@ pp_d0exp_inline(out: FILR, de: d0exp): void =
   | D0Edtsel(_, lab, opt) => pp_dexp_dtsel(out, lab, opt)
   //
 	  | D0Eannot(de1, _) => pp_d0exp_inline(out, de1)
-	  | D0Equal0(_, de1) => pp_d0exp_inline(out, de1)
+	  // a qualified dynamic name `$M.x` -> `M.x` (mirrors the static S0Equal0 -> M.t). The named
+	  // staload registers the module under `$M.`, so the qualifier MUST be kept (dropping it leaves
+	  // the bare name unresolved). A bare/empty qualifier falls through to the inner expression.
+	  | D0Equal0(tok, de1) => pp_d0exp_qual_inline(out, tok, de1)
 	  | D0Ewhere(de1, _) => pp_d0exp_inline(out, de1)
 	  | D0Eerrck(_, de1) => pp_d0exp_inline(out, de1)
 	  //
 	  | _ => ps(out, "# TODO(pp): d0exp-inline")
 	)
+// a qualified dynamic expression `$M.x` -> `M.x`: keep the module qualifier (the named staload
+// alias), drop the leading `$`. An empty/bare qualifier renders just the inner expression.
+and
+pp_d0exp_qual_inline(out: FILR, tok: token, de1: d0exp): void = let
+  val q = qualname(tok)
+in
+  if strn_eq(q, "")
+  then pp_d0exp_inline(out, de1)
+  else (ps(out, q); ps(out, "."); pp_d0exp_qual_tail_inline(out, de1))
+end
+and
+pp_d0exp_qual_tail_inline(out: FILR, de: d0exp): void =
+(
+  case+ de.node() of
+  // the tail after `M.` is the bare member name — emit it RAW (no value/con renaming): the
+  // qualified resolver looks it up by its ATS name inside the module's env, exactly as stock does.
+  | D0Eid0(id) => ps(out, rewrite_dollar(i0dnt_lexeme(id)))
+  | D0Eopid(oid) => ps(out, fname(i0dnt_lexeme(oid)))
+  | D0Eannot(de2, _) => pp_d0exp_qual_tail_inline(out, de2)
+  | _ => pp_d0exp_inline(out, de)
+)
 // the d0eid (an operator-as-id) — a bare i0dnt (d0eid = i0dnt_tbox).
 and
 pp_d0eid(out: FILR, oid: d0eid): void = ps(out, fname(i0dnt_lexeme(oid)))
@@ -3709,11 +3748,48 @@ g0explst_import_path(ges: g0explst): strn =
     end
 )
 and
-pp_staload_n(out: FILR, n: sint, ge: g0exp): void =
+// a NAMED staload `#staload SYM = "path"` parses (p1_g0exp) as the apps spine
+// `[G0Eid0(SYM), G0Eid0(=), G0Estr("path")]`. Extract the alias name SYM; return ""
+// for the bare `#staload "path"` form (a lone G0Estr, no leading id). This is the
+// L0 mirror of the stock `g1exp_nmspace` (trans12_decl00.dats), which reads the same
+// `= "path"` shape to discover the module qualifier.
+g0exp_staload_alias(ge: g0exp): strn =
 (
-  ind(out, n);
-  ps(out, "from \""); ps(out, PYPP_import_stem(g0exp_import_path(ge))); ps(out, "\" import *"); nl(out)
+  case+ ge.node() of
+  | G0Eapps(ges) => g0explst_staload_alias(ges)
+  | G0Elpar(_, ges, _) => g0explst_staload_alias(ges)
+  | G0Eerrck(_, ge1) => g0exp_staload_alias(ge1)
+  | _ => ""
 )
+and
+g0explst_staload_alias(ges: g0explst): strn =
+(
+  case+ ges of
+  | list_cons(g0, list_cons(g1, _)) =>
+      // require the shape `NAME = ...` — a leading id followed by the `=` operator.
+      (case+ g0.node() of
+       | G0Eid0(id) =>
+           if g0exp_is_eq(g1) then i0dnt_lexeme(id) else ""
+       | _ => "")
+  | _ => ""
+)
+and
+g0exp_is_eq(ge: g0exp): bool =
+(
+  case+ ge.node() of
+  | G0Eid0(id) => i0dnt_lexeme(id) = "="
+  | _ => false
+)
+and
+pp_staload_n(out: FILR, n: sint, ge: g0exp): void = let
+  val alias = g0exp_staload_alias(ge)
+in
+  ind(out, n);
+  if strn_eq(alias, "")
+  then (ps(out, "from \""); ps(out, PYPP_import_stem(g0exp_import_path(ge))); ps(out, "\" import *"); nl(out))
+  // a NAMED staload -> `import "path" as ALIAS` (registers the `$ALIAS.` qualifier).
+  else (ps(out, "import \""); ps(out, PYPP_import_stem(g0exp_import_path(ge))); ps(out, "\" as "); ps(out, alias); nl(out))
+end
 and
 pp_staload(out: FILR, ge: g0exp): void =
   pp_staload_n(out, 0, ge)

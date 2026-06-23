@@ -595,9 +595,11 @@ pydatacon =
 // an import: `import modpath` or `from modpath import (* | names)` (§5.2).
 //   modpath is a dotted LIDENT path OR a STRING path literal — we keep the raw
 //   segments / string lexeme. `star = true` ⇒ `import *`; else the named LIDENTs.
+//   The optn(strn) on PyImpModule is the NAMED-ALIAS of `import modpath as SYM`
+//   (the round-trip of ATS `#staload SYM = "modpath"`); optn_nil = a bare import.
 and
 pyimport =
-| PyImpModule of (loctn, list(strn))
+| PyImpModule of (loctn, list(strn), optn(strn))
 | PyImpFrom   of ( loctn
                  , list(strn)
                  , bool

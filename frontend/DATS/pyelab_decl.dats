@@ -558,10 +558,12 @@ case+ d of
     // frontend (deferred — see PCCimport doc + the M3 lowering's graceful diagnostic).
     (
       case+ imp of
-      | PyImpModule(iloc, segs) =>
-          list_sing(PCCimport(iloc, modpath_to_sats(segs), 0(*static*), false(*is_python*)))
+      | PyImpModule(iloc, segs, aopt) =>
+          // `import M as SYM` carries the named alias (round-trip of ATS `#staload SYM = "M"`);
+          // a bare `import M` has aopt = optn_nil and registers under the bare `$.`.
+          list_sing(PCCimport(iloc, modpath_to_sats(segs), 0(*static*), false(*is_python*), aopt))
       | PyImpFrom(iloc, segs, _star, _names) =>
-          list_sing(PCCimport(iloc, modpath_to_sats(segs), 0(*static*), false(*is_python*)))
+          list_sing(PCCimport(iloc, modpath_to_sats(segs), 0(*static*), false(*is_python*), optn_nil()))
     )
 | PyCsymalias(loc, nm, tgt, prec) =>
     // GAP1: a STANDALONE overload-ALIAS `@overload NAME = TARGET` (+ `@overload[N]` precedence) ->

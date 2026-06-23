@@ -292,6 +292,73 @@ d2ptmlst_arity_single_exp(loc: loctn, sym: sym_t, dpis: d2ptmlst, nargs: sint): 
       else optn_nil()
 )
 //
+// MODULE-ALIAS qualified dynamic-name resolution (`M.x` where `M` is a named-staload alias).
+// The `$M.` namespace key (= "$"+M+".", the DLRDT(M) the named staload registered the module
+// f2env under) is looked up via tr12env_find_s2qua; the member name `x` is then resolved RAW
+// (its ATS name) inside that module's f2env, mirroring stock f0_qual0 (trans12_dynexp.dats:3434).
+fun qual_ns_key(alias: strn): sym_t =
+  symbl_make_name(strn_append(strn_append("$", alias), "."))
+//
+// resolve `alias.member` as a qualified dynamic value. Returns optn_nil if `alias` is NOT a
+// registered module namespace (so the caller falls back to the ordinary record-projection path).
+fun
+pl_qual_value(env: !tr12env, loc: loctn, alias: strn, member: strn): optn(d2exp) = let
+  val sopt = tr12env_find_s2itm(env, qual_ns_key(alias))
+in
+  case+ sopt of
+  | ~optn_vt_nil() => optn_nil()
+  | ~optn_vt_cons(s2i) =>
+    (
+      case+ s2i of
+      | S2ITMenv(envs) => let
+          val dopt = f2envlst_find_d2itm(envs, ats_sym(member))
+        in
+          case+ dopt of
+          | ~optn_vt_nil() => optn_cons(d2exp_none1(d1exp_make_node(loc, D1Eid0(ats_sym(member)))))
+          | ~optn_vt_cons(ditm) =>
+            (
+              case+ ditm of
+              | D2ITMcon(d2cs) =>
+                  optn_cons(if list_singq(d2cs) then d2exp_con(loc, d2cs.head()) else d2exp_cons(loc, d2cs))
+              | D2ITMcst(d2cs) =>
+                  optn_cons(if list_singq(d2cs) then d2exp_cst(loc, d2cs.head()) else d2exp_csts(loc, d2cs))
+              | D2ITMvar(d2v) => optn_cons(d2exp_var(loc, d2v))
+              | D2ITMsym(_, dpis) =>
+                  (case+ d2ptmlst_single_exp(loc, dpis) of
+                   | ~optn_cons(d2e) => optn_cons(d2e)
+                   | ~optn_nil() =>
+                     let
+                       val d1e0 = d1exp_make_node(loc, D1Eid0(ats_sym(member)))
+                       val drxp = d2rxp_new1(loc)
+                     in
+                       optn_cons(d2exp_sym0(loc, drxp, d1e0, dpis))
+                     end)
+            )
+        end
+      | _ => optn_nil()
+    )
+end
+//
+// is `e` a BARE variable reference whose name is a registered module-alias namespace?
+// (the head of a qualified `M.x`). A module alias is typically UPPERCASE (`SYM`/`MAP`/`UN`), so the
+// surface lexes it as a CONSTRUCTOR (PCEcon); a lowercase alias would be a PCEvar — accept BOTH.
+// Returns the alias name, or "" if `nm` is not a registered module namespace.
+fun
+pcexp_module_alias(env: !tr12env, e: pcexp): strn = let
+  val nm =
+    ( case+ e of
+      | PCEvar(_, n) => n
+      | PCEcon(_, n) => n
+      | _ => "" ) : strn
+in
+  if strn_eq(nm, "") then ""
+  else let val sopt = tr12env_find_s2itm(env, qual_ns_key(nm)) in
+    case+ sopt of
+    | ~optn_vt_nil() => ""
+    | ~optn_vt_cons(s2i) => (case+ s2i of S2ITMenv(_) => nm | _ => "")
+  end
+end
+//
 // VAL-BINDER STYP (M4): trans23_d2valdcl (trans23_decl00.dats:883) checks the val RHS against
 // `dpat.styp()` (= the binder d2var's styp). The from-FILE pipeline gives every binder a fresh
 // existential tyvar in trans2a (f0_var, 546-574) so the RHS type flows in; but
@@ -1152,13 +1219,24 @@ case+ e of
 // PCEfield : e.name -> D2Eproj(tok, fresh d2rxp, LABsym name, e). Field/tuple-component
 // projection (LOWERING-MAP §1.1). Per probe, D2Eproj is the projection node trans23 resolves
 // for both records and tuples; the tknd's lexeme is irrelevant to typing.
-| PCEfield(loc, e1, name) => let
-    val d2e1 = pl_exp(env, e1)
-    val drxp = d2rxp_new1(loc)
-    val lab  = field_label(name)
-  in
-    d2exp_make_node(loc, D2Eproj(tok_val(loc), drxp, lab, d2e1))
-  end
+| PCEfield(loc, e1, name) =>
+    // MODULE-ALIAS: `M.x` where `M` is a named-staload alias resolves as a QUALIFIED dynamic name
+    // (stock f0_qual0), NOT a record projection. Otherwise (a real record/tuple field) fall through
+    // to D2Eproj. The alias check is a cheap env lookup keyed on `$M.`; an ordinary `rec.field` head
+    // is not a registered namespace, so it never matches.
+    let val alias = pcexp_module_alias(env, e1) in
+      if strn_eq(alias, "")
+      then let
+        val d2e1 = pl_exp(env, e1)
+        val drxp = d2rxp_new1(loc)
+        val lab  = field_label(name)
+      in
+        d2exp_make_node(loc, D2Eproj(tok_val(loc), drxp, lab, d2e1))
+      end
+      else (case+ pl_qual_value(env, loc, alias, name) of
+            | ~optn_cons(d2e) => d2e
+            | ~optn_nil() => d2exp_none1(d1exp_make_node(loc, D1Eid0(ats_sym(name)))))
+    end
 //
 // PCEseq : (e1; e2) -> D2Eseqn([e1], e2).
 | PCEseq(loc, e1, e2) => let
@@ -1373,6 +1451,26 @@ case+ hd of
 )
 and
 pl_selector_app
+(env: !tr12env, loc: loctn, hloc: loctn, obj: pcexp, name: strn, args: list(pcexp)): d2exp =
+let
+  // MODULE-ALIAS call `M.f(args)` where `M` is a named-staload alias: `M.f` is a QUALIFIED CALLEE
+  // (stock f0_qual0 -> the module fn), value-applied to `args` — NOT a dot-selector method-call with
+  // `M` as the receiver. Resolve the qualified head; only fall through to the selector path when the
+  // head is NOT a module alias (an ordinary `obj.method(args)` record/tuple selector).
+  val alias = pcexp_module_alias(env, obj)
+in
+  if ~(strn_eq(alias, "")) then
+    (case+ pl_qual_value(env, hloc, alias, name) of
+     | ~optn_cons(d2f) =>
+         (case+ args of
+          | list_nil() => d2exp_make_node(loc, D2Edap0(d2f))
+          | list_cons(_, _) => let val dargs = pl_explst(env, args) in d2exp_dapp(loc, d2f, (-1), dargs) end)
+     | ~optn_nil() => d2exp_none1(d1exp_make_node(loc, D1Eid0(ats_sym(name)))))
+  else pl_selector_app_field(env, loc, hloc, obj, name, args)
+end
+//
+and
+pl_selector_app_field
 (env: !tr12env, loc: loctn, hloc: loctn, obj: pcexp, name: strn, args: list(pcexp)): d2exp =
 let
   val lab = LABsym(ats_sym(name))

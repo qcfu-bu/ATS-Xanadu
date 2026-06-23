@@ -7,6 +7,41 @@ The tree now contains a working Pythonic lexer/parser/elaborator/lowerer, a
 partial canonical-ATS-to-Pythonic pretty-printer, and milestone/round-trip
 harnesses.
 
+## 2026-06-23 — named-alias module qualification (the SATS interface unblock)
+
+- **The systematic SATS blocker is closed.** ATS interfaces establish a module alias with a
+  NAMED staload `#staload SYM = "..."` and qualify types/values by it (`$SYM.sym_t`,
+  `$SYM.enlinear`). pyprint had been DROPPING the alias (emitting a bare
+  `from "..." import *`) while still emitting `SYM.x` — so `SYM` was never registered and
+  cascaded into hundreds of unresolved-name errors. **SATS faithful-reparse green went 6/44 -> 33/44.**
+- **Surface (round-trip, extends the existing import grammar):**
+  ATS `#staload SYM = "PATH"` <-> Pythonic `import "PATH" as SYM`; ATS `$SYM.x` <-> `SYM.x`.
+- **3-layer implementation (frontend-only):**
+  1. **pyprint** (`DATS/pyprint.dats`): a NAMED `#staload ALIAS = "..."` (an L0 `D0Cstaload`
+     whose `g0exp` is the `ALIAS = "path"` apps-spine) now prints `import "..." as ALIAS`; a bare
+     `#staload "..."` stays `from "..." import *`. The qualifier is ALSO kept where it was being
+     dropped: qualified dynamic refs `$M.x` -> `M.x` (D0Equal0 inline), and `#symload NAME with
+     $M.x` -> `@overload NAME = M.x`.
+  2. **parser** (`DATS/pyparsing_decl00.dats` + `_dynexp`): `import modpath as NAME` (reusing the
+     existing `PT_KW_AS`); a UIDENT is now accepted after `.` in postfix position so an
+     uppercase-named member (`SYM.DLR_symbl`) parses as `PyEfield` instead of splitting; the
+     overload-alias target accepts a qualified `M.x`. Type-position `SYM.sym_t` already joined into
+     one dotted `PyTcon` name (no change needed).
+  3. **lowering** (`DATS/pylower_decl00.dats` + `_dynexp.dats`): `lower_import` registers the
+     module f2env under `$ALIAS.` (= `DLRDT(ALIAS)`) instead of the bare `$.` when an alias is
+     present (and SKIPS the bare-name symload promotion for the named case) — mirroring stock
+     `g1exp_nmspace` + `f0_staload` (trans12_decl00.dats). `PCEfield`/selector-call lowering detects
+     a module-alias head (`PCEvar`/`PCEcon` whose name is a registered `$M.` namespace) and resolves
+     `M.x` through `tr12env_find_s2itm($M.)` + `f2envlst_find_d2itm` — the d2 mirror of the existing
+     `resolve_typ_qualified` (the SAME stock f0_qual0 mechanism). The overload-target resolver does
+     the same for `@overload NAME = M.x`.
+- **NO compiler logic reimplemented** — every resolution call is a stock `tr12env`/`f2env` API.
+  Type/index erasure is the compiler's job; we only build the faithful L2 the stock parser would.
+- **Gates:** strict auto gate 173/173 (no regression), dynamic 171/171, the new `pp-corpus-static`
+  gate `CORPUS/pp-default-static.files` 33/33 strict; canary `trans12_dynexp.dats` still 1572 lines,
+  TODOpp=0. The 11 remaining non-green SATS fail for DISTINCT gaps (template-impr `T2Bimpr`,
+  static-cast index, etc.) — NOT the module-alias bug; `xsynoug.sats` is comments-only.
+
 ## 2026-06-23 — faithful verification pipeline (the M3 reparse now INVOKES the compiler)
 
 - **Design re-anchored:** the frontend is strictly parser + desugar / pretty-print.
