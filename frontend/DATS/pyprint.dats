@@ -3396,7 +3396,11 @@ register_file_local_names(dcs: d0eclist): void =
   | list_nil() => ()
   | list_cons(dc, rest) => (
       (case+ dc.node() of
-       | D0Cdatatype(_, dts, _) => register_d0typ_names(dts)
+       | D0Cdatatype(_, dts, wdc) => (
+           register_d0typ_names(dts);
+           // a datatype `where { ... }` may declare helper datatypes (e.g. an inner `datavwtp`);
+           // register their names too so the inner cons capitalize at every use site.
+           register_datatype_where_names(wdc))
        | D0Cexcptcon(_, _, tcns) => register_d0tcn_names(tcns)
        | D0Csexpdef(_, sid, _, _, _, _) => PYPP_type_add(i0dnt_lexeme(sid))
        | D0Clocal0(_, head, _, body, _) => (
@@ -3404,6 +3408,15 @@ register_file_local_names(dcs: d0eclist): void =
            register_file_local_names(body))
        | _ => ());
       register_file_local_names(rest))
+)
+and
+// register the datatype names declared inside a datatype's `where { ... }` clause (mutually
+// recursive with register_file_local_names so nested `local`/`where` heads are covered too).
+register_datatype_where_names(wdc: wd0eclseq): void =
+(
+  case+ wdc of
+  | WD0CSnone() => ()
+  | WD0CSsome(_, _, dcs, _) => register_file_local_names(dcs)
 )
 //
 (* ****** ****** *)
@@ -3418,8 +3431,13 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   // `local D1 in D2 end`  ->  `private:` (D1) + capture-rest (D2).
   | D0Clocal0(_, head, _, body, _) => (pp_local(out, head, body); true)
   //
-  // a top-level `datatype` -> an `enum` (capitalize the type + cons).
-  | D0Cdatatype(_, dts, _) => (pp_d0typ_enum_list(out, 0, dts); true)
+  // a top-level `datatype` -> an `enum` (capitalize the type + cons). A datatype may carry a
+  // `where { ... }` clause whose nested declarations (typically a helper `datavwtp` the outer
+  // cons reference, e.g. `datavwtp t3r0evn = T3R0EVN of trdstk where { datavwtp trdstk = ... }`)
+  // belong in the SAME enclosing scope. Emit those where-decls FIRST (so forward references such
+  // as `T3R0EVN of trdstk` resolve), then the enum itself. Dropping them left the inner cons
+  // unresolved (D1Eid0). pp_datatype_where_decls recurses through pp_walk -> pp_d0ecl.
+  | D0Cdatatype(_, dts, wdc) => (pp_datatype_where_decls(out, wdc); pp_d0typ_enum_list(out, 0, dts); true)
   //
   // `excptcon E of (T)` -> `exception E(T)`.
   | D0Cexcptcon(_, _, tcns) => (pp_excptcon_list(out, 0, tcns); true)
@@ -3682,6 +3700,16 @@ pp_d0typ_enum_list(out: FILR, n: sint, dts: d0typlst): void =
   | list_cons(dt, rest) => (
       pp_d0typ_enum(out, n, dt);
       pp_d0typ_enum_list(out, n, rest))
+)
+and
+// emit a datatype's `where { ... }` nested declarations as ordinary top-level decls (an inner
+// `datavwtp` -> its own `enum`). pp_walk separates each emitting decl with a blank line, the same
+// top-level shape they would have had if written outside the where. WD0CSnone -> nothing.
+pp_datatype_where_decls(out: FILR, wdc: wd0eclseq): void =
+(
+  case+ wdc of
+  | WD0CSnone() => ()
+  | WD0CSsome(_, _, dcs, _) => pp_walk(out, dcs)
 )
 and
 	// `#implfun NAME(params) = body` (a D0Cimplmnt0) -> `@impl` + `def NAME(params): body`.

@@ -58,6 +58,7 @@ srcgen2/DATS/t2read0_dynexp.dats
 srcgen2/DATS/t3read0.dats
 srcgen2/DATS/t3read0_decl00.dats
 srcgen2/DATS/t3read0_dynexp.dats
+srcgen2/DATS/t3read0_myenv0.dats
 srcgen2/DATS/tread01.dats
 srcgen2/DATS/tread01_decl00.dats
 srcgen2/DATS/tread01_dynexp.dats
