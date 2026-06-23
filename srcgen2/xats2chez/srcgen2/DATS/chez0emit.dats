@@ -410,6 +410,14 @@ case+ iexp.node() of
 | I0Eproj(_, lab, tup) =>
   (cz_str(filr, "(vector-ref "); i0exp_cz0(filr, tup); cz_str(filr, " "); cz_lab_idx(filr, lab); cz_str(filr, ")"))
 //
+(* mutable vars / lvalues.  A [var] is a Scheme box; reading its content is
+   (unbox p); taking its address is the box itself; assignment writes through
+   the box (whole var) or in-place into a tuple/datacon field (Scheme vectors
+   are mutable). *)
+| I0Eflat(e0) => (cz_str(filr, "(unbox "); i0exp_cz0(filr, e0); cz_str(filr, ")"))
+| I0Eaddr(e0) => i0exp_cz0(filr, e0)
+| I0Eassgn(lval, rval) => i0exp_cz0_assgn(filr, lval, rval)
+//
 (* erased wrappers: emit the inner expression *)
 | I0Etimp(tapp, _) => i0exp_cz0(filr, tapp)
 | I0Etapq(fexp, _) => i0exp_cz0(filr, fexp)
@@ -610,6 +618,29 @@ case+ eopt of
 | optn_nil() => cz_str(filr, "(if #f #f)")
 | optn_cons(e0) => i0exp_cz0(filr, e0))
 //
+(* assignment by lvalue shape: whole var (set-box!) vs in-place tuple/datacon
+   field (vector-set!). *)
+and
+i0exp_cz0_assgn
+( filr: FILR, lval: i0exp, rval: i0exp): void =
+(
+case+ lval.node() of
+| I0Eflat(inner) =>
+  (cz_str(filr, "(set-box! "); i0exp_cz0(filr, inner);
+   cz_str(filr, " "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
+| I0Eproj(_, lab, base) =>
+  (cz_str(filr, "(vector-set! "); i0exp_cz0(filr, base); cz_str(filr, " ");
+   cz_lab_idx(filr, lab); cz_str(filr, " "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
+| I0Epflt(_, lab, base) =>
+  (cz_str(filr, "(vector-set! "); i0exp_cz0(filr, base); cz_str(filr, " ");
+   cz_lab_idx(filr, lab); cz_str(filr, " "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
+| I0Epcon(_, lab, base) =>
+  (cz_str(filr, "(vector-set! "); i0exp_cz0(filr, base); cz_str(filr, " (+ ");
+   cz_lab_idx(filr, lab); cz_str(filr, " 1) "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
+| _(*else: treat as a box*) =>
+  (cz_str(filr, "(set-box! "); i0exp_cz0(filr, lval);
+   cz_str(filr, " "); i0exp_cz0(filr, rval); cz_str(filr, ")")))
+//
 (* ****** ****** *)
 //
 (* one val binding *)
@@ -643,6 +674,33 @@ i0valdclist_cz0
 case+ ivs0 of
 | list_nil() => ()
 | list_cons(ivd0, ivs1) => (i0valdcl_cz0(filr, ivd0); i0valdclist_cz0(filr, ivs1)))
+//
+(* one var binding -> (define <name> (box <init>)); a [var] is a mutable cell. *)
+and
+i0vardcl_cz0
+( filr: FILR, ivd0: i0vardcl): void =
+let
+val dpid = ivd0.dpid()
+val dini = ivd0.dini()
+in//let
+(
+cz_str(filr, "(define ");
+cz_sym(filr, d2var_get_name(i0var_dvar$get(dpid)));
+cz_str(filr, " (box ");
+(
+case+ dini of
+| TEQI0EXPnone() => cz_str(filr, "(if #f #f)")
+| TEQI0EXPsome(_, e0) => i0exp_cz0(filr, e0));
+cz_str(filr, "))\n"))
+end//let
+//
+and
+i0vardclist_cz0
+( filr: FILR, ivs0: i0vardclist): void =
+(
+case+ ivs0 of
+| list_nil() => ()
+| list_cons(ivd0, ivs1) => (i0vardcl_cz0(filr, ivd0); i0vardclist_cz0(filr, ivs1)))
 //
 (* one fun binding -> (define (name params...) body).  Self/mutual recursion
    is free (top-level + internal defines are recursive in Scheme). *)
@@ -683,6 +741,7 @@ i0dcl_cz0
 (
 case+ idcl.node() of
 | I0Dvaldclst(_, ivs0) => i0valdclist_cz0(filr, ivs0)
+| I0Dvardclst(_, ivs0) => i0vardclist_cz0(filr, ivs0)
 | I0Dfundclst(_, _, _, _, ifs0) => i0fundclist_cz0(filr, ifs0)
 | I0Ddclst0(idcls) => i0dclist_cz0(filr, idcls)
 | I0Dlocal0(ihead, ibody) =>
