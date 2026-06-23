@@ -84,7 +84,37 @@ cz_sym
 (* ****** ****** *)
 (* ****** ****** *)
 //
-(* i0exp_cz0: emit an intrep0 expression (M1.0 subset). *)
+(* cz_strlit: emit a string-literal token as a Scheme string literal.
+   The token rep INCLUDES the surrounding double quotes and uses the same
+   escape syntax (\n \t \r \" \\) that Scheme string literals accept, so the
+   rep is emitted verbatim.  (Raw-control-byte / line-continuation
+   normalization, as in the Go backend's f0_strn, is a later refinement.) *)
+fun
+cz_strlit
+( filr: FILR
+, tstr: token): void =
+(
+case- tstr.node() of
+| T_STRN1_clsd(rep1, _) => cz_str(filr, rep1)
+| T_STRN2_ncls(rep1, _) => cz_str(filr, rep1))
+//
+(* ldrop: drop the first [n] proof args from an application's arg list. *)
+fun
+ldrop
+( xs: i0explst, n: sint): i0explst =
+if
+(n <= 0) then xs else
+(
+case+ xs of
+| list_nil() => xs
+| list_cons(_, xs) => ldrop(xs, n-1))
+//
+(* ****** ****** *)
+//
+(* i0exp_cz0: emit an intrep0 expression (M1 subset).
+   Erased wrappers (type/static application, casts, returns, closure-env)
+   pass through to their inner expression; applications become Scheme calls;
+   constants/vars become (mangled) names; literals become Scheme literals. *)
 fun
 i0exp_cz0
 ( filr: FILR
@@ -104,11 +134,59 @@ case+ iexp.node() of
   prints(i00)) where
   { #impltmp g_print$out<>() = filr }
 //
+| I0Estr(tstr) => cz_strlit(filr, tstr)
+| I0Es00(s00) =>
+  (
+  cz_str(filr, "\""); cz_str(filr, s00); cz_str(filr, "\""))
+//
+(* a (mangled) name. M1: bare symbol name; stamp-suffix mangler follows. *)
+| I0Ecst(dcst) => cz_sym(filr, d2cst_get_name(dcst))
+| I0Evar(ivar) => cz_sym(filr, d2var_get_name(i0var_dvar$get(ivar)))
+| I0Etop(xsym) => cz_sym(filr, xsym)
+//
+(* erased wrappers: emit the inner expression. *)
+| I0Etimp(tapp, _timp) => i0exp_cz0(filr, tapp)
+| I0Etapq(fexp, _) => i0exp_cz0(filr, fexp)
+| I0Etapp(fexp, _) => i0exp_cz0(filr, fexp)
+| I0Esapq(fexp, _) => i0exp_cz0(filr, fexp)
+| I0Esapp(fexp, _) => i0exp_cz0(filr, fexp)
+| I0Eannot(e0, _, _) => i0exp_cz0(filr, e0)
+| I0Et2pck(e0, _) => i0exp_cz0(filr, e0)
+| I0Et2ped(e0, _) => i0exp_cz0(filr, e0)
+| I0Elabck(e0, _) => i0exp_cz0(filr, e0)
+| I0Erturn(_, e0) => i0exp_cz0(filr, e0)
+| I0Ecenv(e0, _) => i0exp_cz0(filr, e0)
+//
+(* application -> (f a b ...).  Drop the [npf] leading proof args. *)
+| I0Edap0(fexp) =>
+  (
+  cz_str(filr, "("); i0exp_cz0(filr, fexp); cz_str(filr, ")"))
+| I0Edapp(fexp, npf, args) =>
+  (
+  cz_str(filr, "(");
+  i0exp_cz0(filr, fexp);
+  i0exp_cz0_args(filr, ldrop(args, npf));
+  cz_str(filr, ")"))
+//
 | _(*else*) =>
   (
   cz_str(filr, "(begin #f) ;; UNHANDLED-i0exp\n");
   prerrsln("[chez0emit] UNHANDLED i0exp"))
 )//endof[i0exp_cz0(filr,iexp)]
+//
+(* emit each application argument, space-separated. *)
+and
+i0exp_cz0_args
+( filr: FILR
+, args: i0explst): void =
+(
+case+ args of
+| list_nil() => ()
+| list_cons(a0, args) =>
+  (
+  cz_str(filr, " ");
+  i0exp_cz0(filr, a0);
+  i0exp_cz0_args(filr, args)))
 //
 (* ****** ****** *)
 //
