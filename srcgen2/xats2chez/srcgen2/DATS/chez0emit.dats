@@ -724,6 +724,7 @@ case+ iexp.node() of
 | I0Epflt(_, _, e0) => cz_scan_exp(e0)
 | I0Eproj(_, _, e0) => cz_scan_exp(e0)
 | I0Eflat(e0) => cz_scan_exp(e0)
+| I0Efold(e0) => cz_scan_exp(e0)
 | I0Eaddr(e0) => cz_scan_exp(e0)
 | I0Eassgn(l0, r0) => (cz_scan_exp(l0); cz_scan_exp(r0))
 | I0Eraise(_, e0) => cz_scan_exp(e0)
@@ -936,6 +937,7 @@ case+ iexp.node() of
 | I0Epflt(_, _, e0) => cz_map_exp(e0)
 | I0Eproj(_, _, e0) => cz_map_exp(e0)
 | I0Eflat(e0) => cz_map_exp(e0)
+| I0Efold(e0) => cz_map_exp(e0)
 | I0Eaddr(e0) => cz_map_exp(e0)
 | I0Eassgn(l0, r0) => (cz_map_exp(l0); cz_map_exp(r0))
 | I0Eraise(_, e0) => cz_map_exp(e0)
@@ -1091,6 +1093,7 @@ case+ iexp.node() of
    the box (whole var) or in-place into a tuple/datacon field (Scheme vectors
    are mutable). *)
 | I0Eflat(e0) => (cz_str(filr, "(unbox "); i0exp_cz0(filr, e0); cz_str(filr, ")"))
+| I0Efold(e0) => i0exp_cz0(filr, e0)  (* linear fold: identity in the uniform vector rep *)
 | I0Eaddr(e0) => i0exp_cz0(filr, e0)
 | I0Eassgn(lval, rval) => i0exp_cz0_assgn(filr, lval, rval)
 //
@@ -1659,6 +1662,7 @@ case+ iexp.node() of
 | I0Epflt(_, _, e0) => cz_coll_exp(filr, e0)
 | I0Eproj(_, _, e0) => cz_coll_exp(filr, e0)
 | I0Eflat(e0) => cz_coll_exp(filr, e0)
+| I0Efold(e0) => cz_coll_exp(filr, e0)
 | I0Eaddr(e0) => cz_coll_exp(filr, e0)
 | I0Eassgn(l0, r0) => (cz_coll_exp(filr, l0); cz_coll_exp(filr, r0))
 | I0Eraise(_, e0) => cz_coll_exp(filr, e0)
