@@ -577,6 +577,24 @@ ATS3 code* and fix whatever breaks. The failure set IS the prioritized work list
   **Caveat:** `Xats_gseq_folditm` is still a bounded runtime fallback for this list-counting surface.
   The general solution is broader M3: emit more resolved template bodies / user `#impltmp` instances
   as concrete Go, not a single runtime hook for every possible `folditm$fopr`.
+- **[M3/M4] FAITHFUL TEMPLATE-INSTANCE INLINING (chosen direction; `strn_foritm` is the first probe).**
+  The frontend DOES carry the resolved template body — via **`t1imp_i1dclq`** (the DECL form), NOT
+  `t1imp_i1cmpq` (which is `None` for these). `js1emit` reaches it the same way: `cmpq` None → falls
+  to `f0_t1imp` → `dclq`. The Go M3 path (`t1imp_func_literal_go1emit`) already reads `dclq` but
+  GUARDS prelude bodies off (`i1dcl_preludeq` → runtime name) — that guard is why `strn_foritm` emits
+  the undefined `xatsgo.Xats_strn_foritm`. **The chain is alias-collapsible and bottoms out cleanly**
+  (traced through the prelude): `strn_foritm<> = gseq_foritm<strn><cgtz>` → `gseq_foritm<a1ref(a,n)><a>
+  = a1ref_foritm<a>{n}` → `a1ref_foritm` is a tail-recursive index loop `loop(0)` /
+  `if i0<a1ref_length(A0) then { foritm$work(get$at(A0,i0)); loop(i0+1) }`. Every bottom is a primitive
+  we ALREADY have: `a1ref_length`→`strn_length`, `get$at`→`strn_get_at`, `suc`/`<`→native ops,
+  `foritm$work`→the emittable user body; the tail loop → a Go `for` (reuse M2.4 TCO). **No generic
+  `a1ref`/`cgtz` Go runtime is required.** Design: recursively inline `dclq` bodies, COLLAPSING the
+  template-alias chain (the prior wall — `func() func(any) any { gseq_foritm }` — was stopping after
+  ONE alias level), bottoming out at a name-gated PRIMITIVE set (native ops, the print fns,
+  `strn_length`/`strn_get_at`/…, `$work` hooks → emit user body) which also keeps `sint_print`/
+  `strn_print` (whose bodies bottom out in print primitives) correctly on the runtime path. NOTE a
+  measured inconsistency to resolve: a toy `strn_foritm` test shows `dclq=Y` but the real
+  `go1emit_utils0` target showed `dclq=n` — confirm the body is reliably present for the real target.
 - **[self-hosting] COMPLETE GAP INVENTORY (architect probe, all 16 GO_DATS emitted to Go).**
   Emitting every backend source through the bundle and diffing referenced-vs-defined `xatsgo.Xats_*`
   symbols (+ real `case false /* UNHANDLED */` codegen markers) yields the prioritized work map.
