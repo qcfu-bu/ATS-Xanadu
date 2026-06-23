@@ -873,8 +873,10 @@ case+ revs of
       val d2base = pl_apply_deco_revs(env, d2f, rest)
     in
       case+ deco of
-      | PCEinst(loc, typs, _) => d2exp_tapp(loc, d2base, pylower_typlst(env, typs))
-      | PCEsapp(loc, typs, _) => d2exp_sapp(loc, d2base, pylower_typlst(env, typs))
+      | PCEinst(loc, typs, _) =>
+          if list_nilq(typs) then d2base else d2exp_tapp(loc, d2base, pylower_typlst(env, typs))
+      | PCEsapp(loc, typs, _) =>
+          if list_nilq(typs) then d2base else d2exp_sapp(loc, d2base, pylower_typlst(env, typs))
       | _ => d2base
     end
 )
