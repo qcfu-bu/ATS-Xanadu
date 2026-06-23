@@ -142,6 +142,19 @@ lower_implement
 , tvs: list(pcparam), has_darg: bool, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt, body: pcexp
 , tias_typs: list(pytyp)): d2ecl
 //
+// FFI (ATS-parity): lower an `@extern def NAME(params) -> Ret [= extnam(["cname"])]` FFI signature
+// to the EXACT L2 shape stock f0_fundclst produces for `#extern fun` — a D2Cextern wrapping a
+// D2Cfundclst whose single D2FUNDCL carries the params as F2ARGdapp patterns, the result type as
+// S2RESsome, and the foreign-name binding in its `tdxp` (TEQD2EXPsome(=, D2Eextnam(...)) when an
+// `= extnam(...)` RHS is present, else TEQD2EXPnone). REGISTERS the d2cst (d2cst_make_dvar over the
+// fun's d2var) so calls resolve, and — mirroring stock f1_d2cs_d2fs_xnam — registers X2NAMsome on
+// the d2cst stamp via the_d2cstmap_xnmadd0 so codegen recovers the foreign name. Lives in
+// pylower_dynexp (where pl_params_typed / pl_sres are in scope); called from pylower_decl00.
+fun
+lower_extern_fundcl
+( env: !tr12env, loc: loctn, name: strn
+, tvs: list(pcparam), pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt, xnm: pcextnam): d2ecl
+//
 // A-TEMPLATE: lower a `@template[A, B] def foo[C, D](params) [-> Ret] [: body]` TEMPLATE
 // declaration (PCCtempl) to ONE-or-TWO d2ecls. SPIKE-PROVEN (pyfront_atmpl_spike build_template_id/
 // build_template_foo): build a TEMPLATE extern d2cst — its `tqas = [ t2qag_make_s2vs(loc, <A,B

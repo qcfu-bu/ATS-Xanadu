@@ -333,12 +333,19 @@ p_def(st: pstate, decos: list(pydecorator)): @(pydecl, pstate) = let
       | PT_ARROW() =>
         let val @(t, st7) = parse_type(ps_advance(st6)) in @(PyTypSome(t), st7) end
       | _ => @(PyTypNone(), st6) )
+  // FFI: an OPTIONAL `= extnam(["cname"])` foreign-name binding on an `@extern def` (the round-trip
+  // of stock `#extern fun foo(...) : T = $extnam(["cname"])` — the dominant 665× prelude construct).
+  // It sits BETWEEN the return type and any (normally absent) body. We parse it whenever it follows
+  // and ATTACH it to the `@extern` decorator's payload (PyDAextnam), so elab_decl threads it onto
+  // PCCextern with NO change to the PyCfun shape. A bodyless `@extern def` (no `= extnam`) is
+  // byte-identical to before. `extnam()` -> PyExpNone (empty form); `extnam("c")` -> PyExpSome(str).
+  val @(decos, st8) = p_extnam_rhs(decos, st7)
   // OPTIONAL ':' body suite — a plain/@proof/@impl/@overload def HAS one; an @extern (or
   // @proof @extern = praxi) def is BODYLESS (no ':'). Parse a body iff a ':' follows; else empty.
   val @(body, st9) =
-    ( case+ ps_peek(st7) of
-      | PT_COLON() => parse_suite(ps_advance(st7))
-      | _ => @(list_nil(), st7) )
+    ( case+ ps_peek(st8) of
+      | PT_COLON() => parse_suite(ps_advance(st8))
+      | _ => @(list_nil(), st8) )
   // SCOPING (bootstrap P1): an OPTIONAL trailing `where:` block at the DEF's indent level. After
   // the body suite consumes its own DEDENT, a `where` keyword sits at the def's level. Its block
   // is a SUITE OF DECLS (`def go(...)`) indented under `where:`. The decls are BACKWARDS-scoped
@@ -386,6 +393,61 @@ p_def_params(st: pstate): @(list(pyparam), pstate) =
   | _ =>
     let val st1 = ps_diag(st, ps_peek_loctn(st), "expected a parameter name") in
       @(list_nil(), st1) end )
+//
+// FFI: parse an OPTIONAL `= extnam(["cname"])` foreign-name binding (the round-trip of stock
+// `= $extnam(["cname"])`) and ATTACH it onto the `@extern` decorator's payload (PyDAextnam). The
+// grammar is `'=' 'extnam' '(' [ STRING ] ')'`. The optional STRING (quotes included in the lexeme)
+// is the explicit foreign C name; absent = the empty `extnam()` form (the foreign name defaults to
+// the fun's own name — the dominant prelude form). When the RHS is NOT present (no `=`, or `=`
+// not followed by `extnam`), the decorators are returned UNCHANGED (a plain/bodyless def). We only
+// rewrite the `@extern` decorator (the elaborator reads it from there); if there is no `@extern`
+// decorator the RHS is parsed but harmlessly dropped (recovery — an `= extnam` on a non-extern def
+// is malformed, but we do not crash the parse).
+and
+p_extnam_rhs(decos: list(pydecorator), st: pstate): @(list(pydecorator), pstate) =
+( case+ ps_peek(st) of
+  | PT_EQ() =>
+    ( case+ ps_peek(ps_advance(st)) of   // the token AFTER the '='
+      | PT_LIDENT(kw) =>
+        if strn_eq(kw, "extnam") then p_extnam_after_eq(decos, st)
+        // `= <something-else>`: NOT an extnam binding. Leave the '=' for the (absent) body path;
+        // do not consume anything. Return the ORIGINAL state so nothing is lost.
+        else @(decos, st)
+      | _ => @(decos, st) )
+  | _ => @(decos, st) )
+//
+// parse the rest of `= extnam(["cname"])` (the `=` + `extnam` already peeked) and attach the payload.
+and
+p_extnam_after_eq(decos: list(pydecorator), st: pstate): @(list(pydecorator), pstate) = let
+  val loc = ps_peek_loctn(st)
+  val st2 = ps_advance(ps_advance(st))   // past '=' and 'extnam'
+  // '(' [ STRING ] ')'
+  val st3 =
+    ( case+ ps_peek(st2) of
+      | PT_LPAREN() => ps_advance(st2)
+      | _ => ps_diag(st2, ps_peek_loctn(st2), "expected '(' after 'extnam'") )
+  val @(copt, st4) =
+    ( case+ ps_peek(st3) of
+      | PT_STRING(s) => @(PyExpSome(PyElit(ps_peek_loctn(st3), PyLstr(ps_peek_loctn(st3), s))), ps_advance(st3))
+      | _            => @(PyExpNone(), st3) )
+  val st5 =
+    ( case+ ps_peek(st4) of
+      | PT_RPAREN() => ps_advance(st4)
+      | _ => ps_diag(st4, ps_peek_loctn(st4), "expected ')' to close 'extnam(...)'") )
+in
+  @(decos_attach_extnam(decos, loc, copt), st5)
+end
+//
+// rewrite the FIRST `@extern` decorator to carry the parsed extnam payload. A def with no `@extern`
+// decorator is left unchanged (the payload is dropped — see p_extnam_rhs).
+and
+decos_attach_extnam(decos: list(pydecorator), loc: loctn, copt: pyexpopt): list(pydecorator) =
+( case+ decos of
+  | list_nil() => list_nil()
+  | list_cons(PyDecor(dloc, nm, dargs), rest) =>
+      if strn_eq(nm, "extern")
+        then list_cons(PyDecor(dloc, nm, PyDAextnam(loc, copt)), rest)
+        else list_cons(PyDecor(dloc, nm, dargs), decos_attach_extnam(rest, loc, copt)) )
 //
 (* ****** ****** *)
 //

@@ -585,9 +585,14 @@ case+ decos of
   ( ps(out, " @"); ps(out, nm); print_span(out, loc);
     // A-TEMPLATE: render the optional `[…]` arg payload so a goldens diff shows the new syntax.
     ( case+ dargs of
-      | PyDAnone() => ()
       | PyDAbinders(bs) => (ps(out, "[binders"); pp_typaramlst(out, bs); ps(out, "]"))
-      | PyDAtypes(ts)   => (ps(out, "[types"); pp_typlst(out, ts); ps(out, "]")) );
+      | PyDAtypes(ts)   => (ps(out, "[types"); pp_typlst(out, ts); ps(out, "]"))
+      // FFI: the `= extnam(["cname"])` foreign-name binding on an `@extern` def (PyDAextnam).
+      | PyDAextnam(_, copt) =>
+          (case+ copt of
+           | PyExpNone() => ps(out, "[extnam]")
+           | PyExpSome(_) => ps(out, "[extnam cname]"))
+      | _ => () );
     pp_decolst_aux(out, rest) )
 )
 //

@@ -469,13 +469,20 @@ case+ d of
   ( ps(out, "(assume "); ps(out, nm); print_span(out, loc);
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_pcparams(out, tvs); ps(out, ")")) );
     ps(out, " "); pp_typ(out, typ); ps(out, ")") )
-| PCCextern(loc, nm, tvs, pnames, _ptypes, ret) =>
+| PCCextern(loc, nm, tvs, pnames, _ptypes, ret, xnm) =>
   ( ps(out, "(extern "); ps(out, nm); print_span(out, loc);
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_pcparams(out, tvs); ps(out, ")")) );
     ps(out, " (params"); pp_strnlst(out, pnames); ps(out, ")");
     ( case+ ret of
       | PyTypNone() => ()
       | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
+    // FFI: render the `= extnam(...)` foreign-name binding when present (no drift for a plain extern).
+    ( case+ xnm of
+      | PCXnone() => ()
+      | PCXextnam(_, copt) =>
+          (case+ copt of
+           | optn_nil() => ps(out, " (extnam)")
+           | optn_cons(c) => (ps(out, " (extnam "); ps(out, c); ps(out, ")"))) );
     ps(out, ")") )
 | PCCimplement(loc, nm, tvs, has_darg, pnames, _ptypes, ret, body, tias) =>
   ( ps(out, "(implement "); ps(out, nm); print_span(out, loc);

@@ -74,7 +74,7 @@ case+ d of
 | PCCexcept(loc, _, _) => loc
 | PCCabstype(loc, _, _, _, _) => loc
 | PCCassume(loc, _, _, _) => loc
-| PCCextern(loc, _, _, _, _, _) => loc
+| PCCextern(loc, _, _, _, _, _, _) => loc
 | PCCimplement(loc, _, _, _, _, _, _, _, _) => loc | PCCoverload(loc, _, _) => loc
 | PCCsymalias(loc, _, _, _) => loc
 | PCCtempl(loc, _, _, _, _, _, _, _) => loc

@@ -235,6 +235,37 @@ case+ decos of
       else decos_terminates_metric(rest)
 )
 //
+// FFI: the `@extern` decorator's foreign-name binding payload (`PyDAextnam`), recovered as a
+// `pcextnam`. PCXnone when there is no `@extern` decorator OR it carried no `= extnam(...)` RHS (a
+// plain bodyless extern); PCXextnam(loc, cname?) when the parser attached the FFI binding. The cname
+// is the foreign C name with its surrounding quotes STRIPPED (the L2 G1Nstr carries the bare name);
+// PyExpNone -> nil (the empty `extnam()` form, where the foreign name defaults to the fun's name).
+// recover the bare C-name (quotes stripped) from the parsed `extnam(["cname"])` payload. PyExpNone
+// (the empty `extnam()`) -> optn_nil; a `PyElit(PyLstr "\"c\"")` -> optn_cons("c").
+fun
+extnam_cname_of(copt: pyexpopt): optn(strn) =
+(
+case+ copt of
+| PyExpNone() => optn_nil()
+| PyExpSome(e) =>
+    (case+ e of
+     | PyElit(_, PyLstr(_, lex)) => optn_cons(PYL_unquote(lex))
+     | _ => optn_nil())
+)
+//
+fun
+decos_extnam(decos: list(pydecorator)): pcextnam =
+(
+case+ decos of
+| list_nil() => PCXnone()
+| list_cons(PyDecor(_, nm, dargs), rest) =>
+    if strn_eq(nm, "extern")
+      then (case+ dargs of
+            | PyDAextnam(loc, copt) => PCXextnam(loc, extnam_cname_of(copt))
+            | _ => PCXnone())
+      else decos_extnam(rest)
+)
+//
 // DECORATOR REWORK (slice 2): a `@static let` lowers to the old `stadef` (WITH a value) or `stacst`
 // (BODYLESS — a type annotation but no `= rhs`). The parser signals "bodyless" with a sentinel RHS
 // `PyEerror(_, "@@stacst@@")`. These helpers recover the pieces from the surface `let`:
@@ -436,9 +467,12 @@ case+ d of
             // @proof @extern def NAME(...) -> T  ==  praxi (proof AXIOM, bodyless). Body is ignored.
             list_sing(PCCpraxi(loc, nm, param_names_d(params), param_types_d(params), ret))
           else
-            // @extern def NAME(...) -> T  ==  extern def (FFI bodyless SIGNATURE). No body.
+            // @extern def NAME(...) -> T [= extnam(["cname"])]  ==  extern fun (FFI SIGNATURE +
+            // OPTIONAL foreign-name binding). decos_extnam recovers the `= extnam(...)` RHS from the
+            // `@extern` decorator's payload (PCXnone for a plain bodyless extern).
             list_sing(PCCextern(loc, nm, elab_typarams(tps),
-                                 param_names_d(params), param_types_d(params), ret)) )
+                                 param_names_d(params), param_types_d(params), ret,
+                                 decos_extnam(decos))) )
       else if is_proof then
         // @proof def NAME(...) -> T: body  ==  prfun (proof FUNCTION; body elaborated like a def).
         let

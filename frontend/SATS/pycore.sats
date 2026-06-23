@@ -79,6 +79,18 @@
 //  their own literal nodes (NOT data constructors).
 // ==================================================================
 //
+// FFI: the foreign-name binding on an `@extern def` (the round-trip of stock `= $extnam(["cname"])`).
+//   PCXnone       : NO `= extnam(...)` RHS — an ordinary bodyless extern signature (the pre-FFI form;
+//                   M3 lowers it with a TEQD2EXPnone() body, identical to before).
+//   PCXextnam     : an `= extnam()` (empty foreign name) OR `= extnam("cname")` (explicit). The optn
+//                   carries the C-name lexeme (quotes stripped) when given. M3 lowers it to the body
+//                   `TEQD2EXPsome(T_EQ0, D2Eextnam(T_DLR_EXTNAM, G1Nlist([G1Nstr(cname)?])))` and
+//                   registers X2NAMsome on the d2cst stamp — byte-identical to stock f0_fundclst.
+datatype
+pcextnam =
+| PCXnone   of ()
+| PCXextnam of (loctn, optn(strn)(*cname; nil = empty extnam()*))
+//
 datatype
 pclit =
 | PCLint  of (loctn, strn)
@@ -402,14 +414,17 @@ pcdecl =
 //                M3 SELECTS the already-registered abstract s2cst by name (tr12env_find_s2itm ->
 //                SIMPLone1), lowers T via pylower_typ, wraps parametric reps in s2exp_lam1, and
 //                builds D2Cabsimpl(tok, simpl, s2exp).
-//   PCCextern  : an `extern def foo[T](params) -> Ret` FFI bodyless SIGNATURE (ATS-parity). Carries
-//                the fun NAME, its type params, param names + OPTIONAL types (parallel lists,
-//                M5a-style), and the OPTIONAL return type. M3 builds the function type, makes a
-//                d2cst, REGISTERS it (so calls resolve), and emits D2Cextern(tok,
-//                D2Cdynconst(...)). No body.
+//   PCCextern  : an `extern def foo[T](params) -> Ret [= extnam(["cname"])]` FFI SIGNATURE
+//                (ATS-parity). Carries the fun NAME, its type params, param names + OPTIONAL types
+//                (parallel lists, M5a-style), the OPTIONAL return type, and the FFI foreign-name
+//                binding (`pcextnam` — PCXnone for a plain bodyless extern, PCXextnam for an
+//                `= extnam(...)` RHS). M3 builds the function type as a D2FUNDCL inside a D2Cfundclst
+//                wrapped in D2Cextern — the EXACT shape stock f0_fundclst produces for `#extern fun`
+//                — carrying the foreign-name binding in the d2fundcl's `tdxp` (D2Eextnam) and
+//                registering X2NAMsome on the d2cst stamp. REGISTERS the d2cst (so calls resolve).
 | PCCabstype of (loctn, strn, list(pcparam), pcmode, pytypopt(*<= REP*))
 | PCCassume  of (loctn, strn, list(pcparam), pytyp)
-| PCCextern  of (loctn, strn, list(pcparam), list(strn), list(pytypopt), pytypopt)
+| PCCextern  of (loctn, strn, list(pcparam), list(strn), list(pytypopt), pytypopt, pcextnam)
 //   PCCimplement : an `implement NAME(params) [-> Ret]: <body>` body for a pre-declared function
 //                  (ATS-parity). Carries the implemented fun NAME, whether a dynamic `(params)`
 //                  group was written, its param names + OPTIONAL types (parallel lists, M5a-style),

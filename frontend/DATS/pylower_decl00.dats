@@ -1313,10 +1313,14 @@ case+ d of
     build_absimpl(env, loc, name, rhs)
   end
 //
-// ATS-parity: an `extern def foo(params) -> Ret` FFI bodyless SIGNATURE -> a D2Cextern wrapping
-// a D2Cdynconst whose d2cst carries the function type. build_extern REGISTERS the d2cst so a
-// call to `foo(...)` resolves against the declared signature. SPIKE-PROVEN.
-| PCCextern(loc, name, tvs, pnames, ptypes, ret) => build_extern(env, loc, name, tvs, pnames, ptypes, ret)
+// ATS-parity (FFI): an `extern def foo(params) -> Ret [= extnam(["cname"])]` FFI signature -> a
+// D2Cextern wrapping a D2Cfundclst with a D2FUNDCL — the EXACT L2 shape stock f0_fundclst produces
+// for `#extern fun foo(...): T [= $extnam(...)]`. lower_extern_fundcl REGISTERS the d2cst (so calls
+// resolve), carries the `= extnam(...)` foreign-name binding in the d2fundcl's tdxp (D2Eextnam), and
+// registers X2NAMsome on the d2cst stamp for codegen. (Replaces the older build_extern, which lowered
+// to a D2Cdynconst/d2cstdcl shape that DIVERGED from stock for every `#extern fun` — both with and
+// without an extnam body.) PCXnone => a plain bodyless extern (still the stock D2Cfundclst shape).
+| PCCextern(loc, name, tvs, pnames, ptypes, ret, xnm) => lower_extern_fundcl(env, loc, name, tvs, pnames, ptypes, ret, xnm)
 //
 // ATS-parity: an `implement NAME(params) -> Ret: body` -> a D2Cimplmnt0. lower_implement (in
 // pylower_dynexp, where pl_exp/pl_params_typed are in scope) RESOLVES the pre-declared d2cst by

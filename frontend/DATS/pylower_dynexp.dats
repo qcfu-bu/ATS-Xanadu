@@ -1622,6 +1622,141 @@ end
 //
 (* ****** ****** *)
 //
+// ---- FFI EXTERN SIGNATURE (ATS-parity): PCCextern -> D2Cextern(D2Cfundclst(...)) ----------------
+//
+// Mirrors stock f0_fundclst (trans12_decl00.dats:2903) + trans12_d1fundcl (:4227) + D1Cextern/
+// process_extern (:845/:701) + f1_d2cs_d2fs_xnam (:3035) for an `#extern fun foo(args): T = $extnam()`:
+//
+//   * build ONE d2var for the fun name, register it (tr12env_add0_d2varlst) so calls + the body's
+//     own recursive references resolve. (Stock binds the name regardless of recq for an extern.)
+//   * the member D2FUNDCL: params as a SINGLE `F2ARGdapp(-1, [<param pats>])` (npf=-1, exactly stock's
+//     trans12_f1arglst), each typed param an annotated binder; the `-> Ret` as S2RESsome; and the
+//     `tdxp` is the FFI body — TEQD2EXPsome(T_EQ0, D2Eextnam(T_DLR_EXTNAM, G1Nlist([G1Nstr(cname)?])))
+//     when `= extnam(...)` is present, else TEQD2EXPnone (a plain bodyless extern, also stock-shaped).
+//   * the d2cst: `d2cst_make_dvar(T_FUN, dvar, tqas)` (stock f0_fundclst's `d2cs = list_map(d2vs)`),
+//     placed in the D2Cfundclst's d2cs field AND registered via tr12env_add1_d2cs (stock's
+//     process_extern path for a NON-template extern: tqas=[] => add1_d2cs).
+//   * the xnam side-effect: the_d2cstmap_xnmadd0(d2cst_stmp, X2NAMsome(D2Eextnam)) so codegen
+//     recovers the foreign name (stock f1_d2cs_d2fs_xnam). PCXnone / a non-extnam body => X2NAMnone.
+//   * wrap D2Cfundclst(T_FUN(FNKfn1), tqas, [d2cst], [d2fundcl]) in D2Cextern(T_SRP_EXTERN, ...).
+//     FNKfn1 (genrec) is stock's funkind for `#extern fun`; a non-generic extern carries tqas=[].
+//
+// build the `= extnam(["cname"])` FFI body for the d2fundcl's tdxp + the matching xnam. PCXnone (no
+// `= extnam` RHS) -> (TEQD2EXPnone, X2NAMnone). PCXextnam -> (TEQD2EXPsome(=, D2Eextnam), X2NAMsome).
+fun
+extnam_tdxp_xnam(loc: loctn, xnm: pcextnam): @(teqd2exp, x2nam) =
+(
+case+ xnm of
+| PCXnone() => @(TEQD2EXPnone(), X2NAMnone())
+| PCXextnam(_, copt) =>
+    let
+      // the foreign-name g1nam: G1Nlist of the (0-or-1) name parts. `extnam()` -> []; `extnam("c")`
+      // -> [G1Nstr("c")] (the bare C name; the L2 G1Nstr carries a raw string, quotes already stripped).
+      val gnms =
+        ( case+ copt of
+          | optn_nil() => list_nil()
+          | optn_cons(c) => list_sing(G1Nstr(c)) ): g1namlst
+      val tok_dlr = token_make_node(loc, T_DLR_EXTNAM())
+      val gnam    = G1Nlist(gnms)
+      val dexp    = d2exp_make_node(loc, D2Eextnam(tok_dlr, gnam))
+      val tok_eq  = token_make_node(loc, T_EQ0())
+    in
+      @(TEQD2EXPsome(tok_eq, dexp), X2NAMsome(dexp))
+    end
+)
+//
+and
+pl_extern_fundcl
+( env: !tr12env, loc: loctn, name: strn
+, tvs: list(pcparam), pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt, xnm: pcextnam): d2ecl = let
+  val tok_fnk = token_make_node(loc, T_FUN(FNKfn1))   // stock's `#extern fun` funkind (genrec)
+  val tok_ext = token_make_node(loc, T_SRP_EXTERN())
+  //
+  // the fun NAME as a d2var; bind it (so calls + any self-ref in the body resolve).
+  val d2v = d2var_new2_name(loc, ats_sym(name))
+  val () = tr12env_add0_d2varlst(env, list_sing(d2v))
+  //
+  // generics: one s2var per `def foo[A]` typaram, bound in a lam-scope so the param/return types
+  // resolve them; the D2Cfundclst is quantified over them via tqas. tvs=[] => the non-generic path.
+  val @(tqas, f2as, sres) =
+    ( if list_nilq(tvs) then let
+        val sres = pl_sres(env, ret)
+        val f2as = extern_value_f2as(loc, pnames, sres, extern_param_pats(env, loc, pnames, ptypes))
+      in @(list_nil()(*tqas*), f2as, sres) end
+      else let
+        val s2vs = mk_param_s2vars(tvs)
+        val () = tr12env_pshlam0(env)
+        val () = bind_param_s2vars_d(env, s2vs)
+        val sres = pl_sres(env, ret)
+        val f2as = extern_value_f2as(loc, pnames, sres, extern_param_pats(env, loc, pnames, ptypes))
+        val () = tr12env_poplam0(env)
+        val tqas = list_sing(t2qag_make_s2vs(loc, s2vs)) : t2qaglst
+      in @(tqas, f2as, sres) end
+    ): @(t2qaglst, f2arglst, s2res)
+  //
+  // the FFI body + xnam.
+  val @(tdxp, xnam) = extnam_tdxp_xnam(loc, xnm)
+  val d2fc = d2fundcl_make_args(loc, d2v, f2as, sres, tdxp, WTHS2EXPnone())
+  //
+  // the d2cst over the d2var (stock f0_fundclst's `d2cs = list_map(d2vs)`), registered + xnam-bound.
+  val d2c  = d2cst_make_dvar(tok_fnk, d2v, tqas)
+  val () = tr12env_add1_d2cs(env, list_sing(d2c))     // stock process_extern (non-template: add1_d2cs)
+  val () = the_d2cstmap_xnmadd0(d2cst_get_stmp(d2c), xnam)   // stock f1_d2cs_d2fs_xnam
+  //
+  val dfun = d2ecl_make_node(loc, D2Cfundclst(tok_fnk, tqas, list_sing(d2c), list_sing(d2fc)))
+in
+  d2ecl_make_node(loc, D2Cextern(tok_ext, dfun))
+end
+//
+// build the extern's VALUE-arg f2arglst. The crux is the nullary case, which distinguishes the two
+// stock forms a pretty-printed `def foo() -> T` collapses (pyprint can't tell them apart):
+//   * `#extern fun foo: T`   (NO paren group)  -> D2FUNDCL has an EMPTY farg list ([]). The d2cst's
+//        type IS `T` directly; a call `foo(a)` applies the VALUE `foo` (of function type T) to `a`.
+//        Stock f0_fundclst produces this when the source has no `()`. The 1421-line parser corpus
+//        relies on it (e.g. `p1_g0namseq_COMMA: p1_fun(g0namlst)`, called as `p1_g0namseq_COMMA(buf,err)`).
+//   * `#extern fun foo(): T`  (an empty paren group) -> D2FUNDCL has ONE `F2ARGdapp(-1, [])`; the
+//        d2cst's type is `() -> T` (a nullary fun). A call `foo()` applies it to no args.
+// We pick the no-paren (empty-farg) shape iff there are NO value params AND the result type already
+// NORMALIZES to a function — EXACTLY the old build_extern's s2exp_fun_hnfq heuristic (which kept the
+// corpus green). Any params, or a non-function nullary result, take the paren (F2ARGdapp) shape.
+and
+extern_value_f2as(loc: loctn, pnames: list(strn), sres: s2res, pats: d2patlst): f2arglst =
+( case+ pnames of
+  | list_cons(_, _) => list_sing(f2arg_make_node(loc, F2ARGdapp((-1)(*npf*), pats)))   // has value params
+  | list_nil() =>
+    ( case+ sres of
+      // nullary + the result type is already a function -> the NO-PAREN form (empty farg list).
+      | S2RESsome(_, s2e) =>
+          if extern_res_is_fun(s2e)
+            then list_nil()
+            else list_sing(f2arg_make_node(loc, F2ARGdapp((-1)(*npf*), pats)))
+      // an untyped nullary extern: keep the paren shape (a benign default; rare).
+      | S2RESnone() => list_sing(f2arg_make_node(loc, F2ARGdapp((-1)(*npf*), pats))) ) )
+//
+// the old build_extern's s2exp_fun_hnfq: does the result type normalize to a function head? (A
+// nullary extern whose declared result is itself a `p1_fun(..)` etc. is a function VALUE, not a
+// `() -> ..` nullary fun — so it carries no arg group.)
+and
+extern_res_is_fun(s2e: s2exp): bool =
+( case+ s2typ_hnfiz0(s2exp_stpize(s2e)).node() of
+  | T2Pfun1 _ => true
+  | _ => false )
+//
+// build the extern's value-param patterns (one d2pat per name; a typed param an annotated binder),
+// mirroring stock trans12_f1arglst. A typed param -> D2Pannot(D2Pvar, s1exp_none0, <s2 T>); an
+// untyped param -> a bare D2Pvar. (The s1exp "given" part is the benign none0 placeholder — trans2a
+// types FROM the s2exp, never the s1exp; same convention as pl_one_param.)
+and
+extern_param_pats(env: !tr12env, loc: loctn, params: list(strn), ptypes: list(pytypopt)): d2patlst =
+( case+ params of
+  | list_nil() => list_nil()
+  | list_cons(nm, prest) =>
+    ( case+ ptypes of
+      | list_cons(topt, trest) => list_cons(pl_one_param(env, loc, nm, topt), extern_param_pats(env, loc, prest, trest))
+      | list_nil() => list_cons(pl_one_param(env, loc, nm, PyTypNone()), extern_param_pats(env, loc, prest, list_nil())) ) )
+//
+(* ****** ****** *)
+//
 // ---- implement (ATS-parity): PCCimplement -> D2Cimplmnt0 -------------------
 //
 // SPIKE-PROVEN recipe (frontend/DATS/pyfront_surf1_spike.dats case 3 + pyfront_atmpl_spike.dats
@@ -1927,6 +2062,9 @@ end
 #implfun lower_fungroup(env, loc, tvs, mets, fdcls) = pl_fungroup(env, loc, tvs, mets, fdcls)
 #implfun lower_implement(env, loc, name, tvs, has_darg, pnames, ptypes, ret, body, tias_typs) =
   pl_implement(env, loc, name, tvs, has_darg, pnames, ptypes, ret, body, tias_typs)
+// FFI: the extern-signature (D2Cfundclst) lowering — stock f0_fundclst shape for `#extern fun`.
+#implfun lower_extern_fundcl(env, loc, name, tvs, pnames, ptypes, ret, xnm) =
+  pl_extern_fundcl(env, loc, name, tvs, pnames, ptypes, ret, xnm)
 // proof-function group (prfun): the funkind-parameterized fun-group with FNKprfn1.
 #implfun lower_prfungroup(env, loc, tvs, fdcls) =
   pl_fungroup_fnk(env, loc, FNKprfn1, tvs, list_nil()(*no metric*), fdcls)

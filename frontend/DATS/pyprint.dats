@@ -987,6 +987,39 @@ in
   nl(out)
 end
 //
+// FFI: render the foreign-name g0nam of a `$extnam(...)` as the pythonic `extnam(["cname"])`. The
+// L0 g0nam is `G0Nlist(LPAR, parts, RPAR)`: empty parts -> `extnam()`; a single `G0Nstr(t0str)`
+// part -> `extnam("cname")` (the string lexeme, quotes included, emitted verbatim). Other shapes
+// (multi-part / non-string names) are rare and conservatively rendered as the empty `extnam()`.
+fun
+pp_extnam_gnam(out: FILR, gnm: g0nam): void =
+(
+  case+ gnm.node() of
+  | G0Nlist(_, parts, _) =>
+    ( ps(out, "extnam(");
+      ( case+ parts of
+        | list_nil() => ()
+        | list_cons(p0, _) =>
+            (case+ p0.node() of
+             | G0Nstr(t0) => (case+ t0 of T0STRsome(t) => ps(out, tok_lexeme(t)) | T0STRnone(t) => ps(out, tok_lexeme(t)))
+             | _ => ()) );
+      ps(out, ")") )
+  | _ => ps(out, "extnam()")
+)
+//
+// FFI: emit ` = extnam(...)` for an `#extern fun`'s `= $extnam(...)` body (its teqd0exp `tdxp`). Only
+// a `TEQD0EXPsome(_, D0Eextnam(_, gnam))` produces output; a bodyless / non-extnam tdxp emits nothing.
+fun
+pp_extnam_rhs(out: FILR, tdxp: teqd0exp): void =
+(
+  case+ tdxp of
+  | TEQD0EXPsome(_, body) =>
+    ( case+ body.node() of
+      | D0Eextnam(_, gnam) => (ps(out, " = "); pp_extnam_gnam(out, gnam))
+      | _ => () )
+  | TEQD0EXPnone() => ()
+)
+//
 fun
 pp_dynconst(out: FILR, tok: token, tqas: t0qaglst, dcds: d0cstdclist): void = let
   val isval = tok_is_val(tok)
@@ -2441,6 +2474,7 @@ pp_dexp_extern_fundcl(out: FILR, n: sint, tps: list(strn), tps_raw: list(strn), 
   val nm   = i0dnt_lexeme(d0fundcl_get_dpid(fd))
   val farg = d0fundcl_get_farg(fd)
   val sres = d0fundcl_get_sres(fd)
+  val tdxp = d0fundcl_get_tdxp(fd)
   // push BOTH the outer template binders (tps_raw, e.g. `obj`) and the per-fun
   // static-quant binders (farg sapp raws) so every binder USE in the signature lifts.
   val raws = list_append(tps_raw, farg_sapp_raw_names(farg))
@@ -2455,6 +2489,9 @@ in
   (case+ sres of
    | S0RESsome(_, se) => pp_s0exp(out, se)
    | S0RESnone() => ps(out, "Void"));
+  // FFI: emit the `= extnam(["cname"])` foreign-name binding when the fundcl carries one (the
+  // round-trip of stock `= $extnam(["cname"])`). A non-extnam / absent body emits nothing.
+  pp_extnam_rhs(out, tdxp);
   nl(out);
   pop_binders(raws)
 end

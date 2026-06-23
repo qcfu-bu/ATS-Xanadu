@@ -398,8 +398,13 @@ pyparam =
 // resolution precedence). UNLIKE PyDAbinders/PyDAtypes (which carry type-level lists), this is a
 // plain int; only the overload-ALIAS path reads it (decos_overload_prec). A bare `@overload`
 // (no bracket) carries PyDAnone -> the default precedence at lowering.
+// PyDAextnam — the FFI foreign-name binding `= extnam(["cname"])` payload on an `@extern` decorator
+// (the round-trip of ATS `#extern fun foo(...) : T = $extnam(["cname"])`). The optional inner string is
+// the explicit C/foreign name; PyExpNone = `extnam()` (the empty form — the dominant 665× prelude form,
+// where the foreign name defaults to the function's own name). p_def attaches it to the `@extern`
+// decorator after the return type when `= extnam(...)` follows; elab_decl reads it onto PCCextern.
 and pydecoargs   = PyDAnone of () | PyDAbinders of list(pytyparam) | PyDAtypes of list(pytyp)
-                 | PyDAprec of (loctn, sint)
+                 | PyDAprec of (loctn, sint) | PyDAextnam of (loctn, pyexpopt(*cname*))
 and pydecorator  = PyDecor of (loctn, strn, pydecoargs)
 // the optional sort annotation on a type param (Type/Linear/Prop/… — OPEN vocab, kept as strn)
 and pysortopt   = PySortNone of () | PySortSome of (loctn, strn)
