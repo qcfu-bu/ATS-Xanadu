@@ -406,6 +406,29 @@ selfhost: $(CHEZBUNDLE)
 	  | grep -oE '^[^(:]*I0[EDP][a-z0-9]+' | grep -oE 'I0[EDP][a-z0-9]+' | sort | uniq -c | sort -rn | sed 's/^/     /' || true
 
 ########################################################################
+# selfrun/UNIT — SELF-HOSTING VALIDATION.  Compile a frontend library
+# srcgen2/DATS/UNIT.dats to Scheme with the chez emitter, prepend the CATS
+# runtime + value-rep runtime, append a hand-written driver
+# (TEST/selfhost/UNIT.driver.scm), and RUN the result on Chez.  This is how the
+# CATS runtime is grown: each undefined symbol that surfaces is resolved in
+# runtime/scheme/xats2chez_cats.scm.
+#   make selfrun/xstamp0
+########################################################################
+CATSRT := $(CHEZRT)/xats2chez_cats.scm
+selfrun/%: $(CHEZBUNDLE)
+	@set -uo pipefail; \
+	S="$(XATSHOME)/srcgen2/DATS/$*.dats"; \
+	[ -f "$$S" ] || { echo "!! not found: $$S" >&2; exit 2; }; \
+	DRV="$(TESTDIR)/selfhost/$*.driver.scm"; \
+	[ -f "$$DRV" ] || { echo "!! no driver: $$DRV" >&2; exit 2; }; \
+	W="$(BUILD)/selfhost"; mkdir -p "$$W"; \
+	$(NODE) $(CHEZBUNDLE) "$$S" 2>"$$W/$*.err" \
+	  | awk '/BEGIN==/{f=1;next}/END==/{f=0}f' > "$$W/$*.body.scm"; \
+	cat "$(CATSRT)" "$(CHEZRT)/xats2chez_runtime.scm" "$$W/$*.body.scm" "$$DRV" > "$$W/$*.run.scm"; \
+	echo ">> selfrun $*: compiled $$(grep -c '(define' "$$W/$*.body.scm") defines, running on Chez:"; \
+	$(CHEZ) "$$W/$*.run.scm"
+
+########################################################################
 clean:
 	@echo ">> clean emitter artifacts (keep cached fixed libs)"
 	@rm -f $(OUT0) $(NSJS) $(LIB2CHEZ) $(DRV_CHEZ) $(CHEZBUNDLE)
