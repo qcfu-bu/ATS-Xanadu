@@ -3499,9 +3499,12 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   // a trailing parser-skip token (e.g. EOF region / comment-only tail) — silent.
   | D0Ctkerr(_) => false
   | D0Ctkskp(_) => false
-  // Conditional-compilation markers guard nearby declarations in ATS, but the declarations
-  // themselves are already present in the L0 stream we print. The marker tokens are not Pythonic
-  // declarations, so keep them silent instead of emitting visible TODOs.
+  // Conditional-compilation markers (`#if defq(...) ... #else ... #endif`) appear as FLAT
+  // tokens interleaved with the guarded declarations in the L0 d0eclist (see trans01_decl00's
+  // f1_then0/f1_else1/f1_endif). pp_walk intercepts `D0Cifexp` and emits ONLY the active backend
+  // branch (see pp_walk + ifexp_guard_active below), so these markers should never reach this
+  // dispatch via the normal top-level walk. They remain handled here (silently) as a safety net
+  // for any stray marker reached out of band.
   | D0Cifdef(_, _) => false
   | D0Cifexp(_, _) => false
   | D0Celsif(_, _) => false
@@ -3585,20 +3588,124 @@ pp_staload(out: FILR, ge: g0exp): void =
 //
 (* ****** ****** *)
 //
+// ===================== `#if defq(...)` backend selector ======================
+//
+// `#if`-guarded declarations select the active backend's prelude shim
+// (`#if defq(_XATS2JS_) #typedef argv=jsa1sz(strn) #endif` vs the `_XATS2PY_`/`_XATS2CC_`
+// variants — BOOTSTRAP-PLAN: 25 occurrences, backend-selection only, no `#elif`/arithmetic).
+// The frontend pipeline + the M3 reparse prelude both target the JS backend (the staloaded
+// prelude is srcgen1's JS one — `srcgen1/prelude/DATS/CATS/JS/*`), so ONLY `_XATS2JS_` is
+// active here. Emitting BOTH branches re-declares the same type (e.g. `Argv`) against two
+// different backend array types, which later uses (`argv[i]`, `length(argv)`) fail to resolve.
+//
+// THE ACTIVE-BACKEND POLICY: `_XATS2JS_` is the one active flag; every other backend defq
+// is inactive. To switch backends, change which name returns true here.
+and
+backend_defq_active(name: strn): bool =
+(
+  if name = "_XATS2JS_"  then true   // <-- the one active backend flag
+  else if name = "_XATS2PY_"  then false
+  else if name = "_XATS2CC_"  then false
+  else if name = "_XATS2C_"   then false
+  else if name = "_XATS2CPP_" then false
+  else false                          // any other / unknown backend defq: inactive
+)
+//
+// evaluate an `#if` guard g0exp. Only the `defq(NAME)` form occurs in the corpus; anything
+// else is treated as inactive (conservative — the inactive branch is dropped, never the
+// declarations we know how to emit).
+and
+ifexp_guard_active(gexp: g0exp): bool =
+(
+  case+ gexp.node() of
+  | G0Eapps(list_cons(gop, list_cons(arg, list_nil()))) =>
+      if g0exp_is_id(gop, "defq")
+      then backend_defq_active(g0exp_lexeme(arg))
+      else false
+  | _ => false
+)
+//
+// split a FLAT d0eclist that follows a `#ifexp`/`#else1` marker into (this-branch-decls, rest),
+// where `rest` begins at the next branch terminator (`#else1`/`#elsif`/`#endif`) or is empty.
+// Mirrors trans01_decl00's f1_then0/f1_else1 branch collection.
+and
+ifexp_split_branch(dcs: d0eclist): @(d0eclist, d0eclist) =
+(
+  case+ dcs of
+  | list_nil() => @(list_nil(), list_nil())
+  | list_cons(dc, rest) =>
+      (case+ dc.node() of
+       | D0Celse1(_) => @(list_nil(), dcs)
+       | D0Celsif(_, _) => @(list_nil(), dcs)
+       | D0Cendif(_) => @(list_nil(), dcs)
+       | _ => let
+           val @(branch, after) = ifexp_split_branch(rest)
+         in
+           @(list_cons(dc, branch), after)
+         end)
+)
+//
+// drop a leading `#endif` marker (the tail after a fully-consumed `#if ... #endif`).
+and
+ifexp_skip_endif(dcs: d0eclist): d0eclist =
+(
+  case+ dcs of
+  | list_nil() => list_nil()
+  | list_cons(dc, rest) =>
+      (case+ dc.node() of
+       | D0Cendif(_) => rest
+       | _ => dcs)
+)
+//
+// walk the then/else branches of an `#if` block already split off the flat stream, emitting
+// only the active branch (the marker-consuming logic lives in pp_walk).  `head` is the d0eclist
+// starting right AFTER the `#ifexp` marker; returns the tail after the matching `#endif`.
+and
+pp_walk_ifexp(out: FILR, active: bool, head: d0eclist): d0eclist =
+let
+  val @(thenbr, afterthen) = ifexp_split_branch(head)
+  // optional `#else1 ... ` branch.
+  val @(elsebr, afterelse) =
+    (case+ afterthen of
+     | list_cons(dc, rest) =>
+         (case+ dc.node() of
+          | D0Celse1(_) => ifexp_split_branch(rest)
+          // `#elsif` does not occur in the corpus (backend-selection only); treat its body as a
+          // dropped (inactive) branch so we never emit it, and resume after its terminator.
+          | D0Celsif(_, _) => let val @(_, aft) = ifexp_split_branch(rest) in @(list_nil(), aft) end
+          | _ => @(list_nil(), afterthen))
+     | list_nil() => @(list_nil(), list_nil()))
+  val tail = ifexp_skip_endif(afterelse)
+  val () = (if active then pp_walk(out, thenbr) else pp_walk(out, elsebr))
+in
+  tail
+end
+//
+(* ****** ****** *)
+//
 // walk the top-level decl list; a blank line AFTER each emitting decl (a Python-
 // tolerant, peek-free separation — empty lines are insignificant at top level).
+// `#if defq(...)` blocks are intercepted here so ONLY the active backend branch emits.
 //
 and
 pp_walk(out: FILR, dcs: d0eclist): void =
 (
   case+ dcs of
   | list_nil() => ()
-  | list_cons(dc, rest) => let
-      val emitted = pp_d0ecl(out, dc)
-      val () = (if emitted then nl(out) else ())
-    in
-      pp_walk(out, rest)
-    end
+  | list_cons(dc, rest) =>
+      (case+ dc.node() of
+       | D0Cifexp(_, gexp) => let
+           val active = ifexp_guard_active(gexp)
+           val tail = pp_walk_ifexp(out, active, rest)
+         in
+           pp_walk(out, tail)
+         end
+       | _ => let
+           val emitted = pp_d0ecl(out, dc)
+           val () = (if emitted then nl(out) else ())
+         in
+           pp_walk(out, rest)
+         end)
 )
 //
 // `local D1 in D2 end` -> `private:` (D1) then D2 at the SAME (outer) level — the
