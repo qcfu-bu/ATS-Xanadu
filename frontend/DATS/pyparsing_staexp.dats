@@ -421,6 +421,9 @@ in
   | PT_UIDENT(s) => p_type_con_name(loc, s, ps_advance(st))
   | PT_LIDENT(s) => @(PyTvar(loc, s), ps_advance(st))
   | PT_INT(s)    => @(PyTidx(loc, s), ps_advance(st))
+  // EXTYPE: a STRING LITERAL as a type atom — only meaningful as the arg of `Extype["name"]` /
+  // `Extbox["name"]` (lowering's Extype/Extbox head detects it). Carries the raw quoted lexeme.
+  | PT_STRING(s) => @(PyTstr(loc, s), ps_advance(st))
   // BOOTSTRAP-PARITY: ATS `!T` / `~T` linear/viewtype prefixes are accepted
   // in type position and erased for now. The parser keeps corpus interfaces round-trippable while
   // the deeper view-modality AST is still deferred.

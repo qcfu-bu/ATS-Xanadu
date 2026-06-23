@@ -188,6 +188,12 @@ pytyp =
 // usually a `PyTvar` naming an `addr`-sorted quantifier). Lowers to the at-view s2exp
 // `S2Eatx2(carried, addr)` of result sort `the_sort2_vwtp`. (`view` sort reserved.)
 | PyTat    of (loctn, pytyp(*carried*), pytyp(*addr*))
+// EXTYPE: a STATIC STRING LITERAL in type-arg position — the `"name"` of `Extype["name"]` /
+// `Extbox["name"]` (the Pythonic spelling of stock `$extype("name")` / `$extbox("name")`). Carries
+// the RAW PT_STRING lexeme INCLUDING its surrounding quotes (PYL_unquote strips them at lowering).
+// Reachable only inside a type-arg bracket; lowering's PyTcon arm detects the Extype/Extbox head and
+// consumes this to build `S2Etext(name, args)` (sort the_sort2_type / the_sort2_tbox).
+| PyTstr   of (loctn, strn)
 | PyTerror of (loctn, strn)
 //
 // a record-type field `name: type`

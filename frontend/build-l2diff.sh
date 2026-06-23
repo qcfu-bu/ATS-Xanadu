@@ -171,6 +171,7 @@ normalize() {
   # stdin: one-line D2PARSED(...) dump ; stdout: normalized, one node per line.
   # Portable BSD sed + BSD awk only (no gawk gensub / no \l).
   sed -E \
+    -e 's/LCSRCsome1\([^)]*\)@\([0-9]+\(line=[0-9]+,offs=[0-9]+\)--[0-9]+\(line=[0-9]+,offs=[0-9]+\)\)/@LOC/g' \
     -e 's/LCSRCsome1\([^)]*\)@\([^)]*\)/@LOC/g' \
     -e 's/@\([0-9]+\(line=[0-9]+,offs=[0-9]+\)--[0-9]+\(line=[0-9]+,offs=[0-9]+\)\)/@LOC/g' \
     -e 's/LCSRCsome1\([^)]*\)/@SRC/g' \

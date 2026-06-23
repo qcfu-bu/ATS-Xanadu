@@ -37,6 +37,9 @@
 #extern fun PYL_qual_head_key(s: strn): strn = $extnam()
 #extern fun PYL_qual_tail_name(s: strn): strn = $extnam()
 #extern fun PYL_uncapitalize(s: strn): strn = $extnam()
+// EXTYPE: strip the surrounding quotes from a PT_STRING lexeme (the C name in `Extype["name"]`),
+// reusing the same FFI the import/extnam paths use (PYL_unquote in pylexing.cats, linked by every build).
+#extern fun PYL_unquote(s: strn): strn = $extnam()
 //
 #implfun
 pylower_ats_name(name) = PYL_ats_name(name)
@@ -138,19 +141,26 @@ pylower_index_lit(loc: loctn, raw: strn): s2exp =
 // DEP-spike build_binop resolved). Arithmetic yields sort i0; comparisons yield sort bool. An op
 // with no static int form (`/`, `%`, `//`, `**`, `and`/`or` — which can't reach an index position)
 // maps to "" (unbound -> trans23 reports it; never a crash). Parallel to the M3 dynamic op_remap.
+// FAITHFUL (S0Eop2): resolve a static index binop to the RAW OPERATOR alias (`+`, `>=`, ...) — the
+// SAME `#sexpdef`-overloaded operator symbol stock's fixity resolution emits as `S2Ecst(>=)` (a
+// sexpdef alias kept verbatim in the RAW d2parsed; basics0.sats:383 `#sexpdef >= = gte_i0_i0`). The
+// pyfront previously named the `*_i0_i0` TARGET directly (`gte_i0_i0`) — semantically identical (the
+// alias's RHS) but a structural L2-diff vs stock's un-expanded alias. Resolving the alias instead
+// makes index-arithmetic + guards round-trip FAITHFUL. An op with no static form ("" -> unbound,
+// trans23 reports it, never a crash).
 fun
 static_op_name(bop: pybop): strn =
 (
 case+ bop of
-| PyBadd() => "add_i0_i0"
-| PyBsub() => "sub_i0_i0"
-| PyBmul() => "mul_i0_i0"
-| PyBlt()  => "lt_i0_i0"
-| PyBle()  => "lte_i0_i0"
-| PyBgt()  => "gt_i0_i0"
-| PyBge()  => "gte_i0_i0"
-| PyBeq()  => "eq_i0_i0"
-| PyBne()  => "neq_i0_i0"
+| PyBadd() => "+"
+| PyBsub() => "-"
+| PyBmul() => "*"
+| PyBlt()  => "<"
+| PyBle()  => "<="
+| PyBgt()  => ">"
+| PyBge()  => ">="
+| PyBeq()  => "=="
+| PyBne()  => "!="
 | _ => ""    // /, %, //, **, and, or, not — not valid in an index position (unbound, no crash)
 )
 //
@@ -359,6 +369,58 @@ end
 // FIDELITY: the surface PRIMITIVE names whose applied form pytcon_head reroutes to a registered
 // `the_s2exp_*1` head (NOT their raw env bucket). The arity-aware s2cst_select_typ path is SKIPPED
 // for these so the M5a/P8 indexed-primitive routing (the_s2exp_sint1 etc.) is preserved verbatim.
+// EXTYPE: is this applied-con head the Pythonic spelling of `$extype` / `$extbox`? The pyprint emits
+// the capitalized `Extype` / `Extbox`; we also accept the lowercase/dollar forms defensively.
+fun
+pytcon_is_extype(name: strn): bool =
+(
+  if strn_eq(name, "Extype") then true
+  else if strn_eq(name, "Extbox") then true
+  else if strn_eq(name, "extype") then true
+  else if strn_eq(name, "extbox") then true
+  else if strn_eq(name, "$extype") then true
+  else if strn_eq(name, "$extbox") then true
+  else false
+)
+fun
+pytcon_extype_isbox(name: strn): bool =
+(
+  if strn_eq(name, "Extbox") then true
+  else if strn_eq(name, "extbox") then true
+  else if strn_eq(name, "$extbox") then true
+  else false
+)
+// the C name = the unquoted first arg if it is a PyTstr; else "*ERROR*" (stock's sentinel).
+fun
+extype_name_of(args: list(pytyp)): strn =
+(
+  case+ args of
+  | list_cons(PyTstr(_, lex), _) => PYL_unquote(lex)
+  | _ => "*ERROR*"
+)
+// the EXTRA static args after the name string (stock passes the tail through trans12_s1explst_stck1).
+fun
+extype_args_of(env: !tr12env, args: list(pytyp)): s2explst =
+(
+  case+ args of
+  | list_nil() => list_nil()
+  | list_cons(_, rest) => pylower_typlst(env, rest)
+)
+// EXTYPE: lower `Extype["name", extra...]` / `Extbox[...]` to `S2Etext(name, [extra-s2es])` at sort
+// the_sort2_type (Extype) / the_sort2_tbox (Extbox), exactly as stock f0_a1pp_extp builds it. The
+// FIRST arg is the C-name STRING (a PyTstr); any further args lower as static args (stock keeps them
+// in the S2Etext arglst). A malformed shape (empty / non-string first arg) yields "*ERROR*" like
+// stock, so the surrounding type still lowers (the typechecker then flags it, never a crash).
+fun
+pylower_extype(env: !tr12env, loc: loctn, isbox: bool, args: list(pytyp)): s2exp =
+  let
+    val tres = (if isbox then the_sort2_tbox else the_sort2_type) : sort2
+    val name = extype_name_of(args)
+    val s2es = extype_args_of(env, args)
+  in
+    s2exp_make_node(tres, S2Etext(name, s2es))
+  end
+//
 fun
 pytcon_is_special(name: strn): bool =
 (
@@ -467,6 +529,20 @@ lower_quant_guards(env: !tr12env, gopt: pyguardopt): s2explst =
   | PyGuardNone() => list_nil()
   | PyGuardSome(_, g) => list_sing(pylower_typ(env, g)) )
 //
+// A-QUANT: the quantifier BODY is wrapped impredicatively EXACTLY as stock's f0_a1pp_exi0 /
+// f0_a1pp_uni0 (trans12_staexp.dats:892/851), which lower the body via trans12_s1exp_impr — the
+// IMPREDICATIVE variant that wraps the body in `S2Eimpr(loc, body)` (= s2exp_impr, sort the_sort2_type)
+// UNLESS the body sort is <= `view`. Empirically (L2-diff vs stock): an APPLIED type body (`bt(b)`,
+// `p1box(l)` — the basics0-dominant existential shape) is NOT wrapped; a bare type-VAR body (`[a:t0p]
+// a`) IS wrapped. So we mirror stock's exact predicate `lte(s2t0, view)`: skip the wrap when the body
+// sort is <= view (which holds for an applied `S2Eapps` type at sort `type`), wrap otherwise. loc is
+// the quantifier-node loctn (== loc_t here); the L2-diff normalizes locations away.
+fun
+quant_body_impr(loc: loctn, s2e: s2exp): s2exp =
+( if lte_sort2_sort2(s2e.sort(), the_sort2_view)
+  then s2e
+  else s2exp_impr(loc, s2e) )
+//
 (* ****** ****** *)
 //
 // M5b.4 — lower a record-type field suite `{ name: T, ... }` to an `l2s2elst` of label/s2exp
@@ -545,6 +621,13 @@ pylower_arrow_f2cl(env: !tr12env, loc: loctn, tag: strn): f2clknd =
 pylower_typ(env, t) =
 (
 case+ t of
+// EXTYPE: `Extype["name"]` / `Extbox["name"]` (= stock `$extype("name")` / `$extbox("name")`) ->
+// S2Etext(name, extra-args) at sort the_sort2_type (Extype) / the_sort2_tbox (Extbox), mirroring
+// stock f0_a1pp_extp (trans12_staexp.dats:982): the FIRST arg is the C name STRING (a PyTstr whose
+// raw lexeme we PYL_unquote), any further args lower as static args. Detected by the capitalized
+// head the pyprint emits; falls through to the normal con path if the args don't fit the shape.
+| PyTcon(loc, name, args) when pytcon_is_extype(name) =>
+    pylower_extype(env, loc, pytcon_extype_isbox(name), args)
 | PyTcon(loc, name, args) =>
   if list_nilq(args)
     then resolve_typ(env, loc, name)
@@ -632,7 +715,8 @@ case+ t of
       val s2vs  = mk_param_s2vars(pcps)
       val () = tr12env_pshlam0(env)
       val () = bind_quant_s2vars(env, s2vs)
-      val s2e_body = pylower_typ(env, body)
+      val s2e_body0 = pylower_typ(env, body)
+      val s2e_body  = quant_body_impr(loc, s2e_body0)  // impr-wrap a type body (stock parity)
       val s2ps     = lower_quant_guards(env, gopt)
       val () = tr12env_poplam0(env)
     in
@@ -652,6 +736,10 @@ case+ t of
     in
       s2exp_make_node(the_sort2_vwtp, S2Eatx2(s2e_carr, s2e_addr))
     end
+// EXTYPE: a bare static STRING outside the Extype/Extbox head (should not occur — a PyTstr is only
+// produced inside a type-arg bracket consumed by the Extype/Extbox arm). Lower it as a 0-arg
+// external text at sort type so a stray string never crashes lowering.
+| PyTstr(_, lex)   => s2exp_make_node(the_sort2_type, S2Etext(PYL_unquote(lex), list_nil()))
 | PyTerror(loc, _)  => s2exp_none0()
 )
 //

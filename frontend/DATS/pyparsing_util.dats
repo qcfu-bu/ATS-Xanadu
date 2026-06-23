@@ -73,6 +73,7 @@ case+ t of
 | PyTerror(loc, _) => loc
 | PyTquant(loc, _, _, _, _) => loc
 | PyTat(loc, _, _) => loc
+| PyTstr(loc, _) => loc
 )
 //
 #implfun

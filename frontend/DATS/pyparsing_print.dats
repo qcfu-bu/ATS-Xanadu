@@ -160,6 +160,9 @@ case+ t of
 | PyTat(loc, carr, addr) =>
   ( ps(out, "(Tat"); print_span(out, loc); ps(out, " ");
     pp_typ(out, carr); ps(out, " at "); pp_typ(out, addr); ps(out, ")") )
+// EXTYPE: a static string literal (the C name of Extype/Extbox).
+| PyTstr(loc, lex) =>
+  (ps(out, "(Tstr "); ps(out, lex); print_span(out, loc); ps(out, ")"))
 | PyTerror(loc, msg) =>
   (ps(out, "(Terror \""); ps(out, msg); ps(out, "\""); print_span(out, loc); ps(out, ")"))
 )

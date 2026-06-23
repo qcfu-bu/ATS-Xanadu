@@ -292,6 +292,30 @@ pp_s0exp(out: FILR, se: s0exp): void =
       | T0INTsome(tok) => ps(out, tok_lexeme(tok))
       | T0INTnone(tok) => ps(out, tok_lexeme(tok))
     )
+  // a STRING literal in static position — the argument of `$extype("name")` / `$extbox("name")`,
+  // emitted as a quoted Pythonic string (PYPP_string_literal re-quotes/escapes). The lowering of
+  // `Extype["name"]`/`Extbox["name"]` recovers the raw name and builds S2Etext.
+  | S0Estr(t0) => (
+      case+ t0 of
+      | T0STRsome(tok) => ps(out, PYPP_string_literal(tok_lexeme(tok)))
+      | T0STRnone(tok) => ps(out, PYPP_string_literal(tok_lexeme(tok)))
+    )
+  // a CHARACTER / FLOAT literal in static position — verbatim lexeme (rare; index literals).
+  | S0Echr(t0) => (
+      case+ t0 of
+      | T0CHRsome(tok) => ps(out, tok_lexeme(tok))
+      | T0CHRnone(tok) => ps(out, tok_lexeme(tok))
+    )
+  | S0Eflt(t0) => (
+      case+ t0 of
+      | T0FLTsome(tok) => ps(out, tok_lexeme(tok))
+      | T0FLTnone(tok) => ps(out, tok_lexeme(tok))
+    )
+  // a bare quantifier with NO body in the apps spine (e.g. `[a:t0p]` alone) — emit just the prefix.
+  // (The common case `[..] T` is an S0Eapps and is handled by pp_apps; this covers the degenerate
+  // standalone quantifier so it never falls through to the TODO marker.)
+  | S0Eexi0(_, sqs, _) => pp_quant_prefix(out, "exists", sqs)
+  | S0Euni0(_, sqs, _) => pp_quant_prefix(out, "forall", sqs)
   //
   // a type application: head followed by paren arg-groups.
   //   tmpmap(itm)            -> Tmpmap[Itm]
@@ -343,14 +367,151 @@ pp_apps(out: FILR, ses: s0explst): void =
 (
   case+ ses of
   | list_cons(prefix, rest) =>
-      if s0exp_is_amp(prefix)
-      then pp_prefix_update_or_generic(out, "&", rest)
-      else (
-        if s0exp_is_bang(prefix)
-        then pp_prefix_update_or_generic(out, "!", rest)
-        else pp_apps_arrow_or_prefix(out, ses)
-      )
+      // a QUANTIFIER head: an existential `[..] T` (S0Eexi0) / universal `{..} T` (S0Euni0)
+      // parses as an apps spine whose FIRST element is the quantifier and whose REST is the
+      // quantified body. Emit `exists[binders | guards] ` / `forall[binders | guards] ` then the
+      // body as a fresh apps (so `[i:i0|i>=0] sint(i)` -> `exists[I: SInt | I >= 0] SInt[I]`).
+      (case+ prefix.node() of
+       | S0Eexi0(_, sqs, _) => (pp_quant_prefix(out, "exists", sqs); pp_apps(out, rest))
+       | S0Euni0(_, sqs, _) => (pp_quant_prefix(out, "forall", sqs); pp_apps(out, rest))
+       | _ =>
+         if s0exp_is_amp(prefix)
+         then pp_prefix_update_or_generic(out, "&", rest)
+         else (
+           if s0exp_is_bang(prefix)
+           then pp_prefix_update_or_generic(out, "!", rest)
+           else pp_apps_arrow_or_prefix(out, ses)
+         ))
   | _ => pp_apps_arrow_or_prefix(out, ses)
+)
+and
+// emit a quantifier prefix `KW[binders | guard, ...]` (KW = "exists"/"forall") from the s0qualst.
+// Binders (S0QUAvars) render capitalized with an optional `: SORT` (`I: SInt`, `A`); props
+// (S0QUAprop) render after a `|` as comma-separated guard exprs. A guardless quantifier emits
+// `KW[binders]`; an empty quantifier still emits `KW[]` (collapses to the body at lowering, matching
+// stock's empty-binder uni0/exi0). Always followed by a single space before the body. SELF-CONTAINED
+// (only tyname / PYPP_binder_* — all visible here) so it lives in the pp_s0exp recursion group, where
+// it can recurse into pp_s0exp for the guard exprs. Pushes each binder name so a binder USE in the
+// body/guard lifts (capitalize-scoping), mirroring the def-quantifier path's push_binders.
+pp_quant_prefix(out: FILR, kw: strn, sqs: s0qualst): void = (
+  quant_push_binders(sqs);
+  ps(out, kw);
+  ps(out, "[");
+  pp_quant_binders(out, sqs, true);
+  pp_quant_guards(out, sqs);
+  ps(out, "] ")
+)
+and
+// push every binder name (raw lexeme) of the quantifier so its capitalize-scoping is active for the
+// body + guards (the def-quantifier path's push_binders companion; we never pop — a quantifier binder
+// scopes to the end of the enclosing decl, same as the existing typaram binders).
+quant_push_binders(sqs: s0qualst): void =
+(
+  case+ sqs of
+  | list_nil() => ()
+  | list_cons(sq, rest) => (
+      (case+ sq.node() of
+       | S0QUAvars(ids, _) => quant_push_ids(ids)
+       | _ => ());
+      quant_push_binders(rest))
+)
+and
+quant_push_ids(ids: i0dntlst): void =
+(
+  case+ ids of
+  | list_nil() => ()
+  | list_cons(id, rest) => (PYPP_binder_push(i0dnt_lexeme(id)); quant_push_ids(rest))
+)
+and
+// emit the comma-separated binder list (S0QUAvars only; props are the guard tail). `first` tracks
+// whether a leading comma is needed across the S0QUAvars groups.
+pp_quant_binders(out: FILR, sqs: s0qualst, first: bool): void =
+(
+  case+ sqs of
+  | list_nil() => ()
+  | list_cons(sq, rest) =>
+      (case+ sq.node() of
+       | S0QUAvars(ids, sopt) => let
+           val sn = quant_sort_py(sopt)
+           val first1 = pp_quant_ids(out, ids, sn, first)
+         in
+           pp_quant_binders(out, rest, first1)
+         end
+       | _ => pp_quant_binders(out, rest, first))
+)
+and
+// emit one S0QUAvars group `n1: SORT, n2: SORT` (the shared sort applies to every id in the group).
+// Returns the updated `first` flag. Names capitalize via tyname; a sort "" emits a bare `N`.
+pp_quant_ids(out: FILR, ids: i0dntlst, sn: strn, first: bool): bool =
+(
+  case+ ids of
+  | list_nil() => first
+  | list_cons(id, rest) => (
+      (if first then () else ps(out, ", "));
+      ps(out, tyname(i0dnt_lexeme(id)));
+      (if strn_eq(sn, "") then () else (ps(out, ": "); ps(out, sn)));
+      pp_quant_ids(out, rest, sn, false))
+)
+and
+// the guard tail of a quantifier: ` | g1, g2, ...` from the S0QUAprop entries (`[i:i0 | i>=0]`).
+// No props -> nothing. The leading ` | ` is emitted once before the first prop.
+pp_quant_guards(out: FILR, sqs: s0qualst): void =
+  if s0qualst_has_prop(sqs)
+  then (ps(out, " | "); pp_quant_guards_seq(out, sqs, true))
+  else ()
+and
+pp_quant_guards_seq(out: FILR, sqs: s0qualst, first: bool): void =
+(
+  case+ sqs of
+  | list_nil() => ()
+  | list_cons(sq, rest) =>
+      (case+ sq.node() of
+       | S0QUAprop(g) => (
+           (if first then () else ps(out, ", "));
+           pp_s0exp(out, g);
+           pp_quant_guards_seq(out, rest, false))
+       | _ => pp_quant_guards_seq(out, rest, first))
+)
+and
+s0qualst_has_prop(sqs: s0qualst): bool =
+(
+  case+ sqs of
+  | list_nil() => false
+  | list_cons(sq, rest) =>
+      (case+ sq.node() of
+       | S0QUAprop(_) => true
+       | _ => s0qualst_has_prop(rest))
+)
+and
+// the Pythonic SORT name of a quantifier binder's optional sort annotation (`{n:nat}` -> `SInt`,
+// `{b:bool}` -> `SBool`, `{a:t0p}` -> a capitalized user sort). Self-contained twin of sort0_pyname
+// (which is defined later, outside this recursion group) covering the kernel index/type sorts.
+quant_sort_py(opt: sort0opt): strn =
+(
+  case+ opt of
+  | optn_nil() => ""
+  | optn_cons(s0t) => (
+      case+ s0t.node() of
+      | S0Tid0(id) => quant_sort_name_py(i0dnt_lexeme(id))
+      | _ => "")
+)
+and
+quant_sort_name_py(s: strn): strn =
+(
+  if strn_eq(s, "") then ""
+  else if strn_eq(s, "t0") then "Type"
+  else if strn_eq(s, "type") then "Type"
+  else if strn_eq(s, "t0p") then "T0p"
+  else if strn_eq(s, "i0") then "SInt"
+  else if strn_eq(s, "int") then "SInt"
+  else if strn_eq(s, "nat") then "SInt"
+  else if strn_eq(s, "b0") then "SBool"
+  else if strn_eq(s, "bool") then "SBool"
+  else if strn_eq(s, "addr") then "Addr"
+  else if strn_eq(s, "a0") then "A0"
+  else if strn_eq(s, "vt") then "Vt"
+  else if strn_eq(s, "vt0p") then "Vt"
+  else tyname(s)
 )
 and
 pp_prefix_update_or_generic(out: FILR, mark: strn, rest: s0explst): void =
@@ -366,13 +527,79 @@ pp_prefix_update_or_generic(out: FILR, mark: strn, rest: s0explst): void =
 and
 pp_apps_arrow_or_prefix(out: FILR, ses: s0explst): void =
 (
+  // a STATIC INFIX OPERATOR spine `lhs OP rhs` (S0Eop2 / operator-shaped S0Eid0 as the MIDDLE
+  // element): the index-arithmetic + comparison ops `+ - * < <= > >= == !=` (`{n | n>=0}` guards,
+  // `Vec[A, n+1]` sizes). Render `lhs OP rhs` (the Pythonic index grammar p_index parses) instead
+  // of the bogus type-application `Lhs[OP][rhs]`. Falls through to the arrow/app handling otherwise.
+  if s0explst_is_binop_spine(ses)
+  then pp_binop_spine(out, ses)
+  else
+  (case+ ses of
+   | list_cons(arg, list_cons(arr, res)) =>
+       if s0exp_is_arrow(arr)
+       then (pp_s0exp_arrow_lhs(out, arg); ps(out, " -> "); pp_apps_generic(out, res))
+       else pp_apps_prefix_or_generic(out, ses)
+   | _ => pp_apps_prefix_or_generic(out, ses))
+)
+and
+// a 3-element spine `[lhs, op, rhs]` whose MIDDLE element is a static infix operator. (Destructured
+// step by step — the standalone transpiler chokes on a 3-deep nested list_cons/list_nil pattern.)
+s0explst_is_binop_spine(ses: s0explst): bool =
+(
   case+ ses of
-  | list_cons(arg, list_cons(arr, res)) =>
-      if s0exp_is_arrow(arr)
-      then (pp_s0exp_arrow_lhs(out, arg); ps(out, " -> "); pp_apps_generic(out, res))
-      else pp_apps_prefix_or_generic(out, ses)
+  | list_cons(_, rest1) =>
+      (case+ rest1 of
+       | list_cons(opr, rest2) =>
+           (case+ rest2 of
+            | list_cons(_, rest3) =>
+                (case+ rest3 of
+                 | list_nil() => s0exp_static_binop(opr)
+                 | _ => false)
+            | _ => false)
+       | _ => false)
+  | _ => false
+)
+and
+pp_binop_spine(out: FILR, ses: s0explst): void =
+(
+  case+ ses of
+  | list_cons(arg, rest1) =>
+      (case+ rest1 of
+       | list_cons(opr, rest2) =>
+           (case+ rest2 of
+            | list_cons(rhs, _) =>
+                (pp_s0exp(out, arg); ps(out, " "); ps(out, s0exp_binop_sym(opr)); ps(out, " "); pp_s0exp(out, rhs))
+            | _ => pp_apps_prefix_or_generic(out, ses))
+       | _ => pp_apps_prefix_or_generic(out, ses))
   | _ => pp_apps_prefix_or_generic(out, ses)
 )
+and
+// is this s0exp an INDEX-ARITHMETIC / COMPARISON operator usable infix (`+`,`-`,`*`,`<`,`<=`,`>`,
+// `>=`,`==`,`!=`)? Matches an operator-shaped S0Eid0 (the lexeme IS the symbol) or an S0Eop2 token.
+s0exp_static_binop(se: s0exp): bool =
+  (not(strn_eq(s0exp_binop_sym(se), "")))
+and
+// the surface symbol of a static infix operator s0exp, or "" if it is not one. The ATS lexeme and
+// the Pythonic surface coincide for these (`>=`/`+`/...); equality/inequality map ATS `==`/`!=`.
+s0exp_binop_sym(se: s0exp): strn = let
+  val lx =
+    (case+ se.node() of
+     | S0Eid0(id) => i0dnt_lexeme(id)
+     | S0Eop2(tok) => tok_lexeme(tok)
+     | S0Eop1(tok) => tok_lexeme(tok)
+     | _ => "")
+in
+  if strn_eq(lx, "+") then "+"
+  else if strn_eq(lx, "-") then "-"
+  else if strn_eq(lx, "*") then "*"
+  else if strn_eq(lx, "<") then "<"
+  else if strn_eq(lx, "<=") then "<="
+  else if strn_eq(lx, ">") then ">"
+  else if strn_eq(lx, ">=") then ">="
+  else if strn_eq(lx, "==") then "=="
+  else if strn_eq(lx, "!=") then "!="
+  else ""
+end
 and
 pp_s0exp_arrow_lhs(out: FILR, se: s0exp): void =
 (

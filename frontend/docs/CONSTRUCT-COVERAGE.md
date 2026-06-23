@@ -27,8 +27,26 @@ Run `bash frontend/build-construct-coverage.sh` to regenerate. As of 2026-06-23:
 | `d0ecl` (declarations)      | 27 / 34 |  7 |
 | `d0exp` (dyn expressions)   | 23 / 29 |  6 |
 | `d0pat` (patterns)          | 11 / 13 |  2 |
-| `s0exp` (static/type exprs) |  7 / 18 | 11 |
+| `s0exp` (static/type exprs) | 14 / 18 |  4 |
 | `g0exp` (static/guard exprs)|  5 / 8  |  3 |
+
+> **2026-06-23 — s0exp +7 (`S0Euni0`/`S0Eexi0`/`S0Eop1`/`S0Eop2`/`S0Estr`/`S0Echr`/`S0Eflt`):**
+> The universal `{..} T` (`forall[..]`) and existential `[..] T` (`exists[..]`) type quantifiers, the
+> static infix operators (`+ - * < <= > >= == !=` — rendered `lhs OP rhs`, e.g. a `[i | i>=0]` guard
+> or a `Vec[A, n+1]` size), and the static literals (string/char/float — the `$extype("name")` /
+> `$extbox("name")` C-name string) now round-trip. FAITHFUL (zero structural L2-diff) for:
+> `$extype`/`$extbox` -> `S2Etext`; `[..]`/`{..}` over an applied abstract type (the basics0-dominant
+> shape, e.g. `[l:a0] p1box(l)`); and the static INFIX OPERATOR const (`S2Ecst(>=)` / `S2Ecst(+)` —
+> the pyfront's index-binop now resolves the RAW operator alias the way stock's fixity does, not the
+> `*_i0_i0` target). Fixtures: `frontend/TEST/l2diff/s0exp/{extype1,quant1}.sats`. This cleared **99**
+> of the 100 `# TODO(pp): s0exp` markers in `srcgen1/prelude/basics0.sats` (only the deferred
+> `datasort` `unmapped d0ecl` remains). Quantifier LOWERING already existed (`PyTquant` ->
+> `s2exp_uni0`/`s2exp_exi0`); the body is now impr-wrapped (`S2Eimpr`) to mirror stock's
+> `trans12_s1exp_impr` (skipped when the body sort <= `view`). Surface: `forall[N: SInt | g] T`,
+> `exists[M: SInt | g] T`, `Extype["c_name"]`, `Extbox["c_name"]`. STILL DIVERGENT (pre-existing,
+> orthogonal): an INDEXED `SInt[k]` body (`the_s2exp_sint1` vs stock `sint`, the M5a/P8 mitigation)
+> and an index-VAR used as a type-arg (the pyfront's `S2Ecast(int0->type)` coercion) — both affect
+> ALL dependent types, not the quantifier/operator nodes themselves.
 
 ~29 missing emitters total; the high-value clusters are below. A handful are minor
 literal/internal variants (`S0Echr/flt/str`, `G0Echr/flt`, `D0Esarglst`, `D0Psarg`,
@@ -57,10 +75,12 @@ a few specialized `.dats`, and the prelude kernel — exactly the unexplored lay
 | `D0Cdatasort` | `datasort`   | ~50 |  1 | DEFERRED (needs L1) |
 | `D0Cstacst0`  | `#stacst0`   |  *  | 57 | DONE (PP+PR+LO+T) |
 | `D0Cabsopen`  | `#absopen`   | ~64 |  0 | DONE (PP+PR+LO+T) |
-| `S0Euni0`     | `{..}` univ. type | ~6 | ~20 | PP+PR+LO+T |
-| `S0Eexi0`     | `[..]` exist. type | (with above) | | PP+PR+LO+T |
-| `S0Eop1/2/3`  | static prefix/infix/postfix ops | ~30 | ~33 | PP+PR+LO+T |
-| `S0Elams`/`S0Efimp` | static lambda / fn-impl type | low | low | PP+PR+LO+T |
+| `S0Euni0`     | `{..}` univ. type | ~6 | ~20 | DONE (PP+PR+LO+T) — `forall[..]` |
+| `S0Eexi0`     | `[..]` exist. type | (with above) | | DONE (PP+PR+LO+T) — `exists[..]` |
+| `S0Eop1/2`    | static prefix/infix ops | ~30 | ~33 | DONE (PP+PR+LO) — `lhs OP rhs` (guards + `n+1`) |
+| `S0Estr/chr/flt` | static string/char/float literal | * | ~21 | DONE — the `$extype("name")`/`$extbox("name")` C-name (-> `S2Etext`) |
+| `S0Eop3`      | static `op(...)` special form | low | low | DEFER (rare; not in basics0) |
+| `S0Elams`/`S0Efimp` | static lambda / fn-impl type | low | low | DEFER (rare; not in basics0) |
 
 ### Cluster B — fixity DSL
 | construct | ATS syntax | srcgen2 | prelude | |
