@@ -392,7 +392,19 @@ p_def_params(st: pstate): @(list(pyparam), pstate) =
 ( case+ ps_peek(st) of
   | PT_RPAREN() => @(list_nil(), st)
   | PT_EOF() => @(list_nil(), st)
-  | PT_LIDENT(nm) =>
+  // a WILDCARD param `_` (stock `fopr(r0, _)` — an unused/ignored argument). Accept it under the
+  // name "_" (the lowering treats a "_"-named binder as the stock wildcard d2pat). Same trailing
+  // type-annotation + comma handling as a named param.
+  | PT_USCORE() => p_def_param_named(st, "_")
+  | PT_LIDENT(nm) => p_def_param_named(st, nm)
+  | _ =>
+    let val st1 = ps_diag(st, ps_peek_loctn(st), "expected a parameter name") in
+      @(list_nil(), st1) end )
+//
+and
+// parse ONE def param given its already-read name, then an optional `: type` and the trailing
+// `,`/`)` (shared by the LIDENT + wildcard `_` entry arms of p_def_params).
+p_def_param_named(st: pstate, nm: strn): @(list(pyparam), pstate) =
     let
       val loc = ps_peek_loctn(st)
       val st1 = ps_advance(st)
@@ -409,9 +421,6 @@ p_def_params(st: pstate): @(list(pyparam), pstate) =
           @(list_cons(prm, ps0), st3) end
       | _ => @(list_cons(prm, list_nil()), st2)
     end
-  | _ =>
-    let val st1 = ps_diag(st, ps_peek_loctn(st), "expected a parameter name") in
-      @(list_nil(), st1) end )
 //
 // FFI: parse an OPTIONAL `= extnam(["cname"])` foreign-name binding (the round-trip of stock
 // `= $extnam(["cname"])`) and ATTACH it onto the `@extern` decorator's payload (PyDAextnam). The

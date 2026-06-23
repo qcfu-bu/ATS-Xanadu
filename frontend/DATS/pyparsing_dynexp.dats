@@ -483,7 +483,18 @@ p_params(st: pstate): @(list(pyparam), pstate) =
 case+ ps_peek(st) of
 | PT_RPAREN() => @(list_nil(), st)
 | PT_EOF() => @(list_nil(), st)
-| PT_LIDENT(nm) =>
+// a WILDCARD param `_` (stock `fopr(r0, _)` — an ignored argument); accept it under the name "_".
+| PT_USCORE() => p_params_named(st, "_")
+| PT_LIDENT(nm) => p_params_named(st, nm)
+| _ =>
+  let val loc = ps_peek_loctn(st)
+      val st1 = ps_diag(st, loc, "expected a parameter name") in
+    @(list_nil(), st1) end
+)
+//
+and
+// parse ONE param given its already-read name, then an optional `: type` and the trailing `,`/`)`.
+p_params_named(st: pstate, nm: strn): @(list(pyparam), pstate) =
   let
     val loc = ps_peek_loctn(st)
     val st1 = ps_advance(st)
@@ -500,11 +511,6 @@ case+ ps_peek(st) of
         @(list_cons(prm, ps0), st3) end
     | _ => @(list_cons(prm, list_nil()), st2)
   end
-| _ =>
-  let val loc = ps_peek_loctn(st)
-      val st1 = ps_diag(st, loc, "expected a parameter name") in
-    @(list_nil(), st1) end
-)
 //
 (* ****** ****** *)
 //
