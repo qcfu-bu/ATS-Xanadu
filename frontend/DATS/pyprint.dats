@@ -678,6 +678,33 @@ tqag_raw_names(tqas: t0qaglst): list(strn) =
     )
 )
 and
+// the UNIVERSAL `{...}` template-quantifier binder names of a `#impltmp` (the s0qaglst
+// SECOND field of D0Cimplmnt0 — previously dropped). A `#impltmp {k0:t0}{x0:t0} NAME<...>`
+// binds `k0`/`x0` there, NOT in the `<...>` t0qaglst, so without collecting these the
+// instance-arg type vars (`@impl[mydict[k0,x0], k0, x0]`) stayed UNREGISTERED (lowercase),
+// and M3 read them as type CONSTRUCTORS rather than the bound template type VARIABLES.
+s0qag_names(sqas: s0qaglst): list(strn) =
+(
+  case+ sqas of
+  | list_nil() => list_nil()
+  | list_cons(sqa, rest) => (
+      case+ sqa.node() of
+      | S0QAGsome(_, qas, _) => list_append(collect_q0arg_names(qas), s0qag_names(rest))
+      | _ => s0qag_names(rest)
+    )
+)
+and
+s0qag_raw_names(sqas: s0qaglst): list(strn) =
+(
+  case+ sqas of
+  | list_nil() => list_nil()
+  | list_cons(sqa, rest) => (
+      case+ sqa.node() of
+      | S0QAGsome(_, qas, _) => list_append(collect_q0arg_raw_names(qas), s0qag_raw_names(rest))
+      | _ => s0qag_raw_names(rest)
+    )
+)
+and
 farg_sapp_names(farg: f0arglst): list(strn) =
 (
   case+ farg of
@@ -700,11 +727,11 @@ farg_sapp_raw_names(farg: f0arglst): list(strn) =
     )
 )
 and
-impl_farg_names(tqas: t0qaglst, farg: f0arglst): list(strn) =
-  list_append(tqag_names(tqas), farg_sapp_names(farg))
+impl_farg_names(sqas: s0qaglst, tqas: t0qaglst, farg: f0arglst): list(strn) =
+  list_append(s0qag_names(sqas), list_append(tqag_names(tqas), farg_sapp_names(farg)))
 and
-impl_farg_raw_names(tqas: t0qaglst, farg: f0arglst): list(strn) =
-  list_append(tqag_raw_names(tqas), farg_sapp_raw_names(farg))
+impl_farg_raw_names(sqas: s0qaglst, tqas: t0qaglst, farg: f0arglst): list(strn) =
+  list_append(s0qag_raw_names(sqas), list_append(tqag_raw_names(tqas), farg_sapp_raw_names(farg)))
 and
 t0iag_s0es(tia: t0iag): s0explst =
 (
@@ -779,6 +806,22 @@ darg_squa_names(dargs: d0arglst): list(strn) =
       case+ da.node() of
       | D0ARGsta0(_, sqs, _) => list_append(collect_squa_names(sqs), darg_squa_names(rest))
       | _ => darg_squa_names(rest)
+    )
+)
+// the RAW (lowercase, un-capitalized) static-quantifier binder names of a fun's
+// d0arglst — the push_binders companion of darg_squa_names. Needed so the binder
+// USES inside an `@extern def f[Obj: Vt](buf: !obj)` PARAM type capitalize to `!Obj`
+// (registering the template binder), matching the IMPL bodies and so the callee
+// template's `<obj>` is inferable at the call site.
+fun
+darg_squa_raw_names(dargs: d0arglst): list(strn) =
+(
+  case+ dargs of
+  | list_nil() => list_nil()
+  | list_cons(da, rest) => (
+      case+ da.node() of
+      | D0ARGsta0(_, sqs, _) => list_append(collect_squa_raw_names(sqs), darg_squa_raw_names(rest))
+      | _ => darg_squa_raw_names(rest)
     )
 )
 //
@@ -863,6 +906,23 @@ pp_fun_sig_from_apps(out: FILR, ses: s0explst): bool =
   | _ => false
 )
 //
+// register / unregister a list of (raw, lowercase) type-binder names so their USES
+// capitalize while a scope's body is printed (defined here, before the first caller).
+fun
+push_binders(ns: list(strn)): void =
+(
+  case+ ns of
+  | list_nil() => ()
+  | list_cons(nm, rest) => (PYPP_binder_push(nm); push_binders(rest))
+)
+fun
+pop_binders(ns: list(strn)): void =
+(
+  case+ ns of
+  | list_nil() => ()
+  | list_cons(nm, rest) => (PYPP_binder_pop(nm); pop_binders(rest))
+)
+//
 fun
 pp_dynconst_fun_tail(out: FILR, dargs: d0arglst, sres: s0res): void =
 (
@@ -896,16 +956,21 @@ tok_is_val(tok: token): bool =
 // emit ONE d0cstdcl (the name + signature) as an @extern def / @static let body.
 //
 fun
-pp_dynconst_fun(out: FILR, outer_tps: list(strn), dcd: d0cstdcl): void = let
+pp_dynconst_fun(out: FILR, outer_tps: list(strn), outer_raws: list(strn), dcd: d0cstdcl): void = let
   val nm    = i0dnt_lexeme(d0cstdcl_get_dpid(dcd))
   val dargs = d0cstdcl_get_darg(dcd)
   val sres  = d0cstdcl_get_sres(dcd)
   val tps   = list_append(outer_tps, darg_squa_names(dargs))
+  // the RAW binder names (outer `<obj:vt>` + per-decl static quals) — pushed so the
+  // param/result types capitalize their binder USES (`!obj` -> `!Obj`).
+  val raws  = list_append(outer_raws, darg_squa_raw_names(dargs))
 in
   ps(out, "@extern"); nl(out);
   ps(out, "def "); ps(out, fname(nm));
   pp_names_brkt(out, tps);
+  push_binders(raws);
   pp_dynconst_fun_tail(out, dargs, sres);
+  pop_binders(raws);
   nl(out)
 end
 //
@@ -926,12 +991,13 @@ fun
 pp_dynconst(out: FILR, tok: token, tqas: t0qaglst, dcds: d0cstdclist): void = let
   val isval = tok_is_val(tok)
   val outer_tps = tqag_names(tqas)
+  val outer_raws = tqag_raw_names(tqas)
   fun loop(out: FILR, first: bool, dcds: d0cstdclist): void =
     case+ dcds of
     | list_nil() => ()
     | list_cons(dcd, rest) => (
         (if first then () else nl(out));
-        (if isval then pp_dynconst_val(out, dcd) else pp_dynconst_fun(out, outer_tps, dcd));
+        (if isval then pp_dynconst_val(out, dcd) else pp_dynconst_fun(out, outer_tps, outer_raws, dcd));
         loop(out, false, rest)
       )
 in
@@ -1089,20 +1155,6 @@ pp_smag_raw_names(smas: s0maglst): list(strn) =
       | S0MAGsing(sid) => list_cons(i0dnt_lexeme(sid), pp_smag_raw_names(rest))
       | S0MAGnone(_) => pp_smag_raw_names(rest)
     )
-)
-fun
-push_binders(ns: list(strn)): void =
-(
-  case+ ns of
-  | list_nil() => ()
-  | list_cons(nm, rest) => (PYPP_binder_push(nm); push_binders(rest))
-)
-fun
-pop_binders(ns: list(strn)): void =
-(
-  case+ ns of
-  | list_nil() => ()
-  | list_cons(nm, rest) => (PYPP_binder_pop(nm); pop_binders(rest))
 )
 (* ****** ****** *)
 //
@@ -2280,8 +2332,8 @@ pp_dexp_rhs(out: FILR, des: d0explst): void = pp_dexp_apps(out, des)
 	  | D0Cvaldclst(_, vds) => pp_dexp_valdcls(out, n, vds)
 	  | D0Cvardclst(_, vds) => pp_dexp_vardcls(out, n, vds)
 	  | D0Cfundclst(_, _, fds) => pp_dexp_fundcl_local_list(out, n, fds)
-	  | D0Cimplmnt0(tknd, _, tqas, dqi, tias, farg, _, _, body) =>
-	        pp_dexp_impl_local(out, n, tknd, tqas, dqi, tias, farg, body)
+	  | D0Cimplmnt0(tknd, sqas, tqas, dqi, tias, farg, _, _, body) =>
+	        pp_dexp_impl_local(out, n, tknd, sqas, tqas, dqi, tias, farg, body)
 	  | D0Csexpdef(_, sid, smas, _, _, se) => (
 	        PYPP_type_add(i0dnt_lexeme(sid));
 	        pp_typedef(out, n, sid, smas, se))
@@ -2325,27 +2377,34 @@ and
 pp_dexp_extern_decl(out: FILR, n: sint, dc: d0ecl): void =
 (
   case+ dc.node() of
-  | D0Cfundclst(_, tqas, fds) => pp_dexp_extern_fundcl_list(out, n, tqag_names(tqas), fds)
+  // an `#extern fun <obj:vt> NAME(buf: !obj, ...)`: the OUTER template quantifier
+  // `<obj:vt>` (tqas) names must be pushed as binders so the `!obj` PARAM type
+  // capitalizes to `!Obj` (registering the template binder) — matching the impl
+  // bodies and so a call to another `<obj>` template can infer its instantiation.
+  | D0Cfundclst(_, tqas, fds) =>
+      pp_dexp_extern_fundcl_list(out, n, tqag_names(tqas), tqag_raw_names(tqas), fds)
   | D0Cstatic(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
   | D0Cextern(_, dc1) => pp_dexp_extern_decl(out, n, dc1)
   | _ => pp_dexp_letdecl(out, n, dc)
 )
 and
-pp_dexp_extern_fundcl_list(out: FILR, n: sint, tps: list(strn), fds: d0fundclist): void =
+pp_dexp_extern_fundcl_list(out: FILR, n: sint, tps: list(strn), tps_raw: list(strn), fds: d0fundclist): void =
 (
   case+ fds of
   | list_nil() => ()
   | list_cons(fd, rest) => (
-      pp_dexp_extern_fundcl(out, n, tps, fd);
+      pp_dexp_extern_fundcl(out, n, tps, tps_raw, fd);
       (case+ rest of list_nil() => () | _ => nl(out));
-      pp_dexp_extern_fundcl_list(out, n, tps, rest))
+      pp_dexp_extern_fundcl_list(out, n, tps, tps_raw, rest))
 )
 and
-pp_dexp_extern_fundcl(out: FILR, n: sint, tps: list(strn), fd: d0fundcl): void = let
+pp_dexp_extern_fundcl(out: FILR, n: sint, tps: list(strn), tps_raw: list(strn), fd: d0fundcl): void = let
   val nm   = i0dnt_lexeme(d0fundcl_get_dpid(fd))
   val farg = d0fundcl_get_farg(fd)
   val sres = d0fundcl_get_sres(fd)
-  val raws = farg_sapp_raw_names(farg)
+  // push BOTH the outer template binders (tps_raw, e.g. `obj`) and the per-fun
+  // static-quant binders (farg sapp raws) so every binder USE in the signature lifts.
+  val raws = list_append(tps_raw, farg_sapp_raw_names(farg))
   val tps1 = list_append(tps, farg_sapp_names(farg))
 in
   push_binders(raws);
@@ -2374,10 +2433,10 @@ and
 	)
 and
 pp_dexp_impl_local
-( out: FILR, n: sint, tknd: token, tqas: t0qaglst, dqi: d0qid, tias: t0iaglst
+( out: FILR, n: sint, tknd: token, sqas: s0qaglst, tqas: t0qaglst, dqi: d0qid, tias: t0iaglst
 , farg: f0arglst, body: d0exp): void = let
-  val raws = impl_farg_raw_names(tqas, farg)
-  val tps = impl_farg_names(tqas, farg)
+  val raws = impl_farg_raw_names(sqas, tqas, farg)
+  val tps = impl_farg_names(sqas, tqas, farg)
 in
   ind(out, n); ps(out, "@impl"); push_binders(raws); pp_impl_tias_for(out, tknd, tias); nl(out);
   ind(out, n); ps(out, "def "); ps(out, fname(d0qid_lexeme(dqi)));
@@ -3020,14 +3079,43 @@ register_d0tcn_names(tcns: d0tcnlst): void =
       register_d0tcn_names(rest))
 )
 //
+// the leading decorator for a non-default datatype HEAD, keyed by the `D0Cdatatype`
+// token's `T_DATATYPE(knd)` sort: `datavwtp`/`datavtype` (VWTPSORT/VTBXSORT) -> `@linear`
+// (a LINEAR datatype, M3 mode PCMlin -> vtbx; matching the linear cons), `dataprop`
+// (PROPSORT) -> `@prop`, `dataview` (VIEWSORT) -> `@view`. A plain `datatype` (TYPESORT)
+// carries no decorator. Dropping the decorator emitted a bare `enum`, which M3 lowered as
+// BOXED (PCMbox -> tbox) — diverging from the linear/prop/view head sort and yielding the
+// improper-base `S2Tbas(T2Bimpr(..))` reparse error.
+// int equality wrapped as a boolean-returning application (the xats2js front-end accepts
+// `else if f(..) then ..` only when the condition is an APPLICATION, not a bare paren-group
+// `(knd = N)` — that shape derails its `else if` chain). knd_eq keeps the chain parseable.
 fun
-pp_d0typ_enum(out: FILR, n: sint, dt: d0typ): void =
+knd_eq(knd: int, srt: int): bool = (knd = srt)
+//
+fun
+dt_kind_deco(tok: token): strn =
+(
+  case+ tok.node() of
+  | T_DATATYPE(knd) => (
+      if knd_eq(knd, VWTPSORT) then "@linear"
+      else if knd_eq(knd, VTBXSORT) then "@linear"
+      else if knd_eq(knd, PROPSORT) then "@prop"
+      else if knd_eq(knd, VIEWSORT) then "@view"
+      else "")
+  | _ => ""
+)
+//
+fun
+pp_d0typ_enum(out: FILR, n: sint, deco: strn, dt: d0typ): void =
 (
   case+ dt.node() of
   | D0TYPnode(nm, tmas, _, _, tcns) => let
       val raws = pp_tmag_raw_names(tmas)
       val tps = pp_tmag_datatype_names(tmas)
     in
+      // a non-default head (`@linear`/`@prop`/`@view`) emits its decorator on its OWN line
+      // first (§5.7: prefix decorators are line-terminated), then the `enum` declaration.
+      (if ~(strn_eq(deco, "")) then (ind(out, n); ps(out, deco); nl(out)));
       ind(out, n); ps(out, "enum "); ps(out, tyname_scoped(i0dnt_lexeme(nm)));
       pp_names_brkt(out, tps);
       ps(out, ":"); nl(out);
@@ -3170,10 +3258,10 @@ end
 //
 	fun
 	pp_impl_n
-	( out: FILR, n: sint, tknd: token, tqas: t0qaglst, dqi: d0qid, tias: t0iaglst
+	( out: FILR, n: sint, tknd: token, sqas: s0qaglst, tqas: t0qaglst, dqi: d0qid, tias: t0iaglst
 	, farg: f0arglst, body: d0exp): void = let
-	  val raws = impl_farg_raw_names(tqas, farg)
-	  val tps = impl_farg_names(tqas, farg)
+	  val raws = impl_farg_raw_names(sqas, tqas, farg)
+	  val tps = impl_farg_names(sqas, tqas, farg)
 	in
 	  ind(out, n); ps(out, "@impl"); push_binders(raws); pp_impl_tias_for(out, tknd, tias); nl(out);
 	  ind(out, n); ps(out, "def "); ps(out, fname(d0qid_lexeme(dqi)));
@@ -3336,7 +3424,7 @@ and
 		  case+ dc.node() of
 	  | D0Cvaldclst(_, vds) => pp_dexp_valdcls(out, n, vds)
 	  | D0Cfundclst(_, _, fds) => pp_fundcl_local_list_n(out, n, fds)
-	  | D0Cimplmnt0(tknd, _, tqas, dqi, tias, farg, _, _, body) => pp_impl_n(out, n, tknd, tqas, dqi, tias, farg, body)
+	  | D0Cimplmnt0(tknd, sqas, tqas, dqi, tias, farg, _, _, body) => pp_impl_n(out, n, tknd, sqas, tqas, dqi, tias, farg, body)
 	  | D0Csexpdef(_, sid, smas, _, _, se) => (
 	      PYPP_type_add(i0dnt_lexeme(sid));
 	      pp_typedef(out, n, sid, smas, se))
@@ -3481,7 +3569,7 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   // belong in the SAME enclosing scope. Emit those where-decls FIRST (so forward references such
   // as `T3R0EVN of trdstk` resolve), then the enum itself. Dropping them left the inner cons
   // unresolved (D1Eid0). pp_datatype_where_decls recurses through pp_walk -> pp_d0ecl.
-  | D0Cdatatype(_, dts, wdc) => (pp_datatype_where_decls(out, wdc); pp_d0typ_enum_list(out, 0, dts); true)
+  | D0Cdatatype(dtok, dts, wdc) => (pp_datatype_where_decls(out, wdc); pp_d0typ_enum_list(out, 0, dt_kind_deco(dtok), dts); true)
   //
   // `excptcon E of (T)` -> `exception E(T)`.
   | D0Cexcptcon(_, _, tcns) => (pp_excptcon_list(out, 0, tcns); true)
@@ -3489,7 +3577,7 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   // `#implfun f(args) = body`  ->  `@impl` + `def f(args): body`.  `#implfun` lexes to
   // T_IMPLMNT(IMPLfun) and parses to D0Cimplmnt0 (the implement decl): name (d0qid),
   // f0arglst (params), s0res, and the d0exp body.
-  | D0Cimplmnt0(tknd, _, tqas, dqi, tias, farg, _, _, body) => (pp_impl(out, tknd, tqas, dqi, tias, farg, body); true)
+  | D0Cimplmnt0(tknd, sqas, tqas, dqi, tias, farg, _, _, body) => (pp_impl(out, tknd, sqas, tqas, dqi, tias, farg, body); true)
   // an ordinary `fun f(x) = e` reaches here as D0Cfundclst. It creates a fresh
   // function binding, unlike an `@impl`-decorated def, which requires an existing signature.
   | D0Cfundclst(_, _, fds) => (pp_fundcl_local_list_n(out, 0, fds); true)
@@ -3831,11 +3919,11 @@ and
 pp_priv_head_one(out: FILR, n: sint, dc: d0ecl): void =
 (
 	  case+ dc.node() of
-	  | D0Cdatatype(_, dts, _) => pp_d0typ_enum_list(out, n, dts)
+	  | D0Cdatatype(dtok, dts, _) => pp_d0typ_enum_list(out, n, dt_kind_deco(dtok), dts)
 	  | D0Cexcptcon(_, _, tcns) => pp_excptcon_list(out, n, tcns)
 	  | D0Cvaldclst(_, vds) => pp_priv_valdcls(out, n, vds)
 	  | D0Cfundclst(_, _, fds) => pp_fundcl_local_list_n(out, n, fds)
-	  | D0Cimplmnt0(tknd, _, tqas, dqi, tias, farg, _, _, body) => pp_impl_n(out, n, tknd, tqas, dqi, tias, farg, body)
+	  | D0Cimplmnt0(tknd, sqas, tqas, dqi, tias, farg, _, _, body) => pp_impl_n(out, n, tknd, sqas, tqas, dqi, tias, farg, body)
 	  | D0Cabsimpl(_, sqid, smas, _, _, se) => pp_absimpl(out, n, sqid, smas, se)
 	  | D0Csexpdef(_, sid, smas, _, _, se) => pp_typedef(out, n, sid, smas, se)
 	  | D0Cdefine(_, gid, _, gedf) => pp_define(out, n, gid, gedf)
@@ -3869,13 +3957,13 @@ pp_priv_valdcls(out: FILR, n: sint, vds: d0valdclist): void =
       pp_priv_valdcls(out, n, rest))
 )
 and
-pp_d0typ_enum_list(out: FILR, n: sint, dts: d0typlst): void =
+pp_d0typ_enum_list(out: FILR, n: sint, deco: strn, dts: d0typlst): void =
 (
   case+ dts of
   | list_nil() => ()
   | list_cons(dt, rest) => (
-      pp_d0typ_enum(out, n, dt);
-      pp_d0typ_enum_list(out, n, rest))
+      pp_d0typ_enum(out, n, deco, dt);
+      pp_d0typ_enum_list(out, n, deco, rest))
 )
 and
 // emit a datatype's `where { ... }` nested declarations as ordinary top-level decls (an inner
@@ -3891,8 +3979,8 @@ and
 	// `#implfun NAME(params) = body` (a D0Cimplmnt0) -> `@impl` + `def NAME(params): body`.
 	// Params are UNANNOTATED (the .dats carries no param types; the inline-implement
 	// path infers them — verified nerror=0). The body is a `:`-suite at indent 1.
-	pp_impl(out: FILR, tknd: token, tqas: t0qaglst, dqi: d0qid, tias: t0iaglst, farg: f0arglst, body: d0exp): void =
-	  pp_impl_n(out, 0, tknd, tqas, dqi, tias, farg, body)
+	pp_impl(out: FILR, tknd: token, sqas: s0qaglst, tqas: t0qaglst, dqi: d0qid, tias: t0iaglst, farg: f0arglst, body: d0exp): void =
+	  pp_impl_n(out, 0, tknd, sqas, tqas, dqi, tias, farg, body)
 	and
 	// the body of `#implfun` -> `@impl` + `def` (one or more d0fundcl in a list).
 pp_fundcl_impl_list(out: FILR, fds: d0fundclist): void =

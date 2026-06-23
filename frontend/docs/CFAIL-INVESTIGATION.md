@@ -412,3 +412,74 @@ current pipeline (after the non-functional-s2cst-preference + applied-con arity-
 `s2cst_selects_list` fidelity fixes, commits 6dc752f47 / nmspace) it reaches **m3_nerror=0**.
 Its `topmap[s2itm]` typedef-as-param resolves cleanly — those constructs are in the stock C
 prelude, so the harness-prelude gap above does not apply. Added to both corpus lists.
+
+---
+
+## UPDATE (2026-06-23 — srcgen2 tail: datatype-head sort, viewtype-ref params, `@impl[..]` type-vars)
+
+Four more fidelity gaps pinned; **two closed** (`lexing0_utils1`, `xatsopt_tmplib`), one nearly
+(`xlibext_tmplib` 37→1), one structural-surface-limit (`parsing_tokbuf`). One rebuild, `frontend/`
+only. The `T2Bimpr` "improper base" in the early probes was a RED HERRING — `T2Bimpr(knd; sym)` is
+the legitimate sort2 representation of the box/vtbx PRIMITIVE sorts (staexp2.sats:201), dumped by
+the `f3perr0` reporter only as the *context* of the real errck, not itself the error.
+
+### (1) `lexing0_utils1.dats` (was nerror 5 → **0**, CLOSED) — viewtype-ref `!obj` template-binder USE
+**Divergence.** An `#extern fun <obj:vt> NAME(buf: !obj, …)` round-tripped to
+`@extern def NAME[Obj: Vt](buf: !obj, …)` — the template-binder DECLARATION capitalized to `[Obj]`
+but the param-type USE stayed lowercase `!obj`. So `obj` in `!obj` was an UNBOUND type (not the
+bound `Obj`), and the callee template's `<obj>` could not be inferred at a bare call
+`lexing_CMNT3_ccbl(buf, …)` → `T2Pvar(Obj)` vs `T2Pnone0()` t2pck failures.
+**Verdict: FIDELITY (pyprint).** The IMPL bodies already capitalized `!Obj` (they `push_binders`
+the farg sapp raws), but the bodyless `#extern fun` path (`pp_dexp_extern_fundcl`, via
+`D0Cextern(D0Cfundclst(tqas, …))`) pushed only the per-fun `{…}` sapp binders, NOT the OUTER
+`<obj:vt>` (tqas) ones. **Fix** (`pyprint.dats`): thread the outer `tqag_raw_names(tqas)` through
+`pp_dexp_extern_decl → …fundcl_list → …fundcl` and `push_binders` them around the signature.
+(Also added the analogous `push_binders` to `pp_dynconst_fun` for the `D0Cdynconst` extern variant.)
+
+### (2) `xatsopt_tmplib.dats` (was nerror 58 → **0**, CLOSED) and
+### (3) `xlibext_tmplib.dats` (was nerror 37 → **1**) — `@impl[..]` lowercase type-VARS
+**Divergence.** A `#impltmp {k0:t0}{x0:t0} NAME <topmap(k0)>(map) = …` round-tripped to
+`@impl[topmap[k0]] def NAME[…](map)` with the instance-arg type vars LOWERCASE; M3 read `k0`/`x0`
+as type CONSTRUCTORS rather than the bound template type VARIABLES, so the instance arg resolved to
+`S2Enone0`. TWO root causes, BOTH fixed:
+  * **(3a) pyprint** dropped the SECOND `D0Cimplmnt0` field — the `s0qaglst` UNIVERSALS `{k0:t0}`
+    (the `{…}` binders, distinct from the `<…>` t0qaglst). The dispatch destructured them as `_`,
+    so `k0`/`x0` were never registered as binders and stayed lowercase in both the def `[…]` and the
+    `@impl[…]`. **Fix:** added `s0qag_names`/`s0qag_raw_names`, threaded the `sqas` field through
+    `pp_impl`/`pp_impl_n`/`pp_dexp_impl_local` (+ their 4 `D0Cimplmnt0` destructures), and folded the
+    universals into `impl_farg_{names,raw_names}`. This capitalized the vars but left a deeper bug:
+  * **(3b) pylower** (`pl_implement`, `pylower_dynexp.dats`): the `@impl[…]` instance-arg types
+    (`tia_s2es = pylower_typlst(env, tias_typs)`) were lowered BEFORE the def's type-vars
+    (`tv_s2vs`) were added to the env (`tr12env_add0_s2varlst`). So even a correctly-capitalized
+    `topmap[X0]` had its `X0` unbound (`S2Enone0`). **Fix:** moved the `pshlam0` + `add0_tqas` +
+    `add0_s2varlst(tv_s2vs)` BEFORE the `tia_s2es`/`tias`/`sigargs` computation, so instance args
+    lower with the def's type params in scope. (Rebuilt via `build-m3.sh`; `M3: PASS`.)
+**Verdict: FIDELITY (pyprint 3a + pylower 3b).** Together these take `xatsopt_tmplib` to nerror=0
+and `xlibext_tmplib` to a single residual.
+
+`xlibext_tmplib` residual (1 errck at `mydict_make_nil`, **left uncovered**): the impl RESULT type
+is the abstract `mydict` whose rep is `#sexpdef mydict = mydict_tbox` over `#abstbox mydict_tbox`.
+The impl body returns `mydict[K0,X0]` (FOLDED) but the impl-target d2cst wants `mydict_tbox[K0,X0]`
+(UNFOLDED) → `T2Pcst(mydict)` vs `T2Pcst(mydict_tbox)`. The sibling impls that merely TAKE `mydict`
+as a param (`mydict_get_keys`, `mydict_search/opt`, …) all pass; only the abstype-alias in RESULT
+position fails. Our pyprint+pylower faithfully reproduce the original structure; this is a t2pck
+sexpdef-alias-unfolding asymmetry in the M3 reparse typechecker (result position), not a
+pretty-print/lowering gap. **Left uncovered** (not added to the corpus).
+
+### (4) `parsing_tokbuf.dats` (was nerror 7 → 7) — datatype-head sort fixed; per-con existentials gap
+**Two parts.** (4a, FIXED) a `datavwtp tkbf0_` (a LINEAR datatype) round-tripped to a BARE `enum`,
+which M3 lowered as BOXED (`PCMbox → tbox`) — the head sort came out `S2Tbas(T2Bimpr(1;tbox))`
+instead of the linear `vtbx`. **Fix** (`pyprint.dats`): read the `D0Cdatatype` token's
+`T_DATATYPE(knd)` sort and emit the matching prefix decorator (`@linear` for VWTPSORT/VTBXSORT,
+`@prop` for PROPSORT, `@view` for VIEWSORT) on its own line before `enum` (M3's `mode_of_decos` →
+PCMlin/PCMprop/PCMview → the correct head sort). Verified: the head moves from `T2Bimpr(1;tbox)` to
+`T2Bimpr(3;vtbx)`. NB: the `dt_kind_deco` `if/else if` chain MUST be wrapped in parens as a
+case-clause body and use a `knd_eq(int,int):bool` application (the xats2js bootstrap front-end
+rejects a bare `(knd = N)` paren-condition after `else if`, and an unparenthesized multi-branch `if`
+as a `=>` clause body).
+(4b, **NOT FIXED — surface-syntax limitation, left uncovered**) the constructor carries PER-CON
+EXISTENTIAL quantifiers `{n:pos}{i:nat} TKBF0 of (a1ptr(token,n), sint(n), sint(i))`. The Pythonic
+`enum` grammar (`casedecl ::= 'case' UIDENT [ '(' type … ')' ]`, pyparsing_decl00.dats) has NO
+per-constructor existential syntax, so `n`/`i` are dropped and `SInt[n]`/`SInt[i]` reference unbound
+static vars. This needs a NEW grammar + parser + elaborator/lowering feature (bind the con's
+existential s2vars), beyond pretty-print/desugar scope. **Left uncovered** (not added to the corpus).

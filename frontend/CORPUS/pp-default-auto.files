@@ -5,6 +5,7 @@ srcgen2/DATS/filpath.dats
 srcgen2/DATS/lexbuf0.dats
 srcgen2/DATS/lexbuf0_cstrx1.dats
 srcgen2/DATS/lexbuf0_cstrx2.dats
+srcgen2/DATS/lexing0_utils1.dats
 srcgen2/DATS/lexing0_utils2.dats
 srcgen2/DATS/dynexp0.dats
 srcgen2/DATS/dynexp0_print0.dats
@@ -116,6 +117,7 @@ srcgen2/DATS/trans23.dats
 srcgen2/DATS/trans23_decl00.dats
 srcgen2/DATS/trans23_utils0.dats
 srcgen2/DATS/xatsopt.dats
+srcgen2/DATS/xatsopt_tmplib.dats
 srcgen2/DATS/xatsopt_utils0.dats
 srcgen2/DATS/xbasics.dats
 srcgen2/DATS/xbasics_print0.dats

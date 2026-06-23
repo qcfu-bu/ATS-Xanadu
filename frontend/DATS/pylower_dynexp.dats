@@ -1646,17 +1646,6 @@ in
   | ~optn_cons(d2c) => let
       val dimp = dimpl_make_node(loc, DIMPLone1(d2c))
       val tknd = token_make_node(loc, T_IMPLMNT(IMPLfun()))
-      val tia_s2es =
-        ( case+ tias_typs of
-          | list_nil() => list_nil()
-          | list_cons(_, _) => pylower_typlst(env, tias_typs)
-        ): s2explst
-      // A-TEMPLATE: the `@impl[Int, ..]` instantiation list (empty for a bare `@impl def`).
-      val tias =
-        ( case+ tias_typs of
-          | list_nil() => list_nil()
-          | list_cons(_, _) => list_sing(t2iag_make_s2es(loc, tia_s2es))
-        ): t2iaglst
       // A bare `@impl def f[A]` mirrors ATS `#implfun f {a:t0} (...)`: the after-name static
       // binder is an F2ARGsapp, not a D2Cimplmnt0 tqas entry. When absent, a bare template
       // implementation is still generic: build fresh impl-side tqas matching the declared d2cst.
@@ -1676,6 +1665,26 @@ in
           then list_sing(f2arg_make_node(loc, F2ARGsapp(tv_s2vs, list_nil())))
           else list_nil()
         ): f2arglst
+      // Push the lam scope and bind the template type-vars (tv_s2vs) FIRST, so the `@impl[...]`
+      // INSTANCE-ARG types lower with the def's type params IN SCOPE. A pretty-printed
+      // `#impltmp {x0:t0} g_print <topmap(x0)>(map)` round-trips to `@impl[topmap[X0]] def
+      // g_print[X0: Type](map)`: the `X0` inside `topmap[X0]` is the SAME binder as the def's
+      // `[X0]`. Lowering `tia_s2es` before binding tv_s2vs left that `X0` unbound (S2Enone0),
+      // so the instance arg `topmap[X0]` mis-resolved and the impl-target t2pck failed.
+      val () = tr12env_pshlam0(env)
+      val () = tr12env_add0_tqas(env, tqas)
+      val () = tr12env_add0_s2varlst(env, tv_s2vs)
+      val tia_s2es =
+        ( case+ tias_typs of
+          | list_nil() => list_nil()
+          | list_cons(_, _) => pylower_typlst(env, tias_typs)
+        ): s2explst
+      // A-TEMPLATE: the `@impl[Int, ..]` instantiation list (empty for a bare `@impl def`).
+      val tias =
+        ( case+ tias_typs of
+          | list_nil() => list_nil()
+          | list_cons(_, _) => list_sing(t2iag_make_s2es(loc, tia_s2es))
+        ): t2iaglst
       // For generic/template impls, the declared signature args mention declaration-side tqas
       // variables. For explicit instantiations, avoid stamping those stale declaration vars onto
       // params; the tias carries the substitution and typechecking assigns the instantiated shape.
@@ -1691,9 +1700,6 @@ in
       // template tqas vars are bound FIRST so the param types / body resolve them. A pretty-printed
       // farg-less `#impltmp f<T> = body` uses `@impl[T] def f: body`, which must preserve an EMPTY
       // f2arglst; `@impl[T] def f(): body` remains the distinct nullary dynamic farg.
-      val () = tr12env_pshlam0(env)
-      val () = tr12env_add0_tqas(env, tqas)
-      val () = tr12env_add0_s2varlst(env, tv_s2vs)
       val df2as =
         ( if has_darg
           then pl_params_typed_sig(env, loc, pnames, ptypes, sigargs)
