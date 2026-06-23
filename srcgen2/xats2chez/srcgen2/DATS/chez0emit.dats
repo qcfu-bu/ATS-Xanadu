@@ -621,6 +621,152 @@ case+ fias of
 | list_cons(f0, fias) => (cz_fiarg(filr, f0); cz_fiarglst(filr, fias)))
 //
 (* ****** ****** *)
+//
+(* strn_contains: does [s0] contain [sub] as a substring? *)
+fun
+strn_contains
+( s0: strn, sub: strn): bool =
+let
+val ns = strn_length(s0)
+val nb = strn_length(sub)
+fun
+matchat(i0: sint): bool =
+let
+fun
+loop(j0: sint): bool =
+if (j0 >= nb) then true
+else if (strn_get$at(s0, i0+j0) = strn_get$at(sub, j0)) then loop(j0+1)
+else false
+in loop(0) end
+fun
+scan(i0: sint): bool =
+if (i0+nb > ns) then false else (if matchat(i0) then true else scan(i0+1))
+in
+scan(0)
+end
+//
+(* cz_is_cont_sym: is [xsym] a template CONTINUATION name?  Continuations are
+   $-suffixed by their kind (test/work/f1un/f2un/f3un/fwork/fopr/e1nv/tcmp) and
+   are bound at the INSTANTIATION (call) site, not globally -- so an instance
+   that mentions one must be emitted inline where that binding is in scope, NOT
+   hoisted to top level.  (Closed instances like sint_add$sint end in a TYPE
+   suffix -- $sint/$dflt/.. -- and do not match.) *)
+fun
+cz_is_cont_sym
+( xsym: sym_t): bool =
+let
+val nm = symbl_get_name(xsym)
+in//let
+if strn_contains(nm, "$test") then true
+else if strn_contains(nm, "$work") then true
+else if strn_contains(nm, "$f1un") then true
+else if strn_contains(nm, "$f2un") then true
+else if strn_contains(nm, "$f3un") then true
+else if strn_contains(nm, "$fwork") then true
+else if strn_contains(nm, "$fopr") then true
+else if strn_contains(nm, "$e1nv") then true
+else if strn_contains(nm, "$tcmp") then true
+else false
+end//let
+//
+val the_cz_cont_seen = a0ref_make_1val(false)
+//
+(* cz_scan_*: a read-only walk that sets [the_cz_cont_seen] if any referenced or
+   defined name is a continuation.  Mirrors cz_coll_* but emits nothing. *)
+fun
+cz_scan_exp
+( iexp: i0exp): void =
+(
+case+ iexp.node() of
+| I0Ecst(dcst) => (if cz_is_cont_sym(d2cst_get_name(dcst)) then a0ref_set(the_cz_cont_seen, true))
+| I0Etimp(t0, _) => cz_scan_exp(t0)
+| I0Edapp(f0, _, args) => (cz_scan_exp(f0); cz_scan_explst(args))
+| I0Edap0(f0) => cz_scan_exp(f0)
+| I0Eift0(t0, th, el) => (cz_scan_exp(t0); cz_scan_expopt(th); cz_scan_expopt(el))
+| I0Ecas0(_, s0, cls) => (cz_scan_exp(s0); cz_scan_clslst(cls))
+| I0Eseqn(es, e0) => (cz_scan_explst(es); cz_scan_exp(e0))
+| I0Elet0(ds, e0) => (cz_scan_dclist(ds); cz_scan_exp(e0))
+| I0Ewhere(e0, ds) => (cz_scan_exp(e0); cz_scan_dclist(ds))
+| I0Elam0(_, _, _, b0, _) => cz_scan_exp(b0)
+| I0Efix0(_, _, _, _, b0, _) => cz_scan_exp(b0)
+| I0Etup0(_, es) => cz_scan_explst(es)
+| I0Etup1(_, _, es) => cz_scan_explst(es)
+| I0Epcon(_, _, e0) => cz_scan_exp(e0)
+| I0Epflt(_, _, e0) => cz_scan_exp(e0)
+| I0Eproj(_, _, e0) => cz_scan_exp(e0)
+| I0Eflat(e0) => cz_scan_exp(e0)
+| I0Eaddr(e0) => cz_scan_exp(e0)
+| I0Eassgn(l0, r0) => (cz_scan_exp(l0); cz_scan_exp(r0))
+| I0Eraise(_, e0) => cz_scan_exp(e0)
+| I0Etry0(_, b0, cls) => (cz_scan_exp(b0); cz_scan_clslst(cls))
+| I0Etapq(f0, _) => cz_scan_exp(f0)
+| I0Etapp(f0, _) => cz_scan_exp(f0)
+| I0Esapq(f0, _) => cz_scan_exp(f0)
+| I0Esapp(f0, _) => cz_scan_exp(f0)
+| I0Eannot(e0, _, _) => cz_scan_exp(e0)
+| I0Et2pck(e0, _) => cz_scan_exp(e0)
+| I0Et2ped(e0, _) => cz_scan_exp(e0)
+| I0Elabck(e0, _) => cz_scan_exp(e0)
+| I0Erturn(_, e0) => cz_scan_exp(e0)
+| I0Ecenv(e0, _) => cz_scan_exp(e0)
+| I0Edl0az(e0) => cz_scan_exp(e0)
+| I0Edl1az(e0) => cz_scan_exp(e0)
+| I0El0azy(_, e0) => cz_scan_exp(e0)
+| I0El1azy(_, e0, _) => cz_scan_exp(e0)
+| _(*else*) => ())
+//
+and
+cz_scan_explst(es: i0explst): void =
+(case+ es of list_nil() => () | list_cons(e0, es) => (cz_scan_exp(e0); cz_scan_explst(es)))
+and
+cz_scan_expopt(eo: i0expopt): void =
+(case+ eo of optn_nil() => () | optn_cons(e0) => cz_scan_exp(e0))
+and
+cz_scan_cls(cls: i0cls): void =
+(case+ cls.node() of I0CLScls(_, e0) => cz_scan_exp(e0) | I0CLSgpt(_) => ())
+and
+cz_scan_clslst(cls: i0clslst): void =
+(case+ cls of list_nil() => () | list_cons(c0, cls) => (cz_scan_cls(c0); cz_scan_clslst(cls)))
+and
+cz_scan_dcl(idcl: i0dcl): void =
+(
+case+ idcl.node() of
+| I0Dvaldclst(_, ivs0) => cz_scan_valdclist(ivs0)
+| I0Dfundclst(_, _, _, _, ifs0) => cz_scan_fundclist(ifs0)
+| I0Dimplmnt0(_, _, _, dimp, _, body, _) =>
+  ((case+ dimp.node() of
+    | DIMPLone1(dc) => (if cz_is_cont_sym(d2cst_get_name(dc)) then a0ref_set(the_cz_cont_seen, true))
+    | DIMPLone2(dc, _) => (if cz_is_cont_sym(d2cst_get_name(dc)) then a0ref_set(the_cz_cont_seen, true))
+    | _ => ()); cz_scan_exp(body))
+| I0Ddclst0(idcls) => cz_scan_dclist(idcls)
+| I0Dlocal0(ih, ib) => (cz_scan_dclist(ih); cz_scan_dclist(ib))
+| I0Ddclenv(d0, _) => cz_scan_dcl(d0)
+| I0Dtmpsub(_, d0) => cz_scan_dcl(d0)
+| I0Dstatic(_, d0) => cz_scan_dcl(d0)
+| _(*else*) => ())
+and
+cz_scan_dclist(ds: i0dclist): void =
+(case+ ds of list_nil() => () | list_cons(d0, ds) => (cz_scan_dcl(d0); cz_scan_dclist(ds)))
+and
+cz_scan_valdcl(ivd0: i0valdcl): void =
+(case+ ivd0.tdxp() of TEQI0EXPnone() => () | TEQI0EXPsome(_, e0) => cz_scan_exp(e0))
+and
+cz_scan_valdclist(ivs0: i0valdclist): void =
+(case+ ivs0 of list_nil() => () | list_cons(v0, vs) => (cz_scan_valdcl(v0); cz_scan_valdclist(vs)))
+and
+cz_scan_fundcl(ifn: i0fundcl): void =
+(case+ ifn.tdxp() of TEQI0EXPnone() => () | TEQI0EXPsome(_, b0) => cz_scan_exp(b0))
+and
+cz_scan_fundclist(ifs0: i0fundclist): void =
+(case+ ifs0 of list_nil() => () | list_cons(f0, fs) => (cz_scan_fundcl(f0); cz_scan_fundclist(fs)))
+//
+(* iexp_refs_cont: does [body] reference/define a call-site continuation? *)
+fun
+iexp_refs_cont
+( body: i0exp): bool =
+(a0ref_set(the_cz_cont_seen, false); cz_scan_exp(body); a0ref_get(the_cz_cont_seen))
+//
+(* ****** ****** *)
 (* ****** ****** *)
 //
 (* The mutually-recursive walk: expressions contain declarations (let/where)
