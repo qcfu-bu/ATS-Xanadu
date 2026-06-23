@@ -225,12 +225,27 @@ build_pyprint_bundle() {
   transpile "$DRV_DATS" "$drv_trans" "$BUILD/pp-corpus-main-transpile.err" || exit 1
 
   PP_BUNDLE="$BUILD/pp-corpus.js"
-  cat "${runtime[@]}" > "$PP_BUNDLE"
-  sed -E 's/jsx(...)tnm/js1\1tnm/g' "$LIB2OPT" >> "$PP_BUNDLE"
-  cat "$GLUE" >> "$PP_BUNDLE"
-  cat "$pp_trans" >> "$PP_BUNDLE"
-  cat "$drv_trans" >> "$PP_BUNDLE"
-  echo "   linked $(wc -l < "$PP_BUNDLE") lines into $PP_BUNDLE"
+  local raw="$BUILD/pp-corpus.raw.js"
+  cat "${runtime[@]}" > "$raw"
+  sed -E 's/jsx(...)tnm/js1\1tnm/g' "$LIB2OPT" >> "$raw"
+  cat "$GLUE" >> "$raw"
+  cat "$pp_trans" >> "$raw"
+  cat "$drv_trans" >> "$raw"
+  echo "   linked $(wc -l < "$raw") lines into $raw"
+
+  # Minify with Closure (SIMPLE): shrinks the ~174MB raw bundle to a few MB and
+  # collapses generated-code frame overhead, which keeps deep-recursive pyprint
+  # passes from overflowing Node's stack on large compiler files. Falls back to
+  # the raw bundle if closure is unavailable (mirrors language-server/build.sh).
+  echo "   [closure] minify (SIMPLE): $raw -> $PP_BUNDLE"
+  if npx --yes google-closure-compiler -W QUIET --compilation_level SIMPLE \
+       --js="$raw" --js_output_file="$PP_BUNDLE" 2>"$BUILD/pp-corpus-closure.err"; then
+    echo "   [closure] ok: $(du -h "$PP_BUNDLE" | cut -f1) (raw $(du -h "$raw" | cut -f1))"
+  else
+    echo "!! closure minify failed (see $BUILD/pp-corpus-closure.err); using raw bundle" >&2
+    tail -5 "$BUILD/pp-corpus-closure.err" >&2 || true
+    cp "$raw" "$PP_BUNDLE"
+  fi
 }
 
 ensure_pyprint_bundle() {

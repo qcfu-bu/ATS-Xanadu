@@ -142,6 +142,8 @@ srcgen2/DATS/lexing0_ext000.dats
 srcgen2/DATS/lexing0_mymap0.dats
 srcgen2/DATS/lexing0_token0.dats
 srcgen2/DATS/xsynoug.dats
+srcgen2/DATS/trans12.dats
+srcgen2/DATS/xglobal_ext000.dats
 frontend/TEST/roundtrip/uppercase_values.dats
 frontend/TEST/roundtrip/local_type_alias.dats
 frontend/TEST/roundtrip/generic_impl_sapp.dats
