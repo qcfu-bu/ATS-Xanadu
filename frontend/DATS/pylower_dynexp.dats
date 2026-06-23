@@ -1371,15 +1371,22 @@ let
   val dobj = pl_exp(env, obj)
   val dargs = pl_explst(env, args)
 in
-  case+ d2ptmlst_single_exp(hloc, dpis) of
-  | ~optn_cons(d2f) => d2exp_dapp(loc, d2f, (-1), list_cons(dobj, dargs))
-  | ~optn_nil() =>
-      let
-        val darg = optn_cons(dargs) : d2explstopt
-        val dsel = d2exp_make_node(hloc, D2Edtsel(tok_dot(hloc), lab, dpis, (-1), darg))
-      in
-        d2exp_dapp(loc, dsel, (-1), list_sing(dobj))
-      end
+  if list_nilq(dpis) then
+    let
+      val d2f = pl_call_head(env, loc, hloc, ats_sym(name), 1 + list_length(args))
+    in
+      d2exp_dapp(loc, d2f, (-1), list_cons(dobj, dargs))
+    end
+  else
+    case+ d2ptmlst_single_exp(hloc, dpis) of
+    | ~optn_cons(d2f) => d2exp_dapp(loc, d2f, (-1), list_cons(dobj, dargs))
+    | ~optn_nil() =>
+        let
+          val darg = optn_cons(dargs) : d2explstopt
+          val dsel = d2exp_make_node(hloc, D2Edtsel(tok_dot(hloc), lab, dpis, (-1), darg))
+        in
+          d2exp_dapp(loc, dsel, (-1), list_sing(dobj))
+        end
 end
 //
 // template F : lower one (recursive/mutual) fun group to a D2Cfundclst d2ecl. Mirrors
