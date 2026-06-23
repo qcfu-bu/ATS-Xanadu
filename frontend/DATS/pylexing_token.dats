@@ -384,6 +384,8 @@ else if (b0 = 64) then emit(PT_AT(), 1)               // @  (decorator marker; s
 else if (b0 = 38) then emit(PT_AMP(), 1)               // &  (address-of prefix; B-LINEAR)
 else if (b0 = 33) then emit(PT_BANG(), 1)              // !  (deref prefix; B-LINEAR; `!=` matched above)
 else if (b0 = 126) then emit(PT_TILDE(), 1)            // ~  (linear-consume pattern prefix; B-LINEAR)
+else if (b0 = 63) then emit(PT_QMARK(), 1)             // ?  (the `?` static / top-view operator;
+                                                      //    QMARK-TYPE: `?[A]` -> top0_vt_t0 alias)
 else if (b0 = 124) then emit(PT_BAR(), 1)              // |  (sum-type separator)
 else if (b0 = 44) then emit(PT_COMMA(), 1)             // ,
 else if (b0 = 46) then emit(PT_DOT(), 1)               // .

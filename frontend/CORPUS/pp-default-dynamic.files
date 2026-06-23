@@ -160,3 +160,4 @@ frontend/TEST/roundtrip/nested_where_chain.dats
 frontend/TEST/roundtrip/imported_macro_const.dats
 frontend/TEST/roundtrip/local_define_const.dats
 frontend/TEST/roundtrip/qualified_static_map_type.dats
+frontend/TEST/roundtrip/qmark_top_sapp.dats

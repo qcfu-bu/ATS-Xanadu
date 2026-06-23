@@ -124,6 +124,8 @@ case+ nod of
 | PT_EOF() => "EOF"
 //
 | PT_ERROR(_) => "ERROR"
+//
+| PT_QMARK() => "QMARK"  // QMARK-TYPE: the `?` static/top-view operator
 ) (* end of [ptnode_name] *)
 //
 (* ****** ****** *)

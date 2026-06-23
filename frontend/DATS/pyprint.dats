@@ -95,6 +95,11 @@ tok_lexeme(tok: token): strn =
 (
   case+ tok.node() of
   | T_IDALP(s) => s
+  // A SYMBOLIC identifier — rendered VERBATIM from its lexeme. This is the faithful
+  // (NOT accidental-fallback) path for the `?` STATIC operator: stock lexes `?` as
+  // T_IDSYM("?") (#sexpdef ? = top0_vt_t0), so a static-app head `{?a}` reaches here
+  // and emits `?` deliberately, giving the round-trippable `@sapp[?[A]]` the Pythonic
+  // parser re-accepts (PT_QMARK -> PyTcon("?",[A]); QMARK-TYPE).
   | T_IDSYM(s) => s
   | T_IDDLR(s) => s     // $name
   | T_IDSRP(s) => s     // #name

@@ -222,6 +222,18 @@ ptnode =
 //
 | PT_ERROR  of strn // an un-lexable lexeme (kept for diagnostics; never throws)
 //
+// QMARK-TYPE: the `?` STATIC operator — ATS `#sexpdef ? = top0_vt_t0` (prelude
+// basics0.sats:460). In a TYPE/static-application position `?[A]` is the "maybe-
+// uninitialized" / top-view of `A`: the stock parser lexes `?` as `T_IDSYM("?")`
+// and resolves it via the prelude alias to the abstype `top0_vt_t0`, so `{?a}` is
+// the ordinary static application `S2Eapps([?, a])` -> S2Etop0(a). We keep a
+// DEDICATED token (rather than folding `?` into a generic symbolic-ident lexeme)
+// because the surface has no other use for a bare `?`; `p_type_atom` turns it into
+// `PyTcon("?", [A])` and lowering resolves the head `?` against the prelude sexpdef.
+// APPENDED LAST so its constructor tag (81) does not renumber any existing token
+// (the CATS scanner must emit PT_QMARK with the SAME tag — see pylexing.cats).
+| PT_QMARK  of ()   // ?  (the `?` static / top-view operator in a TYPE position)
+//
 (* ****** ****** *)
 //
 // A `pytoken` pairs a kind with its source span (half-open [pbeg, pend)).

@@ -369,6 +369,10 @@ function PYL_scan_raw_iter(src, text) {
     else if (b0 === 38) emit_fixed("PT_AMP", 59, 1);
     else if (b0 === 33) emit_fixed("PT_BANG", 60, 1);
     else if (b0 === 126) emit_fixed("PT_TILDE", 61, 1);
+    // QMARK-TYPE: the `?` static / top-view operator (byte 0x3f). PT_QMARK is the
+    // LAST ptnode constructor (appended after PT_ERROR in pylexing.sats), so its
+    // datatype tag is 81 — keep this in lock-step with the SATS declaration order.
+    else if (b0 === 63) emit_fixed("PT_QMARK", 81, 1);
     else if (b0 === 124) emit_fixed("PT_BAR", 66, 1);
     else if (b0 === 44) emit_fixed("PT_COMMA", 67, 1);
     else if (b0 === 46) emit_fixed("PT_DOT", 68, 1);

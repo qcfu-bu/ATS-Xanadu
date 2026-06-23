@@ -426,6 +426,13 @@ in
   // the deeper view-modality AST is still deferred.
   | PT_BANG()    => p_type_atom(ps_advance(st))
   | PT_TILDE()   => p_type_atom(ps_advance(st))
+  // QMARK-TYPE: the `?` STATIC operator as a type-application HEAD — `?[A]` is the
+  // "maybe-uninitialized" / top-view of `A` (ATS `#sexpdef ? = top0_vt_t0`). We parse
+  // the bare `?` as the applied-type CON named "?" with NO args yet; the trailing
+  // `[A]` is attached by p_type_app_loop's PyTcon arm (giving `PyTcon("?", [A])`).
+  // Lowering resolves the head "?" against the prelude sexpdef, reproducing the stock
+  // `S2Eapps([?, A])` -> S2Etop0(A). (A bare `?` with no `[...]` stays `PyTcon("?", [])`.)
+  | PT_QMARK()   => @(PyTcon(loc, "?", list_nil()), ps_advance(st))
   | PT_AMP()     => p_type_byref(ps_advance(st), loc)
   | PT_LPAREN()  => p_type_paren(ps_advance(st), loc)
   | PT_LBRACE()  => p_type_record(ps_advance(st), loc)
