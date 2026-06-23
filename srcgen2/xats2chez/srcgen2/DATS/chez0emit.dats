@@ -67,6 +67,30 @@ NOTE (stamp discipline): keep the SATS stable; DATS-only edits are safe.
    built on the frontend's stamper. *)
 val the_cz_stamper = stamper_new()
 //
+(* the set of template-instance stamps already hoisted (dedup), as a growable
+   list in a process-global ref. *)
+fun
+cz_empty_uintlist((*void*)): list(uint) = list_nil()
+val the_cz_emitted = a0ref_make_1val(cz_empty_uintlist())
+//
+fun
+uint_memq
+( u0: uint, xs: list(uint)): bool =
+(
+case+ xs of
+| list_nil() => false
+| list_cons(x0, xs) => if (u0 = x0) then true else uint_memq(u0, xs))
+//
+fun
+cz_emitted_testadd
+( u0: uint): bool =
+let
+val xs = a0ref_get(the_cz_emitted)
+in//let
+if uint_memq(u0, xs) then true
+else (a0ref_set(the_cz_emitted, list_cons(u0, xs)); false)
+end//let
+//
 (* ****** ****** *)
 (* ****** ****** *)
 //
@@ -221,6 +245,28 @@ case+ e0.node() of
 | I0Etapp(f0, _) => unwrap_con(f0)
 | I0Esapp(f0, _) => unwrap_con(f0)
 | _(*else*) => e0)
+//
+(* unwrap_implmnt: strip the wrappers around a template-instance body to expose
+   the I0Dimplmnt0 (the instance's actual implementation). *)
+fun
+unwrap_implmnt
+( idcl: i0dcl): i0dcl =
+(
+case+ idcl.node() of
+| I0Dtmpsub(_, d0) => unwrap_implmnt(d0)
+| I0Ddclenv(d0, _) => unwrap_implmnt(d0)
+| I0Dstatic(_, d0) => unwrap_implmnt(d0)
+| I0Dextern(_, d0) => unwrap_implmnt(d0)
+| _(*else*) => idcl)
+//
+(* timp_idclopt: the optional instance-body declaration of a template instance. *)
+fun
+timp_idclopt
+( timp: t0imp): i0dclopt =
+(
+case+ timp.node() of
+| T0IMPall1(_, _, o0) => o0
+| T0IMPallx(_, _, o0) => o0)
 //
 (* cz_ctag: a data constructor's tag, as an integer.  EXCEPTION constructors all
    share the sentinel ctag -1 (exceptions are an open sum), so they would be
@@ -1036,6 +1082,181 @@ case+ idcls of
 | list_nil() => ()
 | list_cons(idcl, idcls) => (i0dcl_cz0(filr, idcl); i0dclist_cz0(filr, idcls)))
 //
+(* ===== template-instance HOISTING (monomorphization output) =====
+   A template instance I0Etimp carries its implementation (i0dclopt).  Rather
+   than erasing it, we HOIST each unique instance's body to a top-level define,
+   guarded with (if (top-level-bound? 'name) ...) so it does NOT clobber a
+   prelude instance the CATS runtime already provides (conformance stays the
+   same) but DOES define a compiler-specific instance (e.g. symbl_search$opt
+   capturing the global symbol table).  Deduplicated by the instance d2cst's
+   stamp; the body is scanned for nested instances. *)
+and
+cz_emit_impl_dc
+( filr: FILR, dc: d2cst, fargs: fiarglst, body: i0exp): void =
+let
+val stmp = stamp_get_uint(d2cst_get_stmp(dc))
+in//let
+if cz_emitted_testadd(stmp) then () else
+(
+cz_str(filr, "(define ");
+cz_sym(filr, d2cst_get_name(dc));
+cz_str(filr, " (if (top-level-bound? (quote ");
+cz_sym(filr, d2cst_get_name(dc));
+cz_str(filr, ")) (top-level-value (quote ");
+cz_sym(filr, d2cst_get_name(dc));
+cz_str(filr, ")) (lambda (");
+cz_fiarglst(filr, fargs);
+cz_str(filr, ") ");
+i0exp_cz0(filr, body);
+cz_str(filr, ")))\n");
+cz_coll_exp(filr, body))
+end//let
+//
+and
+cz_emit_timp_def
+( filr: FILR, timp: t0imp): void =
+(
+case+ timp_idclopt(timp) of
+| optn_nil() => ()
+| optn_cons(idcl) =>
+  (
+  case+ (unwrap_implmnt(idcl)).node() of
+  | I0Dimplmnt0(_, _, _, dimp, fargs, body, _) =>
+    (
+    case+ dimp.node() of
+    | DIMPLone1(dc) => cz_emit_impl_dc(filr, dc, fargs, body)
+    | DIMPLone2(dc, _) => cz_emit_impl_dc(filr, dc, fargs, body)
+    | _(*else*) => ())
+  | _(*else*) => ()))
+//
+(* cz_coll_exp: walk an expression, hoisting every template instance found. *)
+and
+cz_coll_exp
+( filr: FILR, iexp: i0exp): void =
+(
+case+ iexp.node() of
+| I0Etimp(tapp, timp) => (cz_emit_timp_def(filr, timp); cz_coll_exp(filr, tapp))
+| I0Edapp(f0, _, args) => (cz_coll_exp(filr, f0); cz_coll_explst(filr, args))
+| I0Edap0(f0) => cz_coll_exp(filr, f0)
+| I0Eift0(t0, th, el) => (cz_coll_exp(filr, t0); cz_coll_expopt(filr, th); cz_coll_expopt(filr, el))
+| I0Ecas0(_, s0, cls) => (cz_coll_exp(filr, s0); cz_coll_clslst(filr, cls))
+| I0Eseqn(es, e0) => (cz_coll_explst(filr, es); cz_coll_exp(filr, e0))
+| I0Elet0(ds, e0) => (cz_coll_dclist(filr, ds); cz_coll_exp(filr, e0))
+| I0Ewhere(e0, ds) => (cz_coll_exp(filr, e0); cz_coll_dclist(filr, ds))
+| I0Elam0(_, _, _, b0, _) => cz_coll_exp(filr, b0)
+| I0Efix0(_, _, _, _, b0, _) => cz_coll_exp(filr, b0)
+| I0Etup0(_, es) => cz_coll_explst(filr, es)
+| I0Etup1(_, _, es) => cz_coll_explst(filr, es)
+| I0Epcon(_, _, e0) => cz_coll_exp(filr, e0)
+| I0Epflt(_, _, e0) => cz_coll_exp(filr, e0)
+| I0Eproj(_, _, e0) => cz_coll_exp(filr, e0)
+| I0Eflat(e0) => cz_coll_exp(filr, e0)
+| I0Eaddr(e0) => cz_coll_exp(filr, e0)
+| I0Eassgn(l0, r0) => (cz_coll_exp(filr, l0); cz_coll_exp(filr, r0))
+| I0Eraise(_, e0) => cz_coll_exp(filr, e0)
+| I0Etry0(_, b0, cls) => (cz_coll_exp(filr, b0); cz_coll_clslst(filr, cls))
+| I0Etapq(f0, _) => cz_coll_exp(filr, f0)
+| I0Etapp(f0, _) => cz_coll_exp(filr, f0)
+| I0Esapq(f0, _) => cz_coll_exp(filr, f0)
+| I0Esapp(f0, _) => cz_coll_exp(filr, f0)
+| I0Eannot(e0, _, _) => cz_coll_exp(filr, e0)
+| I0Et2pck(e0, _) => cz_coll_exp(filr, e0)
+| I0Et2ped(e0, _) => cz_coll_exp(filr, e0)
+| I0Elabck(e0, _) => cz_coll_exp(filr, e0)
+| I0Erturn(_, e0) => cz_coll_exp(filr, e0)
+| I0Ecenv(e0, _) => cz_coll_exp(filr, e0)
+| I0Edl0az(e0) => cz_coll_exp(filr, e0)
+| I0Edl1az(e0) => cz_coll_exp(filr, e0)
+| I0El0azy(_, e0) => cz_coll_exp(filr, e0)
+| I0El1azy(_, e0, _) => cz_coll_exp(filr, e0)
+| _(*literals/names: no sub-exprs*) => ())
+//
+and
+cz_coll_explst
+( filr: FILR, es: i0explst): void =
+(
+case+ es of
+| list_nil() => ()
+| list_cons(e0, es) => (cz_coll_exp(filr, e0); cz_coll_explst(filr, es)))
+//
+and
+cz_coll_expopt
+( filr: FILR, eo: i0expopt): void =
+(
+case+ eo of
+| optn_nil() => ()
+| optn_cons(e0) => cz_coll_exp(filr, e0))
+//
+and
+cz_coll_cls
+( filr: FILR, cls: i0cls): void =
+(
+case+ cls.node() of
+| I0CLScls(_, e0) => cz_coll_exp(filr, e0)
+| I0CLSgpt(_) => ())
+//
+and
+cz_coll_clslst
+( filr: FILR, cls: i0clslst): void =
+(
+case+ cls of
+| list_nil() => ()
+| list_cons(c0, cls) => (cz_coll_cls(filr, c0); cz_coll_clslst(filr, cls)))
+//
+and
+cz_coll_dcl
+( filr: FILR, idcl: i0dcl): void =
+(
+case+ idcl.node() of
+| I0Dvaldclst(_, ivs) => cz_coll_valdclist(filr, ivs)
+| I0Dvardclst(_, ivs) => cz_coll_vardclist(filr, ivs)
+| I0Dfundclst(_, _, _, _, ifs) => cz_coll_fundclist(filr, ifs)
+| I0Dimplmnt0(_, _, _, _, _, b0, _) => cz_coll_exp(filr, b0)
+| I0Ddclst0(ds) => cz_coll_dclist(filr, ds)
+| I0Dlocal0(d1, d2) => (cz_coll_dclist(filr, d1); cz_coll_dclist(filr, d2))
+| I0Ddclenv(d0, _) => cz_coll_dcl(filr, d0)
+| I0Dtmpsub(_, d0) => cz_coll_dcl(filr, d0)
+| I0Dstatic(_, d0) => cz_coll_dcl(filr, d0)
+| _(*else*) => ())
+//
+and
+cz_coll_dclist
+( filr: FILR, ds: i0dclist): void =
+(
+case+ ds of
+| list_nil() => ()
+| list_cons(d0, ds) => (cz_coll_dcl(filr, d0); cz_coll_dclist(filr, ds)))
+//
+and
+cz_coll_valdclist
+( filr: FILR, ivs: i0valdclist): void =
+(
+case+ ivs of
+| list_nil() => ()
+| list_cons(iv, ivs) =>
+  ((case+ iv.tdxp() of TEQI0EXPnone() => () | TEQI0EXPsome(_, e0) => cz_coll_exp(filr, e0));
+   cz_coll_valdclist(filr, ivs)))
+//
+and
+cz_coll_vardclist
+( filr: FILR, ivs: i0vardclist): void =
+(
+case+ ivs of
+| list_nil() => ()
+| list_cons(iv, ivs) =>
+  ((case+ iv.dini() of TEQI0EXPnone() => () | TEQI0EXPsome(_, e0) => cz_coll_exp(filr, e0));
+   cz_coll_vardclist(filr, ivs)))
+//
+and
+cz_coll_fundclist
+( filr: FILR, ifs: i0fundclist): void =
+(
+case+ ifs of
+| list_nil() => ()
+| list_cons(if0, ifs) =>
+  ((case+ if0.tdxp() of TEQI0EXPnone() => () | TEQI0EXPsome(_, e0) => cz_coll_exp(filr, e0));
+   cz_coll_fundclist(filr, ifs)))
+//
 (* ****** ****** *)
 (* ****** ****** *)
 //
@@ -1050,7 +1271,12 @@ cz_str(filr, ";;==XATS2CHEZ-BEGIN==\n");
 (
 case+ parsed of
 | optn_nil() => ()
-| optn_cons(idcls) => i0dclist_cz0(filr, idcls));
+| optn_cons(idcls) =>
+  (
+  (* pass 1: hoist all template-instance definitions to the top *)
+  cz_coll_dclist(filr, idcls);
+  (* pass 2: emit the program (instances referenced by name) *)
+  i0dclist_cz0(filr, idcls)));
 cz_str(filr, ";;==XATS2CHEZ-END==\n")
 )
 end//let
