@@ -272,6 +272,27 @@ case+ iexp.node() of
   i0exp_cz0_seq(filr, inits);
   i0exp_cz0(filr, last);
   cz_str(filr, ")"))
+//
+(* lambda / recursive-lambda.  Scheme closures capture lexically, so the
+   pre-computed free-var lists are ignored.  A fix is a letrec over itself. *)
+| I0Elam0(_, _, fargs, body, _) =>
+  (
+  cz_str(filr, "(lambda (");
+  cz_fiarglst(filr, fargs);
+  cz_str(filr, ") ");
+  i0exp_cz0(filr, body);
+  cz_str(filr, ")"))
+| I0Efix0(_, _, fid, fargs, body, _) =>
+  (
+  cz_str(filr, "(letrec ((");
+  cz_sym(filr, d2var_get_name(fid));
+  cz_str(filr, " (lambda (");
+  cz_fiarglst(filr, fargs);
+  cz_str(filr, ") ");
+  i0exp_cz0(filr, body);
+  cz_str(filr, "))) ");
+  cz_sym(filr, d2var_get_name(fid));
+  cz_str(filr, ")"))
 | I0Elet0(decls, body) =>
   (
   cz_str(filr, "(let () ");

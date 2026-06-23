@@ -269,32 +269,63 @@ $(JSPATCHED): $(JS_SHIM) $(OPT_JS1) $(CC_JS2) $(LIB2JS) $(JDRV) | dirs
 	     $(JDRV) > $@
 	@echo "   -> $@"
 
-# cmp/NAME — emit + run on BOTH backends, assert byte-equal stdout.
+# cmp/NAME — emit + run on Chez, then assert byte-equal stdout against the JS
+# backend; if the JS oracle is BROKEN for this program (e.g. the pre-existing
+# `env1 is not defined` bug on capturing lambdas), fall back to a stored golden
+# in TEST/OUTS/NAME.expected.  A successful JS run refreshes the golden.
 cmp/%: $(CHEZBUNDLE) $(JSPATCHED)
 	@set -uo pipefail; \
 	SRC="$(TESTDIR)/$*.dats"; \
 	[ -f "$$SRC" ] || { echo "!! not found: $$SRC" >&2; exit 2; }; \
-	WORK="$(BUILD)/$*"; mkdir -p "$$WORK"; \
+	WORK="$(BUILD)/$*"; mkdir -p "$$WORK"; GOLD="$(TESTDIR)/OUTS/$*.expected"; \
 	$(NODE) $(CHEZBUNDLE) "$$SRC" > "$$WORK/cz.out" 2>"$$WORK/cz.err" \
-	  || { echo "!! [$*] chez-emit failed" >&2; tail -20 "$$WORK/cz.err" >&2; exit 1; }; \
+	  || { echo "FAIL  $*  (chez-emit crashed)"; tail -20 "$$WORK/cz.err" >&2; exit 1; }; \
 	awk '/^;;==XATS2CHEZ-BEGIN==/{f=1;next} /^;;==XATS2CHEZ-END==/{f=0} f' "$$WORK/cz.out" > "$$WORK/$*.body.scm"; \
+	if grep -q 'UNHANDLED' "$$WORK/$*.body.scm"; then echo "FAIL  $*  (emitter UNHANDLED node)"; exit 1; fi; \
 	[ -f "$(CHEZRT)/xats2chez_runtime.scm" ] && RT="$(CHEZRT)/xats2chez_runtime.scm" || RT=/dev/null; \
 	cat "$$RT" "$$WORK/$*.body.scm" > "$$WORK/$*.scm"; \
 	$(CHEZ) "$$WORK/$*.scm" > "$$WORK/chez.stdout" 2>"$$WORK/chez.runerr" \
-	  || { echo "!! [$*] chez run failed" >&2; tail -20 "$$WORK/chez.runerr" >&2; exit 1; }; \
-	$(NODE) $(JSPATCHED) "$$SRC" > "$$WORK/$*.emit.js" 2>"$$WORK/jsemit.err"; \
-	awk -v n="$*" 'f||$$0 ~ ("^// LCSRCsome1.*"n){f=1; print}' "$$WORK/$*.emit.js" > "$$WORK/$*.user.js"; \
-	cat $(NODEPRE) "$$WORK/$*.user.js" > "$$WORK/$*.run.js"; \
-	node "$$WORK/$*.run.js" > "$$WORK/js.stdout" 2>"$$WORK/js.runerr" \
-	  || { echo "!! [$*] js run failed" >&2; tail -20 "$$WORK/js.runerr" >&2; exit 1; }; \
-	if cmp -s "$$WORK/chez.stdout" "$$WORK/js.stdout"; then \
-	  echo "PASS  $*  ($$(wc -c < "$$WORK/chez.stdout") bytes)"; \
+	  || { echo "FAIL  $*  (chez run crashed)"; tail -20 "$$WORK/chez.runerr" >&2; exit 1; }; \
+	jsok=1; \
+	$(NODE) $(JSPATCHED) "$$SRC" > "$$WORK/$*.emit.js" 2>"$$WORK/jsemit.err" || jsok=0; \
+	if [ "$$jsok" = 1 ]; then \
+	  awk -v n="$*" 'f||$$0 ~ ("^// LCSRCsome1.*"n){f=1; print}' "$$WORK/$*.emit.js" > "$$WORK/$*.user.js"; \
+	  cat $(NODEPRE) "$$WORK/$*.user.js" > "$$WORK/$*.run.js"; \
+	  node "$$WORK/$*.run.js" > "$$WORK/js.stdout" 2>"$$WORK/js.runerr" || jsok=0; \
+	fi; \
+	if [ "$$jsok" = 1 ]; then \
+	  if cmp -s "$$WORK/chez.stdout" "$$WORK/js.stdout"; then \
+	    mkdir -p "$(TESTDIR)/OUTS"; cp "$$WORK/chez.stdout" "$$GOLD"; \
+	    echo "PASS  $*  ($$(wc -c < "$$WORK/chez.stdout") bytes, vs JS)"; \
+	  else \
+	    echo "FAIL  $*  (chez != js)"; \
+	    diff <(xxd "$$WORK/chez.stdout") <(xxd "$$WORK/js.stdout") | head -20; exit 1; \
+	  fi; \
 	else \
-	  echo "FAIL  $*  (chez != js)"; \
-	  echo "--- chez ---"; cat "$$WORK/chez.stdout"; \
-	  echo "--- js   ---"; cat "$$WORK/js.stdout"; \
-	  diff <(xxd "$$WORK/chez.stdout") <(xxd "$$WORK/js.stdout") | head -20; exit 1; \
+	  if [ -f "$$GOLD" ]; then \
+	    if cmp -s "$$WORK/chez.stdout" "$$GOLD"; then \
+	      echo "PASS  $*  ($$(wc -c < "$$WORK/chez.stdout") bytes, vs golden; JS oracle broken)"; \
+	    else \
+	      echo "FAIL  $*  (chez != golden)"; \
+	      diff <(xxd "$$WORK/chez.stdout") <(xxd "$$GOLD") | head -20; exit 1; \
+	    fi; \
+	  else \
+	    echo "NOGOLD  $*  (JS oracle broken, no golden — run 'make gold/$*' after verifying)"; exit 1; \
+	  fi; \
 	fi
+
+# gold/NAME — record the current Chez stdout as the golden (use only after
+# manually verifying the output is correct, for JS-oracle-broken programs).
+gold/%: $(CHEZBUNDLE)
+	@set -uo pipefail; \
+	SRC="$(TESTDIR)/$*.dats"; WORK="$(BUILD)/$*"; mkdir -p "$$WORK" "$(TESTDIR)/OUTS"; \
+	$(NODE) $(CHEZBUNDLE) "$$SRC" > "$$WORK/cz.out" 2>"$$WORK/cz.err"; \
+	awk '/^;;==XATS2CHEZ-BEGIN==/{f=1;next} /^;;==XATS2CHEZ-END==/{f=0} f' "$$WORK/cz.out" > "$$WORK/$*.body.scm"; \
+	[ -f "$(CHEZRT)/xats2chez_runtime.scm" ] && RT="$(CHEZRT)/xats2chez_runtime.scm" || RT=/dev/null; \
+	cat "$$RT" "$$WORK/$*.body.scm" > "$$WORK/$*.scm"; \
+	$(CHEZ) "$$WORK/$*.scm" > "$(TESTDIR)/OUTS/$*.expected" 2>"$$WORK/chez.runerr" \
+	  || { echo "!! chez run failed" >&2; cat "$$WORK/chez.runerr" >&2; exit 1; }; \
+	echo ">> golden saved: $(TESTDIR)/OUTS/$*.expected"; cat "$(TESTDIR)/OUTS/$*.expected"
 
 # suite — differential oracle over every TEST/*.dats.
 suite: $(CHEZBUNDLE) $(JSPATCHED)
