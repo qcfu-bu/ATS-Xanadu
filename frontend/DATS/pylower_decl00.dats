@@ -550,7 +550,16 @@ build_abstype
             val reps2e = pylower_typ(env, t)
             val () = tr12env_poplam0(env)
           in
-            A2TDFlteq(reps2e)
+            // A REP that does NOT resolve to a clean s2exp (an errck/none0 — e.g. the stock
+            // `stamped_vwtp(a0, i0) <= x0`, whose REP `x0` is a FREE var, NOT a param) must NOT
+            // poison the abstype: stock leaves such a REP unresolved (the bound is codegen-only,
+            // trans23/trans2a never inspect it). Fall back to A2TDFsome() (no bound) so the
+            // abstract singleton typechecks. A param-mentioning REP that DOES resolve (gcls/gseq)
+            // keeps its A2TDFlteq.
+            ( case+ reps2e.node() of
+              | S2Eerrck(_, _) => A2TDFsome()
+              | S2Enone0() => A2TDFsome()
+              | _ => A2TDFlteq(reps2e) )
           end ): a2tdf
   in
     d2ecl_make_node(loc, D2Cabstype(s2c, atdf))
