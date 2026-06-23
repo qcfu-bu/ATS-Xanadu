@@ -622,6 +622,16 @@ case+ fias of
 //
 (* ****** ****** *)
 //
+(* cz_emit_conts: emit a list of continuation names as space-prefixed params/args
+   (lambda-lifting: the lifted continuations a higher-order instance carries). *)
+fun
+cz_emit_conts
+( filr: FILR, conts: list(sym_t)): void =
+(
+case+ conts of
+| list_nil() => ()
+| list_cons(c0, cs) => (cz_str(filr, " "); cz_sym(filr, c0); cz_emit_conts(filr, cs)))
+//
 (* strn_contains: does [s0] contain [sub] as a substring? *)
 fun
 strn_contains
@@ -669,16 +679,35 @@ else if strn_contains(nm, "$tcmp") then true
 else false
 end//let
 //
-val the_cz_cont_seen = a0ref_make_1val(false)
+fun
+cz_empty_symlist((*void*)): list(sym_t) = list_nil()
 //
-(* cz_scan_*: a read-only walk that sets [the_cz_cont_seen] if any referenced or
-   defined name is a continuation.  Mirrors cz_coll_* but emits nothing. *)
+(* sym_eq: compare two symbols by their name. *)
+fun
+cz_sym_eq( a: sym_t, b: sym_t): bool = strn_eq(symbl_get_name(a), symbl_get_name(b))
+//
+fun
+cz_sym_memb( s0: sym_t, xs: list(sym_t)): bool =
+(case+ xs of list_nil() => false | list_cons(x0, xs) => if cz_sym_eq(s0, x0) then true else cz_sym_memb(s0, xs))
+//
+(* during a scan: the continuation names REFERENCED and DEFINED in a body. *)
+val the_cz_refc = a0ref_make_1val(cz_empty_symlist())
+val the_cz_defc = a0ref_make_1val(cz_empty_symlist())
+fun
+cz_addref( s0: sym_t): void =
+let val xs = a0ref_get(the_cz_refc) in (if cz_sym_memb(s0, xs) then () else a0ref_set(the_cz_refc, list_cons(s0, xs))) end
+fun
+cz_adddef( s0: sym_t): void =
+let val xs = a0ref_get(the_cz_defc) in (if cz_sym_memb(s0, xs) then () else a0ref_set(the_cz_defc, list_cons(s0, xs))) end
+//
+(* cz_scan_*: a read-only walk collecting continuation names referenced
+   (the_cz_refc) and defined (the_cz_defc) in a body.  Mirrors cz_coll_*. *)
 fun
 cz_scan_exp
 ( iexp: i0exp): void =
 (
 case+ iexp.node() of
-| I0Ecst(dcst) => (if cz_is_cont_sym(d2cst_get_name(dcst)) then a0ref_set(the_cz_cont_seen, true))
+| I0Ecst(dcst) => (if cz_is_cont_sym(d2cst_get_name(dcst)) then cz_addref(d2cst_get_name(dcst)))
 | I0Etimp(t0, _) => cz_scan_exp(t0)
 | I0Edapp(f0, _, args) => (cz_scan_exp(f0); cz_scan_explst(args))
 | I0Edap0(f0) => cz_scan_exp(f0)
@@ -735,8 +764,8 @@ case+ idcl.node() of
 | I0Dfundclst(_, _, _, _, ifs0) => cz_scan_fundclist(ifs0)
 | I0Dimplmnt0(_, _, _, dimp, _, body, _) =>
   ((case+ dimp.node() of
-    | DIMPLone1(dc) => (if cz_is_cont_sym(d2cst_get_name(dc)) then a0ref_set(the_cz_cont_seen, true))
-    | DIMPLone2(dc, _) => (if cz_is_cont_sym(d2cst_get_name(dc)) then a0ref_set(the_cz_cont_seen, true))
+    | DIMPLone1(dc) => (if cz_is_cont_sym(d2cst_get_name(dc)) then cz_adddef(d2cst_get_name(dc)))
+    | DIMPLone2(dc, _) => (if cz_is_cont_sym(d2cst_get_name(dc)) then cz_adddef(d2cst_get_name(dc)))
     | _ => ()); cz_scan_exp(body))
 | I0Ddclst0(idcls) => cz_scan_dclist(idcls)
 | I0Dlocal0(ih, ib) => (cz_scan_dclist(ih); cz_scan_dclist(ib))
@@ -760,11 +789,196 @@ and
 cz_scan_fundclist(ifs0: i0fundclist): void =
 (case+ ifs0 of list_nil() => () | list_cons(f0, fs) => (cz_scan_fundcl(f0); cz_scan_fundclist(fs)))
 //
-(* iexp_refs_cont: does [body] reference/define a call-site continuation? *)
+(* collect_free_conts: the call-site continuations [body] NEEDS but does not
+   itself define (referenced minus defined) -- e.g. gseq_iforall references
+   iforall$test (free) and defines forall$test (bound) => [iforall$test]. *)
 fun
-iexp_refs_cont
-( body: i0exp): bool =
-(a0ref_set(the_cz_cont_seen, false); cz_scan_exp(body); a0ref_get(the_cz_cont_seen))
+collect_free_conts
+( body: i0exp): list(sym_t) =
+let
+val () = a0ref_set(the_cz_refc, cz_empty_symlist())
+val () = a0ref_set(the_cz_defc, cz_empty_symlist())
+val () = cz_scan_exp(body)
+val refs = a0ref_get(the_cz_refc)
+val defs = a0ref_get(the_cz_defc)
+fun
+loop( rs: list(sym_t), acc: list(sym_t)): list(sym_t) =
+(
+case+ rs of
+| list_nil() => acc
+| list_cons(r0, rs) => if cz_sym_memb(r0, defs) then loop(rs, acc) else loop(rs, list_cons(r0, acc)))
+in
+loop(refs, cz_empty_symlist())
+end
+//
+(* the per-instance free-continuation map (instance name -> free conts), built in
+   PASS 0 before any emission so that call-site injection sees a complete map. *)
+fun
+cz_empty_iclist((*void*)): list( @(sym_t, list(sym_t)) ) = list_nil()
+val the_cz_iconts = a0ref_make_1val(cz_empty_iclist())
+//
+fun
+cz_map_has( name: sym_t): bool =
+let
+fun loop(xs: list( @(sym_t, list(sym_t)) )): bool =
+(case+ xs of list_nil() => false | list_cons(kv, xs) => if cz_sym_eq(name, kv.0) then true else loop(xs))
+in loop(a0ref_get(the_cz_iconts)) end
+//
+fun
+cz_map_lookup( name: sym_t): list(sym_t) =
+let
+fun loop(xs: list( @(sym_t, list(sym_t)) )): list(sym_t) =
+(case+ xs of list_nil() => cz_empty_symlist() | list_cons(kv, xs) => if cz_sym_eq(name, kv.0) then kv.1 else loop(xs))
+in loop(a0ref_get(the_cz_iconts)) end
+//
+fun
+cz_map_add( name: sym_t, conts: list(sym_t)): void =
+(
+case+ conts of
+| list_nil() => ()  (* closed instance: nothing to lift *)
+| _ => if cz_map_has(name) then () else a0ref_set(the_cz_iconts, list_cons( @(name, conts), a0ref_get(the_cz_iconts) )))
+//
+(* pass-0 visited set (by instance stamp) -- prevents infinite recursion when an
+   instance body re-references the instance (directly or mutually). *)
+val the_cz_mapseen = a0ref_make_1val(cz_empty_uintlist())
+fun
+cz_mapseen_testadd( u0: uint): bool =
+let val xs = a0ref_get(the_cz_mapseen)
+in if uint_memq(u0, xs) then true else (a0ref_set(the_cz_mapseen, list_cons(u0, xs)); false) end
+//
+(* PASS 0: cz_map_* walks the program and, for each template instance, records
+   its free continuations.  Recurses INTO instance bodies (unlike cz_scan) to
+   reach nested instances. *)
+fun
+cz_map_timp
+( timp: t0imp): void =
+(
+case+ timp_idclopt(timp) of
+| optn_nil() => ()
+| optn_cons(idcl) =>
+  (
+  case+ (unwrap_implmnt(idcl)).node() of
+  | I0Dimplmnt0(_, _, _, dimp, _, body, _) =>
+    (case+ dimp.node() of
+     | DIMPLone1(dc) => cz_map_instance(dc, body)
+     | DIMPLone2(dc, _) => cz_map_instance(dc, body)
+     | _(*else*) => cz_map_exp(body))
+  | _(*else*) => ()))
+and
+cz_map_instance
+( dc: d2cst, body: i0exp): void =
+let
+val stmp = stamp_get_uint(d2cst_get_stmp(dc))
+in//let
+if cz_mapseen_testadd(stmp) then ()
+else (cz_map_add(d2cst_get_name(dc), collect_free_conts(body)); cz_map_exp(body))
+end//let
+and
+cz_map_exp
+( iexp: i0exp): void =
+(
+case+ iexp.node() of
+| I0Etimp(tapp, timp) => (cz_map_timp(timp); cz_map_exp(tapp))
+| I0Edapp(f0, _, args) => (cz_map_exp(f0); cz_map_explst(args))
+| I0Edap0(f0) => cz_map_exp(f0)
+| I0Eift0(t0, th, el) => (cz_map_exp(t0); cz_map_expopt(th); cz_map_expopt(el))
+| I0Ecas0(_, s0, cls) => (cz_map_exp(s0); cz_map_clslst(cls))
+| I0Eseqn(es, e0) => (cz_map_explst(es); cz_map_exp(e0))
+| I0Elet0(ds, e0) => (cz_map_dclist(ds); cz_map_exp(e0))
+| I0Ewhere(e0, ds) => (cz_map_exp(e0); cz_map_dclist(ds))
+| I0Elam0(_, _, _, b0, _) => cz_map_exp(b0)
+| I0Efix0(_, _, _, _, b0, _) => cz_map_exp(b0)
+| I0Etup0(_, es) => cz_map_explst(es)
+| I0Etup1(_, _, es) => cz_map_explst(es)
+| I0Epcon(_, _, e0) => cz_map_exp(e0)
+| I0Epflt(_, _, e0) => cz_map_exp(e0)
+| I0Eproj(_, _, e0) => cz_map_exp(e0)
+| I0Eflat(e0) => cz_map_exp(e0)
+| I0Eaddr(e0) => cz_map_exp(e0)
+| I0Eassgn(l0, r0) => (cz_map_exp(l0); cz_map_exp(r0))
+| I0Eraise(_, e0) => cz_map_exp(e0)
+| I0Etry0(_, b0, cls) => (cz_map_exp(b0); cz_map_clslst(cls))
+| I0Etapq(f0, _) => cz_map_exp(f0)
+| I0Etapp(f0, _) => cz_map_exp(f0)
+| I0Esapq(f0, _) => cz_map_exp(f0)
+| I0Esapp(f0, _) => cz_map_exp(f0)
+| I0Eannot(e0, _, _) => cz_map_exp(e0)
+| I0Et2pck(e0, _) => cz_map_exp(e0)
+| I0Et2ped(e0, _) => cz_map_exp(e0)
+| I0Elabck(e0, _) => cz_map_exp(e0)
+| I0Erturn(_, e0) => cz_map_exp(e0)
+| I0Ecenv(e0, _) => cz_map_exp(e0)
+| I0Edl0az(e0) => cz_map_exp(e0)
+| I0Edl1az(e0) => cz_map_exp(e0)
+| I0El0azy(_, e0) => cz_map_exp(e0)
+| I0El1azy(_, e0, _) => cz_map_exp(e0)
+| _(*else*) => ())
+and
+cz_map_explst(es: i0explst): void =
+(case+ es of list_nil() => () | list_cons(e0, es) => (cz_map_exp(e0); cz_map_explst(es)))
+and
+cz_map_expopt(eo: i0expopt): void =
+(case+ eo of optn_nil() => () | optn_cons(e0) => cz_map_exp(e0))
+and
+cz_map_cls(cls: i0cls): void =
+(case+ cls.node() of I0CLScls(_, e0) => cz_map_exp(e0) | I0CLSgpt(_) => ())
+and
+cz_map_clslst(cls: i0clslst): void =
+(case+ cls of list_nil() => () | list_cons(c0, cls) => (cz_map_cls(c0); cz_map_clslst(cls)))
+and
+cz_map_dcl(idcl: i0dcl): void =
+(
+case+ idcl.node() of
+| I0Dvaldclst(_, ivs0) => cz_map_valdclist(ivs0)
+| I0Dfundclst(_, _, _, _, ifs0) => cz_map_fundclist(ifs0)
+| I0Dimplmnt0(_, _, _, dimp, _, body, _) =>
+  (
+  (* a higher-order template impl (top-level #impltmp/#implfun, e.g. gseq_iforall)
+     records its free continuations too -- they're what makes call sites inject *)
+  case+ dimp.node() of
+  | DIMPLone1(dc) => cz_map_instance(dc, body)
+  | DIMPLone2(dc, _) => cz_map_instance(dc, body)
+  | _(*else*) => cz_map_exp(body))
+| I0Ddclst0(idcls) => cz_map_dclist(idcls)
+| I0Dlocal0(ih, ib) => (cz_map_dclist(ih); cz_map_dclist(ib))
+| I0Ddclenv(d0, _) => cz_map_dcl(d0)
+| I0Dtmpsub(_, d0) => cz_map_dcl(d0)
+| I0Dstatic(_, d0) => cz_map_dcl(d0)
+| _(*else*) => ())
+and
+cz_map_dclist(ds: i0dclist): void =
+(case+ ds of list_nil() => () | list_cons(d0, ds) => (cz_map_dcl(d0); cz_map_dclist(ds)))
+and
+cz_map_valdcl(ivd0: i0valdcl): void =
+(case+ ivd0.tdxp() of TEQI0EXPnone() => () | TEQI0EXPsome(_, e0) => cz_map_exp(e0))
+and
+cz_map_valdclist(ivs0: i0valdclist): void =
+(case+ ivs0 of list_nil() => () | list_cons(v0, vs) => (cz_map_valdcl(v0); cz_map_valdclist(vs)))
+and
+cz_map_fundcl(ifn: i0fundcl): void =
+(case+ ifn.tdxp() of TEQI0EXPnone() => () | TEQI0EXPsome(_, b0) => cz_map_exp(b0))
+and
+cz_map_fundclist(ifs0: i0fundclist): void =
+(case+ ifs0 of list_nil() => () | list_cons(f0, fs) => (cz_map_fundcl(f0); cz_map_fundclist(fs)))
+//
+(* cz_exp_conts: the lifted continuations of the instance a CALL targets -- strip
+   the type/template wrappers around the function expr to its I0Ecst and look it
+   up in the map (empty if not a lifted instance). *)
+fun
+cz_exp_conts
+( fexp: i0exp): list(sym_t) =
+(
+case+ fexp.node() of
+| I0Ecst(dcst) => cz_map_lookup(d2cst_get_name(dcst))
+| I0Etimp(f0, _) => cz_exp_conts(f0)
+| I0Etapq(f0, _) => cz_exp_conts(f0)
+| I0Etapp(f0, _) => cz_exp_conts(f0)
+| I0Esapq(f0, _) => cz_exp_conts(f0)
+| I0Esapp(f0, _) => cz_exp_conts(f0)
+| I0Eannot(f0, _, _) => cz_exp_conts(f0)
+| I0Et2pck(f0, _) => cz_exp_conts(f0)
+| I0Et2ped(f0, _) => cz_exp_conts(f0)
+| _(*else*) => cz_empty_symlist())
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -858,17 +1072,20 @@ case+ iexp.node() of
   (* a NULLARY constructor con() is the value (XATSCAPP tag), NOT a call --
      emitting ((XATSCAPP tag)) would apply the data vector as a procedure *)
   | I0Econ(dcon) => (cz_str(filr, "(XATSCAPP "); cz_ctag(filr, dcon); cz_str(filr, ")"))
-  | _(*nullary fn call*) => (cz_str(filr, "("); i0exp_cz0(filr, fexp); cz_str(filr, ")")))
+  | _(*nullary fn call: append lifted continuations, if any*) =>
+    (cz_str(filr, "("); i0exp_cz0(filr, fexp);
+     cz_emit_conts(filr, cz_exp_conts(fexp)); cz_str(filr, ")")))
 | I0Edapp(fexp, npf, args) =>
   (
   case+ (unwrap_con(fexp)).node() of
   | I0Econ(dcon) =>
     (cz_str(filr, "(XATSCAPP "); cz_ctag(filr, dcon);
      i0exp_cz0_args(filr, ldrop(args, npf)); cz_str(filr, ")"))
-  | _(*ordinary call*) =>
+  | _(*ordinary call: append lifted continuations, if any*) =>
     (cz_str(filr, "(");
      i0exp_cz0(filr, fexp);
      i0exp_cz0_args(filr, ldrop(args, npf));
+     cz_emit_conts(filr, cz_exp_conts(fexp));
      cz_str(filr, ")")))
 //
 (* control *)
@@ -1265,14 +1482,26 @@ case+ idcl.node() of
 | I0Dfundclst(_, _, _, _, ifs0) => i0fundclist_cz0(filr, ifs0)
 (* template implementation (#implfun/implement) -> a (define (name params) body) *)
 | I0Dimplmnt0(_, _, _, dimp, fargs, body, _) =>
-  (
-  case+ fargs of
-  | list_nil() =>   (* point-free template alias: #implfun f = g -> forwarding lambda *)
-    (cz_str(filr, "(define "); cz_dimpl_name(filr, dimp); cz_str(filr, " (lambda czfwd (apply ");
-     i0exp_cz0(filr, body); cz_str(filr, " czfwd)))\n"))
-  | _ =>
+  let
+  val conts =
+    (case+ dimp.node() of
+     | DIMPLone1(dc) => cz_map_lookup(d2cst_get_name(dc))
+     | DIMPLone2(dc, _) => cz_map_lookup(d2cst_get_name(dc))
+     | _(*else*) => cz_empty_symlist())
+  in//let
+  case+ conts of
+  | list_cons(_, _) =>   (* LIFTED higher-order impl: trailing free-cont params *)
     (cz_str(filr, "(define ("); cz_dimpl_name(filr, dimp); cz_fiarglst(filr, fargs);
-     cz_str(filr, ") "); i0exp_cz0(filr, body); cz_str(filr, ")\n")))
+     cz_emit_conts(filr, conts); cz_str(filr, ") "); i0exp_cz0(filr, body); cz_str(filr, ")\n"))
+  | list_nil() =>
+    (case+ fargs of
+     | list_nil() =>   (* point-free template alias: #implfun f = g -> forwarding lambda *)
+       (cz_str(filr, "(define "); cz_dimpl_name(filr, dimp); cz_str(filr, " (lambda czfwd (apply ");
+        i0exp_cz0(filr, body); cz_str(filr, " czfwd)))\n"))
+     | _ =>
+       (cz_str(filr, "(define ("); cz_dimpl_name(filr, dimp); cz_fiarglst(filr, fargs);
+        cz_str(filr, ") "); i0exp_cz0(filr, body); cz_str(filr, ")\n")))
+  end//let
 | I0Ddclst0(idcls) => i0dclist_cz0(filr, idcls)
 | I0Dlocal0(ihead, ibody) =>
   (i0dclist_cz0(filr, ihead); i0dclist_cz0(filr, ibody))
@@ -1332,12 +1561,19 @@ cz_sym(filr, d2cst_get_name(dc));
 cz_str(filr, ")) (top-level-value (quote ");
 cz_sym(filr, d2cst_get_name(dc));
 cz_str(filr, ")) ");
-(* point-free instance (no arg groups) -> a forwarding lambda (defers a possibly
-   forward-referenced body to call time); one with args -> (lambda (args) body) *)
-(case+ fargs of
- | list_nil() => (cz_str(filr, "(lambda czfwd (apply "); i0exp_cz0(filr, body); cz_str(filr, " czfwd))"))
- | _ => (cz_str(filr, "(lambda ("); cz_fiarglst(filr, fargs); cz_str(filr, ") ");
-         i0exp_cz0(filr, body); cz_str(filr, ")")));
+(* A LIFTED higher-order instance carries free continuations as extra trailing
+   params (lambda (<fargs> <conts>) body); a point-free instance (no arg groups,
+   no conts) -> a forwarding lambda; otherwise (lambda (args) body). *)
+(case+ cz_map_lookup(d2cst_get_name(dc)) of
+ | list_cons(_, _) =>
+   (cz_str(filr, "(lambda ("); cz_fiarglst(filr, fargs);
+    cz_emit_conts(filr, cz_map_lookup(d2cst_get_name(dc))); cz_str(filr, ") ");
+    i0exp_cz0(filr, body); cz_str(filr, ")"))
+ | list_nil() =>
+   (case+ fargs of
+    | list_nil() => (cz_str(filr, "(lambda czfwd (apply "); i0exp_cz0(filr, body); cz_str(filr, " czfwd))"))
+    | _ => (cz_str(filr, "(lambda ("); cz_fiarglst(filr, fargs); cz_str(filr, ") ");
+            i0exp_cz0(filr, body); cz_str(filr, ")"))));
 cz_str(filr, "))\n");
 cz_coll_exp(filr, body))
 end//let
@@ -1503,6 +1739,17 @@ case+ parsed of
 | optn_nil() => ()
 | optn_cons(idcls) =>
   (
+  (* pass 0: build the free-continuation map for every higher-order instance,
+     BEFORE any emission, so call-site injection (pass 1/2) sees it complete *)
+  cz_map_dclist(idcls);
+  (* dump the per-file lifted map as comments -- the harness greps these across
+     all files to build a GLOBAL map (CZ_GLOBAL_MAP) that seeds pass 0 so
+     cross-file call sites inject the right continuations *)
+  (let
+   fun loop(xs: list( @(sym_t, list(sym_t)) )): void =
+   (case+ xs of list_nil() => () | list_cons(kv, xs) =>
+     (cz_str(filr, ";;LIFTED "); cz_sym(filr, kv.0); cz_emit_conts(filr, kv.1); cz_str(filr, "\n"); loop(xs)))
+   in loop(a0ref_get(the_cz_iconts)) end);
   (* pass 1: hoist all template-instance definitions to the top *)
   cz_coll_dclist(filr, idcls);
   (* pass 2: emit the program (instances referenced by name) *)
