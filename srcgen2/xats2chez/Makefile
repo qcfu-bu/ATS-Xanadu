@@ -231,6 +231,87 @@ run/%: $(CHEZBUNDLE)
 	$(CHEZ) "$$WORK/$*.scm"
 
 ########################################################################
+# DIFFERENTIAL JS ORACLE — assert Chez stdout == JS-backend stdout, byte-equal.
+# The JS reference bundle emits from intrep1 via js1emit (lib2xats2js); it uses
+# the SAME prebuilt cc/opt as the Chez bundle, so a single CC_JS2 serves both.
+########################################################################
+JSDRIVER  := $(SRCGEN2)/xats2js/srcgen2/UTIL/xats2js_jsemit01.dats
+NS2R      := $(SRCGEN2)/xats2js/srcgen1/xshared/runtime
+NODEPRE   := $(NS2R)/srcgen2_prelude.js $(NS2R)/srcgen2_prelude_node.js \
+             $(NS2R)/srcgen2_precats.js $(NS2R)/srcgen2_xatslib.js \
+             $(NS2R)/xats2js_js1emit.js
+JS_SHIM   := $(BUILD)/i0varfst-shim-js.js
+JDRV      := $(BUILD)/xats2js_jsemit01_dats.js
+JSPATCHED := $(BUILD)/xats2js-ref-bundle.js
+
+.PHONY: suite
+
+# JS shim: like the chez shim but scans lib2xats2js too, so the missing
+# tokenfpr (referenced by js1emit on lambdas/fix) is no-op-defined.
+$(JS_SHIM): $(CC_JS2) $(SHIMNAMES) $(LIB2JS) $(JSSHIM) | dirs
+	@echo ">> cache i0varfst+tokenfpr shim (JS oracle)"
+	@cat $(CC_JS2) $(SHIMNAMES) $(LIB2JS) > $@.scan.tmp
+	@bash $(JSSHIM) $@.scan.tmp $@ >/dev/null \
+	  || { echo "!! JS shim gen failed" >&2; rm -f $@.scan.tmp; exit 1; }
+	@rm -f $@.scan.tmp
+
+$(JDRV): $(JSDRIVER) | dirs
+	@echo ">> transpile js-oracle driver"
+	@$(NODE) $(JSEMIT) $< > $@ 2> $(BUILD)/transpile_jsdrv.err; \
+	if [ "$$(wc -l < $@)" -lt 5 ]; then \
+	  echo "!! js driver transpile too small" >&2; \
+	  tail -40 $(BUILD)/transpile_jsdrv.err >&2; rm -f $@; exit 1; fi
+
+$(JSPATCHED): $(JS_SHIM) $(OPT_JS1) $(CC_JS2) $(LIB2JS) $(JDRV) | dirs
+	@echo ">> link JS-oracle reference bundle"
+	@cat $(JS_SHIM) $(RUNTIME) $(OPT_JS1) $(CC_JS2) \
+	     <(sed -E 's/jsx(...)tnm/js3\1tnm/g' $(LIB2JS)) \
+	     $(JDRV) > $@
+	@echo "   -> $@"
+
+# cmp/NAME — emit + run on BOTH backends, assert byte-equal stdout.
+cmp/%: $(CHEZBUNDLE) $(JSPATCHED)
+	@set -uo pipefail; \
+	SRC="$(TESTDIR)/$*.dats"; \
+	[ -f "$$SRC" ] || { echo "!! not found: $$SRC" >&2; exit 2; }; \
+	WORK="$(BUILD)/$*"; mkdir -p "$$WORK"; \
+	$(NODE) $(CHEZBUNDLE) "$$SRC" > "$$WORK/cz.out" 2>"$$WORK/cz.err" \
+	  || { echo "!! [$*] chez-emit failed" >&2; tail -20 "$$WORK/cz.err" >&2; exit 1; }; \
+	awk '/^;;==XATS2CHEZ-BEGIN==/{f=1;next} /^;;==XATS2CHEZ-END==/{f=0} f' "$$WORK/cz.out" > "$$WORK/$*.body.scm"; \
+	[ -f "$(CHEZRT)/xats2chez_runtime.scm" ] && RT="$(CHEZRT)/xats2chez_runtime.scm" || RT=/dev/null; \
+	cat "$$RT" "$$WORK/$*.body.scm" > "$$WORK/$*.scm"; \
+	$(CHEZ) "$$WORK/$*.scm" > "$$WORK/chez.stdout" 2>"$$WORK/chez.runerr" \
+	  || { echo "!! [$*] chez run failed" >&2; tail -20 "$$WORK/chez.runerr" >&2; exit 1; }; \
+	$(NODE) $(JSPATCHED) "$$SRC" > "$$WORK/$*.emit.js" 2>"$$WORK/jsemit.err"; \
+	awk -v n="$*" 'f||$$0 ~ ("^// LCSRCsome1.*"n){f=1; print}' "$$WORK/$*.emit.js" > "$$WORK/$*.user.js"; \
+	cat $(NODEPRE) "$$WORK/$*.user.js" > "$$WORK/$*.run.js"; \
+	node "$$WORK/$*.run.js" > "$$WORK/js.stdout" 2>"$$WORK/js.runerr" \
+	  || { echo "!! [$*] js run failed" >&2; tail -20 "$$WORK/js.runerr" >&2; exit 1; }; \
+	if cmp -s "$$WORK/chez.stdout" "$$WORK/js.stdout"; then \
+	  echo "PASS  $*  ($$(wc -c < "$$WORK/chez.stdout") bytes)"; \
+	else \
+	  echo "FAIL  $*  (chez != js)"; \
+	  echo "--- chez ---"; cat "$$WORK/chez.stdout"; \
+	  echo "--- js   ---"; cat "$$WORK/js.stdout"; \
+	  diff <(xxd "$$WORK/chez.stdout") <(xxd "$$WORK/js.stdout") | head -20; exit 1; \
+	fi
+
+# suite — differential oracle over every TEST/*.dats.
+suite: $(CHEZBUNDLE) $(JSPATCHED)
+	@set -uo pipefail; pass=0; fail=0; fails=""; \
+	for f in $(TESTDIR)/*.dats; do \
+	  n=$$(basename "$$f" .dats); \
+	  if $(MAKE) --no-print-directory cmp/$$n >"$(BUILD)/$$n.cmplog" 2>&1; then \
+	    echo "$$(tail -1 "$(BUILD)/$$n.cmplog")"; pass=$$((pass+1)); \
+	  else \
+	    echo "FAIL  $$n"; fail=$$((fail+1)); fails="$$fails $$n"; \
+	  fi; \
+	done; \
+	echo "====================================================="; \
+	echo ">> SUITE: $$pass passed, $$fail failed$${fails:+ (failed:$$fails)}"; \
+	[ "$$fail" -eq 0 ]
+
+########################################################################
 clean:
 	@echo ">> clean emitter artifacts (keep cached fixed libs)"
 	@rm -f $(OUT0) $(NSJS) $(LIB2CHEZ) $(DRV_CHEZ) $(CHEZBUNDLE)
