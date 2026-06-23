@@ -577,6 +577,14 @@ case+ iexp.node() of
    clauses (re-raising if none match — guard's default).  The handler patterns
    reuse the case machinery; exception constructors are tagged by stamp. *)
 | I0Eraise(_, exn) => (cz_str(filr, "(raise "); i0exp_cz0(filr, exn); cz_str(filr, ")"))
+//
+(* lazy: build a (memoized) level-0 / (linear) level-1 thunk; force a thunk. *)
+| I0El0azy(_, e0) =>
+  (cz_str(filr, "(XATS000_l0azy (lambda () "); i0exp_cz0(filr, e0); cz_str(filr, "))"))
+| I0El1azy(_, e0, _) =>
+  (cz_str(filr, "(XATS000_l1azy (lambda (czlz) "); i0exp_cz0(filr, e0); cz_str(filr, "))"))
+| I0Edl0az(e0) => (cz_str(filr, "(XATS000_dl0az "); i0exp_cz0(filr, e0); cz_str(filr, ")"))
+| I0Edl1az(e0) => (cz_str(filr, "(XATS000_dl1az "); i0exp_cz0(filr, e0); cz_str(filr, ")"))
 | I0Etry0(_, body, handlers) =>
   (
   cz_str(filr, "(guard (czscrut ");

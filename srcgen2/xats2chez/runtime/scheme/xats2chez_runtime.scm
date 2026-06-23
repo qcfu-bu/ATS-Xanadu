@@ -39,6 +39,17 @@
 ;; exceptions.
 (define (XATS000_raise xcon) (raise xcon))
 
+;; lazy thunks (mirrors JS): level-0 is MEMOIZED, level-1 is call-by-name.
+;;   l0azy = #(forced-count thunk-or-value); dl0az forces once then caches.
+(define (XATS000_l0azy thunk) (vector 0 thunk))
+(define (XATS000_dl0az lz)
+  (if (> (vector-ref lz 0) 0)
+      (begin (vector-set! lz 0 (+ (vector-ref lz 0) 1)) (vector-ref lz 1))
+      (let ((res ((vector-ref lz 1))))
+        (vector-set! lz 0 1) (vector-set! lz 1 res) res)))
+(define (XATS000_l1azy thunk) thunk)
+(define (XATS000_dl1az lz) (lz 1))
+
 ;;;--------------------------------------------------------------------
 ;;; Scalars / coercions (the JS XATS* macros are mostly identity; Scheme
 ;;; is likewise dynamically typed, so these are identities/thin wrappers).
