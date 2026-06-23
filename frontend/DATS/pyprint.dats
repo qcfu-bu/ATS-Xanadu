@@ -1129,6 +1129,13 @@ dpat_is_bang(dp: d0pat): bool =
   | D0Pid0(id) => strn_eq(i0dnt_lexeme(id), "!")
   | _ => false
 )
+and
+dpat_is_cons_op(dp: d0pat): bool =
+(
+  case+ dp.node() of
+  | D0Pid0(id) => strn_eq(i0dnt_lexeme(id), "::")
+  | _ => false
+)
 //
 fun
 pp_d0pat(out: FILR, dp: d0pat): void =
@@ -1186,37 +1193,115 @@ pp_dpat_prefix_apps(out: FILR, mark: strn, arg0: d0pat, rest: d0patlst): void =
 and
 pp_dpat_apps(out: FILR, dps: d0patlst): void =
 (
-  case+ dps of
-  | list_nil() => ()
-  // Stock ATS parses generated pattern prefixes (`! C(args)`, `~ C(args)`) as
-  // applications headed by the prefix plus a parenthesized constructor head.
-  // Pythonic spells these prefixes directly on the pattern.
-  | list_cons(hd, list_cons(arg0, rest)) =>
-      if dpat_is_tilde(hd) then
-        pp_dpat_prefix_apps(out, "~", arg0, rest)
-      else
-        (
-          if dpat_is_bang(hd) then
-            pp_dpat_prefix_apps(out, "!", arg0, rest)
-          else
-            (pp_d0pat_head(out, hd); pp_dpat_apps_args(out, list_cons(arg0, rest)))
-        )
-  | list_cons(hd, rest) =>
-      (
-        case+ hd.node() of
-        | D0Papps(list_cons(phd, list_cons(arg0, list_nil()))) =>
-            if dpat_is_tilde(phd) then
-              pp_dpat_prefix_apps(out, "~", arg0, rest)
+  if dpat_list_followed_by_cons(dps)
+  then pp_dpat_cons_chain(out, dps)
+  else
+    case+ dps of
+    | list_nil() => ()
+    // Stock ATS parses generated pattern prefixes (`! C(args)`, `~ C(args)`) as
+    // applications headed by the prefix plus a parenthesized constructor head.
+    // Pythonic spells these prefixes directly on the pattern.
+    | list_cons(hd, list_cons(arg0, rest)) =>
+        if dpat_is_tilde(hd) then
+          pp_dpat_prefix_apps(out, "~", arg0, rest)
+        else
+          (
+            if dpat_is_bang(hd) then
+              pp_dpat_prefix_apps(out, "!", arg0, rest)
             else
-              (
-                if dpat_is_bang(phd) then
-                  pp_dpat_prefix_apps(out, "!", arg0, rest)
-                else
-                  (pp_d0pat_head(out, hd); pp_dpat_apps_args(out, rest))
-              )
-        | _ =>
-            (pp_d0pat_head(out, hd); pp_dpat_apps_args(out, rest))
-      )
+              (pp_d0pat_head(out, hd); pp_dpat_apps_args(out, list_cons(arg0, rest)))
+          )
+    | list_cons(hd, rest) =>
+        (
+          case+ hd.node() of
+          | D0Papps(list_cons(phd, list_cons(arg0, list_nil()))) =>
+              if dpat_is_tilde(phd) then
+                pp_dpat_prefix_apps(out, "~", arg0, rest)
+              else
+                (
+                  if dpat_is_bang(phd) then
+                    pp_dpat_prefix_apps(out, "!", arg0, rest)
+                  else
+                    (pp_d0pat_head(out, hd); pp_dpat_apps_args(out, rest))
+                )
+          | _ =>
+              (pp_d0pat_head(out, hd); pp_dpat_apps_args(out, rest))
+        )
+)
+and
+dpat_list_followed_by_cons(dps: d0patlst): bool =
+(
+  case+ dps of
+  | list_cons(_, rest) => dpat_args_until_cons_has_cons(rest)
+  | list_nil() => false
+)
+and
+dpat_args_until_cons_has_cons(dps: d0patlst): bool =
+(
+  case+ dps of
+  | list_nil() => false
+  | list_cons(dp, rest) =>
+      if dpat_is_cons_op(dp) then true else dpat_args_until_cons_has_cons(rest)
+)
+and
+pp_dpat_cons_chain(out: FILR, dps: d0patlst): void =
+(
+  case+ dps of
+  | list_cons(hd, rest) => let
+      val () = ps(out, "list_cons(")
+      val tail = pp_dpat_operand_until_cons(out, hd, rest)
+      val () = ps(out, ", ")
+    in
+      case+ tail of
+      | list_cons(_, rhs) => pp_dpat_cons_rhs(out, rhs)
+      | _ => ps(out, "# TODO(pp): d0pat-cons")
+      ;
+      ps(out, ")")
+    end
+  | list_nil() => ps(out, "# TODO(pp): d0pat-cons")
+)
+and
+pp_dpat_cons_rhs(out: FILR, dps: d0patlst): void =
+(
+  if dpat_list_followed_by_cons(dps)
+  then pp_dpat_cons_chain(out, dps)
+  else pp_dpat_operand_list(out, dps)
+)
+and
+pp_dpat_operand_list(out: FILR, dps: d0patlst): void =
+(
+  case+ dps of
+  | list_cons(hd, rest) => let
+      val _ = pp_dpat_operand_until_cons(out, hd, rest)
+    in
+      ()
+    end
+  | list_nil() => ps(out, "# TODO(pp): d0pat-cons")
+)
+and
+pp_dpat_operand_until_cons(out: FILR, hd: d0pat, rest: d0patlst): d0patlst =
+(
+  pp_d0pat_head(out, hd);
+  pp_dpat_apps_args_until_cons(out, rest)
+)
+and
+pp_dpat_apps_args_until_cons(out: FILR, dps: d0patlst): d0patlst =
+(
+  case+ dps of
+  | list_nil() => list_nil()
+  | list_cons(dp, rest) =>
+      if dpat_is_cons_op(dp)
+      then dps
+      else (
+        pp_dpat_app_arg(out, dp);
+        pp_dpat_apps_args_until_cons(out, rest))
+)
+and
+pp_dpat_app_arg(out: FILR, dp: d0pat): void =
+(
+  case+ dp.node() of
+  | D0Plpar(_, args, _) => (ps(out, "("); pp_dpat_seq(out, args); ps(out, ")"))
+  | _ => (ps(out, "("); pp_d0pat(out, dp); ps(out, ")"))
 )
 and
 pp_dpat_apps_args(out: FILR, dps: d0patlst): void =
@@ -1224,9 +1309,7 @@ pp_dpat_apps_args(out: FILR, dps: d0patlst): void =
   case+ dps of
   | list_nil() => ()
   | list_cons(dp, rest) => (
-      (case+ dp.node() of
-       | D0Plpar(_, args, _) => (ps(out, "("); pp_dpat_seq(out, args); ps(out, ")"))
-       | _ => (ps(out, "("); pp_d0pat(out, dp); ps(out, ")")));
+      pp_dpat_app_arg(out, dp);
       pp_dpat_apps_args(out, rest))
 )
 and
@@ -1370,7 +1453,9 @@ and
 	else let
 	  val tail0 = dexp_skip_postfix(rest)
 	in
-	  if dexp_tail_starts_cmp(tail0)
+	  if dexp_tail_starts_cons(tail0)
+	  then pp_dexp_cons_apps(out, hd, rest)
+	  else if dexp_tail_starts_cmp(tail0)
 	  then pp_dexp_cmp_apps(out, hd, rest, tail0)
 	  else if dexp_tail_starts_bslash_selector(tail0)
 	  then pp_dexp_bslash_selector_apps(out, hd, rest, tail0)
@@ -1396,6 +1481,36 @@ and
 	  case+ rest of
 	  | list_cons(arg, list_nil()) => (ps(out, "not "); pp_d0exp_inline(out, arg))
 	  | _ => (ps(out, "~"); pp_dexp_apps_args_fallback(out, rest))
+	)
+	and
+	pp_dexp_cons_apps(out: FILR, hd: d0exp, rest: d0explst): void =
+	  pp_dexp_cons_chain(out, hd, rest)
+	and
+	pp_dexp_cons_chain(out: FILR, hd: d0exp, rest: d0explst): void =
+	let
+	  val () = ps(out, "list_cons(")
+	  val tail = pp_dexp_operand_from(out, hd, rest)
+	  val () = ps(out, ", ")
+	in
+	  case+ tail of
+	  | list_cons(_, rhs) => pp_dexp_cons_rhs(out, rhs)
+	  | _ => ps(out, "# TODO(pp): d0exp-cons")
+	  ;
+	  ps(out, ")")
+	end
+	and
+	pp_dexp_cons_rhs(out: FILR, des: d0explst): void =
+	(
+	  case+ des of
+	  | list_cons(hd, rest) =>
+	      if dexp_list_followed_by_cons(des)
+	      then pp_dexp_cons_chain(out, hd, rest)
+	      else let
+	        val tail = pp_dexp_operand_from(out, hd, rest)
+	      in
+	        pp_dexp_infix_tail(out, tail)
+	      end
+	  | list_nil() => ps(out, "# TODO(pp): d0exp-cons")
 	)
 	and
 	pp_dexp_cmp_apps(out: FILR, hd: d0exp, rest: d0explst, tail0: d0explst): void =
@@ -1591,12 +1706,26 @@ and
 	      if dexp_is_postfix(de) then dexp_skip_postfix(rest) else des
 	)
 	and
+	dexp_tail_starts_cons(des: d0explst): bool =
+	(
+	  case+ des of
+	  | list_cons(opr, list_cons(_, _)) => dexp_is_cons_op(opr)
+	  | _ => false
+	)
+	and
 	dexp_tail_starts_cmp(des: d0explst): bool =
 	(
 	  case+ des of
 	  | list_cons(bs, list_cons(cmp, list_cons(_, _))) =>
 	      if dexp_is_name(bs, "\\") then dexp_is_name(cmp, "cmp") else false
 	  | _ => false
+	)
+	and
+	dexp_list_followed_by_cons(des: d0explst): bool =
+	(
+	  case+ des of
+	  | list_cons(_, rest) => dexp_tail_starts_cons(dexp_skip_postfix(rest))
+	  | list_nil() => false
 	)
 	and
 	dexp_tail_starts_bslash_selector(des: d0explst): bool =
@@ -1608,6 +1737,8 @@ and
 	      else false
 	  | _ => false
 	)
+	and
+	dexp_is_cons_op(de: d0exp): bool = dexp_is_name(de, "::")
 	and
 	dexp_name(de: d0exp): strn =
 	(
