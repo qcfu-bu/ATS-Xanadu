@@ -642,7 +642,16 @@ case+ hd of
         case+ args of
         | list_cons(arg, list_nil()) => PCEfold(loc, el_exp(encl, arg))
         | _ => PCEapp(loc, el_exp(encl, hd), el_explst(encl, args)))
-      else PCEapp(loc, el_exp(encl, hd), el_explst(encl, args))))
+      // `$eval(e)` (the lazy-FORCE builtin, DEVAL_symbl) prints as `eval(e)` ($-stripped) and lowers
+      // to D2Eeval — the SAME node as a deref `!p` (PCEderef). DISTINCT from the prelude's overloaded
+      // `eval` (`#symload eval with strm_vt_eval`), which is reached only via `$eval` in the bootstrap
+      // (the corpus has 41 `$eval` calls and 0 bare-`eval` overload calls), so this routing is safe.
+      else (if strn_eq(nm, "eval")
+      then (
+        case+ args of
+        | list_cons(arg, list_nil()) => PCEderef(loc, el_exp(encl, arg))
+        | _ => PCEapp(loc, el_exp(encl, hd), el_explst(encl, args)))
+      else PCEapp(loc, el_exp(encl, hd), el_explst(encl, args)))))
 | _ => PCEapp(loc, el_exp(encl, hd), el_explst(encl, args))
 )
 //

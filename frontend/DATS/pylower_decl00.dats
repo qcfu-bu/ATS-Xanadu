@@ -147,6 +147,25 @@ case+ dcs of
 // type-app arg `Vec[A, n]` resolves `n` to s2exp_var(<the int s2var>) via resolve_typ's S2ITMvar
 // arm. (Static arithmetic `n+1` + guards `{n | n>=0}` are a SEPARATE follow-up — literal +
 // variable indices only here.)
+// the prelude int-refinement sort aliases (capitalized by the pyprint): pos/nat/n0/neg are
+// `#sortdef`ed as `{a:i0 | <guard>}` — refined INT subsorts. All are int-sorted INDEX sorts. (`i0`/
+// `int` themselves alias `int0` directly; they appear as `SInt` in the emitted surface, handled
+// above, so they are not repeated here.)
+fun
+psort_is_int_refinement(sname: strn): bool =
+  if strn_eq(sname, "Pos") then true
+  else if strn_eq(sname, "Nat") then true
+  else if strn_eq(sname, "N0") then true
+  else strn_eq(sname, "Neg")
+//
+// the prelude addr sort `a0` (`#sortdef a0 = addr`) + its refinements agtz/agez (`{l:a0 | ...}`).
+// The pyprint emits them capitalized (A0 / Agtz / Agez); all are the ADDRESS sort.
+fun
+psort_is_addr_refinement(sname: strn): bool =
+  if strn_eq(sname, "A0") then true
+  else if strn_eq(sname, "Agtz") then true
+  else strn_eq(sname, "Agez")
+//
 #implfun
 psort2_of(p) =
 (
@@ -158,9 +177,20 @@ case+ p of
       then the_sort2_int0
       else if strn_eq(sname, "SBool")
         then the_sort2_bool
+    // INT-REFINEMENT sort aliases: the prelude `#sortdef`s `pos`/`nat`/`n0`/`neg`/`i0`/`int` as
+    // `{a:i0 | <guard>}` — REFINED INT subsorts. The pyprint capitalizes them (Pos/Nat/...). They are
+    // INDEX params (int-sorted), NOT type params; without this `[N: Pos]` lowered to a `type`-sorted
+    // var and an `N - 1` index in the result type errck'd (the strm/arr quantified-index signatures).
+    // The guard refinement is erased here (the sort is the underlying int0); the bound itself is not
+    // re-checked at reparse, mirroring the deployed stock behavior for these subsort aliases.
+      else if psort_is_int_refinement(sname)
+        then the_sort2_int0
     // B-LINEAR: the ADDRESS sort `addr` — a `[l: Addr]` quantifier binds an address var
-    // (the `l` in `A at l` / `ptr[l]`). (SPIKE BL-AT2-proven the_sort2_addr rides clean.)
+    // (the `l` in `A at l` / `ptr[l]`). (SPIKE BL-AT2-proven the_sort2_addr rides clean.) The addr
+    // refinements `agtz`/`agez` (`{l:a0 | ...}`) are addr subsorts -> the same addr sort.
       else if strn_eq(sname, "Addr")
+        then the_sort2_addr
+      else if psort_is_addr_refinement(sname)
         then the_sort2_addr
     // "Type" OR "" (default) OR any unknown name => the_sort2_type / the_sort2_tflt.
       else if strn_eq(sname, "Linear")
