@@ -107,6 +107,48 @@
 (define (XATS2JS_a0rf_lget r) (unbox r))
 (define (XATS2JS_a0rf_lset r v) (set-box! r v))
 
+;;;--------------------------------------------------------------------
+;;; jshmap — hash maps (the JS Map; symbol tables, environments).  Keys are
+;;; compared by equal? (strings, ints, interned symbols).
+;;;--------------------------------------------------------------------
+(define (jshmap_make_nil) (make-hashtable equal-hash equal?))
+(define (jshmap_size m) (hashtable-size m))
+(define (jshmap_keyq m k) (hashtable-contains? m k))
+(define (jshmap_search$tst m k) (hashtable-contains? m k))
+(define (jshmap_get$at$raw m k) (hashtable-ref m k #f))
+(define (jshmap_set$at$raw m k v) (hashtable-set! m k v))
+(define (jshmap_insert$raw m k v) (hashtable-set! m k v))
+
+;;;--------------------------------------------------------------------
+;;; jsdasz / a1sz — sized arrays (vector-backed).
+;;;--------------------------------------------------------------------
+(define (jsdasz_make_nfun n f) (let ((v (make-vector n))) (let loop ((i 0)) (if (< i n) (begin (vector-set! v i (f i)) (loop (+ i 1))) v))))
+(define (jsdasz_make_1val n x) (make-vector n x))
+(define (jsdasz_length a) (vector-length a))
+(define (jsdasz_get a i) (vector-ref a i))
+(define (jsdasz_set a i x) (vector-set! a i x))
+(define (XATS2JS_a1sz_length a) (vector-length a))
+(define (XATS2JS_a1sz_lget a i) (vector-ref a i))
+(define (XATS2JS_a1sz_lset a i x) (vector-set! a i x))
+
+;;;--------------------------------------------------------------------
+;;; Symbols (symbl) — minimal: a symbol IS its interned name string, so two
+;;; symbols with the same name are eq? (identity).  Enough for the symbol
+;;; tables / label comparisons the foundational libraries need.
+;;;--------------------------------------------------------------------
+(define the_symbl_table (make-hashtable string-hash string=?))
+(define (symbl_make_name nm)
+  (or (hashtable-ref the_symbl_table nm #f)
+      (begin (hashtable-set! the_symbl_table nm nm) nm)))
+(define (symbl_get_name s) s)
+(define (symbl_cmp a b) (g_cmp (symbl_get_name a) (symbl_get_name b)))
+
+;;;--------------------------------------------------------------------
+;;; Misc CATS floor.
+;;;--------------------------------------------------------------------
+(define (g_free x) (if #f #f))          ; linear free: GC no-op
+(define (XATS000_g_free x) (if #f #f))
+
 ;;;====================================================================
 ;;; end of [xats2chez_cats.scm]  (grows as more compiler units are compiled)
 ;;;====================================================================
