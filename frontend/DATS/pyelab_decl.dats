@@ -638,6 +638,13 @@ case+ d of
     // d2ptm's pval, then emits D2Csymload. UNLIKE `@overload def` (which emits PCCfun + a self
     // PCCoverload), there is NO def here — this re-exports an existing fn under a different name.
     list_sing(PCCsymalias(loc, nm, tgt, prec))
+| PyCfixity(loc, knd, prec, names) =>
+    // FIXITY (Cluster B): `infixl 50 +` / `nonfix foo` -> a PCCfixity passed straight through. M3
+    // (pylower_decl00) BUILDS the stock D0Cfixity/D0Cnonfix d0ecl from (knd, prec-lexeme, names) +
+    // wraps it D2Cd1ecl(D1Cd0ecl(...)) — the EXACT L2 stock's f0_fixity/f0_nonfix emit. No elaboration
+    // is needed (the names are raw operator lexemes; the precedence rides the raw int lexeme straight
+    // into the stock T_INT01 token; assoc is carried by the kind code).
+    list_sing(PCCfixity(loc, knd, prec, names))
 | PyCstmt(loc, s) => elab_module_stmt(s)
 | PyCprivate(loc, ds) =>
     // SCOPING (bootstrap P1): a `private` run (modifier or block) -> a PCCprivate carrying the

@@ -625,6 +625,20 @@ pydecl =
 //                 elaborator passes it straight through to PCCsymalias; M3 lowers it via the SAME
 //                 build_overload recipe PCCoverload uses (but with the parsed precedence as pval).
 | PyCsymalias of (loctn, strn(*name*), strn(*target*), sint(*precopt; ~1 = none*))
+//   PyCfixity : a FIXITY declaration (Cluster B) — the ATS operator-precedence keywords kept
+//               VERBATIM in the pythonic surface (project-owner LOCKED): `infixl 50 +`, `infixr 61
+//               **`, `prefix 51 ~`, `postfix 60 !`, `nonfix foo bar`. Carries the fixity KIND (a
+//               sint matching the stock KINFIX*/KPREFIX/KPSTFIX/—nonfix codes; see fixity_kind_*
+//               in the parser), the PRECEDENCE as the RAW int LEXEME (`""` = none, as for `nonfix`
+//               which takes no precedence — kept as a string to feed the stock `T_INT01(s)` token
+//               directly), and the NAME list (operator lexemes — symbolic like `+`/`**` or
+//               alphanumeric like `foo`). The elaborator passes it straight through to PCCfixity;
+//               M3 (pylower_decl00) BUILDS the stock D0Cfixity/D0Cnonfix d0ecl and wraps it
+//               D2Cd1ecl(D1Cd0ecl(...)) — byte-identical to stock's f0_fixity/f0_nonfix L2. Our
+//               parser owns operator precedence via its own FIXED Pratt table (which already
+//               matches fixity0.sats's relative ordering for every corpus operator), so the
+//               round-trip is a faithful pass-through of the DECL, not a re-configuration.
+| PyCfixity of (loctn, sint(*kind*), strn(*prec lexeme; "" = none*), list(strn)(*names*))
 | PyCstmt   of (loctn, pystmt)
 | PyCerror  of (loctn, strn)
 //

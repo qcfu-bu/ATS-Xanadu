@@ -105,6 +105,7 @@ case+ d of
 | PyCimport(loc, _) => loc          | PyCstmt(loc, _) => loc
 | PyCinclude(loc, _) => loc
 | PyCsymalias(loc, _, _, _) => loc
+| PyCfixity(loc, _, _, _) => loc
 | PyCerror(loc, _) => loc
 )
 //

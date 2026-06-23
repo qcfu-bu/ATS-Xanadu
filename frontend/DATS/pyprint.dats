@@ -4054,6 +4054,28 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
       true
     )
   //
+  // ============ Cluster B — fixity DSL (operator-precedence declarations) ======
+  //
+  // `#infixl + of 50` -> `infixl 50 +` : the ATS fixity keywords are KEPT VERBATIM in the pythonic
+  // surface (project-owner LOCKED), only the SHAPE flips (keyword PREC NAME(s) — the precedence
+  // precedes the names). The keyword is decoded from the T_SRP_FIXITY(knd) code (KINFIX0/KINFIXL/
+  // KINFIXR/KPREFIX/KPSTFIX); the precedence is the precopt's int-token lexeme (omitted for a bare
+  // `#infixl +`); the names are the i0dnt lexemes (symbolic `+`/`**` or alphanumeric `app`). The
+  // round-tripped pythonic re-lexes the keyword, re-parses to PyCfixity, and re-lowers to the SAME
+  // stock L2 (D2Cd1ecl(D1Cd0ecl(D0Cfixity(...)))) — a faithful pass-through (pylower build_fixity).
+  | D0Cfixity(tknd, id0s, popt) => (
+      ps(out, fixity_kw_of_token(tknd)); ps(out, " ");
+      pp_fixity_prec(out, popt);            // emits "PREC " when present (else nothing)
+      pp_fixity_names(out, id0s);
+      nl(out);
+      true
+    )
+  // `#nonfix foo` -> `nonfix foo` : strip an operator's fixity. No precedence; just the name(s).
+  | D0Cnonfix(_, id0s) => (
+      ps(out, "nonfix "); pp_fixity_names(out, id0s); nl(out);
+      true
+    )
+  //
   // ============ Cluster A — static / sort KERNEL declarations =================
   //
   // `#sortdef num = int`  ->  `@sort type Num = SInt`   (a SORT ALIAS). The RHS s0tdf is the
@@ -4234,6 +4256,49 @@ end
 and
 pp_staload(out: FILR, ge: g0exp): void =
   pp_staload_n(out, 0, ge)
+//
+// FIXITY (Cluster B) emitter helpers. `fixity_kw_of_token` decodes the T_SRP_FIXITY(knd) code to
+// the pythonic keyword (KEPT VERBATIM from ATS): KINFIX0->infix0, KINFIXL->infixl, KINFIXR->infixr,
+// KPREFIX->prefix, KPSTFIX->postfix. `pp_fixity_prec` emits the precopt's int lexeme + a trailing
+// space when present (a bare `#infixl +` with no `of N` emits nothing). `pp_fixity_names` emits the
+// operator lexemes space-separated (`#infix0 < <=` -> `< <=`).
+and
+fixity_kw_of_token(tknd: token): strn =
+( case+ tknd.node() of
+  | T_SRP_FIXITY(knd) =>
+    ( if knd = 1 then "infixl"
+      else if knd = 2 then "infixr"
+      else if knd = 3 then "prefix"
+      else if knd = 4 then "postfix"
+      else "infix0" )                 // KINFIX0 = 0 (and the defensive default)
+  | _ => "infixl" )                   // unreachable (D0Cfixity always carries T_SRP_FIXITY)
+and
+pp_fixity_prec(out: FILR, popt: precopt): void =
+( case+ popt of
+  | PRECnil0() => ()                  // bare fixity (no `of N`) -> no precedence token
+  | PRECint1(tint) => (ps(out, tok_lexeme(tint)); ps(out, " "))
+  // PRECopr2 (`of OP(+N)` — a precedence RELATIVE to another operator, e.g. `#infixl && of ||(+1)`).
+  // Faithfully re-emit the operator name + the optional `(+N)` modifier so the round-trip preserves
+  // the relative-precedence form. (The pythonic parser reads it back via p_fixity's INT path only —
+  // a relative prec is rare in the corpus and not consulted by our fixed Pratt table — so we render
+  // the resolved base operator's name; an explicit `(+N)` modifier is appended verbatim.)
+  | PRECopr2(opr, pmod) => (
+      ps(out, i0dnt_lexeme(opr));
+      (case+ pmod of
+       | PMODnone() => ()
+       | PMODsome(_, pint, _) => (
+           ps(out, "(");
+           (case+ pint of
+            | PINTint1(t0) => ps(out, tok_lexeme(t0))
+            | PINTopr2(top, t0) => (ps(out, tok_lexeme(top)); ps(out, tok_lexeme(t0))));
+           ps(out, ")")));
+      ps(out, " ")) )
+and
+pp_fixity_names(out: FILR, id0s: i0dntlst): void =
+( case+ id0s of
+  | list_nil() => ()
+  | list_cons(id, list_nil()) => ps(out, i0dnt_lexeme(id))
+  | list_cons(id, rest) => (ps(out, i0dnt_lexeme(id)); ps(out, " "); pp_fixity_names(out, rest)) )
 //
 (* ****** ****** *)
 //

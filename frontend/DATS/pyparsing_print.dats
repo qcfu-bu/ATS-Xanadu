@@ -562,6 +562,10 @@ case+ d of
     ps(out, " = "); ps(out, tgt);
     ( if prec >= 0 then (ps(out, " of "); pi(out, prec)) else () );
     ps(out, ")") )
+| PyCfixity(loc, knd, prec, names) =>
+  ( ps(out, "(fixity k="); pi(out, knd); print_span(out, loc);
+    ( if ~strn_eq(prec, "") then (ps(out, " of "); ps(out, prec)) else () );
+    ps(out, " "); pp_strnlst(out, names); ps(out, ")") )
 | PyCstmt(loc, s) =>
   (ps(out, "(cstmt"); print_span(out, loc); pp_stmt(out, s, ind + 1); ps(out, ")"))
 | PyCerror(loc, msg) =>

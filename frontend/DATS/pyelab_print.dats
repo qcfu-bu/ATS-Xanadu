@@ -556,6 +556,11 @@ case+ d of
       | PyTypNone() => ()
       | PyTypSome(t) => (ps(out, " (ret "); pp_typ(out, t); ps(out, ")")) );
     ps(out, ")") )
+// FIXITY (Cluster B): a fixity decl -> "(fixity k=KND of PREC names…)".
+| PCCfixity(loc, knd, prec, names) =>
+  ( ps(out, "(fixity k="); pi(out, knd); print_span(out, loc);
+    ( if ~strn_eq(prec, "") then (ps(out, " of "); ps(out, prec)) else () );
+    ps(out, " "); pp_strnlst(out, names); ps(out, ")") )
 // SCOPING: a `private` run -> the private decl block (capture-rest transform happens at M3).
 | PCCprivate(loc, ds) =>
   ( ps(out, "(private"); print_span(out, loc);

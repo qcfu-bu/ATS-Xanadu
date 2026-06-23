@@ -127,6 +127,20 @@ function PYL_uncapitalize(s) {
   return s.charAt(0).toLowerCase() + s.slice(1);
 }
 //
+// FIXITY (Cluster B): classify an operator lexeme for the stock token kind it round-trips to.
+// A name whose FIRST char is a letter or `_` is ALPHANUMERIC -> stock T_IDALP (e.g. `app`, `foo`,
+// `orelse`); anything else is SYMBOLIC -> stock T_IDSYM (e.g. `+`, `**`, `<<`, `::`, `:=`). This
+// mirrors stock's lexer split (lexing0: alnum idents vs symbolic idents) so the lowered D0Cfixity
+// i0dnt token matches stock's exactly (the l2dump shows T_IDSYM(+) vs T_IDALP(foo)).
+function PYL_is_symbolic_name(s) {
+  s = String(s);
+  if (s.length === 0) return false;
+  var b = s.charCodeAt(0);
+  var isAlpha = (b >= 65 && b <= 90) || (b >= 97 && b <= 122);
+  var isUnder = (b === 95);
+  return (isAlpha || isUnder) ? false : true;
+}
+//
 // Slice bytes [lo, hi) of the current buffer back into a JS (UTF-8) string. Used
 // to materialize a token's lexeme (identifier / literal text) for PT_*(strn).
 function PYL_slice(lo, hi) {
@@ -226,7 +240,17 @@ const PYL__KW = Object.freeze({
   // INCLUDE (faithful #include): PT_KW_INCLUDE is APPENDED LAST in the ptnode datatype (after
   // PT_QMARK=81) so adding it renumbers NOTHING; its constructor tag is 82. Keep in lock-step with
   // the SATS declaration order (a mid-datatype insert would desync every later operator tag here).
-  "include": ["PT_KW_INCLUDE", 82]
+  "include": ["PT_KW_INCLUDE", 82],
+  // FIXITY (Cluster B): the ATS fixity keywords kept VERBATIM (`infixl 50 +` <-> `#infixl + of 50`).
+  // APPENDED LAST in the ptnode datatype (after PT_KW_INCLUDE=82) so their tags 83..87 renumber
+  // NOTHING. Keep in lock-step with the SATS order — XATSCAPP discards the constructor NAME; the
+  // TAG (node[0]) is the pattern-match discriminant, so a wrong tag here mis-routes the token.
+  "infixl":  ["PT_KW_INFIXL", 83],
+  "infixr":  ["PT_KW_INFIXR", 84],
+  "prefix":  ["PT_KW_PREFIX", 85],
+  "postfix": ["PT_KW_POSTFIX", 86],
+  "nonfix":  ["PT_KW_NONFIX", 87],
+  "infix0":  ["PT_KW_INFIX0", 88]
 });
 
 function PYL_scan_raw_iter(src, text) {

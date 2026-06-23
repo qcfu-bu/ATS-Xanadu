@@ -72,6 +72,13 @@ case+ nod of
 | PT_KW_AND() => "KW_AND"
 | PT_KW_OR() => "KW_OR"
 | PT_KW_NOT() => "KW_NOT"
+// FIXITY (Cluster B): the ATS fixity keywords kept VERBATIM.
+| PT_KW_INFIXL() => "KW_INFIXL"
+| PT_KW_INFIXR() => "KW_INFIXR"
+| PT_KW_INFIX0() => "KW_INFIX0"
+| PT_KW_PREFIX() => "KW_PREFIX"
+| PT_KW_POSTFIX() => "KW_POSTFIX"
+| PT_KW_NONFIX() => "KW_NONFIX"
 //
 | PT_UIDENT(_) => "UIDENT"
 | PT_LIDENT(_) => "LIDENT"

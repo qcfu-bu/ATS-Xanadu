@@ -242,6 +242,27 @@ ptnode =
 // and desync the hand-tagged JS scanner (a `=` would lex as `>=`, etc.).
 | PT_KW_INCLUDE of ()   // include (faithful #include: TEXTUAL inline expansion of PATH's decls)
 //
+// FIXITY (Cluster B): the ATS operator-precedence keywords are KEPT VERBATIM in the pythonic
+// surface (project-owner LOCKED) — `infixl`/`infixr`/`prefix`/`postfix`/`nonfix` declare an
+// operator's fixity + precedence (`infixl 50 +` <-> stock `#infixl + of 50`). They are genuine
+// DECL keywords (not decorators), so reserved words, NOT LIDENTs. Each lowers to the SAME stock
+// L2 the `#`-prefixed form does: D2Cd1ecl(D1Cd0ecl(D0Cfixity/D0Cnonfix(...))) — the raw d0ecl is
+// preserved through both levels (the fixity ENV is a trans01 side-effect; our parser owns
+// precedence via its own fixed Pratt table, so the env is never consulted — see the verdict in
+// pyparsing_dynexp's binop table comment). APPENDED LAST (after PT_KW_INCLUDE=82) so the new
+// constructor tags (83..87) do NOT renumber any existing token — the CATS scanner's PYL__KW table
+// maps the five lexemes to the SAME tags (see pylexing.cats). A mid-datatype insert would desync
+// every later operator's hand-coded tag in the JS scanner (a `=` would lex as `>=`, etc.).
+| PT_KW_INFIXL  of ()   // infixl  PREC NAME(s)  (left-assoc infix; tag 83)
+| PT_KW_INFIXR  of ()   // infixr  PREC NAME(s)  (right-assoc infix; tag 84)
+| PT_KW_PREFIX  of ()   // prefix  PREC NAME(s)  (prefix; tag 85)
+| PT_KW_POSTFIX of ()   // postfix PREC NAME(s)  (postfix; tag 86)
+| PT_KW_NONFIX  of ()   // nonfix  NAME(s)       (strip fixity; tag 87)
+// `infix0` is the n-ASSOC (non-associative) infix — stock `#infix0` (KINFIX0=0), used for the
+// relational ops (`< <= > >= = != == !==`) in fixity0.sats/xglobal_ext000.dats. Kept VERBATIM too
+// so those decls round-trip FAITHFULLY (knd 0, not folded into infixl). APPENDED LAST (tag 88).
+| PT_KW_INFIX0  of ()   // infix0  PREC NAME(s)  (non-assoc infix; tag 88)
+//
 (* ****** ****** *)
 //
 // A `pytoken` pairs a kind with its source span (half-open [pbeg, pend)).

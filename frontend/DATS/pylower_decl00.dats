@@ -28,6 +28,14 @@
 #staload "./../../srcgen2/SATS/locinfo.sats"
 #staload "./../../srcgen2/SATS/lexing0.sats"
 //
+// FIXITY (Cluster B): building the stock D0Cfixity/D0Cnonfix d0ecl needs the L0 dynexp0 nodes
+// (D0Cfixity, D0Cnonfix, precopt/PRECint1/PRECnil0, D1Cd0ecl) + the staexp0 i0dnt constructor
+// (i0dnt_some). These are the SAME SATS pyprint reads d0ecls from; co-staloaded with dynexp1/
+// dynexp2 here (the L1/L2 makers d1ecl_make_node / d2ecl_make_node are symload-overloaded on the
+// shared `node` accessor, so the levels coexist exactly as in the stock trans01/trans12 passes).
+#staload "./../../srcgen2/SATS/staexp0.sats"
+#staload "./../../srcgen2/SATS/dynexp0.sats"
+//
 // d1ecl_none0 (the VESTIGIAL first field of D2Cdatatype — trans23's f0_datatype binds but
 // never reads it; M5b-spike proven) lives in dynexp1.sats, which libxatsopt.hats does NOT
 // pull in (it staloads only staexp2/dynexp2). Staload it here for the datatype lowering.
@@ -866,6 +874,64 @@ end
 //
 (* ****** ****** *)
 //
+// FIXITY (Cluster B): the round-trip lowering for a `infixl/infixr/prefix/postfix PREC NAME(s)` or
+// `nonfix NAME(s)` decl. BUILDS the stock L0 d0ecl exactly as stock's parser does and wraps it
+// `D2Cd1ecl(D1Cd0ecl(...))` — the SAME L2 stock's f0_fixity/f0_nonfix emit (trans01_decl00.dats:
+// 760/915). The l2dump of a fixity .sats shows the target shape verbatim:
+//   D2Cd1ecl(D1Cd0ecl(D0Cfixity(T_SRP_FIXITY(knd); [I0DNTsome(T_IDSYM(+))]; PRECint1(T_INT01("50")))))
+//   D2Cd1ecl(D1Cd0ecl(D0Cnonfix(T_SRP_NONFIX();   [I0DNTsome(T_IDALP(foo))])))
+// `knd` is the stock KINFIX0/KINFIXL/KINFIXR/KPREFIX/KPSTFIX code (0..4); our pycore kinds are
+// 1=infixl,2=infixr,3=prefix,4=postfix -> stock 1,2,3,4 (KINFIX0=0 is unused — the pythonic surface
+// has no `infix0` keyword; the n-assoc relational ops are pre-declared in the fixed Pratt table).
+// The fixity ENV is a stock trans01 side-effect; OUR parser owns precedence via its fixed table, so
+// we do NOT register anything — a pure structural pass-through of the DECL, faithful by node shape.
+#extern fun PYL_is_symbolic_name(s: strn): bool = $extnam()
+//
+fun
+fixity_i0dnt_of(loc: loctn, nm: strn): i0dnt = let
+  // SYMBOLIC operator (`+`/`**`/`<<`/`::`) -> T_IDSYM; ALPHANUMERIC (`app`/`foo`/`orelse`) -> T_IDALP
+  // — mirroring stock's lexer split so the lowered token matches stock's d0ecl exactly.
+  val tnod = ( if PYL_is_symbolic_name(nm) then T_IDSYM(nm) else T_IDALP(nm) )
+  val tok  = token_make_node(loc, tnod)
+in
+  i0dnt_some(tok)
+end
+//
+fun
+fixity_i0dntlst_of(loc: loctn, names: list(strn)): i0dntlst =
+( case+ names of
+  | list_nil() => list_nil()
+  | list_cons(nm, rest) => list_cons(fixity_i0dnt_of(loc, nm), fixity_i0dntlst_of(loc, rest)) )
+//
+fun
+build_fixity(env: !tr12env, loc: loctn, knd: sint, prec: strn, names: list(strn)): d2ecl = let
+  val id0s = fixity_i0dntlst_of(loc, names)
+  val d0cl =
+    ( if knd = 5 then
+        // `nonfix NAME(s)` -> D0Cnonfix(T_SRP_NONFIX(); id0s).
+        let val tknd = token_make_node(loc, T_SRP_NONFIX()) in
+          d0ecl_make_node(loc, D0Cnonfix(tknd, id0s)) end
+      else
+        // `infixl/infixr/prefix/postfix PREC NAME(s)` -> D0Cfixity(T_SRP_FIXITY(knd); id0s; precopt).
+        // The precedence rides the stock `T_INT01(s)` int-literal token (s = the RAW lexeme, exactly
+        // the existing int-literal lowering); "" = no precedence -> PRECnil0 (stock's bare-fixity arm).
+        let
+          val tknd = token_make_node(loc, T_SRP_FIXITY(knd))
+          val popt =
+            ( if ~strn_eq(prec, "") then
+                PRECint1(token_make_node(loc, T_INT01(prec)))
+              else PRECnil0() )
+        in
+          d0ecl_make_node(loc, D0Cfixity(tknd, id0s, popt)) end
+    ): d0ecl
+  // wrap d0ecl -> D1Cd0ecl -> D2Cd1ecl, exactly as stock f0_fixity/f0_nonfix + trans12_d1ecl do.
+  val d1cl = d1ecl_make_node(loc, D1Cd0ecl(d0cl))
+in
+  d2ecl_make_node(loc, D2Cd1ecl(d1cl))
+end
+//
+(* ****** ****** *)
+//
 // ---- M7-import (task #34): the SCOPED module load + merge for a USER `import M` / `from M
 //      import x`. This REPLICATES the stock `f0_staload` SCOPED path (trans12_decl00.dats:2365-
 //      2388) — load the module's d2parsed, build its `f2env`, register it under `$.` (DLRDT_symbl)
@@ -1349,6 +1415,12 @@ case+ d of
 // def preceding this — TARGET must already be registered (build_overload's not-found -> benign no-op).
 | PCCsymalias(loc, name, tgt, prec) =>
     build_overload(env, loc, name, tgt, (if prec >= 0 then prec else 0))
+//
+// FIXITY (Cluster B): `infixl 50 +` / `nonfix foo` -> the stock D0Cfixity/D0Cnonfix d0ecl wrapped
+// D2Cd1ecl(D1Cd0ecl(...)) — byte-identical to stock's f0_fixity/f0_nonfix L2 (build_fixity above).
+// Our parser owns operator precedence via its fixed Pratt table (which already matches fixity0.sats's
+// relative ordering for every corpus operator), so this is a faithful pass-through of the DECL.
+| PCCfixity(loc, knd, prec, names) => build_fixity(env, loc, knd, prec, names)
 //
 // ATS-parity: a `sortdef Name = SORT` SORT ALIAS -> a D2Csortdef. SPIKE-PROVEN (dep-spike P6(A)):
 // map the RHS sort-reference string to a sort2 (the same SInt/Type/Prop vocab psort2_of uses), wrap

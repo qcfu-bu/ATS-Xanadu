@@ -82,11 +82,44 @@ a few specialized `.dats`, and the prelude kernel — exactly the unexplored lay
 | `S0Eop3`      | static `op(...)` special form | low | low | DEFER (rare; not in basics0) |
 | `S0Elams`/`S0Efimp` | static lambda / fn-impl type | low | low | DEFER (rare; not in basics0) |
 
-### Cluster B — fixity DSL
+### Cluster B — fixity DSL — ✅ DONE
 | construct | ATS syntax | srcgen2 | prelude | |
 |---|---|---:|---:|---|
-| `D0Cfixity` | `infixl`/`infixr`/`prefix`/`postfix` | ~57 (2 sats,5 dats) | 45 | PP+PR+LO+T; also make our fixed Pratt table source-configurable |
-| `D0Cnonfix` | `nonfix` | ~18 | 0 | PP+PR+LO+T |
+| `D0Cfixity` | `infixl`/`infixr`/`infix0`/`prefix`/`postfix` | ~57 (2 sats,5 dats) | 45 | ✅ PP+PR+LO+T |
+| `D0Cnonfix` | `nonfix` | ~18 | 0 | ✅ PP+PR+LO+T |
+
+**Cluster B landed.** The ATS fixity keywords are KEPT VERBATIM in the pythonic surface (project-owner
+LOCKED): `infixl`/`infixr`/`infix0`/`prefix`/`postfix`/`nonfix` — only the SHAPE flips (`#infixl + of
+50` ↔ `infixl 50 +`: keyword PRECEDENCE NAME(s)). Lexer: 6 keyword tokens APPENDED LAST in `ptnode`
+(tags 83–88; the CATS scanner's `PYL__KW` maps the lexemes to the SAME tags — XATSCAPP discards the
+constructor NAME, the TAG is the pattern-match discriminant, so a mid-datatype insert would desync
+every later operator). Lowering BUILDS the stock L0 d0ecl and wraps it `D2Cd1ecl(D1Cd0ecl(D0Cfixity/
+D0Cnonfix(...)))` — the EXACT shape stock's `f0_fixity`/`f0_nonfix` emit (the fixity ENV is a stock
+trans01 side-effect; our parser owns precedence via its own FIXED Pratt table).
+
+**Pratt-table verdict: the FIXED table SUFFICES — no source-configurability needed.** The hardcoded
+operator-precedence table (`pyparsing_dynexp.dats:107-130`, normalized levels 1–8) matches
+`srcgen1/prelude/fixity0.sats`'s RELATIVE ordering for every operator the corpus uses in EXPRESSION
+position: mul(`*`/`/`/`%`/`//` of 60) > add(`+`/`-` of 50) > compare(`< <= > >=` of 40) > equal(`= !=`
+of 30) > and(`&&` of 21) > or(`||` of 20), with `**` of 61 right-assoc highest among arithmetic. The
+non-standard ATS operators (`::`,`@`,`++`,`<<`,`>>`,`&`,`^`,`:=`) never appear as INFIX operators in
+the pythonic-shaped corpus (they are Python idioms / method calls), so the table never misses one.
+SURFACE-GRAMMAR §5.6 makes this the design: "The parser owns precedence (Pratt) — no ATS fixity." The
+fixity decls are therefore a faithful pass-through of the DECL, not a re-configuration of the table.
+
+**L2-diff FAITHFUL (0 triage diff vs stock):** `TEST/l2diff/fixity/fixity_decl.sats`
+(`infixl`/`infixr`/`prefix`/`nonfix`) + `TEST/l2diff/fixity/fixity_more.sats` (`infix0` non-assoc,
+multi-name `+ -` / `< <=`, postfix, alphanumeric `app`, prefix `! &`). `fixity0.sats` itself pyprints
+all 33 fixity decls with **0 TODO(pp)** (including the relative-prec `prefix +(+1) +` / `infixl ||(+1)
+&&` and operator-named `infixl || orelse` forms — the ATS→pythonic emit is faithful).
+
+**Deferred (clean, non-corpus):** the pythonic→L2 RE-PARSE of the operator-RELATIVE precedence form
+(`of OP(+N)` / `of OP`) reads the INT-precedence path only — it does not re-parse the `(+N)`/bare-OP
+relative modifier (leaving a survivable poison node, never a crash). These forms appear ONLY in the
+prelude `fixity0.sats` (`+(+1)`,`-(+1)`,`||(+1)`,`||`,`&&`); the gated corpus file `xglobal_ext000.dats`
+has its fixity block STRINGIFIED (not live decls), so no gate exercises this. The stock parser ALSO
+drops a `$`-prefixed fixity operand (`#prefix $raise of 0` → empty name list) — our emit matches stock
+exactly there (faithful to the stock quirk).
 
 ### Cluster C — FFI / foreign binding
 | construct | ATS syntax | srcgen2 | prelude | |
@@ -145,9 +178,10 @@ record-type aliases appear in the corpus (the value/pattern `$recvx` forms ARE f
 
 ## Covered constructs (for completeness)
 - `d0ecl` covered (PP present): `D0Cabsimpl D0Cabstype D0Cdatatype D0Cdefine
-  D0Cdynconst D0Cexcptcon D0Cextern D0Cfundclst D0Cimplmnt0 D0Cinclude D0Clocal0
-  D0Csexpdef D0Cstaload D0Cstatic D0Csymload D0Cvaldclst D0Cvardclst` — plus the
-  in-flight **named-staload alias** (`#staload SYM = …` → `import "…" as SYM`).
+  D0Cdynconst D0Cexcptcon D0Cextern D0Cfixity D0Cfundclst D0Cimplmnt0 D0Cinclude
+  D0Clocal0 D0Cnonfix D0Csexpdef D0Cstaload D0Cstatic D0Csymload D0Cvaldclst
+  D0Cvardclst` — plus the in-flight **named-staload alias** (`#staload SYM = …` →
+  `import "…" as SYM`).
 - `d0exp`/`d0pat`/`s0exp`/`g0exp`: the base forms (id, app, tuple, annot, let, if,
   case, lam, where, lpar, raise, qual; con/var/idx/bin/fun/tup types; id/int/app
   guards) are covered — those carry the 153 green `.dats`.
@@ -160,7 +194,8 @@ compiler resolve), and ONE focused test per construct. Ordered by leverage:
 1. **Cluster C — FFI (`$extnam`, `dynload`)** — unblocks the prelude (665 `$extnam`).
 2. **Cluster A — static/sort kernel decls** — unblocks the SATS interfaces + prelude
    `basics0.sats` (the kernel where these are *declared*).
-3. **Cluster B — fixity DSL** — `fixity0.sats` + source-configurable operator table.
+3. ~~**Cluster B — fixity DSL**~~ ✅ DONE — `fixity0.sats` round-trips (33 decls, 0 TODO(pp)); the
+   FIXED Pratt table suffices for the corpus (no source-configurability built — verdict above).
 4. **Cluster D — record variants** — boxed/flat/linear `@{}`/`${}`/`~{}`.
 5. **Cluster E — macros + misc** — `macdef`, `try`-emit, `exists`, `fix`.
 

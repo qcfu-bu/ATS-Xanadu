@@ -195,6 +195,16 @@ kw_of_lident(s: strn): ptnode =
   else if s = "and" then PT_KW_AND()
   else if s = "or" then PT_KW_OR()
   else if s = "not" then PT_KW_NOT()
+  // FIXITY (Cluster B): the ATS operator-precedence keywords kept VERBATIM (project-owner LOCKED):
+  // `infixl`/`infixr`/`prefix`/`postfix`/`nonfix`. Genuine decl keywords, so reserved words, NOT
+  // LIDENTs. (The DEPLOYED scan path is the CATS scanner's PYL__KW table — this arm keeps the pure-
+  // DATS classifier in sync, mirroring the existing keyword arms.)
+  else if s = "infixl" then PT_KW_INFIXL()
+  else if s = "infixr" then PT_KW_INFIXR()
+  else if s = "infix0" then PT_KW_INFIX0()
+  else if s = "prefix" then PT_KW_PREFIX()
+  else if s = "postfix" then PT_KW_POSTFIX()
+  else if s = "nonfix" then PT_KW_NONFIX()
   else if s = "true" then PT_TRUE()
   else if s = "false" then PT_FALSE()
   else PT_LIDENT(s)

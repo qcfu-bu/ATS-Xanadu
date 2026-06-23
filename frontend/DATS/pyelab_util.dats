@@ -77,6 +77,7 @@ case+ d of
 | PCCextern(loc, _, _, _, _, _, _) => loc
 | PCCimplement(loc, _, _, _, _, _, _, _, _) => loc | PCCoverload(loc, _, _) => loc
 | PCCsymalias(loc, _, _, _) => loc
+| PCCfixity(loc, _, _, _) => loc
 | PCCtempl(loc, _, _, _, _, _, _, _) => loc
 | PCCsortdef(loc, _, _) => loc | PCCstacst(loc, _, _) => loc
 | PCCsortsub(loc, _, _, _) => loc

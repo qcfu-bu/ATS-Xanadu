@@ -1065,6 +1065,88 @@ decos_overload_prec_p(decos: list(pydecorator)): sint =
                | _ => decos_overload_prec_p(rest) )
         else decos_overload_prec_p(rest) )
 //
+// FIXITY (Cluster B): the ATS operator-precedence keywords kept VERBATIM (project-owner LOCKED).
+// In the SAME `fun … and …` group as p_overload_name so the name parser is reused for the
+// (symbolic / alphanumeric) operator lexemes. Grammar (positioned ON the keyword token):
+//   infixl  PREC NAME(s)   (kind 1)   infixr  PREC NAME(s)  (kind 2)
+//   prefix  PREC NAME(s)   (kind 3)   postfix PREC NAME(s)  (kind 4)
+//   nonfix  NAME(s)        (kind 5, no precedence)
+// PREC is a non-negative INT literal; NAME(s) is one-or-more operator lexemes. All five are
+// SINGLE-LINE decls (terminated by NEWLINE, consumed by p_top_item). A missing precedence on an
+// infix/prefix/postfix degrades to `~1` (none) + a diagnostic — graceful recovery, never a crash.
+and
+fixity_kind_of(nod: ptnode): sint =
+( case+ nod of
+  | PT_KW_INFIX0()  => 0   // KINFIX0 (non-assoc infix)
+  | PT_KW_INFIXL()  => 1   // KINFIXL
+  | PT_KW_INFIXR()  => 2   // KINFIXR
+  | PT_KW_PREFIX()  => 3   // KPREFIX
+  | PT_KW_POSTFIX() => 4   // KPSTFIX
+  | PT_KW_NONFIX()  => 5   // nonfix (internal code; -> D0Cnonfix)
+  | _ => 0 )
+//
+// read ONE operator name token (the fixity-decl operand). A SUPERSET of p_overload_name: handles the
+// extra PREFIX/symbolic operators that appear in fixity decls but not overload aliases — `~` `!` `?`
+// `@` `|` `:` `->` `:=` `&`. Alphanumeric names (`app`, `orelse`, `andalso`, `$raise`) come through as
+// LIDENT/UIDENT. Returns @(name, state-after, recognized?); recognized=false stops the name loop.
+and
+p_fixity_name(st: pstate): @(strn, pstate, bool) =
+( case+ ps_peek(st) of
+  | PT_TILDE()    => @("~", ps_advance(st), true)
+  | PT_BANG()     => @("!", ps_advance(st), true)
+  | PT_QMARK()    => @("?", ps_advance(st), true)
+  | PT_AT()       => @("@", ps_advance(st), true)
+  | PT_BAR()      => @("|", ps_advance(st), true)
+  | PT_COLON()    => @(":", ps_advance(st), true)
+  | PT_ARROW()    => @("->", ps_advance(st), true)
+  | PT_COLONEQ()  => @(":=", ps_advance(st), true)
+  | PT_EQ()       => @("=", ps_advance(st), true)   // the equality operator `=` (a fixity operand)
+  | PT_FATARROW() => @("=>", ps_advance(st), true)
+  | _ => p_overload_name(st) )   // LIDENT/UIDENT + the arithmetic/comparison/`&`/`[]` operators
+//
+// one-or-more operator NAMES, stopping at NEWLINE/EOF/DEDENT (the decl terminators) or any token
+// p_fixity_name does not recognize as a name.
+and
+p_fixity_names(st: pstate, acc: list(strn)): @(list(strn), pstate) =
+( case+ ps_peek(st) of
+  | PT_NEWLINE() => @(list_reverse(acc), st)
+  | PT_EOF()     => @(list_reverse(acc), st)
+  | PT_DEDENT()  => @(list_reverse(acc), st)
+  | _ =>
+    let val @(nm, st1, ok) = p_fixity_name(st) in
+      if ok then p_fixity_names(st1, list_cons(nm, acc))
+      else @(list_reverse(acc), st)   // not a name token -> stop (terminator handled by caller)
+    end )
+and
+p_fixity(st: pstate): @(pydecl, pstate) = let
+  val loc = ps_peek_loctn(st)
+  val knd = fixity_kind_of(ps_peek(st))
+  val st1 = ps_advance(st)   // consume the fixity keyword
+in
+  if knd = 5 then
+    // `nonfix NAME(s)` — NO precedence (carry "" = none).
+    let val @(names, st2) = p_fixity_names(st1, list_nil()) in
+      @(PyCfixity(loc, knd, "", names), st2) end
+  else
+    // `infixl/infixr/prefix/postfix PREC NAME(s)` — keep the RAW int lexeme, then the names.
+    case+ ps_peek(st1) of
+    | PT_INT(raw) =>
+      let
+        val st2 = ps_advance(st1)
+        val @(names, st3) = p_fixity_names(st2, list_nil())
+      in
+        @(PyCfixity(loc, knd, raw, names), st3)
+      end
+    | _ =>
+      // graceful: no precedence given — emit with "" (none, => PRECnil0 at lowering) + diagnose.
+      let
+        val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected an integer precedence after the fixity keyword")
+        val @(names, st3) = p_fixity_names(st2, list_nil())
+      in
+        @(PyCfixity(loc, knd, "", names), st3)
+      end
+end
+//
 (* ****** ****** *)
 //
 // ---- the SATS `parse_decl` entry: a decl may be prefixed by decorators (§5.7), so FIRST parse
@@ -1115,6 +1197,14 @@ in
   // INCLUDE (faithful #include): `include "PATH"` — a TEXTUAL inline expansion (distinct from
   // import/from, which merge a sealed module's env). Takes NO decorators (like import).
   | PT_KW_INCLUDE() => p_include(st0)
+  // FIXITY (Cluster B): `infixl 50 +` / `nonfix foo` — the ATS operator-precedence keywords kept
+  // VERBATIM. Single-line decls (NEWLINE-terminated, consumed by p_top_item). Take NO decorators.
+  | PT_KW_INFIXL()  => p_fixity(st0)
+  | PT_KW_INFIXR()  => p_fixity(st0)
+  | PT_KW_INFIX0()  => p_fixity(st0)
+  | PT_KW_PREFIX()  => p_fixity(st0)
+  | PT_KW_POSTFIX() => p_fixity(st0)
+  | PT_KW_NONFIX()  => p_fixity(st0)
   // SCOPING (bootstrap P1): `private` — a decl-MODIFIER (`private def helper(...)` — one decl) or a
   // `private:` BLOCK (an indented suite of private decls). It is the OUTERMOST modifier (it takes no
   // PRECEDING decorators; an inner `private @impl def` re-enters parse_decl which parses those). The
@@ -1288,6 +1378,13 @@ in
   | PT_KW_INCLUDE() =>
     // INCLUDE (faithful #include): a single-line `include "PATH"` — consume its trailing NEWLINE.
     let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+  // FIXITY (Cluster B): single-line fixity decls (`infixl 50 +`, `nonfix foo`) — consume trailing NEWLINE.
+  | PT_KW_INFIXL()  => let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+  | PT_KW_INFIXR()  => let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+  | PT_KW_INFIX0()  => let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+  | PT_KW_PREFIX()  => let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+  | PT_KW_POSTFIX() => let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
+  | PT_KW_NONFIX()  => let val @(d, st1) = parse_decl(st) in @(d, expect_newline_d(st1)) end
   | _ =>
     // a top-level STATEMENT (let / expr / if / while / for / match / break / ...).
     // Reuse dynexp's `parse_stmt` (a block stmt consumes its own layout; a simple stmt

@@ -462,6 +462,20 @@ pcdecl =
 //                 typecheck (trsym2b_dynexp.dats auxpmax/auxtake prune the bucket to the max pval),
 //                 so it is load-bearing, not cosmetic.
 | PCCsymalias  of (loctn, strn(*name*), strn(*target*), sint(*precopt; ~1 = none*))
+//   PCCfixity : a FIXITY declaration (Cluster B) — `infixl`/`infixr`/`prefix`/`postfix`/`nonfix`,
+//               the ATS operator-precedence keywords kept VERBATIM (LOCKED). Carries the fixity
+//               KIND (sint: 0=infix0/non, 1=infixl, 2=infixr, 3=prefix, 4=postfix, 5=nonfix —
+//               matching stock's KINFIX0/KINFIXL/KINFIXR/KPREFIX/KPSTFIX codes, plus 5 for nonfix),
+//               the PRECEDENCE as the RAW int LEXEME (`""` = none — for `nonfix`), and the operator
+//               NAME list. The precedence is kept as a STRING (not parsed to sint) so it feeds the
+//               stock `T_INT01(s)` token DIRECTLY — exactly the existing int-literal lowering path
+//               (pylower_dynexp `T_INT01(s)`). M3 (pylower_decl00) BUILDS the stock `D0Cfixity(
+//               T_SRP_FIXITY(knd); [I0DNTsome ...]; PRECint1/PRECnil0)` or `D0Cnonfix(T_SRP_NONFIX();
+//               [...])`, wraps it `D2Cd1ecl(D1Cd0ecl(...))` — the EXACT L2 stock's f0_fixity/f0_nonfix
+//               emit (trans01_decl00.dats:654/865). The fixity ENV is a stock trans01 side-effect;
+//               OUR parser owns precedence via its fixed Pratt table, so the round-trip is a faithful
+//               DECL pass-through (not a re-configuration).
+| PCCfixity    of (loctn, sint(*kind*), strn(*prec lexeme; "" = none*), list(strn)(*names*))
 //   PCCtempl : a `@template[A, B] def foo[C, D](params) [-> Ret] [: body]` TEMPLATE declaration
 //              (A-template). Carries:
 //                * the TEMPLATE-arg binders (`list(pcparam)`, the `@template[A,B]` brackets) -> the
