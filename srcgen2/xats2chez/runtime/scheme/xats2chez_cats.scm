@@ -212,6 +212,13 @@
 (define (g_free x) (if #f #f))          ; linear free: GC no-op
 (define (XATS000_g_free x) (if #f #f))
 
+;; a template instance with NO resolved body (optn_nil) is defined to this stub
+;; (mirrors the JS backend's f0_t1imp -> XATS000_undef()): it binds the name so
+;; the program LOADS, and errors only if the unresolved instance is actually
+;; called -- exactly the JS behavior.
+(define (XATS000_undef . args)
+  (error 'XATS000_undef "template instance with no resolved body was called"))
+
 ;; char classification for the lexer (a char is its ASCII integer code).
 (define (char_isdigit c) (and (>= c 48) (<= c 57)))
 (define (char_isalpha c) (or (and (>= c 65) (<= c 90)) (and (>= c 97) (<= c 122))))

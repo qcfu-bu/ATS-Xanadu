@@ -199,6 +199,43 @@ in//let
 (cz_str(filr, "(XATSCHR0 \""); loop(1); cz_str(filr, "\")"))
 end//let
 //
+(* cz_chr_blsh: a backslash char-escape '\...'.  rep = "'\X...'" (quotes incl.),
+   so rep[1]='\\', rep[2..n-2] is the escape body.  A NUMERIC escape '\NNN' is a
+   decimal char code -> emit the digits as an integer; a NAMED escape (\n \t ..)
+   -> emit its code; everything else falls back to (XATSCHR0 "..").  This avoids
+   emitting raw control bytes / invalid Scheme string escapes (e.g. '\0'). *)
+fun
+cz_chr_blsh
+( filr: FILR, rep: strn): void =
+let
+val n0 = strn_length(rep)
+val c2 = strn_get$at(rep, 2)
+in//let
+if (c2 >= '0') * (c2 <= '9') then
+  let
+  fun loop(i0: sint): void =
+  if (i0 >= n0-1) then () else (cz_raw_char(filr, strn_get$at(rep, i0)); loop(i0+1))
+  in loop(2) end
+else
+(
+case+ c2 of
+| 'n' => cz_str(filr, "10")
+| 't' => cz_str(filr, "9")
+| 'r' => cz_str(filr, "13")
+| 'b' => cz_str(filr, "8")
+| 'f' => cz_str(filr, "12")
+| 'v' => cz_str(filr, "11")
+| 'a' => cz_str(filr, "7")
+| '\\' => cz_str(filr, "92")
+| '\'' => cz_str(filr, "39")
+| '\"' => cz_str(filr, "34")
+| _(*else: '\X' for an unlisted X is the LITERAL char X (e.g. '\(' = '('),
+    emit (XATSCHR0 "X") -- NOT the backslash, which is an invalid Scheme escape*) =>
+  (cz_str(filr, "(XATSCHR0 \"");
+   (if (c2 = '\"') then cz_str(filr, "\\\"") else cz_raw_char(filr, c2));
+   cz_str(filr, "\")")))
+end//let
+//
 fun
 cz_chrtok
 ( filr: FILR, tchr: token): void =
@@ -206,7 +243,7 @@ cz_chrtok
 case- tchr.node() of
 | T_CHAR1_nil0 _ => cz_str(filr, "0")
 | T_CHAR2_char(rep) => cz_chr_body(filr, rep)
-| T_CHAR3_blsh(rep) => cz_chr_body(filr, rep))
+| T_CHAR3_blsh(rep) => cz_chr_blsh(filr, rep))
 //
 (* cz_inttok: emit an integer-literal token's decimal rep. *)
 fun
@@ -267,6 +304,16 @@ timp_idclopt
 case+ timp.node() of
 | T0IMPall1(_, _, o0) => o0
 | T0IMPallx(_, _, o0) => o0)
+//
+(* timp_dcst: the template instance's (generic) d2cst -- the SAME name the use
+   site emits via [tapp], so a stub/def named by it resolves the reference. *)
+fun
+timp_dcst
+( timp: t0imp): d2cst =
+(
+case+ timp.node() of
+| T0IMPall1(dc, _, _) => dc
+| T0IMPallx(dc, _, _) => dc)
 //
 (* cz_ctag: a data constructor's tag, as an integer.  EXCEPTION constructors all
    share the sentinel ctag -1 (exceptions are an open sum), so they would be
@@ -659,7 +706,13 @@ case+ iexp.node() of
 | I0Ecenv(e0, _) => i0exp_cz0(filr, e0)
 //
 (* application -> (f a b ...), dropping [npf] leading proof args *)
-| I0Edap0(fexp) => (cz_str(filr, "("); i0exp_cz0(filr, fexp); cz_str(filr, ")"))
+| I0Edap0(fexp) =>
+  (
+  case+ (unwrap_con(fexp)).node() of
+  (* a NULLARY constructor con() is the value (XATSCAPP tag), NOT a call --
+     emitting ((XATSCAPP tag)) would apply the data vector as a procedure *)
+  | I0Econ(dcon) => (cz_str(filr, "(XATSCAPP "); cz_ctag(filr, dcon); cz_str(filr, ")"))
+  | _(*nullary fn call*) => (cz_str(filr, "("); i0exp_cz0(filr, fexp); cz_str(filr, ")")))
 | I0Edapp(fexp, npf, args) =>
   (
   case+ (unwrap_con(fexp)).node() of
@@ -970,8 +1023,16 @@ case+ tdxp of
       | _(*else*) => ()
       end//let
     else
-      (*effectful: val () = e*)
-      (i0exp_cz0(filr, iexp); cz_str(filr, "\n")))
+      (*effectful: val () = e -- wrap as a throwaway (define czdvN e) so it stays
+        valid in a body that also has LATER defines (Scheme requires every
+        internal define to precede all body expressions; a bare effect-expr in
+        the middle would be an "invalid context for definition" error)*)
+      let
+      val freshn = stamp_get_uint(stamper_getinc(the_cz_stamper))
+      in
+      (cz_str(filr, "(define czdv"); cz_emit_uint(filr, freshn);
+       cz_str(filr, " "); i0exp_cz0(filr, iexp); cz_str(filr, ")\n"))
+      end)
 end//let
 //
 and
@@ -1023,12 +1084,18 @@ case+ tdxp of
 | TEQI0EXPnone() => ()
 | TEQI0EXPsome(_, body) =>
   (
-  cz_str(filr, "(define (");
-  cz_dvar(filr, dpid);
-  cz_fiarglst(filr, farg);
-  cz_str(filr, ") ");
-  i0exp_cz0(filr, body);
-  cz_str(filr, ")\n"))
+  case+ farg of
+  (* point-free (no arg groups): fun f = g.  Emit a FORWARDING lambda
+     (define f (lambda a (apply g a))) -- NOT (define f g): the body may be a
+     forward reference (defined later in the image), and a bare alias would
+     evaluate it eagerly at load time.  The lambda defers resolution to call
+     time (all top-level defines are in place by then) and keeps f's arity. *)
+  | list_nil() =>
+    (cz_str(filr, "(define "); cz_dvar(filr, dpid); cz_str(filr, " (lambda czfwd (apply ");
+     i0exp_cz0(filr, body); cz_str(filr, " czfwd)))\n"))
+  | _(*has arg groups*) =>
+    (cz_str(filr, "(define ("); cz_dvar(filr, dpid); cz_fiarglst(filr, farg);
+     cz_str(filr, ") "); i0exp_cz0(filr, body); cz_str(filr, ")\n")))
 end//let
 //
 and
@@ -1053,12 +1120,13 @@ case+ idcl.node() of
 (* template implementation (#implfun/implement) -> a (define (name params) body) *)
 | I0Dimplmnt0(_, _, _, dimp, fargs, body, _) =>
   (
-  cz_str(filr, "(define (");
-  cz_dimpl_name(filr, dimp);
-  cz_fiarglst(filr, fargs);
-  cz_str(filr, ") ");
-  i0exp_cz0(filr, body);
-  cz_str(filr, ")\n"))
+  case+ fargs of
+  | list_nil() =>   (* point-free template alias: #implfun f = g -> forwarding lambda *)
+    (cz_str(filr, "(define "); cz_dimpl_name(filr, dimp); cz_str(filr, " (lambda czfwd (apply ");
+     i0exp_cz0(filr, body); cz_str(filr, " czfwd)))\n"))
+  | _ =>
+    (cz_str(filr, "(define ("); cz_dimpl_name(filr, dimp); cz_fiarglst(filr, fargs);
+     cz_str(filr, ") "); i0exp_cz0(filr, body); cz_str(filr, ")\n")))
 | I0Ddclst0(idcls) => i0dclist_cz0(filr, idcls)
 | I0Dlocal0(ihead, ibody) =>
   (i0dclist_cz0(filr, ihead); i0dclist_cz0(filr, ibody))
@@ -1117,11 +1185,14 @@ cz_str(filr, " (if (top-level-bound? (quote ");
 cz_sym(filr, d2cst_get_name(dc));
 cz_str(filr, ")) (top-level-value (quote ");
 cz_sym(filr, d2cst_get_name(dc));
-cz_str(filr, ")) (lambda (");
-cz_fiarglst(filr, fargs);
-cz_str(filr, ") ");
-i0exp_cz0(filr, body);
-cz_str(filr, ")))\n");
+cz_str(filr, ")) ");
+(* point-free instance (no arg groups) -> a forwarding lambda (defers a possibly
+   forward-referenced body to call time); one with args -> (lambda (args) body) *)
+(case+ fargs of
+ | list_nil() => (cz_str(filr, "(lambda czfwd (apply "); i0exp_cz0(filr, body); cz_str(filr, " czfwd))"))
+ | _ => (cz_str(filr, "(lambda ("); cz_fiarglst(filr, fargs); cz_str(filr, ") ");
+         i0exp_cz0(filr, body); cz_str(filr, ")")));
+cz_str(filr, "))\n");
 cz_coll_exp(filr, body))
 end//let
 //
