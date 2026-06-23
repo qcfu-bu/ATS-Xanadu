@@ -172,7 +172,11 @@ case+ bop of
 | PyBle()  => "<="
 | PyBgt()  => ">"
 | PyBge()  => ">="
-| PyBeq()  => "=="
+// ATS static EQUALITY/INEQUALITY are the `#sexpdef`-overloaded `=` / `!=` (eq_b0_b0/eq_c0_c0/
+// eq_i0_i0/… ; basics0.sats:181/211/353), NOT `==`/`!==`. Stock keeps the un-expanded alias
+// `S2Ecst(=)` (e.g. `bool(b1=b2)` -> `S2Ecst(=)`). Resolving the pythonic `==`/`!=` to `=`/`!=`
+// hits that overload and round-trips faithfully (a bare `==` const is UNBOUND in the prelude).
+| PyBeq()  => "="
 | PyBne()  => "!="
 | _ => ""    // /, %, //, **, and, or, not — not valid in an index position (unbound, no crash)
 )

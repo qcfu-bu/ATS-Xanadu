@@ -90,6 +90,25 @@ p_tyvar_seq(st: pstate): @(list(pytyparam), pstate) =
   // annotation (`: SInt`/`: SBool`) is what makes it an index param at lowering (psort2_of).
   | PT_UIDENT(_) => p_tyvar_seq_one(st)
   | PT_LIDENT(_) => p_tyvar_seq_one(st)
+  // EMPTY-BINDER quantifier guard `[ | g ]` (stock `exists[ | n >= 0] T` / `forall[ | g] T`): a
+  // bare `|` with NO binders, just a constraint. We synthesize ONE anonymous guard-bearing typaram
+  // (name "", no sort) so hoist_quant_guard lifts the guard into PyTquant's own slot and the binder
+  // list lowers empty (mk_param_s2vars skips the "" name -> no s2var). Mirrors p_tyvar_seq_one's
+  // guard arm, minus the leading binder.
+  | PT_BAR() =>
+    let
+      val loc  = ps_peek_loctn(st)
+      val locG = loc
+      val @(g, st2) = p_index_type(ps_advance(st))   // the bool-index guard expression
+      val tp0  = PyTyParam(loc, "", PySortNone(), list_nil(), PyGuardNone())
+      val tpG  = typaram_set_guard(tp0, locG, g)
+    in
+      case+ ps_peek(st2) of
+      | PT_RBRACK() => @(list_cons(tpG, list_nil()), ps_advance(st2))
+      | _ =>
+        let val st3 = ps_diag(st2, ps_peek_loctn(st2), "expected ']' after a quantifier guard") in
+          @(list_cons(tpG, list_nil()), st3) end
+    end
   | _ =>
     let val st1 = ps_diag(st, ps_peek_loctn(st), "expected a type parameter") in
       @(list_nil(), st1) end )
@@ -974,6 +993,12 @@ p_overload_name(st: pstate): @(strn, pstate, bool) =
   | PT_KW_FORALL() => @("forall", ps_advance(st), true)
   | PT_KW_EXISTS() => @("exists", ps_advance(st), true)
   | PT_KW_TYPE()   => @("type", ps_advance(st), true)
+  // the keyword OPERATORS `not`/`and`/`or`/`in` are also `#symload`able names (e.g. the stock
+  // `#symload not with bool_neg`). Accept them by their spelling; they round-trip to `#symload <kw>`.
+  | PT_KW_NOT()    => @("not", ps_advance(st), true)
+  | PT_KW_AND()    => @("and", ps_advance(st), true)
+  | PT_KW_OR()     => @("or", ps_advance(st), true)
+  | PT_KW_IN()     => @("in", ps_advance(st), true)
   | PT_PLUS()    => @("+", ps_advance(st), true)
   | PT_MINUS()   => @("-", ps_advance(st), true)
   | PT_STAR()    => @("*", ps_advance(st), true)
@@ -1005,6 +1030,10 @@ p_overload_name(st: pstate): @(strn, pstate, bool) =
           | _ => @("!=", st1, true))                     // NEQ; the single EQ is the separator
        | _ => @("!=", st1, true))
     end
+  // `=` as an overloaded NAME (stock `#symload = with g_eq …`): the surface `@overload[N] = = T`
+  // tokenizes EQ EQ T — the FIRST EQ is the name `=`, the SECOND EQ is the alias separator (read
+  // by p_overload_alias below). Consume only the first EQ here so the name is `=`.
+  | PT_EQ()      => @("=", ps_advance(st), true)
   | PT_LT()      =>
     let
       val st1 = ps_advance(st)
@@ -1030,7 +1059,12 @@ p_overload_name(st: pstate): @(strn, pstate, bool) =
       | _ => @(">", st1, true)
     end
   | PT_GTE()     => @(">=", ps_advance(st), true)
+  // `=>` as an overloaded NAME: the stock strn000 prelude has `#symload => with strn_gte` (an
+  // upstream `>=`/`=>` typo kept faithfully). Accept the fat-arrow token as the literal name `=>`.
+  | PT_FATARROW() => @("=>", ps_advance(st), true)
   | PT_AMP()     => @("&", ps_advance(st), true)
+  // `~` as an overloaded NAME (stock `#symload ~ with bool_neg …`): the unary-negation operator.
+  | PT_TILDE()   => @("~", ps_advance(st), true)
   | PT_LBRACK() =>
     let
       val st1 = ps_advance(st)
@@ -1283,6 +1317,11 @@ in
   // p_overload_alias re-checks the decorator and produces the proper diagnostic otherwise.
   | PT_KW_FORALL() => p_overload_alias(st0, decos, locD)
   | PT_KW_EXISTS() => p_overload_alias(st0, decos, locD)
+  // keyword OPERATORS as overload-alias names (stock `#symload not/and/or/in with …`).
+  | PT_KW_NOT() => p_overload_alias(st0, decos, locD)
+  | PT_KW_AND() => p_overload_alias(st0, decos, locD)
+  | PT_KW_OR() => p_overload_alias(st0, decos, locD)
+  | PT_KW_IN() => p_overload_alias(st0, decos, locD)
   | PT_PLUS() => p_overload_alias(st0, decos, locD)
   | PT_MINUS() => p_overload_alias(st0, decos, locD)
   | PT_STAR() => p_overload_alias(st0, decos, locD)
@@ -1291,12 +1330,20 @@ in
   | PT_PERCENT() => p_overload_alias(st0, decos, locD)
   | PT_STAR2() => p_overload_alias(st0, decos, locD)
   | PT_EQEQ() => p_overload_alias(st0, decos, locD)
+  // `@overload[N] = = T` (stock `#symload = with T …`): an `=`-named overload. Only a decl when
+  // `@overload` is present; p_overload_alias re-checks the decorator and errors otherwise (a bare
+  // leading `=` at decl position is otherwise meaningless).
+  | PT_EQ() => p_overload_alias(st0, decos, locD)
   | PT_NEQ() => p_overload_alias(st0, decos, locD)
   | PT_LT() => p_overload_alias(st0, decos, locD)
   | PT_LTE() => p_overload_alias(st0, decos, locD)
   | PT_GT() => p_overload_alias(st0, decos, locD)
   | PT_GTE() => p_overload_alias(st0, decos, locD)
+  // `@overload[N] => = T` (stock strn000 `#symload => with strn_gte`, an upstream `>=` typo).
+  | PT_FATARROW() => p_overload_alias(st0, decos, locD)
   | PT_AMP() => p_overload_alias(st0, decos, locD)
+  // `@overload[N] ~ = T` (stock `#symload ~ with T …`): a `~`-named overload (unary negation).
+  | PT_TILDE() => p_overload_alias(st0, decos, locD)
   | PT_LBRACK() => p_overload_alias(st0, decos, locD)
   | _ =>
     // not a structural decl — should be reached only via the module loop's fallback;

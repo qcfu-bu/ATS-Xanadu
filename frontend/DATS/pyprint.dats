@@ -694,6 +694,9 @@ in
   else if strn_eq(lx, ">") then ">"
   else if strn_eq(lx, ">=") then ">="
   else if strn_eq(lx, "==") then "=="
+  // ATS static EQUALITY is the single `=` (e.g. `bool(b1=b2)`); the pythonic surface spells it
+  // `==`, and pylower_staexp maps `==` back to the prelude static `=` (see :89). Round-trips.
+  else if strn_eq(lx, "=") then "=="
   else if strn_eq(lx, "!=") then "!="
   else ""
 end

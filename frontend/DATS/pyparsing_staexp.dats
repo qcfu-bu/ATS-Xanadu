@@ -126,7 +126,12 @@ case+ binders of
     case+ tp of
     | PyTyParam(loc, nm, sopt, decos, PyGuardSome(gloc, g)) =>
         // found the guard: strip it here, keep the rest as-is (p_typarams only guards the last).
-        @(list_cons(PyTyParam(loc, nm, sopt, decos, PyGuardNone()), rest), PyGuardSome(gloc, g))
+        // EMPTY-BINDER form `[ | g ]`: the synthetic guard-bearing binder has name "" (no actual
+        // binder). DROP it so the quantifier lowers with an EMPTY binder list + just the hoisted
+        // guard (stock `exists[ | n>=0] T`). A NAMED binder `[n: SInt | g]` is kept guard-free.
+        if strn_eq(nm, "")
+          then @(rest, PyGuardSome(gloc, g))
+          else @(list_cons(PyTyParam(loc, nm, sopt, decos, PyGuardNone()), rest), PyGuardSome(gloc, g))
     | PyTyParam(_, _, _, _, PyGuardNone()) =>
         let val @(rest1, gopt) = hoist_quant_guard(rest) in
           @(list_cons(tp, rest1), gopt) end
