@@ -212,15 +212,16 @@
     (let loop ((i 0)) (if (< i n) (begin (string-set! s i (integer->char (f i))) (loop (+ i 1))) s))))
 (define (XATSOPT_strn_append_uint s u) (string-append s (number->string u)))
 (define (strn_append s t) (string-append s t))
-;; string -> a lazy char-code stream (strmcon: #(0) nil / #(1 code lazytail));
-;; the whole stream is a memoized l0azy thunk.  Used by the lexer's char source.
+;; string -> a LINEAR lazy char-code stream (strm_vt = LEVEL-1 lazy, forced by
+;; XATS000_dl1az -- the lexer's lxbf1_getc1 forces it that way).  strmcon: #(0)
+;; nil / #(1 code lazytail).  l1azy thunk takes a dummy linear arg.
 (define (strn_strmize s)
   (let ((n (string-length s)))
     (let mk ((i 0))
-      (XATS000_l0azy
-        (lambda ()
-          (if (>= i n) (vector 0)
-              (vector 1 (char->integer (string-ref s i)) (mk (+ i 1)))))))))
+      (XATS000_l1azy
+        (lambda (_)
+          (if (>= i n) (vector 1)
+              (vector 0 (char->integer (string-ref s i)) (mk (+ i 1)))))))))
 
 ;;;--------------------------------------------------------------------
 ;;; Variadic prerr (gs_prerrln_n* / gs_prerr_*) — like gs_print but to stderr.
@@ -275,11 +276,11 @@
   (case-lambda
     ((xs) xs)
     ((xs fopr)
-     (XATS000_l0azy
-      (lambda ()
-        (let ((c (XATS000_dl0az xs)))
-          (if (= (vector-ref c 0) 0) (vector 0)
-              (vector 1 (fopr (XATSPCON c 0)) (strx_vt_map0 (XATSPCON c 1) fopr)))))))))
+     (XATS000_l1azy
+      (lambda (_)
+        (let ((c (XATS000_dl1az xs)))
+          (if (= (vector-ref c 0) 1) (vector 1)
+              (vector 0 (fopr (XATSPCON c 0)) (strx_vt_map0 (XATSPCON c 1) fopr)))))))))
 (define (strn_get$at$raw s i) (char->integer (string-ref s i)))
 
 ;; pointers (p2tr) — modeled as boxes (an address is a 1-slot cell).
