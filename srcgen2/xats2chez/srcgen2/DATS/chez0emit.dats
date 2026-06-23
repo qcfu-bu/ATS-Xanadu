@@ -46,6 +46,8 @@ NOTE (stamp discipline): keep the SATS stable; DATS-only edits are safe.
 "./../../../SATS/xbasics.sats"
 #staload // D2E =
 "./../../../SATS/dynexp2.sats"
+#staload // LAB =
+"./../../../SATS/xlabel0.sats"
 //
 (* ****** ****** *)
 //
@@ -68,6 +70,13 @@ cz_str
 ( filr: FILR, s0: strn): void =
 (
   prints(s0)) where { #impltmp g_print$out<>() = filr }
+//
+(* cz_emit_int: write an integer to [filr]. *)
+fun
+cz_emit_int
+( filr: FILR, i0: sint): void =
+(
+  prints(i0)) where { #impltmp g_print$out<>() = filr }
 //
 (* cz_sym: write a symbol's chars to [filr].  (M2: verbatim; a Scheme-safe
    mangler + stamp suffix for user names follows in a later increment.) *)
@@ -153,33 +162,6 @@ case- tint.node() of
 | T_INT02(_, rep) => cz_str(filr, rep)
 | T_INT03(_, rep, _) => cz_str(filr, rep))
 //
-(* cz_pat_test: a boolean Scheme expr testing the scrutinee [czscrut] against
-   a pattern.  M3b: flat patterns (literal / var / wildcard); nested
-   constructor/tuple patterns follow in M3c. *)
-fun
-cz_pat_test
-( filr: FILR, pat: i0pat): void =
-(
-case+ pat.node() of
-| I0Pany() => cz_str(filr, "#t")
-| I0Pvar(_) => cz_str(filr, "#t")
-| I0Pint(t0) => (cz_str(filr, "(= czscrut "); cz_inttok(filr, t0); cz_str(filr, ")"))
-| I0Pchr(t0) => (cz_str(filr, "(= czscrut "); cz_chrtok(filr, t0); cz_str(filr, ")"))
-| I0Pstr(t0) => (cz_str(filr, "(string=? czscrut "); cz_strlit(filr, t0); cz_str(filr, ")"))
-| _(*else*) =>
-  (cz_str(filr, "#f"); prerrsln("[chez0emit] UNHANDLED pat-test")))
-//
-(* cz_pat_binds: emit the let-binding-list CONTENT for a pattern (a var
-   pattern binds czscrut; flat literals bind nothing). *)
-fun
-cz_pat_binds
-( filr: FILR, pat: i0pat): void =
-(
-case+ pat.node() of
-| I0Pvar(dvar) =>
-  (cz_str(filr, "("); cz_sym(filr, d2var_get_name(dvar)); cz_str(filr, " czscrut)"))
-| _(*else*) => ())
-//
 (* ldrop / ldrop_pat: drop the first [n] (proof) elements of an arg/pat list. *)
 fun
 ldrop
@@ -193,7 +175,145 @@ ldrop_pat
 if (n <= 0) then xs else
 (case+ xs of list_nil() => xs | list_cons(_, xs) => ldrop_pat(xs, n-1))
 //
-(* ****** ****** *)
+(* unwrap_con: strip erased type/template wrappers to expose a bare I0Econ in
+   an application's function position (so a datacon application is recognized
+   as a construction rather than a call). *)
+fun
+unwrap_con
+( e0: i0exp): i0exp =
+(
+case+ e0.node() of
+| I0Etimp(t0, _) => unwrap_con(t0)
+| I0Etapq(f0, _) => unwrap_con(f0)
+| I0Esapq(f0, _) => unwrap_con(f0)
+| I0Etapp(f0, _) => unwrap_con(f0)
+| I0Esapp(f0, _) => unwrap_con(f0)
+| _(*else*) => e0)
+//
+(* cz_ctag: a data constructor's tag, as an integer. *)
+fun
+cz_ctag
+( filr: FILR, dcon: d2con): void =
+(
+  prints(d2con_get_ctag(dcon))) where { #impltmp g_print$out<>() = filr }
+//
+(* cz_lab_idx: a (positional) label as an integer index. *)
+fun
+cz_lab_idx
+( filr: FILR, lab: label): void =
+(
+case+ lab of
+| LABint(i0) => (prints(i0)) where { #impltmp g_print$out<>() = filr }
+| LABsym(_) =>
+  (cz_str(filr, "0"); prerrsln("[chez0emit] UNHANDLED record (symbol) label -> 0")))
+//
+(* cz_funpat_ctag: the ctag of the constructor in a (possibly wrapped) datacon
+   application pattern's function position. *)
+fun
+cz_funpat_ctag
+( filr: FILR, fpat: i0pat): void =
+(
+case+ fpat.node() of
+| I0Pcon(dcon) => cz_ctag(filr, dcon)
+| I0Pdap1(p0) => cz_funpat_ctag(filr, p0)
+| I0Ptapq(p0, _) => cz_funpat_ctag(filr, p0)
+| _(*else*) =>
+  (cz_str(filr, "0"); prerrsln("[chez0emit] UNHANDLED funpat ctag")))
+//
+(* cz_acc: emit the access expression for the [idx]-th field of czscrut --
+   a datacon field (XATSPCON, tag-offset) or a tuple field (vector-ref). *)
+fun
+cz_acc
+( filr: FILR, iscon: bool, idx: sint): void =
+(
+if iscon
+then (cz_str(filr, "(XATSPCON czscrut "); cz_emit_int(filr, idx); cz_str(filr, ")"))
+else (cz_str(filr, "(vector-ref czscrut "); cz_emit_int(filr, idx); cz_str(filr, ")")))
+//
+(* cz_subtest: a constraint for a one-level sub-pattern (var/wildcard -> #t;
+   literal -> equality on the projected field; nested -> #f + note). *)
+fun
+cz_subtest
+( filr: FILR, iscon: bool, idx: sint, sp: i0pat): void =
+(
+case+ sp.node() of
+| I0Pany() => cz_str(filr, "#t")
+| I0Pvar(_) => cz_str(filr, "#t")
+| I0Pint(t0) =>
+  (cz_str(filr, "(= "); cz_acc(filr, iscon, idx); cz_str(filr, " "); cz_inttok(filr, t0); cz_str(filr, ")"))
+| I0Pchr(t0) =>
+  (cz_str(filr, "(= "); cz_acc(filr, iscon, idx); cz_str(filr, " "); cz_chrtok(filr, t0); cz_str(filr, ")"))
+| I0Pstr(t0) =>
+  (cz_str(filr, "(string=? "); cz_acc(filr, iscon, idx); cz_str(filr, " "); cz_strlit(filr, t0); cz_str(filr, ")"))
+| _(*else: nested con/tuple pattern*) =>
+  (cz_str(filr, "#f"); prerrsln("[chez0emit] UNHANDLED nested sub-pattern")))
+//
+(* cz_subbind: bind a var sub-pattern's name to its projected field. *)
+fun
+cz_subbind
+( filr: FILR, iscon: bool, idx: sint, sp: i0pat): void =
+(
+case+ sp.node() of
+| I0Pvar(dvar) =>
+  (cz_str(filr, "("); cz_sym(filr, d2var_get_name(dvar)); cz_str(filr, " ");
+   cz_acc(filr, iscon, idx); cz_str(filr, ") "))
+| _(*else*) => ())
+//
+fun
+cz_subtests
+( filr: FILR, iscon: bool, idx: sint, sps: i0patlst): void =
+(
+case+ sps of
+| list_nil() => ()
+| list_cons(sp, sps) =>
+  (cz_str(filr, " "); cz_subtest(filr, iscon, idx, sp); cz_subtests(filr, iscon, idx+1, sps)))
+//
+fun
+cz_subbinds
+( filr: FILR, iscon: bool, idx: sint, sps: i0patlst): void =
+(
+case+ sps of
+| list_nil() => ()
+| list_cons(sp, sps) =>
+  (cz_subbind(filr, iscon, idx, sp); cz_subbinds(filr, iscon, idx+1, sps)))
+//
+(* cz_pat_test: a boolean Scheme expr testing the scrutinee [czscrut] against
+   a pattern.  Flat literals + var/wildcard, plus ONE-LEVEL constructor/tuple
+   patterns (their sub-patterns are flat: var/wildcard/literal). *)
+fun
+cz_pat_test
+( filr: FILR, pat: i0pat): void =
+(
+case+ pat.node() of
+| I0Pany() => cz_str(filr, "#t")
+| I0Pvar(_) => cz_str(filr, "#t")
+| I0Pint(t0) => (cz_str(filr, "(= czscrut "); cz_inttok(filr, t0); cz_str(filr, ")"))
+| I0Pchr(t0) => (cz_str(filr, "(= czscrut "); cz_chrtok(filr, t0); cz_str(filr, ")"))
+| I0Pstr(t0) => (cz_str(filr, "(string=? czscrut "); cz_strlit(filr, t0); cz_str(filr, ")"))
+| I0Pcon(dcon) =>
+  (cz_str(filr, "(XATS000_ctgeq czscrut "); cz_ctag(filr, dcon); cz_str(filr, ")"))
+| I0Pdapp(fpat, npf, sps) =>
+  (cz_str(filr, "(and (XATS000_ctgeq czscrut "); cz_funpat_ctag(filr, fpat); cz_str(filr, ")");
+   cz_subtests(filr, true, 0, ldrop_pat(sps, npf)); cz_str(filr, ")"))
+| I0Ptup0(npf, sps) =>
+  (cz_str(filr, "(and #t"); cz_subtests(filr, false, 0, ldrop_pat(sps, npf)); cz_str(filr, ")"))
+| I0Ptup1(_, npf, sps) =>
+  (cz_str(filr, "(and #t"); cz_subtests(filr, false, 0, ldrop_pat(sps, npf)); cz_str(filr, ")"))
+| _(*else*) =>
+  (cz_str(filr, "#f"); prerrsln("[chez0emit] UNHANDLED pat-test")))
+//
+(* cz_pat_binds: emit the let-binding-list CONTENT for a pattern. *)
+fun
+cz_pat_binds
+( filr: FILR, pat: i0pat): void =
+(
+case+ pat.node() of
+| I0Pvar(dvar) =>
+  (cz_str(filr, "("); cz_sym(filr, d2var_get_name(dvar)); cz_str(filr, " czscrut)"))
+| I0Pdapp(_, npf, sps) => cz_subbinds(filr, true, 0, ldrop_pat(sps, npf))
+| I0Ptup0(npf, sps) => cz_subbinds(filr, false, 0, ldrop_pat(sps, npf))
+| I0Ptup1(_, npf, sps) => cz_subbinds(filr, false, 0, ldrop_pat(sps, npf))
+| _(*else*) => ())
 //
 (* function parameter emission: flatten the dynamic (FIARGdapp) param groups
    into a single Scheme arg list; static (FIARGsapp) / metric (FIARGmets)
@@ -271,6 +391,25 @@ case+ iexp.node() of
 | I0Evar(ivar) => cz_sym(filr, d2var_get_name(i0var_dvar$get(ivar)))
 | I0Etop(xsym) => cz_sym(filr, xsym)
 //
+(* nullary data constructor -> #(ctag) *)
+| I0Econ(dcon) => (cz_str(filr, "(XATSCAPP "); cz_ctag(filr, dcon); cz_str(filr, ")"))
+//
+(* tuple / record construction -> a vector of field values *)
+| I0Etup0(npf, exps) =>
+  (cz_str(filr, "(vector"); i0exp_cz0_args(filr, ldrop(exps, npf)); cz_str(filr, ")"))
+| I0Etup1(_, npf, exps) =>
+  (cz_str(filr, "(vector"); i0exp_cz0_args(filr, ldrop(exps, npf)); cz_str(filr, ")"))
+| I0Ercd2(_, _, livs) =>
+  (cz_str(filr, "(vector"); l0i0elst_cz0(filr, livs); cz_str(filr, ")"))
+//
+(* projections: datacon field (tag-offset) / tuple field *)
+| I0Epcon(_, lab, con) =>
+  (cz_str(filr, "(XATSPCON "); i0exp_cz0(filr, con); cz_str(filr, " "); cz_lab_idx(filr, lab); cz_str(filr, ")"))
+| I0Epflt(_, lab, tup) =>
+  (cz_str(filr, "(vector-ref "); i0exp_cz0(filr, tup); cz_str(filr, " "); cz_lab_idx(filr, lab); cz_str(filr, ")"))
+| I0Eproj(_, lab, tup) =>
+  (cz_str(filr, "(vector-ref "); i0exp_cz0(filr, tup); cz_str(filr, " "); cz_lab_idx(filr, lab); cz_str(filr, ")"))
+//
 (* erased wrappers: emit the inner expression *)
 | I0Etimp(tapp, _) => i0exp_cz0(filr, tapp)
 | I0Etapq(fexp, _) => i0exp_cz0(filr, fexp)
@@ -288,10 +427,15 @@ case+ iexp.node() of
 | I0Edap0(fexp) => (cz_str(filr, "("); i0exp_cz0(filr, fexp); cz_str(filr, ")"))
 | I0Edapp(fexp, npf, args) =>
   (
-  cz_str(filr, "(");
-  i0exp_cz0(filr, fexp);
-  i0exp_cz0_args(filr, ldrop(args, npf));
-  cz_str(filr, ")"))
+  case+ (unwrap_con(fexp)).node() of
+  | I0Econ(dcon) =>
+    (cz_str(filr, "(XATSCAPP "); cz_ctag(filr, dcon);
+     i0exp_cz0_args(filr, ldrop(args, npf)); cz_str(filr, ")"))
+  | _(*ordinary call*) =>
+    (cz_str(filr, "(");
+     i0exp_cz0(filr, fexp);
+     i0exp_cz0_args(filr, ldrop(args, npf));
+     cz_str(filr, ")")))
 //
 (* control *)
 | I0Eift0(tst, thopt, elopt) =>
@@ -443,6 +587,19 @@ case+ es of
 | list_nil() => ()
 | list_cons(e0, es) =>
   (i0exp_cz0(filr, e0); cz_str(filr, " "); i0exp_cz0_seq(filr, es)))
+//
+(* emit record field VALUES (in layout order), space-prefixed, for I0Ercd2.
+   The label is positional in the layout; the emitted vector uses that order. *)
+and
+l0i0elst_cz0
+( filr: FILR, livs: l0i0elst): void =
+(
+case+ livs of
+| list_nil() => ()
+| list_cons(liv, livs) =>
+  let val+ I0LAB(_, e0) = liv in
+    (cz_str(filr, " "); i0exp_cz0(filr, e0); l0i0elst_cz0(filr, livs))
+  end)
 //
 (* an optional branch (missing -> the unit value) *)
 and
