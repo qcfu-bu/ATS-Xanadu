@@ -421,6 +421,22 @@ var Xats_strn_length = func(s0 any) any {
 	return len(s0.(string))
 }
 
+// Xats_strn_get_at: the byte at index i of s, as a char (rune/int32) -- ATS
+// strings are byte-indexed (C model). Matches `strn_get$at(s, i)` returning a
+// char that the char_* ops then compare. (Runtime call; no native Go operator
+// for indexing.)
+var Xats_strn_get_at = func(s any, i any) any {
+	return int32(s.(string)[i.(int)])
+}
+
+// Xats_strn_eq / Xats_strn_neq: any-typed fallbacks for string equality.
+// goop_of_name inlines `=`/`!=` on strings to native Go `==`/`!=` (valid on
+// Go strings), dropping the op-temp to a dead `_ =` suppressor; these back
+// that suppressor and any first-class/higher-order use. XATSSTRN is identity,
+// so the underlying Go strings compare exactly as in the JS backend.
+var Xats_strn_eq = func(s1 any, s2 any) any { return s1.(string) == s2.(string) }
+var Xats_strn_neq = func(s1 any, s2 any) any { return s1.(string) != s2.(string) }
+
 // -- integer (sint) arithmetic / compare (any-typed fallback) ----------------
 
 var Xats_sint_abs = func(i0 int) int {
@@ -443,6 +459,24 @@ var Xats_sint_gte_sint = func(i1 any, i2 any) any { return i1.(int) >= i2.(int) 
 var Xats_sint_eq_sint = func(i1 any, i2 any) any { return i1.(int) == i2.(int) }
 var Xats_sint_neq_sint = func(i1 any, i2 any) any { return i1.(int) != i2.(int) }
 
+// -- generic integer (gint$sint$sint) fallbacks -----------------------------
+// The generic g0int/gint op interface instantiated at sint.  goop_of_name
+// inlines these to native Go operators, dropping the op-temp to a dead
+// `_ = xatsgo.Xats_gint_<op>_sint_sint` suppressor; these defs back that
+// suppressor (and any first-class/higher-order use).  Semantics identical to
+// the monomorphic Xats_sint_*_sint above.
+var Xats_gint_add_sint_sint = func(i1 any, i2 any) any { return i1.(int) + i2.(int) }
+var Xats_gint_sub_sint_sint = func(i1 any, i2 any) any { return i1.(int) - i2.(int) }
+var Xats_gint_mul_sint_sint = func(i1 any, i2 any) any { return i1.(int) * i2.(int) }
+var Xats_gint_div_sint_sint = func(i1 any, i2 any) any { return i1.(int) / i2.(int) }
+var Xats_gint_mod_sint_sint = func(i1 any, i2 any) any { return i1.(int) % i2.(int) }
+var Xats_gint_lt_sint_sint = func(i1 any, i2 any) any { return i1.(int) < i2.(int) }
+var Xats_gint_gt_sint_sint = func(i1 any, i2 any) any { return i1.(int) > i2.(int) }
+var Xats_gint_lte_sint_sint = func(i1 any, i2 any) any { return i1.(int) <= i2.(int) }
+var Xats_gint_gte_sint_sint = func(i1 any, i2 any) any { return i1.(int) >= i2.(int) }
+var Xats_gint_eq_sint_sint = func(i1 any, i2 any) any { return i1.(int) == i2.(int) }
+var Xats_gint_neq_sint_sint = func(i1 any, i2 any) any { return i1.(int) != i2.(int) }
+
 var Xats_g_eq = func(x1 any, x2 any) bool {
 	if x1 == nil || x2 == nil {
 		return x1 == x2
@@ -454,11 +488,6 @@ var Xats_g_eq = func(x1 any, x2 any) bool {
 	}
 	return reflect.DeepEqual(x1, x2)
 }
-
-// Generic-integer equality specialized to sint/sint. The emitted fallback can
-// name this prelude primitive directly when equality flows through a generic
-// gint surface instead of the concrete sint operator.
-var Xats_gint_eq_sint_sint = func(i1 any, i2 any) bool { return i1.(int) == i2.(int) }
 
 // -- float (dflt) arithmetic / compare (any-typed fallback) ------------------
 
@@ -580,6 +609,90 @@ var Xats_gs_print_a4 = func(x0 any, x1 any, x2 any, x3 any) any {
 	gsPrintOne(x1)
 	gsPrintOne(x2)
 	gsPrintOne(x3)
+	return XATSNIL()
+}
+
+// gs_print_n<N> is the `prints` overload family from prelude synoug0
+// (gs_print_n<N> = gs_fproc_n<N> where g_fproc = g_print). Observably
+// IDENTICAL to gs_print_a<N> above -- each arg printed via g_print, no
+// separator -- so these mirror the (oracle-validated) _a twins exactly. The
+// real (generic) compiler sources resolve `prints(...)` to this `_n` family.
+var Xats_gs_print_n1 = func(x0 any) any { gsPrintOne(x0); return XATSNIL() }
+var Xats_gs_print_n2 = func(x0, x1 any) any { gsPrintOne(x0); gsPrintOne(x1); return XATSNIL() }
+var Xats_gs_print_n3 = func(x0, x1, x2 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	gsPrintOne(x2)
+	return XATSNIL()
+}
+var Xats_gs_print_n4 = func(x0, x1, x2, x3 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	gsPrintOne(x2)
+	gsPrintOne(x3)
+	return XATSNIL()
+}
+var Xats_gs_print_n5 = func(x0, x1, x2, x3, x4 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	gsPrintOne(x2)
+	gsPrintOne(x3)
+	gsPrintOne(x4)
+	return XATSNIL()
+}
+var Xats_gs_print_n6 = func(x0, x1, x2, x3, x4, x5 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	gsPrintOne(x2)
+	gsPrintOne(x3)
+	gsPrintOne(x4)
+	gsPrintOne(x5)
+	return XATSNIL()
+}
+var Xats_gs_print_n7 = func(x0, x1, x2, x3, x4, x5, x6 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	gsPrintOne(x2)
+	gsPrintOne(x3)
+	gsPrintOne(x4)
+	gsPrintOne(x5)
+	gsPrintOne(x6)
+	return XATSNIL()
+}
+var Xats_gs_print_n8 = func(x0, x1, x2, x3, x4, x5, x6, x7 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	gsPrintOne(x2)
+	gsPrintOne(x3)
+	gsPrintOne(x4)
+	gsPrintOne(x5)
+	gsPrintOne(x6)
+	gsPrintOne(x7)
+	return XATSNIL()
+}
+var Xats_gs_print_n9 = func(x0, x1, x2, x3, x4, x5, x6, x7, x8 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	gsPrintOne(x2)
+	gsPrintOne(x3)
+	gsPrintOne(x4)
+	gsPrintOne(x5)
+	gsPrintOne(x6)
+	gsPrintOne(x7)
+	gsPrintOne(x8)
+	return XATSNIL()
+}
+var Xats_gs_print_n10 = func(x0, x1, x2, x3, x4, x5, x6, x7, x8, x9 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	gsPrintOne(x2)
+	gsPrintOne(x3)
+	gsPrintOne(x4)
+	gsPrintOne(x5)
+	gsPrintOne(x6)
+	gsPrintOne(x7)
+	gsPrintOne(x8)
+	gsPrintOne(x9)
 	return XATSNIL()
 }
 

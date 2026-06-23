@@ -1,6 +1,11 @@
 # xats2go — Go backend for ATS3 — Architecture & Roadmap
 
-Status: **M2/M3 IN PROGRESS** — M2.0–M2.7 ✅; M2.8 underway (exceptions green; non-linear lazy stream forcing green; linear `list_vt` datacon-field mutation green); first M3 user-template body rung ✅; xats2js-style top-level `prints` auto-flush ✅ · M0/M1 done · Go 1.26.4. **suite = 71/71 GREEN.**
+Status: **M2/M3 IN PROGRESS** — M2.0–M2.7 ✅; M2.8 underway (exceptions green; non-linear lazy stream forcing green; linear `list_vt` datacon-field mutation green); first M3 user-template body rung ✅; xats2js-style top-level `prints` auto-flush ✅ · M0/M1 done · Go 1.26.4. **suite = 73/73 GREEN.**
+Self-hosting probe → full categorized gap inventory (see §"Gap tracker"); P1 string-literal `case`
+patterns ✅ (keystone: `goop_of_name` 107 dead-`false` markers → 0) + P2 native generic-int `gint_*$sint$sint`
+ops ✅ + B1 string prims (`strn_eq` native / `strn_get_at`, test92) ✅ + B2 `gs_print_n*` ✅ landed
+→ **go1emit_utils0 undefined runtime symbols 10 → 1** (lone remainder `strn_foritm` = M3 template item).
+Deep blocker identified = Class C cross-module frontend accessors (M5: emit-or-shim the frontend type layer).
 M2.7 notes: datatypes → a single boxed runtime type `*xatsgo.XatsCon{Tag int; Args []any}` (mirrors the JS tag+array model; nails the LAYOUT = boxed pointer with ZERO per-datatype type-decl infra). Construction `&XatsCon{Tag: ctag, Args: []any{..}}` (`d2con_get_ctag`); matching `v.Tag == ctag` in the `switch{}`; projection `v.Args[i].(<fieldGoType>)` — TYPED assertions recovered from `d2con` field types (`d2con_get_styp`→drop proof prefix→field s2typ; datatype fields → `*xatsgo.XatsCon` for recursion; polymorphic field → `any`, faithful). Headline: recursive list-sum/tree work, byte-equal-vs-JS. **DEFERRED → M2.7b/M3: per-datatype TYPED structs** (`Args` stays `[]any`; interface+ctor-structs or typed tagged struct is the idiomatic refinement) + polymorphic-payload concretization. KEY FIXES found: (1) **datacon GUARDS rewrote** to an inline short-circuited IIFE `case v.Tag==ctag && func()bool{..proj..}():` — M2.3's design pre-ran guard projections unconditionally → panic on a non-matching ctor; adversarially validated (test64: guard clause FIRST, nil flows through safely via `&&`). (2) **`go1emit_tytab0.dats` was missing from `build-go.sh`'s GO_DATS** (legacy path only — the Makefile had it, so `make psuite` milestones were genuinely green); fixed. (3) datacon sub-pattern vars don't bind a temp — accessed via `I1Vp1cn(pat, root, pind)` projections (pind = post-proof-drop value index). (4) `I1Vlpcn` datacon-field mutation is now proven by **test85_list_vt_mut_xats2go** (`list_vt_cons(!x1,xs)` then `x1 := x1 + 1`).
 M2.6c notes: lvalues/assignment via DIRECT addressable Go (`p.F0 = v`) — NO path-simulation runtime (Go has real lvalues, cleaner than the JS backend's `XATSLP*`/`lvget`/`lvset`/copy-on-write). KEY semantic finding: an ATS `var` is itself a mutable cell, so the frontend BOXES every var-stored tuple (`I1Vlpbx`, emitted `*struct`) regardless of flat/boxed — mutation is correctly shared, byte-equal-vs-JS (test51: boxed-alias mutation `104/141`). So M2.6b's VALUE structs are for immutable `val`-bound tuples (never mutated → value semantics fine); var-bound → pointer (mutable cell). Self-consistent; oracle-validated. Datacon lvalues (`I1Vlpcn`) are now green for linear list_vt mutation (test85). Also fixed: a multi-let return-body (effect lets + trailing `I1INSrturn`) now routes to return-mode. The build's IR-DUMP debug (`i1parsed_fprint`) was disabled — it crashes on lvalue nodes (the build-local `i1val_fprint` lacks lval cases + is errck'd-to-comment in the prebuilt bundle, same defect class as i0varfst/tokenfpr); `intrep1_print0.dats` kept pristine.
 M2.6b notes: KEY IR fact — even a flat `@(..)` lowers to `I1INStup1`/`I1INSrcd2` with a FLAT-kind token; flat-vs-boxed = `trcdknd_fltq(token)` (and the recorded `i0typ` = `I0Tnone1(T2Ptrcd(TRCDflt0/box1,...))`), NOT the tup0/tup1 ctor. Uses ANONYMOUS Go structs (structural typing → no named-type decls/dedup); construction (`<struct>{..}` flat / `&<struct>{..}` boxed), projection (`.F<lab>`), nested, and tuple-typed fn params/results all driven by ONE translator so all sites' struct types agree (Go build = the consistency oracle). **Adversarially reviewed (mine):** non-int (float64) fields + mixed flat-of-boxed nesting (`struct{F0 *struct{...}; F1 int}`) both correct. NOTE: harness now runs `gofmt -w` on output (gofmt always multi-lines inline struct types; cosmetic). Caveat: for READ-only tuples value-vs-pointer gives identical output, so flat/boxed correctness is verified by EMITTED CODE, not the oracle (mutation semantics gated at M2.6c).
@@ -561,9 +566,61 @@ ATS3 code* and fix whatever breaks. The failure set IS the prioritized work list
   **Caveat:** `Xats_gseq_folditm` is still a bounded runtime fallback for this list-counting surface.
   The general solution is broader M3: emit more resolved template bodies / user `#impltmp` instances
   as concrete Go, not a single runtime hook for every possible `folditm$fopr`.
-- **[lang] Still owed for self-hosting:** remaining M2.8 linear-lazy cleanup coverage, modules/`staload`,
-  abstract types (`abstype`/`assume`), FFI/`extern`, the full pattern language,
-  polymorphic-function uniform repr. Discover the rest via the forcing function.
+- **[self-hosting] COMPLETE GAP INVENTORY (architect probe, all 16 GO_DATS emitted to Go).**
+  Emitting every backend source through the bundle and diffing referenced-vs-defined `xatsgo.Xats_*`
+  symbols (+ real `case false /* UNHANDLED */` codegen markers) yields the prioritized work map.
+  Repro: `XATSHOME=… node --stack-size=8801 BUILD/xats2go-bundle.patched.js <src> | awk sentinels`
+  for each GO_DATS file, then `grep -oE 'xatsgo\.Xats_[A-Za-z0-9_]+'` minus the runtime's `var Xats_…`.
+  **Four classes:**
+  - **D — string-literal `case` patterns (✅ FIXED, P1, test91).** Was the keystone: `goop_of_name`
+    (the 107-case op-name→Go-operator dispatch) compiled to `case false /* UNHANDLED pat: non-datacon
+    structural */` for EVERY branch — the self-hosted op layer was dead. `i0pckgo1` now has an
+    `I0Pstr(tstr)` case mirroring `I0Pint`/`I0Pflt`: `<casval> == <i0strgo1 literal>`. `XATSSTRN` is
+    identity on the Go string, so it's a native string `==`; JS oracle via `f0_str0`. styp0 markers
+    107→0; suite 71→72 GREEN (test91_strpat). NOTE: tuple/record patterns *in `case`* are a separate,
+    still-open structural-pattern gap (a handful of markers in go1emit_dynexp.go).
+  - **A — native generic-int ops (✅ FIXED, P2).** The real (generic) sources use `gint_<op>$sint$sint`
+    (the g0int/gint interface instantiated at sint), NOT the monomorphic `sint_<op>$sint` the suite
+    exercised — so they fell through `goop_of_name` to UNDEFINED `xatsgo.Xats_gint_*` calls. Added the
+    full `gint_*$sint$sint` → native-operator block to `goop_of_name` + uniform `any` runtime fallbacks
+    `Xats_gint_*_sint_sint` (superseding a one-off `bool`-returning `gint_eq` stopgap now covered by
+    native inlining). go1emit_utils0 re-emit: 0 gint runtime apply-calls left, native `(a OP b)` in
+    their place (19 dead `_ =` op-temp suppressors). Regime-B win for ALL programs, not just self-host.
+    Suite stays 72 GREEN (inert for `sint_*` tests = the no-regression proof).
+  - **B — prelude runtime completeness (IN PROGRESS).** Pure `runtime/xatsgo` additions, zero emitter
+    risk (except where an op is native-inlinable, which is an emitter+runtime pair). Conventions:
+    strings = Go `string` (`XATSSTRN`=identity, byte-indexed `len`/`s[i]`), char = `int32`, op fallback
+    shape `func(a,b any) any { return a.(T) OP b.(T) }`.
+    - **✅ B1 (string prims, oracle-verified, test92):** `strn_eq`/`strn_neq` — Go `==`/`!=` ARE native
+      on `string`, so added to `goop_of_name` (inline like `char_eq`) + `any` runtime fallbacks; this
+      also makes `if s = "lit"` emit a native bool test instead of an `any`-returning call. `strn_get_at`
+      (byte-at-index → char/int32) added as a runtime fn. test92_strops byte-equal-vs-JS (`1 3 0 true
+      false`); go1emit_utils0's `(sname = "…")` chains now emit native `(s == xatsgo.XATSSTRN("…"))`.
+    - **✅ B2 (`gs_print_n1..n10`):** the `prints` overload the generic sources resolve to. Prelude
+      `gs_print_n<N> = gs_fproc_n<N> where g_fproc = g_print` → observably IDENTICAL to the
+      oracle-validated `gs_print_a<N>` twins, so mirrored exactly (each arg via `gsPrintOne`).
+    - **RESULT: go1emit_utils0 undefined runtime symbols 10 → 1.** The lone remainder is `strn_foritm`
+      (see next) — every other `xatsgo.Xats_*` it references is now defined. (Its `go build` is still
+      Class-C-blocked by frontend accessors.)
+    - **OPEN:** `strn_foritm` is NOT a runtime fn — it is a TEMPLATE with an implicit `foritm$work<char>`
+      body (same class as `gseq_folditm`); faking it with a runtime stub is the bounded hack this plan
+      already rejects. It belongs to M3 (emit resolved template bodies with their `$work` inlined).
+      Also still open: `strn_fprint`, `bool_neg` (a UNARY op — wants a native-unary-op emitter path,
+      analogous to the binop path, else an `any`/bool runtime fn), lists/options (`list_{append,consq,
+      exists,map_e1nv,mergesort,sing,sortedq}`, `optn_map_e1nv` — several are higher-order = M3-class).
+  - **C — cross-module frontend accessors (OPEN, the DEEP M5 blocker, ~35 syms):** backend sources
+    call frontend getters — `d2cst_get_name`, `d2var_get_lctn`, `token_get_node`, `fprint_loctn_as_stamp`,
+    `i0exp_node_get`, `i0pat_*`, `t0imp_*`, … — which are **defined nowhere in any emitted file** (they
+    live in `lib2xatsopt`/the local xats2cc intrep0 stage, NOT in GO_DATS). So **no backend `.dats` can
+    `go build` standalone yet**, even with B done: e.g. go1emit_utils0's residual after A+B is purely
+    these dangling frontend symbols. **Reframes the roadmap:** true fixpoint (M5) requires emitting the
+    intrep0/frontend type layer to Go *or* a hand-written Go shim package giving Go reps for the frontend
+    data types (`d2cst`/`d2var`/`token`/`s2typ`/…) + their accessors. This is the next architectural
+    decision (emit-the-frontend vs shim-the-frontend); pick before chasing more leaf symbols.
+- **[lang] Still owed for self-hosting:** Class B/C above; structural (tuple/record) patterns in `case`;
+  remaining M2.8 linear-lazy cleanup coverage, modules/`staload`, abstract types (`abstype`/`assume`),
+  FFI/`extern`, the full pattern language, polymorphic-function uniform repr. Discover the rest via the
+  forcing function.
 
 **Methodology:** keep `xats2js/.../TEST/*.dats` (and a growing real-program corpus) as conformance
 rungs in the suite; each rung that breaks → categorize gaps (emit-time `// UNHANDLED` + `go build`

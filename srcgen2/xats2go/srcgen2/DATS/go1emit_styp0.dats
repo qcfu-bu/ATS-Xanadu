@@ -177,6 +177,22 @@ case+ nm of
 | "sint_gte$sint" => ">="
 | "sint_eq$sint"  => "=="
 | "sint_neq$sint" => "!="
+// --- generic integer (gint$sint$sint) arithmetic + comparison ---
+// The generic g0int/gint op interface instantiated at sint -- the form the
+// real (generic) compiler/prelude sources use.  Same native int ops as the
+// monomorphic sint_* block above; runtime fallbacks Xats_gint_*_sint_sint
+// exist for the dead op-temp suppressor / first-class use.
+| "gint_add$sint$sint" => "+"
+| "gint_sub$sint$sint" => "-"
+| "gint_mul$sint$sint" => "*"
+| "gint_div$sint$sint" => "/"
+| "gint_mod$sint$sint" => "%"
+| "gint_lt$sint$sint"  => "<"
+| "gint_gt$sint$sint"  => ">"
+| "gint_lte$sint$sint" => "<="
+| "gint_gte$sint$sint" => ">="
+| "gint_eq$sint$sint"  => "=="
+| "gint_neq$sint$sint" => "!="
 // --- float (dflt) arithmetic ---
 | "dflt_add$dflt" => "+"
 | "dflt_sub$dflt" => "-"
@@ -199,6 +215,12 @@ case+ nm of
 // --- bool comparison (names have NO $ suffix) ---
 | "bool_eq"  => "=="
 | "bool_neq" => "!="
+// --- string (strn) equality: Go `==`/`!=` ARE native on string, so inline
+//     just like char_eq (operands are always strings; XATSSTRN is identity).
+//     This also lets `if s = "lit"` emit a native bool test instead of a
+//     runtime call whose `any` result would not type-check in an `if`. ---
+| "strn_eq"  => "=="
+| "strn_neq" => "!="
 //
 | _(*else*) => ""
 )//endof[goop_of_name(nm)]

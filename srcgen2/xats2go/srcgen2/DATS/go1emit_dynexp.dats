@@ -1633,6 +1633,10 @@ case+ ipat.node() of
   (
   i1valgo1(filr, casval); strnfpr(filr, " == ");
   i0fltgo1(filr, tflt))
+|I0Pstr(tstr) =>
+  (
+  i1valgo1(filr, casval); strnfpr(filr, " == ");
+  i0strgo1(filr, tstr))
 //
 // transparent wrappers: test the inner pattern.
 |I0Pbang(ip1) => i0pckgo1(filr, casval, ip1)
