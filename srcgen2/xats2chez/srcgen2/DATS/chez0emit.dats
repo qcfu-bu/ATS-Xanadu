@@ -143,6 +143,43 @@ case- tchr.node() of
 | T_CHAR2_char(rep) => cz_chr_body(filr, rep)
 | T_CHAR3_blsh(rep) => cz_chr_body(filr, rep))
 //
+(* cz_inttok: emit an integer-literal token's decimal rep. *)
+fun
+cz_inttok
+( filr: FILR, tint: token): void =
+(
+case- tint.node() of
+| T_INT01(rep) => cz_str(filr, rep)
+| T_INT02(_, rep) => cz_str(filr, rep)
+| T_INT03(_, rep, _) => cz_str(filr, rep))
+//
+(* cz_pat_test: a boolean Scheme expr testing the scrutinee [czscrut] against
+   a pattern.  M3b: flat patterns (literal / var / wildcard); nested
+   constructor/tuple patterns follow in M3c. *)
+fun
+cz_pat_test
+( filr: FILR, pat: i0pat): void =
+(
+case+ pat.node() of
+| I0Pany() => cz_str(filr, "#t")
+| I0Pvar(_) => cz_str(filr, "#t")
+| I0Pint(t0) => (cz_str(filr, "(= czscrut "); cz_inttok(filr, t0); cz_str(filr, ")"))
+| I0Pchr(t0) => (cz_str(filr, "(= czscrut "); cz_chrtok(filr, t0); cz_str(filr, ")"))
+| I0Pstr(t0) => (cz_str(filr, "(string=? czscrut "); cz_strlit(filr, t0); cz_str(filr, ")"))
+| _(*else*) =>
+  (cz_str(filr, "#f"); prerrsln("[chez0emit] UNHANDLED pat-test")))
+//
+(* cz_pat_binds: emit the let-binding-list CONTENT for a pattern (a var
+   pattern binds czscrut; flat literals bind nothing). *)
+fun
+cz_pat_binds
+( filr: FILR, pat: i0pat): void =
+(
+case+ pat.node() of
+| I0Pvar(dvar) =>
+  (cz_str(filr, "("); cz_sym(filr, d2var_get_name(dvar)); cz_str(filr, " czscrut)"))
+| _(*else*) => ())
+//
 (* ldrop / ldrop_pat: drop the first [n] (proof) elements of an arg/pat list. *)
 fun
 ldrop
@@ -306,11 +343,86 @@ case+ iexp.node() of
   i0exp_cz0(filr, body);
   cz_str(filr, ")"))
 //
+(* case/pattern-match.  Scrutinee bound once to [czscrut]; each clause is a
+   [when] that, on a successful pattern (+ guard), escapes via [czret] with
+   the clause body.  A failed guard falls through to the next clause; falling
+   off the end is a match failure. *)
+| I0Ecas0(_, scrut, clss) =>
+  (
+  cz_str(filr, "(call/1cc (lambda (czret) (let ((czscrut ");
+  i0exp_cz0(filr, scrut);
+  cz_str(filr, ")) ");
+  cz_clslst(filr, clss);
+  cz_str(filr, " (XATS000_cfail))))"))
+//
 | _(*else*) =>
   (
   cz_str(filr, "(begin #f) ;; UNHANDLED-i0exp\n");
   prerrsln("[chez0emit] UNHANDLED i0exp"))
 )//endof[i0exp_cz0]
+//
+(* one match clause -> (when <test> (let (<binds>) [<when guards>] (czret <body>))) *)
+and
+cz_cls
+( filr: FILR, cls: i0cls): void =
+(
+case+ cls.node() of
+| I0CLScls(gpt, body) =>
+  (
+  case+ gpt.node() of
+  | I0GPTpat(pat) =>
+    (
+    cz_str(filr, "(when ");
+    cz_pat_test(filr, pat);
+    cz_str(filr, " (let (");
+    cz_pat_binds(filr, pat);
+    cz_str(filr, ") (czret ");
+    i0exp_cz0(filr, body);
+    cz_str(filr, ")))"))
+  | I0GPTgua(pat, guas) =>
+    (
+    cz_str(filr, "(when ");
+    cz_pat_test(filr, pat);
+    cz_str(filr, " (let (");
+    cz_pat_binds(filr, pat);
+    cz_str(filr, ") (when ");
+    cz_gualst(filr, guas);
+    cz_str(filr, " (czret ");
+    i0exp_cz0(filr, body);
+    cz_str(filr, "))))")))
+| I0CLSgpt(_) => ()(*guarded pattern, no body*)
+)
+//
+and
+cz_clslst
+( filr: FILR, clss: i0clslst): void =
+(
+case+ clss of
+| list_nil() => ()
+| list_cons(c0, clss) => (cz_cls(filr, c0); cz_str(filr, " "); cz_clslst(filr, clss)))
+//
+(* guards -> (and g0 g1 ...) ; an I0GUAexp is a bool condition. *)
+and
+cz_gualst
+( filr: FILR, guas: i0gualst): void =
+(cz_str(filr, "(and"); cz_gualst_in(filr, guas); cz_str(filr, ")"))
+//
+and
+cz_gualst_in
+( filr: FILR, guas: i0gualst): void =
+(
+case+ guas of
+| list_nil() => ()
+| list_cons(g0, guas) => (cz_str(filr, " "); cz_gua(filr, g0); cz_gualst_in(filr, guas)))
+//
+and
+cz_gua
+( filr: FILR, gua: i0gua): void =
+(
+case+ gua.node() of
+| I0GUAexp(e0) => i0exp_cz0(filr, e0)
+| I0GUAmat(_, _) =>
+  (cz_str(filr, "#t"); prerrsln("[chez0emit] UNHANDLED I0GUAmat")))
 //
 (* emit each application argument, space-prefixed *)
 and
