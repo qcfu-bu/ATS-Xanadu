@@ -396,6 +396,9 @@ case+ sp.node() of
    (if (symbl_cmp(s0, TRUE_symbl) = 0) then cz_str(filr, "#t") else cz_str(filr, "#f")); cz_str(filr, ")"))
 | I0Pdap1(p0) =>
   (cz_str(filr, "(XATS000_ctgeq "); cz_acc(filr, iscon, idx); cz_str(filr, " "); cz_funpat_ctag(filr, p0); cz_str(filr, ")"))
+| I0Pfree(p0) => cz_subtest(filr, iscon, idx, p0)
+| I0Pbang(p0) => cz_subtest(filr, iscon, idx, p0)
+| I0Pflat(p0) => cz_subtest(filr, iscon, idx, p0)
 | _(*else: deeper nested con/tuple pattern*) =>
   (cz_str(filr, "#f"); prerrsln("[chez0emit] UNHANDLED nested sub-pattern")))
 //
@@ -439,6 +442,9 @@ case+ pat.node() of
 | I0Pdapp(_, _, sps) => patlst_has_var(sps)
 | I0Ptup0(_, sps) => patlst_has_var(sps)
 | I0Ptup1(_, _, sps) => patlst_has_var(sps)
+| I0Pfree(p0) => pat_has_var(p0)
+| I0Pbang(p0) => pat_has_var(p0)
+| I0Pflat(p0) => pat_has_var(p0)
 | _(*else*) => false)
 //
 and
@@ -503,6 +509,10 @@ case+ pat.node() of
   (cz_str(filr, "(and #t"); cz_subtests(filr, false, 0, ldrop_pat(sps, npf)); cz_str(filr, ")"))
 | I0Ptup1(_, npf, sps) =>
   (cz_str(filr, "(and #t"); cz_subtests(filr, false, 0, ldrop_pat(sps, npf)); cz_str(filr, ")"))
+(* linear markers (~ free / ! bang / flat) wrap an inner pattern *)
+| I0Pfree(p0) => cz_pat_test(filr, p0)
+| I0Pbang(p0) => cz_pat_test(filr, p0)
+| I0Pflat(p0) => cz_pat_test(filr, p0)
 | _(*else*) =>
   (
   cz_str(filr, "#f");
@@ -520,6 +530,9 @@ case+ pat.node() of
 | I0Pdapp(_, npf, sps) => cz_subbinds(filr, true, 0, ldrop_pat(sps, npf))
 | I0Ptup0(npf, sps) => cz_subbinds(filr, false, 0, ldrop_pat(sps, npf))
 | I0Ptup1(_, npf, sps) => cz_subbinds(filr, false, 0, ldrop_pat(sps, npf))
+| I0Pfree(p0) => cz_pat_binds(filr, p0)
+| I0Pbang(p0) => cz_pat_binds(filr, p0)
+| I0Pflat(p0) => cz_pat_binds(filr, p0)
 | _(*else*) => ())
 //
 (* function parameter emission: flatten the dynamic (FIARGdapp) param groups

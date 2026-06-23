@@ -429,6 +429,26 @@ selfrun/%: $(CHEZBUNDLE)
 	$(CHEZ) "$$W/$*.run.scm"
 
 ########################################################################
+# selfrun-cl/NAME — self-host a multi-file CLOSURE.  Compiles each .dats listed
+# in TEST/selfhost/NAME.deps (one unit per line, dependency order) to Scheme,
+# prepends the CATS+value runtime, appends TEST/selfhost/NAME.driver.scm, runs
+# on Chez.  E.g. NAME=xsymbol with deps "xstamp0 xsymbol_mymap0 xsymbol".
+########################################################################
+selfrun-cl/%: $(CHEZBUNDLE)
+	@set -uo pipefail; \
+	DEPS="$(TESTDIR)/selfhost/$*.deps"; DRV="$(TESTDIR)/selfhost/$*.driver.scm"; \
+	[ -f "$$DEPS" ] || { echo "!! no deps: $$DEPS" >&2; exit 2; }; \
+	[ -f "$$DRV" ]  || { echo "!! no driver: $$DRV" >&2; exit 2; }; \
+	W="$(BUILD)/selfhost"; mkdir -p "$$W"; : > "$$W/$*.body.scm"; \
+	for u in $$(cat "$$DEPS"); do \
+	  $(NODE) $(CHEZBUNDLE) "$(XATSHOME)/srcgen2/DATS/$$u.dats" 2>/dev/null \
+	    | awk '/BEGIN==/{f=1;next}/END==/{f=0}f' >> "$$W/$*.body.scm"; \
+	done; \
+	cat "$(CATSRT)" "$(CHEZRT)/xats2chez_runtime.scm" "$$W/$*.body.scm" "$$DRV" > "$$W/$*.run.scm"; \
+	echo ">> selfrun-cl $*: $$(grep -c '(define' "$$W/$*.body.scm") defines from [$$(cat $$DEPS | tr '\n' ' ')], on Chez:"; \
+	$(CHEZ) "$$W/$*.run.scm"
+
+########################################################################
 clean:
 	@echo ">> clean emitter artifacts (keep cached fixed libs)"
 	@rm -f $(OUT0) $(NSJS) $(LIB2CHEZ) $(DRV_CHEZ) $(CHEZBUNDLE)
