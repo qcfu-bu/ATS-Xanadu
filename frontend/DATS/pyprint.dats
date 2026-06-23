@@ -578,6 +578,49 @@ pp_prefix_update_or_generic(out: FILR, mark: strn, rest: s0explst): void =
   else (ps(out, mark); pp_apps_generic(out, rest))
 )
 and
+// does this apps spine contain a top-level `->` (i.e. it is an arrow TYPE)? The arrow may sit at
+// ANY spine position, not just position 2: when the DOMAIN is an application `head(args)` it occupies
+// two spine elements (`head`, `(args)`) so the `->` is at position 3 (`fxitm(a) -> loc_t`).
+s0explst_has_arrow(ses: s0explst): bool =
+(
+  case+ ses of
+  | list_nil() => false
+  | list_cons(se, rest) =>
+      if s0exp_is_arrow(se) then true else s0explst_has_arrow(rest)
+)
+and
+// the sub-spine BEFORE the first top-level `->` (the arrow domain, in reverse-free order).
+s0explst_arrow_dom(ses: s0explst): s0explst =
+(
+  case+ ses of
+  | list_nil() => list_nil()
+  | list_cons(se, rest) =>
+      if s0exp_is_arrow(se)
+      then list_nil()
+      else list_cons(se, s0explst_arrow_dom(rest))
+)
+and
+// the sub-spine AFTER the first top-level `->` (the arrow codomain).
+s0explst_arrow_cod(ses: s0explst): s0explst =
+(
+  case+ ses of
+  | list_nil() => list_nil()
+  | list_cons(se, rest) =>
+      if s0exp_is_arrow(se) then rest else s0explst_arrow_cod(rest)
+)
+and
+// render an arrow domain sub-spine as the Pythonic argument-type form. A SINGLE-element domain that
+// is a paren `(t1, t2)` keeps the parenthesized tuple (`(T1, T2) -> R`); a single bare atom prints
+// parenthesized when it is itself an arrow type (so a higher-order `(a -> b) -> c` keeps its parens),
+// else bare. A MULTI-element domain is an application `head(args)` (e.g. `fxitm(a)`): render it as a
+// generic type application `Head[args]` (NOT element-by-element `Head[arg1][arg2]`).
+pp_arrow_dom(out: FILR, dom: s0explst): void =
+(
+  case+ dom of
+  | list_cons(arg, list_nil()) => pp_s0exp_arrow_lhs(out, arg)
+  | _ => pp_apps_generic(out, dom)
+)
+and
 pp_apps_arrow_or_prefix(out: FILR, ses: s0explst): void =
 (
   // a STATIC INFIX OPERATOR spine `lhs OP rhs` (S0Eop2 / operator-shaped S0Eid0 as the MIDDLE
@@ -587,12 +630,13 @@ pp_apps_arrow_or_prefix(out: FILR, ses: s0explst): void =
   if s0explst_is_binop_spine(ses)
   then pp_binop_spine(out, ses)
   else
-  (case+ ses of
-   | list_cons(arg, list_cons(arr, res)) =>
-       if s0exp_is_arrow(arr)
-       then (pp_s0exp_arrow_lhs(out, arg); ps(out, " -> "); pp_apps_generic(out, res))
-       else pp_apps_prefix_or_generic(out, ses)
-   | _ => pp_apps_prefix_or_generic(out, ses))
+  // an ARROW TYPE `dom -> cod` whose `->` may sit at any spine position (the domain can be an
+  // application `head(args)` that occupies several spine elements). Split at the first top-level
+  // `->`: render the domain sub-spine, ` -> `, then the codomain sub-spine.
+  if s0explst_has_arrow(ses)
+  then (pp_arrow_dom(out, s0explst_arrow_dom(ses)); ps(out, " -> ");
+        pp_apps_generic(out, s0explst_arrow_cod(ses)))
+  else pp_apps_prefix_or_generic(out, ses)
 )
 and
 // a 3-element spine `[lhs, op, rhs]` whose MIDDLE element is a static infix operator. (Destructured
@@ -1204,14 +1248,24 @@ pp_fun_sig_from_result(out: FILR, se: s0exp): bool =
   | _ => false
 )
 and
+// emit the formal-arg parens of a fun whose whole signature is an arrow TYPE `dom -> cod`. The arrow
+// may sit at any spine position: a SINGLE-element domain (`loc_t`, `(f2clknd, FILR)`) routes through
+// pp_s0exp_formals (which unfolds a paren/tuple domain into several `a: T, b: T` formals); a
+// MULTI-element domain is an application `head(args)` (`fxitm(a) -> loc_t`) — a SINGLE argument whose
+// type is the whole application, so emit `(a0: Head[args])`.
+pp_arrow_dom_formals(out: FILR, dom: s0explst): void =
+(
+  case+ dom of
+  | list_cons(arg, list_nil()) => pp_s0exp_formals(out, arg)
+  | _ => (ps(out, "("); ps(out, pname_at(0)); ps(out, ": "); pp_apps_generic(out, dom); ps(out, ")"))
+)
+and
 pp_fun_sig_from_apps(out: FILR, ses: s0explst): bool =
 (
-  case+ ses of
-  | list_cons(arg, list_cons(arr, res)) =>
-      if s0exp_is_arrow(arr)
-      then (pp_s0exp_formals(out, arg); ps(out, " -> "); pp_apps(out, res); true)
-      else false
-  | _ => false
+  if s0explst_has_arrow(ses)
+  then (pp_arrow_dom_formals(out, s0explst_arrow_dom(ses)); ps(out, " -> ");
+        pp_apps(out, s0explst_arrow_cod(ses)); true)
+  else false
 )
 //
 // register / unregister a list of (raw, lowercase) type-binder names so their USES
@@ -1448,6 +1502,47 @@ t0arg_raw_names(i: sint, tags: t0arglst): list(strn) =
     in
       list_cons(raw, t0arg_raw_names(i+1, rest))
     end
+)
+// the SORT-annotated pythonic typaram of ONE parametric abstype arg `(n:i0)` -> `N: SInt`. The
+// t0arg is `T0ARGsome(sort0, name?)`: a NON-type sort (`i0`/`b0` -> `SInt`/`SBool`) is an INDEX
+// param and MUST be annotated (else the alias instantiates a TYPE slot with an int index -> sort
+// mismatch). A bare type param (`x:t0` / sort `""`) keeps the unannotated `[X0]`/`[Name]` form.
+fun
+t0arg_sort_pyname(tag: t0arg): strn =
+(
+  case+ tag.node() of
+  | T0ARGsome(s0t, _) => sort0_py(s0t)
+  | _ => ""
+)
+fun
+t0arg_pyparam(i: sint, tag: t0arg): strn = let
+  val nm = t0arg_name(tag)
+  val base = (if strn_eq(nm, "") then xname(i) else tyname(nm)): strn
+  val sn = t0arg_sort_pyname(tag)
+in
+  // omit the annotation for the default `Type` sort (keeps the bare `[X0]` byte-identical); annotate
+  // an index/other sort so `argv_i0_vx(n:i0)` -> `[N: SInt]`.
+  if strn_eq(sn, "") then base
+  else if strn_eq(sn, "Type") then base
+  else strn_append(strn_append(base, ": "), sn)
+end
+fun
+t0arg_pyparams(i: sint, tags: t0arglst): list(strn) =
+(
+  case+ tags of
+  | list_nil() => list_nil()
+  | list_cons(tag, rest) => list_cons(t0arg_pyparam(i, tag), t0arg_pyparams(i+1, rest))
+)
+fun
+pp_tmag_pyparams(tmas: t0maglst): list(strn) =
+(
+  case+ tmas of
+  | list_nil() => list_nil()
+  | list_cons(tm, rest) => (
+      case+ tm.node() of
+      | T0MAGlist(_, tags, _) => list_append(t0arg_pyparams(0, tags), pp_tmag_pyparams(rest))
+      | T0MAGnone(_) => pp_tmag_pyparams(rest)
+    )
 )
 fun
 pp_tmag_datatype_names(tmas: t0maglst): list(strn) =
@@ -3663,7 +3758,12 @@ pp_d0tcn(out: FILR, n: sint, tcn: d0tcn): void =
       val con0 = i0dnt_lexeme(nm)
       val () = register_tcon_map_args(con0, ofty)
     in
-      ind(out, n); ps(out, "case "); ps(out, conname_scoped(con0));
+      // A `case` inside an `enum` body is ALWAYS a fresh data-constructor DEFINITION, so its name
+      // must satisfy the pythonic UIDENT rule (uppercase first char). ATS permits LOWERCASE data
+      // constructors (`d0pat_RPAREN_cons0`); capitalize unconditionally here (conname_scoped only
+      // lifts a name the pre-scan registered — a USE site of the same con lifts to match, since the
+      // pre-scan registered the lowercase lexeme and PYPP_con_has(it) is true). dollar-rewrite first.
+      ind(out, n); ps(out, "case "); ps(out, PYPP_capitalize(rewrite_dollar(con0)));
       (case+ ofty of
        | optn_cons(se) => (ps(out, "("); pp_tcon_argty(out, se); ps(out, ")"))
        | optn_nil() => ());
@@ -4088,6 +4188,11 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   // belong in the SAME enclosing scope. Emit those where-decls FIRST (so forward references such
   // as `T3R0EVN of trdstk` resolve), then the enum itself. Dropping them left the inner cons
   // unresolved (D1Eid0). pp_datatype_where_decls recurses through pp_walk -> pp_d0ecl.
+  // A where-clause TYPEDEF that references the outer enum's own types (`#typedef t0qualst =
+  // list(t0qua)`) is resolved NOT by reordering (that breaks the helper-datatype direction and the
+  // where-typedef's own EARLIER use sites) but by the lowering: pylower registers every datatype
+  // TYPE in a leading run (PHASE A) before lowering aliases/cons, and a sexpdef whose RHS still has
+  // an unresolved forward type is RE-TRIED after the group (see pylower_decls alias-deferral).
   | D0Cdatatype(dtok, dts, wdc) => (pp_datatype_where_decls(out, wdc); pp_d0typ_enum_list(out, 0, dt_kind_deco(dtok), dts); true)
   //
   // `excptcon E of (T)` -> `exception E(T)`.
@@ -4107,10 +4212,12 @@ pp_d0ecl(out: FILR, dc: d0ecl): bool = // returns: did we emit something?
   // `#staload "x"` (a .sats interface) -> a scoped Pythonic import of the interface.
   | D0Cstaload(_, _, ge) => (pp_staload(out, ge); true)
   //
-  // #abstype T <= REP / #abstbox T(x0:t0)  ->  @abstract type T[X0] <= REP
+  // #abstype T <= REP / #abstbox T(x0:t0)  ->  @abstract type T[X0] <= REP. A SORT-annotated
+  // parametric arg `(n:i0)` emits its INDEX sort (`[N: SInt]`) so an alias `argv(n) = argv_i0_vx(n)`
+  // instantiates the index slot consistently (pp_tmag_pyparams; a bare type param stays `[X0]`).
   | D0Cabstype(_, sid, tmas, _, tdef) => let
       val nm = tyname(i0dnt_lexeme(sid))
-      val tps = pp_tmag_names(tmas)
+      val tps = pp_tmag_pyparams(tmas)
     in
       ps(out, "@abstract"); nl(out);
       ps(out, "type "); ps(out, nm);

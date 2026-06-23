@@ -1206,6 +1206,89 @@ end
 //
 (* ****** ****** *)
 //
+// ---- MUTUALLY-RECURSIVE datatype groups (faithful `datatype … and …`). ----------------------
+// A run of ADJACENT `enum` decls is a MUTUAL group (stock ATS `datatype A … and B …`): a con of A
+// may reference B and vice-versa. Stock registers ALL the group's TYPE s2csts FIRST, then lowers
+// every con (so a forward cross-reference resolves). The single-decl path (one s2cst, its cons) is
+// the degenerate 1-member group, so we route ALL `enum`s through this two-phase shape: PHASE A
+// (dt_register) creates+registers each type s2cst (returning the s2c + its param s2vars); PHASE B
+// (dt_lower_body) lowers each datatype's cons against the fully-populated env, wires + registers the
+// cons, and emits the `D2Cdatatype` decl. For the common single-`enum` case this is byte-identical
+// to the old inline arm (same s2cst, same cons, same node) — only the cross-datatype forward
+// reference is newly resolved.
+//
+// PHASE A: create + register the type s2cst for one PCCdata. Returns @(s2c, s2vs): s2vs is nil for a
+// monomorphic enum, or the per-param s2vars for a parametric one (carried to PHASE B so the cons
+// bind the SAME s2vars). The sort is mode-selected (boxed tbox / linear vtbx) — monomorphic uses the
+// bare result sort; parametric uses the (type)->…->RESULT function sort over the param sorts.
+fun
+dt_register(env: !tr12env, loc: loctn, name: strn, tvs: list(pcparam), mode: pcmode): @(s2cst, s2varlst) =
+  if list_nilq(tvs) then let
+    val s2c = s2cst_make_idst(loc, ats_type_sym(name), dt_sort_of(mode))
+    val () = tr12env_add1_s2cst(env, s2c)
+  in
+    @(s2c, list_nil())
+  end
+  else let
+    val s2vs = mk_param_s2vars_dt(tvs, mode)
+    val s2t  = S2Tfun1(mk_type_sorts_dt(tvs, mode), dt_sort_of(mode))
+    val s2c  = s2cst_make_idst(loc, ats_type_sym(name), s2t)
+    val () = tr12env_add1_s2cst(env, s2c)
+  in
+    @(s2c, s2vs)
+  end
+//
+// PHASE B: lower one PCCdata's cons against the already-populated env (all group types registered).
+// Monomorphic (s2vs nil): the con result is the bare s2cst, no quantifier. Parametric (s2vs
+// non-nil): push a lam-scope, bind the s2vars, the con result is `Name(params)`, the cons carry the
+// shared {A,…} quantifier, pop the scope. Either way: wire the cons onto the s2cst, register them in
+// the env, emit the `D2Cdatatype` (its vestigial first field is d1ecl_none0).
+fun
+dt_lower_body(env: !tr12env, loc: loctn, dcs: list(pcdatacon), s2c: s2cst, s2vs: s2varlst): d2ecl =
+  if list_nilq(s2vs) then let
+    val s2e_self = s2exp_cst(s2c)
+    val d2cs = lower_dataconlst(env, s2e_self, list_nil()(*tqas*), 0, dcs)
+    val () = s2cst_set_d2cs(s2c, d2cs)
+    val () = tr12env_add1_d2conlst(env, d2cs)
+  in
+    d2ecl_make_node(loc, D2Cdatatype(d1ecl_none0(loc), list_sing(s2c)))
+  end
+  else let
+    val () = tr12env_pshlam0(env)
+    val () = bind_param_s2vars(env, s2vs)
+    val s2e_self = s2exp_apps(loc, s2exp_cst(s2c), param_s2exps(s2vs))
+    val tqas = list_sing(t2qag(loc, s2vs)) : t2qaglst
+    val d2cs = lower_dataconlst(env, s2e_self, tqas, 0, dcs)
+    val () = tr12env_poplam0(env)
+    val () = s2cst_set_d2cs(s2c, d2cs)
+    val () = tr12env_add1_d2conlst(env, d2cs)
+  in
+    d2ecl_make_node(loc, D2Cdatatype(d1ecl_none0(loc), list_sing(s2c)))
+  end
+//
+// a `type X = T` alias -> a D2Csexpdef (M5b.5). Extracted so the mutual datatype-group lowering
+// (lower_dt_run) can lower a where-lifted `#typedef` member, AND the PCCalias arm just delegates
+// here. MONOMORPHIC: lower the RHS, build the sexpdef. PARAMETRIC: push a lam-scope, bind the param
+// s2vars, lower the RHS referencing them, wrap in s2exp_lam1, build the sexpdef (its sort auto-derives
+// the (type)->…->tbox arrow). Re-lowering the same alias is idempotent (build_sexpdef last-wins).
+fun
+lower_alias_decl(env: !tr12env, loc: loctn, name: strn, tvs: list(pcparam), typ: pytyp): d2ecl =
+  if list_nilq(tvs) then let
+    val rhs = pylower_typ(env, typ)
+  in
+    build_sexpdef(env, loc, name, rhs)
+  end
+  else let
+    val s2vs = mk_param_s2vars(tvs)
+    val () = tr12env_pshlam0(env)
+    val () = bind_param_s2vars(env, s2vs)
+    val body = pylower_typ(env, typ)
+    val () = tr12env_poplam0(env)
+    val rhs = s2exp_lam1(s2vs, body)
+  in
+    build_sexpdef(env, loc, name, rhs)
+  end
+//
 #implfun
 pylower_decl(env, d) =
 (
@@ -1259,48 +1342,14 @@ case+ d of
 // (3) the type's own s2exp. (4) build the cons (con-function types, ctags = list index).
 // (5) wire the cons onto the s2cst + register them in the env. (6) the D2Cdatatype decl — its
 // FIRST field is a level-1 d1ecl, VESTIGIAL for typecheck, so d1ecl_none0(loc) is safe.
-| PCCdata(loc, name, tvs, dcs, mode) =>
-  if list_nilq(tvs) then let
-    // ---- MONOMORPHIC enum (tvs empty): the M5b.3 path. M5b.6a: the sort is mode-selected
-    //      (boxed tbox by default, linear vtbx for @linear) via dt_sort_of. ----------------
-    val s2c = s2cst_make_idst(loc, ats_type_sym(name), dt_sort_of(mode))
-    val () = tr12env_add1_s2cst(env, s2c)               // register the TYPE first (recursion)
-    val s2e_self = s2exp_cst(s2c)                        // the datatype's own s2exp
-    // NB: do NOT name this `cons` — that collides with the prelude list-constructor overload
-    // symbol and the args resolve to it instead of the local.
-    val d2cs = lower_dataconlst(env, s2e_self, list_nil()(*tqas*), 0, dcs)
-    val () = s2cst_set_d2cs(s2c, d2cs)                  // wire cons onto the type
-    val () = tr12env_add1_d2conlst(env, d2cs)           // register the cons in the env
+| PCCdata(loc, name, tvs, dcs, mode) => let
+    // A LONE `enum` is the degenerate 1-member mutual group: register the type (PHASE A), then
+    // lower its cons (PHASE B). A RUN of adjacent enums is grouped earlier in pylower_decls (which
+    // registers every type first), so cross-datatype forward references resolve. Both M5b.3
+    // (monomorphic) + M5b.3b (parametric) recipes live in dt_register / dt_lower_body now.
+    val @(s2c, s2vs) = dt_register(env, loc, name, tvs, mode)
   in
-    d2ecl_make_node(loc, D2Cdatatype(d1ecl_none0(loc), list_sing(s2c)))
-  end
-  else let
-    // ---- PARAMETRIC enum (tvs non-empty): M5b.3b, SPIKE-PROVEN (LOWERING-MAP §3.3c). -------
-    // (1) one s2var per param; the type's sort is a FUNCTION sort (type)->...->RESULT (arity N).
-    //     M5b.6a: the RESULT sort is mode-selected (tbox boxed / vtbx linear) via dt_sort_of.
-    // ROBUSTNESS (Bug #32): the param sorts go through the MODE-aware mk_*_dt — on a BOXED-family
-    // datatype a flat `Type` param (tflt) is NORMALIZED to boxed (the_sort2_type), so the result-sort
-    // arrow + the bound s2vars are CONSISTENT with the boxed result (no latent tflt-in-tbox shape).
-    val s2vs   = mk_param_s2vars_dt(tvs, mode)
-    val s2t    = S2Tfun1(mk_type_sorts_dt(tvs, mode), dt_sort_of(mode))
-    val s2c    = s2cst_make_idst(loc, ats_type_sym(name), s2t)
-    val () = tr12env_add1_s2cst(env, s2c)               // register the TYPE first (recursion)
-    // (2) push a param lam-scope + bind the s2vars BEFORE building the cons (so an arg type `A`
-    //     — and a self-recursive arg `Tree[A]` — resolves to its s2var / the registered s2cst).
-    val () = tr12env_pshlam0(env)
-    val () = bind_param_s2vars(env, s2vs)
-    // (3) the con RESULT type is the s2cst APPLIED to the params: `Name(A, B, ...)`.
-    val s2e_self = s2exp_apps(loc, s2exp_cst(s2c), param_s2exps(s2vs))
-    // (5) the universal quantifier {A,B,...} lives in the d2con's `tqas` field (per-con), shared.
-    val tqas = list_sing(t2qag(loc, s2vs)) : t2qaglst
-    // (4) con ARG types lower normally (a bare param resolves via resolve_typ's S2ITMvar arm).
-    val d2cs = lower_dataconlst(env, s2e_self, tqas, 0, dcs)
-    // pop the param scope now that the cons are fully elaborated (mirrors the spike's ordering).
-    val () = tr12env_poplam0(env)
-    val () = s2cst_set_d2cs(s2c, d2cs)                  // wire cons onto the type
-    val () = tr12env_add1_d2conlst(env, d2cs)           // register the cons in the env
-  in
-    d2ecl_make_node(loc, D2Cdatatype(d1ecl_none0(loc), list_sing(s2c)))
+    dt_lower_body(env, loc, dcs, s2c, s2vs)
   end
 //
 // a plain `type X = T` alias -> a D2Csexpdef (M5b.5; SPIKE-PROVEN, see build_sexpdef above).
@@ -1309,27 +1358,7 @@ case+ d of
 // used), then build the sexpdef. (A `struct` now lowers via PCCrecord below, NOT here.)
 // Decl-ordering works: the module driver threads `env` left-to-right, so an alias declared
 // before its use registers first.
-| PCCalias(loc, name, tvs, typ) =>
-  if list_nilq(tvs) then let
-    // ---- MONOMORPHIC alias (tvs empty): the M5b.5 path, BYTE-IDENTICAL behavior. -----------
-    val rhs = pylower_typ(env, typ)
-  in
-    build_sexpdef(env, loc, name, rhs)
-  end
-  else let
-    // ---- PARAMETRIC alias (tvs non-empty): M5b.3b, SPIKE-PROVEN (LOWERING-MAP §3.3c, P2). ---
-    // Build the params as s2vars in a lam-scope, lower the RHS referencing them (a bare param
-    // `A` resolves via resolve_typ's S2ITMvar arm), wrap once in s2exp_lam1(s2vs, body).
-    // build_sexpdef's rhs.sort() then auto-derives the (type)->...->tbox arrow sort.
-    val s2vs = mk_param_s2vars(tvs)
-    val () = tr12env_pshlam0(env)
-    val () = bind_param_s2vars(env, s2vs)
-    val body = pylower_typ(env, typ)
-    val () = tr12env_poplam0(env)
-    val rhs = s2exp_lam1(s2vs, body)
-  in
-    build_sexpdef(env, loc, name, rhs)
-  end
+| PCCalias(loc, name, tvs, typ) => lower_alias_decl(env, loc, name, tvs, typ)
 //
 // a `struct` -> a record-type D2Csexpdef carrying its MODE (M5b.6a; SPIKE-PROVEN, see
 // build_record_sexp + rcd_kind_sort_of above). The decorator selects the S2Etrcd `trcdknd` +
@@ -1571,6 +1600,122 @@ case+ d of
 //
 (* ****** ****** *)
 //
+// is this decl a TYPE-DECLARING decl that participates in a mutual datatype group? A `datatype`
+// (PCCdata) or a `where`-lifted `#typedef` alias (PCCalias) that the pyprint emits ADJACENT to the
+// datatypes (a `datatype … where { #typedef xs = list(x) }` lifts the typedef next to the enums).
+fun
+is_dt_group_member(d: pcdecl): bool =
+(case+ d of PCCdata _ => true | PCCalias _ => true | _ => false)
+//
+// does the maximal leading run of group-members contain at least one PCCdata? (A run of stand-alone
+// aliases has none — it lowers per-decl, not as a group.) Scans only the leading group-member prefix.
+fun
+run_has_data(ds: list(pcdecl)): bool =
+(
+case+ ds of
+| list_cons(d, rest) =>
+    (case+ d of
+     | PCCdata _ => true
+     | PCCalias _ => run_has_data(rest)
+     | _ => false)
+| list_nil() => false
+)
+//
+// peel the maximal leading run of adjacent datatype-group members (PCCdata + interspersed
+// where-lifted PCCalias) and lower it as ONE mutual scope, in THREE phases so every intra-group
+// forward reference resolves regardless of emission order:
+//   PHASE A — register EVERY datatype TYPE s2cst in the run (so an alias RHS `list(t0qua)` and a
+//             cross-datatype con arg both resolve the type).
+//   PHASE B — lower EVERY alias in the run (so a con arg that is a where-typedef `t0qualst`
+//             resolves — the alias `t0qualst = list(t0qua)` itself resolved t0qua in PHASE A).
+//   PHASE C — lower EVERY datatype BODY (cons), now that all types AND aliases are in scope.
+// Output order is preserved (each member's d2ecl emitted in its original position). A LONE leading
+// `enum` (no adjacent member) is the degenerate 1-run: PHASE A registers it, PHASE B is empty,
+// PHASE C lowers its cons — byte-identical to the old single-decl path.
+fun
+lower_dt_run(env: !tr12env, ds: list(pcdecl)): @(d2eclist, list(pcdecl)) = let
+  // split off the maximal leading run of group members.
+  val @(run, rest) = peel_dt_run(ds)
+  // PHASE A: register every datatype TYPE s2cst (so an alias RHS + a cross-datatype con arg resolve
+  // the type). `plans` holds one @(s2c, s2vs) per PCCdata, in run order.
+  val plans = dtrun_register(env, run)
+  // PHASE B: lower every ALIAS in the run ONCE — now that the datatype types are registered — and
+  // cache each alias's d2ecl (`acache`, one per PCCalias, in run order). Lowering registers the
+  // sexpdef in env, so a datatype con that forward-references a where-typedef now resolves. Each
+  // alias is lowered EXACTLY ONCE (no double-registration / stamp duplication).
+  val acache = dtrun_lower_aliases(env, run)
+  // PHASE C: emit every member's d2ecl in ORIGINAL order — a PCCdata lowers its cons (plan popped),
+  // a PCCalias reuses its cached d2ecl (acache popped). All types + aliases are now in scope.
+  val d2cs = dtrun_emit(env, run, plans, acache)
+in
+  @(d2cs, rest)
+end
+and
+peel_dt_run(ds: list(pcdecl)): @(list(pcdecl), list(pcdecl)) =
+(
+case+ ds of
+| list_cons(d, rest) =>
+    if is_dt_group_member(d)
+    then let val @(run, tl) = peel_dt_run(rest) in @(list_cons(d, run), tl) end
+    else @(list_nil(), ds)
+| list_nil() => @(list_nil(), ds)
+)
+and
+// PHASE A: register each PCCdata's type s2cst; carry the @(s2c, s2vs) plan. Aliases are SKIPPED here
+// (lowered in PHASE B/C), so the plan list holds ONE entry PER PCCdata — in run order. dtrun_emit
+// pops a plan only when it reaches a PCCdata, so the alignment is by datatype-occurrence, not index.
+dtrun_register(env: !tr12env, run: list(pcdecl)): list(@(s2cst, s2varlst)) =
+(
+case+ run of
+| list_nil() => list_nil()
+| list_cons(d, rest) =>
+    (case+ d of
+     | PCCdata(loc, name, tvs, _, mode) =>
+         let val plan = dt_register(env, loc, name, tvs, mode)
+         in list_cons(plan, dtrun_register(env, rest)) end
+     | _ => dtrun_register(env, rest))
+)
+and
+// PHASE B: lower every PCCalias in the run EXACTLY ONCE (datatype types registered in PHASE A are in
+// scope), returning the cached d2ecls in run order. Lowering also registers each sexpdef in env, so a
+// datatype con that forward-references a where-typedef resolves in PHASE C.
+dtrun_lower_aliases(env: !tr12env, run: list(pcdecl)): d2eclist =
+(
+case+ run of
+| list_nil() => list_nil()
+| list_cons(d, rest) =>
+    (case+ d of
+     | PCCalias(loc, name, tvs, typ) =>
+         let val a = lower_alias_decl(env, loc, name, tvs, typ)
+         in list_cons(a, dtrun_lower_aliases(env, rest)) end
+     | _ => dtrun_lower_aliases(env, rest))
+)
+and
+// PHASE C: emit each member's d2ecl in ORIGINAL order. A PCCdata pops the head plan (the s2c/s2vs
+// from PHASE A) and lowers its cons; a PCCalias pops its cached d2ecl from `acache` (lowered ONCE in
+// PHASE B — NOT re-lowered). `plans` holds one entry per PCCdata, `acache` one per PCCalias, both in
+// run order, so the per-kind pops stay aligned.
+dtrun_emit(env: !tr12env, run: list(pcdecl), plans: list(@(s2cst, s2varlst)), acache: d2eclist): d2eclist =
+(
+case+ run of
+| list_nil() => list_nil()
+| list_cons(d, rest) =>
+    (case+ d of
+     | PCCdata(loc, _, _, dcs, _) =>
+         (case+ plans of
+          | list_cons(plan, prest) =>
+              let
+                val @(s2c, s2vs) = plan
+                val body = dt_lower_body(env, loc, dcs, s2c, s2vs)
+              in list_cons(body, dtrun_emit(env, rest, prest, acache)) end
+          | list_nil() => dtrun_emit(env, rest, plans, acache))   // unreachable (plan per PCCdata)
+     | PCCalias _ =>
+         (case+ acache of
+          | list_cons(a, arest) => list_cons(a, dtrun_emit(env, rest, plans, arest))
+          | list_nil() => dtrun_emit(env, rest, plans, acache))   // unreachable (cache per PCCalias)
+     | _ => dtrun_emit(env, rest, plans, acache))   // unreachable (run holds only group members)
+)
+//
 // the module driver: lower a PyCore decl list into a d2eclist, threading `env`. Each decl
 // lowers (binding its top-level names into `env`) before the next, so forward references
 // within a recursive def group resolve (the group binds its names first) and later decls see
@@ -1596,8 +1741,24 @@ case+ ds of
     in
       list_sing(dloc)
     end
+// MUTUAL datatype group: a RUN of adjacent datatype-group members (`enum` + where-lifted `#typedef`
+// aliases) is ONE mutually-recursive scope (stock `datatype A … and B … where { #typedef … }`).
+// lower_dt_run peels the maximal leading run starting at THIS member and three-phase-lowers it (PHASE
+// A register every type, PHASE B lower every alias, PHASE C lower every con) so EVERY intra-group
+// forward reference resolves regardless of emission order. The run is taken only when it actually
+// contains a datatype (run_has_data) — a bare run of stand-alone aliases lowers per-decl as before
+// (identical order, no behavior change). A LONE `enum` is the degenerate 1-run.
 | list_cons(d, rest) =>
-    let val d2c = pylower_decl(env, d) in list_cons(d2c, pylower_decls(env, rest)) end
+    if is_dt_group_member(d)
+    then (
+      if run_has_data(list_cons(d, rest))
+      then let
+        val @(grp_d2cs, rest1) = lower_dt_run(env, list_cons(d, rest))
+      in
+        list_append(grp_d2cs, pylower_decls(env, rest1))
+      end
+      else let val d2c = pylower_decl(env, d) in list_cons(d2c, pylower_decls(env, rest)) end)
+    else let val d2c = pylower_decl(env, d) in list_cons(d2c, pylower_decls(env, rest)) end
 )
 //
 (* ****** ****** *)
