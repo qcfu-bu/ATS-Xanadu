@@ -3611,6 +3611,24 @@ backend_defq_active(name: strn): bool =
   else false                          // any other / unknown backend defq: inactive
 )
 //
+// extract the bare identifier lexeme of a guard ARGUMENT. CRITICAL: the level-0 parse of
+// `defq(_XATS2JS_)` is `G0Eapps([G0Eid0("defq"), G0Elpar(lp,[G0Eid0("_XATS2JS_")],rp)])` — the
+// argument is a PARENTHESIZED group `G0Elpar`, NOT a bare `G0Eid0`. A plain `g0exp_lexeme` on
+// it returns "?" (the `_` arm), so `backend_defq_active("?")` is false and the ACTIVE `_XATS2JS_`
+// branch is wrongly dropped (its `#typedef argv=...` / `#extern` shim vanishes -> later uses of
+// `argv`/`XATSOPT_*` resolve to an abstract `T2Pbas` head that stock `unify00_s2typ`/`tread3a_s2typ`
+// has NO arm for -> a hard `XATS000_cfail`). So unwrap a single-element `G0Elpar`/`G0Eapps` (and a
+// pread-error `G0Eerrck`) down to the inner id before reading its lexeme.
+and
+g0exp_guard_arg_lexeme(ge: g0exp): strn =
+(
+  case+ ge.node() of
+  | G0Elpar(_, list_cons(ge1, list_nil()), _) => g0exp_guard_arg_lexeme(ge1)
+  | G0Eapps(list_cons(ge1, list_nil())) => g0exp_guard_arg_lexeme(ge1)
+  | G0Eerrck(_, ge1) => g0exp_guard_arg_lexeme(ge1)
+  | _ => g0exp_lexeme(ge)
+)
+//
 // evaluate an `#if` guard g0exp. Only the `defq(NAME)` form occurs in the corpus; anything
 // else is treated as inactive (conservative — the inactive branch is dropped, never the
 // declarations we know how to emit).
@@ -3620,7 +3638,7 @@ ifexp_guard_active(gexp: g0exp): bool =
   case+ gexp.node() of
   | G0Eapps(list_cons(gop, list_cons(arg, list_nil()))) =>
       if g0exp_is_id(gop, "defq")
-      then backend_defq_active(g0exp_lexeme(arg))
+      then backend_defq_active(g0exp_guard_arg_lexeme(arg))
       else false
   | _ => false
 )
