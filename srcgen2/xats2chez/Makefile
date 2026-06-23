@@ -383,6 +383,29 @@ suite: $(CHEZBUNDLE) $(JSPATCHED)
 	[ "$$fail" -eq 0 ]
 
 ########################################################################
+# selfhost — SELF-HOSTING DISCOVERY.  Run the emitter on a COMPILER source file
+# (its own emitter, the driver, or any frontend .dats/.sats) and report the
+# emitted-define count + the tally of UNHANDLED intrep0 nodes (the gaps that
+# still block compiling that file to Scheme).
+#   make SRC=srcgen2/DATS/chez0emit.dats selfhost
+#   make SRC=$(XATSHOME)/srcgen2/DATS/lexing0.dats selfhost
+########################################################################
+.PHONY: selfhost
+SRC ?=
+selfhost: $(CHEZBUNDLE)
+	@set -uo pipefail; \
+	S="$(SRC)"; [ -n "$$S" ] || { echo "usage: make SRC=<path> selfhost" >&2; exit 2; }; \
+	[ -f "$$S" ] || S="$(XATSHOME)/srcgen2/$(SRC)"; \
+	[ -f "$$S" ] || { echo "!! not found: $(SRC)" >&2; exit 2; }; \
+	W="$(BUILD)/selfhost"; mkdir -p "$$W"; \
+	$(NODE) $(CHEZBUNDLE) "$$S" > "$$W/out.scm" 2>"$$W/out.err" || true; \
+	echo ">> selfhost: $$S"; \
+	echo "   emitted defines: $$(awk '/BEGIN==/{f=1;next}/END==/{f=0}f' "$$W/out.scm" | grep -c '(define')"; \
+	echo "   UNHANDLED: i0exp=$$(grep -c UNHANDLED-i0exp-NODE "$$W/out.err") i0dcl=$$(grep -c UNHANDLED-i0dcl-NODE "$$W/out.err") pat=$$(grep -c UNHANDLED-pat-test-NODE "$$W/out.err")"; \
+	awk '/UNHANDLED-i0exp-NODE|UNHANDLED-i0dcl-NODE|UNHANDLED-pat-test-NODE/{getline; print}' "$$W/out.err" \
+	  | grep -oE '^[^(:]*I0[EDP][a-z0-9]+' | grep -oE 'I0[EDP][a-z0-9]+' | sort | uniq -c | sort -rn | sed 's/^/     /' || true
+
+########################################################################
 clean:
 	@echo ">> clean emitter artifacts (keep cached fixed libs)"
 	@rm -f $(OUT0) $(NSJS) $(LIB2CHEZ) $(DRV_CHEZ) $(CHEZBUNDLE)
