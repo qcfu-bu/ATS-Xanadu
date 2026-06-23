@@ -1024,6 +1024,14 @@ case+ d of
 // Without this the decl was silently dropped by the catch-all (-> unresolved D1Eid0(E) errck).
 | PyCexcept(_, _, _) =>
     PCEwhere(loc, kont, elab_decls(list_sing(d)))
+// SCOPING (bootstrap P1): a `private:` block INSIDE a function body is the body-suite form of
+// ATS `local D1 in D2 end` — the private decls (D1) are visible to the REST of the suite (D2 =
+// `kont`) but do NOT leak past it. Backwards-scope the elaborated private run over `kont` via
+// PCEwhere (M3 -> D2Ewhere), the SAME recipe as PyCtype/PyCexcept. Without this the privates fell
+// to the catch-all and were silently DROPPED, so any later use of a private binder (the
+// `local val s2td=… in val s2t1=S2Tbas(T2Btdat(s2td)) end` idiom) resolved to an unbound name.
+| PyCprivate(_, privs) =>
+    PCEwhere(loc, kont, elab_decls(privs))
 | _ => kont
 )
 //

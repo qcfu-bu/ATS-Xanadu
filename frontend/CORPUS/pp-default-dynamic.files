@@ -24,6 +24,7 @@ srcgen2/DATS/f2perr0_staexp.dats
 srcgen2/DATS/f3perr0.dats
 srcgen2/DATS/f3perr0_decl00.dats
 srcgen2/DATS/f3perr0_dynexp.dats
+srcgen2/DATS/nmspace.dats
 srcgen2/DATS/statyp2.dats
 srcgen2/DATS/statyp2_print0.dats
 srcgen2/DATS/statyp2_utils1.dats
@@ -164,3 +165,5 @@ frontend/TEST/roundtrip/imported_macro_const.dats
 frontend/TEST/roundtrip/local_define_const.dats
 frontend/TEST/roundtrip/qualified_static_map_type.dats
 frontend/TEST/roundtrip/qmark_top_sapp.dats
+frontend/TEST/roundtrip/local_value_body_scope.dats
+frontend/TEST/roundtrip/list_vt_dual_arity.dats

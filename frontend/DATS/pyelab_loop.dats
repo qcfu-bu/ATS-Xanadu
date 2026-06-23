@@ -238,6 +238,11 @@ case+ ss of
              end
        | PyCtype(_, _, _, _, _) =>
            PCEwhere(loc, fl_suite(encl, rest, accs, muts, mts), elab_decls(list_sing(d)))
+       // SCOPING (bootstrap P1): a `private:` block inside a LOOP body — same body-suite form of
+       // ATS `local D1 in D2 end` as el_pure's PyCprivate arm: backwards-scope the privates over the
+       // rest-of-suite via PCEwhere so the private binders are visible to D2 and do not leak out.
+       | PyCprivate(_, privs) =>
+           PCEwhere(loc, fl_suite(encl, rest, accs, muts, mts), elab_decls(privs))
        | _ => fl_suite(encl, rest, accs, muts, mts))
   | PySerror(loc, msg) => PCEseq(loc, PCEerror(loc, msg), fl_suite(encl, rest, accs, muts, mts))
   )

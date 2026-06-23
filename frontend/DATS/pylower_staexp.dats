@@ -234,6 +234,52 @@ s2itm_to_typ(s2i: s2itm): s2exp =
   | S2ITMenv(_)    => s2exp_none0()
 )
 //
+// FIDELITY (applied type-con ARITY selection): the RAW s2cstlst registered under a type NAME, with
+// the SAME alias + dual-key (`ats_sym` then `ats_type_sym`) lookup as `resolve_typ`. Unlike
+// resolve_typ_key (which collapses the bucket to ONE head via s2cstlst_pick), this returns the WHOLE
+// candidate list so an APPLIED occurrence `name[args...]` can pick the arity/sort-matching member
+// (s2cst_select_typ below). A var/env/unbound name has no con bucket -> nil.
+fun
+resolve_typ_s2cstlst(env: !tr12env, name: strn): s2cstlst = let
+  fun get1(key: sym_t): s2cstlst =
+    let val sopt = tr12env_find_s2itm(env, key) in
+      case+ sopt of
+      | ~optn_vt_cons(s2i) =>
+        (case+ s2i of S2ITMcst(s2cs) => s2cs | _ => list_nil())
+      | ~optn_vt_nil() => list_nil()
+    end
+  val name0 = typ_alias(name)
+  val scs1  = get1(ats_sym(name0))
+in
+  case+ scs1 of
+  | list_cons(_, _) => scs1
+  | list_nil()      => get1(ats_type_sym(name0))   // mirror resolve_typ's S2Enone0 retry
+end
+//
+// FIDELITY: the HEAD s2exp for an APPLIED type-con `name[s2es]`, faithfully porting stock's
+// `f0_a1pp_els2` (trans12_staexp.dats:1186) selection: filter the name's con bucket by
+// `s2cst_selects_list(s2cs, s2es)` — keep only members whose parameter SORTS match the actual
+// argument sexps (same length + each `s2e.sort() \mat s2t`), then build the head via `s2exp_csts`
+// (a singleton collapses to that one s2cst; a remaining overload set becomes S2Ecsts for trans2a).
+// This is what disambiguates the DUAL-arity `list_vt` (`#vwtpdef list_vt(a)` arity-1 AND the
+// datavtype `list_vt(a, n)` arity-2, basics0.sats): for `list_vt[T, n]` (2 args) the arity-2 member
+// is selected, instead of s2cstlst_pick's blind head (which kept the arity-1 alias and cast the
+// stray index arg to S2Tnone0). On NO match (e.g. an alias whose RHS is not a con) -> none0 so the
+// caller falls back to its existing head resolution. (Non-functional/bare selection is unchanged.)
+fun
+s2cst_select_typ(env: !tr12env, name: strn, s2es: s2explst): s2exp = let
+  val s2cs = resolve_typ_s2cstlst(env, name)
+in
+  case+ s2cs of
+  | list_nil() => s2exp_none0()
+  | list_cons(_, _) =>
+    let val scs1 = s2cst_selects_list(s2cs, s2es) in
+      case+ scs1 of
+      | list_nil()      => s2exp_none0()   // no arity/sort match -> caller's fallback
+      | list_cons(_, _) => s2exp_csts(scs1)
+    end
+end
+//
 fun
 resolve_typ_qua_key(env: !tr12env, key: sym_t): s2exp = let
   val sopt = tr12env_find_s2qua(env, key)
@@ -310,6 +356,26 @@ end
 // pylower_typ's PyTcon arm so the arm is a single application expression (the standalone
 // transpiler rejects an inline `let`-in-`else if` cascade inside a case arm). Defined AFTER
 // resolve_typ/resolve_typ_name so the forward references resolve (a plain `fun` sees earlier funs).
+// FIDELITY: the surface PRIMITIVE names whose applied form pytcon_head reroutes to a registered
+// `the_s2exp_*1` head (NOT their raw env bucket). The arity-aware s2cst_select_typ path is SKIPPED
+// for these so the M5a/P8 indexed-primitive routing (the_s2exp_sint1 etc.) is preserved verbatim.
+fun
+pytcon_is_special(name: strn): bool =
+(
+  if strn_eq(name, "Int") then true
+  else if strn_eq(name, "SInt") then true
+  else if strn_eq(name, "Sint") then true
+  else if strn_eq(name, "UInt") then true
+  else if strn_eq(name, "Uint") then true
+  else if strn_eq(name, "Bool") then true
+  else if strn_eq(name, "SBool") then true
+  else if strn_eq(name, "Char") then true
+  else if strn_eq(name, "String") then true
+  else if strn_eq(name, "strn") then true
+  else if strn_eq(name, "ptr") then true
+  else false
+)
+//
 fun
 pytcon_head(env: !tr12env, name: strn): s2exp =
 (
@@ -493,7 +559,20 @@ case+ t of
     // resolve_typ's S2ITMvar arm. (DEP-spike P1-proven: a mixed type+index arg list on a
     // parametric con whose sort is S2Tfun1([type, int0], tbox) typechecks structurally.)
     // pytcon_head resolves the head s2exp; pylower_typlst lowers the (type/index) args.
-    else s2exp_apps(loc, pytcon_head(env, name), pylower_typlst(env, args))
+    // FIDELITY: lower the args FIRST, then resolve the head with ARITY awareness
+    // (s2cst_select_typ, faithful to stock f0_a1pp_els2): for an overloaded dual-arity con like
+    // `list_vt` the member whose param sorts match the actual args is chosen. A none0 result (no
+    // arity match, or a special-cased primitive whose raw bucket we deliberately skip) falls back to
+    // pytcon_head's existing routing (the int/bool/char/strn/ptr `the_s2exp_*` heads + the bare pick).
+    else let
+      val s2es = pylower_typlst(env, args)
+      val head =
+        if pytcon_is_special(name) then pytcon_head(env, name)
+        else let val h = s2cst_select_typ(env, name, s2es) in
+          (case+ h.node() of S2Enone0() => pytcon_head(env, name) | _ => h) end
+    in
+      s2exp_apps(loc, head, s2es)
+    end
 | PyTvar(loc, name) => resolve_typ(env, loc, name)
 // DEP: an INDEX LITERAL (`0`, `5`) in a type-arg list -> a STATIC int s2exp s2exp_int(k). (A bare
 // index variable `n` arrives as PyTvar, not PyTidx — the lexer emits PT_LIDENT for a lowercase

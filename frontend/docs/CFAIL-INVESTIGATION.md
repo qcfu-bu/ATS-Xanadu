@@ -10,6 +10,55 @@ when the M3 bundle reparses the pretty-printed Pythonic for 7 bootstrap compiler
 
 ---
 
+## UPDATE (2026-06-23 — srcgen2 tail: `nmspace` CLOSED + `local…in…end` body-scope FIXED)
+
+Three more fidelity gaps were pinned and two closed (one rebuild, `frontend/` only).
+
+### (1) `nmspace.dats` (was nerror 4 → **0**, CLOSED) — applied type-con ARITY selection
+**Divergence.** `list_vt` is registered under ONE name at TWO arities (`#vwtpdef list_vt(a)` arity-1
+AND the datavtype `list_vt(a, n)` arity-2, `prelude/basics0.sats`). Both sorts are *functional*, so
+`s2cstlst_pick` (which only prefers a NON-functional s2cst, stock's `s2cst_select$any`) skipped both
+and fell back to `s2cs.head()` — the **arity-1** alias. Applied to two args `list_vt[Nmitmlst_vt, N]`,
+the stray index `N` was cast to the missing 2nd param's sort → `S2Ecast(N; int0; S2Tnone0)`.
+**Verdict: FIDELITY.** Stock's APPLIED-con path uses a DIFFERENT selector — `s2cst_selects_list`
+(`f0_a1pp_els2`, trans12_staexp.dats:1186) — that filters the bucket by **arity + per-arg sort
+match** (`f0_test1`/`f0_test2`). Our `pylower_typ` `PyTcon` applied arm only did the bare-name pick.
+**Fix** (`pylower_staexp.dats`): added `resolve_typ_s2cstlst` (raw bucket, same alias/dual-key lookup
+as `resolve_typ`) + `s2cst_select_typ` (ports `s2cst_selects_list` faithfully), and route the
+applied arm through it (args lowered first; none0 → fall back to `pytcon_head`; primitives skipped
+via `pytcon_is_special` to preserve the `the_s2exp_*1` routing). MWE bypassing our frontend (a
+hand-written `type Nmitmlst_vt = list_vt[nmitm]` + 2-arg use) reproduced the exact `S2Tnone0` cast,
+and the fix takes it to nerror=0. Added to both corpus lists.
+
+### (2) `trans12_decl00.dats` (was nerror 2 → 3) — `local…in…end` body-suite scope, FIDELITY (fixed)
+**Divergence.** ATS `local D1 in D2 end` makes D1 visible to D2. In a FUNCTION BODY our lowering
+emitted `private:` + following stmts, but `el_local_decl`/`fl_suite`'s `PySdecl` arm had a
+catch-all `| _ => kont` that **silently dropped** a body `PyCprivate` block — so `s2td` (bound in the
+private head, used in the next stmt `S2Tbas(T2Btdat(s2td))`) resolved to an UNBOUND name. A
+hand-written `.pdats` (`private:` head + a use in the next stmt) reproduced the unbound `y`.
+**Verdict: FIDELITY (fixed).** Added a `PyCprivate` arm to both `el_local_decl` (pyelab_core) and
+`fl_suite`'s `PySdecl` (pyelab_loop) that backwards-scopes the privates over the rest-of-suite via
+`PCEwhere` (→ `D2Ewhere`), the SAME recipe as the existing `PyCtype`/`PyCexcept` arms — privates
+visible to D2, not leaking past it = exact `local…end` semantics. This closes the `s2td` bug; the
+file's REMAINING residual is the compiler-side `char`-vs-`cgtz` gap below (#3), NOT a regression —
+the file was never green here (it also hits the #13a indexing gap).
+
+### (3) `xlibext_pyemit.dats` / `xlibext_jsemit.dats` (nerror 1, both) — `char`-vs-`cgtz`, COMPILER-SIDE
+**Divergence.** `fpath_char$strmize`'s `if` joins `strm_vt_nil() : strm_vt(a)` (generic) with
+`strn_strmize(…) : strm_vt(cgtz)`, then checks the join against the declared `strm_vt(char)`. The M3
+driver leaves the if-join as `strm_vt(cgtz)` and must unify `cgtz = [c|c>0]char(c)` with bare
+`char = char_type($none0)` — i.e. reconcile the refined-index `char_type` with the unindexed one.
+**Verdict: COMPILER-SIDE (documented, not hacked).** A **hand-written `.pdats`** that bypasses our
+frontend entirely reproduces the EXACT nerror=1 with the same `strm_vt(cgtz)` vs
+`lazy_vt_vx(strmcon_vt(char_type($none0)))` mismatch — and a variant WITHOUT the `if`-join (single
+`strn_strmize` body) passes at nerror=0. So our emission is byte-faithful; the residual is the M3
+direct-L2 driver not making both sides HNF + the cgtz/char subtyping the full
+`trans03_from_fpath`/solver would do. Stock compiles the original `.dats` (it is live xats2py/xats2js
+source). The same `char`/`cgtz` refinement is what blocks `trans12_decl00`'s `strn_tabulate$f1un`
+(fopr returns `char`, the template wants `nintlt(n) -> cgtz`). **No frontend change can close these.**
+
+---
+
 ## UPDATE (2026-06 — re-diagnosis under the FULL stock pipeline) — C2 was a FRONTEND BUG, now FIXED
 
 The C2 cluster below was *mis-attributed* to a stock/M3-driver limitation. Re-diagnosis under the
