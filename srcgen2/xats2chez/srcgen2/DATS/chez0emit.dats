@@ -78,13 +78,20 @@ cz_emit_int
 (
   prints(i0)) where { #impltmp g_print$out<>() = filr }
 //
-(* cz_sym: write a symbol's chars to [filr].  (M2: verbatim; a Scheme-safe
+(* cz_sym: write a symbol's chars to [filr].  A lone "_" (the ATS don't-care
+   value) is not a legal Scheme identifier (it is an auxiliary keyword), so it
+   maps to the runtime unit [_xunit].  (M2: otherwise verbatim; a Scheme-safe
    mangler + stamp suffix for user names follows in a later increment.) *)
 fun
 cz_sym
 ( filr: FILR, xsym: sym_t): void =
-(
-  cz_str(filr, symbl_get_name(xsym)))
+let
+val nm = symbl_get_name(xsym)
+in//let
+if (strn_length(nm) = 1)
+then (if (strn_get$at(nm, 0) = '_') then cz_str(filr, "_xunit") else cz_str(filr, nm))
+else cz_str(filr, nm)
+end//let
 //
 (* ****** ****** *)
 //

@@ -178,6 +178,32 @@
 (define (strn_get$at s i) (char->integer (string-ref s i)))
 (define (XATS000_strn_get_at_raw s i) (char->integer (string-ref s i)))
 
+;;;--------------------------------------------------------------------
+;;; Misc: the ATS don't-care value [_]; generic value->string; variadic
+;;; prints (gs_print_aN / gs_println_aN) that push each arg's string form
+;;; onto the print store (matching the JS backend's per-arg stringification).
+;;;--------------------------------------------------------------------
+(define _xunit XATSTOP0)
+
+(define (xats_value_string x)
+  (cond ((string? x) x)
+        ((flonum? x) (xats_dflt_tostring x))
+        ((number? x) (number->string x))
+        ((boolean? x) (if x "true" "false"))
+        ((char? x) (string x))
+        (else "?")))
+
+(define (gs_print_one x) (XATS2JS_strn_print (xats_value_string x)))
+(define (gs_print_a0) XATSTOP0)
+(define (gs_print_a1 a) (gs_print_one a) XATSTOP0)
+(define (gs_print_a2 a b) (gs_print_one a) (gs_print_one b) XATSTOP0)
+(define (gs_print_a3 a b c) (gs_print_one a) (gs_print_one b) (gs_print_one c) XATSTOP0)
+(define (gs_print_a4 a b c d) (gs_print_one a) (gs_print_one b) (gs_print_one c) (gs_print_one d) XATSTOP0)
+(define (gs_println_a0) (XATS2JS_console_log (XATS2JS_the_print_store_flush)))
+(define (gs_println_a1 a) (gs_print_one a) (gs_println_a0))
+(define (gs_println_a2 a b) (gs_print_one a) (gs_print_one b) (gs_println_a0))
+(define (gs_println_a3 a b c) (gs_print_one a) (gs_print_one b) (gs_print_one c) (gs_println_a0))
+
 ;;;====================================================================
 ;;; end of [xats2chez_runtime.scm]
 ;;;====================================================================
