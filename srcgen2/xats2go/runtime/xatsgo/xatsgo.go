@@ -416,8 +416,19 @@ var Xats_strn_append = func(s1 any, s2 any) any {
 }
 
 // Xats_strn_length mirrors XATS2JS_strn_length: number of bytes (JS string
-// .length over the prelude's char model). Provided for completeness.
-var Xats_strn_length = func(s0 any) any {
+// .length over the prelude's char model).
+//
+// CONVENTION (soundness): a scalar-QUERY prelude fn returns its CONCRETE Go
+// scalar type, NOT `any` -- exactly like Xats_sint_abs / Xats_list_length /
+// Xats_gseq_folditm (all `int`). This matters because the result flows into a
+// NATIVE Go operator (e.g. `strn_length(s) >= n`), and Go's ordered/arith
+// operators (`<`,`>`,`+`,...) are undefined on `interface{}`. Returning the
+// concrete `int` makes the emitted `(a OP b)` type-check with zero emitter
+// change. (Equality `==`/`!=` would tolerate `any`, but ordered ops do not --
+// this was the M5-probe blocker (a): `strn_length`'s `any` return made
+// `int >= any` a compile error.) Only OP-FALLBACK fns (gint_*, sint_*, ...)
+// stay `any`-returning, for first-class/higher-order use.
+var Xats_strn_length = func(s0 any) int {
 	return len(s0.(string))
 }
 

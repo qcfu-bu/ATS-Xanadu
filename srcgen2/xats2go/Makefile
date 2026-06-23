@@ -737,7 +737,8 @@ SUITE_NAMES := \
   test88_lazy_xats2go \
   test90_top_xats2go \
   test91_strpat_xats2go \
-  test92_strops_xats2go
+  test92_strops_xats2go \
+  test93_strlen_op_xats2go
 
 # Self-hosting forcing-function rungs (copies of the JS backend's own test
 # programs).  test73/test74 are the FOCUSED green proofs of two earlier

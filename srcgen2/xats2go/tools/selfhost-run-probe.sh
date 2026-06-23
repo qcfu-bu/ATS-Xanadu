@@ -5,9 +5,9 @@
 # function under a Go test). Adds nothing to the tree; all scratch under
 # srcgen2/BUILD/selfhost-m5/. Read-only wrt emitter/runtime.
 #
-#  RUN-PROOF  : extract go1emit_strn_contains (VERBATIM emitter output + a 2-line
-#               assertion that SIMULATES the needed emitter fix: type the two
-#               strn_length results to int) -> go test must PASS.
+#  RUN-PROOF  : extract go1emit_strn_contains (VERBATIM emitter output, no
+#               patch -- blocker (a) is fixed at the root: Xats_strn_length
+#               returns concrete int) -> go test must PASS.
 #  SHIM-BUILD : assemble the full go1emit_utils0 package + an any-typed frontend
 #               shim -> reduce to exactly the two known remaining blockers.
 set -eu
@@ -25,10 +25,11 @@ node --stack-size=8801 "$BUNDLE" "$repo/srcgen2/DATS/go1emit_utils0.dats" 2>/dev
   | awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' > "$WORK/go1emit_utils0.go"
 [ "$(wc -l < "$WORK/go1emit_utils0.go")" -gt 100 ] || { echo "!! emit failed"; exit 1; }
 
-echo ">> [2/4] RUN-PROOF: extract go1emit_strn_contains + simulate emitter int-typing fix"
+echo ">> [2/4] RUN-PROOF: extract go1emit_strn_contains (VERBATIM) + run it"
+# Blocker (a) is now fixed at its root (Xats_strn_length returns concrete int),
+# so the emitted go1emit_strn_contains type-checks AS EMITTED -- no simulation.
 awk 'NR>=1 && /^func go1emit_strn_contains_21828/{f=1} f{print} f&&/^}/{exit}' "$WORK/go1emit_utils0.go" \
-  | sed -e 's/goxtnm6 := goxtnm5$/goxtnm6 := goxtnm5.(int)/' \
-        -e 's/goxtnm9 := goxtnm8$/goxtnm9 := goxtnm8.(int)/' > "$WORK/runproof/body.txt"
+  > "$WORK/runproof/body.txt"
 cat > "$WORK/runproof/go.mod" <<EOF
 module xats2go_m5_runproof
 go 1.26
@@ -36,7 +37,7 @@ require xatsgo v0.0.0
 replace xatsgo => $RT
 EOF
 { echo "package main"; echo; echo 'import "xatsgo"'; echo; echo "var _ = xatsgo.XATSNIL";
-  echo "// VERBATIM emitter output (2 asserts simulate the strn_length->int fix).";
+  echo "// VERBATIM emitter output (blocker (a) fixed in the xatsgo runtime).";
   cat "$WORK/runproof/body.txt"; printf '\nfunc main() {}\n'; } > "$WORK/runproof/strn_contains.go"
 rm -f "$WORK/runproof/body.txt"
 cat > "$WORK/runproof/strn_contains_test.go" <<'EOF'
@@ -105,6 +106,7 @@ echo "$rem" | sed 's/^/   | /'
 echo "   shim resolved all 16 Class-C frontend symbols; remaining = ${ntype} emitter type-bug + ${nfront} strn_foritm(M3)"
 
 echo ">> [4/4] PASS — emitted backend logic RUNS; Class-C frontend dep fully shimmable."
-echo "   Blockers to a clean full build (out of shim scope, both diagnosed):"
-echo "     (a) native int ops on any-typed prelude-call results (emitter type-recovery)"
-echo "     (b) xatsgo.Xats_strn_foritm = higher-order template foritm\$work (M3)"
+echo "   Remaining blocker to a clean full build (out of shim scope):"
+echo "     - xatsgo.Xats_strn_foritm = higher-order template foritm\$work (M3 template-body emission)"
+echo "   (Resolved: blocker (a) native ops on any-typed prelude-call results -- scalar-query"
+echo "    runtime fns now return concrete Go scalars; go1emit_strn_contains runs VERBATIM above.)"
