@@ -81,6 +81,21 @@
 (define (gint_asrn$uint a k) (bitwise-arithmetic-shift a (- k)))
 
 ;;;--------------------------------------------------------------------
+;;; Generic compare / min / max (g_cmp<T> etc.).  In well-typed ATS these are
+;;; specialized per type; the compiler also calls bare generic forms (on ints,
+;;; chars, strings).  Scheme is dynamically typed, so one polymorphic version
+;;; dispatches on the operand kind.  (cmp returns a sign -1/0/1.)
+;;;--------------------------------------------------------------------
+(define (g_cmp a b)
+  (cond ((and (number? a) (number? b)) (cond ((< a b) -1) ((> a b) 1) (else 0)))
+        ((and (string? a) (string? b)) (cond ((string<? a b) -1) ((string>? a b) 1) (else 0)))
+        (else 0)))
+(define (g_min a b) (if (<= (g_cmp a b) 0) a b))
+(define (g_max a b) (if (>= (g_cmp a b) 0) a b))
+(define (g_eq a b) (equal? a b))
+(define (g_neq a b) (not (equal? a b)))
+
+;;;--------------------------------------------------------------------
 ;;; a0ref — a single-value mutable reference (the JS XATS2JS_a0rf_*).
 ;;; Represented as a Scheme box.
 ;;;--------------------------------------------------------------------

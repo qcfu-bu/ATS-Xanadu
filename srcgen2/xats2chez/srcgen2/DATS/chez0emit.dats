@@ -63,6 +63,10 @@ NOTE (stamp discipline): keep the SATS stable; DATS-only edits are safe.
 //
 #symload node with token_get_node
 //
+(* a process-global counter for fresh names (destructuring-val temporaries),
+   built on the frontend's stamper. *)
+val the_cz_stamper = stamper_new()
+//
 (* ****** ****** *)
 (* ****** ****** *)
 //
@@ -79,6 +83,13 @@ cz_emit_int
 ( filr: FILR, i0: sint): void =
 (
   prints(i0)) where { #impltmp g_print$out<>() = filr }
+//
+(* cz_emit_uint: write an unsigned integer (a fresh-name stamp) to [filr]. *)
+fun
+cz_emit_uint
+( filr: FILR, u0: uint): void =
+(
+  prints(u0)) where { #impltmp g_print$out<>() = filr }
 //
 (* cz_sym: write a symbol's chars to [filr].  A lone "_" (the ATS don't-care
    value) is not a legal Scheme identifier (it is an auxiliary keyword), so it
@@ -358,6 +369,55 @@ case+ sps of
 | list_nil() => ()
 | list_cons(sp, sps) =>
   (cz_subbind(filr, iscon, idx, sp); cz_subbinds(filr, iscon, idx+1, sps)))
+//
+(* pat_has_var: does a pattern bind any variable?  (distinguishes a binding
+   destructuring val from an effectful [val () = e].) *)
+fun
+pat_has_var
+( pat: i0pat): bool =
+(
+case+ pat.node() of
+| I0Pvar(_) => true
+| I0Pdapp(_, _, sps) => patlst_has_var(sps)
+| I0Ptup0(_, sps) => patlst_has_var(sps)
+| I0Ptup1(_, _, sps) => patlst_has_var(sps)
+| _(*else*) => false)
+//
+and
+patlst_has_var
+( sps: i0patlst): bool =
+(
+case+ sps of
+| list_nil() => false
+| list_cons(p0, sps) => if pat_has_var(p0) then true else patlst_has_var(sps))
+//
+(* cz_destr_fields: for a destructuring val whose scrutinee is bound to the
+   fresh temp czdv<freshn>, emit a (define <var> <projection>) for each var
+   sub-pattern.  iscon: datacon fields (XATSPCON) vs tuple fields (vector-ref).
+   (One level deep — nested destructuring is a later refinement.) *)
+fun
+cz_destr_field
+( filr: FILR, sp: i0pat, iscon: bool, idx: sint, freshn: uint): void =
+(
+case+ sp.node() of
+| I0Pvar(dvar) =>
+  (
+  cz_str(filr, "(define ");
+  cz_sym(filr, d2var_get_name(dvar));
+  cz_str(filr, " (");
+  (if iscon then cz_str(filr, "XATSPCON") else cz_str(filr, "vector-ref"));
+  cz_str(filr, " czdv"); cz_emit_uint(filr, freshn); cz_str(filr, " ");
+  cz_emit_int(filr, idx); cz_str(filr, "))\n"))
+| _(*else: wildcard / literal / nested*) => ())
+//
+fun
+cz_destr_fields
+( filr: FILR, sps: i0patlst, iscon: bool, idx: sint, freshn: uint): void =
+(
+case+ sps of
+| list_nil() => ()
+| list_cons(sp, sps) =>
+  (cz_destr_field(filr, sp, iscon, idx, freshn); cz_destr_fields(filr, sps, iscon, idx+1, freshn)))
 //
 (* cz_pat_test: a boolean Scheme expr testing the scrutinee [czscrut] against
    a pattern.  Flat literals + var/wildcard, plus ONE-LEVEL constructor/tuple
@@ -822,8 +882,25 @@ case+ tdxp of
     cz_str(filr, " ");
     i0exp_cz0(filr, iexp);
     cz_str(filr, ")\n"))
-  | _(*effectful: val () = e*) =>
-    (i0exp_cz0(filr, iexp); cz_str(filr, "\n")))
+  | _(*else*) =>
+    if pat_has_var(ipat)
+    then
+      (* destructuring val: bind the scrutinee, then each pattern field *)
+      let
+      val freshn = stamp_get_uint(stamper_getinc(the_cz_stamper))
+      val () =
+        (cz_str(filr, "(define czdv"); cz_emit_uint(filr, freshn);
+         cz_str(filr, " "); i0exp_cz0(filr, iexp); cz_str(filr, ")\n"))
+      in//let
+      case+ ipat.node() of
+      | I0Pdapp(_, npf, sps) => cz_destr_fields(filr, ldrop_pat(sps, npf), true, 0, freshn)
+      | I0Ptup0(npf, sps) => cz_destr_fields(filr, ldrop_pat(sps, npf), false, 0, freshn)
+      | I0Ptup1(_, npf, sps) => cz_destr_fields(filr, ldrop_pat(sps, npf), false, 0, freshn)
+      | _(*else*) => ()
+      end//let
+    else
+      (*effectful: val () = e*)
+      (i0exp_cz0(filr, iexp); cz_str(filr, "\n")))
 end//let
 //
 and
