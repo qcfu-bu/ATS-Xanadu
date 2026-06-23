@@ -1455,6 +1455,8 @@ and
 	in
 	  if dexp_tail_starts_cons(tail0)
 	  then pp_dexp_cons_apps(out, hd, rest)
+	  else if dexp_tail_starts_named_binop(tail0)
+	  then pp_dexp_named_binop_apps(out, hd, rest, tail0)
 	  else if dexp_tail_starts_cmp(tail0)
 	  then pp_dexp_cmp_apps(out, hd, rest, tail0)
 	  else if dexp_tail_starts_bslash_selector(tail0)
@@ -1511,6 +1513,26 @@ and
 	        pp_dexp_infix_tail(out, tail)
 	      end
 	  | list_nil() => ps(out, "# TODO(pp): d0exp-cons")
+	)
+	and
+	pp_dexp_named_binop_apps(out: FILR, hd: d0exp, rest: d0explst, tail0: d0explst): void =
+	(
+	  case+ tail0 of
+	  | list_cons(opr, list_cons(rhs, rhsrest)) => let
+	      val () = ps(out, dexp_named_binop_call(opr))
+	      val () = ps(out, "(")
+	      val _ = pp_dexp_operand_from(out, hd, rest)
+	      val () = ps(out, ", ")
+	      val tail1 = pp_dexp_operand_from(out, rhs, rhsrest)
+	      val () = ps(out, ")")
+	    in
+	      pp_dexp_infix_tail(out, tail1)
+	    end
+	  | _ => let
+	      val tail1 = pp_dexp_operand_from(out, hd, rest)
+	    in
+	      pp_dexp_infix_tail(out, tail1)
+	    end
 	)
 	and
 	pp_dexp_cmp_apps(out: FILR, hd: d0exp, rest: d0explst, tail0: d0explst): void =
@@ -1721,6 +1743,13 @@ and
 	  | _ => false
 	)
 	and
+	dexp_tail_starts_named_binop(des: d0explst): bool =
+	(
+	  case+ des of
+	  | list_cons(opr, list_cons(_, _)) => ~(strn_eq(dexp_named_binop_call(opr), ""))
+	  | _ => false
+	)
+	and
 	dexp_list_followed_by_cons(des: d0explst): bool =
 	(
 	  case+ des of
@@ -1768,6 +1797,16 @@ and
 	  else if strn_eq(oper, ">") then ">"
 	  else if strn_eq(oper, ">=") then ">="
 	  else if strn_eq(oper, "!=") then "!="
+	  else ""
+	end
+	and
+	dexp_named_binop_call(de: d0exp): strn = let
+	  val oper = dexp_name(de)
+	in
+	  if strn_eq(oper, "&") then "land"
+	  else if strn_eq(oper, "<<") then "lsln"
+	  else if strn_eq(oper, ">>") then "asrn"
+	  else if strn_eq(oper, ">>>") then "lsrn"
 	  else ""
 	end
 	and
