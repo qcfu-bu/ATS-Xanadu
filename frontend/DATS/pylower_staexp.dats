@@ -470,6 +470,30 @@ pytcon_head(env: !tr12env, name: strn): s2exp =
   else resolve_typ(env, loctn_dummy(), name)
 )
 //
+// QMARK-TYPE reduction predicate + builder: the `?`/`?!` view operators applied to EXACTLY ONE
+// type arg reduce to S2Etop0/S2Etop1 (stock f0_top0/f0_top1). pytcon_qmark_top gates the arm;
+// pylower_qmark_top lowers the single arg (forward-calling the #implfun pylower_typ, the pytcon_head
+// pattern) and wraps it with the f0_top0 sort rule (boxed arg -> tbox, else type).
+fun
+pytcon_qmark_top(name: strn, args: list(pytyp)): bool =
+  ( case+ args of
+    | list_cons(_, list_nil()) =>
+        if strn_eq(name, "?") then true else strn_eq(name, "?!")
+    | _ => false )
+fun
+pylower_qmark_top(env: !tr12env, name: strn, args: list(pytyp)): s2exp =
+  ( case+ args of
+    | list_cons(arg0, _) =>
+        let
+          val s2a = pylower_typ(env, arg0)
+          val s2t = (if sort2_boxq(s2a.sort()) then the_sort2_tbox else the_sort2_type): sort2
+        in
+          if strn_eq(name, "?!")
+            then s2exp_make_node(s2t, S2Etop1(s2a))
+            else s2exp_make_node(s2t, S2Etop0(s2a))
+        end
+    | list_nil() => resolve_typ(env, loctn_dummy(), name) )  // unreachable (gated by pytcon_qmark_top)
+//
 // DEP (static arithmetic): lower an INDEX BINOP `a <op> b` to the L2 static application
 // `s2exp_apps(s2exp_cst(<prelude *_i0_i0 const>), [a', b'])` (DEP-spike P1/P3/P4 recipe). The
 // const is resolved BY NAME from the env (the SAME tr12env fall-through that resolves any prelude
@@ -642,7 +666,15 @@ case+ t of
 | PyTcon(loc, name, args) when pytcon_is_extype(name) =>
     pylower_extype(env, loc, pytcon_extype_isbox(name), args)
 | PyTcon(loc, name, args) =>
-  if list_nilq(args)
+  // QMARK-TYPE reduction: an applied `?[A]` / `?![A]` view operator reduces to the BUILTIN top
+  // nodes S2Etop0(A) / S2Etop1(A) — exactly as stock trans12's f0_top0/f0_top1 reduce the `?`/`?!`
+  // sexpdef applications. Without this they lower to the apps-form `s2exp_apps(top0_vt_t0,[A])`,
+  // which does NOT unify with the `S2Etop0(A)` a stock prelude declaration produces (e.g.
+  // `a0ptr_alloc() -> a0ptr[?a]`) — the divergence that kept the a0ptr/arr FFI shims red. (This
+  // dialect has no `case when`-guard, so the `?`/`?!` single-arg check is an `if` at the arm top.)
+  if pytcon_qmark_top(name, args)
+    then pylower_qmark_top(env, name, args)
+  else (if list_nilq(args)
     then resolve_typ(env, loc, name)
     // DEP: the INDEXED primitives `SInt[k]`/`SInt[n]` (and `SBool[..]`) route through the
     // registered parametric int/bool s2cst the_s2exp_sint1 / the_s2exp_bool1 (NOT the bare-int
@@ -668,7 +700,7 @@ case+ t of
           (case+ h.node() of S2Enone0() => pytcon_head(env, name) | _ => h) end
     in
       s2exp_apps(loc, head, s2es)
-    end
+    end)
 | PyTvar(loc, name) => resolve_typ(env, loc, name)
 // DEP: an INDEX LITERAL (`0`, `5`) in a type-arg list -> a STATIC int s2exp s2exp_int(k). (A bare
 // index variable `n` arrives as PyTvar, not PyTidx — the lexer emits PT_LIDENT for a lowercase

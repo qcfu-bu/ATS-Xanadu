@@ -981,8 +981,30 @@ p_overload_name(st: pstate): @(strn, pstate, bool) =
   | PT_SLASH2()  => @("//", ps_advance(st), true)
   | PT_PERCENT() => @("%", ps_advance(st), true)
   | PT_STAR2()   => @("**", ps_advance(st), true)
-  | PT_EQEQ()    => @("==", ps_advance(st), true)
-  | PT_NEQ()     => @("!=", ps_advance(st), true)
+  // `==` and `===`: the lexer matches `==` greedily (PT_EQEQ), so `===` is PT_EQEQ + PT_EQ. Both
+  // are `#symload`ed. DISAMBIGUATION (both forms have an alias separator `=`): the token stream for
+  // `=== = T` is EQEQ EQ EQ T (name `===`, then the `=` separator), while `== = T` is EQEQ EQ T
+  // (name `==`). So read `===` ONLY when EQEQ is followed by EQ AND another EQ (the separator);
+  // a single trailing EQ is the separator, so the name is `==`.
+  | PT_EQEQ()    =>
+    let val st1 = ps_advance(st) in
+      (case+ ps_peek(st1) of
+       | PT_EQ() =>
+         (case+ ps_peek(ps_advance(st1)) of
+          | PT_EQ() => @("===", ps_advance(st1), true)   // EQEQ + first EQ = `===`; second EQ stays as separator
+          | _ => @("==", st1, true))                     // EQEQ; the single EQ is the separator
+       | _ => @("==", st1, true))
+    end
+  // `!=` and `!==`: same greedy-lex disambiguation — `!== = T` is NEQ EQ EQ T, `!= = T` is NEQ EQ T.
+  | PT_NEQ()     =>
+    let val st1 = ps_advance(st) in
+      (case+ ps_peek(st1) of
+       | PT_EQ() =>
+         (case+ ps_peek(ps_advance(st1)) of
+          | PT_EQ() => @("!==", ps_advance(st1), true)   // NEQ + first EQ = `!==`; second EQ is the separator
+          | _ => @("!=", st1, true))                     // NEQ; the single EQ is the separator
+       | _ => @("!=", st1, true))
+    end
   | PT_LT()      =>
     let
       val st1 = ps_advance(st)
