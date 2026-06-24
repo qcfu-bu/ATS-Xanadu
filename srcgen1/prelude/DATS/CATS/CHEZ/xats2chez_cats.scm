@@ -348,6 +348,20 @@
 (define (char_sub$char a b) (- a b))
 (define (char_sub$sint c n) (- c n))
 
+;;;--------------------------------------------------------------------
+;;; $UN unsafe linear casts (prelude/SATS/unsafex.sats).  In ATS these change
+;;; only the LINEAR TYPE, not the value representation; Scheme tracks no
+;;; linearity, so each is IDENTITY.  The env-capturing templates
+;;; (gseq_foritm$e1nv etc.) thread a borrowed position via datacopy+castlin+
+;;; delinear; identity reuses the same mutable object across the iteration,
+;;; which is exactly the intended in-place position update.
+;;;--------------------------------------------------------------------
+(define (datacopy x) x)
+(define (castlin10 x) x)
+(define (castlin01 x) x)
+(define (delinear x) x)
+(define (enlinear x) x)
+
 ;;;====================================================================
 ;;; end of [xats2chez_cats.scm]  (grows as more compiler units are compiled)
 ;;;====================================================================

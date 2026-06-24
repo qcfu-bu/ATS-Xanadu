@@ -28,7 +28,7 @@ SRCGEN1   := $(XATSHOME)/srcgen1
 SRCGEN2   := $(XATSHOME)/srcgen2
 FRONTEND  := $(XATSHOME)/frontend
 XATS2CHEZ := $(SRCGEN2)/xats2chez/srcgen2
-CHEZRT    := $(SRCGEN2)/xats2chez/runtime/scheme
+CHEZRT    := $(SRCGEN1)/prelude/DATS/CATS/CHEZ
 JSSHIM    := $(SRCGEN2)/xats2chez/runtime/jsshim/gen-i0varfst-shim.sh
 
 JSEMIT  := $(XATSHOME)/xassets/JS/xats2js/xats2js_jsemit00_ats2_opt1.js
@@ -266,7 +266,7 @@ run/%: $(CHEZBUNDLE)
 	if [ "$$RC" -ne 0 ]; then echo "!! emitter exit $$RC" >&2; tail -40 "$$WORK/stderr.txt" >&2; exit "$$RC"; fi; \
 	awk '/^;;==XATS2CHEZ-BEGIN==/{f=1;next} /^;;==XATS2CHEZ-END==/{f=0} f' "$$WORK/stdout.txt" > "$$WORK/$*.body.scm"; \
 	[ -f "$(CHEZRT)/xats2chez_runtime.scm" ] && RT="$(CHEZRT)/xats2chez_runtime.scm" || RT=/dev/null; \
-	cat "$$RT" "$$WORK/$*.body.scm" > "$$WORK/$*.scm"; \
+	cat $(FULLRT) "$$WORK/$*.body.scm" > "$$WORK/$*.scm"; \
 	echo ">> run on Chez: $$WORK/$*.scm"; \
 	$(CHEZ) "$$WORK/$*.scm"
 
@@ -323,7 +323,7 @@ cmp/%: $(CHEZBUNDLE) $(JSPATCHED)
 	awk '/^;;==XATS2CHEZ-BEGIN==/{f=1;next} /^;;==XATS2CHEZ-END==/{f=0} f' "$$WORK/cz.out" > "$$WORK/$*.body.scm"; \
 	if grep -q 'UNHANDLED' "$$WORK/$*.body.scm"; then echo "FAIL  $*  (emitter UNHANDLED node)"; exit 1; fi; \
 	[ -f "$(CHEZRT)/xats2chez_runtime.scm" ] && RT="$(CHEZRT)/xats2chez_runtime.scm" || RT=/dev/null; \
-	cat "$$RT" "$$WORK/$*.body.scm" > "$$WORK/$*.scm"; \
+	cat $(FULLRT) "$$WORK/$*.body.scm" > "$$WORK/$*.scm"; \
 	$(CHEZ) "$$WORK/$*.scm" > "$$WORK/chez.stdout" 2>"$$WORK/chez.runerr" \
 	  || { echo "FAIL  $*  (chez run crashed)"; tail -20 "$$WORK/chez.runerr" >&2; exit 1; }; \
 	jsok=1; \
@@ -362,7 +362,7 @@ gold/%: $(CHEZBUNDLE)
 	$(NODE) $(CHEZBUNDLE) "$$SRC" > "$$WORK/cz.out" 2>"$$WORK/cz.err"; \
 	awk '/^;;==XATS2CHEZ-BEGIN==/{f=1;next} /^;;==XATS2CHEZ-END==/{f=0} f' "$$WORK/cz.out" > "$$WORK/$*.body.scm"; \
 	[ -f "$(CHEZRT)/xats2chez_runtime.scm" ] && RT="$(CHEZRT)/xats2chez_runtime.scm" || RT=/dev/null; \
-	cat "$$RT" "$$WORK/$*.body.scm" > "$$WORK/$*.scm"; \
+	cat $(FULLRT) "$$WORK/$*.body.scm" > "$$WORK/$*.scm"; \
 	$(CHEZ) "$$WORK/$*.scm" > "$(TESTDIR)/OUTS/$*.expected" 2>"$$WORK/chez.runerr" \
 	  || { echo "!! chez run failed" >&2; cat "$$WORK/chez.runerr" >&2; exit 1; }; \
 	echo ">> golden saved: $(TESTDIR)/OUTS/$*.expected"; cat "$(TESTDIR)/OUTS/$*.expected"
@@ -415,6 +415,10 @@ selfhost: $(CHEZBUNDLE)
 #   make selfrun/xstamp0
 ########################################################################
 CATSRT := $(CHEZRT)/xats2chez_cats.scm
+# FULL frozen runtime, in load order (generics LAST so its polymorphic defs win).
+# Inlined template instances now reference XATS2JS_* externs (in jsffi), so the
+# test harness needs the whole runtime, not just cats+runtime.
+FULLRT := $(CATSRT) $(CHEZRT)/xats2chez_runtime.scm $(CHEZRT)/xats2chez_collrt.scm $(CHEZRT)/xats2chez_jsffi.scm $(CHEZRT)/xats2chez_jsrt.scm $(CHEZRT)/xats2chez_generics.scm
 selfrun/%: $(CHEZBUNDLE)
 	@set -uo pipefail; \
 	S="$(XATSHOME)/srcgen2/DATS/$*.dats"; \
@@ -424,7 +428,7 @@ selfrun/%: $(CHEZBUNDLE)
 	W="$(BUILD)/selfhost"; mkdir -p "$$W"; \
 	$(NODE) $(CHEZBUNDLE) "$$S" 2>"$$W/$*.err" \
 	  | awk '/BEGIN==/{f=1;next}/END==/{f=0}f' > "$$W/$*.body.scm"; \
-	cat "$(CATSRT)" "$(CHEZRT)/xats2chez_runtime.scm" "$$W/$*.body.scm" "$$DRV" > "$$W/$*.run.scm"; \
+	cat $(FULLRT) "$$W/$*.body.scm" "$$DRV" > "$$W/$*.run.scm"; \
 	echo ">> selfrun $*: compiled $$(grep -c '(define' "$$W/$*.body.scm") defines, running on Chez:"; \
 	$(CHEZ) "$$W/$*.run.scm"
 
@@ -444,7 +448,7 @@ selfrun-cl/%: $(CHEZBUNDLE)
 	  $(NODE) $(CHEZBUNDLE) "$(XATSHOME)/srcgen2/DATS/$$u.dats" 2>/dev/null \
 	    | awk '/BEGIN==/{f=1;next}/END==/{f=0}f' >> "$$W/$*.body.scm"; \
 	done; \
-	cat "$(CATSRT)" "$(CHEZRT)/xats2chez_runtime.scm" "$$W/$*.body.scm" "$$DRV" > "$$W/$*.run.scm"; \
+	cat $(FULLRT) "$$W/$*.body.scm" "$$DRV" > "$$W/$*.run.scm"; \
 	echo ">> selfrun-cl $*: $$(grep -c '(define' "$$W/$*.body.scm") defines from [$$(cat $$DEPS | tr '\n' ' ')], on Chez:"; \
 	$(CHEZ) "$$W/$*.run.scm"
 

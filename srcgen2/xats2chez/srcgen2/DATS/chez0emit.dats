@@ -332,18 +332,6 @@ then (prints(stamp_get_uint(d2con_get_stmp(dcon)))) where { #impltmp g_print$out
 else (prints(ct)) where { #impltmp g_print$out<>() = filr }
 end//let
 //
-(* cz_dimpl_name: the name of the d2cst that an I0Dimplmnt0 (#implfun/implement)
-   implements — the monomorphic instance name used at call sites. *)
-fun
-cz_dimpl_name
-( filr: FILR, dimp: dimpl): void =
-(
-case+ dimp.node() of
-| DIMPLone1(dcst) => cz_sym(filr, d2cst_get_name(dcst))
-| DIMPLone2(dcst, _) => cz_sym(filr, d2cst_get_name(dcst))
-| _(*else*) =>
-  (cz_str(filr, "_unkimpl"); prerrsln("[chez0emit] UNHANDLED dimpl name")))
-//
 (* cz_lab_idx: a (positional) label as an integer index. *)
 fun
 cz_lab_idx
@@ -679,6 +667,26 @@ else if strn_contains(nm, "$tcmp") then true
 else false
 end//let
 //
+(* cz_dcst_name: emit a d2cst's name.  A CONTINUATION hook (forall$test,
+   foritm$work, ...) is a per-instantiation local that recurs by the SAME name
+   across nested inlined template instances -- so emit it STAMPED (name_stamp,
+   like cz_dvar) to keep distinct hooks distinct.  Regular constants stay raw so
+   they match the runtime by name. *)
+fun
+cz_dcst_name( filr: FILR, dcst: d2cst): void =
+if cz_is_cont_sym(d2cst_get_name(dcst))
+then (cz_sym(filr, d2cst_get_name(dcst)); cz_str(filr, "_"); cz_emit_uint(filr, stamp_get_uint(d2cst_get_stmp(dcst))))
+else cz_sym(filr, d2cst_get_name(dcst))
+//
+(* cz_dimpl_name: the name a #implfun/implement defines -- stamped if a cont. *)
+fun
+cz_dimpl_name( filr: FILR, dimp: dimpl): void =
+(
+case+ dimp.node() of
+| DIMPLone1(dcst) => cz_dcst_name(filr, dcst)
+| DIMPLone2(dcst, _) => cz_dcst_name(filr, dcst)
+| _(*else*) => (cz_str(filr, "_unkimpl"); prerrsln("[chez0emit] UNHANDLED dimpl name")))
+//
 fun
 cz_empty_symlist((*void*)): list(sym_t) = list_nil()
 //
@@ -818,6 +826,29 @@ fun
 cz_empty_iclist((*void*)): list( @(sym_t, list(sym_t)) ) = list_nil()
 val the_cz_iconts = a0ref_make_1val(cz_empty_iclist())
 //
+(* the_cz_aliases: point-free forwarding aliases (#impltmp f = g) recorded in
+   PASS 0.  A generic instance like gseq_forall<string> emits a forwarding alias
+   (define gseq_forall (lambda a (apply strn_forall a))) and the CALL site uses
+   the GENERIC name gseq_forall -- but the lifted conts are keyed under the real
+   instance strn_forall.  So a call to f with no conts of its own must inject g's
+   conts; cz_map_lookup follows the alias.  Stored as @(f, [g]). *)
+val the_cz_aliases = a0ref_make_1val(cz_empty_iclist())
+fun
+cz_alias_add( f: sym_t, g: sym_t): void =
+let
+fun has(xs: list( @(sym_t, list(sym_t)) )): bool =
+(case+ xs of list_nil() => false | list_cons(kv, xs) => if cz_sym_eq(f, kv.0) then true else has(xs))
+in
+if has(a0ref_get(the_cz_aliases)) then ()
+else a0ref_set(the_cz_aliases, list_cons( @(f, list_cons(g, cz_empty_symlist())), a0ref_get(the_cz_aliases) ))
+end
+fun
+cz_alias_lookup( f: sym_t): list(sym_t) =
+let
+fun loop(xs: list( @(sym_t, list(sym_t)) )): list(sym_t) =
+(case+ xs of list_nil() => cz_empty_symlist() | list_cons(kv, xs) => if cz_sym_eq(f, kv.0) then kv.1 else loop(xs))
+in loop(a0ref_get(the_cz_aliases)) end
+//
 (* the_cz_scopeconts: the continuation names bound IN SCOPE (as lifted trailing
    params) of the instance currently being emitted.  A call whose callee is one
    of these is calling the LOCAL param -- NOT the global mapped instance -- so it
@@ -841,7 +872,15 @@ cz_map_lookup( name: sym_t): list(sym_t) =
 let
 fun loop(xs: list( @(sym_t, list(sym_t)) )): list(sym_t) =
 (case+ xs of list_nil() => cz_empty_symlist() | list_cons(kv, xs) => if cz_sym_eq(name, kv.0) then kv.1 else loop(xs))
-in loop(a0ref_get(the_cz_iconts)) end
+val direct = loop(a0ref_get(the_cz_iconts))
+in
+case+ direct of
+| list_cons _ => direct
+| list_nil() =>
+  (case+ cz_alias_lookup(name) of
+   | list_cons(g, _) => (if cz_sym_eq(g, name) then cz_empty_symlist() else cz_map_lookup(g))
+   | _ => cz_empty_symlist())
+end
 //
 fun
 cz_map_add( name: sym_t, conts: list(sym_t)): void =
@@ -900,9 +939,44 @@ cz_mapseen_testadd( u0: uint): bool =
 let val xs = a0ref_get(the_cz_mapseen)
 in if uint_memq(u0, xs) then true else (a0ref_set(the_cz_mapseen, list_cons(u0, xs)); false) end
 //
+(* the INLINING STACK (by instance stamp): instances are emitted INLINE at the
+   use site (a named local lambda) like the JS backend, so their continuations
+   resolve LEXICALLY from the caller's scope -- no hoisting/lifting/seeding.  A
+   recursive instance (its body re-references itself) must NOT re-inline forever:
+   while inlining stamp u it is pushed; a nested use of u emits a plain reference
+   to the in-scope letrec name instead.  push/pop (not test-add) so sibling uses
+   re-inline. *)
+val the_cz_inlining = a0ref_make_1val(cz_empty_uintlist())
+fun
+cz_inlining_has( u0: uint): bool = uint_memq(u0, a0ref_get(the_cz_inlining))
+fun
+cz_inlining_push( u0: uint): void =
+a0ref_set(the_cz_inlining, list_cons(u0, a0ref_get(the_cz_inlining)))
+fun
+cz_inlining_pop((*void*)): void =
+(case+ a0ref_get(the_cz_inlining) of list_nil() => () | list_cons(_, xs) => a0ref_set(the_cz_inlining, xs))
+//
 (* PASS 0: cz_map_* walks the program and, for each template instance, records
    its free continuations.  Recurses INTO instance bodies (unlike cz_scan) to
    reach nested instances. *)
+(* cz_alias_target: if [body] is a POINT-FREE reference to an instance (a bare
+   d2cst, modulo type/template wrappers, with NO application), return [that name]
+   -- i.e. this impl is a forwarding alias (#impltmp f = g).  Else nil. *)
+fun
+cz_alias_target( body: i0exp): list(sym_t) =
+(
+case+ body.node() of
+| I0Ecst(dcst) => list_cons(d2cst_get_name(dcst), cz_empty_symlist())
+| I0Etimp(f0, _) => cz_alias_target(f0)
+| I0Etapq(f0, _) => cz_alias_target(f0)
+| I0Etapp(f0, _) => cz_alias_target(f0)
+| I0Esapq(f0, _) => cz_alias_target(f0)
+| I0Esapp(f0, _) => cz_alias_target(f0)
+| I0Eannot(f0, _, _) => cz_alias_target(f0)
+| I0Et2pck(f0, _) => cz_alias_target(f0)
+| I0Et2ped(f0, _) => cz_alias_target(f0)
+| I0Efold(f0) => cz_alias_target(f0)
+| _(*else*) => cz_empty_symlist())
 fun
 cz_map_timp
 ( timp: t0imp): void =
@@ -923,7 +997,16 @@ cz_map_instance
 ( dc: d2cst, body: i0exp): void =
 let
 val stmp = stamp_get_uint(d2cst_get_stmp(dc))
-in//let
+val () =
+(* alias detection runs BEFORE the seen-guard: a generic instance (gseq_forall's
+   loop body) and a type-specific OVERRIDE (gseq_forall<string> = strn_forall)
+   share ONE d2cst stamp, so the guard would let only the first through.  The
+   override is the one actually emitted (the forwarding alias), so its alias must
+   register regardless of which was seen first. *)
+(case+ cz_alias_target(body) of
+ | list_cons(g, _) => cz_alias_add(d2cst_get_name(dc), g)
+ | _ => ())
+in
 if cz_mapseen_testadd(stmp) then ()
 else (cz_map_override(d2cst_get_name(dc), collect_free_conts(body)); cz_map_exp(body))
 end//let
@@ -1030,7 +1113,7 @@ case+ fexp.node() of
   if cz_sym_memb(d2cst_get_name(dcst), a0ref_get(the_cz_scopeconts))
   then cz_empty_symlist()
   else cz_map_lookup(d2cst_get_name(dcst))
-| I0Etimp(f0, _) => cz_exp_conts(f0)
+| I0Etimp(_, _) => cz_empty_symlist() (* instance is emitted INLINE -> no conts to inject *)
 | I0Etapq(f0, _) => cz_exp_conts(f0)
 | I0Etapp(f0, _) => cz_exp_conts(f0)
 | I0Esapq(f0, _) => cz_exp_conts(f0)
@@ -1081,7 +1164,7 @@ case+ iexp.node() of
 | I0Echr(tchr) => cz_chrtok(filr, tchr)
 //
 (* names *)
-| I0Ecst(dcst) => cz_sym(filr, d2cst_get_name(dcst))
+| I0Ecst(dcst) => cz_dcst_name(filr, dcst)
 | I0Evar(ivar) => cz_dvar(filr, i0var_dvar$get(ivar))
 | I0Etop(xsym) => cz_sym(filr, xsym)
 //
@@ -1113,8 +1196,10 @@ case+ iexp.node() of
 | I0Eaddr(e0) => i0exp_cz0(filr, e0)
 | I0Eassgn(lval, rval) => i0exp_cz0_assgn(filr, lval, rval)
 //
+(* template instance: emit its impl INLINE (JS-style nested local), not a hoisted
+   reference -- so continuations resolve lexically and no lifting/seeding is needed *)
+| I0Etimp(tapp, timp) => cz_emit_timp_inline(filr, timp, tapp)
 (* erased wrappers: emit the inner expression *)
-| I0Etimp(tapp, _) => i0exp_cz0(filr, tapp)
 | I0Etapq(fexp, _) => i0exp_cz0(filr, fexp)
 | I0Etapp(fexp, _) => i0exp_cz0(filr, fexp)
 | I0Esapq(fexp, _) => i0exp_cz0(filr, fexp)
@@ -1668,6 +1753,48 @@ case+ timp_idclopt(timp) of
     | _(*else*) => ())
   | _(*else*) => ()))
 //
+(* cz_emit_timp_inline: emit a template instance INLINE at its use site (JS-style)
+   instead of hoisting it.  The instance impl becomes a named-local lambda so its
+   continuations (referenced free in [body]) resolve LEXICALLY from the caller's
+   scope, and recursion via the name terminates.  A closed instance (no idcl, e.g.
+   sint_add$sint) or a recursive re-use emits the bare reference [tapp]. *)
+and
+cz_emit_timp_inline
+( filr: FILR, timp: t0imp, tapp: i0exp): void =
+(
+case+ timp_idclopt(timp) of
+| optn_nil() => i0exp_cz0(filr, tapp)
+| optn_cons(idcl) =>
+  (
+  case+ (unwrap_implmnt(idcl)).node() of
+  | I0Dimplmnt0(_, _, _, dimp, fargs, body, _) =>
+    (
+    case+ dimp.node() of
+    | DIMPLone1(dc) => cz_emit_timp_inline_dc(filr, dc, fargs, body, tapp)
+    | DIMPLone2(dc, _) => cz_emit_timp_inline_dc(filr, dc, fargs, body, tapp)
+    | _(*else*) => i0exp_cz0(filr, tapp))
+  | _(*else*) => i0exp_cz0(filr, tapp)))
+and
+cz_emit_timp_inline_dc
+( filr: FILR, dc: d2cst, fargs: fiarglst, body: i0exp, tapp: i0exp): void =
+let
+val stmp = stamp_get_uint(d2cst_get_stmp(dc))
+in//let
+if cz_inlining_has(stmp) then i0exp_cz0(filr, tapp) (* recursive: in-scope letrec name *)
+else
+(
+cz_inlining_push(stmp);
+(case+ fargs of
+ | list_nil() => (* point-free alias f = g: inline g's body directly *)
+   i0exp_cz0(filr, body)
+ | _ => (* real instance: (letrec ((name (lambda (fargs) body))) name) *)
+   (cz_str(filr, "(letrec (("); cz_dcst_name(filr, dc); cz_str(filr, " (lambda (");
+    cz_fiarglst(filr, fargs); cz_str(filr, ") ");
+    i0exp_cz0(filr, body); cz_str(filr, "))) ");
+    cz_dcst_name(filr, dc); cz_str(filr, ")")));
+cz_inlining_pop())
+end//let
+//
 (* cz_coll_exp: walk an expression, hoisting every template instance found. *)
 and
 cz_coll_exp
@@ -1820,21 +1947,11 @@ case+ parsed of
 | optn_nil() => ()
 | optn_cons(idcls) =>
   (
-  (* pass 0: build the free-continuation map for every higher-order instance,
-     BEFORE any emission, so call-site injection (pass 1/2) sees it complete.
-     (The global map seeded via chez0emit_seed_one is already in place.) *)
-  cz_map_dclist(idcls);
-  (* dump the per-file lifted map as comments -- the harness greps these across
-     all files to build a GLOBAL map (CZ_GLOBAL_MAP) that seeds pass 0 so
-     cross-file call sites inject the right continuations *)
-  (let
-   fun loop(xs: list( @(sym_t, list(sym_t)) )): void =
-   (case+ xs of list_nil() => () | list_cons(kv, xs) =>
-     (cz_str(filr, ";;LIFTED "); cz_sym(filr, kv.0); cz_emit_conts(filr, kv.1); cz_str(filr, "\n"); loop(xs)))
-   in loop(a0ref_get(the_cz_iconts)) end);
-  (* pass 1: hoist all template-instance definitions to the top *)
-  cz_coll_dclist(filr, idcls);
-  (* pass 2: emit the program (instances referenced by name) *)
+  (* INLINE architecture (JS-style): template instances are emitted INLINE at
+     their use site (cz_emit_timp_inline), so continuations resolve lexically.
+     The OLD pass-0 free-continuation map + pass-1 top-level hoisting + the
+     ;;LIFTED dump + cross-file --czmap seeding are all OBSOLETE and disabled --
+     a single emission pass now suffices. *)
   i0dclist_cz0(filr, idcls)));
 cz_str(filr, ";;==XATS2CHEZ-END==\n")
 )

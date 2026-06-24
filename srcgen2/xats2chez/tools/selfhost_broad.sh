@@ -13,7 +13,7 @@ HERE="$(cd "$(dirname "$0")/.." && pwd)"
 export XATSHOME="${XATSHOME:-/Users/qcfu/Projects/ATS-Xanadu}"
 BUNDLE="$HERE/srcgen2/BUILD/xats2chez-bundle.js"
 CACHE="$HERE/srcgen2/BUILD/selfhost/cache"; mkdir -p "$CACHE"
-RT="$HERE/runtime/scheme/xats2chez_cats.scm $HERE/runtime/scheme/xats2chez_runtime.scm $HERE/runtime/scheme/xats2chez_collrt.scm"
+RT="$HERE/../../srcgen1/prelude/DATS/CATS/CHEZ/xats2chez_cats.scm $HERE/../../srcgen1/prelude/DATS/CATS/CHEZ/xats2chez_runtime.scm $HERE/../../srcgen1/prelude/DATS/CATS/CHEZ/xats2chez_collrt.scm"
 LIST="$1"; DRIVER="${2:-}"
 
 srcof() { for d in "$XATSHOME/srcgen2/DATS" "$XATSHOME/prelude/DATS"; do
@@ -32,14 +32,17 @@ for u in $UNITS; do
 done
 
 # ---- build the GLOBAL lifting map from all ";;LIFTED name cont..." dumps ----
-# emit one "--czmap NAME CONT" per (name,cont), deduplicated.
+# emit "--czmap NAME CONT" pairs.  CRITICAL: the continuations of an instance must
+# be seeded IN PARAM ORDER (the order they appear on the ;;LIFTED line = the order
+# the emitter lifted them as trailing params); a sort would scramble them so the
+# injected args bind to the wrong params.  So keep the FIRST LIFTED line per name
+# (dedup by name) and emit its conts left-to-right, no sort.
 GMAP="$CACHE/.global.czmap"
 grep -hE '^;;LIFTED ' "$CACHE"/*.p1.scm 2>/dev/null \
-  | awk '{for(i=3;i<=NF;i++) print $2, $i}' | sort -u > "$GMAP"
+  | awk '!seen[$2]++ {for(i=3;i<=NF;i++) print $2, $i}' > "$GMAP"
 # bodyless higher-order prelude primitives (provided by the CATS runtime) whose
 # continuation can't be discovered from a body -- seed them so call sites inject.
 printf 'strx_vt_map0 map$fopr0\n' >> "$GMAP"
-sort -u "$GMAP" -o "$GMAP"
 CZARGS=()
 while read -r name cont; do [ -n "$name" ] && CZARGS+=(--czmap "$name" "$cont"); done < "$GMAP"
 echo ">> global map: $(wc -l < "$GMAP" | tr -d ' ') (instance,continuation) pairs"
@@ -57,7 +60,7 @@ done
 # Order: runtime floor (cats/runtime/collrt) -> compiled units -> GENERICS layer
 # (loaded LAST so its correct polymorphic g_cmp/char_eq/strn_make_llist win over
 # the type-erased per-unit instances that clobber each other) -> driver.
-GENRT="$HERE/runtime/scheme/xats2chez_generics.scm"
+GENRT="$HERE/../../srcgen1/prelude/DATS/CATS/CHEZ/xats2chez_generics.scm"
 IMG="$HERE/srcgen2/BUILD/selfhost/broad.scm"
 cat $RT > "$IMG"
 for u in $UNITS; do [ -f "$CACHE/$u.scm" ] && cat "$CACHE/$u.scm" >> "$IMG"; done

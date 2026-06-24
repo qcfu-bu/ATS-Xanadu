@@ -181,6 +181,10 @@
 
 ;; string-as-sequence
 (define (strn_nilq s) (= 0 (string-length s)))
+;; strn_append: the prelude's foritm-based instance is lambda-lifted to a 3-arg
+;; ($f1un) form that clobbers the native 2-arg concat; re-assert the native one
+;; here (loaded last) — concatenation needs no continuation.
+(define (strn_append s t) (string-append s t))
 (define (strn_foldl s r0 fwork)          ; left fold: fwork(acc, char-code) -> acc
   (let ((n (string-length s)))
     (let loop ((i 0) (r r0))
