@@ -314,9 +314,10 @@
           (vector 0 (fopr (XATSPCON c 0)) (strx_vt_map0 (XATSPCON c 1) fopr))))))))
 (define (strn_get$at$raw s i) (char->integer (string-ref s i)))
 
-;; pointers (p2tr / a0ptr) — modeled as boxes (an address is a 1-slot cell).
-(define (p2tr_get p) (unbox p))
-(define (p2tr_set p v) (set-box! p v))
+;; pointers (p2tr / a0ptr) — an address is a box (a [var] cell) OR a field-address
+;; #(cell vidx) (from &(!x)); dispatch like the lvalue helpers.
+(define (p2tr_get p) (XATS_lvget p))
+(define (p2tr_set p v) (XATS_lvset p v))
 (define (a0ptr_make_1val v) (box v))
 (define (a0ptr_get p) (unbox p))
 (define (a0ptr_set p v) (set-box! p v) XATSTOP0)
