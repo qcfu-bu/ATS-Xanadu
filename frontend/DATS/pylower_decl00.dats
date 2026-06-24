@@ -954,6 +954,39 @@ fixity_i0dntlst_of(loc: loctn, names: list(strn)): i0dntlst =
   | list_nil() => list_nil()
   | list_cons(nm, rest) => list_cons(fixity_i0dnt_of(loc, nm), fixity_i0dntlst_of(loc, rest)) )
 //
+// FIXITY (relative precedence): decode the parser's `opr:<op>:<±N>` encoding (PYL_relprec_*) into
+// the stock `PRECopr2(i0dnt(op); precmod)` — the L0 shape for `#prefix + of +(+1)` /
+// `#infixl && of ||(+1)` / `#infixl orelse of ||`. The reference op becomes an i0dnt (T_IDSYM for a
+// symbolic op like `+`/`||`, T_IDALP otherwise, via fixity_i0dnt_of). A `(±N)` adjustment (num != "")
+// builds PMODsome(LP; PINTopr2(T_IDSYM(sign); T_INT01(digits)); RP); a bare ref op -> PMODnone.
+#extern fun PYL_is_relprec(s: strn): bool = $extnam()
+#extern fun PYL_relprec_op(s: strn): strn = $extnam()
+#extern fun PYL_relprec_num(s: strn): strn = $extnam()
+#extern fun PYL_relprec_num_is_neg(s: strn): bool = $extnam()
+#extern fun PYL_relprec_num_digits(s: strn): strn = $extnam()
+//
+fun
+build_relprec_popt(loc: loctn, enc: strn): precopt = let
+  val refop = PYL_relprec_op(enc)
+  val num   = PYL_relprec_num(enc)   // e.g. "+1", "-1", or "" (no adjustment)
+  val id0   = fixity_i0dnt_of(loc, refop)
+  val pmod =
+    ( if strn_eq(num, "") then PMODnone()
+      else let
+        // split the leading sign char off the signed-int text (`+1` -> sign "+", digits "1").
+        val sign  = ( if PYL_relprec_num_is_neg(num) then "-" else "+" )
+        val digs  = PYL_relprec_num_digits(num)
+        val topr  = token_make_node(loc, T_IDSYM(ats_name(sign)))
+        val tint  = token_make_node(loc, T_INT01(digs))
+        val tlp   = token_make_node(loc, T_LPAREN())
+        val trp   = token_make_node(loc, T_RPAREN())
+      in
+        PMODsome(tlp, PINTopr2(topr, tint), trp)
+      end )
+in
+  PRECopr2(id0, pmod)
+end
+//
 fun
 build_fixity(env: !tr12env, loc: loctn, knd: sint, prec: strn, names: list(strn)): d2ecl = let
   val id0s = fixity_i0dntlst_of(loc, names)
@@ -969,9 +1002,9 @@ build_fixity(env: !tr12env, loc: loctn, knd: sint, prec: strn, names: list(strn)
         let
           val tknd = token_make_node(loc, T_SRP_FIXITY(knd))
           val popt =
-            ( if ~strn_eq(prec, "") then
-                PRECint1(token_make_node(loc, T_INT01(prec)))
-              else PRECnil0() )
+            ( if strn_eq(prec, "") then PRECnil0()
+              else if PYL_is_relprec(prec) then build_relprec_popt(loc, prec)
+              else PRECint1(token_make_node(loc, T_INT01(prec))) )
         in
           d0ecl_make_node(loc, D0Cfixity(tknd, id0s, popt)) end
     ): d0ecl

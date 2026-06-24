@@ -1187,6 +1187,8 @@ p_fixity_name(st: pstate): @(strn, pstate, bool) =
   | PT_COLON()    => @(":", ps_advance(st), true)
   | PT_ARROW()    => @("->", ps_advance(st), true)
   | PT_COLONEQ()  => @(":=", ps_advance(st), true)
+  | PT_SWAP()     => @(":=:", ps_advance(st), true)  // the SWAP operator `:=:` (stock `#infix0 :=:`)
+  | PT_MOVE()     => @(":=>", ps_advance(st), true)  // the MOVE operator `:=>`
   | PT_EQ()       => @("=", ps_advance(st), true)   // the equality operator `=` (a fixity operand)
   | PT_FATARROW() => @("=>", ps_advance(st), true)
   | _ => p_overload_name(st) )   // LIDENT/UIDENT + the arithmetic/comparison/`&`/`[]` operators
@@ -1225,14 +1227,77 @@ in
         @(PyCfixity(loc, knd, raw, names), st3)
       end
     | _ =>
-      // graceful: no precedence given — emit with "" (none, => PRECnil0 at lowering) + diagnose.
-      let
-        val st2 = ps_diag(st1, ps_peek_loctn(st1), "expected an integer precedence after the fixity keyword")
-        val @(names, st3) = p_fixity_names(st2, list_nil())
-      in
-        @(PyCfixity(loc, knd, "", names), st3)
+      // RELATIVE precedence `OP[(±N)]` (stock `#prefix + of +(+1)`, `#infixl && of ||(+1)`,
+      // `#infixl orelse of ||`): a reference OPERATOR optionally adjusted by `(±N)`. Encoded into
+      // the carried prec string as `opr:<op>:<±N>` (build_fixity decodes -> PRECOPTopr). A bare ref
+      // op (no `(..)`) carries `opr:<op>:`. Anything else degrades to "" (PRECnil0) + a diagnostic.
+      let val @(refop, st2, ok) = p_fixity_relprec_op(st1) in
+        if ok then
+          let val @(prec, st3) = p_fixity_relprec_mod(refop, st2) in
+            let val @(names, st4) = p_fixity_names(st3, list_nil()) in
+              @(PyCfixity(loc, knd, prec, names), st4) end
+          end
+        else
+          // DEGENERATE empty fixity: a fixity keyword with NO precedence and NO name (a decl
+          // terminator follows). Stock produces exactly this for `#prefix $raise of 0` — the
+          // reserved `$raise` keyword can't be a fixity name, so stock emits `D0Cfixity([];
+          // PRECnil0())` and parks `$raise of 0` as separate error tokens. Mirror that empty fixity
+          // SILENTLY (no diagnostic) so it reparses to the same shape. A non-terminator token here
+          // is a genuine malformed precedence -> diagnose as before.
+          ( case+ ps_peek(st1) of
+            | PT_NEWLINE() => @(PyCfixity(loc, knd, "", list_nil()), st1)
+            | PT_EOF()     => @(PyCfixity(loc, knd, "", list_nil()), st1)
+            | PT_DEDENT()  => @(PyCfixity(loc, knd, "", list_nil()), st1)
+            | _ =>
+              let
+                val st3 = ps_diag(st1, ps_peek_loctn(st1), "expected an integer precedence after the fixity keyword")
+                val @(names, st4) = p_fixity_names(st3, list_nil())
+              in
+                @(PyCfixity(loc, knd, "", names), st4)
+              end )
       end
 end
+and
+// the REFERENCE OPERATOR of a relative precedence (`+`/`-`/`||`/an alphanumeric op). Returns
+// @(opname, state-after, recognized?).
+p_fixity_relprec_op(st: pstate): @(strn, pstate, bool) =
+( case+ ps_peek(st) of
+  | PT_PLUS()  => @("+", ps_advance(st), true)
+  | PT_MINUS() => @("-", ps_advance(st), true)
+  | PT_STAR()  => @("*", ps_advance(st), true)
+  | PT_BAR()   =>
+    // `||` lexes as two PT_BAR; a single `|` is not a precedence ref op here.
+    (case+ ps_peek(ps_advance(st)) of
+     | PT_BAR() => @("||", ps_advance(ps_advance(st)), true)
+     | _ => @("", st, false))
+  | PT_LIDENT(s) => @(s, ps_advance(st), true)
+  | PT_UIDENT(s) => @(s, ps_advance(st), true)
+  | _ => @("", st, false) )
+and
+// the optional `(±N)` adjustment after the reference op. Encodes the whole relative precedence as
+// `opr:<op>:<signed-int>` (e.g. `opr:||:+1`) or `opr:<op>:` for a bare ref op (no adjustment).
+p_fixity_relprec_mod(refop: strn, st: pstate): @(strn, pstate) =
+( case+ ps_peek(st) of
+  | PT_LPAREN() =>
+    let
+      val st1 = ps_advance(st)               // consume '('
+      val @(sgn, st2) =
+        ( case+ ps_peek(st1) of
+          | PT_PLUS()  => @("+", ps_advance(st1))
+          | PT_MINUS() => @("-", ps_advance(st1))
+          | _ => @("+", st1) )               // bare int inside `(..)` defaults to +
+      val @(num, st3) =
+        ( case+ ps_peek(st2) of
+          | PT_INT(n) => @(n, ps_advance(st2))
+          | _ => @("0", ps_diag(st2, ps_peek_loctn(st2), "expected an integer in a relative precedence")) )
+      val st4 =
+        ( case+ ps_peek(st3) of
+          | PT_RPAREN() => ps_advance(st3)
+          | _ => ps_diag(st3, ps_peek_loctn(st3), "expected ')' after a relative precedence") )
+    in
+      @(strn_append("opr:", strn_append(refop, strn_append(":", strn_append(sgn, num)))), st4)
+    end
+  | _ => @(strn_append("opr:", strn_append(refop, ":")), st) )
 //
 (* ****** ****** *)
 //

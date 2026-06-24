@@ -141,6 +141,35 @@ function PYL_is_symbolic_name(s) {
   return (isAlpha || isUnder) ? false : true;
 }
 //
+// FIXITY (relative precedence): the parser encodes `OP[(±N)]` as `opr:<op>:<±N>` (e.g.
+// `opr:||:+1`, `opr:+:`). These decoders split that back out for build_fixity's PRECopr2 build.
+//   PYL_is_relprec(s)  : does s start with the `opr:` tag?
+//   PYL_relprec_op(s)  : the reference OP (between `opr:` and the 2nd `:`).
+//   PYL_relprec_num(s) : the signed-int adjustment text after the 2nd `:` ("" = no `(±N)` mod).
+function PYL_is_relprec(s) { return String(s).indexOf("opr:") === 0; }
+function PYL_relprec_op(s) {
+  s = String(s);
+  if (s.indexOf("opr:") !== 0) return "";
+  var rest = s.slice(4);
+  var j = rest.indexOf(":");
+  return j < 0 ? rest : rest.slice(0, j);
+}
+function PYL_relprec_num(s) {
+  s = String(s);
+  if (s.indexOf("opr:") !== 0) return "";
+  var rest = s.slice(4);
+  var j = rest.indexOf(":");
+  return j < 0 ? "" : rest.slice(j + 1);
+}
+//   PYL_relprec_num_is_neg(n) : is the signed-int text `n` (e.g. "+1"/"-1") negative?
+//   PYL_relprec_num_digits(n) : the bare digit text of `n` (sign char stripped).
+function PYL_relprec_num_is_neg(n) { return String(n).charAt(0) === "-"; }
+function PYL_relprec_num_digits(n) {
+  n = String(n);
+  var c = n.charAt(0);
+  return (c === "+" || c === "-") ? n.slice(1) : n;
+}
+//
 // Slice bytes [lo, hi) of the current buffer back into a JS (UTF-8) string. Used
 // to materialize a token's lexeme (identifier / literal text) for PT_*(strn).
 function PYL_slice(lo, hi) {
