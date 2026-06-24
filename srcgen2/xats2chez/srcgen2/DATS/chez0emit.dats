@@ -956,6 +956,59 @@ fun
 cz_inlining_pop((*void*)): void =
 (case+ a0ref_get(the_cz_inlining) of list_nil() => () | list_cons(_, xs) => a0ref_set(the_cz_inlining, xs))
 //
+(* CONTINUATION lexical scope stack (alpha-renaming).  Nested template levels
+   reuse the same continuation hook (forall$test) with the SAME d2cst AND t0imp
+   stamp -- only LEXICAL nesting tells strn_forall's index-wrapper forall$test
+   from the inner foritm-wrapper forall$test.  So each cont DEFINE gets a fresh
+   id (name_c<id>) and a reference resolves to the lexically-NEAREST binding.
+   The bind is DEFERRED past the define's own body (so a wrapper's RHS sees the
+   OUTER hook, not itself).  Frames push/pop at let/where boundaries. *)
+fun
+cz_emit_int( filr: FILR, i0: int): void = (prints(i0)) where { #impltmp g_print$out<>() = filr }
+val the_cz_cont_ctr = a0ref_make_1val(0)
+fun
+cz_cont_fresh((*void*)): int =
+let val n = a0ref_get(the_cz_cont_ctr) in (a0ref_set(the_cz_cont_ctr, n + 1); n) end
+fun
+cz_empty_cscope((*void*)): list( list( @(uint,int) ) ) = list_nil()
+val the_cz_cont_scope = a0ref_make_1val(cz_empty_cscope())
+fun
+cz_cont_frame_push((*void*)): void =
+a0ref_set(the_cz_cont_scope, list_cons(list_nil((*void*)), a0ref_get(the_cz_cont_scope)))
+fun
+cz_cont_frame_pop((*void*)): void =
+(case+ a0ref_get(the_cz_cont_scope) of list_nil() => () | list_cons(_, fs) => a0ref_set(the_cz_cont_scope, fs))
+fun
+cz_cont_bind( stmp: uint, id: int): void =
+(case+ a0ref_get(the_cz_cont_scope) of
+ | list_nil() => ()
+ | list_cons(f, fs) => a0ref_set(the_cz_cont_scope, list_cons( list_cons( @(stmp, id), f ), fs )))
+fun
+cz_cont_lookup( stmp: uint): list(int) =
+let
+fun loopb( f: list( @(uint,int) ) ): list(int) =
+  (case+ f of
+   | list_nil() => list_nil()
+   | list_cons(kv, f1) => if kv.0 = stmp then list_cons(kv.1, list_nil()) else loopb(f1))
+fun loopf( fs: list( list( @(uint,int) ) ) ): list(int) =
+  (case+ fs of
+   | list_nil() => list_nil()
+   | list_cons(f, fs1) =>
+     (case+ loopb(f) of list_cons(id, _) => list_cons(id, list_nil()) | _ => loopf(fs1)))
+in loopf(a0ref_get(the_cz_cont_scope)) end
+//
+(* cz_cont_ref: emit a continuation REFERENCE resolved to its lexically-nearest
+   alpha-renamed binding (name_c<id>).  A non-cont emits its raw name; a cont with
+   no in-scope binding falls back to the d2cst-stamp name (cz_dcst_name). *)
+fun
+cz_cont_ref( filr: FILR, dcst: d2cst): void =
+if cz_is_cont_sym(d2cst_get_name(dcst))
+then
+  (case+ cz_cont_lookup(stamp_get_uint(d2cst_get_stmp(dcst))) of
+   | list_cons(id, _) => (cz_sym(filr, d2cst_get_name(dcst)); cz_str(filr, "_c"); cz_emit_int(filr, id))
+   | _ => cz_dcst_name(filr, dcst))
+else cz_sym(filr, d2cst_get_name(dcst))
+//
 (* PASS 0: cz_map_* walks the program and, for each template instance, records
    its free continuations.  Recurses INTO instance bodies (unlike cz_scan) to
    reach nested instances. *)
@@ -1164,7 +1217,7 @@ case+ iexp.node() of
 | I0Echr(tchr) => cz_chrtok(filr, tchr)
 //
 (* names *)
-| I0Ecst(dcst) => cz_dcst_name(filr, dcst)
+| I0Ecst(dcst) => cz_cont_ref(filr, dcst)
 | I0Evar(ivar) => cz_dvar(filr, i0var_dvar$get(ivar))
 | I0Etop(xsym) => cz_sym(filr, xsym)
 //
@@ -1273,16 +1326,20 @@ case+ iexp.node() of
   cz_str(filr, ")"))
 | I0Elet0(decls, body) =>
   (
+  cz_cont_frame_push();
   cz_str(filr, "(let () ");
   i0dclist_cz0(filr, decls);
   i0exp_cz0(filr, body);
-  cz_str(filr, ")"))
+  cz_str(filr, ")");
+  cz_cont_frame_pop())
 | I0Ewhere(body, decls) =>
   (
+  cz_cont_frame_push();
   cz_str(filr, "(let () ");
   i0dclist_cz0(filr, decls);
   i0exp_cz0(filr, body);
-  cz_str(filr, ")"))
+  cz_str(filr, ")");
+  cz_cont_frame_pop())
 //
 (* case/pattern-match.  Scrutinee bound once to [czscrut]; each clause is a
    [when] that, on a successful pattern (+ guard), escapes via [czret] with
@@ -1628,26 +1685,10 @@ case+ idcl.node() of
 | I0Dfundclst(_, _, _, _, ifs0) => i0fundclist_cz0(filr, ifs0)
 (* template implementation (#implfun/implement) -> a (define (name params) body) *)
 | I0Dimplmnt0(_, _, _, dimp, fargs, body, _) =>
-  let
-  val conts =
-    (case+ dimp.node() of
-     | DIMPLone1(dc) => cz_map_lookup(d2cst_get_name(dc))
-     | DIMPLone2(dc, _) => cz_map_lookup(d2cst_get_name(dc))
-     | _(*else*) => cz_empty_symlist())
-  in//let
-  case+ conts of
-  | list_cons(_, _) =>   (* LIFTED higher-order impl: trailing free-cont params *)
-    (cz_str(filr, "(define ("); cz_dimpl_name(filr, dimp); cz_fiarglst(filr, fargs);
-     cz_emit_conts(filr, conts); cz_str(filr, ") "); cz_body_scoped(filr, conts, body); cz_str(filr, ")\n"))
-  | list_nil() =>
-    (case+ fargs of
-     | list_nil() =>   (* point-free template alias: #implfun f = g -> forwarding lambda *)
-       (cz_str(filr, "(define "); cz_dimpl_name(filr, dimp); cz_str(filr, " (lambda czfwd (apply ");
-        i0exp_cz0(filr, body); cz_str(filr, " czfwd)))\n"))
-     | _ =>
-       (cz_str(filr, "(define ("); cz_dimpl_name(filr, dimp); cz_fiarglst(filr, fargs);
-        cz_str(filr, ") "); i0exp_cz0(filr, body); cz_str(filr, ")\n")))
-  end//let
+  (case+ dimp.node() of
+   | DIMPLone1(dc) => i0impl_dc_cz0(filr, dc, fargs, body)
+   | DIMPLone2(dc, _) => i0impl_dc_cz0(filr, dc, fargs, body)
+   | _(*else*) => ())
 | I0Ddclst0(idcls) => i0dclist_cz0(filr, idcls)
 | I0Dlocal0(ihead, ibody) =>
   (i0dclist_cz0(filr, ihead); i0dclist_cz0(filr, ibody))
@@ -1675,6 +1716,39 @@ case+ idcl.node() of
   i0dcl_fprint(idcl, g_stderr((*0*)));
   prerrsln(""))
 )//endof[i0dcl_cz0]
+//
+(* i0impl_dc_cz0: emit a #implfun/implement as a (define ...).  A CONTINUATION
+   hook is ALPHA-RENAMED to a fresh name (name_c<id>) and its binding is recorded
+   in the current scope frame ONLY AFTER its own body is emitted -- so the body's
+   references to the same hook resolve to the OUTER (enclosing-level) binding, not
+   to itself.  This is what lets strn_forall's index-wrapper forall$test call the
+   inner foritm-wrapper forall$test instead of recursing on itself. *)
+and
+i0impl_dc_cz0
+( filr: FILR, dc: d2cst, fargs: fiarglst, body: i0exp): void =
+if cz_is_cont_sym(d2cst_get_name(dc))
+then
+let
+val id = cz_cont_fresh()
+val stmp = stamp_get_uint(d2cst_get_stmp(dc))
+in//let
+(case+ fargs of
+ | list_nil() =>
+   (cz_str(filr, "(define "); cz_sym(filr, d2cst_get_name(dc)); cz_str(filr, "_c"); cz_emit_int(filr, id);
+    cz_str(filr, " (lambda czfwd (apply "); i0exp_cz0(filr, body); cz_str(filr, " czfwd)))\n"))
+ | _ =>
+   (cz_str(filr, "(define ("); cz_sym(filr, d2cst_get_name(dc)); cz_str(filr, "_c"); cz_emit_int(filr, id);
+    cz_fiarglst(filr, fargs); cz_str(filr, ") "); i0exp_cz0(filr, body); cz_str(filr, ")\n")));
+cz_cont_bind(stmp, id) (* DEFERRED bind: only NOW is name_c<id> in scope *)
+end//let
+else
+(case+ fargs of
+ | list_nil() =>   (* point-free template alias: #implfun f = g -> forwarding lambda *)
+   (cz_str(filr, "(define "); cz_dcst_name(filr, dc); cz_str(filr, " (lambda czfwd (apply ");
+    i0exp_cz0(filr, body); cz_str(filr, " czfwd)))\n"))
+ | _ =>
+   (cz_str(filr, "(define ("); cz_dcst_name(filr, dc); cz_fiarglst(filr, fargs);
+    cz_str(filr, ") "); i0exp_cz0(filr, body); cz_str(filr, ")\n")))
 //
 and
 i0dclist_cz0
@@ -1777,6 +1851,12 @@ case+ timp_idclopt(timp) of
 and
 cz_emit_timp_inline_dc
 ( filr: FILR, dc: d2cst, fargs: fiarglst, body: i0exp, tapp: i0exp): void =
+(* a CONTINUATION is NOT inlined -- it is emitted once as an alpha-renamed DEFINE
+   (i0dcl_cz0) and every use is a scope-resolved REFERENCE, so nested same-named
+   hooks don't collide.  A regular instance is inlined as a named-local letrec,
+   guarded by its d2cst stamp against genuine self-recursion. *)
+if cz_is_cont_sym(d2cst_get_name(dc)) then cz_cont_ref(filr, dc)
+else
 let
 val stmp = stamp_get_uint(d2cst_get_stmp(dc))
 in//let

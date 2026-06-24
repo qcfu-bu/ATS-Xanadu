@@ -456,6 +456,11 @@
   (XATS2JS_NODE_g_print x0) (if #f #f))
 (define (XATS2JS_NODE_strn_print cs)
   (XATS2JS_NODE_g_print cs))
+;; the type-suffixed NODE print wrappers (each -> NODE_g_print)
+(define (XATS2JS_NODE_sint_print i0) (XATS2JS_NODE_g_print i0) (if #f #f))
+(define (XATS2JS_NODE_uint_print i0) (XATS2JS_NODE_g_print i0) (if #f #f))
+(define (XATS2JS_NODE_sflt_print f0) (XATS2JS_NODE_g_print f0) (if #f #f))
+(define (XATS2JS_NODE_dflt_print f0) (XATS2JS_NODE_g_print f0) (if #f #f))
 
 ;; -- NODE process --
 (define (XATS2JS_NODE_argv$get)
