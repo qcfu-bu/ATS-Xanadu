@@ -73,6 +73,15 @@ fun
 cz_empty_uintlist((*void*)): list(uint) = list_nil()
 val the_cz_emitted = a0ref_make_1val(cz_empty_uintlist())
 //
+(* PENDING tuple/datacon FUNCTION-PARAMETER destructures.  Scheme lambdas can't
+   destructure, so a flat-tuple param @(x,r) emits a fresh czdv<N> name and the
+   sub-vars are bound by a (let ()...) prefix on the body.  cz_param_pat pushes
+   (freshN, iscon, sub-pats); cz_params_body drains them right after the param
+   list (before the body, so nested fns start clean). *)
+fun
+cz_empty_pargs((*void*)): list( @(uint, bool, i0patlst) ) = list_nil()
+val the_cz_pargs = a0ref_make_1val(cz_empty_pargs())
+//
 fun
 uint_memq
 ( u0: uint, xs: list(uint)): bool =
@@ -446,6 +455,11 @@ case+ sp.node() of
 | I0Pvar(dvar) =>
   (cz_str(filr, "("); cz_dvar(filr, dvar); cz_str(filr, " ");
    cz_acc(filr, iscon, idx); cz_str(filr, ") "))
+(* linear markers (~x free / !x bang / flat) wrap an inner var -- bind it to the
+   field; the box/value read-semantics are handled at the use site (I0Eflat). *)
+| I0Pfree(p0) => cz_subbind(filr, iscon, idx, p0)
+| I0Pbang(p0) => cz_subbind(filr, iscon, idx, p0)
+| I0Pflat(p0) => cz_subbind(filr, iscon, idx, p0)
 | _(*else*) => ())
 //
 fun
@@ -507,6 +521,10 @@ case+ sp.node() of
   (if iscon then cz_str(filr, "XATSPCON") else cz_str(filr, "vector-ref"));
   cz_str(filr, " czdv"); cz_emit_uint(filr, freshn); cz_str(filr, " ");
   cz_emit_int(filr, idx); cz_str(filr, "))\n"))
+(* linear markers wrap an inner var -- destructure to it *)
+| I0Pfree(p0) => cz_destr_field(filr, p0, iscon, idx, freshn)
+| I0Pbang(p0) => cz_destr_field(filr, p0, iscon, idx, freshn)
+| I0Pflat(p0) => cz_destr_field(filr, p0, iscon, idx, freshn)
 | _(*else: wildcard / literal / nested*) => ())
 //
 fun
@@ -574,6 +592,16 @@ case+ pat.node() of
    into a single Scheme arg list; static (FIARGsapp) / metric (FIARGmets)
    groups are erased.  Each param emits as " <name>". *)
 fun
+cz_param_tup
+( filr: FILR, iscon: bool, sps: i0patlst): void =
+let
+val freshn = stamp_get_uint(stamper_getinc(the_cz_stamper))
+in//let
+cz_str(filr, " czdv"); cz_emit_uint(filr, freshn);
+a0ref_set(the_cz_pargs, list_cons( @(freshn, iscon, sps), a0ref_get(the_cz_pargs) ))
+end//let
+//
+fun
 cz_param_pat
 ( filr: FILR, ipat: i0pat): void =
 (
@@ -581,6 +609,14 @@ case+ ipat.node() of
 | I0Pvar(dvar) =>
   (cz_str(filr, " "); cz_dvar(filr, dvar))
 | I0Pany() => cz_str(filr, " _wild")
+(* linear markers wrap an inner param *)
+| I0Pfree(p0) => cz_param_pat(filr, p0)
+| I0Pbang(p0) => cz_param_pat(filr, p0)
+| I0Pflat(p0) => cz_param_pat(filr, p0)
+(* a tuple / datacon param: take ONE arg, destructure in the body prefix *)
+| I0Ptup0(npf, sps) => cz_param_tup(filr, false, ldrop_pat(sps, npf))
+| I0Ptup1(_, npf, sps) => cz_param_tup(filr, false, ldrop_pat(sps, npf))
+| I0Pdapp(_, npf, sps) => cz_param_tup(filr, true, ldrop_pat(sps, npf))
 | _(*else*) =>
   (cz_str(filr, " _unkp"); prerrsln("[chez0emit] UNHANDLED param-pat")))
 //
@@ -1309,18 +1345,14 @@ case+ iexp.node() of
 | I0Elam0(_, _, fargs, body, _) =>
   (
   cz_str(filr, "(lambda (");
-  cz_fiarglst(filr, fargs);
-  cz_str(filr, ") ");
-  i0exp_cz0(filr, body);
+  cz_params_body(filr, fargs, body);
   cz_str(filr, ")"))
 | I0Efix0(_, _, fid, fargs, body, _) =>
   (
   cz_str(filr, "(letrec ((");
   cz_dvar(filr, fid);
   cz_str(filr, " (lambda (");
-  cz_fiarglst(filr, fargs);
-  cz_str(filr, ") ");
-  i0exp_cz0(filr, body);
+  cz_params_body(filr, fargs, body);
   cz_str(filr, "))) ");
   cz_dvar(filr, fid);
   cz_str(filr, ")"))
@@ -1609,6 +1641,32 @@ case+ ivs0 of
 | list_nil() => ()
 | list_cons(ivd0, ivs1) => (i0valdcl_cz0(filr, ivd0); i0valdclist_cz0(filr, ivs1)))
 //
+(* cz_params_body: emit " <params>) <body>" for a (define (name .. or (lambda (.. ,
+   wrapping the body in a (let ()..) that destructures any tuple/datacon params. *)
+and
+cz_drain_pargs
+( filr: FILR, pend: list( @(uint, bool, i0patlst) )): void =
+(case+ pend of
+ | list_nil() => ()
+ | list_cons(pg, pend) =>
+   (cz_destr_fields(filr, pg.2, pg.1, 0, pg.0); cz_drain_pargs(filr, pend)))
+and
+cz_params_body
+( filr: FILR, farg: fiarglst, body: i0exp): void =
+let
+val () = a0ref_set(the_cz_pargs, cz_empty_pargs())
+val () = cz_fiarglst(filr, farg)
+val () = cz_str(filr, ") ")
+val pend = a0ref_get(the_cz_pargs)
+val () = a0ref_set(the_cz_pargs, cz_empty_pargs())
+in//let
+case+ pend of
+| list_nil() => i0exp_cz0(filr, body)
+| _ =>
+  (cz_str(filr, "(let () "); cz_drain_pargs(filr, pend);
+   i0exp_cz0(filr, body); cz_str(filr, ")"))
+end//let
+//
 (* one var binding -> (define <name> (box <init>)); a [var] is a mutable cell. *)
 and
 i0vardcl_cz0
@@ -1660,8 +1718,8 @@ case+ tdxp of
     (cz_str(filr, "(define "); cz_dvar(filr, dpid); cz_str(filr, " (lambda czfwd (apply ");
      i0exp_cz0(filr, body); cz_str(filr, " czfwd)))\n"))
   | _(*has arg groups*) =>
-    (cz_str(filr, "(define ("); cz_dvar(filr, dpid); cz_fiarglst(filr, farg);
-     cz_str(filr, ") "); i0exp_cz0(filr, body); cz_str(filr, ")\n")))
+    (cz_str(filr, "(define ("); cz_dvar(filr, dpid);
+     cz_params_body(filr, farg, body); cz_str(filr, ")\n")))
 end//let
 //
 and
@@ -1738,7 +1796,7 @@ in//let
     cz_str(filr, " (lambda czfwd (apply "); i0exp_cz0(filr, body); cz_str(filr, " czfwd)))\n"))
  | _ =>
    (cz_str(filr, "(define ("); cz_sym(filr, d2cst_get_name(dc)); cz_str(filr, "_c"); cz_emit_int(filr, id);
-    cz_fiarglst(filr, fargs); cz_str(filr, ") "); i0exp_cz0(filr, body); cz_str(filr, ")\n")));
+    cz_params_body(filr, fargs, body); cz_str(filr, ")\n")));
 cz_cont_bind(stmp, id) (* DEFERRED bind: only NOW is name_c<id> in scope *)
 end//let
 else
@@ -1747,8 +1805,8 @@ else
    (cz_str(filr, "(define "); cz_dcst_name(filr, dc); cz_str(filr, " (lambda czfwd (apply ");
     i0exp_cz0(filr, body); cz_str(filr, " czfwd)))\n"))
  | _ =>
-   (cz_str(filr, "(define ("); cz_dcst_name(filr, dc); cz_fiarglst(filr, fargs);
-    cz_str(filr, ") "); i0exp_cz0(filr, body); cz_str(filr, ")\n")))
+   (cz_str(filr, "(define ("); cz_dcst_name(filr, dc);
+    cz_params_body(filr, fargs, body); cz_str(filr, ")\n")))
 //
 and
 i0dclist_cz0
@@ -1869,8 +1927,7 @@ cz_inlining_push(stmp);
    i0exp_cz0(filr, body)
  | _ => (* real instance: (letrec ((name (lambda (fargs) body))) name) *)
    (cz_str(filr, "(letrec (("); cz_dcst_name(filr, dc); cz_str(filr, " (lambda (");
-    cz_fiarglst(filr, fargs); cz_str(filr, ") ");
-    i0exp_cz0(filr, body); cz_str(filr, "))) ");
+    cz_params_body(filr, fargs, body); cz_str(filr, "))) ");
     cz_dcst_name(filr, dc); cz_str(filr, ")")));
 cz_inlining_pop())
 end//let
