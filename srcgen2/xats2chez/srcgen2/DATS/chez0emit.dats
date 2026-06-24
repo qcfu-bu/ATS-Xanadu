@@ -538,9 +538,27 @@ case+ sp.node() of
 (* ~x free / flat: bind the field VALUE *)
 | I0Pfree(p0) => cz_destr_field(filr, p0, iscon, idx, freshn)
 | I0Pflat(p0) => cz_destr_field(filr, p0, iscon, idx, freshn)
-| _(*else: wildcard / literal / nested*) => ())
+(* NESTED tuple / record / datacon field: bind a fresh temp to this field, then
+   recursively destructure that temp (record params @{x, rr=(a,b)} etc.) *)
+| I0Ptup0(npf, sps) => cz_destr_nested(filr, false, iscon, idx, freshn, ldrop_pat(sps, npf))
+| I0Ptup1(_, npf, sps) => cz_destr_nested(filr, false, iscon, idx, freshn, ldrop_pat(sps, npf))
+| I0Pdapp(_, npf, sps) => cz_destr_nested(filr, true, iscon, idx, freshn, ldrop_pat(sps, npf))
+| _(*else: wildcard / literal*) => ())
 //
-fun
+and
+cz_destr_nested
+( filr: FILR, inner_iscon: bool, iscon: bool, idx: sint, freshn: uint, sps: i0patlst): void =
+let
+val n2 = stamp_get_uint(stamper_getinc(the_cz_stamper))
+in//let
+cz_str(filr, "(define czdv"); cz_emit_uint(filr, n2); cz_str(filr, " (");
+(if iscon then cz_str(filr, "XATSPCON") else cz_str(filr, "vector-ref"));
+cz_str(filr, " czdv"); cz_emit_uint(filr, freshn); cz_str(filr, " ");
+cz_emit_int(filr, idx); cz_str(filr, "))\n");
+cz_destr_fields(filr, sps, inner_iscon, 0, n2)
+end//let
+//
+and
 cz_destr_fields
 ( filr: FILR, sps: i0patlst, iscon: bool, idx: sint, freshn: uint): void =
 (
