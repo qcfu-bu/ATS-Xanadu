@@ -104,7 +104,7 @@
 (define (XATS2JS_dflt_round df) (round df))
 (define (XATS2JS_dflt_trunc df) (truncate df))
 (define (XATS2JS_dflt_print f0)
-  (XATS2JS_strn_print (number->string f0)))
+  (XATS2JS_strn_print (xats_dflt_tostring f0))) ;; JS Number.toString: 10.0 -> "10"
 
 ;; -- strn000 --
 ;; XATS2JS_strn_cmp : already defined (srcgen1 variant) -- SKIPPED
