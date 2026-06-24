@@ -63,6 +63,26 @@ XATSOPT "./../../.."
 (* ****** ****** *)
 (* ****** ****** *)
 //
+(* lower a record type's labeled fields, KEEPING the labels: the chez emitter
+   resolves a named projection r.x to its vector index via this label list
+   (field_pos over the I0Ttrcd).  Without it a record type falls through to
+   i0typ_none1 and every named field projects to index 0. *)
+fun
+l2t2plst_trxd3i0
+( l2ps: l2t2plst, env0: !envd3i0): l0i0tlst =
+(
+case+ l2ps of
+| list_nil() => list_nil()
+| list_cons(l2p, l2ps1) =>
+  let
+  val+ S2LAB(lab, t2p) = l2p
+  val i0t = s2typ_trxd3i0(t2p, env0)
+  val rest = l2t2plst_trxd3i0(l2ps1, env0)
+  in
+  list_cons(I0LAB(lab, i0t), rest)
+  end
+)
+//
 #implfun
 s2typ_trxd3i0
 (t2p0, env0) =
@@ -122,6 +142,17 @@ s2typlst_trxd3i0(t2ps, env0)
 in//let
 i0typ(s2t0, I0Ttext(name, i0ts))
 end(*let*)//end-of-[T2Ptext(...)]
+//
+(* ****** ****** *)
+//
+|T2Ptrcd
+(knd, npf, l2ps) =>
+let
+val l0i0ts =
+l2t2plst_trxd3i0(l2ps, env0)
+in//let
+i0typ(s2t0, I0Ttrcd(knd, npf, l0i0ts))
+end(*let*)//end-of-[T2Ptrcd(...)]
 //
 (* ****** ****** *)
 //
