@@ -455,10 +455,16 @@ case+ sp.node() of
 | I0Pvar(dvar) =>
   (cz_str(filr, "("); cz_dvar(filr, dvar); cz_str(filr, " ");
    cz_acc(filr, iscon, idx); cz_str(filr, ") "))
-(* linear markers (~x free / !x bang / flat) wrap an inner var -- bind it to the
-   field; the box/value read-semantics are handled at the use site (I0Eflat). *)
+(* !x BANG: a mutable field reference -> bind a FIELD-ADDRESS #(cell vidx) so a
+   later `x := v` writes the field in place (vidx already tag-adjusted). *)
+| I0Pbang(p0) =>
+  (case+ p0.node() of
+   | I0Pvar(dvar) =>
+     (cz_str(filr, "("); cz_dvar(filr, dvar); cz_str(filr, " (vector czscrut ");
+      cz_emit_int(filr, if iscon then idx+1 else idx); cz_str(filr, ")) "))
+   | _(*nested*) => cz_subbind(filr, iscon, idx, p0))
+(* ~x free / flat: bind the field VALUE *)
 | I0Pfree(p0) => cz_subbind(filr, iscon, idx, p0)
-| I0Pbang(p0) => cz_subbind(filr, iscon, idx, p0)
 | I0Pflat(p0) => cz_subbind(filr, iscon, idx, p0)
 | _(*else*) => ())
 //
@@ -521,9 +527,16 @@ case+ sp.node() of
   (if iscon then cz_str(filr, "XATSPCON") else cz_str(filr, "vector-ref"));
   cz_str(filr, " czdv"); cz_emit_uint(filr, freshn); cz_str(filr, " ");
   cz_emit_int(filr, idx); cz_str(filr, "))\n"))
-(* linear markers wrap an inner var -- destructure to it *)
+(* !x BANG: bind a FIELD-ADDRESS #(cell vidx) for in-place `x := v` *)
+| I0Pbang(p0) =>
+  (case+ p0.node() of
+   | I0Pvar(dvar) =>
+     (cz_str(filr, "(define "); cz_dvar(filr, dvar); cz_str(filr, " (vector czdv");
+      cz_emit_uint(filr, freshn); cz_str(filr, " ");
+      cz_emit_int(filr, if iscon then idx+1 else idx); cz_str(filr, "))\n"))
+   | _(*nested*) => cz_destr_field(filr, p0, iscon, idx, freshn))
+(* ~x free / flat: bind the field VALUE *)
 | I0Pfree(p0) => cz_destr_field(filr, p0, iscon, idx, freshn)
-| I0Pbang(p0) => cz_destr_field(filr, p0, iscon, idx, freshn)
 | I0Pflat(p0) => cz_destr_field(filr, p0, iscon, idx, freshn)
 | _(*else: wildcard / literal / nested*) => ())
 //
@@ -1280,7 +1293,7 @@ case+ iexp.node() of
    (unbox p); taking its address is the box itself; assignment writes through
    the box (whole var) or in-place into a tuple/datacon field (Scheme vectors
    are mutable). *)
-| I0Eflat(e0) => (cz_str(filr, "(unbox "); i0exp_cz0(filr, e0); cz_str(filr, ")"))
+| I0Eflat(e0) => (cz_str(filr, "(XATS_lvget "); i0exp_cz0(filr, e0); cz_str(filr, ")"))
 | I0Efold(e0) => i0exp_cz0(filr, e0)  (* linear fold: identity in the uniform vector rep *)
 | I0Eaddr(e0) => i0exp_cz0(filr, e0)
 | I0Eassgn(lval, rval) => i0exp_cz0_assgn(filr, lval, rval)
@@ -1567,7 +1580,7 @@ i0exp_cz0_assgn
 (
 case+ lval.node() of
 | I0Eflat(inner) =>
-  (cz_str(filr, "(set-box! "); i0exp_cz0(filr, inner);
+  (cz_str(filr, "(XATS_lvset "); i0exp_cz0(filr, inner);
    cz_str(filr, " "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
 | I0Eproj(_, lab, base) =>
   (cz_str(filr, "(vector-set! "); i0exp_cz0(filr, base); cz_str(filr, " ");
@@ -1578,8 +1591,8 @@ case+ lval.node() of
 | I0Epcon(_, lab, base) =>
   (cz_str(filr, "(vector-set! "); i0exp_cz0(filr, base); cz_str(filr, " (+ ");
    cz_lab_idx(filr, lab); cz_str(filr, " 1) "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
-| _(*else: treat as a box*) =>
-  (cz_str(filr, "(set-box! "); i0exp_cz0(filr, lval);
+| _(*else: a box [var] or a field-address [!x]*) =>
+  (cz_str(filr, "(XATS_lvset "); i0exp_cz0(filr, lval);
    cz_str(filr, " "); i0exp_cz0(filr, rval); cz_str(filr, ")")))
 //
 (* ****** ****** *)

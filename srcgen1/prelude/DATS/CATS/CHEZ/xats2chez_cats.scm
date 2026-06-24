@@ -106,6 +106,17 @@
 (define (XATS2JS_a0rf_make_1val v) (box v))
 (define (XATS2JS_a0rf_lget r) (unbox r))
 (define (XATS2JS_a0rf_lset r v) (set-box! r v))
+;;;--------------------------------------------------------------------
+;;; LVALUE deref/assign.  A "flat" lvalue is either a mutable cell (a box,
+;;; from a [var]) or a FIELD-ADDRESS into a tuple/datacon cell: the vector
+;;; #(cell vidx) where vidx is the already-tag-adjusted vector index.  A
+;;; bang pattern !x binds such a field-address so `x := v` mutates the cell
+;;; in place.  These dispatch on box? so both shapes read/write uniformly.
+;;;--------------------------------------------------------------------
+(define (XATS_lvget x)
+  (if (box? x) (unbox x) (vector-ref (vector-ref x 0) (vector-ref x 1))))
+(define (XATS_lvset x v)
+  (if (box? x) (set-box! x v) (vector-set! (vector-ref x 0) (vector-ref x 1) v)))
 
 ;;;--------------------------------------------------------------------
 ;;; jshmap — hash maps (the JS Map; symbol tables, environments).  Keys are
