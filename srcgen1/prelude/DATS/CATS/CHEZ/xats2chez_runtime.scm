@@ -204,6 +204,17 @@
         ((char? x) (string x))
         (else "?")))
 
+;; Generic print fallbacks.  A generic op (g_print0<x0>) used INSIDE a generic
+;; template (gseq_print0) stays unresolved when only the OUTER template is
+;; specialized, so the emitter leaves a bare g_print0.  Provide a runtime
+;; dispatcher so such uses print (via xats_value_string) instead of crashing
+;; "g_print0 not bound".  Resolved per-type prints inline their own instance and
+;; never reach these.  g_free is a no-op (Scheme is GC'd).
+(define (g_free x) XATSTOP0)
+(define (g_print x) (XATS2JS_strn_print (xats_value_string x)))
+(define (g_print1 x) (g_print x))
+(define (g_print0 x) (g_print1 x) (g_free x) XATSTOP0)
+
 (define (gs_print_one x) (XATS2JS_strn_print (xats_value_string x)))
 (define (gs_print_a0) XATSTOP0)
 (define (gs_print_a1 a) (gs_print_one a) XATSTOP0)

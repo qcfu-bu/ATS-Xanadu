@@ -730,6 +730,7 @@ else if strn_contains(nm, "$f3un") then true
 else if strn_contains(nm, "$fwork") then true
 else if strn_contains(nm, "$fopr") then true
 else if strn_contains(nm, "$e1nv") then true
+else if strn_contains(nm, "$e2nv") then true
 else if strn_contains(nm, "$tcmp") then true
 else false
 end//let
