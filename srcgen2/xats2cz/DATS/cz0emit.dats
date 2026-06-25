@@ -150,6 +150,24 @@ cz_raw_char
 ( filr: FILR, c0: char): void =
 ( prints(c0)) where { #impltmp g_print$out<>() = filr }
 //
+(* emit ONE char into a Scheme string literal, escaping the chars that would
+   otherwise break the literal -- a raw control byte (newline etc.) ends the line
+   mid-string.  Mirrors the JS f0_char escape set, plus " and \. *)
+fun
+cz_chr_instr
+( filr: FILR, c0: char): void =
+(
+case+ c0 of
+| '\n' => cz_str(filr, "\\n")
+| '\t' => cz_str(filr, "\\t")
+| '\r' => cz_str(filr, "\\r")
+| '\b' => cz_str(filr, "\\b")
+| '\f' => cz_str(filr, "\\f")
+| '\v' => cz_str(filr, "\\v")
+| '\"' => cz_str(filr, "\\\"")
+| '\\' => cz_str(filr, "\\\\")
+| _ (*else: printable*) => cz_raw_char(filr, c0))
+//
 fun
 cz_chr_body
 ( filr: FILR, rep: strn): void =
@@ -697,9 +715,7 @@ case+ i0e0.node() of
 (* I0Ec00 = a char CONSTANT (e.g. the -1 EOF sentinel); emit (XATSCHR0 "<c>") as
    the JS does (the runtime maps the 1-char string to its code, == JS XATSCHR0). *)
 | I0Ec00(c0) =>
-  (cz_str(filr, "(XATSCHR0 \"");
-   (if c0 = '\"' then cz_str(filr, "\\\"") else cz_raw_char(filr, c0));
-   cz_str(filr, "\")"))
+  (cz_str(filr, "(XATSCHR0 \""); cz_chr_instr(filr, c0); cz_str(filr, "\")"))
 | I0Ef00 _ => (cz_str(filr, "0.0"); prerrsln("[cz0emit] I0Ef00 (float const) -> 0.0, TODO"))
 | I0Eeval(e0) => i0exp_cz0(filr, e0)            (* eval-builtin: emit the inner expr *)
 | I0Eextnam(_, nam) => g1nam_fprint(nam, filr)  (* external name reference *)
