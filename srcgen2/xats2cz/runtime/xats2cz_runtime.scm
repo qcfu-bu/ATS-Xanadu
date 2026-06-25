@@ -399,9 +399,10 @@
       (cond ((= i n) #t)
             ((test (char->integer (string-ref cs i))) (loop (+ i 1)))
             (else #f)))))
-(define (XATS2JS_strn_head$opt cs)        ; optn_nil=#(0) / optn_cons=#(1 v)
-  (if (= (string-length cs) 0) (vector 0)
-      (vector 1 (char->integer (string-ref cs 0)))))
+;; strn_head$opt(strn): char -- the head CHAR (code), or 0 (null) if empty.
+;; NOT an option datacon: callers feed the result straight to char_eqz ("is empty").
+(define (XATS2JS_strn_head$opt cs)
+  (if (= (string-length cs) 0) 0 (char->integer (string-ref cs 0))))
 
 ;;; ---- system / IO (the compiler reads source + prelude files, gets argv) ----
 ;;; argv mirrors Node process.argv = [node, script, arg1, ...]; argv[2]=arg1.
@@ -416,10 +417,11 @@
 ;; stdout/stderr ports + port-directed fprint (vs the buffered print store).
 (define (XATS2JS_NODE_g_stdout) (current-output-port))
 (define (XATS2JS_NODE_g_stderr) (current-error-port))
-(define (XATS2JS_NODE_strn_fprint port s) (put-string port s) _xunit)
-(define (XATS2JS_NODE_char_fprint port c) (put-char port (integer->char c)) _xunit)
-(define (XATS2JS_NODE_gint_fprint$sint port i) (put-string port (number->string i)) _xunit)
-(define (XATS2JS_NODE_gint_fprint$uint port u) (put-string port (number->string u)) _xunit)
+;; ATS fprint convention is (VALUE, FILR) -- value first, port second (libcats.dats).
+(define (XATS2JS_NODE_strn_fprint s port) (put-string port s) _xunit)
+(define (XATS2JS_NODE_char_fprint c port) (put-char port (integer->char c)) _xunit)
+(define (XATS2JS_NODE_gint_fprint$sint i port) (put-string port (number->string i)) _xunit)
+(define (XATS2JS_NODE_gint_fprint$uint u port) (put-string port (number->string u)) _xunit)
 
 ;;; ---- strn_vt = mutable char-code buffer with a trailing 0 (JS array of bsz+1,
 ;;; last=0).  alloc/set$at/vt2t are the lexer's string builder. ----
@@ -471,5 +473,6 @@
 (define (XATSOPT_strn_dflt$parse$exn rep)
   (let ((v (string->number rep))) (if (and v (real? v)) (exact->inexact v) (error 'xats2cz "dflt parse"))))
 ;; IO fprint extras
-(define (XATS2JS_NODE_bool_fprint port b) (put-string port (if b "true" "false")) _xunit)
-(define (XATS2JS_NODE_gflt_fprint$dflt port f) (put-string port (xats_dflt_tostring f)) _xunit)
+(define (XATS2JS_NODE_bool_fprint b port) (put-string port (if b "true" "false")) _xunit)
+(define (XATS2JS_NODE_gflt_fprint$dflt f port) (put-string port (xats_dflt_tostring f)) _xunit)
+(define (XATS2JS_NODE_gflt_fprint$sflt f port) (put-string port (xats_dflt_tostring f)) _xunit)

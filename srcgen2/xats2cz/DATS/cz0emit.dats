@@ -114,6 +114,15 @@ case+ dimp.node() of
 | DIMPLnon1(_) =>
   (cz_str(filr, "XATS_undef_dimplnon1");
    prerrsln("[cz0emit] DIMPLnon1 (unresolved impl name) — TODO")))
+(* #implval implements a VALUE (the kind token is T_IMPLMNT(IMPLval)); it must emit
+   a value binding, not a forwarding lambda (cf. JS implfunq + the IIFE for vals). *)
+fun
+cz_implvalq
+( tknd: token): bool =
+(
+case+ tknd.node() of
+| T_IMPLMNT(iknd) => (case+ iknd of | IMPLval() => true | _ => false)
+| _ (*else*) => false)
 (* ****** ****** *)
 (* int / string literal tokens. *)
 fun
@@ -1047,10 +1056,16 @@ case+ decls of
    | I0Dfundclst(_, _, _, ifs) =>
      (cz_str(filr, "(letrec ("); cz_fundcl_binds(filr, ifs);
       cz_str(filr, ") "); cz_dcl_body(filr, rest, body); cz_str(filr, ")"))
-   | I0Dimplmnt0(_, _, dimp, fargs, ibody) =>
+   | I0Dimplmnt0(tknd, _, dimp, fargs, ibody) =>
      if dimpl_tempq(dimp)
      then cz_dcl_body(filr, rest, body)   (* template impl: inlined at uses *)
      else
+     (if cz_implvalq(tknd)
+      then  (* #implval: a value binding *)
+       (cz_str(filr, "(let (("); cz_dimpl_name(filr, dimp); cz_str(filr, " ");
+        i0exp_cz0(filr, ibody); cz_str(filr, ")) ");
+        cz_dcl_body(filr, rest, body); cz_str(filr, ")"))
+      else
        (cz_str(filr, "(letrec (("); cz_dimpl_name(filr, dimp);
         (case+ fargs of
          | list_nil() =>
@@ -1059,7 +1074,7 @@ case+ decls of
          | _ =>
            (cz_str(filr, " (lambda ("); cz_params(filr, fargs); cz_str(filr, ") ");
             cz_fnbody(filr, fargs, ibody); cz_str(filr, ")")));
-        cz_str(filr, ")) "); cz_dcl_body(filr, rest, body); cz_str(filr, ")"))
+        cz_str(filr, ")) "); cz_dcl_body(filr, rest, body); cz_str(filr, ")")))
    (* local/dclst/static/tmpsub: splice into the sequence (names are loc-stamped,
       so the slight over-scoping of a local-head is collision-free). *)
    | I0Dlocal0(h, b) => cz_dcl_body(filr, list_append(h, list_append(b, rest)), body)
@@ -1173,10 +1188,15 @@ case+ idcl.node() of
 (* template impl: nothing (inlined at uses).  non-template handled in M2. *)
 (* #implfun: a template impl emits NOTHING (inlined at uses); a NON-template
    impl emits a top-level define (cf. JS f0_implmnt0 / i0fundcl_cz0). *)
-| I0Dimplmnt0(_, _, dimp, fargs, body) =>
+| I0Dimplmnt0(tknd, _, dimp, fargs, body) =>
   if dimpl_tempq(dimp)
   then ()
   else
+  (if cz_implvalq(tknd)
+   then  (* #implval: a VALUE -> (define name body), evaluated (NOT a fwd lambda) *)
+    (cz_str(filr, "(define "); cz_dimpl_name(filr, dimp); cz_str(filr, " ");
+     i0exp_cz0(filr, body); cz_str(filr, ")\n"))
+   else
     (case+ fargs of
      | list_nil() =>
        (cz_str(filr, "(define "); cz_dimpl_name(filr, dimp);
@@ -1184,7 +1204,7 @@ case+ idcl.node() of
         cz_str(filr, " czfwd)))\n"))
      | _ =>
        (cz_str(filr, "(define ("); cz_dimpl_name(filr, dimp); cz_params(filr, fargs);
-        cz_str(filr, ") "); cz_fnbody(filr, fargs, body); cz_str(filr, ")\n")))
+        cz_str(filr, ") "); cz_fnbody(filr, fargs, body); cz_str(filr, ")\n"))))
 (* extern, includes, errck-dropped(none1), benign-empty: no Scheme. *)
 | I0Dextern(_, _) => ()
 | I0Dd3ecl(_) => ()
