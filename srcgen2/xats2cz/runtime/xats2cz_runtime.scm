@@ -355,3 +355,75 @@
   (let ((f0 (string->number rep0)))
     (when (and f0 (real? f0)) (work (exact->inexact f0))))
   _xunit)
+
+;;; ====================================================================
+;;; SELF-HOST runtime floor: the system/IO + generic-scalar prims the
+;;; COMPILER ITSELF references (not exercised by the 77-test corpus).
+;;; Faithful to srcgen1_prelude_node.js / the gint/bool/char CATS.
+;;; ====================================================================
+
+;;; ---- gint (generic int) ops: same as sint, explicit $sint$sint names ----
+(define (XATS2JS_gint_add$sint$sint i1 i2) (+ i1 i2))
+(define (XATS2JS_gint_sub$sint$sint i1 i2) (- i1 i2))
+(define (XATS2JS_gint_mul$sint$sint i1 i2) (* i1 i2))
+(define (XATS2JS_gint_div$sint$sint i1 i2) (quotient i1 i2))
+(define (XATS2JS_gint_eq$sint$sint  i1 i2) (= i1 i2))
+(define (XATS2JS_gint_neq$sint$sint i1 i2) (not (= i1 i2)))
+(define (XATS2JS_gint_lt$sint$sint  i1 i2) (< i1 i2))
+(define (XATS2JS_gint_gt$sint$sint  i1 i2) (> i1 i2))
+(define (XATS2JS_gint_lte$sint$sint i1 i2) (<= i1 i2))
+(define (XATS2JS_gint_gte$sint$sint i1 i2) (>= i1 i2))
+(define (XATS2JS_gint_neg$sint i1) (- i1))
+(define (XATS2JS_gint_suc$sint i1) (+ i1 1))
+
+;;; ---- bool / char extras ----
+(define (XATS2JS_bool_mul b1 b2) (if b1 b2 #f))   ; && 
+(define (XATS2JS_bool_neg b0) (not b0))
+(define (XATS2JS_char_cmp c1 c2) (cond ((< c1 c2) -1) ((> c1 c2) 1) (else 0)))
+(define (XATS2JS_char_eqz c0) (= c0 0))
+(define (XATS2JS_char_isdigit ch) (and (<= 48 ch) (<= ch 57)))
+
+;;; ---- single-cell pointer / ref (a0ptr / a0ref): JS [x] -> 1-vector ----
+(define (XATS2JS_a0ptr_make_1val x) (vector x))
+(define (XATS2JS_a0ref_dtget A0) (vector-ref A0 0))
+(define (XATS2JS_a0ref_set A0 x) (vector-set! A0 0 x) _xunit)
+
+;;; ---- JS sized array (jsa1sz, e.g. argv) -> Chez vector ----
+(define (XATS2JS_jsa1sz_length A) (vector-length A))
+(define (XATS2JS_jsa1sz_get$at A i) (vector-ref A i))
+
+;;; ---- string queries ----
+(define (XATS2JS_strn_forall$f1un cs test)
+  (let ((n (string-length cs)))
+    (let loop ((i 0))
+      (cond ((= i n) #t)
+            ((test (char->integer (string-ref cs i))) (loop (+ i 1)))
+            (else #f)))))
+(define (XATS2JS_strn_head$opt cs)        ; optn_nil=#(0) / optn_cons=#(1 v)
+  (if (= (string-length cs) 0) (vector 0)
+      (vector 1 (char->integer (string-ref cs 0)))))
+
+;;; ---- system / IO (the compiler reads source + prelude files, gets argv) ----
+;;; argv mirrors Node process.argv = [node, script, arg1, ...]; argv[2]=arg1.
+(define (XATS2JS_NODE_argv$get) (list->vector (cons "node" (command-line))))
+(define (XATSOPT_argv$get) (XATS2JS_NODE_argv$get))
+(define (XATS2JS_NODE_fs_rexists fpx) (if (file-exists? fpx) #t #f))
+(define (XATSOPT_fpath_rexists fpx) (XATS2JS_NODE_fs_rexists fpx))
+(define (XATS2JS_NODE_fs_readFileSync fpx)
+  (call-with-input-file fpx (lambda (p) (get-string-all p))))
+(define (XATSOPT_fpath_full$read fpx) (XATS2JS_NODE_fs_readFileSync fpx))
+(define (XATSOPT_XATSHOME_get) (let ((h (getenv "XATSHOME"))) (if h h "")))
+;; stdout/stderr ports + port-directed fprint (vs the buffered print store).
+(define (XATS2JS_NODE_g_stdout) (current-output-port))
+(define (XATS2JS_NODE_g_stderr) (current-error-port))
+(define (XATS2JS_NODE_strn_fprint port s) (put-string port s) _xunit)
+(define (XATS2JS_NODE_char_fprint port c) (put-char port (integer->char c)) _xunit)
+(define (XATS2JS_NODE_gint_fprint$sint port i) (put-string port (number->string i)) _xunit)
+(define (XATS2JS_NODE_gint_fprint$uint port u) (put-string port (number->string u)) _xunit)
+
+;;; ---- DEFERRED (need the strn_vt char-buffer rep / stream accessors); loud
+;;; stubs so they are defined but obvious if the self-host run reaches them. ----
+(define (XATS2JS_strtmp_vt_alloc bsz) (error 'xats2cz "TODO strtmp_vt_alloc"))
+(define (XATS2JS_strtmp_vt_set$at . a) (error 'xats2cz "TODO strtmp_vt_set$at"))
+(define (XATS2JS_strn_vt2t cs) (error 'xats2cz "TODO strn_vt2t"))
+(define (XATS2JS_strm_vt_forall0$f1un . a) (error 'xats2cz "TODO strm_vt_forall0$f1un"))
