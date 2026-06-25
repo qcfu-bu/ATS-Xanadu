@@ -7,8 +7,7 @@ export XATSHOME="${XATSHOME:-/Users/qcfu/Projects/ATS-Xanadu}"
 BUNDLE="$HERE/srcgen2/BUILD/xats2chez-bundle.js"
 CACHE="$HERE/srcgen2/BUILD/selfhost/cache2"; mkdir -p "$CACHE"
 STK="${STK:-60000}"
-export NODE_COMPILE_CACHE="$HERE/srcgen2/BUILD/.v8cache"
-export BUNDLE CACHE STK XATSHOME NODE_COMPILE_CACHE
+export BUNDLE CACHE STK XATSHOME
 co() {
   u="$1"; src=""
   for d in "$XATSHOME/srcgen2/DATS" "$XATSHOME/prelude/DATS" "$XATSHOME/prelude/DATS/VT" \
