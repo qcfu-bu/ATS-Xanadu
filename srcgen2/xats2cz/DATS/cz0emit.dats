@@ -208,6 +208,17 @@ case+ lab of
 | LABint(i0) => (prints(i0)) where { #impltmp g_print$out<>() = filr }
 | LABsym(_) => (cz_str(filr, "0"); prerrsln("[cz0emit] UNHANDLED record (symbol) label -> 0")))
 //
+(* cz_lab_sym: a record field label as a quoted Chez symbol — the key into the
+   symbol-keyed record rep (the Chez analog of the JS object).  Construction and
+   every projection route the label through here, so the keys always agree. *)
+fun
+cz_lab_sym
+( filr: FILR, lab: label): void =
+(
+case+ lab of
+| LABsym(s) => (cz_str(filr, "'"); cz_str(filr, symbl_get_name(s)))
+| LABint(i0) => (cz_str(filr, "'f"); cz_int(filr, i0)))
+//
 (* cz_unwrap_con: if [iexp] is a (possibly type/fold-wrapped) data constructor,
    yield it — so an application of a constructor builds #(ctag fields..). *)
 fun
@@ -404,17 +415,18 @@ case+ i0e0.node() of
    | optn_cons(dcon) => (cz_str(filr, "(vector "); cz_ctag(filr, dcon); cz_str(filr, ")"))
    | optn_nil() => (cz_str(filr, "("); i0exp_cz0(filr, i0f); cz_str(filr, ")")))
 //
-(* tuples / records -> #(fields..) (uniform vector rep). *)
+(* tuples -> #(fields..) positional vector; records -> symbol-keyed XATS_rcd2
+   (the JS object analog — projections are by SYMBOL, type erased so position is
+   not recoverable; mirror the JS object-rep, not a positional guess). *)
 | I0Etup0(es) => (cz_str(filr, "(vector"); cz_args(filr, es); cz_str(filr, ")"))
 | I0Etup1(_, es) => (cz_str(filr, "(vector"); cz_args(filr, es); cz_str(filr, ")"))
-| I0Ercd2(_, lies) => (cz_str(filr, "(vector"); cz_l0i0e_vec(filr, lies); cz_str(filr, ")"))
-(* projections: datacon field (XATSPCON, skips ctag) / tuple field (vector-ref). *)
+| I0Ercd2(_, lies) => (cz_str(filr, "(XATS_rcd2"); cz_l0i0e_rcd(filr, lies); cz_str(filr, ")"))
+(* projections: datacon field (XATSPCON, skips ctag) / tuple|record field
+   (cz_proj_read dispatches on label kind: int -> vector-ref, sym -> XATS_rsel). *)
 | I0Epcon(lab, con) =>
   (cz_str(filr, "(XATSPCON "); i0exp_cz0(filr, con); cz_str(filr, " "); cz_lab_idx(filr, lab); cz_str(filr, ")"))
-| I0Eproj(lab, tup) =>
-  (cz_str(filr, "(vector-ref "); i0exp_cz0(filr, tup); cz_str(filr, " "); cz_lab_idx(filr, lab); cz_str(filr, ")"))
-| I0Epflt(lab, tup) =>
-  (cz_str(filr, "(vector-ref "); i0exp_cz0(filr, tup); cz_str(filr, " "); cz_lab_idx(filr, lab); cz_str(filr, ")"))
+| I0Eproj(lab, tup) => cz_proj_read(filr, lab, tup)
+| I0Epflt(lab, tup) => cz_proj_read(filr, lab, tup)
 //
 | I0Enone0() => cz_str(filr, "_xunit")
 //
@@ -426,10 +438,8 @@ case+ i0e0.node() of
 | I0Eaddr(e0) =>
   (case+ e0.node() of
    | I0Eflat(inner) => i0exp_cz0(filr, inner)
-   | I0Eproj(lab, base) =>
-     (cz_str(filr, "(vector "); i0exp_cz0(filr, base); cz_str(filr, " "); cz_lab_idx(filr, lab); cz_str(filr, ")"))
-   | I0Epflt(lab, base) =>
-     (cz_str(filr, "(vector "); i0exp_cz0(filr, base); cz_str(filr, " "); cz_lab_idx(filr, lab); cz_str(filr, ")"))
+   | I0Eproj(lab, base) => cz_addr_field(filr, lab, base)
+   | I0Epflt(lab, base) => cz_addr_field(filr, lab, base)
    | I0Epcon(lab, con) =>
      (cz_str(filr, "(vector "); i0exp_cz0(filr, con); cz_str(filr, " (+ "); cz_lab_idx(filr, lab); cz_str(filr, " 1))"))
    | _ (*else*) => i0exp_cz0(filr, e0))
@@ -483,16 +493,46 @@ case+ es of
 | list_cons(e0, rest) =>
   (i0exp_cz0(filr, e0); cz_str(filr, " "); cz_seq(filr, rest)))
 //
-and  (* record field VALUES in order (labels resolved positionally at construction) *)
-cz_l0i0e_vec
+and  (* record fields as alternating  'label value  args to XATS_rcd2. *)
+cz_l0i0e_rcd
 ( filr: FILR, lies: l0i0elst): void =
 (
 case+ lies of
 | list_nil() => ()
 | list_cons(lie, rest) =>
   (cz_str(filr, " ");
-   (case+ lie of | I0LAB(_, e0) => i0exp_cz0(filr, e0));
-   cz_l0i0e_vec(filr, rest)))
+   (case+ lie of
+    | I0LAB(lab, e0) =>
+      (cz_lab_sym(filr, lab); cz_str(filr, " "); i0exp_cz0(filr, e0)));
+   cz_l0i0e_rcd(filr, rest)))
+//
+and  (* field READ: tuple (int) -> vector-ref ; record (sym) -> XATS_rsel. *)
+cz_proj_read
+( filr: FILR, lab: label, tup: i0exp): void =
+(
+case+ lab of
+| LABint(i) =>
+  (cz_str(filr, "(vector-ref "); i0exp_cz0(filr, tup); cz_str(filr, " "); cz_int(filr, i); cz_str(filr, ")"))
+| LABsym(_) =>
+  (cz_str(filr, "(XATS_rsel "); i0exp_cz0(filr, tup); cz_str(filr, " "); cz_lab_sym(filr, lab); cz_str(filr, ")")))
+//
+and  (* field WRITE: tuple (int) -> vector-set! ; record (sym) -> XATS_rset. *)
+cz_proj_write
+( filr: FILR, lab: label, base: i0exp, rval: i0exp): void =
+(
+case+ lab of
+| LABint(i) =>
+  (cz_str(filr, "(vector-set! "); i0exp_cz0(filr, base); cz_str(filr, " "); cz_int(filr, i); cz_str(filr, " "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
+| LABsym(_) =>
+  (cz_str(filr, "(XATS_rset "); i0exp_cz0(filr, base); cz_str(filr, " "); cz_lab_sym(filr, lab); cz_str(filr, " "); i0exp_cz0(filr, rval); cz_str(filr, ")")))
+//
+and  (* field ADDRESS: #(container key) — XATS_lvget/lvset dispatch on (symbol? key). *)
+cz_addr_field
+( filr: FILR, lab: label, base: i0exp): void =
+(
+cz_str(filr, "(vector "); i0exp_cz0(filr, base); cz_str(filr, " ");
+(case+ lab of | LABint(i) => cz_int(filr, i) | LABsym(_) => cz_lab_sym(filr, lab));
+cz_str(filr, ")"))
 //
 and
 cz_branchopt
@@ -559,10 +599,8 @@ i0exp_cz0_assgn
 case+ lval.node() of
 | I0Eflat(inner) =>
   (cz_str(filr, "(XATS_lvset "); i0exp_cz0(filr, inner); cz_str(filr, " "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
-| I0Eproj(lab, base) =>
-  (cz_str(filr, "(vector-set! "); i0exp_cz0(filr, base); cz_str(filr, " "); cz_lab_idx(filr, lab); cz_str(filr, " "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
-| I0Epflt(lab, base) =>
-  (cz_str(filr, "(vector-set! "); i0exp_cz0(filr, base); cz_str(filr, " "); cz_lab_idx(filr, lab); cz_str(filr, " "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
+| I0Eproj(lab, base) => cz_proj_write(filr, lab, base, rval)
+| I0Epflt(lab, base) => cz_proj_write(filr, lab, base, rval)
 | I0Epcon(lab, con) =>
   (cz_str(filr, "(vector-set! "); i0exp_cz0(filr, con); cz_str(filr, " (+ "); cz_lab_idx(filr, lab); cz_str(filr, " 1) "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
 | _ (*box var / field-address*) =>

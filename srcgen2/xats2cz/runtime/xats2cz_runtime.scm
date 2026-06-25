@@ -17,12 +17,28 @@
 (define (XATS000_ctgeq v t) (= (vector-ref v 0) t))   ; tag test (slot 0)
 (define (XATSPCON con i) (vector-ref con (+ i 1)))      ; datacon field i (skip ctag)
 
-;;; ---- mutable left-values: a var is a Chez box; a field-address is #(cell idx).
-;;; XATS_lvget/lvset dispatch on box? so both shapes read/write uniformly. ----
+;;; ---- records: symbol-keyed, the Chez analog of a JS object {x:..,y:..}.
+;;; Built from alternating  key val  args; projected/mutated by SYMBOL (the
+;;; field type is erased in intrep0, so position is NOT recoverable). ----
+(define (XATS_rcd2 . kvs)
+  (let ((h (make-eq-hashtable)))
+    (let loop ((kvs kvs))
+      (if (null? kvs) h
+          (begin (hashtable-set! h (car kvs) (cadr kvs)) (loop (cddr kvs)))))))
+(define (XATS_rsel r k) (hashtable-ref r k #f))            ; field read
+(define (XATS_rset r k v) (hashtable-set! r k v) _xunit)   ; field write
+
+;;; ---- mutable left-values: a var is a Chez box; a field-address is
+;;; #(container key) — key is an int (tuple/vector slot) or a symbol (record
+;;; field).  XATS_lvget/lvset dispatch on box?, then on (symbol? key). ----
 (define (XATS_lvget x)
-  (if (box? x) (unbox x) (vector-ref (vector-ref x 0) (vector-ref x 1))))
+  (cond ((box? x) (unbox x))
+        (else (let ((c (vector-ref x 0)) (k (vector-ref x 1)))
+                (if (symbol? k) (hashtable-ref c k #f) (vector-ref c k))))))
 (define (XATS_lvset x v)
-  (if (box? x) (set-box! x v) (vector-set! (vector-ref x 0) (vector-ref x 1) v)))
+  (cond ((box? x) (set-box! x v))
+        (else (let ((c (vector-ref x 0)) (k (vector-ref x 1)))
+                (if (symbol? k) (hashtable-set! c k v) (vector-set! c k v))))))
 (define (p2tr_get p) (XATS_lvget p))
 (define (p2tr_set p v) (XATS_lvset p v))
 
