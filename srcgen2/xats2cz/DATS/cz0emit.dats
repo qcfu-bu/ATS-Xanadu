@@ -691,10 +691,8 @@ case+ i0e0.node() of
 //
 (* let/where: local decls (externs emit nothing; local funs/vals -> internal
    defines, which Scheme treats as letrec* — mutual recursion OK) then the body. *)
-| I0Elet0(decls, scope) =>
-  (cz_str(filr, "(let () "); i0dclist_cz0(filr, decls); i0exp_cz0(filr, scope); cz_str(filr, ")"))
-| I0Ewhere(scope, decls) =>
-  (cz_str(filr, "(let () "); i0dclist_cz0(filr, decls); i0exp_cz0(filr, scope); cz_str(filr, ")"))
+| I0Elet0(decls, scope) => cz_dcl_body(filr, decls, scope)
+| I0Ewhere(scope, decls) => cz_dcl_body(filr, decls, scope)
 //
 (* I0Ec00 = a char CONSTANT (e.g. the -1 EOF sentinel); emit (XATSCHR0 "<c>") as
    the JS does (the runtime maps the 1-char string to its code, == JS XATSCHR0). *)
@@ -1026,6 +1024,139 @@ in
     (i0exp_cz0(filr, body); close_fa(fargs))
   end
 end
+//
+(* ----- inner let/local/where bodies -----
+   Chez requires internal definitions to PRECEDE expressions in a body, but ATS
+   let/local/where freely interleave value-bindings and statements.  So rather than
+   a flat (let () <define...> <expr...> scope) we emit a RIGHT-NESTED chain: each
+   binding opens its own scope (let / letrec / let-values), each statement is
+   sequenced via begin, and the scope-expr sits innermost -- so every define-like
+   form is at the head of its own body.  (Top-level decls keep the flat i0*_cz0
+   path: Chez --script allows interleaving at the program top level.) *)
+and
+cz_dcl_body
+( filr: FILR, decls: i0dclist, body: i0exp): void =
+(
+case+ decls of
+| list_nil() => i0exp_cz0(filr, body)
+| list_cons(d0, rest) =>
+  (case+ d0.node() of
+   | I0Dvaldclst(_, ivs) => cz_val_body(filr, ivs, rest, body)
+   | I0Dvardclst(_, ivs) => cz_var_body(filr, ivs, rest, body)
+   | I0Dfundclst(_, _, _, ifs) =>
+     (cz_str(filr, "(letrec ("); cz_fundcl_binds(filr, ifs);
+      cz_str(filr, ") "); cz_dcl_body(filr, rest, body); cz_str(filr, ")"))
+   | I0Dimplmnt0(_, _, dimp, fargs, ibody) =>
+     if dimpl_tempq(dimp)
+     then cz_dcl_body(filr, rest, body)   (* template impl: inlined at uses *)
+     else
+       (cz_str(filr, "(letrec (("); cz_dimpl_name(filr, dimp);
+        (case+ fargs of
+         | list_nil() =>
+           (cz_str(filr, " (lambda czfwd (apply "); i0exp_cz0(filr, ibody);
+            cz_str(filr, " czfwd))"))
+         | _ =>
+           (cz_str(filr, " (lambda ("); cz_params(filr, fargs); cz_str(filr, ") ");
+            cz_fnbody(filr, fargs, ibody); cz_str(filr, ")")));
+        cz_str(filr, ")) "); cz_dcl_body(filr, rest, body); cz_str(filr, ")"))
+   (* local/dclst/static/tmpsub: splice into the sequence (names are loc-stamped,
+      so the slight over-scoping of a local-head is collision-free). *)
+   | I0Dlocal0(h, b) => cz_dcl_body(filr, list_append(h, list_append(b, rest)), body)
+   | I0Ddclst0(ds) => cz_dcl_body(filr, list_append(ds, rest), body)
+   | I0Dstatic(_, d1) => cz_dcl_body(filr, list_cons(d1, rest), body)
+   | I0Dtmpsub(_, d1) => cz_dcl_body(filr, list_cons(d1, rest), body)
+   (* extern/include/d3ecl/errck-none: no Scheme, just continue *)
+   | I0Dextern(_, _) => cz_dcl_body(filr, rest, body)
+   | I0Dd3ecl(_) => cz_dcl_body(filr, rest, body)
+   | I0Dinclude(_, _, _, _, _) => cz_dcl_body(filr, rest, body)
+   | I0Dnone0() => cz_dcl_body(filr, rest, body)
+   | I0Dnone1(_) => cz_dcl_body(filr, rest, body)
+   | _ (*else*) =>
+     (cz_str(filr, ";;UNHANDLED-i0dcl-in-body ");
+      prerrsln("[cz0emit] UNHANDLED-i0dcl in let/where body");
+      i0dcl_fprint(d0, g_stderr((*0*))); prerrsln("");
+      cz_dcl_body(filr, rest, body)))
+)
+//
+and  (* each val: var -> (let ((x e)) ..); compound-with-vars -> let-values; else begin *)
+cz_val_body
+( filr: FILR, ivs: i0valdclist, rest: i0dclist, body: i0exp): void =
+(
+case+ ivs of
+| list_nil() => cz_dcl_body(filr, rest, body)
+| list_cons(iv, ivs_rest) =>
+  let
+    val ipat = iv.ipat((*0*))
+    val tdxp = iv.tdxp((*0*))
+  in
+    case+ tdxp of
+    | TEQI0EXPnone() => cz_val_body(filr, ivs_rest, rest, body)
+    | TEQI0EXPsome(_, rhs) =>
+      (case+ ipat.node() of
+       | I0Pvar(dvar) =>
+         (cz_str(filr, "(let (("); cz_dvar(filr, dvar); cz_str(filr, " ");
+          i0exp_cz0(filr, rhs); cz_str(filr, ")) ");
+          cz_val_body(filr, ivs_rest, rest, body); cz_str(filr, ")"))
+       | _ (*else*) =>
+         if cz_pat_hasvar(ipat)
+         then
+           (cz_str(filr, "(let-values ((("); cz_pv_vars(filr, ipat);
+            cz_str(filr, ") (let ((czpv "); i0exp_cz0(filr, rhs);
+            cz_str(filr, ")) (values"); cz_pv_accs(filr, ipat); cz_str(filr, ")))) ");
+            cz_val_body(filr, ivs_rest, rest, body); cz_str(filr, ")"))
+         else
+           (cz_str(filr, "(begin "); i0exp_cz0(filr, rhs); cz_str(filr, " ");
+            cz_val_body(filr, ivs_rest, rest, body); cz_str(filr, ")")))
+  end
+)
+//
+and  (* each var -> (let ((v (box init))) ..) *)
+cz_var_body
+( filr: FILR, ivs: i0vardclist, rest: i0dclist, body: i0exp): void =
+(
+case+ ivs of
+| list_nil() => cz_dcl_body(filr, rest, body)
+| list_cons(ivd0, ivs_rest) =>
+  let
+    val dpid = ivd0.dpid((*0*))
+    val dini = ivd0.dini((*0*))
+  in
+    (cz_str(filr, "(let (("); cz_dvar(filr, dpid); cz_str(filr, " (box ");
+     (case+ dini of
+      | TEQI0EXPnone() => cz_str(filr, "_xunit")
+      | TEQI0EXPsome(_, e0) => i0exp_cz0(filr, e0));
+     cz_str(filr, "))) ");
+     cz_var_body(filr, ivs_rest, rest, body); cz_str(filr, ")"))
+  end
+)
+//
+and  (* letrec binds for a (mutually-recursive) fun group: (name (lambda ..)) ... *)
+cz_fundcl_binds
+( filr: FILR, ifs: i0fundclist): void =
+(
+case+ ifs of
+| list_nil() => ()
+| list_cons(ifun, rest) =>
+  let
+    val dpid = ifun.dpid((*0*))
+    val farg = ifun.farg((*0*))
+    val tdxp = ifun.tdxp((*0*))
+  in
+    ((case+ tdxp of
+      | TEQI0EXPnone() => ()
+      | TEQI0EXPsome(_, fbody) =>
+        (case+ farg of
+         | list_nil() =>
+           (cz_str(filr, "("); cz_dvar(filr, dpid);
+            cz_str(filr, " (lambda czfwd (apply "); i0exp_cz0(filr, fbody);
+            cz_str(filr, " czfwd))) "))
+         | _ =>
+           (cz_str(filr, "("); cz_dvar(filr, dpid);
+            cz_str(filr, " (lambda ("); cz_params(filr, farg); cz_str(filr, ") ");
+            cz_fnbody(filr, farg, fbody); cz_str(filr, ")) "))));
+     cz_fundcl_binds(filr, rest))
+  end
+)
 //
 (* ===== declarations ===== *)
 and
