@@ -93,6 +93,7 @@
 ;;; ---- sint arithmetic (mirrors srcgen2_prelude.js:314-346) ----
 ;;; div = Math.trunc(i1/i2) -> quotient (truncates toward zero in Chez);
 ;;; mod = JS % (sign of dividend) -> remainder (sign of dividend in Chez).
+(define (XATS2JS_sint_neg i1) (- i1))
 (define (XATS2JS_sint_add$sint i1 i2) (+ i1 i2))
 (define (XATS2JS_sint_sub$sint i1 i2) (- i1 i2))
 (define (XATS2JS_sint_mul$sint i1 i2) (* i1 i2))

@@ -67,6 +67,10 @@ cz_str(filr, "_");
 cz_uint(filr, stamp_get_uint(d2var_get_stmp(dvar))))
 (* ****** ****** *)
 (* cz_dcst: a constant reference, classified per docs/04.
+   cast (fcast/castfn)        -> identity (xs -> xs): a runtime no-op reinterpret,
+                                  matching the JS XATSCAST(args)=args[0].  These are
+                                  prelude decls cz0emit never emits, so they must NOT
+                                  dangle as name_<loc>.
    $extnam (X2NAMsome)        -> bare runtime name (the leaf primitive).
    else (non-template / none) -> <name>_<decl-location-stamp> (a top-level define
                                   materializes it; cross-file-safe via the canonical
@@ -82,6 +86,10 @@ fprint_loctn_as_stamp(filr, dcst.lctn((*0*))))
 fun
 cz_dcst
 ( filr: FILR, dcst: d2cst): void =
+(
+if d2cst_castq(dcst)
+then cz_str(filr, "(lambda (czcastx) czcastx)")
+else
 let
 val xopt = the_d2cstmap_xnmfind(d2cst_get_stmp(dcst))
 in//let
@@ -92,7 +100,7 @@ case+ xopt of
   case+ xnam of
   | X2NAMnone() => cz_dcst_loc(filr, dcst)
   | X2NAMsome(_) => cz_name(filr, d2cst_get_name(dcst)))
-end//let
+end(*let*))
 (* ****** ****** *)
 (* int / string literal tokens. *)
 fun
