@@ -102,6 +102,19 @@ case+ xopt of
   | X2NAMsome(_) => cz_name(filr, d2cst_get_name(dcst)))
 end(*let*))
 (* ****** ****** *)
+(* cz_dimpl_name: the name of a (non-template) #implfun's resolved constant — its
+   top-level define name, matching the name_<loc> at use sites (cf. JS dicstjs1). *)
+fun
+cz_dimpl_name
+( filr: FILR, dimp: dimpl): void =
+(
+case+ dimp.node() of
+| DIMPLone1(dcst) => cz_dcst_loc(filr, dcst)
+| DIMPLone2(dcst, _) => cz_dcst_loc(filr, dcst)
+| DIMPLnon1(_) =>
+  (cz_str(filr, "XATS_undef_dimplnon1");
+   prerrsln("[cz0emit] DIMPLnon1 (unresolved impl name) — TODO")))
+(* ****** ****** *)
 (* int / string literal tokens. *)
 fun
 cz_int_token
@@ -1015,7 +1028,20 @@ case+ idcl.node() of
 | I0Dstatic(_, d0) => i0dcl_cz0(filr, d0)
 | I0Dtmpsub(_, d0) => i0dcl_cz0(filr, d0)
 (* template impl: nothing (inlined at uses).  non-template handled in M2. *)
-| I0Dimplmnt0(_, _, _, _, _) => ()
+(* #implfun: a template impl emits NOTHING (inlined at uses); a NON-template
+   impl emits a top-level define (cf. JS f0_implmnt0 / i0fundcl_cz0). *)
+| I0Dimplmnt0(_, _, dimp, fargs, body) =>
+  if dimpl_tempq(dimp)
+  then ()
+  else
+    (case+ fargs of
+     | list_nil() =>
+       (cz_str(filr, "(define "); cz_dimpl_name(filr, dimp);
+        cz_str(filr, " (lambda czfwd (apply "); i0exp_cz0(filr, body);
+        cz_str(filr, " czfwd)))\n"))
+     | _ =>
+       (cz_str(filr, "(define ("); cz_dimpl_name(filr, dimp); cz_params(filr, fargs);
+        cz_str(filr, ") "); cz_fnbody(filr, fargs, body); cz_str(filr, ")\n")))
 (* extern, includes, errck-dropped(none1), benign-empty: no Scheme. *)
 | I0Dextern(_, _) => ()
 | I0Dd3ecl(_) => ()
