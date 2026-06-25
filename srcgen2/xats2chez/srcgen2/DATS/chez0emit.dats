@@ -1321,6 +1321,19 @@ case+ iexp.node() of
 | I0Eaddr(e0) =>
   (case+ e0.node() of
    | I0Eflat(inner) => i0exp_cz0(filr, inner)
+   (* &(datacon/tuple FIELD) -> a FIELD-ADDRESS #(cell vidx), the same rep a !x
+      binding produces, so XATS_lvget/lvset through it read/write the field in
+      place.  Emitting the field VALUE instead (the old default) breaks in-place
+      linear traversals (list_vt_append0's loop) -> "vector-ref 1 is not vector". *)
+   | I0Epcon(_, lab, base) =>
+     (cz_str(filr, "(vector "); i0exp_cz0(filr, base); cz_str(filr, " (+ ");
+      cz_lab_idx(filr, lab); cz_str(filr, " 1))"))
+   | I0Eproj(_, lab, base) =>
+     (cz_str(filr, "(vector "); i0exp_cz0(filr, base); cz_str(filr, " ");
+      cz_proj_idx(filr, base, lab); cz_str(filr, ")"))
+   | I0Epflt(_, lab, base) =>
+     (cz_str(filr, "(vector "); i0exp_cz0(filr, base); cz_str(filr, " ");
+      cz_proj_idx(filr, base, lab); cz_str(filr, ")"))
    | _ => i0exp_cz0(filr, e0))
 | I0Eassgn(lval, rval) => i0exp_cz0_assgn(filr, lval, rval)
 //
@@ -1957,16 +1970,22 @@ else
 let
 val stmp = stamp_get_uint(d2cst_get_stmp(dc))
 in//let
-if cz_inlining_has(stmp) then i0exp_cz0(filr, tapp) (* recursive: in-scope letrec name *)
+(* the letrec is named czfn_<name>, NOT <name>: an extern-forwarding instance
+   (jshmap_make_nil whose body is `(XATS2JS_jshmap_make_nil)`) has the SAME name
+   as the runtime global it calls, so a letrec bound to <name> would SHADOW the
+   global and the wrapper would call ITSELF -> infinite loop at load.  The czfn_
+   prefix can never be a global, so the body's global call resolves correctly;
+   the recursion guard emits the same czfn_<name>. *)
+if cz_inlining_has(stmp) then (cz_str(filr, "czfn_"); cz_dcst_name(filr, dc)) (* recursive *)
 else
 (
 cz_inlining_push(stmp);
 (case+ fargs of
  | list_nil() => (* point-free alias f = g: inline g's body directly *)
    i0exp_cz0(filr, body)
- | _ => (* real instance: (letrec ((name (lambda (fargs) body))) name) *)
-   (cz_str(filr, "(letrec (("); cz_dcst_name(filr, dc); cz_str(filr, " (lambda (");
-    cz_params_body(filr, fargs, body); cz_str(filr, "))) ");
+ | _ => (* real instance: (letrec ((czfn_name (lambda (fargs) body))) czfn_name) *)
+   (cz_str(filr, "(letrec ((czfn_"); cz_dcst_name(filr, dc); cz_str(filr, " (lambda (");
+    cz_params_body(filr, fargs, body); cz_str(filr, "))) czfn_");
     cz_dcst_name(filr, dc); cz_str(filr, ")")));
 cz_inlining_pop())
 end//let
