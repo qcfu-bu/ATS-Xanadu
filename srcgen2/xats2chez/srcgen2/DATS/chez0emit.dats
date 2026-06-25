@@ -808,6 +808,7 @@ case+ iexp.node() of
 | I0Eproj(_, _, e0) => cz_scan_exp(e0)
 | I0Eflat(e0) => cz_scan_exp(e0)
 | I0Efold(e0) => cz_scan_exp(e0)
+| I0Efree(e0) => cz_scan_exp(e0)
 | I0Eaddr(e0) => cz_scan_exp(e0)
 | I0Eassgn(l0, r0) => (cz_scan_exp(l0); cz_scan_exp(r0))
 | I0Eraise(_, e0) => cz_scan_exp(e0)
@@ -1160,6 +1161,7 @@ case+ iexp.node() of
 | I0Eproj(_, _, e0) => cz_map_exp(e0)
 | I0Eflat(e0) => cz_map_exp(e0)
 | I0Efold(e0) => cz_map_exp(e0)
+| I0Efree(e0) => cz_map_exp(e0)
 | I0Eaddr(e0) => cz_map_exp(e0)
 | I0Eassgn(l0, r0) => (cz_map_exp(l0); cz_map_exp(r0))
 | I0Eraise(_, e0) => cz_map_exp(e0)
@@ -1321,6 +1323,7 @@ case+ iexp.node() of
    are mutable). *)
 | I0Eflat(e0) => (cz_str(filr, "(XATS_lvget "); i0exp_cz0(filr, e0); cz_str(filr, ")"))
 | I0Efold(e0) => i0exp_cz0(filr, e0)  (* linear fold: identity in the uniform vector rep *)
+| I0Efree(e0) => i0exp_cz0(filr, e0)  (* linear free: a no-op under GC; pass the value through *)
 (* address-of cancels a deref: &(deref p) == p.  A var/field read is I0Eflat;
    taking ITS address yields the lvalue itself (the box / field-address), so a
    p2tr_get/p2tr_set through it hits the cell.  Without the cancel we'd hand the
@@ -2020,6 +2023,7 @@ case+ iexp.node() of
 | I0Eproj(_, _, e0) => cz_coll_exp(filr, e0)
 | I0Eflat(e0) => cz_coll_exp(filr, e0)
 | I0Efold(e0) => cz_coll_exp(filr, e0)
+| I0Efree(e0) => cz_coll_exp(filr, e0)
 | I0Eaddr(e0) => cz_coll_exp(filr, e0)
 | I0Eassgn(l0, r0) => (cz_coll_exp(filr, l0); cz_coll_exp(filr, r0))
 | I0Eraise(_, e0) => cz_coll_exp(filr, e0)
