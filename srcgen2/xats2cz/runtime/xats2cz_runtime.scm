@@ -421,9 +421,55 @@
 (define (XATS2JS_NODE_gint_fprint$sint port i) (put-string port (number->string i)) _xunit)
 (define (XATS2JS_NODE_gint_fprint$uint port u) (put-string port (number->string u)) _xunit)
 
-;;; ---- DEFERRED (need the strn_vt char-buffer rep / stream accessors); loud
-;;; stubs so they are defined but obvious if the self-host run reaches them. ----
-(define (XATS2JS_strtmp_vt_alloc bsz) (error 'xats2cz "TODO strtmp_vt_alloc"))
-(define (XATS2JS_strtmp_vt_set$at . a) (error 'xats2cz "TODO strtmp_vt_set$at"))
-(define (XATS2JS_strn_vt2t cs) (error 'xats2cz "TODO strn_vt2t"))
+;;; ---- strn_vt = mutable char-code buffer with a trailing 0 (JS array of bsz+1,
+;;; last=0).  alloc/set$at/vt2t are the lexer's string builder. ----
+(define (XATS2JS_strtmp_vt_alloc bsz) (make-vector (+ bsz 1) 0))
+(define (XATS2JS_strtmp_vt_set$at cs i0 c0) (vector-set! cs i0 c0) c0)
+(define (XATS2JS_strn_vt2t cs)            ; drop the trailing 0; codes -> string
+  (let* ((n (- (vector-length cs) 1)) (s (make-string n)))
+    (do ((i 0 (+ i 1))) ((= i n) s) (string-set! s i (integer->char (vector-ref cs i))))))
+
+;;; ---- DEFERRED: lazy-stream forall (needs strmcon_vt/lazy_vt accessors); loud
+;;; stub so it's defined but obvious if the self-host run reaches it. ----
 (define (XATS2JS_strm_vt_forall0$f1un . a) (error 'xats2cz "TODO strm_vt_forall0$f1un"))
+
+;;; ---- self-host round 2: prims exposed once #implfun bodies emit ----
+;;; gint extras
+(define (XATS2JS_gint_cmp$sint$sint i1 i2) (cond ((< i1 i2) -1) ((> i1 i2) 1) (else 0)))
+(define (XATS2JS_gint_cmp$uint$uint u1 u2) (cond ((< u1 u2) -1) ((> u1 u2) 1) (else 0)))
+(define (XATS2JS_gint_eq$uint$uint u1 u2) (= u1 u2))
+(define (XATS2JS_gint_suc$uint u1) (+ u1 1))
+(define (XATS2JS_gint_pre$sint x0) (- x0 1))
+(define (XATS2JS_gint_sint2uint i0) i0)
+(define (XATS2JS_gint_uint2sint u0) u0)
+(define (XATS2JS_gint_asrn$sint x0 n0) (ash x0 (- n0)))     ; x >> n (arith shift right)
+(define (XATS2JS_gint_land$uint x0 y0) (bitwise-and x0 y0)) ; x & y
+(define (XATS2JS_gint_parse_sint rep) (let ((i (xats_str_parse_int rep))) (if i i 0)))
+;; gflt
+(define (XATS2JS_gflt_eq$dflt$dflt f1 f2) (= f1 f2))
+;; char predicates
+(define (XATS2JS_char_equal c1 c2) (= c1 c2))
+(define (XATS2JS_char_isalpha ch) (or (and (<= 97 ch) (<= ch 122)) (and (<= 65 ch) (<= ch 90))))
+(define (XATS2JS_char_isalnum ch) (or (XATS2JS_char_isalpha ch) (XATS2JS_char_isdigit ch)))
+(define (XATS2JS_char_isxdigit ch) (or (XATS2JS_char_isdigit ch) (and (<= 97 ch) (<= ch 102)) (and (<= 65 ch) (<= ch 70))))
+;; refs / pointer arrays
+(define (XATS2JS_a0ref_dtset A0 x) (vector-set! A0 0 x) _xunit)
+(define (XATS2JS_a0ref_get A0) (vector-ref A0 0))
+(define (XATSOPT_a0ref_set A0 x) (vector-set! A0 0 x) _xunit)
+(define (XATS2JS_a1ptr_alloc asz) (make-vector asz 0))
+(define (XATS2JS_a1ptr_get$at1 A i) (vector-ref A i))
+(define (XATS2JS_a1ptr_set$at1 A i x) (vector-set! A i x) _xunit)
+;; jshmap extras
+(define (XATS2JS_jshmap_search$opt map key)   ; optn_nil=#(0)/optn_cons=#(1 v)
+  (if (hashtable-contains? map key) (vector 1 (hashtable-ref map key #f)) (vector 0)))
+(define (XATS2JS_jshmap_insert$any map key itm) (hashtable-set! map key itm) _xunit)
+(define (XATS2JS_jshmap_get_keys map) (hashtable-keys map))
+;; strings / stropt
+(define (XATS2JS_strn_tail$raw cs) (substring cs 1 (string-length cs)))
+(define (XATS2JS_stropt_nilq opt) (eq? opt #f))     ; stropt nil = #f (JS null)
+(define (XATSOPT_strn_append_uint s u) (string-append s (number->string u)))
+(define (XATSOPT_strn_dflt$parse$exn rep)
+  (let ((v (string->number rep))) (if (and v (real? v)) (exact->inexact v) (error 'xats2cz "dflt parse"))))
+;; IO fprint extras
+(define (XATS2JS_NODE_bool_fprint port b) (put-string port (if b "true" "false")) _xunit)
+(define (XATS2JS_NODE_gflt_fprint$dflt port f) (put-string port (xats_dflt_tostring f)) _xunit)

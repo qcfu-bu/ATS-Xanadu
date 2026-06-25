@@ -696,6 +696,17 @@ case+ i0e0.node() of
 | I0Ewhere(scope, decls) =>
   (cz_str(filr, "(let () "); i0dclist_cz0(filr, decls); i0exp_cz0(filr, scope); cz_str(filr, ")"))
 //
+(* I0Ec00 = a char CONSTANT (e.g. the -1 EOF sentinel); emit (XATSCHR0 "<c>") as
+   the JS does (the runtime maps the 1-char string to its code, == JS XATSCHR0). *)
+| I0Ec00(c0) =>
+  (cz_str(filr, "(XATSCHR0 \"");
+   (if c0 = '\"' then cz_str(filr, "\\\"") else cz_raw_char(filr, c0));
+   cz_str(filr, "\")"))
+| I0Ef00 _ => (cz_str(filr, "0.0"); prerrsln("[cz0emit] I0Ef00 (float const) -> 0.0, TODO"))
+| I0Eeval(e0) => i0exp_cz0(filr, e0)            (* eval-builtin: emit the inner expr *)
+| I0Eextnam(_, nam) => g1nam_fprint(nam, filr)  (* external name reference *)
+| I0Esynext _ => (cz_str(filr, "(XATS_undef)"); prerrsln("[cz0emit] I0Esynext -> undef, TODO"))
+| I0Enone1 _ => cz_str(filr, "_xunit")          (* error marker (cf. I0Enone0) *)
 | _ (*else*) =>
   (
   cz_str(filr, "(UNHANDLED-i0exp)");
