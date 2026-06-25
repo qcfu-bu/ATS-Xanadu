@@ -750,9 +750,19 @@ end//let
    they match the runtime by name. *)
 fun
 cz_dcst_name( filr: FILR, dcst: d2cst): void =
-(* the bare d2cst name.  Lexically-scoped hooks are alpha-renamed elsewhere
-   (i0impl_dc_cz0 / cz_cont_ref); this is the global/instance name. *)
+(* the bare d2cst name.  Template instances are inlined (cz_czfn_name); this is the
+   global/concrete name (a runtime global, a datacon, or `implement main`). *)
 cz_sym(filr, d2cst_get_name(dcst))
+//
+(* cz_czfn_name: the inline name for a template instance -- czfn_<name>_<idcl-stamp>.
+   The IDCL stamp is the globally-unique identity of the resolving #impltmp (the
+   frontend already did the lexical resolution), so nested same-named hooks get
+   DISTINCT names and only genuine self-recursion shares one.  The czfn_ prefix can
+   never collide with a runtime global, so an extern-forwarding instance whose body
+   calls the same-named global does not shadow it. *)
+fun
+cz_czfn_name( filr: FILR, dcst: d2cst, istmp: uint): void =
+(cz_str(filr, "czfn_"); cz_sym(filr, d2cst_get_name(dcst)); cz_str(filr, "_"); cz_emit_uint(filr, istmp))
 //
 (* cz_dimpl_name: the name a #implfun/implement defines -- stamped if a cont. *)
 fun
@@ -1086,12 +1096,9 @@ in loopf(a0ref_get(the_cz_cont_scope)) end
    no in-scope binding falls back to the d2cst-stamp name (cz_dcst_name). *)
 fun
 cz_cont_ref( filr: FILR, dcst: d2cst): void =
-(* resolve by SCOPE: a d2cst with a local #impltmp binding in scope -> its
-   alpha-renamed name_c<id>; otherwise the bare name (a global / inlined-elsewhere
-   instance).  No name-string test. *)
-(case+ cz_cont_lookup(stamp_get_uint(d2cst_get_stmp(dcst))) of
- | list_cons(id, _) => (cz_sym(filr, d2cst_get_name(dcst)); cz_str(filr, "_c"); cz_emit_int(filr, id))
- | _ => cz_sym(filr, d2cst_get_name(dcst)))
+(* a bare d2cst reference (I0Ecst) -> the global/concrete name.  Template instances
+   never reach here -- they are I0Etimp and get inlined (cz_emit_timp_inline). *)
+cz_sym(filr, d2cst_get_name(dcst))
 //
 (* PASS 0: cz_map_* walks the program and, for each template instance, records
    its free continuations.  Recurses INTO instance bodies (unlike cz_scan) to
@@ -1854,24 +1861,11 @@ case+ idcl.node() of
 and
 i0impl_dc_cz0
 ( filr: FILR, dc: d2cst, fargs: fiarglst, body: i0exp): void =
-(* a #impltmp inside a let/where (a LOCAL frame) is a lexically-scoped hook ->
-   alpha-rename + bind; one at the unit top level is a global instance -> bare. *)
-if cz_cont_scope_active()
-then
-let
-val id = cz_cont_fresh()
-val stmp = stamp_get_uint(d2cst_get_stmp(dc))
-in//let
-(case+ fargs of
- | list_nil() =>
-   (cz_str(filr, "(define "); cz_sym(filr, d2cst_get_name(dc)); cz_str(filr, "_c"); cz_emit_int(filr, id);
-    cz_str(filr, " (lambda czfwd (apply "); i0exp_cz0(filr, body); cz_str(filr, " czfwd)))\n"))
- | _ =>
-   (cz_str(filr, "(define ("); cz_sym(filr, d2cst_get_name(dc)); cz_str(filr, "_c"); cz_emit_int(filr, id);
-    cz_params_body(filr, fargs, body); cz_str(filr, ")\n")));
-cz_cont_bind(stmp, id) (* DEFERRED bind: only NOW is name_c<id> in scope *)
-end//let
-else
+(* emit the #impltmp DECLARATION as a bare define.  Template instances are INLINED
+   at every use (cz_emit_timp_inline) using the frontend's lexically-resolved idcl,
+   so this define is genuinely referenced only for concrete implements (e.g. `main`);
+   for a template it is harmless: it is never called and Scheme does not evaluate a
+   lambda body until applied, so any hook it mentions need not be in global scope. *)
 (case+ fargs of
  | list_nil() =>   (* point-free template alias: #implfun f = g -> forwarding lambda *)
    (cz_str(filr, "(define "); cz_dcst_name(filr, dc); cz_str(filr, " (lambda czfwd (apply ");
@@ -1971,43 +1965,35 @@ case+ timp_idclopt(timp) of
 | optn_cons(idcl) =>
   (
   case+ (unwrap_implmnt(idcl)).node() of
-  | I0Dimplmnt0(_, _, _, dimp, fargs, body, _) =>
+  | I0Dimplmnt0(_, _, istmp, dimp, fargs, body, _) =>
     (
     case+ dimp.node() of
-    | DIMPLone1(dc) => cz_emit_timp_inline_dc(filr, dc, fargs, body, tapp)
-    | DIMPLone2(dc, _) => cz_emit_timp_inline_dc(filr, dc, fargs, body, tapp)
+    | DIMPLone1(dc) => cz_emit_timp_inline_dc(filr, dc, fargs, body, tapp, stamp_get_uint(istmp))
+    | DIMPLone2(dc, _) => cz_emit_timp_inline_dc(filr, dc, fargs, body, tapp, stamp_get_uint(istmp))
     | _(*else*) => i0exp_cz0(filr, tapp))
   | _(*else*) => i0exp_cz0(filr, tapp)))
 and
 cz_emit_timp_inline_dc
-( filr: FILR, dc: d2cst, fargs: fiarglst, body: i0exp, tapp: i0exp): void =
-(* if this d2cst has a local #impltmp binding IN SCOPE, it is a lexically-scoped
-   hook -> reference its alpha-renamed define (so nested same-named hooks don't
-   collide).  Otherwise inline the body as a named-local letrec, guarded by the
-   d2cst stamp against genuine self-recursion. *)
-if (case+ cz_cont_lookup(stamp_get_uint(d2cst_get_stmp(dc))) of list_cons _ => true | _ => false)
-then cz_cont_ref(filr, dc)
-else
+( filr: FILR, dc: d2cst, fargs: fiarglst, body: i0exp, tapp: i0exp, istmp: uint): void =
+(* inline the lexically-resolved idcl, keyed on its globally-unique IDCL stamp.
+   The frontend already resolved this reference to the right #impltmp, so the d2cst
+   / t0imp stamps (shared across same-named hooks) are NOT the identity -- the idcl
+   stamp is.  Two distinct forall$test hooks -> two distinct istmp -> distinct
+   czfn_ names; a genuine self-recursive reference reuses the same istmp. *)
 let
-val stmp = stamp_get_uint(d2cst_get_stmp(dc))
+val stmp = istmp
 in//let
-(* the letrec is named czfn_<name>, NOT <name>: an extern-forwarding instance
-   (jshmap_make_nil whose body is `(XATS2JS_jshmap_make_nil)`) has the SAME name
-   as the runtime global it calls, so a letrec bound to <name> would SHADOW the
-   global and the wrapper would call ITSELF -> infinite loop at load.  The czfn_
-   prefix can never be a global, so the body's global call resolves correctly;
-   the recursion guard emits the same czfn_<name>. *)
-if cz_inlining_has(stmp) then (cz_str(filr, "czfn_"); cz_dcst_name(filr, dc)) (* recursive *)
+if cz_inlining_has(stmp) then cz_czfn_name(filr, dc, istmp) (* recursive *)
 else
 (
 cz_inlining_push(stmp);
 (case+ fargs of
  | list_nil() => (* point-free alias f = g: inline g's body directly *)
    i0exp_cz0(filr, body)
- | _ => (* real instance: (letrec ((czfn_name (lambda (fargs) body))) czfn_name) *)
-   (cz_str(filr, "(letrec ((czfn_"); cz_dcst_name(filr, dc); cz_str(filr, " (lambda (");
-    cz_params_body(filr, fargs, body); cz_str(filr, "))) czfn_");
-    cz_dcst_name(filr, dc); cz_str(filr, ")")));
+ | _ => (* real instance: (letrec ((czfn_name_S (lambda (fargs) body))) czfn_name_S) *)
+   (cz_str(filr, "(letrec (("); cz_czfn_name(filr, dc, istmp); cz_str(filr, " (lambda (");
+    cz_params_body(filr, fargs, body); cz_str(filr, "))) ");
+    cz_czfn_name(filr, dc, istmp); cz_str(filr, ")")));
 cz_inlining_pop())
 end//let
 //
