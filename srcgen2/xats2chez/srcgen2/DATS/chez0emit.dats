@@ -736,8 +736,9 @@ else if strn_contains(nm, "$f2un") then true
 else if strn_contains(nm, "$f3un") then true
 else if strn_contains(nm, "$fwork") then true
 else if strn_contains(nm, "$fopr") then true
-else if strn_contains(nm, "$e1nv") then true
-else if strn_contains(nm, "$e2nv") then true
+(* NB: NOT bare $e1nv/$e2nv -- those are the env-variant INSTANCE names
+   (gseq_foritm$e1nv) that must be INLINED.  The env HOOKS carry a further
+   suffix (foritm$e1nv$work, forall$e1nv$test) already matched above. *)
 else if strn_contains(nm, "$tcmp") then true
 else false
 end//let
