@@ -345,6 +345,46 @@ case+ pat.node() of
 | I0Pflat(p0) => cz_pat_binds(filr, p0)
 | _ (*else*) => ())
 (* ****** ****** *)
+(* ===== function parameters ===== *)
+(* A function param that is a bare variable binds directly as a Scheme param; a
+   compound pattern (tuple/datacon) becomes a fresh czarg<i> destructured in the
+   body prologue (cz_fnbody).  The call site already tuples the args into a
+   #(..), so the callee just unpacks its single vector param. *)
+fun
+cz_param_isvar
+( p0: i0pat): bool =
+(
+case+ p0.node() of
+| I0Pvar(_) => true
+| I0Pfree(q0) => cz_param_isvar(q0)
+| I0Pbang(q0) => cz_param_isvar(q0)
+| I0Pflat(q0) => cz_param_isvar(q0)
+| _ (*else*) => false)
+//
+fun  (* the bound var name of a (possibly linear-wrapped) var pattern *)
+cz_param_var
+( filr: FILR, p0: i0pat): void =
+(
+case+ p0.node() of
+| I0Pvar(dvar) => cz_dvar(filr, dvar)
+| I0Pfree(q0) => cz_param_var(filr, q0)
+| I0Pbang(q0) => cz_param_var(filr, q0)
+| I0Pflat(q0) => cz_param_var(filr, q0)
+| _ (*else*) => cz_str(filr, "_p"))
+//
+fun  (* a param that needs a destructuring prologue (binds sub-vars) *)
+cz_param_compound
+( p0: i0pat): bool =
+(
+case+ p0.node() of
+| I0Ptup0(_) => true
+| I0Ptup1(_, _) => true
+| I0Pdapp(_, _) => true
+| I0Pfree(q0) => cz_param_compound(q0)
+| I0Pbang(q0) => cz_param_compound(q0)
+| I0Pflat(q0) => cz_param_compound(q0)
+| _ (*else*) => false)
+(* ****** ****** *)
 (* ===== the expression / decl walk (one mutually-recursive group) ===== *)
 fun
 i0exp_cz0
@@ -375,11 +415,11 @@ case+ i0e0.node() of
 (* lambda -> (lambda (params) body).  Native lexical capture on Chez. *)
 | I0Elam0(_, fargs, body) =>
   (cz_str(filr, "(lambda ("); cz_params(filr, fargs); cz_str(filr, ") ");
-   i0exp_cz0(filr, body); cz_str(filr, ")"))
+   cz_fnbody(filr, fargs, body); cz_str(filr, ")"))
 (* fix (recursive lambda) -> (letrec ((fid (lambda (params) body))) fid). *)
 | I0Efix0(_, fid, fargs, body) =>
   (cz_str(filr, "(letrec (("); cz_dvar(filr, fid); cz_str(filr, " (lambda (");
-   cz_params(filr, fargs); cz_str(filr, ") "); i0exp_cz0(filr, body);
+   cz_params(filr, fargs); cz_str(filr, ") "); cz_fnbody(filr, fargs, body);
    cz_str(filr, "))) "); cz_dvar(filr, fid); cz_str(filr, ")"))
 //
 (* case: scrutinee bound once to czscrut; each clause is a (when <pat-test> (let
@@ -393,7 +433,9 @@ case+ i0e0.node() of
 //
 | I0Evar(dvar) => cz_dvar(filr, dvar)
 | I0Ecst(dcst) => cz_dcst(filr, dcst)
-| I0Etop(sym) => cz_name(filr, sym)
+(* `_` in value position: the omitted/topmost value the checker fills.  Like the
+   JS backend (XATSTOP0 = undefined), emit a fixed placeholder never demanded. *)
+| I0Etop(_) => cz_str(filr, "XATSTOP0")
 (* nullary data constructor -> #(ctag). *)
 | I0Econ(dcon) => (cz_str(filr, "(vector "); cz_ctag(filr, dcon); cz_str(filr, ")"))
 //
@@ -696,7 +738,7 @@ case+ idcl.node() of
     (cz_str(filr, "(lambda czfwd (apply "); i0exp_cz0(filr, body); cz_str(filr, " czfwd))"))
   | _ =>
     (cz_str(filr, "(lambda ("); cz_params(filr, fargs); cz_str(filr, ") ");
-     i0exp_cz0(filr, body); cz_str(filr, ")")))
+     cz_fnbody(filr, fargs, body); cz_str(filr, ")")))
 | _ (*else*) =>
   (
   cz_str(filr, "(UNHANDLED-timp-dcl)");
@@ -711,39 +753,77 @@ case+ ds of
 | list_nil() => (cz_str(filr, "(XATS_undef)"))
 | list_cons(d0, _) => cz_timp_dcl(filr, d0))
 //
-(* params: the fiarglst -> a flat Scheme parameter list. *)
+(* params: the fiarglst -> a flat Scheme parameter list.  Var patterns bind by
+   name; a compound (tuple/datacon) pattern becomes a fresh czarg<i>. *)
 and
 cz_params
 ( filr: FILR, fargs: fiarglst): void =
-(
-case+ fargs of
-| list_nil() => ()
-| list_cons(fa, rest) => (cz_param1(filr, fa); cz_params(filr, rest)))
+let
+  fun
+  loop_pats(pats: i0patlst, i: sint): sint =
+  (
+  case+ pats of
+  | list_nil() => i
+  | list_cons(p0, rest) =>
+    (cz_str(filr, " ");
+     (if cz_param_isvar(p0)
+      then cz_param_var(filr, p0)
+      else (cz_str(filr, "czarg"); cz_int(filr, i)));
+     loop_pats(rest, i+1)))
+  fun
+  loop_fa(fas: fiarglst, i: sint): sint =
+  (
+  case+ fas of
+  | list_nil() => i
+  | list_cons(fa, rest) =>
+    (case+ fa.node() of | FIARGdarg(pats) => loop_fa(rest, loop_pats(pats, i))))
+in
+  let val _ = loop_fa(fargs, 0) in () end
+end
 //
+(* cz_fnbody: a function/lambda body wrapped in its param-destructuring prologue.
+   Each compound param czarg<i> is unpacked via
+   (let ((czscrut czarg<i>)) (let (<cz_pat_binds>) <body>)). *)
 and
-cz_param1
-( filr: FILR, fa: fiarg): void =
-(
-case+ fa.node() of
-| FIARGdarg(pats) => cz_param_pats(filr, pats))
-//
-and
-cz_param_pats
-( filr: FILR, pats: i0patlst): void =
-(
-case+ pats of
-| list_nil() => ()
-| list_cons(p0, rest) =>
-  (cz_str(filr, " "); cz_param_name(filr, p0); cz_param_pats(filr, rest)))
-//
-and
-cz_param_name
-( filr: FILR, p0: i0pat): void =
-(
-case+ p0.node() of
-| I0Pvar(dvar) => cz_dvar(filr, dvar)
-| I0Pany() => cz_str(filr, "_p")
-| _ (*else*) => cz_str(filr, "_p"))
+cz_fnbody
+( filr: FILR, fargs: fiarglst, body: i0exp): void =
+let
+  fun
+  open_pats(pats: i0patlst, i: sint): sint =
+  (
+  case+ pats of
+  | list_nil() => i
+  | list_cons(p0, rest) =>
+    ((if cz_param_compound(p0)
+      then (cz_str(filr, "(let ((czscrut czarg"); cz_int(filr, i);
+            cz_str(filr, ")) (let ("); cz_pat_binds(filr, p0); cz_str(filr, ") ")));
+     open_pats(rest, i+1)))
+  fun
+  open_fa(fas: fiarglst, i: sint): sint =
+  (
+  case+ fas of
+  | list_nil() => i
+  | list_cons(fa, rest) =>
+    (case+ fa.node() of | FIARGdarg(pats) => open_fa(rest, open_pats(pats, i))))
+  fun
+  close_pats(pats: i0patlst): void =
+  (
+  case+ pats of
+  | list_nil() => ()
+  | list_cons(p0, rest) =>
+    ((if cz_param_compound(p0) then cz_str(filr, "))")); close_pats(rest)))
+  fun
+  close_fa(fas: fiarglst): void =
+  (
+  case+ fas of
+  | list_nil() => ()
+  | list_cons(fa, rest) =>
+    ((case+ fa.node() of | FIARGdarg(pats) => close_pats(pats)); close_fa(rest)))
+in
+  let val _ = open_fa(fargs, 0) in
+    (i0exp_cz0(filr, body); close_fa(fargs))
+  end
+end
 //
 (* ===== declarations ===== *)
 and
@@ -833,7 +913,7 @@ case+ tdxp of
      cz_str(filr, " czfwd)))\n"))
   | _ (*has arg groups*) =>
     (cz_str(filr, "(define ("); cz_dvar(filr, dpid); cz_params(filr, farg);
-     cz_str(filr, ") "); i0exp_cz0(filr, body); cz_str(filr, ")\n")))
+     cz_str(filr, ") "); cz_fnbody(filr, farg, body); cz_str(filr, ")\n")))
 end//let
 //
 and

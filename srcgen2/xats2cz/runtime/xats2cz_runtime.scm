@@ -9,6 +9,7 @@
 ;;; unit = the _xunit value below.
 
 (define _xunit (if #f #f))                 ; the ATS unit value (Chez "void")
+(define XATSTOP0 _xunit)                    ; `_` value placeholder, never demanded
 
 ;;; match failure (falling off the end of a case with no matching clause).
 (define (XATS000_cfail) (error 'xats2cz "match (case) failure"))
