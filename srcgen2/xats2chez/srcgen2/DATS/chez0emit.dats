@@ -722,7 +722,14 @@ cz_is_cont_sym
 let
 val nm = symbl_get_name(xsym)
 in//let
-if strn_contains(nm, "$test") then true
+(* a backend GLOBAL with an XATS2JS_ / XATS000_ / XATSOPT_ prefix may carry a
+   $-suffix that looks like a hook (XATS2JS_strn_forall$f1un), but it is a runtime
+   function bound globally by its bare name -- NOT a per-instantiation local.
+   Stamping it would make the stamped reference miss the global -> "not bound". *)
+if strn_contains(nm, "XATS2JS_") then false
+else if strn_contains(nm, "XATS000_") then false
+else if strn_contains(nm, "XATSOPT_") then false
+else if strn_contains(nm, "$test") then true
 else if strn_contains(nm, "$work") then true
 else if strn_contains(nm, "$f1un") then true
 else if strn_contains(nm, "$f2un") then true
