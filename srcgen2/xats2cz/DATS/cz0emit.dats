@@ -260,6 +260,30 @@ if iscon
 then (cz_str(filr, "(XATSPCON czscrut "); cz_int(filr, idx); cz_str(filr, ")"))
 else (cz_str(filr, "(vector-ref czscrut "); cz_int(filr, idx); cz_str(filr, ")")))
 //
+(* field ADDRESS against [czscrut], for a `!x` bang reference: #(container key),
+   read/written via XATS_lvget/lvset.  A datacon field i lives at vector slot
+   i+1 (ctag at 0); a tuple field i at slot i. *)
+fun
+cz_field_addr
+( filr: FILR, iscon: bool, idx: sint): void =
+(
+if iscon
+then (cz_str(filr, "(vector czscrut (+ "); cz_int(filr, idx); cz_str(filr, " 1))"))
+else (cz_str(filr, "(vector czscrut "); cz_int(filr, idx); cz_str(filr, ")")))
+//
+(* bind a `!x` sub-pattern var to the field ADDRESS (a left-value); its uses in
+   the body are deref'd (XATS_lvget) / assigned (XATS_lvset) by the frontend. *)
+fun
+cz_subbind1_addr
+( filr: FILR, iscon: bool, idx: sint, p0: i0pat): void =
+(
+case+ p0.node() of
+| I0Pvar(dvar) => (cz_str(filr, "("); cz_dvar(filr, dvar); cz_str(filr, " "); cz_field_addr(filr, iscon, idx); cz_str(filr, ")"))
+| I0Pbang(q0) => cz_subbind1_addr(filr, iscon, idx, q0)
+| I0Pfree(q0) => cz_subbind1_addr(filr, iscon, idx, q0)
+| I0Pflat(q0) => cz_subbind1_addr(filr, iscon, idx, q0)
+| _ (*else*) => ())
+//
 (* sub-pattern tests/binds (ONE level: flat var/wildcard/literal/con sub-pats). *)
 fun
 cz_subtest1
@@ -291,8 +315,8 @@ cz_subbind1
 (
 case+ p0.node() of
 | I0Pvar(dvar) => (cz_str(filr, "("); cz_dvar(filr, dvar); cz_str(filr, " "); cz_field_acc(filr, iscon, idx); cz_str(filr, ")"))
+| I0Pbang(q0) => cz_subbind1_addr(filr, iscon, idx, q0)  (* !x -> field ADDRESS *)
 | I0Pfree(q0) => cz_subbind1(filr, iscon, idx, q0)
-| I0Pbang(q0) => cz_subbind1(filr, iscon, idx, q0)
 | I0Pflat(q0) => cz_subbind1(filr, iscon, idx, q0)
 | _ (*else: any/literal/nested-con bind nothing at this level (M4)*) => ())
 //
@@ -303,6 +327,140 @@ cz_subbinds
 case+ pats of
 | list_nil() => ()
 | list_cons(p0, ps) => (cz_subbind1(filr, iscon, idx, p0); cz_subbinds(filr, iscon, idx+1, ps)))
+//
+(* ===== pattern-val (`val[-] PAT = rhs`) destructuring =====
+   A compound PAT emits  (define-values (v..) (let ((czpv rhs)) (values acc..))):
+   one rhs evaluation (effects run once), czpv let-scoped so siblings don't clash.
+   One level of fields; a `!x` field binds the field ADDRESS.  cz_pv_vars and
+   cz_pv_accs walk PAT identically (both keyed off cz_pv_leafvar) so the var list
+   and the values list stay the same length. *)
+fun  (* tmp-parameterized field value/address (the scrutinee is Scheme var [tmp]) *)
+cz_field_acc_at
+( filr: FILR, iscon: bool, idx: sint, tmp: strn): void =
+(
+if iscon
+then (cz_str(filr, "(XATSPCON "); cz_str(filr, tmp); cz_str(filr, " "); cz_int(filr, idx); cz_str(filr, ")"))
+else (cz_str(filr, "(vector-ref "); cz_str(filr, tmp); cz_str(filr, " "); cz_int(filr, idx); cz_str(filr, ")")))
+//
+fun
+cz_field_addr_at
+( filr: FILR, iscon: bool, idx: sint, tmp: strn): void =
+(
+if iscon
+then (cz_str(filr, "(vector "); cz_str(filr, tmp); cz_str(filr, " (+ "); cz_int(filr, idx); cz_str(filr, " 1))"))
+else (cz_str(filr, "(vector "); cz_str(filr, tmp); cz_str(filr, " "); cz_int(filr, idx); cz_str(filr, ")")))
+//
+fun  (* the leaf bound var of a sub-pattern (unwrapping !/free/flat), or none *)
+cz_pv_leafvar
+( p0: i0pat): optn(d2var) =
+(
+case+ p0.node() of
+| I0Pvar(dvar) => optn_cons(dvar)
+| I0Pbang(q0) => cz_pv_leafvar(q0)
+| I0Pfree(q0) => cz_pv_leafvar(q0)
+| I0Pflat(q0) => cz_pv_leafvar(q0)
+| _ (*else*) => optn_nil())
+//
+fun  (* does the sub-pattern carry a `!` bang (=> bind the field ADDRESS)? *)
+cz_pv_isbang
+( p0: i0pat): bool =
+(
+case+ p0.node() of
+| I0Pbang(_) => true
+| I0Pfree(q0) => cz_pv_isbang(q0)
+| I0Pflat(q0) => cz_pv_isbang(q0)
+| _ (*else*) => false)
+//
+fun  (* a sub-pattern that legitimately binds nothing (no warning needed) *)
+cz_pv_nobind
+( p0: i0pat): bool =
+(
+case+ p0.node() of
+| I0Pany() => true | I0Pcon(_) => true
+| I0Pint(_) => true | I0Pchr(_) => true | I0Pstr(_) => true | I0Pbtf(_) => true
+| I0Pfree(q0) => cz_pv_nobind(q0)
+| I0Pflat(q0) => cz_pv_nobind(q0)
+| _ (*else*) => false)
+//
+fun  (* does the compound pattern bind at least one (one-level) variable? *)
+cz_pat_hasvar
+( pat: i0pat): bool =
+(
+case+ pat.node() of
+| I0Pvar(_) => true
+| I0Pfree(q0) => cz_pat_hasvar(q0)
+| I0Pbang(q0) => cz_pat_hasvar(q0)
+| I0Pflat(q0) => cz_pat_hasvar(q0)
+| I0Pdapp(_, ps) => cz_patlst_hasvar(ps)
+| I0Ptup0(ps) => cz_patlst_hasvar(ps)
+| I0Ptup1(_, ps) => cz_patlst_hasvar(ps)
+| _ (*else*) => false)
+//
+and
+cz_patlst_hasvar
+( ps: i0patlst): bool =
+(
+case+ ps of
+| list_nil() => false
+| list_cons(p0, r) =>
+  (case+ cz_pv_leafvar(p0) of
+   | optn_cons(_) => true
+   | optn_nil() => cz_patlst_hasvar(r)))
+//
+fun  (* the bound var NAMES of a compound pattern, space-prefixed, in field order *)
+cz_pv_vars
+( filr: FILR, pat: i0pat): void =
+(
+case+ pat.node() of
+| I0Pfree(q0) => cz_pv_vars(filr, q0)
+| I0Pbang(q0) => cz_pv_vars(filr, q0)
+| I0Pflat(q0) => cz_pv_vars(filr, q0)
+| I0Pdapp(_, ps) => cz_pv_vars_lst(filr, ps)
+| I0Ptup0(ps) => cz_pv_vars_lst(filr, ps)
+| I0Ptup1(_, ps) => cz_pv_vars_lst(filr, ps)
+| _ (*else*) => ())
+//
+and
+cz_pv_vars_lst
+( filr: FILR, ps: i0patlst): void =
+(
+case+ ps of
+| list_nil() => ()
+| list_cons(p0, r) =>
+  ((case+ cz_pv_leafvar(p0) of
+    | optn_cons(dv) => (cz_str(filr, " "); cz_dvar(filr, dv))
+    | optn_nil() =>
+      (if cz_pv_nobind(p0) then () else prerrsln("[cz0emit] UNHANDLED nested pattern-val sub-pattern; one-level only")));
+   cz_pv_vars_lst(filr, r)))
+//
+fun  (* the field accesses (value, or address for `!x`), matching cz_pv_vars *)
+cz_pv_accs
+( filr: FILR, pat: i0pat): void =
+(
+case+ pat.node() of
+| I0Pfree(q0) => cz_pv_accs(filr, q0)
+| I0Pbang(q0) => cz_pv_accs(filr, q0)
+| I0Pflat(q0) => cz_pv_accs(filr, q0)
+| I0Pdapp(_, ps) => cz_pv_accs_lst(filr, true, 0, ps)
+| I0Ptup0(ps) => cz_pv_accs_lst(filr, false, 0, ps)
+| I0Ptup1(_, ps) => cz_pv_accs_lst(filr, false, 0, ps)
+| _ (*else*) => ())
+//
+and
+cz_pv_accs_lst
+( filr: FILR, iscon: bool, idx: sint, ps: i0patlst): void =
+(
+case+ ps of
+| list_nil() => ()
+| list_cons(p0, r) =>
+  ((case+ cz_pv_leafvar(p0) of
+    | optn_cons(_) =>
+      (cz_str(filr, " ");
+       if cz_pv_isbang(p0)
+       then cz_field_addr_at(filr, iscon, idx, "czpv")
+       else cz_field_acc_at(filr, iscon, idx, "czpv"))
+    | optn_nil() => ());
+   cz_pv_accs_lst(filr, iscon, idx+1, r)))
 //
 (* cz_pat_test: a boolean Scheme expr testing the scrutinee [czscrut] against a
    pattern.  Flat literals + var/wildcard + one-level con/tuple patterns. *)
@@ -647,7 +805,12 @@ i0exp_cz0_assgn
 ( filr: FILR, lval: i0exp, rval: i0exp): void =
 (
 case+ lval.node() of
+(* a deref lvalue (flat var / pointer target): assign THROUGH the cell — one
+   XATS_lvset on the cell itself.  Both read as (XATS_lvget e0), so symmetric.
+   (The default below would double-deref: (XATS_lvset (XATS_lvget e0) v).) *)
 | I0Eflat(inner) =>
+  (cz_str(filr, "(XATS_lvset "); i0exp_cz0(filr, inner); cz_str(filr, " "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
+| I0Edp2tr(inner) =>
   (cz_str(filr, "(XATS_lvset "); i0exp_cz0(filr, inner); cz_str(filr, " "); i0exp_cz0(filr, rval); cz_str(filr, ")"))
 | I0Eproj(lab, base) => cz_proj_write(filr, lab, base, rval)
 | I0Epflt(lab, base) => cz_proj_write(filr, lab, base, rval)
@@ -892,8 +1055,14 @@ case+ tdxp of
   | I0Pvar(dvar) =>
     (cz_str(filr, "(define "); cz_dvar(filr, dvar); cz_str(filr, " ");
      i0exp_cz0(filr, rhs); cz_str(filr, ")\n"))
-  | _ (*unit/any: effectful top-level expr*) =>
-    (i0exp_cz0(filr, rhs); cz_str(filr, "\n")))
+  (* compound pattern that binds vars (datacon/tuple): destructure rhs ONCE via
+     define-values.  Otherwise (unit (), wildcard, ...): effectful statement. *)
+  | _ (*else*) =>
+    (if cz_pat_hasvar(ipat)
+     then (cz_str(filr, "(define-values ("); cz_pv_vars(filr, ipat);
+           cz_str(filr, ") (let ((czpv "); i0exp_cz0(filr, rhs);
+           cz_str(filr, ")) (values"); cz_pv_accs(filr, ipat); cz_str(filr, ")))\n"))
+     else (i0exp_cz0(filr, rhs); cz_str(filr, "\n"))))
 end//let
 //
 (* one fun binding -> (define (name params) body).  Self/mutual recursion is free
