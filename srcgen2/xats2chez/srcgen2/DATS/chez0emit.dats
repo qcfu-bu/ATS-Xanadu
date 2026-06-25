@@ -750,9 +750,9 @@ end//let
    they match the runtime by name. *)
 fun
 cz_dcst_name( filr: FILR, dcst: d2cst): void =
-if cz_is_cont_sym(d2cst_get_name(dcst))
-then (cz_sym(filr, d2cst_get_name(dcst)); cz_str(filr, "_"); cz_emit_uint(filr, stamp_get_uint(d2cst_get_stmp(dcst))))
-else cz_sym(filr, d2cst_get_name(dcst))
+(* the bare d2cst name.  Lexically-scoped hooks are alpha-renamed elsewhere
+   (i0impl_dc_cz0 / cz_cont_ref); this is the global/instance name. *)
+cz_sym(filr, d2cst_get_name(dcst))
 //
 (* cz_dimpl_name: the name a #implfun/implement defines -- stamped if a cont. *)
 fun
@@ -850,8 +850,8 @@ case+ idcl.node() of
 | I0Dfundclst(_, _, _, _, ifs0) => cz_scan_fundclist(ifs0)
 | I0Dimplmnt0(_, _, _, dimp, _, body, _) =>
   ((case+ dimp.node() of
-    | DIMPLone1(dc) => (if cz_is_cont_sym(d2cst_get_name(dc)) then cz_adddef(d2cst_get_name(dc)))
-    | DIMPLone2(dc, _) => (if cz_is_cont_sym(d2cst_get_name(dc)) then cz_adddef(d2cst_get_name(dc)))
+    | DIMPLone1(dc) => cz_adddef(d2cst_get_name(dc))
+    | DIMPLone2(dc, _) => cz_adddef(d2cst_get_name(dc))
     | _ => ()); cz_scan_exp(body))
 | I0Ddclst0(idcls) => cz_scan_dclist(idcls)
 | I0Dlocal0(ih, ib) => (cz_scan_dclist(ih); cz_scan_dclist(ib))
@@ -1055,6 +1055,13 @@ a0ref_set(the_cz_cont_scope, list_cons(list_nil((*void*)), a0ref_get(the_cz_cont
 fun
 cz_cont_frame_pop((*void*)): void =
 (case+ a0ref_get(the_cz_cont_scope) of list_nil() => () | list_cons(_, fs) => a0ref_set(the_cz_cont_scope, fs))
+(* a frame is active iff we are emitting inside a let/where -- i.e. a LOCAL scope.
+   A #impltmp defined here is a lexically-scoped HOOK (alpha-rename it); a #impltmp
+   at the unit top level is a global instance (bare name).  This is the structural
+   discriminator that replaces matching the name's $-suffix. *)
+fun
+cz_cont_scope_active((*void*)): bool =
+(case+ a0ref_get(the_cz_cont_scope) of list_nil() => false | _ => true)
 fun
 cz_cont_bind( stmp: uint, id: int): void =
 (case+ a0ref_get(the_cz_cont_scope) of
@@ -1079,12 +1086,12 @@ in loopf(a0ref_get(the_cz_cont_scope)) end
    no in-scope binding falls back to the d2cst-stamp name (cz_dcst_name). *)
 fun
 cz_cont_ref( filr: FILR, dcst: d2cst): void =
-if cz_is_cont_sym(d2cst_get_name(dcst))
-then
-  (case+ cz_cont_lookup(stamp_get_uint(d2cst_get_stmp(dcst))) of
-   | list_cons(id, _) => (cz_sym(filr, d2cst_get_name(dcst)); cz_str(filr, "_c"); cz_emit_int(filr, id))
-   | _ => cz_dcst_name(filr, dcst))
-else cz_sym(filr, d2cst_get_name(dcst))
+(* resolve by SCOPE: a d2cst with a local #impltmp binding in scope -> its
+   alpha-renamed name_c<id>; otherwise the bare name (a global / inlined-elsewhere
+   instance).  No name-string test. *)
+(case+ cz_cont_lookup(stamp_get_uint(d2cst_get_stmp(dcst))) of
+ | list_cons(id, _) => (cz_sym(filr, d2cst_get_name(dcst)); cz_str(filr, "_c"); cz_emit_int(filr, id))
+ | _ => cz_sym(filr, d2cst_get_name(dcst)))
 //
 (* PASS 0: cz_map_* walks the program and, for each template instance, records
    its free continuations.  Recurses INTO instance bodies (unlike cz_scan) to
@@ -1847,7 +1854,9 @@ case+ idcl.node() of
 and
 i0impl_dc_cz0
 ( filr: FILR, dc: d2cst, fargs: fiarglst, body: i0exp): void =
-if cz_is_cont_sym(d2cst_get_name(dc))
+(* a #impltmp inside a let/where (a LOCAL frame) is a lexically-scoped hook ->
+   alpha-rename + bind; one at the unit top level is a global instance -> bare. *)
+if cz_cont_scope_active()
 then
 let
 val id = cz_cont_fresh()
@@ -1972,11 +1981,12 @@ case+ timp_idclopt(timp) of
 and
 cz_emit_timp_inline_dc
 ( filr: FILR, dc: d2cst, fargs: fiarglst, body: i0exp, tapp: i0exp): void =
-(* a CONTINUATION is NOT inlined -- it is emitted once as an alpha-renamed DEFINE
-   (i0dcl_cz0) and every use is a scope-resolved REFERENCE, so nested same-named
-   hooks don't collide.  A regular instance is inlined as a named-local letrec,
-   guarded by its d2cst stamp against genuine self-recursion. *)
-if cz_is_cont_sym(d2cst_get_name(dc)) then cz_cont_ref(filr, dc)
+(* if this d2cst has a local #impltmp binding IN SCOPE, it is a lexically-scoped
+   hook -> reference its alpha-renamed define (so nested same-named hooks don't
+   collide).  Otherwise inline the body as a named-local letrec, guarded by the
+   d2cst stamp against genuine self-recursion. *)
+if (case+ cz_cont_lookup(stamp_get_uint(d2cst_get_stmp(dc))) of list_cons _ => true | _ => false)
+then cz_cont_ref(filr, dc)
 else
 let
 val stmp = stamp_get_uint(d2cst_get_stmp(dc))
