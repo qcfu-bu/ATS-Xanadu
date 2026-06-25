@@ -1,0 +1,36 @@
+# Faithful-pipeline PENDING corpus.
+#
+# These files pretty-print marker-free (TODOpp=0) and PASSED the old partial M3
+# reparse pipeline, but FAIL under the faithful pipeline (pyfront_m3.dats now
+# invokes the compiler's own d2parsed_of_tread12 in stock trans03_from_fpath
+# order). They are tracked here, OUT of the strict default gate, until their
+# residual desugar/pretty-print fidelity bug is fixed and they are promoted back
+# into pp-default-auto.files / pp-default-dynamic.files.
+#
+# Each failure is a genuine desugar/fidelity gap our job is to close (the
+# pretty-print produces L2 that differs from what stock trans02_from_fpath
+# produces) — NOT compiler reimplementation, NOT linear typechecking.
+#
+# Residual root causes (audited 2026-06-23, after the static-quantifier emission
+# fix which is real but not sufficient on its own):
+#
+#   nmspace.dats          : list_vt used at BOTH 1-arg (Nmitmlst_vt = list_vt[nmitm])
+#                           and 2-arg indexed (list_vt[..., N]) forms; the 2-arg
+#                           indexed cast fails (S2Ecast -> S2Tnone0). Source even
+#                           notes it is "copied from srcgen1, not used in srcgen2".
+#   xatsopt_tmplib.dats   : @impl[...] template-instantiation leaves S2Enone0.
+#   parsing_tokbuf.dats   : enum Tkbf0_ datatype head sort S2Tbas(T2Bimpr(tbox)).
+#
+# PROMOTED 2026-06-23: staexp2_utils2.dats, t3read0_decl00.dats, t3read0_dynexp.dats,
+# trtmp3b_myenv0.dats, trtmp3c_myenv0.dats. These all had a `#implfun NAME(params)`
+# whose .sats signature carries a call-by-REFERENCE arg (`&T` / `&T >> _`, i.e.
+# S2Earg1(knd=-1,..) possibly wrapped in S2Eatx2(bef,aft)). pl_one_param_s2e was
+# INJECTING that ref/transition type as a D2Pannot onto the (unannotated) value
+# param, which is improper -> S2Eimpr at typecheck. Stock trans12 never injects
+# sig arg types onto an #implfun's params; it leaves them bare and lets trans23
+# unify against the d2cst. FIX: pl_one_param_s2e now emits a BARE param (no annot)
+# for S2Earg1/S2Eatx2 sig args, matching stock fidelity exactly.
+#
+srcgen2/DATS/parsing_tokbuf.dats
+srcgen2/DATS/xatsopt_tmplib.dats
+srcgen2/DATS/nmspace.dats

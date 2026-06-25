@@ -1,0 +1,40 @@
+from "srcgen1/prelude/SATS/unsafex" import *
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/HATS/xatsopt_sats.hats" import *
+from "srcgen2/HATS/xatsopt_dpre.hats" import *
+from "srcgen2/SATS/xbasics" import *
+from "srcgen2/SATS/locinfo" import *
+from "srcgen2/SATS/xstamp0" import *
+from "srcgen2/SATS/xsymbol" import *
+from "srcgen2/SATS/lexing0" import *
+from "srcgen2/SATS/staexp2" import *
+from "srcgen2/SATS/statyp2" import *
+from "srcgen2/SATS/dynexp2" import *
+from "srcgen2/SATS/dynexp3" import *
+
+private:
+    enum D3pat:
+        case D3PAT(loctn, s2typ, d3pat_node)
+    enum D3pat_vt:
+        case D3PAT_vt(loctn, s2typ, d3pat_node)
+    @impl
+    type D3pat_tbox = D3pat
+
+@impl
+def d3pat_make_node(loc, nod):
+    let t2p = s2typ_none0()
+    D3PAT(loc, t2p, nod)
+
+@impl
+def d3pat_set_styp(d3p0, t2p0):
+    let d3p0 = @sapp[D3pat_vt] castlin10(d3p0)
+    let @(D3PAT_vt)(loc0, !(styp), node) = d3p0
+    styp := t2p0
+
+@impl
+def d3pat_make_tpnd(loc0, t2p0, node):
+    let d3p0 = d3pat(loc0, node)
+    d3pat_set_styp(d3p0, t2p0)
+    d3p0

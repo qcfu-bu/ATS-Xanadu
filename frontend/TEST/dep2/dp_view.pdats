@@ -1,0 +1,7 @@
+@view
+enum LEv[m: SInt, n: SInt]:
+    case LEvrefl
+    case LEvstep(LEv[m, n])
+
+def lev_use(p: LEv[0, 1]) -> LEv[0, 1]:
+    p

@@ -1,0 +1,9 @@
+# Bug #32 NEGATIVE fixture (def variant): a FLAT (`@unboxed`) Type param on a `def`, instantiated
+# at a BOXED arg (`idf(0)`). The flat (tflt) param `A` does not unify with the boxed `Int` arg —
+# the stock typechecker catches it as a clean type error (nerror>0), NOT a crash. Asserts the
+# frontend hands the stock passes a shape they reject gracefully (no segfault / no exception).
+def idf[A: Type @unboxed](x: A) -> A:
+    x
+
+def use() -> Int:
+    idf(0)

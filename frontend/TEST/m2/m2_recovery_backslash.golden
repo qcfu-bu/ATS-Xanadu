@@ -1,0 +1,10 @@
+==== /Users/qcfu/Projects/ATS-Xanadu/frontend/TEST/m2/m2_recovery_backslash.py ====
+(module
+(def f@(0:0-0:3) (params)
+  (expr@(1:4-1:11) (Eapp@(1:4-1:11) (Eapp@(1:4-1:8) (Evar g@(1:4-1:5)) (args (Eerror "expected an expression"@(1:6-1:7)))) (args (Evar x@(1:9-1:10)))))
+  (let imm@(2:4-2:13) (Pvar y@(2:8-2:9)) = (Elit@(2:12-2:13) (int 1@(2:12-2:13))))
+  (expr@(3:4-3:5) (Evar y@(3:4-3:5))))
+)
+==== diagnostics ====
+  expected an expression @(1:6-1:7)
+

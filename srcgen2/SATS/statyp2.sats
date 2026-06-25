@@ -407,6 +407,19 @@ s2typ_f2cl( f2clknd ): s2typ
 //
 fun
 s2typ_none0((*void*)): s2typ
+//
+(* ****** ****** *)
+//
+(*
+HX-C1-2026: invalidate the sentinel-gated lazy s2typ memo caches
+(the_s2typ_void/sint/.../excptn etc.) so that a xglobal_reset()
+forces them to be recomputed from the reloaded env.
+*)
+fun
+statyp2_inits0_reset((*void*)): void
+//
+(* ****** ****** *)
+//
 fun
 s2typ_none1(t2p0:s2typ): s2typ
 fun

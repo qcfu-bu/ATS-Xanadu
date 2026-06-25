@@ -1,0 +1,4 @@
+def take_addr() -> Int:
+    var x: Int = 0
+    let p = &x
+    !p

@@ -1,0 +1,39 @@
+# DIAGNOSTIC variant of filpath_drpth0 — NOT faithful. Workarounds applied to each gap so we
+# can measure what % of the REST typechecks (isolates the gaps from each other), mirroring the
+# xstamp0_ucase probe approach:
+#   * datatype hoisted OUT of the `private:` block (private-can't-hold-enum gap -> see probe G).
+#   * prelude list cons UPPERCASED (Lcons/Lnil) + a local enum, to DODGE the parser
+#     lowercase-con-app SEGFAULT and reach the lowering stage.
+#   * ref-cell `[]` get/set rewritten as named calls (deref()/setref()) — the empty-bracket
+#     `x[]` / `x[] := e` surface is unsupported (parse error). Flagged.
+#   * type annots use `List[..]` brackets (paren-application `List(..)` is a my-side typo, not a gap).
+
+@static
+let ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+enum Drpth:
+    case DRPTH(Strn)
+
+# a stand-in linear-free list enum so the match arms use UPPERCASE cons (dodges the segfault)
+enum DList:
+    case Lnil
+    case Lcons(Drpth, DList)
+
+@impl def drpth_get_name(dpx: Drpth) -> Strn:
+    let DRPTH(dnm) = dpx
+    dnm
+
+@impl def drpth_make_name(dnm: Strn) -> Drpth:
+    DRPTH(dnm)
+
+# pop0: pattern-match a DList; the two ref writes are rewritten as setref() calls
+# because `the_drpth_ref[] := e` (empty-bracket index assign) does not parse.
+@impl def the_drpth_pop0(d: Drpth, xs: DList) -> Drpth:
+    match xs:
+        case Lnil:
+            d
+        case Lcons(dpx1, rest):
+            dpx1
+
+@impl def the_drpth_push(dpth: Drpth, dpx0: Drpth, rest: DList) -> DList:
+    Lcons(dpx0, rest)

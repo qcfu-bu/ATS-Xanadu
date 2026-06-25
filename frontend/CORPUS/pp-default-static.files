@@ -1,0 +1,61 @@
+# Default STATIC Pythonic-ATS pretty-printer corpus (srcgen2/SATS interface round-trip).
+#
+# These .sats interfaces pretty-print marker-free (TODOpp=0) AND reparse/typecheck to
+# m3_nerror=0 under the FAITHFUL pipeline. The systematic enabler was named-alias module
+# qualification: ATS `#staload SYM = "..."` + `$SYM.x` <-> Pythonic `import "..." as SYM`
+# + `SYM.x` (3-layer round-trip: pyprint + parser + lowering). Before that fix only 6/44
+# SATS reparsed clean; that manifest grew to 33.
+#
+# The kernel densest interfaces (dynexp0-3, staexp0-2, gmacro1, xfixity, xatsopt) joined after
+# four PR/LO root fixes: (1) general arrow-spine split (a fun whose domain is an application,
+# `fxitm(a) -> loc_t`, reparses); (2) two-phase mutual-datatype lowering (adjacent `enum`s +
+# where-lifted `#typedef`s form ONE scope, so cross-references resolve regardless of order);
+# (3) capitalize LOWERCASE ATS data constructors at the `case` definition site (UIDENT rule);
+# (4) SORT-annotate parametric abstype index args (`argv_i0_vx(n:i0)` -> `[N: SInt]`). 44 total.
+#
+# Run:  make -j8 pp-corpus PP_MODE=static PP_FILE_LIST=CORPUS/pp-default-static.files \
+#         PP_OUT=BUILD/pp-corpus-make-static PP_STRICT=1
+#       (or the `pp-corpus-static` wrapper).
+srcgen2/SATS/dynexp0.sats
+srcgen2/SATS/dynexp1.sats
+srcgen2/SATS/dynexp2.sats
+srcgen2/SATS/dynexp3.sats
+srcgen2/SATS/f2perr0.sats
+srcgen2/SATS/f3perr0.sats
+srcgen2/SATS/filpath.sats
+srcgen2/SATS/gmacro1.sats
+srcgen2/SATS/lexbuf0.sats
+srcgen2/SATS/lexing0.sats
+srcgen2/SATS/locinfo.sats
+srcgen2/SATS/nmspace.sats
+srcgen2/SATS/parsing.sats
+srcgen2/SATS/pread00.sats
+srcgen2/SATS/staexp0.sats
+srcgen2/SATS/staexp1.sats
+srcgen2/SATS/staexp2.sats
+srcgen2/SATS/statyp2.sats
+srcgen2/SATS/t2read0.sats
+srcgen2/SATS/t3read0.sats
+srcgen2/SATS/trans01.sats
+srcgen2/SATS/trans12.sats
+srcgen2/SATS/trans23.sats
+srcgen2/SATS/trans2a.sats
+srcgen2/SATS/trans3a.sats
+srcgen2/SATS/tread01.sats
+srcgen2/SATS/tread12.sats
+srcgen2/SATS/tread23.sats
+srcgen2/SATS/tread3a.sats
+srcgen2/SATS/trsym2b.sats
+srcgen2/SATS/trtmp3b.sats
+srcgen2/SATS/trtmp3c.sats
+srcgen2/SATS/xbasics.sats
+srcgen2/SATS/xerrory.sats
+srcgen2/SATS/xfixity.sats
+srcgen2/SATS/xglobal.sats
+srcgen2/SATS/xlabel0.sats
+srcgen2/SATS/xlibext.sats
+srcgen2/SATS/xstamp0.sats
+srcgen2/SATS/xsymbol.sats
+srcgen2/SATS/xatsopt.sats
+srcgen2/SATS/xsymenv.sats
+srcgen2/SATS/xsymmap.sats

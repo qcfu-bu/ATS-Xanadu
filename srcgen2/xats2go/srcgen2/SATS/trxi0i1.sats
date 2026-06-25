@@ -1,0 +1,420 @@
+(***********************************************************************)
+(*                                                                     *)
+(*                         Applied Type System                         *)
+(*                                                                     *)
+(***********************************************************************)
+
+(*
+** ATS/Xanadu - Unleashing the Potential of Types!
+** Copyright (C) 2026 Hongwei Xi, ATS Trustful Software, Inc.
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)
+
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
+Author: Hongwei Xi
+//
+Sat Apr 18 02:04:27 PM EDT 2026
+//
+Authoremail: gmhwxiATgmailDOTcom
+*)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+(*
+#define
+XATSOPT "./../../.."
+#define
+XATS2CC "\
+XATSOPT/xats2cc/srcgen1"
+*)
+(* ****** ****** *)
+(* ****** ****** *)
+//
+#include
+"./../../..\
+/HATS/xatsopt_sats.hats"
+//
+(* ****** ****** *)
+//
+#staload "./intrep1.sats"
+//
+#staload
+".\
+/../../xats2cc\
+/srcgen1/SATS/intrep0.sats"
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+#typedef i0env = i0var
+#typedef ienvs = i0varlst
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+#absvtbx iltstk_vtbx // ptr
+#vwtpdef iltstk = iltstk_vtbx
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+fun
+iltstk_fprint1
+(stk0:
+!iltstk, out0: FILR): void
+//
+(* ****** ****** *)
+//
+fun
+iltstk_pshblk0
+(stk0: &iltstk >> _): void
+fun
+iltstk_popblk0
+(stk0: &iltstk >> _): i1letlst
+//
+(* ****** ****** *)
+//
+fun
+iltstk_pshlam0
+(stk0: &iltstk >> _): void
+fun
+iltstk_pshlet0
+(stk0: &iltstk >> _): void
+//
+fun
+iltstk_poplam0
+(stk0: &iltstk >> _): i1letlst
+fun
+iltstk_poplet0
+(stk0: &iltstk >> _): i1letlst
+//
+(* ****** ****** *)
+//
+fun
+iltstk_ilet$insert
+(stk0:
+&iltstk >> _, ilt: i1let): void
+//
+(* ****** ****** *)
+(* ****** ****** *)
+#absvtbx envi0i1_vtbx
+#vwtpdef envi0i1 = envi0i1_vtbx
+(* ****** ****** *)
+(* ****** ****** *)
+//
+fun
+i1parsed_of_trxi0i1
+( ipar : i0parsed ): (i1parsed)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+fun
+envi0i1_make_nil
+ ((*void*)): envi0i1//end-fun
+fun
+envi0i1_free_nil
+ (env0: envi0i1): void//end-fun
+//
+(* ****** ****** *)
+//
+fun
+envi0i1_pshblk0
+(env0: !envi0i1): void//end-fun
+fun
+envi0i1_popblk0
+(env0: !envi0i1): i1letlst//fun
+//
+(* ****** ****** *)
+//
+fun
+envi0i1_pshlam0
+(env0: !envi0i1): void//end-fun
+fun
+envi0i1_pshlet0
+(env0: !envi0i1): void//end-fun
+//
+fun
+envi0i1_poplam0
+(env0: !envi0i1): i1letlst//fun
+fun
+envi0i1_poplet0
+(env0: !envi0i1): i1letlst//fun
+//
+(* ****** ****** *)
+//
+fun
+envi0i1_pshloc1
+(env0: !envi0i1): void//end-fun
+fun
+envi0i1_pshloc2
+(env0: !envi0i1): void//end-fun
+//
+fun // HX: pop1 and psh2
+envi0i1_locjoin
+(env0: !envi0i1): void//end-fun
+//
+(* ****** ****** *)
+//
+(*
+HX-2026-05-13:
+Needed for [I0Eextnam]
+*)
+fun
+envi0i1_exnm$search
+( env0:
+! envi0i1, loc0: loc_t): i1val
+//
+fun
+envi0i1_exnm$insert
+( env0: 
+! envi0i1, ival: i1val): (void)
+//
+(* ****** ****** *)
+//
+fun
+envi0i1_dvar$search
+( env0: 
+! envi0i1, d2v0: d2var): i1val
+//
+fun
+envi0i1_dvar$insert
+( env0: 
+! envi0i1
+, dvar: d2var, ival: i1val): (void)
+//
+(* ****** ****** *)
+//
+fun
+envi0i1_ilet$insert
+( env0:
+! envi0i1, ilet: i1let): (void)
+//
+(* ****** ****** *)
+//
+fun
+envi0i1_i0ws$insert
+( env0:
+! envi0i1, i0ws: ienvs): (void)
+//
+fun
+envi0i1_i0ws$search
+( env0:
+! envi0i1, i0ws: ienvs): i1valist
+//
+(* ****** ****** *)
+//
+fun
+envi0i1_dfix$insert
+( env0: 
+! envi0i1, d2v0: d2var): (void)
+//
+(* ****** ****** *)
+//
+fun
+envi0i1_fenv$insert
+(
+env0: !envi0i1,
+d2v0: d2var, i0ws: ienvs): (void)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+fun
+<x0:t0>
+<y0:t0>
+list_trxi0i1_fnp
+(
+xs: list(x0),
+e1: !envi0i1,
+fopr: (x0, !envi0i1)->y0): list(y0)
+fun
+<x0:t0>
+<y0:t0>
+optn_trxi0i1_fnp
+(
+xs: optn(x0),
+e1: !envi0i1,
+fopr: (x0, !envi0i1)->y0): optn(y0)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+fun
+i0pat_trxi0i1
+(ipat: i0pat, env0: !envi0i1): i1bnd
+//
+fun
+i0bnd_trxi0i1
+(ipat: i0pat
+,ival: i1val, env0: !envi0i1): d2sublst
+//
+(* ****** ****** *)
+//
+fun // HX: [i0exp_trxi0i1]
+i0exp_trxi0i1 // insert into [env0]
+(i0e0: i0exp, env0: !envi0i1): i1val
+fun // HX: [i0exp_trxi0i1]
+l0i0e_trxi0i1 // insert into [env0]
+(lie0: l0i0e, env0: !envi0i1): l1i1v
+//
+fun // HX: [i0lft_trxi0i1]
+i0lft_trxi0i1 // insert into [env0]
+(i0e0: i0exp, env0: !envi0i1): i1val
+//
+fun // HX: [i0blk_trxi0i1]: not
+i0blk_trxi0i1 // insert into [env0]
+(i0e0: i0exp, env0: !envi0i1): i1cmp
+//
+(* ****** ****** *)
+//
+fun
+fiarg_trxi0i1
+(farg: fiarg, env0: !envi0i1): fjarg
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+fun
+i0gua_trxi0i1
+(igua: i0gua, env0: !envi0i1): i1gua
+fun
+i0gpt_trxi0i1
+(igua: i0gpt, env0: !envi0i1): i1gpt
+fun
+i0cls_trxi0i1
+(icls: i0cls, env0: !envi0i1): i1cls
+//
+(* ****** ****** *)
+//
+fun
+t0imp_trxi0i1
+(timp: t0imp, env0: !envi0i1): t1imp
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+fun
+i0dcl_trxi0i1
+(idcl: i0dcl, env0: !envi0i1): i1dcl
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+fun
+i0patlst_trxi0i1
+(i0ps: i0patlst, env0: !envi0i1): i1bndlst
+//
+fun
+i0explst_trxi0i1
+(i0es: i0explst, env0: !envi0i1): i1valist
+//
+fun
+l0i0elst_trxi0i1
+(lies: l0i0elst, env0: !envi0i1): l1i1vlst
+//
+(* ****** ****** *)
+//
+fun
+fiarglst_trxi0i1
+(fias: fiarglst, env0: !envi0i1): fjarglst
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+fun
+i0gualst_trxi0i1
+(i0gs: i0gualst, env0: !envi0i1): i1gualst
+fun
+i0clslst_trxi0i1
+(icls: i0clslst, env0: !envi0i1): i1clslst
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+fun
+i0dclist_trxi0i1
+(dcls: i0dclist, env0: !envi0i1): i1dclist
+//
+(* ****** ****** *)
+//
+fun
+teqi0exp_trxi0i1
+(tdxp: teqi0exp, env0: !envi0i1): teqi1cmp
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+fun
+i0valdcl_trxi0i1
+(i0v0: i0valdcl, env0: !envi0i1): i1valdcl
+fun
+i0vardcl_trxi0i1
+(i0v0: i0vardcl, env0: !envi0i1): i1vardcl
+//
+fun
+i0fundcl_trxi0i1
+(i0f0: i0fundcl, env0: !envi0i1): i1fundcl
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+fun
+i0valdclist_trxi0i1
+(i0vs: i0valdclist, env0: !envi0i1): i1valdclist
+fun
+i0vardclist_trxi0i1
+(i0vs: i0vardclist, env0: !envi0i1): i1vardclist
+//
+(* ****** ****** *)
+//
+fun
+i0fundclist_trxi0i1
+(i0fs: i0fundclist, env0: !envi0i1): i1fundclist
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+fun
+i0dclistopt_trxi0i1
+(dopt: i0dclistopt, env0: !envi0i1): i1dclistopt
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+fun // HX: [i0expenv_trxi0i1]
+i0expenv_trxi0i1 // insert into [env0]
+(iexp: i0exp, i0ws: ienvs, env0: !envi0i1): i1val
+//
+fun // HX: [i0dclenv_trxi0i1]
+i0dclenv_trxi0i1 // insert into [env0]
+(idcl: i0dcl, i0ws: ienvs, env0: !envi0i1): i1dcl
+//
+fun // HX: [i0dclenv_trxi0i1]
+i1dclenv_fenvins // insert into [env0]
+(idcl: i1dcl, i0ws: ienvs, env0: !envi0i1): (void)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(***********************************************************************)
+(* end of [ATS3/XANADU_srcgen2_xats2js_srcgen2_SATS_trxi0i1.sats] *)
+(***********************************************************************)

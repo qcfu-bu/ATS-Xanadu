@@ -1,0 +1,15 @@
+==== /Users/qcfu/Projects/ATS-Xanadu/frontend/TEST/m2/m2_match.py ====
+(module
+(enum Tree@(0:0-0:4) (tvs (tyvar A@(0:10-0:11)))
+  (case Leaf@(1:9-1:13))
+  (case Node@(2:9-2:34) (Tcon Tree@(2:14-2:21) (Tcon A@(2:19-2:20))) (Tcon A@(2:23-2:24)) (Tcon Tree@(2:26-2:33) (Tcon A@(2:31-2:32)))))
+(def sum_tree@(4:0-4:3) (params (t: (Tcon Tree@(4:16-4:25) (Tcon Int@(4:21-4:24))))) (ret (Tcon Int@(4:30-4:33)))
+  (expr@(5:4-5:9) (Ematch@(5:4-5:9) (Evar t@(5:10-5:11))
+  (arm@(6:8-6:12) (Pcon Leaf@(6:13-6:17))
+    (expr@(6:19-6:20) (Elit@(6:19-6:20) (int 0@(6:19-6:20)))))
+  (arm@(7:8-7:12) (Pcon Node@(7:13-7:26) (Pvar l@(7:18-7:19)) (Pvar x@(7:21-7:22)) (Pvar r@(7:24-7:25)))
+    (expr@(7:28-7:57) (Ebin +@(7:28-7:57) (Ebin +@(7:28-7:43) (Eapp@(7:28-7:39) (Evar sum_tree@(7:28-7:36)) (args (Evar l@(7:37-7:38)))) (Evar x@(7:42-7:43))) (Eapp@(7:46-7:57) (Evar sum_tree@(7:46-7:54)) (args (Evar r@(7:55-7:56))))))))))
+)
+==== diagnostics ====
+(none)
+

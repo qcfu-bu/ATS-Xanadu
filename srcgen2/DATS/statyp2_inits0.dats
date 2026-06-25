@@ -71,6 +71,20 @@ ATS_PACKNAME
 #symload stmp with s2cst_get_stmp
 //
 (* ****** ****** *)
+(*
+HX-C1-2026: file-local per-block invalidators for the sentinel-gated
+lazy s2typ memo caches. Each clears its block's a0ref(s2typ) back to
+s2typ_none0() so the next call re-queries the (reloaded) the_sexpenv.
+*)
+#extern fun the_s2typs$reset((*0*)): void
+#extern fun the_s2typ_p1tr0$reset((*0*)): void
+#extern fun the_s2typ_p2at0$reset((*0*)): void
+#extern fun the_s2typ_l0azy0$reset((*0*)): void
+#extern fun the_s2typ_l1azy0$reset((*0*)): void
+#extern fun the_s2typ_elazy0$reset((*0*)): void
+#extern fun the_s2typ_excptn$reset((*0*)): void
+//
+(* ****** ****** *)
 (* ****** ****** *)
 //
 local
@@ -256,6 +270,25 @@ s2typ_name_t2pr(ullint_name, ullint_t2pr)
 //
 (* ****** ****** *)
 //
+#implfun
+the_s2typs$reset() =
+let
+val t2p0 = s2typ_none0()
+val () = void_t2pr[] := t2p0
+val () = sint_t2pr[] := t2p0
+val () = uint_t2pr[] := t2p0
+val () = bool_t2pr[] := t2p0
+val () = char_t2pr[] := t2p0
+val () = dflt_t2pr[] := t2p0
+val () = strn_t2pr[] := t2p0
+val () = slint_t2pr[] := t2p0
+val () = ulint_t2pr[] := t2p0
+val () = sllint_t2pr[] := t2p0
+val () = ullint_t2pr[] := t2p0
+in (*nothing*) end
+//
+(* ****** ****** *)
+//
 end (*local*) // end of [local(the_s2typs)]
 //
 (* ****** ****** *)
@@ -377,6 +410,8 @@ in//let
 //
 end (*let*) // end of [the_s2typ_p1tr0()]
 //
+#implfun the_s2typ_p1tr0$reset() = (p1tr0_t2pr[] := s2typ_none0())
+//
 end (*local*) // end of [local(the_s2typ_p1tr0)]
 //
 (* ****** ****** *)
@@ -451,6 +486,14 @@ in//let
 //
 end (*let*) // end of [the_s2typ_p2at0()]
 //
+#implfun
+the_s2typ_p2at0$reset() =
+let
+val t2p0 = s2typ_none0()
+val () = p2tr0_t2pr[] := t2p0
+val () = p2at0_t2pr[] := t2p0
+in (*nothing*) end
+//
 end (*local*) // end of [local(the_s2typ_p2at0)]
 //
 (* ****** ****** *)
@@ -524,6 +567,8 @@ in//let
 //
 end(*let*)//end-of-[the_s2typ_l0azy0()]
 //
+#implfun the_s2typ_l0azy0$reset() = (l0azy0_t2pr[] := s2typ_none0())
+//
 end(*local*)//end-of-[local(the_s2typ_l0azy0)]
 //
 (* ****** ****** *)
@@ -580,6 +625,8 @@ in//let
 //
 end(*let*)//end-of-[the_s2typ_l1azy0()]
 //
+#implfun the_s2typ_l1azy0$reset() = (l1azy0_t2pr[] := s2typ_none0())
+//
 end(*local*)//end-of-[local(the_s2typ_l1azy0)]
 //
 (* ****** ****** *)
@@ -635,6 +682,8 @@ in//let
 |_(*non-T2Pnone0*) => (   t2p0   )
 //
 end(*let*)//end-of-[the_s2typ_elazy0()]
+//
+#implfun the_s2typ_elazy0$reset() = (elazy0_t2pr[] := s2typ_none0())
 //
 end(*local*)//end-of-[local(the_s2typ_elazy0)]
 //
@@ -721,7 +770,30 @@ end (*let*) // end of [T2Pnone0()]
 //
 end (*let*) // end of [the_s2typ_excptn()]
 //
+#implfun the_s2typ_excptn$reset() = (excptn_t2pr[] := s2typ_none0())
+//
 end (*local*) // end of [local(the_s2typ_excptn)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
+HX-C1-2026: invalidate every sentinel-gated lazy s2typ memo. The three
+stamp-keyed tmpmaps (s2cst/s2abs styp) are intentionally NOT cleared:
+stamps are never reset, so the reloaded prelude's fresh s2cst get fresh
+stamps that cannot alias the stale entries (only memory grows).
+*)
+#implfun
+statyp2_inits0_reset() =
+let
+val () = the_s2typs$reset()
+val () = the_s2typ_p1tr0$reset()
+val () = the_s2typ_p2at0$reset()
+val () = the_s2typ_l0azy0$reset()
+val () = the_s2typ_l1azy0$reset()
+val () = the_s2typ_elazy0$reset()
+val () = the_s2typ_excptn$reset()
+in (*nothing*) end
 //
 (* ****** ****** *)
 (* ****** ****** *)

@@ -1,0 +1,6 @@
+enum Vec[A, n: SInt]:
+    case VNil
+    case VCons(A, Vec[A, n])
+
+def apply[A](f: forall[n: SInt] (Vec[A, n]) -> SInt) -> SInt:
+    0

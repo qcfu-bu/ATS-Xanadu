@@ -1,0 +1,4 @@
+from NonexistentModule import *
+
+def use_it() -> Int:
+    42

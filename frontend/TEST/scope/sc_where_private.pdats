@@ -1,0 +1,13 @@
+# SCOPING (bootstrap P1): interaction sanity — a def with BOTH a `where:` block AND
+# sitting after a `private` decl. The private `base` is captured as the local-body D2
+# of a D2Clocal0; the public `compute` carries a `where:` block whose `step` helper is
+# backwards-scoped around `compute`'s body (D2Ewhere). Both scopings coexist.
+
+private def base(x: Int) -> Int:
+    x + 10
+
+def compute(n: Int) -> Int:
+    step(base(n))
+where:
+    def step(k: Int) -> Int:
+        k * 2

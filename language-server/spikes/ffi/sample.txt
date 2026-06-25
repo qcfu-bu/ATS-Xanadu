@@ -1,0 +1,3 @@
+first line of the sample file
+second line
+third line

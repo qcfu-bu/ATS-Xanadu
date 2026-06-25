@@ -1,0 +1,9 @@
+exception Empty
+
+def first(k: Int) -> Int:
+    try:
+        raise Empty
+    except Empty:
+        k
+    except _:
+        0

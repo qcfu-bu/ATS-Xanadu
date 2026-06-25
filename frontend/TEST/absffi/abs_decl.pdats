@@ -1,0 +1,8 @@
+@abstract
+type Stack
+
+def id_stack(s: Stack) -> Stack:
+    s
+
+@impl
+type Stack = List[Int]

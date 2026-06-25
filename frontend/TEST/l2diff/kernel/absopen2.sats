@@ -1,0 +1,2 @@
+#abstype mytype
+#absopen mytype

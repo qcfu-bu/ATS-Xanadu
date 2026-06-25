@@ -1,0 +1,12 @@
+def id_int(x: Int) -> Int:
+    x
+
+@template[A]
+def relay(x: A) -> A
+
+@impl[Int]
+def relay:
+    id_int
+
+def main() -> Int:
+    @inst[Int] relay(41)

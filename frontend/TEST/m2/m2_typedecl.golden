@@ -1,0 +1,16 @@
+==== /Users/qcfu/Projects/ATS-Xanadu/frontend/TEST/m2/m2_typedecl.py ====
+(module
+(enum Tree@(1:0-1:4) (deco @linear@(0:0-0:1)) (tvs (tyvar A@(1:10-1:11) : Linear@(1:13-1:19) (deco @unboxed@(1:20-1:21))))
+  (case Nil@(2:9-2:12))
+  (case Cons@(3:9-3:25) (Tcon A@(3:14-3:15)) (Tcon Tree@(3:17-3:24) (Tcon A@(3:22-3:23)))))
+(enum Shape@(5:0-5:4)
+  (case Circle@(6:9-6:22) (Tcon Float@(6:16-6:21)))
+  (case Rect@(7:9-7:27) (Tcon Float@(7:14-7:19)) (Tcon Float@(7:21-7:26))))
+(struct Point@(9:0-9:6) (tvs (tyvar A@(9:13-9:14)))
+  (field x@(10:4-10:5) (Tcon A@(10:7-10:8)))
+  (field y@(11:4-11:5) (Tcon A@(11:7-11:8))))
+(type Ints@(13:0-13:4) (alias (Tcon List@(13:12-13:21) (Tcon Int@(13:17-13:20)))))
+)
+==== diagnostics ====
+(none)
+

@@ -1,0 +1,5 @@
+@static
+let maxlen: SInt
+
+def f(x: Int) -> Int:
+    x

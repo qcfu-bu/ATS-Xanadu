@@ -1,0 +1,10 @@
+@proof
+def id_pf(x: Int) -> Int:
+    x
+
+@proof
+let pv = 0
+
+@proof
+@extern
+def ax(n: Int) -> Int

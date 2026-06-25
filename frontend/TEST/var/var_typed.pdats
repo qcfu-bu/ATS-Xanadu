@@ -1,0 +1,5 @@
+def count2() -> Int:
+    var x: Int = 0
+    x := 5
+    let y = x
+    y

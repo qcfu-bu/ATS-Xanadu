@@ -1,0 +1,2 @@
+def keep[A, l: Addr](pf: A at l, p: ptr[l]) -> ptr[l]:
+    p

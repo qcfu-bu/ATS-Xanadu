@@ -1,0 +1,4 @@
+def zero[A]() -> Int: 0
+
+def main() -> Int:
+    @sapp[Int] zero()

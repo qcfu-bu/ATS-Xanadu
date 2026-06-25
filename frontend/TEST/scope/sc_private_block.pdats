@@ -1,0 +1,13 @@
+# SCOPING (bootstrap P1): a `private:` BLOCK of helpers + a public def that uses them.
+# The capture-rest transform makes the privates the local-HEAD (D1) and ALL following
+# sibling decls the local-BODY (D2) of a D2Clocal0 -> the helpers are visible to the
+# public defs but NOT exported past the block.
+
+private:
+    def add1(x: Int) -> Int:
+        x + 1
+    def dbl(x: Int) -> Int:
+        x + x
+
+def combine(a: Int) -> Int:
+    add1(dbl(a))

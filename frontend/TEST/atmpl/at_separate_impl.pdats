@@ -1,0 +1,8 @@
+@template[A]
+def pick(x: A, y: A) -> A
+
+@impl[Int]
+def pick(x, y): x
+
+def main() -> Int:
+    @inst[Int] pick(3, 7)

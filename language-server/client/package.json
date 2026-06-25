@@ -1,0 +1,130 @@
+{
+  "name": "ats3-lsp-client",
+  "displayName": "ATS3 Language Support (LSP client)",
+  "description": "VSCode client for the ATS3 language server (diagnostics, hover, go-to-definition).",
+  "version": "0.0.1",
+  "publisher": "ats3",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "vscode": "^1.82.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:ats",
+    "onLanguage:ats3",
+    "onLanguage:pyats-static",
+    "onLanguage:pyats-dynamic"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "ats",
+        "aliases": [
+          "ATS (static/header)",
+          "ats"
+        ],
+        "extensions": [
+          ".sats",
+          ".hats"
+        ],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "ats3",
+        "aliases": [
+          "ATS3 (dynamic)",
+          "ats3"
+        ],
+        "extensions": [
+          ".dats"
+        ],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "pyats-static",
+        "aliases": [
+          "Python-surface ATS (static)",
+          "pyats-static"
+        ],
+        "extensions": [
+          ".psats"
+        ],
+        "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "pyats-dynamic",
+        "aliases": [
+          "Python-surface ATS (dynamic)",
+          "pyats-dynamic"
+        ],
+        "extensions": [
+          ".pdats"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "ats",
+        "scopeName": "source.ats",
+        "path": "./syntaxes/ats3.tmLanguage.json"
+      },
+      {
+        "language": "ats3",
+        "scopeName": "source.ats",
+        "path": "./syntaxes/ats3.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "ATS3 Language Server",
+      "properties": {
+        "ats3.server.denoPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Absolute path to the compiled Deno server binary (a single executable built by `npm run build:deno` via `deno compile`, with `--allow-all` and `--v8-flags=--stack-size=8801` baked in). When empty, the client auto-resolves it from `server-dist/xats-lsp-deno` (packaged) or the repo `server/resident/BUILD/` (dev)."
+        },
+        "ats3.xatshome": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to the ATS3/Xanadu repo root (`XATSHOME`), needed by the checker to locate the prelude. **Required when the extension is installed from a `.vsix`** — an installed extension has no repo next to it, so it cannot guess this and the server will not start until it is set (or the `XATSHOME` env var is exported for the editor). When running the extension from source (F5 in the repo), it defaults to two directories above the extension (the repo root in the in-tree layout)."
+        },
+        "ats3.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VSCode and the ATS3 language server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run bundle",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "bundle": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
+    "build:deno": "node scripts/build-deno.js",
+    "test:grammar": "node fixtures/tokenize-test.js",
+    "package": "npm run bundle && npm run build:deno && vsce package --out ats3-lsp-client.vsix"
+  },
+  "dependencies": {
+    "vscode-languageclient": "9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.x",
+    "@types/vscode": "1.82.0",
+    "@vscode/vsce": "3.6.0",
+    "esbuild": "0.25.10",
+    "typescript": "5.9.3",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.3.2"
+  }
+}

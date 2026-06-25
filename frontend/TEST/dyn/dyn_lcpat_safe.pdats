@@ -1,0 +1,8 @@
+# GAP C (crash-safety): `case list_cons(a, b):` — a lowercase-head con-application
+# in PATTERN position. This used to loop unboundedly -> SIGSEGV; now it reaches a
+# counted type error (nerror>0) and the process exits cleanly (rc != 139).
+
+def classify(x: Int) -> Int:
+    match x:
+        case list_cons(a, b): 1
+        case other: 0

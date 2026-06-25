@@ -1,0 +1,7 @@
+@prop
+enum LE[m: SInt, n: SInt]:
+    case LErefl
+    case LEstep(LE[m, n])
+
+def le_use(p: LE[0, 1]) -> LE[0, 1]:
+    p

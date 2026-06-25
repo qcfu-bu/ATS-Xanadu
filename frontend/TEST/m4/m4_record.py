@@ -1,0 +1,3 @@
+let r = {x = 1, y = 2}
+let a = r.x
+let b = r.y

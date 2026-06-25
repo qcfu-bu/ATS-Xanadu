@@ -1,0 +1,7 @@
+def f(xy: { x: Int, y: Int }) -> Int:
+  match xy:
+    case { x = a, y = b }: a + b
+
+def g(uv: @boxed { x: Int, y: Int }) -> Int:
+  match uv:
+    case @boxed { x = a, y = b }: a + b

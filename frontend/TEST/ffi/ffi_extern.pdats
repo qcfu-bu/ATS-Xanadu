@@ -1,0 +1,17 @@
+# FFI extern signature ($extnam-default form).
+#
+# Corpus pattern (recon-confirmed, e.g. xatslib/libcats/DATS/CATS/PY/gbas000.dats):
+#   #extern fun XATS000_foo(...): T = $extnam()
+# A bodyless `#extern fun ... = $extnam()` is, at typecheck, EXACTLY a bodyless d2cst carrying
+# the function type (the `= $extnam()` adds NO ATS body and contributes NOTHING to typecheck —
+# it only suppresses the codegen stamp-suffix so the emitted symbol is the bare foreign name).
+# Our `@extern def` builds precisely that bodyless, env-registered d2cst (build_extern).
+#
+# This fixture: a foreign FFI signature `XATS000_foo` (the corpus naming) + a caller that
+# typechecks against the declared signature.
+
+@extern
+def XATS000_foo(x: Int) -> Int
+
+def caller(n: Int) -> Int:
+    XATS000_foo(n)

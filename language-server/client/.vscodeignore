@@ -1,0 +1,26 @@
+# Dev cruft — keep it out of the packaged .vsix.
+.vscode/**
+.gitignore
+src/**
+scripts/**
+fixtures/**
+out/**
+**/*.ts
+**/*.map
+tsconfig.json
+.vscodeignore
+
+# All node_modules: the client is bundled into dist/extension.js by esbuild
+# (vscode-languageclient is inlined), and the server ships as a self-contained
+# Deno binary (deps embedded), so no node_modules are needed at runtime.
+node_modules/**
+
+# Esbuild can emit a meta/analysis file; never ship it.
+dist/**/*.txt
+
+# --- Included payload (these must ship) ---
+# The bundled extension entrypoint.
+!dist/extension.js
+# The self-contained Deno server binary (server-dist/xats-lsp-deno), built at
+# package time by scripts/build-deno.js.
+!server-dist/**

@@ -1,0 +1,8 @@
+# GAP E: a statement `if` branch whose last statement is a void expression must
+# sequence into the following suite tail, not replace it as the branch value.
+
+def stmt_if_then_tail(flag: Bool) -> Int:
+    let r = a0ref_make_1val(0)
+    if flag:
+        a0ref_set(r, 1)
+    r[]

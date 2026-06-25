@@ -466,6 +466,16 @@ the_s2cst_excptn:((*void*)) -> s2cst
 (* ****** ****** *)
 //
 (*
+HX-C1-2026: invalidate the sentinel-gated lazy s2cst memo caches
+(the_s2cst_p1tr0/p2tr0/p2at0/l0azy0/l1azy0/elazy0/excptn) so that a
+xglobal_reset() forces them to be recomputed from the reloaded env.
+*)
+fun
+staexp2_inits0_reset((*void*)): void
+//
+(* ****** ****** *)
+//
+(*
 //
 HX-2022-12-23:
 Both are in [dynexp2.sats]

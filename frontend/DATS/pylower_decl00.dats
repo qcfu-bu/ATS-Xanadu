@@ -1,0 +1,1851 @@
+(* ****** ****** *)
+(*
+** M3 — Python-surface frontend: declaration lowering (pcdecl -> d2ecl) + module driver.
+**
+** Mirrors trans12_decl00.dats: a top-level def group -> D2Cfundclst (template F, shared
+** lower_fungroup in pylower_dynexp), a `val p = e` -> D2Cvaldclst (template C), a staload of
+** pyrt -> a no-op (the prelude names the functional core uses all resolve via the tr12env
+** GLOBAL fall-through with NO explicit staload — PROBE-VERIFIED: `+`/`print`/`int` resolve in
+** a fresh env). The module driver threads `env` left-to-right so each decl's bindings are
+** visible to the following decls (trans12.dats:528-556).
+**
+** TYPE-ANNOTATION GAP (flagged for the architect — M3-REPORT): the M2.5 elaborator DROPS a
+** def's param types and return type (pyelab_decl.dats:74 discards `_ret`; param_names_d
+** discards each PyParam's type), and PCFundcl carries none. So a top-level `def` lowers
+** UNTYPED here (its types are inferred by trans23). The type-lowering machinery
+** (pylower_typ/pylower_sres + pyrt Int/Bool aliasing in pylower_staexp.dats) is fully built
+** and plugs straight in once PyCore carries the annotations — a wire-format change deferred
+** to the architect (it would force rewriting the M2.5 elaborator + every M2.5 golden).
+**
+** PURELY ADDITIVE; consumes pycore.sats/pyparsing.sats read-only.
+*)
+(* ****** ****** *)
+//
+#include "./../../srcgen2/HATS/libxatsopt.hats"
+#include "./../../srcgen2/HATS/xatsopt_sats.hats"
+#include "./../../srcgen2/HATS/xatsopt_dpre.hats"
+//
+#staload "./../../srcgen2/SATS/locinfo.sats"
+#staload "./../../srcgen2/SATS/lexing0.sats"
+//
+// FIXITY (Cluster B): building the stock D0Cfixity/D0Cnonfix d0ecl needs the L0 dynexp0 nodes
+// (D0Cfixity, D0Cnonfix, precopt/PRECint1/PRECnil0, D1Cd0ecl) + the staexp0 i0dnt constructor
+// (i0dnt_some). These are the SAME SATS pyprint reads d0ecls from; co-staloaded with dynexp1/
+// dynexp2 here (the L1/L2 makers d1ecl_make_node / d2ecl_make_node are symload-overloaded on the
+// shared `node` accessor, so the levels coexist exactly as in the stock trans01/trans12 passes).
+#staload "./../../srcgen2/SATS/staexp0.sats"
+#staload "./../../srcgen2/SATS/dynexp0.sats"
+//
+// d1ecl_none0 (the VESTIGIAL first field of D2Cdatatype — trans23's f0_datatype binds but
+// never reads it; M5b-spike proven) lives in dynexp1.sats, which libxatsopt.hats does NOT
+// pull in (it staloads only staexp2/dynexp2). Staload it here for the datatype lowering.
+#staload "./../../srcgen2/SATS/dynexp1.sats"
+//
+// M7-import (task #34): the SCOPED module-load path needs these — `d0parsed_from_fpath`
+// (parsing.sats: parse a `.sats` to L0), `g1exp_make_node`/`G1Eid0` (staexp1.sats: build the
+// D2Cstaload `gsrc`), `fpath_make_absolute` (filpath.sats: the D2Cstaload `fpathopt` for the
+// LSP dep-graph), and `DLRDT_symbl` (xsymbol.sats: the "$." key a BARE staload registers its
+// f2env under — so the module's names resolve by bare-name fall-through, scoped to THIS env).
+#staload "./../../srcgen2/SATS/parsing.sats"
+#staload "./../../srcgen2/SATS/staexp1.sats"
+#staload "./../../srcgen2/SATS/filpath.sats"
+#staload "./../../srcgen2/SATS/xsymbol.sats"
+//
+#staload "./../SATS/pylexing.sats"
+#staload "./../SATS/pyparsing.sats"
+#staload "./../SATS/pycore.sats"
+#staload "./../SATS/pylower.sats"
+//
+(* ****** ****** *)
+//
+fun ats_name(name: strn): strn = pylower_ats_name(name)
+fun ats_sym(name: strn): sym_t = symbl_make_name(ats_name(name))
+#extern fun PYL_uncapitalize(s: strn): strn = $extnam()
+#extern fun PYL_has_hats_ext(s: strn): bool = $extnam()
+// faithful #include: the CURRENT file's stadyn (0=.psats, 1=.pdats), set by the driver before
+// lowering. `lower_include` reads it for the `D2Cinclude(knd0;...)` knd0 (= the INCLUDING file's
+// stadyn, exactly stock's `f00` parse flag) when PCCinclude carries the ~1 "infer" sentinel.
+#extern fun PYL_cur_stadyn_get((*void*)): sint = $extnam()
+// faithful #include: strip the leading '/' to the XATSHOME-RELATIVE form (`srcgen2/HATS/x.hats`).
+// The emitted D2Cinclude FPATH carries this RELATIVE fnm1 (matching stock fsrch_dcurrent), not abs.
+#extern fun PYL_strip_leading_slash(s: strn): strn = $extnam()
+// qualified-name helpers (shared with pylower_staexp): `M.x` -> head `$M.`, tail `x`, has-dot test.
+#extern fun PYL_is_qualified_name(s: strn): bool = $extnam()
+#extern fun PYL_qual_head_key(s: strn): strn = $extnam()  // "M.x" -> "$M."
+#extern fun PYL_qual_tail_name(s: strn): strn = $extnam() // "M.x" -> "x"
+fun ats_uncap_sym(name: strn): sym_t = symbl_make_name(PYL_uncapitalize(ats_name(name)))
+fun ats_type_sym(name: strn): sym_t = ats_uncap_sym(name)
+//
+(* ****** ****** *)
+//
+// ---- datatype (enum) lowering: PCCdata -> D2Cdatatype (M5b.3; SPIKE-PROVEN recipe,
+//      LOWERING-MAP §3.3). Mirrors trans12_d1tsc/trans12_d1tcn: register the TYPE first
+//      (so a con's own arg types + the matching function resolve it), then build each con
+//      as a con-FUNCTION type `(args) -> Self`, wire the cons onto the s2cst + the env.
+//
+// SCOPE: MONOMORPHIC enums only (the spike's scope) — `tvs` is EMPTY. A parametric enum
+// (`enum Tree[A]`, tvs non-empty) needs s2var-bound params during con elaboration; that is
+// a clean follow-up (M5b.3b). For THIS slice the monomorphic path is correct and a
+// parametric `tvs` does NOT crash (we just build the type without binding the params — it is
+// not required to typecheck). See M5b.3b.
+//
+// lower one data constructor at list index `i`. The con's sexp is ALWAYS a con-function type
+// `s2exp_fun1_nil0(npf, argSexps, self)` (nullary -> argSexps = nil -> `() -> Self`; n-ary ->
+// the lowered arg types -> `(Args) -> Self`). The name token MUST be T_IDALP — d2con_make_idtp
+// derives the name via dconid_sym, which accepts only T_IDALP/T_IDSYM. ctag = list index `i`
+// (assigned for CODEGEN; harmless for typecheck).
+//
+// `tqas` is the con's universal quantifier (M5b.3b): list_nil() for a MONOMORPHIC enum, or
+// list_sing(t2qag(loc, s2vs)) for a PARAMETRIC enum (the params are quantified PER-con, in the
+// d2con's `tqas` field — NOT inside the con sexp). `self` is the con's result type: the bare
+// s2exp_cst(s2c) (monomorphic) or s2exp_apps(s2exp_cst(s2c), [params]) (parametric). The con
+// ARG types lower via pylower_typlst either way — a bare param `A` resolves to its in-scope
+// s2var through resolve_typ's S2ITMvar arm (no special-casing here).
+//
+fun
+lower_datacon(env: !tr12env, self: s2exp, tqas: t2qaglst, i: int, dc: pcdatacon): d2con =
+(
+case+ dc of
+| PCDataCon(cloc, cname, argtyps) => let
+    val argSexps = pylower_typlst(env, argtyps)  // aliases Int -> the_s2exp_sint0, params -> s2var
+    val conSexp = s2exp_fun1_nil0((-1)(*npf*), argSexps, self)
+    val tok = token_make_node(cloc, T_IDALP(ats_name(cname)))
+    val con = d2con_make_idtp(tok, tqas, conSexp)
+    val () = d2con_set_ctag(con, i)
+  in
+    con
+  end
+)
+//
+// lower the whole con list, threading the 0-based index. `tqas` is shared by all cons.
+fun
+lower_dataconlst(env: !tr12env, self: s2exp, tqas: t2qaglst, i: int, dcs: list(pcdatacon)): list(d2con) =
+(
+case+ dcs of
+| list_nil() => list_nil()
+| list_cons(dc, rest) =>
+    let val con = lower_datacon(env, self, tqas, i, dc)
+    in list_cons(con, lower_dataconlst(env, self, tqas, i + 1, rest)) end
+)
+//
+// ---- M5b.3b parametric-generics helpers (SPIKE-PROVEN, LOWERING-MAP §3.3c) ------------------
+//
+// M5b.6b: map a pcparam's SURFACE sort name (+ @unboxed flag) to its L2 `sort2` (SURFACE-
+// GRAMMAR §5.7.1): `Linear` -> the_sort2_vwtp (linear/non-linear viewtype), +@unboxed ->
+// the_sort2_vtft (flat viewtype); `Prop` -> the_sort2_prop; `Type` or "" (default) ->
+// the_sort2_type, +@unboxed -> the_sort2_tflt (flat type). An UNKNOWN sort name defaults to
+// the_sort2_type (a sort typo must not crash — trans23 surfaces a real error if the
+// instantiation mismatches). Plain `[A]` (sname="", unboxed=false) -> the_sort2_type, so the
+// monomorphic-and-plain-parametric path is BYTE-IDENTICAL to before this slice.
+//
+// DEP (dependent-type surface, Stages 1–2): the two INDEX sorts (DEP-spike P1/P2-proven, the
+// predicative static-arithmetic sorts a `[n: SInt]` / `[b: SBool]` quantifier binds):
+//   `SInt`  -> the_sort2_int0   (the int index sort — so `[n: SInt]` is an INDEX param; its
+//              s2var is `s2var_make_idst(sym, the_sort2_int0)`, the spike's index-var recipe),
+//   `SBool` -> the_sort2_bool   (the bool index sort).
+// An index param's s2var (int/bool-sorted) is bound in scope exactly like a type param, so a
+// type-app arg `Vec[A, n]` resolves `n` to s2exp_var(<the int s2var>) via resolve_typ's S2ITMvar
+// arm. (Static arithmetic `n+1` + guards `{n | n>=0}` are a SEPARATE follow-up — literal +
+// variable indices only here.)
+// the prelude int-refinement sort aliases (capitalized by the pyprint): pos/nat/n0/neg are
+// `#sortdef`ed as `{a:i0 | <guard>}` — refined INT subsorts. All are int-sorted INDEX sorts. (`i0`/
+// `int` themselves alias `int0` directly; they appear as `SInt` in the emitted surface, handled
+// above, so they are not repeated here.)
+fun
+psort_is_int_refinement(sname: strn): bool =
+  if strn_eq(sname, "Pos") then true
+  else if strn_eq(sname, "Nat") then true
+  else if strn_eq(sname, "N0") then true
+  else strn_eq(sname, "Neg")
+//
+// the prelude addr sort `a0` (`#sortdef a0 = addr`) + its refinements agtz/agez (`{l:a0 | ...}`).
+// The pyprint emits them capitalized (A0 / Agtz / Agez); all are the ADDRESS sort.
+fun
+psort_is_addr_refinement(sname: strn): bool =
+  if strn_eq(sname, "A0") then true
+  else if strn_eq(sname, "Agtz") then true
+  else strn_eq(sname, "Agez")
+//
+#implfun
+psort2_of(p) =
+(
+case+ p of
+| PCParam(_, _, sname, unboxed) =>
+  (
+    // DEP: the index sorts first (a `[n: SInt]` is an INDEX param, not a type param).
+    if strn_eq(sname, "SInt")
+      then the_sort2_int0
+      else if strn_eq(sname, "SBool")
+        then the_sort2_bool
+    // INT-REFINEMENT sort aliases: the prelude `#sortdef`s `pos`/`nat`/`n0`/`neg`/`i0`/`int` as
+    // `{a:i0 | <guard>}` — REFINED INT subsorts. The pyprint capitalizes them (Pos/Nat/...). They are
+    // INDEX params (int-sorted), NOT type params; without this `[N: Pos]` lowered to a `type`-sorted
+    // var and an `N - 1` index in the result type errck'd (the strm/arr quantified-index signatures).
+    // The guard refinement is erased here (the sort is the underlying int0); the bound itself is not
+    // re-checked at reparse, mirroring the deployed stock behavior for these subsort aliases.
+      else if psort_is_int_refinement(sname)
+        then the_sort2_int0
+    // B-LINEAR: the ADDRESS sort `addr` — a `[l: Addr]` quantifier binds an address var
+    // (the `l` in `A at l` / `ptr[l]`). (SPIKE BL-AT2-proven the_sort2_addr rides clean.) The addr
+    // refinements `agtz`/`agez` (`{l:a0 | ...}`) are addr subsorts -> the same addr sort.
+      else if strn_eq(sname, "Addr")
+        then the_sort2_addr
+      else if psort_is_addr_refinement(sname)
+        then the_sort2_addr
+    // "Type" OR "" (default) OR any unknown name => the_sort2_type / the_sort2_tflt.
+      else if strn_eq(sname, "Linear")
+        then (if unboxed then the_sort2_vtft else the_sort2_vwtp)
+        else if strn_eq(sname, "Prop")
+          then the_sort2_prop
+          else (if unboxed then the_sort2_tflt else the_sort2_type)
+  )
+)
+//
+// ROBUSTNESS (Bug #32): is this param a FLAT *Type*-sorted param (`[A: Type @unboxed]` /
+// `[A @unboxed]`, sort name "Type" or "" + @unboxed -> the_sort2_tflt)? Such a param is FLAT
+// (tflt). On a BOXED-family DATATYPE (`enum`, whose result sort is `the_sort2_tbox` — see
+// dt_sort_of's `PCMbox`/`PCMflat` -> tbox boxed fallback) a flat *type* param is INTERNALLY
+// INCONSISTENT: a boxed datatype stores its con args by pointer, so `Box[Int]` instantiates the
+// flat slot with a BOXED `Int`. The stock typechecker tolerates the tflt/tbox difference (nerror=0),
+// so the inconsistent L2 slips through to codegen. (We do NOT touch the LINEAR case: a
+// `Linear @unboxed` param is `the_sort2_vtft` (flat viewtype) and rides on a `@linear` vtbx
+// datatype CONSISTENTLY — the documented, supported `@linear enum Tree[A: Linear @unboxed]`.)
+fun
+param_is_flat_type(p: pcparam): bool =
+(
+case+ p of
+| PCParam(_, _, sname, unboxed) =>
+    // (no `orelse` in this dialect — compose with a nested if, the codebase idiom.)
+    if unboxed
+      then (if strn_eq(sname, "Type") then true else strn_eq(sname, ""))
+      else false
+)
+//
+// ROBUSTNESS (Bug #32): the param sort to use INSIDE a DATATYPE (enum) of the given mode. A
+// datatype's RESULT sort (dt_sort_of) is BOXED for both PCMbox AND PCMflat (the pinned "@unboxed
+// enum lowers as boxed — no unboxed-datatype primitive" decision), and LINEAR for PCMlin. So:
+//   * boxed datatype (PCMbox / PCMflat -> tbox result): a flat `Type` param (tflt) is INCONSISTENT
+//     with the boxed result -> NORMALIZE it to the BOXED `the_sort2_type`. This emits consistently-
+//     sorted L2 (boxed param in a boxed datatype), so `Box[Int]` instantiates a boxed slot with a
+//     boxed arg, instead of the latent tflt-in-tbox shape the stock typechecker silently tolerated.
+//   * linear datatype (PCMlin -> vtbx result): a `Linear @unboxed` param (vtft) rides CONSISTENTLY
+//     (the documented `@linear enum Tree[A: Linear @unboxed]`) -> KEEP the declared sort.
+// Every OTHER param/sort (Linear, index sorts, plain `[A]`) is BYTE-IDENTICAL to psort2_of.
+fun
+psort2_of_dt(p: pcparam, mode: pcmode): sort2 =
+(
+case+ mode of
+| PCMbox()  => (if param_is_flat_type(p) then the_sort2_type else psort2_of(p))
+| PCMflat() => (if param_is_flat_type(p) then the_sort2_type else psort2_of(p))
+| _ => psort2_of(p)   // linear / prop / view: the declared sort is already consistent.
+)
+//
+// ROBUSTNESS (Bug #32): the param sort to use INSIDE a RECORD (struct) of the given mode. Unlike a
+// datatype, a RECORD has a real FLAT representation (rcd_kind_sort_of: PCMflat -> (TRCDflt0, tflt)),
+// so on a `@unboxed struct` a flat `Type` param is CONSISTENT (flat param in a flat record) and is
+// KEPT. Only a BOXED struct (PCMbox -> tbox body) with a flat `Type` param is inconsistent ->
+// NORMALIZE to boxed. (PCMlin keeps its declared sort; vtft in a vtbx record is consistent.)
+fun
+psort2_of_rcd(p: pcparam, mode: pcmode): sort2 =
+(
+case+ mode of
+| PCMbox()  => (if param_is_flat_type(p) then the_sort2_type else psort2_of(p))
+| _ => psort2_of(p)   // flat / linear record: the declared sort is already consistent.
+)
+//
+// mode-aware variants of mk_param_s2vars for the DATATYPE (enum) + RECORD (struct) paths — identical
+// to mk_param_s2vars except each param sort goes through the mode-aware sort selector.
+fun
+mk_param_s2vars_dt(params: list(pcparam), mode: pcmode): s2varlst =
+(
+case+ params of
+| list_nil() => list_nil()
+| list_cons(p, rest) =>
+    let
+      val+ PCParam(_, name, _, _) = p
+      val s2v = s2var_make_idst(ats_sym(name), psort2_of_dt(p, mode))
+    in list_cons(s2v, mk_param_s2vars_dt(rest, mode)) end
+)
+//
+fun
+mk_type_sorts_dt(params: list(pcparam), mode: pcmode): sort2lst =
+(
+case+ params of
+| list_nil() => list_nil()
+| list_cons(p, rest) => list_cons(psort2_of_dt(p, mode), mk_type_sorts_dt(rest, mode))
+)
+//
+fun
+mk_param_s2vars_rcd(params: list(pcparam), mode: pcmode): s2varlst =
+(
+case+ params of
+| list_nil() => list_nil()
+| list_cons(p, rest) =>
+    let
+      val+ PCParam(_, name, _, _) = p
+      val s2v = s2var_make_idst(ats_sym(name), psort2_of_rcd(p, mode))
+    in list_cons(s2v, mk_param_s2vars_rcd(rest, mode)) end
+)
+//
+// STAT/PROOF parity: map a bare SORT-REFERENCE NAME (a string like `SInt`/`Type`/`Prop`/`SBool`/
+// `Linear`) to its L2 sort2 — the SAME vocab psort2_of uses, but keyed on a plain string (sortdef/
+// stacst carry a sort-name string, not a pcparam). An UNKNOWN name defaults to the_sort2_type (a
+// sort typo must not crash; trans23 surfaces a real error if a use mismatches). Shared by the
+// PCCsortdef + PCCstacst lowering arms.
+fun
+sort2_of_name(sname: strn): sort2 =
+(
+  if strn_eq(sname, "SInt")
+    then the_sort2_int0
+    else if strn_eq(sname, "SBool")
+      then the_sort2_bool
+      else if strn_eq(sname, "Addr")        // B-LINEAR: the address sort `addr`
+        then the_sort2_addr
+      else if strn_eq(sname, "Linear")
+        then the_sort2_vwtp
+        else if strn_eq(sname, "Prop")
+          then the_sort2_prop
+          else the_sort2_type     // "Type" / "" / any unknown name -> the default type sort
+)
+//
+// STAT/PROOF parity: extract the static s2exp for a `stadef Name = <body>` RHS. v1 supports an INT
+// LITERAL body — the elaborated pcexp is a `PCElit(_, PCLint(_, raw))`; we parse the lexeme and emit
+// s2exp_int(k) (the SAME index-lit lowering pylower_index_lit uses). Any non-int body (unsupported in
+// v1) degrades to s2exp_int(0) — a benign characterized fallback (build_sexpdef still typechecks; a
+// real static-expr stadef is a follow-up).
+fun
+stadef_body_sexp(body: pcexp): s2exp =
+(
+case+ body of
+| PCElit(_, lit) =>
+  (
+    case+ lit of
+    | PCLint(_, raw) => s2exp_int(gint_parse_sint(raw))
+    | _ => s2exp_int(0)
+  )
+| _ => s2exp_int(0)
+)
+//
+// A-QUANT: lower a SUBSET-sort GUARD list (`{a | g1, g2}`) to an s2explst. Each guard is a
+// bool-index `pytyp` (a PyTbin comparison); pylower_typ routes it through pylower_index_binop ->
+// an s2exp at sort bool — exactly the prop slot S2TEXsub expects (a-quant SX-SUB-proven, the
+// f0_sortdef/S1TDFtsub recipe: guards lowered at the_sort2_bool inside the binder scope).
+fun
+lower_sub_guards(env: !tr12env, guards: list(pytyp)): s2explst =
+( case+ guards of
+  | list_nil() => list_nil()
+  | list_cons(g, rest) => list_cons(pylower_typ(env, g), lower_sub_guards(env, rest)) )
+//
+// create one s2var per surface type param, in order, AT ITS DECLARED SORT (psort2_of). These
+// are BOTH the params bound into scope (so a con arg type / record field `A` resolves to
+// s2exp_var) AND the vars the result type is applied to + the con/alias is quantified over.
+//
+#implfun
+mk_param_s2vars(params) =
+(
+case+ params of
+| list_nil() => list_nil()
+| list_cons(p, rest) =>
+    let
+      val+ PCParam(_, name, _, _) = p
+      val s2v = s2var_make_idst(ats_sym(name), psort2_of(p))
+    in list_cons(s2v, mk_param_s2vars(rest)) end
+)
+//
+// push the param s2vars into the current lam-scope so they resolve while we elaborate con arg
+// types / record fields (mirrors trans12's f1_s2vs). Caller brackets with pshlam0/poplam0.
+//
+fun
+bind_param_s2vars(env: !tr12env, s2vs: s2varlst): void =
+(
+case+ s2vs of
+| list_nil() => ()
+| list_cons(s2v, rest) =>
+    let val () = tr12env_add0_s2var(env, s2v) in bind_param_s2vars(env, rest) end
+)
+//
+// M5b.6b: one DECLARED sort per param (the arg-sort list for the type's FUNCTION sort S2Tfun1)
+// — psort2_of each param instead of forcing the_sort2_type. A plain `[A]` still yields
+// the_sort2_type (byte-identical to before this slice).
+//
+fun
+mk_type_sorts(params: list(pcparam)): sort2lst =
+(
+case+ params of
+| list_nil() => list_nil()
+| list_cons(p, rest) => list_cons(psort2_of(p), mk_type_sorts(rest))
+)
+//
+// the list of s2exp_var(s2v) (the type-constructor's params, for s2exp_apps on the result type).
+//
+fun
+param_s2exps(s2vs: s2varlst): s2explst =
+(
+case+ s2vs of
+| list_nil() => list_nil()
+| list_cons(s2v, rest) => list_cons(s2exp_var(s2v), param_s2exps(rest))
+)
+//
+(* ****** ****** *)
+//
+// ---- M5b.6a mode-selection helpers (SPIKE-PROVEN, build-m5b6-spike.sh @ ca3e14377) ---------
+//
+// the DATATYPE (enum) sort for a mode: boxed/flat -> `the_sort2_tbox`, linear -> `the_sort2_vtbx`.
+// PCMflat (@unboxed enum) falls back to BOXED: there is NO stock unboxed-datatype primitive
+// (a pinned M5b.6a decision — only RECORDS have a flat representation, TRCDflt0). Threaded into
+// BOTH the monomorphic s2cst sort AND the parametric S2Tfun1 result sort.
+//
+fun
+dt_sort_of(m: pcmode): sort2 =
+(
+case+ m of
+| PCMbox()  => the_sort2_tbox
+| PCMlin()  => the_sort2_vtbx
+| PCMflat() => the_sort2_tbox   // no unboxed-datatype primitive — boxed fallback (pinned).
+// DEP (dataprop/dataview): the PROOF/VIEW datatype sorts (DEP-spike P4/P9). The s2cst RESULT sort
+// is the_sort2_prop (dataprop) / the_sort2_view (dataview); the con-building + parametric S2Tfun1
+// result reuse this so a `dataprop LE[m,n: SInt]` yields `LE : (i0,i0) -> prop`.
+| PCMprop() => the_sort2_prop
+| PCMview() => the_sort2_view
+)
+//
+// the RECORD (struct) (trcdknd, sort) pair for a mode: boxed -> (TRCDbox0, tbox), linear ->
+// (TRCDbox1, vtbx), flat -> (TRCDflt0, tflt). The S2Etrcd `knd` + the alias's own sort.
+//
+fun
+rcd_kind_sort_of(m: pcmode): @(trcdknd, sort2) =
+(
+case+ m of
+| PCMbox()  => @(TRCDbox0, the_sort2_tbox)
+| PCMlin()  => @(TRCDbox1, the_sort2_vtbx)
+| PCMflat() => @(TRCDflt0, the_sort2_tflt)
+// DEP: PCMprop/PCMview are emitted ONLY for a datatype (dataprop/dataview), never for a struct —
+// a defensive boxed fallback keeps this match TOTAL (it is unreachable in practice).
+| PCMprop() => @(TRCDbox0, the_sort2_tbox)
+| PCMview() => @(TRCDbox0, the_sort2_tbox)
+)
+//
+// lower a PyCore record-field list `name: T, ...` to an `l2s2elst` of label/s2exp pairs
+// (S2LAB(LABsym(name), <lowered T>)). Each field type goes through pylower_typ, so a primitive
+// field (`x: Int`) inherits the M5a resolve_typ mitigation (direct T2Pcst the_s2exp_*0). A bare
+// type-param `A` resolves via resolve_typ's S2ITMvar arm when the param s2vars are in scope.
+// (Mirrors pylower_tfields in pylower_staexp.dats, over the PyCore pcfield instead of pytfield.)
+//
+fun
+pylower_pcfields(env: !tr12env, fs: list(pcfield)): l2s2elst =
+(
+case+ fs of
+| list_nil() => list_nil()
+| list_cons(PCField(floc, fname, ftyp), rest) =>
+    let
+      val lab = LABsym(ats_sym(fname))
+      val s2e = pylower_typ(env, ftyp)
+    in
+      list_cons(S2LAB(lab, s2e), pylower_pcfields(env, rest))
+    end
+)
+//
+// build the record s2exp for a struct: select the (trcdknd, sort) from the mode, lower the
+// fields, and assemble S2Etrcd. Used by BOTH the monomorphic and parametric PCCrecord paths
+// (the parametric path calls this with the param s2vars already in scope, then wraps the result
+// in s2exp_lam1 before build_sexpdef).
+//
+fun
+build_record_sexp(env: !tr12env, m: pcmode, fields: list(pcfield)): s2exp = let
+  val ks = rcd_kind_sort_of(m)
+  val knd = ks.0
+  val srt = ks.1
+  val l2flds = pylower_pcfields(env, fields)
+in
+  s2exp_make_node(srt, S2Etrcd(knd, (-1)(*npf*), l2flds))
+end
+//
+(* ****** ****** *)
+//
+// ---- type alias / struct lowering: PCCalias -> D2Csexpdef (M5b.4/.5; SPIKE-PROVEN,
+//      LOWERING-MAP §3.3b). A `type X = T` and a `struct S { f: T ... }` (= a record-type
+//      alias, §5.7.1) both collapse to ONE mechanism: a static type-definition `s2cst`.
+//
+// build a `D2Csexpdef` aliasing `name` to the already-lowered RHS s2exp `rhs`, register the
+// s2cst in the env (so later USES of the alias resolve + unfold to `rhs`), and return the
+// decl. Mirrors f0_sexpdef @ trans12_decl00.dats: the alias inherits the RHS's sort, its
+// `sexp` is the RHS, its `styp` the stpize'd (erased) form. `s2exp_stpize` comes from
+// statyp2.sats, which libxatsopt.hats already staloads.
+fun
+build_sexpdef(env: !tr12env, loc: loctn, name: strn, rhs: s2exp): d2ecl = let
+  val s2t  = rhs.sort()                 // the alias inherits the RHS's sort
+  val tdef = s2exp_stpize(rhs)          // the erased styp form (f0_sexpdef tdef)
+  val s2c  = s2cst_make_idst(loc, ats_type_sym(name), s2t)
+  val () = s2cst_set_sexp(s2c, rhs)
+  val () = s2cst_set_styp(s2c, tdef)
+  val () = tr12env_add1_s2cst(env, s2c)
+in
+  d2ecl_make_node(loc, D2Csexpdef(s2c, rhs))
+end
+//
+(* ****** ****** *)
+//
+// ---- ABSTRACT TYPES (ATS-parity): PCCabstype -> D2Cabstype, PCCassume -> D2Cabsimpl.
+//      SPIKE-PROVEN recipe (frontend/DATS/pyfront_abs_spike.dats; mirrors stock f0_abstype @
+//      trans12_decl00.dats:1471 + f0_absimpl @ :1947). The abstract s2cst has NO sexp attached —
+//      opacity holds at typecheck (it is a distinct singleton until `assume` gives the rep).
+//
+// the ABSTYPE sort for a mode: @boxed/none -> the_sort2_tbox (boxed abstract type), @unboxed ->
+// the_sort2_tflt (a FLAT abstract type — unlike datatypes, abstract types DO have a flat sort),
+// @linear -> DEFERRED, pinned to BOXED tbox in v1 (linearity is erased on the typecheck path —
+// the abstract singleton typechecks identically; a code comment records the deferral). The
+// monomorphic abstract type's sort; a parametric `abstype Foo[A]` wraps it in a FUNCTION sort.
+fun
+abs_sort_of(m: pcmode): sort2 =
+(
+case+ m of
+| PCMbox()  => the_sort2_tbox
+| PCMflat() => the_sort2_tflt   // a flat abstract type (abstract types DO have a flat repr).
+| PCMlin()  => the_sort2_tbox   // @linear abstype DEFERRED -> boxed (linearity erased; v1).
+// DEP: PCMprop/PCMview never reach an abstype — a defensive boxed fallback keeps the match TOTAL.
+| PCMprop() => the_sort2_tbox
+| PCMview() => the_sort2_tbox
+)
+//
+// build a `D2Cabstype` for an OPAQUE type `name`. Mirrors f0_abstype's tail: s2cst_make_idst
+// (loc, sym, sort) with NO s2exp attached (the opacity), tr12env_add1_s2cst (register so later
+// uses + the `assume` resolve it), D2Cabstype(s2c, <a2tdf>) where the a2tdf is:
+//   * A2TDFsome()        when NO `<= REP` bound is given (a plain abstract declaration), OR
+//   * A2TDFlteq(repS2e)  when `<= REP` is present (TAIL ITEM 1, the stock `abstype stamp <= uint`).
+// A parametric `abstype Foo[A]` gets a FUNCTION sort (type)->...->RESULT (arity N).
+//
+// TAIL ITEM 1 — the `<= REP` REPRESENTATION witness. The stock f0_abstype @ trans12_decl00.dats:
+// 1471 elaborates the rep s0exp to an s2exp via trans12_a1tdf_stck (:3511) and carries it ONLY
+// in the D2Cabstype node's second field (A2TDFlteq) — it does NOT install any subtype relation on
+// the s2cst (no live s2cst rep/subtype setter exists). The bound is CODEGEN-ONLY / informational:
+// trans23 (trans23_decl00.dats:240) + trans2a (trans2a_decl00.dats:174) PASS the a2tdf through as
+// `_` and never inspect it — so it is safe at typecheck (the abstract singleton typechecks
+// identically with or without it). We mirror exactly: lower the REP via pylower_typ (a primitive
+// inherits the resolve_typ mitigation; a param resolves via S2ITMvar), wrap A2TDFlteq, and carry
+// it for round-trip. A PARAM-MENTIONING REP (`abstype GSEQ_type(xs, x0) <= xs`, where the `<= xs`
+// REP names a type param) is lowered with the tvs bound in a lam-scope (mk_param_s2vars +
+// bind_param_s2vars, bracketed by pshlam0/poplam0 — the build_extern recipe); without this the
+// param `xs` lowers to an errck. The bound is CODEGEN-ONLY (trans23/trans2a pass the a2tdf through
+// as `_`), so it never affects the abstract singleton's typecheck — but it must be WELL-FORMED for
+// the reparse to reach nerror=0 (the prelude gcls/gasq/gseq classes all use a param REP).
+fun
+build_abstype
+( env: !tr12env, loc: loctn, name: strn
+, tvs: list(pcparam), mode: pcmode, repopt: pytypopt): d2ecl =
+  let
+    val s2t =
+      if list_nilq(tvs)
+        then abs_sort_of(mode)
+        else S2Tfun1(mk_type_sorts(tvs), abs_sort_of(mode))
+    val s2c = s2cst_make_idst(loc, ats_type_sym(name), s2t)
+    val () = tr12env_add1_s2cst(env, s2c)
+    val atdf =
+      ( case+ repopt of
+        | PyTypNone()  => A2TDFsome()
+        | PyTypSome(t) =>
+          let
+            val s2vs = mk_param_s2vars(tvs)
+            val () = tr12env_pshlam0(env)
+            val () = bind_param_s2vars(env, s2vs)
+            val reps2e = pylower_typ(env, t)
+            val () = tr12env_poplam0(env)
+          in
+            // A REP that does NOT resolve to a clean s2exp (an errck/none0 — e.g. the stock
+            // `stamped_vwtp(a0, i0) <= x0`, whose REP `x0` is a FREE var, NOT a param) must NOT
+            // poison the abstype: stock leaves such a REP unresolved (the bound is codegen-only,
+            // trans23/trans2a never inspect it). Fall back to A2TDFsome() (no bound) so the
+            // abstract singleton typechecks. A param-mentioning REP that DOES resolve (gcls/gseq)
+            // keeps its A2TDFlteq.
+            ( case+ reps2e.node() of
+              | S2Eerrck(_, _) => A2TDFsome()
+              | S2Enone0() => A2TDFsome()
+              | _ => A2TDFlteq(reps2e) )
+          end ): a2tdf
+  in
+    d2ecl_make_node(loc, D2Cabstype(s2c, atdf))
+  end
+//
+// build a `D2Cabsimpl` for `assume name = T`: SELECT the already-registered abstract s2cst by
+// name (mirrors f1_sqid: tr12env_find_s2itm -> S2ITMcst -> head), build a simpl(loc, SIMPLone1
+// (s2c)), and attach the concrete representation `rhs`. trans23 inserts the s2c into the env; the
+// abstract s2cst still has no sexp at the decl, so opacity holds for code BEFORE the assume.
+// If the name does NOT resolve to an s2cst (a forward/typo `assume`), emit a benign no-op (the
+// using-decls will errck as unresolved — a graceful failure, never a crash).
+fun
+build_absimpl_from_item(loc: loctn, rhs: s2exp, s2i: s2itm): d2ecl =
+(
+  case+ s2i of
+  | S2ITMcst(s2cs) =>
+      if list_nilq(s2cs) then d2ecl_make_node(loc, D2Cnone0())
+      else let
+        val s2c  = s2cs.head()
+        val simp = simpl_make_node(loc, SIMPLone1(s2c))
+        val tok  = token_make_node(loc, T_ABSIMPL())
+      in
+        d2ecl_make_node(loc, D2Cabsimpl(tok, simp, rhs))
+      end
+  | _ => d2ecl_make_node(loc, D2Cnone0())
+)
+//
+fun
+build_absimpl(env: !tr12env, loc: loctn, name: strn, rhs: s2exp): d2ecl =
+(
+  case+ tr12env_find_s2itm(env, ats_sym(name)) of
+  | ~optn_vt_cons(s2i) =>
+      build_absimpl_from_item(loc, rhs, s2i)
+  | ~optn_vt_nil() =>
+      (case+ tr12env_find_s2itm(env, ats_uncap_sym(name)) of
+       | ~optn_vt_cons(s2i) => build_absimpl_from_item(loc, rhs, s2i)
+       | ~optn_vt_nil() => d2ecl_make_node(loc, D2Cnone0()))
+)
+//
+(* ****** ****** *)
+//
+// ---- FFI EXTERN SIGNATURE (ATS-parity): PCCextern -> D2Cextern(D2Cdynconst(...)).
+//      SPIKE-PROVEN recipe (frontend/DATS/pyfront_abs_spike.dats; mirrors stock trans12_d1cstdcl
+//      @ trans12_decl00.dats:4438 + f0_dynconst @ :3479 + D1Cextern @ :845). A BODYLESS function
+//      signature is a `d2cst` carrying the function type, REGISTERED so calls resolve. No body.
+//
+// resolve a (prelude) type NAME to its s2exp — the `void` fallback for an untyped extern
+// slot. (resolve_typ in pylower_staexp.dats is file-local; this is the minimal env-lookup it
+// needs, the same S2ITMcst-head pattern build_absimpl uses.) An unresolvable name -> s2exp_none0
+// (trans23 treats it as an unconstrained tyvar — a benign, characterized degenerate case).
+fun
+resolve_typ_name(env: !tr12env, name: strn): s2exp = let
+  val sopt = tr12env_find_s2itm(env, ats_sym(name))
+in
+  case+ sopt of
+  | ~optn_vt_cons(s2i) =>
+    (
+      case+ s2i of
+      | S2ITMcst(s2cs) =>
+          if list_nilq(s2cs) then s2exp_none0() else s2exp_cst(s2cs.head())
+      | S2ITMvar(s2v)  => s2exp_var(s2v)
+      | S2ITMenv(_)    => s2exp_none0()
+    )
+  | ~optn_vt_nil() => s2exp_none0()
+end
+//
+// lower an extern signature's PARAMETER TYPES (parallel name/type lists, M5a-style) to an
+// s2explst. A `PyTypSome(T)` param lowers via pylower_typ (a primitive inherits the resolve_typ
+// mitigation). A `PyTypNone()` param (untyped — unusual for an FFI sig) defaults to the prelude
+// `void` so the signature still typechecks (a benign characterized fallback, not a crash).
+fun
+extern_argtyps(env: !tr12env, tys: list(pytypopt)): s2explst =
+(
+case+ tys of
+| list_nil() => list_nil()
+| list_cons(topt, rest) =>
+    let
+      val s2e =
+        (
+        case+ topt of
+        | PyTypSome(t) => pylower_typ(env, t)
+        | PyTypNone()  => resolve_typ_name(env, "void")
+        ): s2exp
+    in
+      list_cons(s2e, extern_argtyps(env, rest))
+    end
+)
+//
+// A bodyless ATS declaration can be a function-typed constant:
+//   fun p1_i0dntseq: p1_fun(i0dntlst)
+// The pretty-printer has no imported-alias environment, so it emits:
+//   @extern def p1_i0dntseq() -> p1_fun[i0dntlst]
+// Once lowered with the real environment, avoid adding an extra nullary layer
+// when the result type already normalizes to a function.
+fun
+s2exp_fun_hnfq(s2e: s2exp): bool =
+(
+case+ s2typ_hnfiz0(s2exp_stpize(s2e)).node() of
+| T2Pfun1 _ => true
+| _ => false
+)
+//
+// build a `D2Cextern` wrapping a `D2Cdynconst` whose single d2cst is the bodyless function
+// signature `name : (argtyps) -> restyp`. Mirrors the spike: s2exp_fun1_nil0 for the fun type,
+// d2cst_make_idtp(tok, dpid, [], sfun), REGISTER via tr12env_add1_d2cst (so a call to `name`
+// resolves), d2cstdcl_make_args (no args list / no body — the fun type already lives in the
+// d2cst), wrap in D2Cdynconst then D2Cextern. A missing `-> Ret` defaults to `void`.
+fun
+build_extern
+( env: !tr12env, loc: loctn, name: strn
+, tvs: list(pcparam), pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt): d2ecl = let
+  val s2vs = mk_param_s2vars(tvs)
+  val () = tr12env_pshlam0(env)
+  val () = bind_param_s2vars(env, s2vs)
+  val argtyps = extern_argtyps(env, ptypes)
+  val restyp =
+    (
+    case+ ret of
+    | PyTypSome(t) => pylower_typ(env, t)
+    | PyTypNone()  => resolve_typ_name(env, "void")
+    ): s2exp
+  val () = tr12env_poplam0(env)
+  val inner    =
+    ( if list_nilq(pnames)
+      then
+        ( if s2exp_fun_hnfq(restyp)
+          then restyp
+          else s2exp_fun1_nil0((-1)(*npf*), argtyps, restyp) )
+      else s2exp_fun1_nil0((-1)(*npf*), argtyps, restyp) ): s2exp
+  val sfun     = (if list_nilq(tvs) then inner else s2exp_uni0(s2vs, list_nil(), inner)): s2exp
+  val tqas     = (if list_nilq(tvs) then list_nil() else list_sing(t2qag_make_s2vs(loc, s2vs))): t2qaglst
+  val tok_id   = token_make_node(loc, T_IDALP(ats_name(name)))
+  val tok_fnk  = token_make_node(loc, T_FUN(FNKfn2))
+  val d2c      = d2cst_make_idtp(tok_fnk, tok_id, tqas, sfun)
+  val () = tr12env_add1_d2cst(env, d2c)              // register so a call to `name` resolves
+  val dcdcl    = d2cstdcl_make_args(loc, d2c, list_nil()(*darg*), S2RESnone(), TEQD2EXPnone())
+  val dyncst   = d2ecl_make_node(loc, D2Cdynconst(tok_fnk, tqas, list_sing(dcdcl)))
+  val tok_ext  = token_make_node(loc, T_SRP_EXTERN())
+in
+  d2ecl_make_node(loc, D2Cextern(tok_ext, dyncst))
+end
+//
+// A-TEMPLATE: collapse the 1-or-2 template decls (extern [+ implement]) into the ONE d2ecl the
+// module driver expects per pcdecl. A single decl passes through; two are wrapped in a TRANSPARENT
+// `D2Clocal0([], decls)` (empty local-head, both decls in the local-body) — trans23 processes the
+// body decls in this env and they stay visible (the template d2cst is already env-registered via
+// tr12env_add1_d2cst, so no scoping is lost). A degenerate empty list -> a benign D2Cnone0.
+fun
+template_decls_as_one(loc: loctn, decls: d2eclist): d2ecl =
+( case+ decls of
+  | list_nil() => d2ecl_make_node(loc, D2Cnone0())
+  | list_cons(d, list_nil()) => d
+  | _ => d2ecl_make_node(loc, D2Clocal0(list_nil(), decls)) )
+//
+(* ****** ****** *)
+//
+// ---- A-TEMPLATE: PCCtempl -> a TEMPLATE extern (+ optional generic implement). -----------------
+//
+// SPIKE-PROVEN recipe (frontend/DATS/pyfront_atmpl_spike.dats build_template_id / build_template_foo):
+//   * one s2var per `@template[A,B]` binder (the TEMPLATE args) + one per `foo[C,D]` binder (the
+//     POLYMORPHIC args), at each param's psort2_of sort (default the_sort2_type — boxed; flat
+//     `t@ype` is future unboxed work). All bound in a lam-scope so the param/return types resolve
+//     them (`A`/`C` -> s2exp_var via resolve_typ's S2ITMvar arm).
+//   * the inner fn type `(args) -> ret`; when POLYMORPHIC params exist, wrap it in
+//     `s2exp_uni0(<C,D s2vars>, [], inner)` (the `{C,D}` universal — the half we lower for an
+//     ordinary def, here over the bodyless extern's fn type).
+//   * the d2cst's `tqas = [ t2qag_make_s2vs(loc, <A,B s2vars>) ]` — a NON-EMPTY tqas makes
+//     d2cst_tempq=true (THE template marker). `d2cst_make_idtp(tok_fnk, tok_id, tqas, sfun)`.
+//   * register via tr12env_add1_d2cst (so `@impl[…]` + `@inst[…]` attach to the SAME d2cst), wrap in
+//     D2Cdynconst(tok_fnk, tqas, [dcdcl]) then D2Cextern.
+//
+// build the TEMPLATE extern d2ecl + return the d2cst (so the inline-body implement reuses the name).
+fun
+build_template_extern
+( env: !tr12env, loc: loctn
+, targs: list(pcparam), name: strn, pargs: list(pcparam)
+, pnames: list(strn), ptypes: list(pytypopt), ret: pytypopt ): @(d2ecl, d2cst) = let
+  // the TEMPLATE-arg s2vars (the `{A,B}`) + the POLYMORPHIC-arg s2vars (the `{C,D}`).
+  val a_s2vs = mk_param_s2vars(targs)
+  val c_s2vs = mk_param_s2vars(pargs)
+  // bind BOTH groups so the param/return types resolve them.
+  val () = tr12env_pshlam0(env)
+  val () = bind_param_s2vars(env, a_s2vs)
+  val () = bind_param_s2vars(env, c_s2vs)
+  val argtyps = extern_argtyps(env, ptypes)
+  val restyp =
+    (
+    case+ ret of
+    | PyTypSome(t) => pylower_typ(env, t)
+    | PyTypNone()  => resolve_typ_name(env, "void")
+    ): s2exp
+  val () = tr12env_poplam0(env)
+  val inner =
+    ( if list_nilq(pnames)
+      then
+        ( if s2exp_fun_hnfq(restyp)
+          then restyp
+          else s2exp_fun1_nil0((-1)(*npf*), argtyps, restyp) )
+      else s2exp_fun1_nil0((-1)(*npf*), argtyps, restyp) ): s2exp
+  // wrap in the {C,D} universal when polymorphic params are present (else the bare fn type).
+  val sfun =
+    ( if list_nilq(pargs) then inner
+      else s2exp_uni0(c_s2vs, list_nil()(*s2ps*), inner) ): s2exp
+  // the TEMPLATE quantifier group {A,B} on the d2cst (NON-EMPTY -> d2cst_tempq=true).
+  val tqas    = list_sing(t2qag_make_s2vs(loc, a_s2vs)) : t2qaglst
+  val tok_id  = token_make_node(loc, T_IDALP(ats_name(name)))
+  val tok_fnk = token_make_node(loc, T_FUN(FNKfn2))
+  val d2c     = d2cst_make_idtp(tok_fnk, tok_id, tqas, sfun)
+  val () = tr12env_add1_d2cst(env, d2c)              // register so @impl/@inst resolve to it
+  val dcdcl   = d2cstdcl_make_args(loc, d2c, list_nil()(*darg*), S2RESnone(), TEQD2EXPnone())
+  val dyncst  = d2ecl_make_node(loc, D2Cdynconst(tok_fnk, tqas, list_sing(dcdcl)))
+  val tok_ext = token_make_node(loc, T_SRP_EXTERN())
+  val decl    = d2ecl_make_node(loc, D2Cextern(tok_ext, dyncst))
+in
+  @(decl, d2c)
+end
+//
+// the SATS `lower_template` entry: build the TEMPLATE extern, then — when an INLINE body is present
+// — ALSO emit the GENERIC implement (the body IS the template's generic implementation, like ATS
+// `fn{a} foo(x) = e`). The implement is BARE-generic (tias=[]): lower_implement resolves the
+// just-registered template d2cst by NAME, builds a fresh impl-side tqas matching its `{A,B}` shape,
+// binds the params, lowers the body, and emits D2Cimplmnt0. A BODYLESS template (PCEGNone) yields
+// ONLY the extern (declaration-only). The pcexpopt body slot reuses pcexp's PCEGSome/PCEGNone.
+// the inline-implement's params are UNANNOTATED (PyTypNone per param) — their types are inferred
+// from the (already-registered) template d2cst's function type, exactly like the working separate
+// `@impl def pick(x, y)` form. RE-ANNOTATING with the surface `A`/`C` template-binder names would
+// resolve them to `s2exp_none0` in the fresh impl-tqas scope (the binder is "a", not "A") and then
+// fail to t2pck — so we deliberately DROP the param/return annotations for the inline implement.
+fun
+none_types(ns: list(strn)): list(pytypopt) =
+( case+ ns of
+  | list_nil() => list_nil()
+  | list_cons(_, rest) => list_cons(PyTypNone(), none_types(rest)) )
+//
+#implfun
+lower_template(env, loc, targs, name, pargs, pnames, ptypes, ret, bodyopt) = let
+  val @(decl_ext, _d2c) = build_template_extern(env, loc, targs, name, pargs, pnames, ptypes, ret)
+in
+  case+ bodyopt of
+  | PCEGNone() => list_sing(decl_ext)            // BODYLESS: declaration-only (extern fun{A,B})
+  | PCEGSome(body) =>
+      // INLINE body: the GENERIC implement (tias=[] — not instantiated; this is the generic body).
+      // Params/return are inferred from the d2cst's fn type (untyped here — see none_types above).
+      let val decl_impl =
+        lower_implement(env, loc, name, list_nil(), true, pnames,
+                        none_types(pnames), PyTypNone(), body, list_nil()) in
+        list_cons(decl_ext, list_sing(decl_impl))
+      end
+end
+//
+(* ****** ****** *)
+//
+// ---- OVERLOAD (ATS-parity, `#symload`): PCCoverload -> D2Csymload + env registration.
+//      SPIKE-PROVEN recipe (frontend/DATS/pyfront_surf1_spike.dats case 4; mirrors stock
+//      f0_symload @ trans12_decl00.dats:2056-2154):
+//        * RESOLVE the IMPL d2itm by name (tr12env_find_d2itm),
+//        * wrap it as a `d2ptm = D2PTMsome(0(*pval*), ditm)`,
+//        * MERGE with any existing overload bucket under NAME (so multiple `overload NAME with ...`
+//          accumulate; a non-sym existing binding is seeded as one impl),
+//        * REGISTER `NAME -> D2ITMsym(NAME, dptm::bucket)` via tr12env_add0_d2itm — THE load-bearing
+//          step that makes a later use of NAME resolve to IMPL,
+//        * emit D2Csymload(tknd, NAME, dptm) (the node is a record for the LSP; resolution is the env
+//          binding). An UNRESOLVABLE IMPL -> a benign D2Cnone0 (recovery).
+//
+// GAP1: `pval` is the resolution PRECEDENCE (the `#symload … of N` value). It IS read at typecheck
+// (trsym2b_dynexp.dats auxpmax/auxtake prune the bucket to the MAX pval among type-compatible
+// candidates), so a higher-precedence alias wins. The self-overload path (PCCoverload, from
+// `@overload def`) passes 0 — the stock default, byte-identical to before this slice. The standalone
+// overload-ALIAS path (PCCsymalias) passes the parsed `@overload[N]` precedence (or 0 if none).
+fun
+d2itm_same_single_name(d2i0: d2itm, d2i1: d2itm): bool =
+(
+case+ d2i0 of
+| D2ITMvar(d2v0) =>
+    (case+ d2i1 of
+     | D2ITMvar(d2v1) => strn_eq(symbl_get_name(d2var_get_name(d2v0)), symbl_get_name(d2var_get_name(d2v1)))
+     | _ => false)
+| D2ITMcon(d2cs0) =>
+    (case+ d2i1 of
+     | D2ITMcon(d2cs1) =>
+         if list_singq(d2cs0) then
+           (
+             if list_singq(d2cs1) then
+               strn_eq(symbl_get_name(d2con_get_name(d2cs0.head())), symbl_get_name(d2con_get_name(d2cs1.head())))
+             else false
+           )
+         else false
+     | _ => false)
+| D2ITMcst(d2cs0) =>
+    (case+ d2i1 of
+     | D2ITMcst(d2cs1) =>
+         if list_singq(d2cs0) then
+           (
+             if list_singq(d2cs1) then
+               strn_eq(symbl_get_name(d2cst_get_name(d2cs0.head())), symbl_get_name(d2cst_get_name(d2cs1.head())))
+             else false
+           )
+         else false
+     | _ => false)
+| D2ITMsym(_, _) => false
+)
+//
+fun
+d2ptmlst_has_same_target(d2ps: d2ptmlst, d2i0: d2itm): bool =
+(
+case+ d2ps of
+| list_nil() => false
+| list_cons(d2p, rest) =>
+    (case+ d2p of
+     | D2PTMsome(_, d2i1) =>
+         if d2itm_same_single_name(d2i0, d2i1) then true else d2ptmlst_has_same_target(rest, d2i0)
+     | D2PTMnone(_) => d2ptmlst_has_same_target(rest, d2i0))
+)
+//
+// resolve an overload-TARGET d2itm: a bare `x` via tr12env_find_d2itm; a QUALIFIED `M.x` (a named
+// staload member, `@overload TRUE = SYM.TRUE_symbl`) via the `$M.` namespace env then the member.
+// Mirrors stock f0_qual0 (trans12_dynexp.dats) — the SAME mechanism resolve_typ_qualified uses for
+// types, on the d2 (dynamic) side.
+fun
+resolve_overload_target(env: !tr12env, impl: strn): d2itmopt_vt =
+  if ~PYL_is_qualified_name(impl) then tr12env_find_d2itm(env, ats_sym(impl))
+  else let
+    val head = PYL_qual_head_key(impl)        // "$M."
+    val tail = PYL_qual_tail_name(impl)        // "x"
+    val sopt = tr12env_find_s2itm(env, symbl_make_name(head))
+  in
+    case+ sopt of
+    | ~optn_vt_nil() => optn_vt_nil()
+    | ~optn_vt_cons(s2i) =>
+      (case+ s2i of
+       | S2ITMenv(envs) => f2envlst_find_d2itm(envs, symbl_make_name(tail))
+       | _ => optn_vt_nil())
+  end
+//
+fun
+build_overload(env: !tr12env, loc: loctn, name: strn, impl: strn, pval: sint): d2ecl = let
+  val sym_nm  = ats_sym(name)
+  val implopt = resolve_overload_target(env, impl)
+in
+  case+ implopt of
+  | ~optn_vt_cons(ditm_impl) => let
+      val dptm = D2PTMsome(pval, ditm_impl)
+      // merge with any existing overload bucket under NAME.
+      val d2ps =
+        (
+        case+ tr12env_find_d2itm(env, sym_nm) of
+        | ~optn_vt_nil() => list_nil()
+        | ~optn_vt_cons(other) =>
+          (case+ other of
+           | D2ITMsym(_, ps) => ps
+           | _ => list_sing(D2PTMsome(0, other)))
+        ): list(d2ptm)
+      val d2ps =
+        if d2ptmlst_has_same_target(d2ps, ditm_impl) then d2ps else list_cons(dptm, d2ps)
+      val ditm_nm = D2ITMsym(sym_nm, d2ps)
+      val () = tr12env_add0_d2itm(env, sym_nm, ditm_nm)   // *** makes NAME resolve to IMPL ***
+      val tknd = token_make_node(loc, T_VAL(VLKval))       // a benign token slot (node is a record)
+    in
+      d2ecl_make_node(loc, D2Csymload(tknd, sym_nm, dptm))
+    end
+  | ~optn_vt_nil() => d2ecl_make_node(loc, D2Cnone0())     // unresolvable impl: benign no-op
+end
+//
+(* ****** ****** *)
+//
+// FIXITY (Cluster B): the round-trip lowering for a `infixl/infixr/prefix/postfix PREC NAME(s)` or
+// `nonfix NAME(s)` decl. BUILDS the stock L0 d0ecl exactly as stock's parser does and wraps it
+// `D2Cd1ecl(D1Cd0ecl(...))` — the SAME L2 stock's f0_fixity/f0_nonfix emit (trans01_decl00.dats:
+// 760/915). The l2dump of a fixity .sats shows the target shape verbatim:
+//   D2Cd1ecl(D1Cd0ecl(D0Cfixity(T_SRP_FIXITY(knd); [I0DNTsome(T_IDSYM(+))]; PRECint1(T_INT01("50")))))
+//   D2Cd1ecl(D1Cd0ecl(D0Cnonfix(T_SRP_NONFIX();   [I0DNTsome(T_IDALP(foo))])))
+// `knd` is the stock KINFIX0/KINFIXL/KINFIXR/KPREFIX/KPSTFIX code (0..4); our pycore kinds are
+// 1=infixl,2=infixr,3=prefix,4=postfix -> stock 1,2,3,4 (KINFIX0=0 is unused — the pythonic surface
+// has no `infix0` keyword; the n-assoc relational ops are pre-declared in the fixed Pratt table).
+// The fixity ENV is a stock trans01 side-effect; OUR parser owns precedence via its fixed table, so
+// we do NOT register anything — a pure structural pass-through of the DECL, faithful by node shape.
+#extern fun PYL_is_symbolic_name(s: strn): bool = $extnam()
+//
+fun
+fixity_i0dnt_of(loc: loctn, nm: strn): i0dnt = let
+  // SYMBOLIC operator (`+`/`**`/`<<`/`::`) -> T_IDSYM; ALPHANUMERIC (`app`/`foo`/`orelse`) -> T_IDALP
+  // — mirroring stock's lexer split so the lowered token matches stock's d0ecl exactly.
+  val tnod = ( if PYL_is_symbolic_name(nm) then T_IDSYM(nm) else T_IDALP(nm) )
+  val tok  = token_make_node(loc, tnod)
+in
+  i0dnt_some(tok)
+end
+//
+fun
+fixity_i0dntlst_of(loc: loctn, names: list(strn)): i0dntlst =
+( case+ names of
+  | list_nil() => list_nil()
+  | list_cons(nm, rest) => list_cons(fixity_i0dnt_of(loc, nm), fixity_i0dntlst_of(loc, rest)) )
+//
+// FIXITY (relative precedence): decode the parser's `opr:<op>:<±N>` encoding (PYL_relprec_*) into
+// the stock `PRECopr2(i0dnt(op); precmod)` — the L0 shape for `#prefix + of +(+1)` /
+// `#infixl && of ||(+1)` / `#infixl orelse of ||`. The reference op becomes an i0dnt (T_IDSYM for a
+// symbolic op like `+`/`||`, T_IDALP otherwise, via fixity_i0dnt_of). A `(±N)` adjustment (num != "")
+// builds PMODsome(LP; PINTopr2(T_IDSYM(sign); T_INT01(digits)); RP); a bare ref op -> PMODnone.
+#extern fun PYL_is_relprec(s: strn): bool = $extnam()
+#extern fun PYL_relprec_op(s: strn): strn = $extnam()
+#extern fun PYL_relprec_num(s: strn): strn = $extnam()
+#extern fun PYL_relprec_num_is_neg(s: strn): bool = $extnam()
+#extern fun PYL_relprec_num_digits(s: strn): strn = $extnam()
+//
+fun
+build_relprec_popt(loc: loctn, enc: strn): precopt = let
+  val refop = PYL_relprec_op(enc)
+  val num   = PYL_relprec_num(enc)   // e.g. "+1", "-1", or "" (no adjustment)
+  val id0   = fixity_i0dnt_of(loc, refop)
+  val pmod =
+    ( if strn_eq(num, "") then PMODnone()
+      else let
+        // split the leading sign char off the signed-int text (`+1` -> sign "+", digits "1").
+        val sign  = ( if PYL_relprec_num_is_neg(num) then "-" else "+" )
+        val digs  = PYL_relprec_num_digits(num)
+        val topr  = token_make_node(loc, T_IDSYM(ats_name(sign)))
+        val tint  = token_make_node(loc, T_INT01(digs))
+        val tlp   = token_make_node(loc, T_LPAREN())
+        val trp   = token_make_node(loc, T_RPAREN())
+      in
+        PMODsome(tlp, PINTopr2(topr, tint), trp)
+      end )
+in
+  PRECopr2(id0, pmod)
+end
+//
+fun
+build_fixity(env: !tr12env, loc: loctn, knd: sint, prec: strn, names: list(strn)): d2ecl = let
+  val id0s = fixity_i0dntlst_of(loc, names)
+  val d0cl =
+    ( if knd = 5 then
+        // `nonfix NAME(s)` -> D0Cnonfix(T_SRP_NONFIX(); id0s).
+        let val tknd = token_make_node(loc, T_SRP_NONFIX()) in
+          d0ecl_make_node(loc, D0Cnonfix(tknd, id0s)) end
+      else
+        // `infixl/infixr/prefix/postfix PREC NAME(s)` -> D0Cfixity(T_SRP_FIXITY(knd); id0s; precopt).
+        // The precedence rides the stock `T_INT01(s)` int-literal token (s = the RAW lexeme, exactly
+        // the existing int-literal lowering); "" = no precedence -> PRECnil0 (stock's bare-fixity arm).
+        let
+          val tknd = token_make_node(loc, T_SRP_FIXITY(knd))
+          val popt =
+            ( if strn_eq(prec, "") then PRECnil0()
+              else if PYL_is_relprec(prec) then build_relprec_popt(loc, prec)
+              else PRECint1(token_make_node(loc, T_INT01(prec))) )
+        in
+          d0ecl_make_node(loc, D0Cfixity(tknd, id0s, popt)) end
+    ): d0ecl
+  // wrap d0ecl -> D1Cd0ecl -> D2Cd1ecl, exactly as stock f0_fixity/f0_nonfix + trans12_d1ecl do.
+  val d1cl = d1ecl_make_node(loc, D1Cd0ecl(d0cl))
+in
+  d2ecl_make_node(loc, D2Cd1ecl(d1cl))
+end
+//
+(* ****** ****** *)
+//
+// ---- M7-import (task #34): the SCOPED module load + merge for a USER `import M` / `from M
+//      import x`. This REPLICATES the stock `f0_staload` SCOPED path (trans12_decl00.dats:2365-
+//      2388) — load the module's d2parsed, build its `f2env`, register it under `$.` (DLRDT_symbl)
+//      in THIS file's `env` via `tr12env_add1_f2env` — WITHOUT the GLOBAL pervasive merge that
+//      `filpath_pvsload`/`f0_pvsload` (xglobal.dats:799-801, `the_*env_pvsmrgw`) do. The global
+//      merge LEAKS across every later file in the resident LSP (the pervasive bug); the scoped
+//      `env` merge lives only in this file's tr12env (a fresh `tr12env_make_nil()` per file), so a
+//      later file that did NOT import M does NOT see M's names — the no-leak re-entrancy invariant.
+//
+//      HOW BARE-NAME RESOLUTION WORKS: a bare staload registers the f2env under `$.`;
+//      `tr12env_find_d2itm` falls through to that f2env for ordinary names. Imported overload
+//      aliases (`D2Csymload`) need one extra stock-parity step: replay the imported symloads into
+//      THIS env, matching `f0_staload_aft` in trans12_decl00.dats.
+//
+//      We emit a REAL `D2Cstaload` (NOT D2Cnone0) carrying the resolved `fpath` (for the LSP
+//      dep-graph `dependency_d3ecl`, which reads `fopt.fnm2()`) + `S2TALOADdpar(shrd,dpar2)`.
+//      The d2parsed is looked up through `the_d2parenv_pvsfind` / `the_d2parenv_pvsadd0`, matching
+//      stock staload identity semantics. That shared identity matters when a file imports module A
+//      directly and also through module B: reparsing A creates distinct L2 constants/types for the
+//      same source path, which then fails unification across the trans23/read passes.
+//
+// `path` is the XATSHOME-RELATIVE `.sats` path (e.g. "/frontend/TEST/m7imp/lib.sats"); we prepend
+// `the_XATSHOME()` exactly as `f0_pvsload` does (xglobal.dats:741-748). `knd0`=0 (static `.sats`).
+fun
+lower_import(env: !tr12env, loc: loctn, path: strn, knd0: sint, is_python: bool, aopt: optn(strn)): d2ecl =
+  if is_python then
+    // DEFERRED: a Python-surface `.psats`/`.pdats` module needs recursing OUR frontend (lex/parse/
+    // elab/lower) — the stock `d0parsed_from_fpath` only parses ATS surface, so we CANNOT load it
+    // here. Emit a benign no-op (NOT a crash). The using-decls that referenced its exports will
+    // errck as unresolved names — a graceful, characterized failure. (Python-module import is a
+    // clean follow-up: thread OUR pipeline as the loader.)
+    d2ecl_make_node(loc, D2Cnone0())
+  else if PYL_has_hats_ext(path) then
+    // `.hats` files are ATS header includes, not sealed modules. Lower them through the D1 include
+    // path so nested staloads/imports extend THIS file's env, matching stock `#include`.
+    lower_include(env, loc, path, knd0)
+  else let
+    // NAMED-ALIAS namespace key (round-trip of ATS `#staload SYM = "..."`). The stock compiler
+    // registers a named staload's f2env under `$SYM.` (= DLRDT(SYM) = "$"+SYM+".") — see
+    // g1exp_nmspace + f0_staload in trans12_decl00.dats. A bare import keeps the `$.` key
+    // (DLRDT_symbl). The `$SYM.` head is exactly what PYL_qual_head_key("SYM.x") returns, so the
+    // existing resolve_typ_qualified / qualified-name lookup resolves `SYM.x` through this env.
+    val gsym =
+      ( case+ aopt of
+        | optn_cons(alias) => symbl_make_name(strn_append(strn_append("$", alias), "."))
+        | optn_nil()       => DLRDT_symbl ) : sym_t
+    val is_named =
+      ( case+ aopt of optn_cons(_) => true | optn_nil() => false ) : bool
+    // the absolute path: prepend XATSHOME (mirrors f0_pvsload's `strn_append(XATSHOME, fnam)`).
+    val abspath = strn_append(the_XATSHOME(), path)
+  in
+    // GAP2 (import crash-safety): GUARD the file-open. `d0parsed_from_fpath` does a lazy
+    // `readFileSync`, so a MISSING target throws an UNCAUGHT ENOENT (`open '…nonexistent.sats'`)
+    // that crashes the driver instead of producing a diagnostic. `fpath_rexists` (githwxi; an
+    // `fs.accessSync` wrapped in try/catch — NEVER throws) tests read-availability first. If the
+    // target is missing, emit a CLEAN counted error + a survivable no-op (NOT a crash): a poison
+    // `val _ = <none1>` whose d2exp_none1 falls through trans2a/trans23 to D3Enone1 and is COUNTED
+    // by tread3a (nerror>0), and which f3perr0 reports on the IMPORT's span. The module's exports
+    // simply don't resolve (the using-decls errck too) — a graceful, characterized failure. The
+    // stock compiler has NO such guard (xglobal.dats f0_pvsload assumes the prelude exists), so a
+    // faithful port of any file referencing a not-yet-ported sibling would otherwise crash here.
+    if ~fpath_rexists(abspath) then build_missing_import(loc, abspath)
+    else let
+      // (1) LOAD: parse the `.sats` to L0, then trans01 -> L1, then trans12/trans2a/trsym2b -> L2
+      //     (a d2parsed whose `t2penv` is the module's D2TOPENV). SAME path stock staload uses,
+      //     including the parsed-file cache, but we do NOT call the global `the_*env_pvsmrgw`.
+      val fpth = fpath_make_absolute(abspath)
+      val pknd = import_parse_kind(knd0, abspath)
+      val @(shrd, dpar2) = cached_d2parsed_from_fpath(pknd, fpth, abspath)
+      // (2) build the module's f2env straight from its D2TOPENV (dynexp2.dats:404 `f2env_of_d2parsed`
+      //     = F2ENV(lcsrc, g1mac, s2tex, s2itm, d2itm) from `dpar.t2penv()` — the EXACT value the
+      //     stock bare-staload path passes to `tr12env_add1_f2env` (trans12_decl00.dats:2374)).
+      val fenv = f2env_of_d2parsed(dpar2)
+      // (3) SCOPED MERGE: register the f2env under `gsym` in THIS file's env (NOT global). For a bare
+      //     import gsym = `$.` (DLRDT_symbl), so exports resolve by BARE name for SUBSEQUENT decls;
+      //     for `import M as SYM` gsym = `$SYM.`, so they resolve ONLY through `SYM.x` (mirroring
+      //     stock f0_staload, which registers under g1exp_nmspace's `$SYM.`). The symload-promotion
+      //     (bare-name re-export of imported overload aliases) runs ONLY for the bare case — stock
+      //     gates `f0_staload_aft` on `gsym = DLRDT_symbl` (trans12_decl00.dats:2381-2385) too.
+      val () = tr12env_add1_f2env(env, gsym, fenv)
+      val () = if is_named then () else promote_import_symloads(env, dpar2)
+      // (4) the emitted node: a real D2Cstaload carrying the resolved fpath (LSP dep-graph) + the
+      //     f2env. `gsrc` = a minimal G1Eid0(path-as-symbol) src (vestigial for typecheck; the
+      //     dep-graph reads `fopt`, not `gsrc`). tknd = a T_STALOAD-ish token is not required by
+      //     trans23/tread3a/the LSP reader — they only read knd0/fopt/dopt — so a benign T_VAL token
+      //     suffices for the node's `token` slot.
+      val tok  = token_make_node(loc, T_VAL(VLKval))
+      val gsrc = g1exp_make_node(loc, G1Eid0(symbl_make_name(path)))
+      val fopt = optn_cons(fpth) : fpathopt
+      val dres = S2TALOADdpar(shrd, dpar2) : s2taloadopt
+    in
+      d2ecl_make_node(loc, D2Cstaload(pknd, tok, gsrc, fopt, dres))
+    end
+end
+//
+and
+promote_import_symloads(env: !tr12env, dpar: d2parsed): void =
+let
+  val dopt = d2parsed_get_parsed(dpar)
+in
+  case+ dopt of
+  | optn_nil() => ()
+  | optn_cons(dcls) => promote_import_symload_dcls(env, dcls)
+end
+//
+and
+promote_import_symload_dcls(env: !tr12env, dcls: d2eclist): void =
+(
+case+ dcls of
+| list_nil() => ()
+| list_cons(dcl1, rest) =>
+    (
+    case+ dcl1.node() of
+    | D2Clocal0(_head, body) =>
+        let val () = promote_import_symload_dcls(env, body) in
+          promote_import_symload_dcls(env, rest)
+        end
+    | D2Csymload(_tknd, sym1, dptm) =>
+        let
+          val opt1 = tr12env_find_d2itm(env, sym1)
+          val d2ps =
+            (
+            case+ opt1 of
+            | ~optn_vt_nil() => list_nil()
+            | ~optn_vt_cons(d2i1) =>
+                (
+                case+ d2i1 of
+                | D2ITMsym(_, d2ps) => d2ps
+                | _ => list_sing(D2PTMsome(0, d2i1))
+                )
+            ) : d2ptmlst
+          val d2ps =
+            (
+            case+ dptm of
+            | D2PTMsome(_, d2i0) =>
+                if d2ptmlst_has_same_target(d2ps, d2i0) then d2ps else list_cons(dptm, d2ps)
+            | D2PTMnone(_) => list_cons(dptm, d2ps)
+            ) : d2ptmlst
+          val ditm = D2ITMsym(sym1, d2ps)
+          val () = tr12env_add0_d2itm(env, sym1, ditm)
+        in
+          promote_import_symload_dcls(env, rest)
+        end
+    | _ => promote_import_symload_dcls(env, rest)
+    )
+)
+//
+and
+import_parse_kind(knd0: sint, path: strn): sint = let
+  val knd1 = fname_stadyn(path)
+in
+  if knd1 < 0 then knd0 else knd1
+end
+//
+and
+lower_include(env: !tr12env, loc: loctn, path: strn, knd0: sint): d2ecl = let
+  val abspath = strn_append(the_XATSHOME(), path)
+  // The XATSHOME-RELATIVE form (`srcgen2/HATS/x.hats`) — the FPATH fnm1 stock's fsrch_dcurrent yields
+  // (resolution relative to the source's drpth, NOT an absolute path). Used for the emitted D2Cinclude
+  // FPATH so the round-tripped node matches stock's exactly.
+  val relpath = PYL_strip_leading_slash(path)
+  // The PARSE kind of the INCLUDED file: a `.hats`/`.sats` parses static (the included headers are
+  // interfaces), a `.dats` dynamic — inferred from the extension via fname_stadyn (mirroring stock's
+  // knd1 in trans01 f0_include). `.hats` has no stadyn of its own (it splices into the includer), so
+  // it parses STATIC (1 in this codebase's static-kind convention used by cached_d1parsed_from_fpath).
+  val pknd =
+    if PYL_has_hats_ext(path)
+      then 1
+      else (let val k = fname_stadyn(path) in if k < 0 then 1 else k end)
+  // The NODE knd0 = the INCLUDING file's stadyn (stock's `f00` parse flag, NOT the included file's).
+  // PCCinclude carries ~1 (the surface `include` -> infer the current file's stadyn from the driver);
+  // a non-negative knd0 (the legacy `.hats`-via-import path) is honored as-is.
+  val nknd = if knd0 < 0 then PYL_cur_stadyn_get() else knd0
+in
+  if ~fpath_rexists(abspath) then build_missing_import(loc, abspath)
+  else let
+    // The d1parsed is parsed/cached via the ABSOLUTE path (a stable read + cache identity). The
+    // EMITTED FPATH, however, carries the RELATIVE fnm1 (fpath_make_relative) so the round-tripped
+    // D2Cinclude's `FPATH(srcgen2/HATS/x.hats)` matches stock's fsrch_dcurrent resolution exactly.
+    val fpth_abs = fpath_make_absolute(abspath)
+    val @(_shrd, dpar1) = cached_d1parsed_from_fpath(pknd, fpth_abs, abspath)
+    val dopt =
+      (
+        case+ d1parsed_get_parsed(dpar1) of
+        | optn_nil() => optn_nil()
+        | optn_cons(d1cs) => optn_cons(trans12_d1eclist(env, d1cs))
+      ) : d2eclistopt
+    // tknd = T_SRP_INCLUDE (stock's include token, an EXACT match — the trans12/reader passes only
+    // read knd0/fopt/dopt, but matching it keeps the round-tripped node byte-identical here). gsrc =
+    // a G1Estr of the (quoted) RELATIVE path: stock carries the ORIGINAL source-relative lexeme
+    // (`"./../HATS/x.hats"`) which pyprint normalizes away, so the STRING CONTENT necessarily differs
+    // (a pyprint path-normalization artifact, not an include-structure divergence); the NODE SHAPE
+    // (G1Estr, not a synthesized G1Eid0) matches.
+    val tok  = token_make_node(loc, T_SRP_INCLUDE())
+    val qpath = strn_append("\"", strn_append(relpath, "\""))
+    val gtok = token_make_node(loc, T_STRN1_clsd(qpath, strn_length(qpath)))
+    val gsrc = g1exp_make_node(loc, G1Estr(gtok))
+    val fpth_rel = fpath_make_relative(relpath, relpath)
+    val fopt = optn_cons(fpth_rel) : fpathopt
+  in
+    d2ecl_make_node(loc, D2Cinclude(nknd, tok, gsrc, fopt, dopt))
+  end
+end
+//
+and
+// MISC (Cluster E): `initialize "PATH"` -> D2Cdyninit(T_SRP_DYNINIT(); G1Estr(T_STRN1_clsd("PATH";len))).
+// Stock's f0_dyninit keeps the path-string VERBATIM. We re-quote the unquoted `path` content and build
+// the same T_STRN1_clsd carrier the lexer would for a `"PATH"` literal: rep = the QUOTED lexeme, len =
+// its quoted length (matching stock's `G1Estr(T_STRN1_clsd("foo/bar.dats";14))`). The tknd is the stock
+// dyninit keyword token T_SRP_DYNINIT (the trans12/reader passes it through; matching it keeps the
+// round-tripped node byte-identical). No file load, no env effect — it is a pure dyn-load-init marker.
+lower_dyninit(env: !tr12env, loc: loctn, path: strn): d2ecl = let
+  val tknd = token_make_node(loc, T_SRP_DYNINIT())
+  val qpath = strn_append("\"", strn_append(path, "\""))
+  val gtok = token_make_node(loc, T_STRN1_clsd(qpath, strn_length(qpath)))
+  val gsrc = g1exp_make_node(loc, G1Estr(gtok))
+in
+  d2ecl_make_node(loc, D2Cdyninit(tknd, gsrc))
+end
+//
+and
+cached_d2parsed_from_fpath(knd0: sint, fpth: fpath, abspath: strn): @(sint, d2parsed) = let
+  val fnm2 = fpath_get_fnm2(fpth)
+  val opt2 = the_d2parenv_pvsfind(fnm2)
+in
+  case+ opt2 of
+  | ~optn_vt_cons(dpar2) => @(1, dpar2)
+  | ~optn_vt_nil() => let
+      val dpar0 = d0parsed_from_fpath(knd0, abspath)
+      val dpar1 = d1parsed_of_trans01(dpar0)
+      val dpar2 = d2parsed_of_trans12(dpar1)
+      val dpar2 = d2parsed_of_trans2a(dpar2)
+      val () = d2parsed_by_trsym2b(dpar2)
+      val () = the_d2parenv_pvsadd0(fnm2, dpar2)
+    in
+      @(0, dpar2)
+    end
+end
+//
+and
+cached_d1parsed_from_fpath(knd0: sint, fpth: fpath, abspath: strn): @(sint, d1parsed) = let
+  val fnm2 = fpath_get_fnm2(fpth)
+  val opt1 = the_d1parenv_pvsfind(fnm2)
+in
+  case+ opt1 of
+  | ~optn_vt_cons(dpar1) => @(1, dpar1)
+  | ~optn_vt_nil() => let
+      val dpar0 = d0parsed_from_fpath(knd0, abspath)
+      val dpar1 = d1parsed_of_trans01(dpar0)
+      val () = the_d1parenv_pvsadd0(fnm2, dpar1)
+    in
+      @(0, dpar1)
+    end
+end
+//
+// GAP2: the survivable no-op + counted error for a MISSING import target. A `val _ = <none1>`
+// poison decl: the wildcard pattern binds nothing; the d2exp_none1(D1Eid0("@missing-import"))
+// RHS is the SAME counted-error poison the unbound-name path uses (pl_var / PCEerror) — trans2a
+// never rewrites it, it falls through to D2Enone2 -> D3Enone1, and tread3a's catch-all COUNTS it
+// (nerror>0). f3perr0 then prints the errck on the import's loc — a clean diagnostic, no throw.
+// (In `lower_import`'s `fun … and …` group so it is visible at the forward call site above.)
+and
+build_missing_import(loc: loctn, abspath: strn): d2ecl = let
+  val tknd  = token_make_node(loc, T_VAL(VLKval))
+  val d2p   = d2pat_make_node(loc, D2Pany())
+  val poison = d2exp_none1(d1exp_make_node(loc, D1Eid0(symbl_make_name("@missing-import"))))
+  val ()    = bind_let_styp(d2p, poison)   // fresh tyvar binder (no-op for a none-node; see SATS)
+  val dval  = d2valdcl_make_args(loc, d2p, TEQD2EXPsome(tknd, poison), WTHS2EXPnone())
+in
+  d2ecl_make_node(loc, D2Cvaldclst(tknd, list_sing(dval)))
+end
+//
+(* ****** ****** *)
+//
+// ---- MUTUALLY-RECURSIVE datatype groups (faithful `datatype … and …`). ----------------------
+// A run of ADJACENT `enum` decls is a MUTUAL group (stock ATS `datatype A … and B …`): a con of A
+// may reference B and vice-versa. Stock registers ALL the group's TYPE s2csts FIRST, then lowers
+// every con (so a forward cross-reference resolves). The single-decl path (one s2cst, its cons) is
+// the degenerate 1-member group, so we route ALL `enum`s through this two-phase shape: PHASE A
+// (dt_register) creates+registers each type s2cst (returning the s2c + its param s2vars); PHASE B
+// (dt_lower_body) lowers each datatype's cons against the fully-populated env, wires + registers the
+// cons, and emits the `D2Cdatatype` decl. For the common single-`enum` case this is byte-identical
+// to the old inline arm (same s2cst, same cons, same node) — only the cross-datatype forward
+// reference is newly resolved.
+//
+// PHASE A: create + register the type s2cst for one PCCdata. Returns @(s2c, s2vs): s2vs is nil for a
+// monomorphic enum, or the per-param s2vars for a parametric one (carried to PHASE B so the cons
+// bind the SAME s2vars). The sort is mode-selected (boxed tbox / linear vtbx) — monomorphic uses the
+// bare result sort; parametric uses the (type)->…->RESULT function sort over the param sorts.
+fun
+dt_register(env: !tr12env, loc: loctn, name: strn, tvs: list(pcparam), mode: pcmode): @(s2cst, s2varlst) =
+  if list_nilq(tvs) then let
+    val s2c = s2cst_make_idst(loc, ats_type_sym(name), dt_sort_of(mode))
+    val () = tr12env_add1_s2cst(env, s2c)
+  in
+    @(s2c, list_nil())
+  end
+  else let
+    val s2vs = mk_param_s2vars_dt(tvs, mode)
+    val s2t  = S2Tfun1(mk_type_sorts_dt(tvs, mode), dt_sort_of(mode))
+    val s2c  = s2cst_make_idst(loc, ats_type_sym(name), s2t)
+    val () = tr12env_add1_s2cst(env, s2c)
+  in
+    @(s2c, s2vs)
+  end
+//
+// PHASE B: lower one PCCdata's cons against the already-populated env (all group types registered).
+// Monomorphic (s2vs nil): the con result is the bare s2cst, no quantifier. Parametric (s2vs
+// non-nil): push a lam-scope, bind the s2vars, the con result is `Name(params)`, the cons carry the
+// shared {A,…} quantifier, pop the scope. Either way: wire the cons onto the s2cst, register them in
+// the env, emit the `D2Cdatatype` (its vestigial first field is d1ecl_none0).
+fun
+dt_lower_body(env: !tr12env, loc: loctn, dcs: list(pcdatacon), s2c: s2cst, s2vs: s2varlst): d2ecl =
+  if list_nilq(s2vs) then let
+    val s2e_self = s2exp_cst(s2c)
+    val d2cs = lower_dataconlst(env, s2e_self, list_nil()(*tqas*), 0, dcs)
+    val () = s2cst_set_d2cs(s2c, d2cs)
+    val () = tr12env_add1_d2conlst(env, d2cs)
+  in
+    d2ecl_make_node(loc, D2Cdatatype(d1ecl_none0(loc), list_sing(s2c)))
+  end
+  else let
+    val () = tr12env_pshlam0(env)
+    val () = bind_param_s2vars(env, s2vs)
+    val s2e_self = s2exp_apps(loc, s2exp_cst(s2c), param_s2exps(s2vs))
+    val tqas = list_sing(t2qag(loc, s2vs)) : t2qaglst
+    val d2cs = lower_dataconlst(env, s2e_self, tqas, 0, dcs)
+    val () = tr12env_poplam0(env)
+    val () = s2cst_set_d2cs(s2c, d2cs)
+    val () = tr12env_add1_d2conlst(env, d2cs)
+  in
+    d2ecl_make_node(loc, D2Cdatatype(d1ecl_none0(loc), list_sing(s2c)))
+  end
+//
+// a `type X = T` alias -> a D2Csexpdef (M5b.5). Extracted so the mutual datatype-group lowering
+// (lower_dt_run) can lower a where-lifted `#typedef` member, AND the PCCalias arm just delegates
+// here. MONOMORPHIC: lower the RHS, build the sexpdef. PARAMETRIC: push a lam-scope, bind the param
+// s2vars, lower the RHS referencing them, wrap in s2exp_lam1, build the sexpdef (its sort auto-derives
+// the (type)->…->tbox arrow). Re-lowering the same alias is idempotent (build_sexpdef last-wins).
+fun
+lower_alias_decl(env: !tr12env, loc: loctn, name: strn, tvs: list(pcparam), typ: pytyp): d2ecl =
+  if list_nilq(tvs) then let
+    val rhs = pylower_typ(env, typ)
+  in
+    build_sexpdef(env, loc, name, rhs)
+  end
+  else let
+    val s2vs = mk_param_s2vars(tvs)
+    val () = tr12env_pshlam0(env)
+    val () = bind_param_s2vars(env, s2vs)
+    val body = pylower_typ(env, typ)
+    val () = tr12env_poplam0(env)
+    val rhs = s2exp_lam1(s2vs, body)
+  in
+    build_sexpdef(env, loc, name, rhs)
+  end
+//
+#implfun
+pylower_decl(env, d) =
+(
+case+ d of
+//
+// a top-level (possibly recursive/mutual) def group -> D2Cfundclst. lower_fungroup binds the
+// group's names into `env` (visible to later decls + recursive self-calls) BEFORE the bodies.
+// DEP (Stages 1–2): a def group carries its §5.7 type/INDEX params `tvs` (`def f[A, n: SInt]`).
+// lower_fungroup builds an s2var per param (int-sorted for `[n: SInt]`), binds them while lowering
+// the param/return types, and quantifies the D2Cfundclst over them. `tvs = []` => non-generic def.
+| PCCfun(loc, tvs, mets, fdcls) => lower_fungroup(env, loc, tvs, mets, fdcls)
+//
+// a top-level `val p = e` -> D2Cvaldclst (template C: bind the pattern AFTER its RHS).
+| PCCval(loc, p, rhs) => let
+    val tknd = token_make_node(loc, T_VAL(VLKval))
+    val d2p = pylower_pat(env, p)
+    val d2rhs = pylower_exp(env, rhs)
+    val () = bind_let_styp(d2p, d2rhs)   // M4: fresh tyvar binder (unless RHS is none0); see SATS
+    val () = tr12env_add0_d2pat(env, d2p)
+    val dval = d2valdcl_make_args(loc, d2p, TEQD2EXPsome(tknd, d2rhs), WTHS2EXPnone())
+  in
+    d2ecl_make_node(loc, D2Cvaldclst(tknd, list_sing(dval)))
+  end
+//
+// a staload of pyrt -> a no-op. The functional-core E2E references only PRELUDE names, which
+// resolve via the env's global fall-through with no explicit staload (probe-verified). A real
+// pyrt staload (for flow/iterator names) is wired with the loop lowering in M4/M5.
+| PCCstaload(loc, _) => d2ecl_make_node(loc, D2Cnone0())
+//
+// a USER `import M` / `from M import x` (M7-import, task #34) -> LOAD the module + SCOPED-merge
+// its f2env into THIS file's `env` (per-file, NO global leak) + emit a real D2Cstaload (for the
+// LSP dep-graph). The module driver threads `env` left-to-right, so an import declared before its
+// uses registers FIRST — its exports are then visible to the following decls. See lower_import.
+| PCCimport(loc, path, knd0, is_python, aopt) => lower_import(env, loc, path, knd0, is_python, aopt)
+//
+// FAITHFUL #include: `include "PATH"` -> the stock inline-expansion. lower_include parses PATH
+// (d0parsed_from_fpath -> trans01) and `trans12_d1eclist`s the included d1 decls into THIS env,
+// SPLICING them under a D2Cinclude(knd0, ...) — byte-identical to stock f0_include @ trans12_decl00.
+// knd0 = ~1 here means "the current file's stadyn" (the INCLUDING file's, = stock's `f00`); the
+// driver sets it via PYL_cur_stadyn_set before lowering. Distinct from PCCimport (a D2Cstaload).
+| PCCinclude(loc, path, knd0) => lower_include(env, loc, path, knd0)
+//
+// MISC (Cluster E): `initialize "PATH"` -> D2Cdyninit(T_SRP_DYNINIT(); G1Estr("PATH";len)). Stock's
+// f0_dyninit (trans12_decl00.dats:2520) keeps the path-string VERBATIM (no XATSHOME normalization, no
+// file load) — so we re-quote the verbatim content and emit the exact node. lower_dyninit below.
+| PCCdyninit(loc, path) => lower_dyninit(env, loc, path)
+//
+// a datatype (enum) -> a real D2Cdatatype (M5b.3; SPIKE-PROVEN, see lower_datacon above).
+// (1) create the type s2cst (boxed datatype — the §5.7 default; decorators/sorts are a later
+// slice). (2) register the TYPE FIRST so a con's own arg types + the matcher resolve it.
+// (3) the type's own s2exp. (4) build the cons (con-function types, ctags = list index).
+// (5) wire the cons onto the s2cst + register them in the env. (6) the D2Cdatatype decl — its
+// FIRST field is a level-1 d1ecl, VESTIGIAL for typecheck, so d1ecl_none0(loc) is safe.
+| PCCdata(loc, name, tvs, dcs, mode) => let
+    // A LONE `enum` is the degenerate 1-member mutual group: register the type (PHASE A), then
+    // lower its cons (PHASE B). A RUN of adjacent enums is grouped earlier in pylower_decls (which
+    // registers every type first), so cross-datatype forward references resolve. Both M5b.3
+    // (monomorphic) + M5b.3b (parametric) recipes live in dt_register / dt_lower_body now.
+    val @(s2c, s2vs) = dt_register(env, loc, name, tvs, mode)
+  in
+    dt_lower_body(env, loc, dcs, s2c, s2vs)
+  end
+//
+// a plain `type X = T` alias -> a D2Csexpdef (M5b.5; SPIKE-PROVEN, see build_sexpdef above).
+// Lower the surface RHS via pylower_typ (a primitive RHS inherits the M5a `resolve_typ`
+// mitigation — direct T2Pcst, NOT the prelude sexpdef — so the alias does not crash unify when
+// used), then build the sexpdef. (A `struct` now lowers via PCCrecord below, NOT here.)
+// Decl-ordering works: the module driver threads `env` left-to-right, so an alias declared
+// before its use registers first.
+| PCCalias(loc, name, tvs, typ) => lower_alias_decl(env, loc, name, tvs, typ)
+//
+// a `struct` -> a record-type D2Csexpdef carrying its MODE (M5b.6a; SPIKE-PROVEN, see
+// build_record_sexp + rcd_kind_sort_of above). The decorator selects the S2Etrcd `trcdknd` +
+// the alias's own sort: @boxed/none -> (TRCDbox0, tbox), @linear -> (TRCDbox1, vtbx, linear),
+// @unboxed -> (TRCDflt0, tflt, flat). Otherwise SAME shape as the alias path: build the record
+// s2exp, then build_sexpdef. Parametric structs wrap the record body in s2exp_lam1 exactly like
+// the parametric alias path (the field types reference params via resolve_typ's S2ITMvar arm).
+| PCCrecord(loc, name, tvs, fields, mode) =>
+  if list_nilq(tvs) then let
+    // ---- MONOMORPHIC struct (tvs empty). ---------------------------------------------------
+    val rhs = build_record_sexp(env, mode, fields)
+  in
+    build_sexpdef(env, loc, name, rhs)
+  end
+  else let
+    // ---- PARAMETRIC struct (tvs non-empty): bind the param s2vars while lowering the field
+    //      types (a field `A` resolves via resolve_typ's S2ITMvar arm), wrap in s2exp_lam1. ---
+    // ROBUSTNESS (Bug #32): mode-aware param sorts — a flat `Type` param on a BOXED struct is
+    // normalized to boxed (a flat param on a flat `@unboxed` struct stays flat — consistent).
+    val s2vs = mk_param_s2vars_rcd(tvs, mode)
+    val () = tr12env_pshlam0(env)
+    val () = bind_param_s2vars(env, s2vs)
+    val body = build_record_sexp(env, mode, fields)
+    val () = tr12env_poplam0(env)
+    val rhs = s2exp_lam1(s2vs, body)
+  in
+    build_sexpdef(env, loc, name, rhs)
+  end
+//
+// EXN: `exception E(T...)` -> a D2Cexcptcon. SPIKE-PROVEN recipe, mirrors the stock
+// f0_excptcon (trans12_decl00.dats:3084): the con is a d2con of the BUILT-IN `exn` type
+// (the_s2cst_excptn — sort vtbx/linear), its function type `(args) -> exn`. CRITICAL DELTAS
+// from a datatype con (lower_datacon): (1) the result type is s2exp_cst(the_s2cst_excptn()),
+// NOT a fresh datatype s2cst; (2) the con tag STAYS -1 (f0_excptcon: "tags of d2cs should
+// stay (-1)" — an exn con is not a positional datatype variant), so we do NOT call
+// d2con_set_ctag. Register the con via tr12env_add1_d2conlst exactly like f0_excptcon so
+// `raise E` / `except E` resolve. The decl's first field is a VESTIGIAL d1ecl (trans23
+// f0_excptcon binds but never reads it — d1ecl_none0 is safe, same as D2Cdatatype).
+| PCCexcept(loc, name, argtyps) => let
+    val s2e_exn  = s2exp_cst(the_s2cst_excptn())
+    val argSexps = pylower_typlst(env, argtyps)    // aliases Int -> the_s2exp_sint0
+    val conSexp  = s2exp_fun1_nil0((-1)(*npf*), argSexps, s2e_exn)
+    val tok      = token_make_node(loc, T_IDALP(ats_name(name)))
+    val con      = d2con_make_idtp(tok, list_nil()(*tqas*), conSexp)
+    val d2cs     = list_sing(con)
+    val () = tr12env_add1_d2conlst(env, d2cs)      // register the con (so raise/except resolve)
+  in
+    d2ecl_make_node(loc, D2Cexcptcon(d1ecl_none0(loc), d2cs))
+  end
+//
+// ATS-parity: an `abstype Name [tvs]` OPAQUE type -> a D2Cabstype (no sexp). build_abstype
+// registers the s2cst so later decls (and the `assume`) resolve `Name`. SPIKE-PROVEN.
+| PCCabstype(loc, name, tvs, mode, repopt) => build_abstype(env, loc, name, tvs, mode, repopt)
+//
+// ATS-parity: an `assume Name [tvs] = T` representation -> a D2Cabsimpl. Parametric assumes encode
+// the params in the RHS as static lambdas, matching stock trans12's `f1_lams` for #absimpl.
+| PCCassume(loc, name, tvs, typ) =>
+  if list_nilq(tvs) then
+    build_absimpl(env, loc, name, pylower_typ(env, typ))
+  else let
+    val s2vs = mk_param_s2vars(tvs)
+    val () = tr12env_pshlam0(env)
+    val () = bind_param_s2vars(env, s2vs)
+    val body = pylower_typ(env, typ)
+    val () = tr12env_poplam0(env)
+    val rhs = s2exp_lam1(s2vs, body)
+  in
+    build_absimpl(env, loc, name, rhs)
+  end
+//
+// ATS-parity (FFI): an `extern def foo(params) -> Ret [= extnam(["cname"])]` FFI signature -> a
+// D2Cextern wrapping a D2Cfundclst with a D2FUNDCL — the EXACT L2 shape stock f0_fundclst produces
+// for `#extern fun foo(...): T [= $extnam(...)]`. lower_extern_fundcl REGISTERS the d2cst (so calls
+// resolve), carries the `= extnam(...)` foreign-name binding in the d2fundcl's tdxp (D2Eextnam), and
+// registers X2NAMsome on the d2cst stamp for codegen. (Replaces the older build_extern, which lowered
+// to a D2Cdynconst/d2cstdcl shape that DIVERGED from stock for every `#extern fun` — both with and
+// without an extnam body.) PCXnone => a plain bodyless extern (still the stock D2Cfundclst shape).
+| PCCextern(loc, name, tvs, pnames, ptypes, ret, xnm) => lower_extern_fundcl(env, loc, name, tvs, pnames, ptypes, ret, xnm)
+//
+// ATS-parity: an `implement NAME(params) -> Ret: body` -> a D2Cimplmnt0. lower_implement (in
+// pylower_dynexp, where pl_exp/pl_params_typed are in scope) RESOLVES the pre-declared d2cst by
+// name, binds the params, lowers the body, and assembles the node (MONOMORPHIC). SPIKE-PROVEN.
+| PCCimplement(loc, name, tvs, has_darg, pnames, ptypes, ret, body, tias) =>
+    lower_implement(env, loc, name, tvs, has_darg, pnames, ptypes, ret, body, tias)
+//
+// A-TEMPLATE: a `@template[A] def foo[C](...) [: body]` -> a TEMPLATE extern (+ optional generic
+// implement). lower_template builds the template d2cst (non-empty tqas + s2exp_uni0 poly wrap) and,
+// when an inline body is present, ALSO emits the generic implement. It returns a d2eclist (1 or 2
+// decls); the module driver expects ONE d2ecl per pcdecl, so we wrap the list in a single
+// D2Clocal0(decls, []) node (a transparent local block — trans23 processes its body decls in this
+// env; the wrapper carries no scope of its own here). SPIKE-PROVEN.
+| PCCtempl(loc, targs, name, pargs, pnames, ptypes, ret, bodyopt) =>
+    template_decls_as_one(loc, lower_template(env, loc, targs, name, pargs, pnames, ptypes, ret, bodyopt))
+//
+// ATS-parity (`#symload`): an `overload NAME with IMPL` -> a D2Csymload + the env registration that
+// makes NAME resolve to IMPL (build_overload, via tr12env_add0_d2itm). SPIKE-PROVEN. The self-overload
+// (`@overload def`) uses precedence 0 (the stock default).
+| PCCoverload(loc, name, impl) => build_overload(env, loc, name, impl, 0(*pval*))
+//
+// GAP1: a STANDALONE overload-ALIAS `@overload NAME = TARGET` (the `#symload NAME with TARGET [of N]`)
+// -> the SAME D2Csymload + env-registration recipe (build_overload), re-exporting an ALREADY-EXISTING
+// TARGET under NAME. `prec` is the `@overload[N]` precedence (~1 = none given -> the stock default 0).
+// Precedence IS load-bearing at typecheck (trsym2b auxpmax/auxtake). UNLIKE PCCoverload, there is no
+// def preceding this — TARGET must already be registered (build_overload's not-found -> benign no-op).
+| PCCsymalias(loc, name, tgt, prec) =>
+    build_overload(env, loc, name, tgt, (if prec >= 0 then prec else 0))
+//
+// FIXITY (Cluster B): `infixl 50 +` / `nonfix foo` -> the stock D0Cfixity/D0Cnonfix d0ecl wrapped
+// D2Cd1ecl(D1Cd0ecl(...)) — byte-identical to stock's f0_fixity/f0_nonfix L2 (build_fixity above).
+// Our parser owns operator precedence via its fixed Pratt table (which already matches fixity0.sats's
+// relative ordering for every corpus operator), so this is a faithful pass-through of the DECL.
+| PCCfixity(loc, knd, prec, names) => build_fixity(env, loc, knd, prec, names)
+//
+// ATS-parity: a `sortdef Name = SORT` SORT ALIAS -> a D2Csortdef. SPIKE-PROVEN (dep-spike P6(A)):
+// map the RHS sort-reference string to a sort2 (the same SInt/Type/Prop vocab psort2_of uses), wrap
+// it in S2TEXsrt, REGISTER the alias under its name via tr12env_add0_s2tex (so a later `[n: Name]`
+// resolves it), and emit D2Csortdef(ats_sym(name), s2tex).
+| PCCsortdef(loc, name, srt) => let
+    val s2tx = S2TEXsrt(sort2_of_name(srt))
+    // a SORT name is lowercase in ATS (`#sortdef num = int`); pyprint capitalizes it to the
+    // pythonic `@sort type Num = SInt` UIDENT, so uncapitalize (ats_type_sym) for the EMITTED
+    // D2Csortdef symbol — round-tripping stock's `D2Csortdef(num;…)`. Register the alias under BOTH
+    // the pythonic (capitalized) and the uncapitalized key so neither a pythonic use `[n: Num]` nor
+    // an ats-cased lookup misses it.
+    val sym = ats_type_sym(name)
+    val () = tr12env_add0_s2tex(env, sym, s2tx)
+    val () = tr12env_add0_s2tex(env, ats_sym(name), s2tx)
+  in
+    d2ecl_make_node(loc, D2Csortdef(sym, s2tx))
+  end
+//
+// A-QUANT: a `@sort type Nat = {a: SInt | a >= 0}` SUBSET (refined) SORT -> a D2Csortdef carrying
+// S2TEXsub. SPIKE-PROVEN (a-quant SX-SUB; the exact f0_sortdef/S1TDFtsub recipe @ trans12_decl00:
+// 1291): build the binder s2var at its psort2_of carrier sort (mk_param_s2vars on the singleton),
+// push a lam-scope + bind it so the guards resolve `a`, lower each guard via pylower_typ (sort
+// bool), pop, assemble S2TEXsub(s2v, [guards]), REGISTER the sort under its name (tr12env_add0_s2tex
+// — so a later `[n: Nat]` resolves it), and emit D2Csortdef(ats_sym(name), s2tex).
+| PCCsortsub(loc, name, binder, guards) => let
+    val s2vs = mk_param_s2vars(list_sing(binder))
+    val s2v1 =
+      ( case+ s2vs of
+        | list_cons(v, _) => v
+        | list_nil() => s2var_make_idst(ats_sym(name), the_sort2_int0) )  // defensive
+    val () = tr12env_pshlam0(env)
+    val () = bind_param_s2vars(env, s2vs)
+    val s2ps = lower_sub_guards(env, guards)
+    val () = tr12env_poplam0(env)
+    val s2tx = S2TEXsub(s2v1, s2ps)
+    val () = tr12env_add0_s2tex(env, ats_sym(name), s2tx)
+  in
+    d2ecl_make_node(loc, D2Csortdef(ats_sym(name), s2tx))
+  end
+//
+// ATS-parity: a `stacst Name : SORT` STATIC-CONSTANT decl -> a D2Cstacst0. SPIKE-PROVEN (P6(B)):
+// build an s2cst at the named sort (s2cst_make_idst), REGISTER it (tr12env_add1_s2cst, so a later
+// static expr resolves `Name`), and emit D2Cstacst0(s2c, sort2).
+| PCCstacst(loc, name, srt) => let
+    val s2t = sort2_of_name(srt)
+    val s2c = s2cst_make_idst(loc, ats_type_sym(name), s2t)
+    val () = tr12env_add1_s2cst(env, s2c)
+  in
+    d2ecl_make_node(loc, D2Cstacst0(s2c, s2t))
+  end
+//
+// ATS-parity: a `stadef Name = <static-expr>` STATIC-LEVEL DEFINITION -> a D2Csexpdef. SPIKE-PROVEN
+// (P6(C)): lower the static body to an s2exp (v1: an int literal -> s2exp_int) and reuse build_sexpdef
+// (the alias mechanism — it sets the s2cst's sexp/styp at the RHS's sort + registers it).
+| PCCstadef(loc, name, body) => build_sexpdef(env, loc, name, stadef_body_sexp(body))
+//
+// ATS-parity: an `@sort type Name` (no RHS) ABSTRACT SORT -> a D2Cabssort. Mirrors stock f0_abssort
+// (trans12_decl00.dats:1153): build a t2abs from the (uncapitalized — sort names are lowercase in
+// ATS) sort symbol, register the alias S2TEXsrt(S2Tbas(T2Btabs)) under that name (so a later
+// `[n: Name]` resolves it), and emit D2Cabssort(<sym>). The name is uncapitalized to round-trip
+// stock's `D2Cabssort(myord)`; the alias is registered under both the ats-cased and pythonic keys.
+| PCCabssort(loc, name) => let
+    val sym  = ats_type_sym(name)
+    val tabs = t2abs_make_name(sym)
+    val s2tx = S2TEXsrt(S2Tbas(T2Btabs(tabs)))
+    val () = tr12env_add0_s2tex(env, sym, s2tx)
+    val () = tr12env_add0_s2tex(env, ats_sym(name), s2tx)
+  in
+    d2ecl_make_node(loc, D2Cabssort(sym))
+  end
+//
+// ATS-parity: an `@open type Name` -> a D2Cabsopen. Mirrors stock f0_absopen (trans12_decl00.dats:
+// 1904): build the s1qid `S1QIDnone(T_IDALP(name))` (the name uncapitalized — ATS type ids are
+// lowercase — round-tripping stock's `T_IDALP(mytype)`), RESOLVE it against the env to the abstract
+// type's s2cst bucket (the same S2ITMcst lookup build_absimpl uses), and assemble the simpl: a
+// SINGLE resolved s2cst collapses to SIMPLone1(s2c) (stock's list_singq branch), otherwise
+// SIMPLall1(sqid, s2cs) (an unresolved name keeps the EMPTY-list SIMPLall1, faithful to stock).
+| PCCabsopen(loc, name) => let
+    val tnm  = PYL_uncapitalize(ats_name(name))   // ats type ids are lowercase (ats_type_name local)
+    val itok = token_make_node(loc, T_IDALP(tnm))
+    val sqid = S1QIDnone(itok)
+    val s2cs =
+      ( case+ tr12env_find_s2itm(env, ats_uncap_sym(name)) of
+        | ~optn_vt_cons(s2i) =>
+          (case+ s2i of S2ITMcst(cs) => cs | _ => list_nil())
+        | ~optn_vt_nil() =>
+          (case+ tr12env_find_s2itm(env, ats_sym(name)) of
+           | ~optn_vt_cons(s2i) => (case+ s2i of S2ITMcst(cs) => cs | _ => list_nil())
+           | ~optn_vt_nil() => list_nil()) ): s2cstlst
+    val simp =
+      ( if list_singq(s2cs)
+          then simpl_make_node(loc, SIMPLone1(s2cs.head()))
+          else simpl_make_node(loc, SIMPLall1(sqid, s2cs)) )
+    val tok = token_make_node(loc, T_ABSOPEN())
+  in
+    d2ecl_make_node(loc, D2Cabsopen(tok, simp))
+  end
+//
+// ATS-parity: a `prfun NAME(params) -> Ret: body` proof FUNCTION -> a D2Cfundclst with the FNKprfn1
+// funkind. lower_prfungroup (pylower_dynexp) reuses the funkind-parameterized fun-group: the proof
+// body lowers like a def body; only the funkind token differs (FNKprfn1, dep-spike P5(A)).
+| PCCprfun(loc, tvs, fdcl) => lower_prfungroup(env, loc, tvs, list_sing(fdcl))
+//
+// ATS-parity: a `prval pat [: T] = e` proof VALUE -> a D2Cvaldclst with the VLKprval valkind.
+// lower_prval mirrors the PCCval `val` path; only the valkind token differs (VLKprval, P5(B)).
+| PCCprval(loc, p, ann, rhs) => lower_prval(env, loc, p, ann, rhs)
+//
+// ATS-parity: a `praxi NAME(params) -> Ret` proof AXIOM -> a BODYLESS D2Cstatic(D2Cdynconst) with
+// the FNKpraxi funkind. lower_praxi is the extern-signature recipe with the proof funkind; the d2cst
+// is registered so a `prval pf = NAME(...)` resolves.
+| PCCpraxi(loc, name, pnames, ptypes, ret) => lower_praxi(env, loc, name, pnames, ptypes, ret)
+//
+// SCOPING (bootstrap P1): a `private` run is normally consumed by pylower_decls' capture-rest arm
+// (it needs the FOLLOWING siblings as the local-body). Reaching it HERE means there are no siblings
+// to capture (e.g. a `private:` block as the very last decl, or nested in a context with no rest):
+// lower it as a TRANSPARENT local — D2Clocal0(privs, []) (empty local-body; the privates lower in
+// this env and stay registered, like the A-TEMPLATE template_decls_as_one wrapper). SPIKE-PROVEN.
+| PCCprivate(loc, privs) =>
+    d2ecl_make_node(loc, D2Clocal0(pylower_decls(env, privs), list_nil()))
+//
+// an elaboration poison node -> a benign no-op (the diagnostic was already reported by the
+// elaborator; M3 surfaces it via the harness's diagnostics dump, never crashes).
+| PCCerror(loc, _) => d2ecl_make_node(loc, D2Cnone0())
+//
+)
+//
+(* ****** ****** *)
+//
+// is this decl a TYPE-DECLARING decl that participates in a mutual datatype group? A `datatype`
+// (PCCdata) or a `where`-lifted `#typedef` alias (PCCalias) that the pyprint emits ADJACENT to the
+// datatypes (a `datatype … where { #typedef xs = list(x) }` lifts the typedef next to the enums).
+fun
+is_dt_group_member(d: pcdecl): bool =
+(case+ d of PCCdata _ => true | PCCalias _ => true | _ => false)
+//
+// does the maximal leading run of group-members contain at least one PCCdata? (A run of stand-alone
+// aliases has none — it lowers per-decl, not as a group.) Scans only the leading group-member prefix.
+fun
+run_has_data(ds: list(pcdecl)): bool =
+(
+case+ ds of
+| list_cons(d, rest) =>
+    (case+ d of
+     | PCCdata _ => true
+     | PCCalias _ => run_has_data(rest)
+     | _ => false)
+| list_nil() => false
+)
+//
+// peel the maximal leading run of adjacent datatype-group members (PCCdata + interspersed
+// where-lifted PCCalias) and lower it as ONE mutual scope, in THREE phases so every intra-group
+// forward reference resolves regardless of emission order:
+//   PHASE A — register EVERY datatype TYPE s2cst in the run (so an alias RHS `list(t0qua)` and a
+//             cross-datatype con arg both resolve the type).
+//   PHASE B — lower EVERY alias in the run (so a con arg that is a where-typedef `t0qualst`
+//             resolves — the alias `t0qualst = list(t0qua)` itself resolved t0qua in PHASE A).
+//   PHASE C — lower EVERY datatype BODY (cons), now that all types AND aliases are in scope.
+// Output order is preserved (each member's d2ecl emitted in its original position). A LONE leading
+// `enum` (no adjacent member) is the degenerate 1-run: PHASE A registers it, PHASE B is empty,
+// PHASE C lowers its cons — byte-identical to the old single-decl path.
+fun
+lower_dt_run(env: !tr12env, ds: list(pcdecl)): @(d2eclist, list(pcdecl)) = let
+  // split off the maximal leading run of group members.
+  val @(run, rest) = peel_dt_run(ds)
+  // PHASE A: register every datatype TYPE s2cst (so an alias RHS + a cross-datatype con arg resolve
+  // the type). `plans` holds one @(s2c, s2vs) per PCCdata, in run order.
+  val plans = dtrun_register(env, run)
+  // PHASE B: lower every ALIAS in the run ONCE — now that the datatype types are registered — and
+  // cache each alias's d2ecl (`acache`, one per PCCalias, in run order). Lowering registers the
+  // sexpdef in env, so a datatype con that forward-references a where-typedef now resolves. Each
+  // alias is lowered EXACTLY ONCE (no double-registration / stamp duplication).
+  val acache = dtrun_lower_aliases(env, run)
+  // PHASE C: emit every member's d2ecl in ORIGINAL order — a PCCdata lowers its cons (plan popped),
+  // a PCCalias reuses its cached d2ecl (acache popped). All types + aliases are now in scope.
+  val d2cs = dtrun_emit(env, run, plans, acache)
+in
+  @(d2cs, rest)
+end
+and
+peel_dt_run(ds: list(pcdecl)): @(list(pcdecl), list(pcdecl)) =
+(
+case+ ds of
+| list_cons(d, rest) =>
+    if is_dt_group_member(d)
+    then let val @(run, tl) = peel_dt_run(rest) in @(list_cons(d, run), tl) end
+    else @(list_nil(), ds)
+| list_nil() => @(list_nil(), ds)
+)
+and
+// PHASE A: register each PCCdata's type s2cst; carry the @(s2c, s2vs) plan. Aliases are SKIPPED here
+// (lowered in PHASE B/C), so the plan list holds ONE entry PER PCCdata — in run order. dtrun_emit
+// pops a plan only when it reaches a PCCdata, so the alignment is by datatype-occurrence, not index.
+dtrun_register(env: !tr12env, run: list(pcdecl)): list(@(s2cst, s2varlst)) =
+(
+case+ run of
+| list_nil() => list_nil()
+| list_cons(d, rest) =>
+    (case+ d of
+     | PCCdata(loc, name, tvs, _, mode) =>
+         let val plan = dt_register(env, loc, name, tvs, mode)
+         in list_cons(plan, dtrun_register(env, rest)) end
+     | _ => dtrun_register(env, rest))
+)
+and
+// PHASE B: lower every PCCalias in the run EXACTLY ONCE (datatype types registered in PHASE A are in
+// scope), returning the cached d2ecls in run order. Lowering also registers each sexpdef in env, so a
+// datatype con that forward-references a where-typedef resolves in PHASE C.
+dtrun_lower_aliases(env: !tr12env, run: list(pcdecl)): d2eclist =
+(
+case+ run of
+| list_nil() => list_nil()
+| list_cons(d, rest) =>
+    (case+ d of
+     | PCCalias(loc, name, tvs, typ) =>
+         let val a = lower_alias_decl(env, loc, name, tvs, typ)
+         in list_cons(a, dtrun_lower_aliases(env, rest)) end
+     | _ => dtrun_lower_aliases(env, rest))
+)
+and
+// PHASE C: emit each member's d2ecl in ORIGINAL order. A PCCdata pops the head plan (the s2c/s2vs
+// from PHASE A) and lowers its cons; a PCCalias pops its cached d2ecl from `acache` (lowered ONCE in
+// PHASE B — NOT re-lowered). `plans` holds one entry per PCCdata, `acache` one per PCCalias, both in
+// run order, so the per-kind pops stay aligned.
+dtrun_emit(env: !tr12env, run: list(pcdecl), plans: list(@(s2cst, s2varlst)), acache: d2eclist): d2eclist =
+(
+case+ run of
+| list_nil() => list_nil()
+| list_cons(d, rest) =>
+    (case+ d of
+     | PCCdata(loc, _, _, dcs, _) =>
+         (case+ plans of
+          | list_cons(plan, prest) =>
+              let
+                val @(s2c, s2vs) = plan
+                val body = dt_lower_body(env, loc, dcs, s2c, s2vs)
+              in list_cons(body, dtrun_emit(env, rest, prest, acache)) end
+          | list_nil() => dtrun_emit(env, rest, plans, acache))   // unreachable (plan per PCCdata)
+     | PCCalias _ =>
+         (case+ acache of
+          | list_cons(a, arest) => list_cons(a, dtrun_emit(env, rest, plans, arest))
+          | list_nil() => dtrun_emit(env, rest, plans, acache))   // unreachable (cache per PCCalias)
+     | _ => dtrun_emit(env, rest, plans, acache))   // unreachable (run holds only group members)
+)
+//
+// the module driver: lower a PyCore decl list into a d2eclist, threading `env`. Each decl
+// lowers (binding its top-level names into `env`) before the next, so forward references
+// within a recursive def group resolve (the group binds its names first) and later decls see
+// earlier bindings — mirroring trans12's left-to-right decl processing.
+//
+#implfun
+pylower_decls(env, ds) =
+(
+case+ ds of
+| list_nil() => list_nil()
+// SCOPING (bootstrap P1): a `private` run -> the CAPTURE-REST transform. The privates are the
+// local-HEAD (D1) and ALL FOLLOWING sibling decls are the local-BODY (D2) of ONE D2Clocal0(D1, D2):
+// the privates are visible to D2 (we lower D1 FIRST, threading env, so its names register) but NOT
+// exported past the local — trans23 processes D2's decls in this env, exporting only D2. The whole
+// `private…rest` therefore collapses to a SINGLE d2ecl (the local block); there are no siblings AFTER
+// it. SPIKE-PROVEN (S2, nerror=0). (Faithfulness: capture-rest is exact for the dominant case where
+// the `local…end` is the TAIL of its scope — a `private` run scopes all the publics that follow it.)
+| list_cons(PCCprivate(loc, privs), rest) =>
+    let
+      val d1 = pylower_decls(env, privs)       // local-HEAD: lower + register the privates FIRST
+      val d2 = pylower_decls(env, rest)         // local-BODY: the rest-of-suite (sees the privates)
+      val dloc = d2ecl_make_node(loc, D2Clocal0(d1, d2))
+    in
+      list_sing(dloc)
+    end
+// MUTUAL datatype group: a RUN of adjacent datatype-group members (`enum` + where-lifted `#typedef`
+// aliases) is ONE mutually-recursive scope (stock `datatype A … and B … where { #typedef … }`).
+// lower_dt_run peels the maximal leading run starting at THIS member and three-phase-lowers it (PHASE
+// A register every type, PHASE B lower every alias, PHASE C lower every con) so EVERY intra-group
+// forward reference resolves regardless of emission order. The run is taken only when it actually
+// contains a datatype (run_has_data) — a bare run of stand-alone aliases lowers per-decl as before
+// (identical order, no behavior change). A LONE `enum` is the degenerate 1-run.
+| list_cons(d, rest) =>
+    if is_dt_group_member(d)
+    then (
+      if run_has_data(list_cons(d, rest))
+      then let
+        val @(grp_d2cs, rest1) = lower_dt_run(env, list_cons(d, rest))
+      in
+        list_append(grp_d2cs, pylower_decls(env, rest1))
+      end
+      else let val d2c = pylower_decl(env, d) in list_cons(d2c, pylower_decls(env, rest)) end)
+    else let val d2c = pylower_decl(env, d) in list_cons(d2c, pylower_decls(env, rest)) end
+)
+//
+(* ****** ****** *)
+(*
+end of [frontend/DATS/pylower_decl00.dats]
+*)

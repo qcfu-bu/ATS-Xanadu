@@ -1,0 +1,896 @@
+(***********************************************************************)
+(*                                                                     *)
+(*                         Applied Type System                         *)
+(*                                                                     *)
+(***********************************************************************)
+
+(*
+** ATS/Xanadu - Unleashing the Potential of Types!
+** Copyright (C) 2026 Hongwei Xi, ATS Trustful Software, Inc.
+** All rights reserved
+**
+** ATS is free software;  you can  redistribute it and/or modify it under
+** the terms of  the GNU GENERAL PUBLIC LICENSE (GPL) as published by the
+** Free Software Foundation; either version 3, or (at  your  option)  any
+** later version.
+** 
+** ATS is distributed in the hope that it will be useful, but WITHOUT ANY
+** WARRANTY; without  even  the  implied  warranty  of MERCHANTABILITY or
+** FITNESS FOR A PARTICULAR PURPOSE.  See the  GNU General Public License
+** for more details.
+** 
+** You  should  have  received  a  copy of the GNU General Public License
+** along  with  ATS;  see the  file COPYING.  If not, please write to the
+** Free Software Foundation,  51 Franklin Street, Fifth Floor, Boston, MA
+** 02110-1301, USA.
+*)
+
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
+Author: Hongwei Xi
+//
+Sat Apr 11 02:14:28 PM EDT 2026
+//
+Authoremail: gmhwxiATgmailDOTcom
+*)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+(*
+#define
+XATSOPT "./../../.."
+*)
+(* ****** ****** *)
+//
+#include
+"./../../..\
+/HATS/xatsopt_sats.hats"
+#include
+"./../../..\
+/HATS/xatsopt_dpre.hats"
+//
+(* ****** ****** *)
+#staload
+"./../../../SATS/xstamp0.sats"
+#staload
+"./../../../SATS/xsymbol.sats"
+(* ****** ****** *)
+(* ****** ****** *)
+#staload // D2E =
+// HX: for d2con and d2cst
+"./../../../SATS/dynexp2.sats"
+(* ****** ****** *)
+(* ****** ****** *)
+//
+#staload ".\
+/../../xats2cc\
+/srcgen1/SATS/intrep0.sats"//...
+#staload "./../SATS/intrep1.sats"
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+#implfun
+i1val_nil
+(  loc0  ) =
+i1val_make_node
+(loc0,I1Vnil((*void*)))
+//
+(* ****** ****** *)
+//
+#implfun
+i1val_con(dcon) =
+let
+val loc0 =
+d2con_get_lctn(dcon)
+in//let
+i1val(
+  loc0, I1Vcon(dcon))
+end//let//i1val_con(dcon)
+//
+#implfun
+i1val_cst(dcst) =
+let
+val loc0 =
+d2cst_get_lctn(dcst)
+in//let
+i1val(
+  loc0, I1Vcst(dcst))
+end//let//i1val_cst(dcst)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+#implfun
+i1val_fid(dfix) =
+let
+val loc0 =
+d2var_get_lctn(dfix)
+in//let
+i1val(
+  loc0, I1Vfid(dfix))
+end//let//i1val_fid(dfix)
+//
+(* ****** ****** *)
+//
+#implfun
+i1val_fenv
+(dfix, envs) =
+let
+val loc0 =
+d2var_get_lctn(dfix)
+in//let
+i1val(loc0,
+  I1Vfenv(dfix, envs))
+end//let//i1val_fenv(...)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+#implfun
+i1val_none0
+(  loc0  ) =
+i1val_make_node
+(loc0,I1Vnone0((*void*)))
+#implfun
+i1val_none1
+(  i0e0  ) =
+i1val_make_node
+(
+i0e0.lctn(),I1Vnone1(i0e0))
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+#implfun
+i1dcl_none0
+(  loc0  ) =
+i1dcl_make_node
+(loc0,I1Dnone0((*void*)))
+#implfun
+i1dcl_none1
+(  dcl0  ) =
+i1dcl_make_node
+(
+dcl0.lctn(),I1Dnone1(dcl0))
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+#implfun
+i1cmp_lctn$get
+(  icmp  ) =
+(
+i1val_lctn$get(icmp.ival()))
+//
+#implfun
+i1cmp_ival$get
+(  icmp  ) =
+(
+case+ icmp of
+|I1CMPcons(ilts, ival) => ival)
+//
+#implfun
+i1cmp_ilts$get
+(  icmp  ) =
+(
+case+ icmp of
+|I1CMPcons(ilts, ival) => ilts)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+local
+//
+val
+stamper = stamper_new((*0*))
+//
+in//local
+fun//fun
+the_i1tnm_stamp_new
+  ((*void*)): stamp = stamper.getinc()
+endloc // end-of-[the_i1tnm_stamp_new()]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+local
+//
+datatype
+i1env =
+I1ENV of (sint)
+#absimpl
+i1env_tbox = i1env
+//
+in//local
+//
+#implfun
+i1env_make
+  ( enum ) = I1ENV(enum)
+//
+(* ****** ****** *)
+//
+#implfun
+i1env_enum$get
+  ( ienv ) =
+let
+val+
+I1ENV(enum) = ienv in enum end
+//
+(* ****** ****** *)
+//
+#implfun
+i1env_fprint
+(ienv, out0) =
+let
+//
+#impltmp
+g_print$out<>() = out0
+//
+val+I1ENV(enum) = ienv
+//
+in//let
+  prints("I1ENV(", enum, ")") endlet
+//
+end(*local*)//end-of-[local(i1env_tbox)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+local
+//
+datatype
+i1opr =
+I1OPR of (symbl)
+#absimpl
+i1opr_tbox = i1opr
+//
+in//local
+//
+(* ****** ****** *)
+//
+#implfun
+i1opr_make
+  ( opnm ) = I1OPR(opnm)
+//
+(* ****** ****** *)
+//
+#implfun
+i1opr_name$get
+  ( iopr ) =
+let
+val+
+I1OPR(opnm) = iopr in opnm end
+//
+(* ****** ****** *)
+//
+#implfun
+i1opr_fprint
+(iopr, out0) =
+let
+//
+#impltmp
+g_print$out<>() = out0
+//
+val+I1OPR(opnm) = iopr
+//
+in//let
+  prints("I1OPR(", opnm, ")") endlet
+//
+end(*local*)//end-of-[local(i1opr_tbox)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+local
+//
+datatype
+i1tnm =
+I1TNM of (stamp)
+//
+#absimpl i1tnm_tbox = i1tnm
+//
+in//local
+//
+#implfun
+i1tnm_stmp$get
+  ( itnm ) =
+let
+val+
+I1TNM(stmp) = itnm in stmp end
+//
+(* ****** ****** *)
+//
+#implfun
+i1tnm_new0() =
+(
+  I1TNM(stmp)) where
+{ val
+  stmp = the_i1tnm_stamp_new()
+}(*where*)//end-of-[i1tnm_new0()]
+//
+(* ****** ****** *)
+//
+#implfun
+i1tnm_fprint
+(itnm, out0) =
+let
+//
+#impltmp
+g_print$out<>() = out0
+//
+val+I1TNM(stmp) = itnm
+//
+in//let
+  prints("I1TNM(", stmp, ")") endlet
+//
+(* ****** ****** *)
+//
+end(*local*)//end-of-[local(i1tnm_tbox)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+local
+//
+datatype
+i1val =
+I1VAL of
+(loctn, i1val_node)
+datavwtp
+i1val_vt =
+I1VAL_vt of
+(loctn, i1val_node)
+//
+#absimpl i1val_tbox = i1val
+//
+in (* in-of-local *)
+//
+#implfun
+i1val_make_node
+( loc0, node ) =
+(
+  I1VAL(loc0, node))
+//
+#implfun
+i1val_lctn$get
+(    i1v0    ) =
+let
+val+
+I1VAL
+(loc0, node) = i1v0 in loc0 endlet
+#implfun
+i1val_node$get
+(    i1v0    ) =
+let
+val+
+I1VAL
+(loc0, node) = i1v0 in node endlet
+//
+endloc(*local*)//end-of-[local(i1val_tbox)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+local
+//
+datatype
+i1gua =
+I1GUA of
+(
+loctn, i1gua_node)
+#absimpl
+i1gua_tbox = i1gua
+//
+in (* in-of-local *)
+//
+#implfun
+i1gua_make_node
+( loc0, node ) =
+(
+  I1GUA(loc0, node))
+//
+#implfun
+i1gua_lctn$get
+  (igua) =
+let
+val+
+I1GUA
+(loc0, node) = igua in loc0 endlet
+#implfun
+i1gua_node$get
+  (igua) =
+let
+val+
+I1GUA
+(loc0, node) = igua in node endlet
+//
+endloc(*local*)//end-of-[local(i1gua_tbox)]
+//
+(* ****** ****** *)
+//
+local
+//
+datatype
+i1gpt =
+I1GPT of
+(
+loctn, i1gpt_node)
+#absimpl
+i1gpt_tbox = i1gpt
+//
+in (* in-of-local *)
+//
+#implfun
+i1gpt_make_node
+( loc0, node ) =
+(
+  I1GPT(loc0, node))
+//
+#implfun
+i1gpt_lctn$get
+  (igpt) =
+let
+val+
+I1GPT
+(loc0, node) = igpt in loc0 endlet
+#implfun
+i1gpt_node$get
+  (igpt) =
+let
+val+
+I1GPT
+(loc0, node) = igpt in node endlet
+//
+endloc(*local*)//end-of-[local(i1gpt_tbox)]
+//
+(* ****** ****** *)
+//
+local
+//
+datatype
+i1cls =
+I1CLS of
+(
+loctn, i1cls_node)
+#absimpl
+i1cls_tbox = i1cls
+//
+in (* in-of-local *)
+//
+#implfun
+i1cls_make_node
+( loc0, node ) =
+(
+  I1CLS(loc0, node))
+//
+#implfun
+i1cls_lctn$get
+  (icls) =
+let
+val+
+I1CLS
+(loc0, node) = icls in loc0 endlet
+//
+#implfun
+i1cls_node$get
+  (icls) =
+let
+val+
+I1CLS
+(loc0, node) = icls in node endlet
+//
+endloc(*local*)//end-of-[local(i1cls_tbox)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+local
+//
+datatype
+fjarg =
+FJARG of
+(
+loctn, fjarg_node)
+#absimpl
+fjarg_tbox = fjarg
+//
+in (* in-of-local *)
+//
+#implfun
+fjarg_make_node
+( loc0, node ) = FJARG(loc0,node)
+//
+#implfun
+fjarg_lctn$get
+  (  fja0  ) =
+let
+val+FJARG(loc0, _) = fja0 in loc0
+end
+#implfun
+fjarg_node$get
+  (  fja0  ) =
+let
+val+FJARG(_, node) = fja0 in node
+end
+//
+endloc(*local*)//end-of-[local(fjarg_tbox)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+#implfun
+t1imp_dcst$get
+  (timp) =
+(
+case+ node of
+|T1IMPall1
+(dcst, t2js, dcls) => dcst
+|T1IMPallx
+(dcst, t2js, dcls) => dcst)
+where
+{
+  val node = t1imp_node$get(timp)
+}(*where*)//endof(t1imp_dcst$get(timp))
+//
+(* ****** ****** *)
+//
+local
+//
+datatype
+t1imp =
+T1IMP of
+(
+stamp, t1imp_node)
+datatype
+t1imp_vt =
+T1IMP_vt of
+(
+stamp, t1imp_node)
+//
+#absimpl
+t1imp_tbox = t1imp
+//
+in (* in-of-local *)
+//
+(* ****** ****** *)
+//
+#implfun
+t1imp_make_node
+( stmp, node ) = T1IMP(stmp,node)
+//
+(* ****** ****** *)
+//
+#implfun
+t1imp_stmp$get(timp) =
+let
+val+T1IMP(stmp,node) = timp in stmp
+end
+#implfun
+t1imp_node$get(timp) =
+let
+val+T1IMP(stmp,node) = timp in node
+end
+//
+(* ****** ****** *)
+//
+endloc(*local*)//end-of-[local(t1imp)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+local
+//
+datatype
+i1dcl =
+I1DCL of
+(loctn, i1dcl_node)
+(*
+datavwtp
+i1dcl_vt =
+I1DCL_vt of
+(loctn, i1dcl_node)
+*)
+//
+#absimpl i1dcl_tbox = i1dcl
+//
+in (* in-of-local *)
+//
+#implfun
+i1dcl_make_node
+( loc0, node ) =
+(
+  I1DCL(loc0, node))
+//
+#implfun
+i1dcl_lctn$get
+(    i1d0    ) =
+let
+val+
+I1DCL(loc0, node) = i1d0 in loc0 endlet
+#implfun
+i1dcl_node$get
+(    i1d0    ) =
+let
+val+
+I1DCL(loc0, node) = i1d0 in node endlet
+//
+endloc(*local*)//end-of-[local(i1dcl_tbox)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+local
+//
+datatype
+i1valdcl =
+I1VALDCL of
+( loc_t
+, i1bnd, teqi1cmp)
+//
+#absimpl
+i1valdcl_tbox = i1valdcl
+//
+in//local
+//
+#implfun
+i1valdcl_lctn$get
+  (  ival  ) = let
+val+
+I1VALDCL
+( lctn
+, ibnd, tdxp) = ival in lctn end
+//
+#implfun
+i1valdcl_dpat$get
+  (  ival  ) = let
+val+
+I1VALDCL
+( lctn
+, ibnd, tdxp) = ival in ibnd end
+//
+#implfun
+i1valdcl_tdxp$get
+  (  ival  ) = let
+val+
+I1VALDCL
+( lctn
+, ibnd, tdxp) = ival in tdxp end
+//
+(* ****** ****** *)
+//
+#implfun
+i1valdcl_make_args
+(lctn, ibnd, tdxp) =
+(
+  I1VALDCL(lctn, ibnd, tdxp(*opt*)))
+//
+(* ****** ****** *)
+//
+endloc (*local*) // end of [local(i1valdcl)]
+//
+(* ****** ****** *)
+//
+local
+//
+datatype
+i1vardcl =
+I1VARDCL of
+( loc_t
+, i1bnd, teqi1cmp)
+//
+#absimpl
+i1vardcl_tbox = i1vardcl
+//
+in//local
+//
+#implfun
+i1vardcl_lctn$get
+  (  ivar  ) = let
+val+
+I1VARDCL
+( lctn
+, dpid, dini) = ivar in lctn end
+//
+#implfun
+i1vardcl_dpid$get
+  (  ivar  ) = let
+val+
+I1VARDCL
+( lctn
+, dpid, dini) = ivar in dpid end
+//
+#implfun
+i1vardcl_dini$get
+  (  ivar  ) = let
+val+
+I1VARDCL
+( lctn
+, dpid, dini) = ivar in dini end
+//
+(* ****** ****** *)
+//
+#implfun
+i1vardcl_make_args
+( lctn, dpid, dini) =
+(
+  I1VARDCL(lctn, dpid, dini(*opt*)) )
+//
+(* ****** ****** *)
+//
+endloc (*local*) // end of [ local(i1vardcl) ]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+local
+//
+datatype
+i1fundcl =
+I1FUNDCL of
+( loc_t
+, d2var
+, fjarglst, teqi1cmp)
+//
+#absimpl
+i1fundcl_tbox = i1fundcl
+//
+in//local
+//
+#implfun
+i1fundcl_lctn$get
+  (  ifun  ) = let
+val+
+I1FUNDCL
+( lctn
+, dpid
+, farg, tdxp) = ifun in lctn end
+//
+#implfun
+i1fundcl_dpid$get
+  (  ifun  ) = let
+val+
+I1FUNDCL
+( lctn
+, dpid
+, farg, tdxp) = ifun in dpid end
+//
+#implfun
+i1fundcl_farg$get
+  (  ifun  ) = let
+val+
+I1FUNDCL
+( lctn
+, dpid
+, farg, tdxp) = ifun in farg end
+//
+(* ****** ****** *)
+//
+#implfun
+i1fundcl_tdxp$get
+  (  ifun  ) = let
+val+
+I1FUNDCL
+( lctn
+, dpid
+, farg, tdxp) = ifun in tdxp end
+//
+(* ****** ****** *)
+//
+#implfun
+i1fundcl_make_args
+(lctn, dpid, farg, tdxp) =
+(
+  I1FUNDCL(lctn, dpid, farg, tdxp))
+//
+(* ****** ****** *)
+//
+endloc (*local*) // end of [ local(i1fundcl) ]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+local
+//
+datatype
+i1parsed =
+I1PARSED of
+(
+sint  // stadyn
+,
+sint  // nerror
+,
+lcsrc // source
+,
+i1dclistopt)//program
+//
+#absimpl
+i1parsed_tbox = i1parsed
+//
+in//local
+//
+(* ****** ****** *)
+//
+#implfun
+i1parsed_stadyn$get
+  (ipar) =
+(
+  stadyn ) where
+{
+val+
+I1PARSED
+( stadyn
+, nerror, source, parsed) = ipar
+} (*where*)//end-of-[i1parsed_stadyn$get]
+//
+#implfun
+i1parsed_nerror$get
+  (ipar) =
+(
+  nerror ) where
+{
+val+
+I1PARSED
+( stadyn
+, nerror, source, parsed) = ipar
+} (*where*)//end-of-[i1parsed_nerror$get]
+//
+#implfun
+i1parsed_source$get
+  (ipar) =
+(
+  source ) where
+{
+val+
+I1PARSED
+( stadyn
+, nerror, source, parsed) = ipar
+} (*where*)//end-of-[i1parsed_source$get]
+//
+(* ****** ****** *)
+//
+#implfun
+i1parsed_parsed$get
+  (ipar) =
+(
+  parsed ) where
+{
+val+
+I1PARSED
+( stadyn
+, nerror, source, parsed) = ipar
+} (*where*)//end-of-[i1parsed_parsed$get]
+//
+(* ****** ****** *)
+//
+#implfun
+i1parsed_make_args
+( stadyn
+, nerror
+, source, parsed) =
+(
+I1PARSED
+( stadyn
+, nerror, source, parsed)) where
+{
+//
+(*
+val () =
+prerrsln
+("i1parsed_make_args:nerror=",nerror)
+*)
+//
+} (*where*) // end-of-[i1parsed_make_args]
+//
+(* ****** ****** *)
+//
+endloc (*local*) // end of [ local(i1parsed) ]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(***********************************************************************)
+(* end of [ATS3/XANADU_srcgen2_xats2js_srcgen2_DATS_intrep1.dats] *)
+(***********************************************************************)

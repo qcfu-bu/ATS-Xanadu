@@ -1,0 +1,13 @@
+==== /Users/qcfu/Projects/ATS-Xanadu/frontend/TEST/m2/m2_recovery_private.py ====
+(module
+(def f@(0:0-0:3) (params)
+  (sdecl@(1:4-1:11)
+    (private@(1:4-1:11)
+      (cstmt@(2:8-2:17)
+        (let imm@(2:8-2:17) (Pvar x@(2:12-2:13)) = (Elit@(2:16-2:17) (int 1@(2:16-2:17)))))))
+  (let imm@(3:4-3:13) (Pvar y@(3:8-3:9)) = (Elit@(3:12-3:13) (int 2@(3:12-3:13))))
+  (expr@(4:4-4:5) (Evar y@(4:4-4:5))))
+)
+==== diagnostics ====
+(none)
+

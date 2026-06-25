@@ -1,0 +1,17 @@
+==== /Users/qcfu/Projects/ATS-Xanadu/frontend/TEST/m2_5/m25_while_pure.py ====
+(pycore
+(fungroup@(0:0-0:3)
+  (fun count@(0:0-0:3) (params n:(Tcon Int@(0:13-0:16))) -> (Tcon Int@(0:21-0:24)) = (Elet@(1:4-1:17) (Pvar i@(1:12-1:13)) = (Elit@(1:16-1:17) (int 0@(1:16-1:17)))
+      in (Elet@(2:4-2:19) (Pvar acc@(2:12-2:15)) = (Elit@(2:18-2:19) (int 0@(2:18-2:19)))
+        in (Eletfun@(3:4-3:9)
+          (loop loop@(-1:-1--1:-1) (params i acc) = (Eif@(3:4-3:9) (Eapp@(3:10-3:15) (Evar <@(3:10-3:15)) (args (Evar i@(3:10-3:11)) (Evar n@(3:14-3:15))))
+              then (Elet@(4:8-4:21) (Pvar acc@(4:8-4:11)) = (Eapp@(4:14-4:21) (Evar +@(4:14-4:21)) (args (Evar acc@(4:14-4:17)) (Evar i@(4:20-4:21))))
+                in (Elet@(5:8-5:17) (Pvar i@(5:8-5:9)) = (Eapp@(5:12-5:17) (Evar +@(5:12-5:17)) (args (Evar i@(5:12-5:13)) (Elit@(5:16-5:17) (int 1@(5:16-5:17)))))
+                  in (Eapp@(3:4-3:9) (Evar loop@(-1:-1--1:-1)) (args (Etup@(3:4-3:9) (Evar i@(3:4-3:9)) (Evar acc@(3:4-3:9)))))))
+              else (Etup@(3:4-3:9) (Evar i@(3:4-3:9)) (Evar acc@(3:4-3:9)))))
+          in (Elet@(3:4-3:9) (Ptup@(3:4-3:9) (Pvar i@(3:4-3:9)) (Pvar acc@(3:4-3:9))) = (Eapp@(3:4-3:9) (Evar loop@(-1:-1--1:-1)) (args (Etup@(3:4-3:9) (Evar i@(3:4-3:9)) (Evar acc@(3:4-3:9)))))
+            in (Evar acc@(6:4-6:7))))))))
+)
+==== diagnostics ====
+(none)
+

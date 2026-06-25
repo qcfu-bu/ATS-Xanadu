@@ -1,0 +1,1 @@
+#dyninit "foo/bar.dats"

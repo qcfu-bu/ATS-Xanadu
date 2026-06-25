@@ -1,0 +1,20 @@
+# COMPILER SOURCE ONLY (srcgen2/DATS/*) — the prelude (prelude/DATS/*) is the
+# FROZEN Scheme runtime (cats + collrt + generics), NOT recompiled.  The set of
+# symbols these reference but the runtime doesn't define IS the prelude floor.
+# frontend foundational
+xbasics
+xstamp0
+xlabel0
+locinfo
+filpath
+xsymbol_mymap0
+xsymbol
+# lexer
+lexbuf0_cstrx1
+lexbuf0_cstrx2
+lexing0_token0
+lexing0_mymap0
+lexing0_utils1
+lexing0_utils2
+lexing0
+lexing0_kword0

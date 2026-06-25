@@ -1,0 +1,9 @@
+type Stamp = Int
+
+def stamp_nilq(s: Stamp) -> Bool:
+    true
+
+@overload is_nil = stamp_nilq
+
+def use_isnil(x: Stamp) -> Bool:
+    is_nil(x)

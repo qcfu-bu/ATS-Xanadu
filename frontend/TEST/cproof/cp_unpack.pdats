@@ -1,0 +1,8 @@
+enum Vec[A, n: SInt]:
+    case VNil
+    case VCons(A, Vec[A, n])
+
+def headOr[A, n: SInt](d: A, v: Vec[A, n]) -> A:
+    match v:
+        case VNil: d
+        case VCons{m}(x, rest): x

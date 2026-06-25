@@ -1,0 +1,6 @@
+enum Vec[A, n: SInt]:
+    case VNil
+    case VCons(A, Vec[A, n])
+
+def empty_vec() -> Vec[Int, 0]:
+    VNil

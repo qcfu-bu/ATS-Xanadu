@@ -1,0 +1,7 @@
+from "srcgen2/SATS/dynexp2.sats" import *
+
+enum Qmap:
+    case QMAP(MAP.topmap[g1mac])
+
+def qualified_static_map_wrap(fenv: f2env) -> Qmap:
+    QMAP(f2env_get_g1macenv(fenv))

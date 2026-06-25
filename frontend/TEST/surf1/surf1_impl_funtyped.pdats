@@ -1,0 +1,13 @@
+type Tkbf0 = Int
+
+type P1Fun[A] = (!Tkbf0, &Int >> _) -> A
+
+@extern
+def p1_i0dntseq() -> P1Fun[Int]
+
+@impl
+def p1_i0dntseq(buf, err):
+    buf + err
+
+def use_p1_i0dntseq() -> Int:
+    p1_i0dntseq(40, 2)

@@ -1,0 +1,5 @@
+def apply(f: (Int) -> Int, x: Int) -> Int:
+    f(x)
+
+def make_ok(n: Int) -> Int:
+    apply((x: Int) => x + n, 5)

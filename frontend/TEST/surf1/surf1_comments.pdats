@@ -1,0 +1,6 @@
+(* a top-of-file block comment: surf1 comments feature *)
+def add1(x: Int) -> Int:
+    (* a nested (* block (* deeply *) nested *) comment inside the body *)
+    let y = x + 1   (* trailing block comment after real code *)
+    # a hash line comment still works too
+    y

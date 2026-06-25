@@ -1,0 +1,38 @@
+# TAIL ITEM 2 — `#define NAME value` compile-time constant (named int / bit-flag). ALREADY-COVERED.
+#
+# Corpus pattern (recon-confirmed, srcgen2/SATS/xbasics.sats):
+#   #define KINFIXL 1
+#   #define BOXKIND 0x001
+# A `#define NAME value` binds NAME as a GLOBAL MACRO (g1mac) that EXPANDS to a plain int literal
+# in DYNAMIC position (trd2exp_g1mac -> G1Mint -> f0_int). Investigation-proven: EVERY corpus use
+# of every `#define`d NAME is in a DYNAMIC position (arithmetic / comparison / call argument);
+# NO `#define` NAME is ever used in a static/index/type position (the S2Eg1mac static path is dead
+# code the corpus never exercises). So a `#define` int constant is faithfully modeled by a plain
+# top-level value binding `let NAME = value` -> PCCval -> D2Cvaldclst: a DYNAMIC int constant
+# usable in arithmetic/comparison exactly like the expanded macro. ALREADY-COVERED by our existing
+# PCCval lowering — no new code; this fixture is the proving confirmation.
+#
+# NAME-CASE NOTE: the corpus spells `#define` constants UPPERCASE (`KINFIXL`, `BOXKIND`). A bare
+# UPPERCASE identifier in a `let`-PATTERN is parsed as a nullary CONSTRUCTOR pattern (the
+# UIDENT=constructor convention), not a value-variable binding — so the literal-uppercase corpus
+# spelling is the SAME P2 pretty-printer case-convention concern already DECIDED in BOOTSTRAP-PLAN
+# "Reality check" item 1 (the pretty-printer normalizes case for value names; a `#define` int
+# constant is a VALUE binding, so it lowers like any value name once cased to a LIDENT). The const
+# MECHANISM is what ITEM 2 asks us to confirm; this fixture exercises it with the value-name
+# convention (lowercase), exactly the spelling the pretty-printer would emit for a value binding.
+#
+# This fixture: three named int constants (a plain int, two bit-flags), USED in dynamic arithmetic
+# (+) and a comparison (==) — the corpus `#define`-as-const shape, lowering nerror=0.
+
+let kinfixl = 1
+let boxkind = 1
+let linkind = 16
+
+def fixity_is_infixl(knd: Int) -> Bool:
+    knd == kinfixl
+
+def kind_bits() -> Int:
+    boxkind + linkind
+
+def kind_sum(extra: Int) -> Int:
+    kinfixl + boxkind + linkind + extra

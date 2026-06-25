@@ -1,0 +1,6 @@
+@overload
+def show(x: Int) -> Int:
+    x
+
+def use_show() -> Int:
+    show(7)
