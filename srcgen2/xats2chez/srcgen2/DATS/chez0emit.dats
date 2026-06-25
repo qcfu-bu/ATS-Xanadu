@@ -510,6 +510,19 @@ case+ sps of
 | list_nil() => false
 | list_cons(p0, sps) => if pat_has_var(p0) then true else patlst_has_var(sps))
 //
+(* cz_pat_strip: peel the linear markers (~free / !bang / @flat) off a pattern to
+   reach the structural I0Pdapp/I0Ptup0/... underneath.  A `val+ @PSTN1(!a,!b) = p`
+   arrives wrapped (I0Pflat ...), and the destructuring val below must see through
+   it -- exactly as cz_pat_binds / cz_param_pat already do. *)
+and
+cz_pat_strip
+( p: i0pat): i0pat =
+(case+ p.node() of
+ | I0Pfree(p0) => cz_pat_strip(p0)
+ | I0Pbang(p0) => cz_pat_strip(p0)
+ | I0Pflat(p0) => cz_pat_strip(p0)
+ | _(*else*) => p)
+//
 (* cz_destr_fields: for a destructuring val whose scrutinee is bound to the
    fresh temp czdv<freshn>, emit a (define <var> <projection>) for each var
    sub-pattern.  iscon: datacon fields (XATSPCON) vs tuple fields (vector-ref).
@@ -1691,7 +1704,7 @@ case+ tdxp of
         (cz_str(filr, "(define czdv"); cz_emit_uint(filr, freshn);
          cz_str(filr, " "); i0exp_cz0(filr, iexp); cz_str(filr, ")\n"))
       in//let
-      case+ ipat.node() of
+      case+ (cz_pat_strip(ipat)).node() of
       | I0Pdapp(_, npf, sps) => cz_destr_fields(filr, ldrop_pat(sps, npf), true, 0, freshn)
       | I0Ptup0(npf, sps) => cz_destr_fields(filr, ldrop_pat(sps, npf), false, 0, freshn)
       | I0Ptup1(_, npf, sps) => cz_destr_fields(filr, ldrop_pat(sps, npf), false, 0, freshn)
