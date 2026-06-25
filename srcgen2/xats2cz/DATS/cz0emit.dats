@@ -250,83 +250,47 @@ case+ fpat.node() of
 | I0Pdap1(p0) => cz_funpat_ctag(filr, p0)
 | _ (*else*) => (cz_str(filr, "0"); prerrsln("[cz0emit] funpat ctag unresolved -> 0")))
 //
-(* field access against [czscrut]: datacon field (skip ctag, XATSPCON) or tuple
-   field (vector-ref). *)
+(* === pattern match ACCESS PATHS (arbitrary nesting) ===
+   A path is a list of (iscon, fieldidx) steps; HEAD = the OUTERMOST field wrap
+   (the most-recently descended sub-pattern).  cz_emit_acc roots it at czscrut and
+   composes XATSPCON (datacon, skips ctag at slot 0) / vector-ref (tuple) nests,
+   e.g. C(D(x),_) gives x the access (XATSPCON (XATSPCON czscrut 0) 0). *)
 fun
-cz_field_acc
-( filr: FILR, iscon: bool, idx: sint): void =
+cz_emit_acc
+( filr: FILR, path: list(@(bool, sint))): void =
 (
-if iscon
-then (cz_str(filr, "(XATSPCON czscrut "); cz_int(filr, idx); cz_str(filr, ")"))
-else (cz_str(filr, "(vector-ref czscrut "); cz_int(filr, idx); cz_str(filr, ")")))
+case+ path of
+| list_nil() => cz_str(filr, "czscrut")
+| list_cons(@(iscon, idx), rest) =>
+  (cz_str(filr, if iscon then "(XATSPCON " else "(vector-ref ");
+   cz_emit_acc(filr, rest); cz_str(filr, " "); cz_int(filr, idx); cz_str(filr, ")")))
 //
-(* field ADDRESS against [czscrut], for a `!x` bang reference: #(container key),
-   read/written via XATS_lvget/lvset.  A datacon field i lives at vector slot
-   i+1 (ctag at 0); a tuple field i at slot i. *)
+(* the ADDRESS of the field reached by [path] (head = that field's step), for a
+   `!x` bang reference: #(container key), key = idx+1 datacon / idx tuple. *)
 fun
-cz_field_addr
-( filr: FILR, iscon: bool, idx: sint): void =
+cz_emit_addr
+( filr: FILR, path: list(@(bool, sint))): void =
 (
-if iscon
-then (cz_str(filr, "(vector czscrut (+ "); cz_int(filr, idx); cz_str(filr, " 1))"))
-else (cz_str(filr, "(vector czscrut "); cz_int(filr, idx); cz_str(filr, ")")))
+case+ path of
+| list_nil() => cz_str(filr, "czscrut")
+| list_cons(@(iscon, idx), rest) =>
+  (cz_str(filr, "(vector "); cz_emit_acc(filr, rest); cz_str(filr, " ");
+   (if iscon then (cz_str(filr, "(+ "); cz_int(filr, idx); cz_str(filr, " 1)")) else cz_int(filr, idx));
+   cz_str(filr, ")")))
 //
-(* bind a `!x` sub-pattern var to the field ADDRESS (a left-value); its uses in
-   the body are deref'd (XATS_lvget) / assigned (XATS_lvset) by the frontend. *)
+(* a sub-pattern whose match-test is always true (binds a var / ignores) — gets no
+   test emitted, only a bind.  (Unwraps the linear free/bang/flat markers.) *)
 fun
-cz_subbind1_addr
-( filr: FILR, iscon: bool, idx: sint, p0: i0pat): void =
+cz_pat_trivial
+( p0: i0pat): bool =
 (
 case+ p0.node() of
-| I0Pvar(dvar) => (cz_str(filr, "("); cz_dvar(filr, dvar); cz_str(filr, " "); cz_field_addr(filr, iscon, idx); cz_str(filr, ")"))
-| I0Pbang(q0) => cz_subbind1_addr(filr, iscon, idx, q0)
-| I0Pfree(q0) => cz_subbind1_addr(filr, iscon, idx, q0)
-| I0Pflat(q0) => cz_subbind1_addr(filr, iscon, idx, q0)
-| _ (*else*) => ())
-//
-(* sub-pattern tests/binds (ONE level: flat var/wildcard/literal/con sub-pats). *)
-fun
-cz_subtest1
-( filr: FILR, iscon: bool, idx: sint, p0: i0pat): void =
-(
-case+ p0.node() of
-| I0Pany() => () | I0Pvar(_) => ()
-| I0Pint(t0) => (cz_str(filr, " (= "); cz_field_acc(filr, iscon, idx); cz_str(filr, " "); cz_int_token(filr, t0); cz_str(filr, ")"))
-| I0Pchr(t0) => (cz_str(filr, " (= "); cz_field_acc(filr, iscon, idx); cz_str(filr, " "); cz_chrtok(filr, t0); cz_str(filr, ")"))
-| I0Pbtf(s0) => (cz_str(filr, " (eq? "); cz_field_acc(filr, iscon, idx);
-                 cz_str(filr, if strn_eq(symbl_get_name(s0), "true") then " #t)" else " #f)"))
-| I0Pcon(dcon) => (cz_str(filr, " (XATS000_ctgeq "); cz_field_acc(filr, iscon, idx); cz_str(filr, " "); cz_ctag(filr, dcon); cz_str(filr, ")"))
-| I0Pfree(q0) => cz_subtest1(filr, iscon, idx, q0)
-| I0Pbang(q0) => cz_subtest1(filr, iscon, idx, q0)
-| I0Pflat(q0) => cz_subtest1(filr, iscon, idx, q0)
-| _ (*else*) => prerrsln("[cz0emit] UNHANDLED sub-pattern (test); deeper nesting TODO"))
-//
-fun
-cz_subtests
-( filr: FILR, iscon: bool, idx: sint, pats: i0patlst): void =
-(
-case+ pats of
-| list_nil() => ()
-| list_cons(p0, ps) => (cz_subtest1(filr, iscon, idx, p0); cz_subtests(filr, iscon, idx+1, ps)))
-//
-fun
-cz_subbind1
-( filr: FILR, iscon: bool, idx: sint, p0: i0pat): void =
-(
-case+ p0.node() of
-| I0Pvar(dvar) => (cz_str(filr, "("); cz_dvar(filr, dvar); cz_str(filr, " "); cz_field_acc(filr, iscon, idx); cz_str(filr, ")"))
-| I0Pbang(q0) => cz_subbind1_addr(filr, iscon, idx, q0)  (* !x -> field ADDRESS *)
-| I0Pfree(q0) => cz_subbind1(filr, iscon, idx, q0)
-| I0Pflat(q0) => cz_subbind1(filr, iscon, idx, q0)
-| _ (*else: any/literal/nested-con bind nothing at this level (M4)*) => ())
-//
-fun
-cz_subbinds
-( filr: FILR, iscon: bool, idx: sint, pats: i0patlst): void =
-(
-case+ pats of
-| list_nil() => ()
-| list_cons(p0, ps) => (cz_subbind1(filr, iscon, idx, p0); cz_subbinds(filr, iscon, idx+1, ps)))
+| I0Pany() => true
+| I0Pvar(_) => true
+| I0Pfree(q0) => cz_pat_trivial(q0)
+| I0Pbang(q0) => cz_pat_trivial(q0)
+| I0Pflat(q0) => cz_pat_trivial(q0)
+| _ (*else*) => false)
 //
 (* ===== pattern-val (`val[-] PAT = rhs`) destructuring =====
    A compound PAT emits  (define-values (v..) (let ((czpv rhs)) (values acc..))):
@@ -462,54 +426,97 @@ case+ ps of
     | optn_nil() => ());
    cz_pv_accs_lst(filr, iscon, idx+1, r)))
 //
-(* cz_pat_test: a boolean Scheme expr testing the scrutinee [czscrut] against a
-   pattern.  Flat literals + var/wildcard + one-level con/tuple patterns. *)
+(* cz_pat_test_p: a boolean Scheme test of the value at [path] (rooted at czscrut)
+   against [pat] — RECURSIVE, so nested datacon/tuple sub-patterns test through a
+   composed XATSPCON/vector-ref access.  cz_pat_test wraps it at the empty path. *)
 fun
-cz_pat_test
-( filr: FILR, pat: i0pat): void =
+cz_pat_test_p
+( filr: FILR, path: list(@(bool, sint)), pat: i0pat): void =
 (
 case+ pat.node() of
 | I0Pany() => cz_str(filr, "#t")
 | I0Pvar(_) => cz_str(filr, "#t")
-| I0Pint(t0) => (cz_str(filr, "(= czscrut "); cz_int_token(filr, t0); cz_str(filr, ")"))
-| I0Pchr(t0) => (cz_str(filr, "(= czscrut "); cz_chrtok(filr, t0); cz_str(filr, ")"))
-| I0Pstr(t0) => (cz_str(filr, "(string=? czscrut "); cz_str_token(filr, t0); cz_str(filr, ")"))
+| I0Pint(t0) => (cz_str(filr, "(= "); cz_emit_acc(filr, path); cz_str(filr, " "); cz_int_token(filr, t0); cz_str(filr, ")"))
+| I0Pchr(t0) => (cz_str(filr, "(= "); cz_emit_acc(filr, path); cz_str(filr, " "); cz_chrtok(filr, t0); cz_str(filr, ")"))
+| I0Pstr(t0) => (cz_str(filr, "(string=? "); cz_emit_acc(filr, path); cz_str(filr, " "); cz_str_token(filr, t0); cz_str(filr, ")"))
 | I0Pbtf(s0) =>
-  cz_str(filr, if strn_eq(symbl_get_name(s0), "true") then "(eq? czscrut #t)" else "(eq? czscrut #f)")
+  (cz_str(filr, "(eq? "); cz_emit_acc(filr, path);
+   cz_str(filr, if strn_eq(symbl_get_name(s0), "true") then " #t)" else " #f)"))
 | I0Pcon(dcon) =>
-  (cz_str(filr, "(XATS000_ctgeq czscrut "); cz_ctag(filr, dcon); cz_str(filr, ")"))
+  (cz_str(filr, "(XATS000_ctgeq "); cz_emit_acc(filr, path); cz_str(filr, " "); cz_ctag(filr, dcon); cz_str(filr, ")"))
 | I0Pdap1(p0) =>
-  (cz_str(filr, "(XATS000_ctgeq czscrut "); cz_funpat_ctag(filr, p0); cz_str(filr, ")"))
+  (cz_str(filr, "(XATS000_ctgeq "); cz_emit_acc(filr, path); cz_str(filr, " "); cz_funpat_ctag(filr, p0); cz_str(filr, ")"))
 | I0Pdapp(fpat, argpats) =>
-  (cz_str(filr, "(and (XATS000_ctgeq czscrut "); cz_funpat_ctag(filr, fpat); cz_str(filr, ")");
-   cz_subtests(filr, true, 0, argpats); cz_str(filr, ")"))
+  (cz_str(filr, "(and (XATS000_ctgeq "); cz_emit_acc(filr, path); cz_str(filr, " "); cz_funpat_ctag(filr, fpat); cz_str(filr, ")");
+   cz_subtests_p(filr, path, true, 0, argpats); cz_str(filr, ")"))
 | I0Ptup0(pats) =>
-  (cz_str(filr, "(and #t"); cz_subtests(filr, false, 0, pats); cz_str(filr, ")"))
+  (cz_str(filr, "(and #t"); cz_subtests_p(filr, path, false, 0, pats); cz_str(filr, ")"))
 | I0Ptup1(_, pats) =>
-  (cz_str(filr, "(and #t"); cz_subtests(filr, false, 0, pats); cz_str(filr, ")"))
-| I0Pfree(p0) => cz_pat_test(filr, p0)
-| I0Pbang(p0) => cz_pat_test(filr, p0)
-| I0Pflat(p0) => cz_pat_test(filr, p0)
+  (cz_str(filr, "(and #t"); cz_subtests_p(filr, path, false, 0, pats); cz_str(filr, ")"))
+| I0Pfree(p0) => cz_pat_test_p(filr, path, p0)
+| I0Pbang(p0) => cz_pat_test_p(filr, path, p0)
+| I0Pflat(p0) => cz_pat_test_p(filr, path, p0)
 | _ (*else*) =>
   (
   cz_str(filr, "#f");
   prerrsln("[cz0emit] UNHANDLED-pat-test-NODE:");
   i0pat_fprint(pat, g_stderr((*0*))); prerrsln("")))
 //
-(* cz_pat_binds: the let-binding list CONTENT for a pattern (M2: var only). *)
+and  (* sub-pattern tests: skip the always-true (var/wildcard) ones, descend the rest *)
+cz_subtests_p
+( filr: FILR, path: list(@(bool, sint)), iscon: bool, idx: sint, pats: i0patlst): void =
+(
+case+ pats of
+| list_nil() => ()
+| list_cons(p0, ps) =>
+  ((if cz_pat_trivial(p0) then () else
+      (cz_str(filr, " "); cz_pat_test_p(filr, list_cons(@(iscon, idx), path), p0)));
+   cz_subtests_p(filr, path, iscon, idx+1, ps)))
+//
+(* cz_pat_binds_p: the let-binding pairs for [pat] at [path] — RECURSIVE; nested
+   sub-pattern vars bind through composed accesses; a `!x` binds the field ADDRESS. *)
 fun
-cz_pat_binds
-( filr: FILR, pat: i0pat): void =
+cz_pat_binds_p
+( filr: FILR, path: list(@(bool, sint)), pat: i0pat): void =
 (
 case+ pat.node() of
-| I0Pvar(dvar) => (cz_str(filr, "("); cz_dvar(filr, dvar); cz_str(filr, " czscrut)"))
-| I0Pdapp(_, argpats) => cz_subbinds(filr, true, 0, argpats)
-| I0Ptup0(pats) => cz_subbinds(filr, false, 0, pats)
-| I0Ptup1(_, pats) => cz_subbinds(filr, false, 0, pats)
-| I0Pfree(p0) => cz_pat_binds(filr, p0)
-| I0Pbang(p0) => cz_pat_binds(filr, p0)
-| I0Pflat(p0) => cz_pat_binds(filr, p0)
+| I0Pvar(dvar) => (cz_str(filr, "("); cz_dvar(filr, dvar); cz_str(filr, " "); cz_emit_acc(filr, path); cz_str(filr, ")"))
+| I0Pbang(q0) => cz_pat_binds_addr_p(filr, path, q0)
+| I0Pfree(p0) => cz_pat_binds_p(filr, path, p0)
+| I0Pflat(p0) => cz_pat_binds_p(filr, path, p0)
+| I0Pdapp(_, argpats) => cz_subbinds_p(filr, path, true, 0, argpats)
+| I0Ptup0(pats) => cz_subbinds_p(filr, path, false, 0, pats)
+| I0Ptup1(_, pats) => cz_subbinds_p(filr, path, false, 0, pats)
+| _ (*else: any/literal/nullary-con bind nothing*) => ())
+//
+and
+cz_subbinds_p
+( filr: FILR, path: list(@(bool, sint)), iscon: bool, idx: sint, pats: i0patlst): void =
+(
+case+ pats of
+| list_nil() => ()
+| list_cons(p0, ps) =>
+  (cz_pat_binds_p(filr, list_cons(@(iscon, idx), path), p0);
+   cz_subbinds_p(filr, path, iscon, idx+1, ps)))
+//
+and  (* `!x` at [path] binds x to the field ADDRESS (left-value) *)
+cz_pat_binds_addr_p
+( filr: FILR, path: list(@(bool, sint)), p0: i0pat): void =
+(
+case+ p0.node() of
+| I0Pvar(dvar) => (cz_str(filr, "("); cz_dvar(filr, dvar); cz_str(filr, " "); cz_emit_addr(filr, path); cz_str(filr, ")"))
+| I0Pbang(q0) => cz_pat_binds_addr_p(filr, path, q0)
+| I0Pfree(q0) => cz_pat_binds_addr_p(filr, path, q0)
+| I0Pflat(q0) => cz_pat_binds_addr_p(filr, path, q0)
 | _ (*else*) => ())
+//
+fun  (* wrappers: match at the root (empty path = czscrut) *)
+cz_pat_test
+( filr: FILR, pat: i0pat): void = cz_pat_test_p(filr, list_nil(), pat)
+//
+fun
+cz_pat_binds
+( filr: FILR, pat: i0pat): void = cz_pat_binds_p(filr, list_nil(), pat)
 (* ****** ****** *)
 (* ===== function parameters ===== *)
 (* A function param that is a bare variable binds directly as a Scheme param; a
