@@ -162,6 +162,23 @@ $(DRV_CZ): $(DRIVER) | dirs
 	fi
 
 ########################################################################
+# PREBUILT FIXED LIBS — INPUTS produced by the xats2js bootstrap, NOT built here:
+#   LIB2OPT = lib2xatsopt.js  (js1, the frontend)
+#   LIB2JS  = lib2xats2js.js  (js2, intrep0 + trxd3i0)
+# If one is missing (e.g. its lib/ was cleaned), self-heal where cheap: the js2 lib
+# is just a concat of cached fragments, so regenerate it; the js1 lib needs the full
+# xatsopt bootstrap, so error with a clear pointer instead of make's cryptic message.
+########################################################################
+$(LIB2JS):
+	@echo ">> js2 lib missing -> regenerating via the xats2js build (concat of cached fragments)" >&2
+	@$(MAKE) -C $(SRCGEN2)/xats2js/srcgen1 -f Makefile_xjsemit lib2xats2js
+
+$(LIB2OPT):
+	@echo "!! missing prebuilt frontend lib: $@" >&2; \
+	 echo "   it comes from the xats2js/xatsopt bootstrap, not this Makefile — rebuild that." >&2; \
+	 exit 1
+
+########################################################################
 # CACHED namespace-sed'd FIXED libs (pure function of FIXED input).
 ########################################################################
 $(OPT_JS1): $(LIB2OPT) | dirs
