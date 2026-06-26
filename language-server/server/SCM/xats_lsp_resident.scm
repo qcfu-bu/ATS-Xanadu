@@ -818,6 +818,7 @@
 ;; staloaded declaration's (name,kind,type) here.  Kill-switch:
 ;; ATS3_LSP_STALOAD_COMPLETE=0 makes seen return #t for everything -> no descent.
 (define LSP_staload_enabled (not (equal? (getenv "ATS3_LSP_STALOAD_COMPLETE") "0")))
+(define LSP_complete_cap (let ((v (getenv "ATS3_LSP_COMPLETE_CAP"))) (if v (or (string->number v) 200) 200)))
 (define LSP_staload_symbols '())                      ; list of #(name kind typ)
 (define LSP_staload_seen_names (make-hashtable string-hash string=?))
 (define LSP_staload_seen_files (make-hashtable equal-hash equal?))   ; stamp -> #t
@@ -1012,12 +1013,27 @@
 ;; ====================================================================== ;;
 ;; TextDocuments store (open buffers; incremental sync; offset<->position)  ;;
 ;; ====================================================================== ;;
-;; doc = (vector uri text version).  Positions treat each Scheme char as 1 UTF-16
-;; unit (exact for BMP; astral chars in source are rare and only affect sync math).
+;; doc = (vector uri text version line-starts).  Positions treat each Scheme char
+;; as 1 UTF-16 unit (exact for BMP; astral chars only affect sync math).
+;; line-starts is a lazily-built vector of per-line char offsets so (line,char)<->
+;; offset is O(1)/O(log) instead of an O(file) walk on every keystroke.
 (define LSP_docs (make-hashtable equal-hash equal?))
 (define (LSP-doc-get uri) (hashtable-ref LSP_docs uri #f))
 (define (LSP-doc-text doc) (vector-ref doc 1))
-(define (LSP-doc-set uri text version) (hashtable-set! LSP_docs uri (vector uri text version)))
+(define (LSP-doc-set uri text version) (hashtable-set! LSP_docs uri (vector uri text version #f)))
+(define (LSP-doc-line-starts doc)
+  (or (vector-ref doc 3)
+      (let* ((text (vector-ref doc 1)) (n (string-length text))
+             (ls (let loop ((i 0) (acc '(0)))
+                   (cond ((>= i n) (list->vector (reverse acc)))
+                         ((char=? (string-ref text i) #\newline) (loop (+ i 1) (cons (+ i 1) acc)))
+                         (else (loop (+ i 1) acc))))))
+        (vector-set! doc 3 ls) ls)))
+;; O(1) (line,char) -> char offset via cached line-starts.
+(define (LSP-offset-at-ls ls text line char)
+  (if (and (>= line 0) (< line (vector-length ls)))
+      (min (string-length text) (+ (vector-ref ls line) (max 0 char)))
+      (string-length text)))
 (define (LSP-doc-del uri) (hashtable-delete! LSP_docs uri))
 (define (LSP-doc-uris) (vector->list (hashtable-keys LSP_docs)))
 (define (LSP-offset-at text line char)
@@ -1048,24 +1064,36 @@
 (define (LSP_build_completion uri line char)
   (let ((doc (LSP-doc-get uri)))
     (if (not doc) (jobj (list (cons "isIncomplete" (jbool #f)) (cons "items" (jarr '()))))
-        (let* ((text (LSP-doc-text doc)) (offset (LSP-offset-at text line char)))
-          ;; partial word + member detection
+        (let* ((text (LSP-doc-text doc)) (ls (LSP-doc-line-starts doc)) (offset (LSP-offset-at-ls ls text line char)))
+          ;; partial word + member detection (the backward scans are bounded by the
+          ;; word/whitespace run; wstart and j0 are on the cursor's line, so their
+          ;; columns are computed directly — no O(file) pos-at walk).
           (let* ((wstart (let loop ((i offset)) (if (and (> i 0) (LSP-ident-ch? (string-ref text (- i 1)))) (loop (- i 1)) i)))
                  (word (substring text wstart offset))
                  (j0 (let loop ((j (- wstart 1))) (if (and (>= j 0) (memv (string-ref text j) '(#\space #\tab))) (loop (- j 1)) j)))
                  (member? (and (>= j0 0) (char=? (string-ref text j0) #\.)))
-                 (rng (jobj (list (cons "start" (let ((p (LSP-pos-at text wstart))) (jobj (list (cons "line" (jnum (car p))) (cons "character" (jnum (cdr p)))))))
+                 (wcol (- char (- offset wstart)))
+                 (rng (jobj (list (cons "start" (jobj (list (cons "line" (jnum line)) (cons "character" (jnum wcol)))))
                                   (cons "end" (jobj (list (cons "line" (jnum line)) (cons "character" (jnum char)))))))))
             (if member?
-                (LSP-completion-member uri word rng (LSP-pos-at text j0))
+                (LSP-completion-member uri word rng (cons line (- char (- offset j0))))
                 (LSP-completion-general uri word rng line char)))))))
-(define (LSP-ci-prefix? name pre)
-  (or (string=? pre "") (LSP-starts-with? (LSP-downcase name) (LSP-downcase pre))))
+;; allocation-free case-insensitive prefix test against a PRE-LOWERCASED query
+;; (downcases only the candidate's first wlen chars, on the fly, exiting early on
+;; the first mismatch — no per-candidate string allocation).
+(define (LSP-ci-prefix-lc? name wlow wlen)
+  (or (= wlen 0)
+      (and (>= (string-length name) wlen)
+           (let loop ((i 0))
+             (cond ((>= i wlen) #t)
+                   ((char=? (char-downcase (string-ref name i)) (string-ref wlow i)) (loop (+ i 1)))
+                   (else #f))))))
 (define (LSP-completion-member uri word rng dotpos)
-  (let ((r (LSP-idx-get uri)) (items '()) (seen (make-hashtable string-hash string=?)))
+  (let* ((r (LSP-idx-get uri)) (items '()) (seen (make-hashtable string-hash string=?))
+         (wlow (LSP-downcase word)) (wlen (string-length wlow)))
     (when r
       (for-each (lambda (m)
-                  (when (and (= (vr m 2) (car dotpos)) (= (vr m 3) (cdr dotpos)) (LSP-ci-prefix? (vr m 4) word) (not (hashtable-contains? seen (vr m 4))))
+                  (when (and (= (vr m 2) (car dotpos)) (= (vr m 3) (cdr dotpos)) (not (hashtable-contains? seen (vr m 4))) (LSP-ci-prefix-lc? (vr m 4) wlow wlen))
                     (hashtable-set! seen (vr m 4) #t)
                     (set! items (cons (jobj (list (cons "label" (jstr (vr m 4))) (cons "kind" (jnum 5))
                                                   (cons "detail" (jstr (if (string=? (vr m 5) "") "field" (string-append ": " (vr m 5)))))
@@ -1074,36 +1102,47 @@
                 (idx-members r)))
     (jobj (list (cons "isIncomplete" (jbool #t)) (cons "items" (jarr (reverse items)))))))
 (define (LSP-completion-general uri word rng line char)
-  (let ((items '()) (seen (make-hashtable string-hash string=?)) (cap 200) (cnt 0))
+  (let* ((items '()) (seen (make-hashtable string-hash string=?)) (cap LSP_complete_cap) (cnt 0)
+         (wlow (LSP-downcase word)) (wlen (string-length wlow)))
     (define (cand-detail s src) (if (not (string=? (vr s 2) "")) (vr s 2) (if (= (vr s 1) 12) "overloaded" src)))
+    ;; cnt-cap checked FIRST so candidates past the cap short-circuit without the
+    ;; prefix test; then dedup; then the (now cheap) prefix test.
     (define (add name symKind src detail)
-      (when (and (not (string=? name "")) (not (hashtable-contains? seen name)) (LSP-ci-prefix? name word) (< cnt cap))
+      (when (and (< cnt cap) (not (string=? name "")) (not (hashtable-contains? seen name)) (LSP-ci-prefix-lc? name wlow wlen))
         (hashtable-set! seen name #t) (set! cnt (+ cnt 1))
         (set! items (cons (jobj (list (cons "label" (jstr name)) (cons "kind" (jnum (if (string=? src "5") 14 (LSP_sk_to_cik symKind))))
                                       (cons "detail" (jstr detail)) (cons "sortText" (jstr (string-append src name)))
                                       (cons "textEdit" (jobj (list (cons "range" rng) (cons "newText" (jstr name))))))) items))))
+    ;; iterate a list of symbols (#(name kind ... typ)), stopping at the cap.
+    (define (add-syms lst src detail-src)
+      (let loop ((xs lst))
+        (when (and (pair? xs) (< cnt cap))
+          (let ((s (car xs))) (add (vr s 0) (vr s 1) src (cand-detail s detail-src)))
+          (loop (cdr xs)))))
+    ;; iterate a document-symbol list (#(l0 c0 l1 c1 name kind container typ)) at the cap.
+    (define (add-docsyms lst src detail-src)
+      (let loop ((xs lst))
+        (when (and (pair? xs) (< cnt cap))
+          (let ((s (car xs))) (add (vr s 4) (vr s 5) src (cand-detail (vector (vr s 4) (vr s 5) (vr s 7)) detail-src)))
+          (loop (cdr xs)))))
     (let ((r (LSP-idx-get uri)))
       (when r
-        ;; 0: in-scope locals
-        (for-each (lambda (s) (when (and (LSP_posLE (vr s 0) (vr s 1) line char) (LSP_posLE line char (vr s 2) (vr s 3)))
+        ;; 0: in-scope locals (position-filtered)
+        (for-each (lambda (s) (when (and (< cnt cap) (LSP_posLE (vr s 0) (vr s 1) line char) (LSP_posLE line char (vr s 2) (vr s 3)))
                                 (add (vr s 4) 13 "0" (if (string=? (vr s 5) "") "local" (vr s 5))))) (idx-scopes r))
         ;; 1: current-file symbols
-        (for-each (lambda (s) (add (vr s 4) (vr s 5) "1" (cand-detail (vector (vr s 4) (vr s 5) (vr s 7)) "this file"))) (idx-syms r))))
+        (add-docsyms (idx-syms r) "1" "this file")))
     ;; 2: project symbols (other open buffers + bg-indexed)
-    (let-values (((uris recs) (hashtable-entries LSP_index)))
-      (vector-for-each (lambda (u2 rec) (unless (string=? u2 uri)
-                                          (for-each (lambda (s) (add (vr s 4) (vr s 5) "2" (cand-detail (vector (vr s 4) (vr s 5) (vr s 7)) "project"))) (idx-syms rec))))
-                       uris recs))
-    (let-values (((ps prs) (hashtable-entries LSP_proj_symbols)))
-      (vector-for-each (lambda (np rec) (unless (or (not rec) (string=? (car rec) uri) (hashtable-contains? LSP_index (car rec)))
-                                          (for-each (lambda (s) (add (vr s 4) (vr s 5) "2" (cand-detail (vector (vr s 4) (vr s 5) (vr s 7)) "project"))) (cdr rec))))
-                       ps prs))
-    ;; 3: prelude/global (the pervasive prelude API)
-    (when (< cnt cap) (for-each (lambda (s) (add (vr s 0) (vr s 1) "3" (cand-detail s "prelude"))) LSP_prelude_symbols))
-    ;; 4: staloaded API (the names this file's #staload/#include closure pulls in)
-    (when (< cnt cap) (for-each (lambda (s) (add (vr s 0) (vr s 1) "4" (cand-detail s "staload"))) LSP_staload_symbols))
-    ;; 5: keywords
-    (for-each (lambda (kw) (add kw 0 "5" "keyword")) LSP_KEYWORDS)
+    (when (< cnt cap)
+      (let-values (((uris recs) (hashtable-entries LSP_index)))
+        (vector-for-each (lambda (u2 rec) (when (and (< cnt cap) (not (string=? u2 uri))) (add-docsyms (idx-syms rec) "2" "project"))) uris recs)))
+    (when (< cnt cap)
+      (let-values (((ps prs) (hashtable-entries LSP_proj_symbols)))
+        (vector-for-each (lambda (np rec) (when (and (< cnt cap) rec (not (string=? (car rec) uri)) (not (hashtable-contains? LSP_index (car rec)))) (add-docsyms (cdr rec) "2" "project"))) ps prs)))
+    ;; 3: prelude/global  4: staloaded API  5: keywords  (all early-exit at the cap)
+    (add-syms LSP_prelude_symbols "3" "prelude")
+    (add-syms LSP_staload_symbols "4" "staload")
+    (let loop ((xs LSP_KEYWORDS)) (when (and (pair? xs) (< cnt cap)) (add (car xs) 0 "5" "keyword") (loop (cdr xs))))
     (jobj (list (cons "isIncomplete" (jbool #t)) (cons "items" (jarr (reverse items)))))))
 
 ;; ====================================================================== ;;
