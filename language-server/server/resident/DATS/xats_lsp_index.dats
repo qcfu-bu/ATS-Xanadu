@@ -43,10 +43,8 @@ external here.  Everything else is backend-agnostic ATS3.
 #extern fun str_len(s: string): sint = $extnam()
 #extern fun str_char_code(s: string, i: sint): sint = $extnam()
 #extern fun str_of_code(c: sint): string = $extnam()
-#extern fun LSP_cur_b2u(line: int, col: int): int = $extnam()
-#extern fun LSP_other_b2u(path: string, line: int, col: int): int = $extnam()
-// LSP_path2uri / LSP_friendly / LSP_def_in_current now come from xats_lsp_conv
-// (#staload'd above) — ATS->ATS, no longer glue leaves.
+// LSP_cur_b2u / LSP_other_b2u / LSP_path2uri / LSP_friendly / LSP_def_in_current
+// now come from xats_lsp_conv (#staload'd above) — ATS->ATS, no longer glue leaves.
 #extern fun JS_path_is_prelude(path: string): bool = $extnam()
 //
 (* ****** ****** *)

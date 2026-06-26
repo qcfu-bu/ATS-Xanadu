@@ -524,6 +524,9 @@
 (define (LSP-read-file path)
   (let* ((p (open-file-input-port path)) (bs (get-bytevector-all p)))
     (close-port p) (if (eof-object? bs) "" (utf8->string bs))))
+;; FFI floor leaf: read a file's text, "" on error/missing (the ATS conv module's
+;; LSP_other_b2u reads def-target files for cross-file UTF-16 column conversion).
+(define (lsp_fs_read path) (guard (e (#t "")) (LSP-read-file path)))
 
 ;; ====================================================================== ;;
 ;; harvest accumulators (per-check) + the per-uri index                    ;;
@@ -1209,7 +1212,7 @@
       (LSP-idx-reset)
       (set! LSP_cur_symbols '()) (set! LSP_cur_scopes '()) (set! LSP_cur_members '())
       (set! LSP_cur_uri uri) (set! LSP_cur_path (vscode_url_to_path uri)) (set! LSP_cur_path_norm (LSP_norm LSP_cur_path))
-      (convSetCur LSP_cur_uri LSP_cur_path)   ; ATS conv layer: friendly/def_in_current/path2uri per-check state
+      (convSetCur LSP_cur_uri LSP_cur_path sourceText)   ; ATS conv layer: friendly/def_in_current/path2uri/cur_b2u state
       (set! LSP_cur_u16 (LSP_u16_make sourceText)) (set! LSP_other_u16 (make-hashtable equal-hash equal?))
       (guard (e (#t #f)) (LSP_proj_index_file LSP_cur_path sourceText))
       (let ((validatorError (guard (e (#t e)) (runCheck) #f)))
@@ -1231,7 +1234,7 @@
                                      " diags=" (number->string (if validatorError 1 (LSP-idx-ndiags)))
                                      " hovers=" (number->string (LSP-idx-count uri 0)) " defs=" (number->string (LSP-idx-count uri 1))
                                      " tokens=" (number->string (LSP-idx-count uri 2)) " stats=" (number->string (LSP_stat_count_reset)) " staloadsyms=" (number->string (length LSP_staload_symbols)) " staloadfiles=" (number->string (hashtable-size LSP_staload_seen_files)) "\n"))
-          (set! LSP_cur_uri #f) (set! LSP_cur_path #f) (set! LSP_cur_path_norm #f) (set! LSP_cur_u16 #f) (convSetCur "" "")))))
+          (set! LSP_cur_uri #f) (set! LSP_cur_path #f) (set! LSP_cur_path_norm #f) (set! LSP_cur_u16 #f) (convSetCur "" "" "")))))
 
   (define (textValidator uri text) (runValidation uri text "disk" (lambda () (validator LSP_dependencies #f uri))))
   (define (liveValidate uri text) (runValidation uri text "live" (lambda () (liveValidator LSP_dependencies #f uri text))))
@@ -1250,12 +1253,12 @@
                    (when text
                      (LSP-idx-reset)   ; symbols-only pass: accumulate -> proj cache (no commit)
                      (set! LSP_cur_uri uri) (set! LSP_cur_path n) (set! LSP_cur_path_norm n)
-                     (convSetCur uri n)
+                     (convSetCur uri n text)
                      (set! LSP_cur_u16 (LSP_u16_make text)) (set! LSP_other_u16 (make-hashtable equal-hash equal?))
                      (guard (e (#t #f)) (validator LSP_dependencies #f uri))
                      (LSP-idx-proj-store n uri)
                      (set! done (+ done 1))
-                     (set! LSP_cur_uri #f) (set! LSP_cur_path #f) (set! LSP_cur_u16 #f) (convSetCur "" ""))))))
+                     (set! LSP_cur_uri #f) (set! LSP_cur_path #f) (set! LSP_cur_u16 #f) (convSetCur "" "" ""))))))
            (hashtable-keys LSP_proj_indexed))))
         (LSP-stderr (string-append "[xats-lsp-resident] bg-index: " (number->string done) " file(s) indexed\n")))))
 

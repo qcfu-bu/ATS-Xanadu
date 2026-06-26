@@ -16,6 +16,7 @@ LSP_path2uri byte-for-byte.  Interface: SATS/xats_lsp_conv.sats.
 //
 #staload "./../SATS/xats_lsp_conv.sats"
 #staload "./../SATS/xats_lsp_uri.sats"        // lsp_path2uri (the file:// encoder)
+#staload "./../SATS/xats_lsp_u16.sats"        // lsp_byte2utf16 (the byte->UTF-16 walk)
 //
 #include "./../HATS/xats_lsp_ref.hats"
 //
@@ -25,11 +26,22 @@ LSP_path2uri byte-for-byte.  Interface: SATS/xats_lsp_conv.sats.
 #extern fun str_char_code(s: string, i: sint): sint = $extnam()
 #extern fun str_of_code(c: sint): string = $extnam()
 #extern fun str_slice(s: string, a: sint, b: sint): string = $extnam()
+#extern fun lsp_getenv(name: string): string = $extnam()
+#extern fun lsp_fs_read(path: string): string = $extnam()        // file text, "" on error/empty
 //
 (* ****** ****** *)
 //
+#typedef ucache = list(@(string, @(sint, string)))     // norm-path -> (ascii?, text)
+//
 val the_cur_uri: lspcell(string) = cell_make("")       // editor uri of the doc under check
 val the_cur_pnorm: lspcell(string) = cell_make("")     // its normalized fs path ("" = none)
+val the_cur_text: lspcell(string) = cell_make("")      // source text of the doc under check
+val the_cur_ascii: lspcell(sint) = cell_make(1)        // 1 = whole cur text is ASCII
+val the_other: lspcell(ucache) = cell_make(list_nil()) // per-check other-file conv cache
+//
+// UTF-16 conversion on unless ATS3_LSP_UTF16=0 (read once at load).
+val the_u16_on: sint =
+  (if strn_eq(lsp_getenv("ATS3_LSP_UTF16"), "0") then 0 else 1)
 //
 (* ****** ****** *)
 (* ---- path normalization (collapse ./.. on an abs path; matches glue LSP_norm) ---- *)
@@ -111,11 +123,58 @@ fun tn_lookup(m: tnmap, k: string): @(bool, string) =
 //
 (* ****** ****** *)
 //
-#implfun conv_set_cur(uri, path) = let
+// whole-text ASCII test (every codepoint < 128).
+fun text_is_ascii(s: string): bool = let
+  val n = str_len(s)
+  fun loop(i: sint): bool =
+    if (i >= n) then true
+    else if (str_char_code(s, i) >= 128) then false else loop(i+1)
+in loop(0) end
+//
+// byte col -> UTF-16 col given the text + its ascii flag (1=ascii => identity).
+fun b2u_conv(text: string, ascii: sint, line: sint, col: sint): sint =
+  if (ascii = 1) then col else lsp_byte2utf16(text, line, col)
+//
+// other-file cache lookup: @(found, ascii, text).
+fun ucache_get(c: ucache, k: string): @(bool, sint, string) =
+  (case+ c of
+   | list_nil() => @(false, 1, "")
+   | list_cons(kv, r) => (if strn_eq(kv.0, k) then @(true, (kv.1).0, (kv.1).1) else ucache_get(r, k)))
+//
+#implfun conv_set_cur(uri, path, text) = let
   val () = cell_set(the_cur_uri, uri)
+  val () = cell_set(the_cur_pnorm, (if strn_eq(path, "") then "" else path_norm(path)))
+  val () = cell_set(the_cur_text, text)
+  val () = cell_set(the_cur_ascii, (if text_is_ascii(text) then 1 else 0))
 in
-  cell_set(the_cur_pnorm, (if strn_eq(path, "") then "" else path_norm(path)))
+  cell_set(the_other, list_nil())                       // per-check other-file cache reset
 end
+//
+#implfun LSP_cur_b2u(line, col) =
+  if (the_u16_on = 0) then col
+  else if (col <= 0) then 0
+  else b2u_conv(cell_get(the_cur_text), cell_get(the_cur_ascii), line, col)
+//
+#implfun LSP_other_b2u(path, line, col) =
+  if (the_u16_on = 0) then col
+  else if (col <= 0) then 0
+  else let
+    val n = path_norm(path)
+  in
+    if strn_eq(n, "") then col
+    else let
+      val hit = ucache_get(cell_get(the_other), n)
+    in
+      if hit.0 then b2u_conv(hit.2, hit.1, line, col)
+      else let
+        val text = lsp_fs_read(n)
+        val asc = (if text_is_ascii(text) then 1 else 0)
+        val () = cell_set(the_other, list_cons(@(n, @(asc, text)), cell_get(the_other)))
+      in
+        b2u_conv(text, asc, line, col)
+      end
+    end
+  end
 //
 #implfun LSP_def_in_current(uri) = let
   val cu = cell_get(the_cur_uri)

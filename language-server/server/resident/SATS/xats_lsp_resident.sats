@@ -272,9 +272,10 @@ fun initialize
   , (string) -> void, () -> string
   , (string, int, int, int, int, string) -> string
   , (string, int, int) -> string
-  // ...plus the per-check conversion layer (xats_lsp_conv): conv_set_cur(uri,path)
-  // — the validate driver sets the current uri + path before each check ("","" clears).
-  , (string, string) -> void) : void
+  // ...plus the per-check conversion layer (xats_lsp_conv): conv_set_cur(uri,path,
+  // text) — the validate driver sets the current uri + path + source text before
+  // each check (used by friendly/def_in_current/path2uri/cur_b2u; "","","" clears).
+  , (string, string, string) -> void) : void
 // lsp_addflag: the flag-setter callback impl (passed to initialize).
 fun lsp_addflag(string): void
 //

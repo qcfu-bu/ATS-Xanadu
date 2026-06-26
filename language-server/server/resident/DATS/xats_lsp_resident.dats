@@ -363,8 +363,8 @@ fun LSP_prelude_sym_done((*void*)): void = lsp_log_prelude_index(idx_prelude_cou
     , dd: (string) -> void, du: () -> string
     , da: (string, int, int, int, int, string) -> string
     , dc: (string, int, int) -> string
-    // Stage 6b: the per-check conversion layer (xats_lsp_conv) — conv_set_cur.
-    , cs: (string, string) -> void): void = $extnam() }
+    // Stage 6b/6c: the per-check conversion layer (xats_lsp_conv) — conv_set_cur.
+    , cs: (string, string, string) -> void): void = $extnam() }
 //
 // lsp_addflag: add ONE compiler flag to the global flag table. The .cats calls
 // this (via initialize's add_flag_t callback) for each flag in the workspace
