@@ -251,6 +251,8 @@ fun any_prefix(roots: list(string), sp: string): bool =
    | list_cons(_, _) => let val s = path_norm(path) in
        (if strn_eq(s, "") then false else any_prefix(the_roots, strn_append(s, "/"))) end)
 //
+#implfun lsp_norm(path) = path_norm(path)
+//
 (* ****** ****** *)
 (*
 end of [language-server/server/resident/DATS/xats_lsp_conv.dats]

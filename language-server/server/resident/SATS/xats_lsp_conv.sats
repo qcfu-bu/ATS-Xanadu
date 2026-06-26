@@ -49,6 +49,9 @@ fun LSP_path2uri(path: string): string
 // reload on save.  Roots are computed once from $XATSHOME at module load.
 fun JS_path_is_prelude(path: string): bool
 //
+// normalize an absolute path (collapse ./..); exported for the dispatch driver.
+fun lsp_norm(path: string): string
+//
 (* ****** ****** *)
 (*
 end of [language-server/server/resident/SATS/xats_lsp_conv.sats]

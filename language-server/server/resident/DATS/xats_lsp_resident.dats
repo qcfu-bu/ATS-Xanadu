@@ -231,9 +231,16 @@ in cell_set{graflist}(c, dg_del_st(cell_get{graflist}(c), k.stmp())) end
   val st = k.stmp()
 in if dg_has_st(xs, st) then dg_get_ds(xs, st) else depset_make() end
 //
-#implfun fwd_graph() =
-  JS_fwd_graph()
-  where { #extern fun JS_fwd_graph(): depgraph = $extnam() }
+// Stage 6: the dependents + forward staload graphs are now driver-owned cells
+// (reset together on a prelude reload).  Defined here (before fwd_graph) so the
+// #implfun can reference cur_fwd (ATS top-level funs don't forward-reference).
+fun depgraph_make((*void*)): depgraph = $UN.cast10{depgraph}(cell_make{graflist}(list_nil()))
+val the_deps_c: lspcell(depgraph) = cell_make{depgraph}(depgraph_make())
+val the_fwd_c: lspcell(depgraph) = cell_make{depgraph}(depgraph_make())
+fun cur_deps((*void*)): depgraph = cell_get{depgraph}(the_deps_c)
+fun cur_fwd((*void*)): depgraph = cell_get{depgraph}(the_fwd_c)
+//
+#implfun fwd_graph() = cur_fwd()
 //
 (* ---- THE cache-eviction primitive: delete env[key.stmp()] ---- *)
 //
@@ -345,28 +352,8 @@ fun LSP_prelude_sym_done((*void*)): void = lsp_log_prelude_index(idx_prelude_cou
 #implfun member_push(l0, c0, l1, c1, name, typ) =
   idx_member_push(l0, c0, l1, c1, name, typ)
 //
-#implfun initialize(f, lv, g, h, e, af, ir, ic, iv, icl, idg, ind, ict, iq, pix, prm, prc, pfc, prv, iws, icp, pst, pdl, ds, dh, dt, dd, du, da, dc, cs, pip) =
-  vscode_initialize(f, lv, g, h, e, af, ir, ic, iv, icl, idg, ind, ict, iq, pix, prm, prc, pfc, prv, iws, icp, pst, pdl, ds, dh, dt, dd, du, da, dc, cs, pip)
-  where { #extern fun
-    vscode_initialize
-    ( f: text_validator_t, lv: live_validator_t, g: cache_pruner_t
-    , h: reload_prelude_t, e: evict_stamp_t, af: add_flag_t
-    , ir: () -> void, ic: (string) -> void, iv: (string) -> void, icl: () -> void
-    , idg: () -> string, ind: () -> int, ict: (string, int) -> int
-    , iq: (string, int, int, int, int, int) -> string
-    , pix: (string, string) -> string, prm: (string) -> void, prc: (string) -> string
-    , pfc: () -> int, prv: () -> int
-    , iws: (string) -> string, icp: (string, int, int, string, int, int, int, int) -> string
-    , pst: (string, string) -> void, pdl: (string) -> void
-    // Stage 6a: the document store (xats_lsp_doc) — 7 closures.
-    , ds: (string, string, int) -> void, dh: (string) -> bool, dt: (string) -> string
-    , dd: (string) -> void, du: () -> string
-    , da: (string, int, int, int, int, string) -> string
-    , dc: (string, int, int) -> string
-    // Stage 6b/6c: the per-check conversion layer (xats_lsp_conv) — conv_set_cur.
-    , cs: (string, string, string) -> void
-    // Stage 6d: the prelude-root classifier (xats_lsp_conv) — JS_path_is_prelude.
-    , pip: (string) -> bool): void = $extnam() }
+// Stage 6 cutover: `initialize`/`vscode_initialize` are gone — this driver owns the
+// loop (serve_loop) + dispatch directly; see the server section below.
 //
 // lsp_addflag: add ONE compiler flag to the global flag table. The .cats calls
 // this (via initialize's add_flag_t callback) for each flag in the workspace
@@ -1002,6 +989,518 @@ in prelude_take_snapshot()
 end
 //
 (* ****** ****** *)
+(* ====================================================================== *)
+(* Stage 6: the LSP server — message loop + dispatch + validation, IN ATS. *)
+(* The Scheme glue is now just the floor (transport + filesystem + the      *)
+(* compiler-coupled stamp/topmap leaves + the FS workspace scan); this       *)
+(* driver owns the loop, every handler, runValidation and dispatch, calling  *)
+(* the ATS modules (json/conv/doc/index/proj) + its own validators directly. *)
+(* ====================================================================== *)
+//
+// ---- floor leaves (implemented in SCM/xats_lsp_resident.scm) ----
+#extern fun int2str(n: sint): string = $extnam()
+#extern fun str_len(s: string): sint = $extnam()
+#extern fun str_char_code(s: string, i: sint): sint = $extnam()
+#extern fun str_slice(s: string, a: sint, b: sint): string = $extnam()
+#extern fun lsp_msg_read(timeout_ms: sint): @(sint, string) = $extnam()
+#extern fun lsp_msg_write(s: string): void = $extnam()
+#extern fun lsp_log(s: string): void = $extnam()
+#extern fun lsp_now_ms((*void*)): sint = $extnam()
+#extern fun lsp_exit((*void*)): void = $extnam()
+#extern fun lsp_guard(thunk: () -> void): sint = $extnam()      // run thunk; 1 if it threw, else 0
+#extern fun lsp_getenv(name: string): string = $extnam()
+#extern fun lsp_fs_read(path: string): string = $extnam()
+#extern fun lsp_fs_exists(path: string): bool = $extnam()
+#extern fun lsp_boot(pidx: (string, string) -> string, pfc: () -> int, prc: () -> int, pip: (string) -> bool): void = $extnam()
+#extern fun JS_path2stamp(path: string): @(sint, stamp) = $extnam()  // (found 0/1, stamp)
+#extern fun JS_sig_forget(npath: string, isDelete: sint): void = $extnam()
+#extern fun JS_sig_reset((*void*)): void = $extnam()
+#extern fun JS_stat_count((*void*)): sint = $extnam()
+#extern fun JS_proj_scan(rootsJoined: string): void = $extnam()
+#extern fun JS_proj_worklist((*void*)): string = $extnam()
+//
+(* ---- the open-set (the depgraph cells live up near fwd_graph) ---- *)
+//
+val the_openset: lspcell(list(string)) = cell_make{list(string)}(list_nil())
+fun oset_has(uri: string): bool = let
+  fun go(xs: list(string)): bool =
+    (case+ xs of list_nil() => false | list_cons(x, r) => (if strn_eq(x, uri) then true else go(r)))
+in go(cell_get{list(string)}(the_openset)) end
+fun oset_add(uri: string): void =
+  (if oset_has(uri) then () else cell_set{list(string)}(the_openset, list_cons(uri, cell_get{list(string)}(the_openset))))
+fun oset_del(uri: string): void = let
+  fun go(xs: list(string)): list(string) =
+    (case+ xs of list_nil() => list_nil() | list_cons(x, r) => (if strn_eq(x, uri) then go(r) else list_cons(x, go(r))))
+in cell_set{list(string)}(the_openset, go(cell_get{list(string)}(the_openset))) end
+fun oset_clear((*void*)): void = cell_set{list(string)}(the_openset, list_nil())
+//
+val the_has_refresh: lspcell(sint) = cell_make{sint}(0)
+val the_pending_roots: lspcell(string) = cell_make{string}("")
+val the_reqid: lspcell(sint) = cell_make{sint}(100000)
+//
+(* ---- small string helpers (parse ints, split on newline) ---- *)
+//
+fun str2int(s: string): sint = let
+  val n = str_len(s)
+  fun loop(i: sint, acc: sint): sint =
+    if (i >= n) then acc
+    else let val c = str_char_code(s, i) in
+      (if (if (c >= 48) then (c <= 57) else false) then loop(i+1, acc*10 + (c-48)) else acc) end
+in loop(0, 0) end
+//
+fun split_nl(s: string): list(string) = let
+  val n = str_len(s)
+  fun go(i: sint, start: sint, acc: list(string)): list(string) =
+    if (i >= n) then list_reverse(list_cons(str_slice(s, start, n), acc))
+    else if (str_char_code(s, i) = 10) then go(i+1, i+1, list_cons(str_slice(s, start, i), acc))
+    else go(i+1, start, acc)
+in go(0, 0, list_nil()) end
+// split + drop empties (for newline-joined path/uri sets).
+fun split_nl_ne(s: string): list(string) = let
+  fun keep(xs: list(string)): list(string) =
+    (case+ xs of list_nil() => list_nil()
+     | list_cons(x, r) => (if strn_eq(x, "") then keep(r) else list_cons(x, keep(r))))
+in keep(split_nl(s)) end
+fun list_len(xs: list(string)): sint = (case+ xs of list_nil() => 0 | list_cons(_, r) => 1 + list_len(r))
+fun list_mem(xs: list(string), y: string): bool =
+  (case+ xs of list_nil() => false | list_cons(x, r) => (if strn_eq(x, y) then true else list_mem(r, y)))
+fun nth_s(xs: list(string), i: sint): string =
+  (case+ xs of list_nil() => "" | list_cons(x, r) => (if (i <= 0) then x else nth_s(r, i-1)))
+//
+(* ---- the config knobs (read once at load) ---- *)
+val the_debounce_ms: sint =
+  let val v = lsp_getenv("ATS3_LSP_DEBOUNCE_MS") in (if strn_eq(v, "") then 150 else str2int(v)) end
+val the_bg_cap: sint =
+  let val v = lsp_getenv("ATS3_BG_INDEX_CAP") in (if strn_eq(v, "") then 400 else str2int(v)) end
+//
+(* ---- JSON-RPC framing helpers (results from idx_* are already serialized) ---- *)
+//
+fun jpr(k: string, v: jval): @(string, jval) = @(k, v)
+fun respond(idv: jval, result: jval): void =
+  lsp_msg_write(json_serialize(JVobj(
+    list_cons(jpr("jsonrpc", JVstr "2.0"),
+    list_cons(jpr("id", idv),
+    list_cons(jpr("result", result), list_nil()))))))
+fun respond_raw(idv: jval, rs: string): void =
+  lsp_msg_write(strn_append("{\"jsonrpc\":\"2.0\",\"id\":",
+    strn_append(json_serialize(idv),
+    strn_append(",\"result\":", strn_append(rs, "}")))))
+fun publish_raw(uri: string, diagsStr: string): void =
+  lsp_msg_write(strn_append("{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"uri\":",
+    strn_append(json_serialize(JVstr uri),
+    strn_append(",\"diagnostics\":", strn_append(diagsStr, "}}")))))
+fun send_sem_refresh((*void*)): void = let
+  val id = cell_get{sint}(the_reqid) + 1
+  val () = cell_set{sint}(the_reqid, id)
+in
+  lsp_msg_write(strn_append("{\"jsonrpc\":\"2.0\",\"id\":",
+    strn_append(int2str(id), ",\"method\":\"workspace/semanticTokens/refresh\",\"params\":null}")))
+end
+//
+fun mkpos00(l: sint, c: sint): jval =
+  JVobj(list_cons(jpr("line", JVint l), list_cons(jpr("character", JVint c), list_nil())))
+fun abort_diag_str((*void*)): string = let
+  val rng = JVobj(list_cons(jpr("start", mkpos00(0, 0)), list_cons(jpr("end", mkpos00(0, 1)), list_nil{jpair}())))
+  val df = list_cons(jpr("source", JVstr "ats3"), list_nil{jpair}())
+  val df = list_cons(jpr("message", JVstr "ats3: could not analyze this file (the compiler aborted). This usually means the file staloads the ATS3 compiler itself; ordinary ATS3 files are unaffected."), df)
+  val df = list_cons(jpr("range", rng), df)
+  val df = list_cons(jpr("severity", JVint 2), df)
+in json_serialize(JVarr(list_cons(JVobj(df), list_nil{jval}()))) end
+//
+fun metric_line
+  (uri: string, mode: string, ms: sint, nd: sint, nh: sint, ndf: sint, nt: sint, nstat: sint): string = let
+  val s = strn_append("[xats-lsp-metric] check uri=", uri)
+  val s = strn_append(s, " mode=") val s = strn_append(s, mode)
+  val s = strn_append(s, " ms=") val s = strn_append(s, int2str(ms))
+  val s = strn_append(s, " diags=") val s = strn_append(s, int2str(nd))
+  val s = strn_append(s, " hovers=") val s = strn_append(s, int2str(nh))
+  val s = strn_append(s, " defs=") val s = strn_append(s, int2str(ndf))
+  val s = strn_append(s, " tokens=") val s = strn_append(s, int2str(nt))
+  val s = strn_append(s, " stats=") val s = strn_append(s, int2str(nstat))
+  val s = strn_append(s, " staloadsyms=0 staloadfiles=0\n")
+in s end
+//
+(* ---- capabilities (the initialize reply) ---- *)
+fun jstrs(xs: list(string)): list(jval) =
+  (case+ xs of list_nil() => list_nil() | list_cons(x, r) => list_cons(JVstr x, jstrs(r)))
+fun tok_types((*void*)): list(string) =
+  list_cons("namespace", list_cons("type", list_cons("typeParameter", list_cons("parameter",
+  list_cons("variable", list_cons("property", list_cons("function", list_cons("enumMember",
+  list_cons("keyword", list_cons("string", list_cons("number", list_cons("operator",
+  list_cons("comment", list_nil())))))))))))))
+fun tok_mods((*void*)): list(string) =
+  list_cons("declaration", list_cons("definition", list_cons("readonly",
+  list_cons("static", list_cons("defaultLibrary", list_nil())))))
+fun capabilities((*void*)): jval = let
+  val tdsync = JVobj(list_cons(jpr("openClose", JVbool true),
+                     list_cons(jpr("change", JVint 2),
+                     list_cons(jpr("save", JVobj(list_cons(jpr("includeText", JVbool false), list_nil()))), list_nil()))))
+  val complp = JVobj(list_cons(jpr("triggerCharacters", JVarr(list_cons(JVstr ".", list_nil()))),
+                     list_cons(jpr("resolveProvider", JVbool false), list_nil())))
+  val legend = JVobj(list_cons(jpr("tokenTypes", JVarr(jstrs(tok_types()))),
+                     list_cons(jpr("tokenModifiers", JVarr(jstrs(tok_mods()))), list_nil())))
+  val semp = JVobj(list_cons(jpr("legend", legend),
+                   list_cons(jpr("full", JVbool true), list_cons(jpr("range", JVbool false), list_nil()))))
+  // build the field list innermost-first (each `val fs` is flat: one close paren).
+  val fs = list_cons(jpr("semanticTokensProvider", semp), list_nil{jpair}())
+  val fs = list_cons(jpr("completionProvider", complp), fs)
+  val fs = list_cons(jpr("workspaceSymbolProvider", JVbool true), fs)
+  val fs = list_cons(jpr("inlayHintProvider", JVbool true), fs)
+  val fs = list_cons(jpr("documentHighlightProvider", JVbool true), fs)
+  val fs = list_cons(jpr("referencesProvider", JVbool true), fs)
+  val fs = list_cons(jpr("documentSymbolProvider", JVbool true), fs)
+  val fs = list_cons(jpr("typeDefinitionProvider", JVbool true), fs)
+  val fs = list_cons(jpr("definitionProvider", JVbool true), fs)
+  val fs = list_cons(jpr("hoverProvider", JVbool true), fs)
+  val fs = list_cons(jpr("textDocumentSync", tdsync), fs)
+  val caps = JVobj(fs)
+  val sinfo = JVobj(list_cons(jpr("name", JVstr "xats-lsp-resident"), list_cons(jpr("version", JVstr "0.1.0"), list_nil{jpair}())))
+in
+  JVobj(list_cons(jpr("capabilities", caps), list_cons(jpr("serverInfo", sinfo), list_nil{jpair}())))
+end
+//
+(* ---- per-check validate + publish ---- *)
+fun run_validation(uri: string, sourceText: string, mode: string, isLive: sint): void = let
+  val t0 = lsp_now_ms()
+  val () = idx_reset()
+  val curPath = lsp_uri2path(uri)
+  val () = conv_set_cur(uri, curPath, sourceText)
+  val normpath = proj_index_file(curPath, sourceText)
+  val ds = $UN.cast10{diagnostics}(uri)            // unused sink (idx owns diagnostics)
+  val u = $UN.cast10{url}(uri)
+  val verr =
+    if (isLive = 1)
+      then lsp_guard(lam () => live_validator(cur_deps(), ds, u, sourceText))
+      else lsp_guard(lam () => text_validator(cur_deps(), ds, u))
+  val () = idx_commit(uri)
+  val () = oset_add(uri)
+  val () = idx_proj_delete(normpath)
+  val diagsStr = (if (verr = 1) then abort_diag_str() else idx_diagnostics())
+  val () = publish_raw(uri, diagsStr)
+  val () = (if (cell_get{sint}(the_has_refresh) = 1) then send_sem_refresh() else ())
+  val ms = lsp_now_ms() - t0
+  val nd = (if (verr = 1) then 1 else idx_ndiags())
+  val () = lsp_log(metric_line(uri, mode, ms, nd, idx_count(uri, 0), idx_count(uri, 1), idx_count(uri, 2), JS_stat_count()))
+  val () = conv_set_cur("", "", "")
+in () end
+//
+(* ---- request param helpers ---- *)
+fun p_uri(m: jval): string = jas_str(jget3(m, "params", "textDocument", "uri"), "")
+fun p_line(m: jval): sint = jas_int(jget3(m, "params", "position", "line"), 0)
+fun p_char(m: jval): sint = jas_int(jget3(m, "params", "position", "character"), 0)
+//
+(* ---- completion: doc-derived word + idx_completion (both ATS) ---- *)
+fun do_completion(m: jval): string = let
+  val uri = p_uri(m) val line = p_line(m) val ch = p_char(m)
+in
+  if (doc_has(uri) = false) then "{\"isIncomplete\":false,\"items\":[]}"
+  else let
+    val parts = split_nl(doc_complete_ctx(uri, line, ch))   // "word\nisMember\ndotCol\nwcol"
+    val word = nth_s(parts, 0)
+    val isM = str2int(nth_s(parts, 1))
+    val dotCol = str2int(nth_s(parts, 2))
+    val wcol = str2int(nth_s(parts, 3))
+  in idx_completion(uri, line, ch, word, isM, line, dotCol, wcol) end
+end
+//
+fun on_inlay(idv: jval, m: jval): void = let
+  val rng = jget2(m, "params", "range")
+in
+  if jis_obj(rng)
+    then respond_raw(idv, idx_query(p_uri(m), 6,
+           jas_int(jget2(rng, "start", "line"), 0), jas_int(jget2(rng, "start", "character"), 0),
+           jas_int(jget2(rng, "end", "line"), 0), jas_int(jget2(rng, "end", "character"), 0)))
+    else respond_raw(idv, idx_query(p_uri(m), 5, 0, 0, 0, 0))
+end
+//
+(* ---- .xats-lsp project flags ---- *)
+fun str_starts(s: string, pre: string): bool = let
+  val np = str_len(pre) val ns = str_len(s)
+  fun chk(i: sint): bool =
+    if (i >= np) then true
+    else if (i >= ns) then false
+    else if (str_char_code(s, i) = str_char_code(pre, i)) then chk(i+1) else false
+in chk(0) end
+// trim ASCII spaces/tabs/CR from both ends.
+fun is_ws(c: sint): bool =
+  if (c = 32) then true else if (c = 9) then true else if (c = 13) then true else false
+fun str_trim(s: string): string = let
+  val n = str_len(s)
+  fun lead(i: sint): sint = if (i >= n) then i else if is_ws(str_char_code(s, i)) then lead(i+1) else i
+  fun trail(i: sint): sint = if (i <= 0) then 0 else if is_ws(str_char_code(s, i-1)) then trail(i-1) else i
+  val a = lead(0) val b = trail(n)
+in if (a >= b) then "" else str_slice(s, a, b) end
+fun load_flags_lines(xs: list(string)): void =
+  (case+ xs of
+   | list_nil() => ()
+   | list_cons(line, r) => let
+       val s = str_trim(line)
+       val skip = (if strn_eq(s, "") then true else (str_char_code(s, 0) = 35))   // '#'
+     in
+       (if skip then () else lsp_addflag(if str_starts(s, "--") then s else strn_append("--", s)));
+       load_flags_lines(r)
+     end)
+fun load_flags(root: string): void = let
+  val text = lsp_fs_read(strn_append(root, "/.xats-lsp"))
+in
+  if strn_eq(text, "") then () else load_flags_lines(split_nl(text))
+end
+fun load_flags_all(roots: list(string)): void =
+  (case+ roots of list_nil() => () | list_cons(r, rest) => (load_flags(r); load_flags_all(rest)))
+//
+(* ---- workspace roots from the initialize params ---- *)
+fun roots_from_wf(xs: list(jval), acc: string): string =
+  (case+ xs of
+   | list_nil() => acc
+   | list_cons(x, r) => let
+       val u = jas_str(jget(x, "uri"), "")
+       val p = (if strn_eq(u, "") then "" else lsp_norm(lsp_uri2path(u)))
+     in roots_from_wf(r, (if strn_eq(p, "") then acc else strn_append(acc, strn_append(p, "\n")))) end)
+fun ws_roots(params: jval): string = let
+  val fromWf = roots_from_wf(jas_arr(jget(params, "workspaceFolders")), "")
+in
+  if (strn_eq(fromWf, "") = false) then fromWf
+  else let
+    val ru = jget(params, "rootUri")
+  in
+    (case+ ru of
+     | JVstr s => strn_append(lsp_norm(lsp_uri2path(s)), "\n")
+     | _ => let val rp = jget(params, "rootPath") in
+         (case+ rp of JVstr s => strn_append(lsp_norm(s), "\n") | _ => "") end)
+  end
+end
+//
+fun on_initialize(idv: jval, m: jval): void = let
+  val params = jget(m, "params")
+  val st = jget3(params, "capabilities", "workspace", "semanticTokens")
+  val hasRef = (if jis_obj(st) then (case+ jget(st, "refreshSupport") of JVnull() => 0 | _ => 1) else 0)
+  val () = cell_set{sint}(the_has_refresh, hasRef)
+  val roots = ws_roots(params)
+  val () = cell_set{string}(the_pending_roots, roots)
+  val () = load_flags_all(split_nl_ne(roots))
+in respond(idv, capabilities()) end
+//
+(* ---- background project indexer (symbols-only; no publish) ---- *)
+// process one worklist path; returns the new `done` count (helper so bg_loop's
+// case+ branch stays a single expression — a multi-line if as a case RHS errcks).
+fun bg_one(p: string, done: sint): sint =
+  if strn_eq(p, "") then done
+  else let val uri = lsp_path2uri(p) in
+    if (if oset_has(uri) then true else JS_path_is_prelude(p)) then done
+    else if (lsp_fs_exists(p) = false) then done
+    else let
+      val () = idx_reset()
+      val () = conv_set_cur(uri, p, lsp_fs_read(p))
+      val _ = lsp_guard(lam () => text_validator(cur_deps(), $UN.cast10{diagnostics}(uri), $UN.cast10{url}(uri)))
+      val () = idx_proj_store(p, uri)
+      val () = conv_set_cur("", "", "")
+    in done + 1 end
+  end
+fun bg_loop(paths: list(string), done: sint): sint =
+  (case+ paths of
+   | list_nil() => done
+   | list_cons(p, rest) => (if (done >= the_bg_cap) then done else bg_loop(rest, bg_one(p, done))))
+fun bg_index((*void*)): void =
+  if (the_bg_cap <= 0) then ()
+  else let
+    val done = bg_loop(split_nl_ne(JS_proj_worklist()), 0)
+  in lsp_log(strn_append("[xats-lsp-resident] bg-index: ", strn_append(int2str(done), " file(s) indexed\n"))) end
+//
+fun on_initialized((*void*)): void = let
+  val roots = cell_get{string}(the_pending_roots)
+in
+  if strn_eq(roots, "") then ()
+  else let
+    val () = cell_set{string}(the_pending_roots, "")
+    val _ = lsp_guard(lam () => JS_proj_scan(roots))
+    val _ = lsp_guard(lam () => bg_index())
+  in () end
+end
+//
+(* ---- prelude reload (a $XATSHOME file was saved) ---- *)
+fun reval_open_docs(xs: list(string)): void =
+  (case+ xs of
+   | list_nil() => ()
+   | list_cons(uri, r) => ((if doc_has(uri) then run_validation(uri, doc_text(uri), "disk", 0) else ()); reval_open_docs(r)))
+fun reload_and_revalidate(savedUri: string): void = let
+  val () = lsp_log(strn_append("[xats-lsp-resident] reload_prelude: ", strn_append(savedUri, "\n")))
+  val _ = lsp_guard(lam () => let
+    val () = reload_prelude()
+    val () = idx_clear()
+    val () = oset_clear()
+    val () = cell_set{depgraph}(the_deps_c, depgraph_make())
+    val () = cell_set{depgraph}(the_fwd_c, depgraph_make())
+    val () = JS_sig_reset()
+  // re-validate every OPEN doc (the doc store, NOT the just-cleared open-set).
+  in reval_open_docs(split_nl_ne(doc_uris())) end)
+in () end
+//
+(* ---- watched files (Created=1 Changed=2 Deleted=3) ---- *)
+fun evict_affected(paths: list(string), n: sint): sint =
+  (case+ paths of
+   | list_nil() => n
+   | list_cons(p, rest) => let val r = JS_path2stamp(p) in
+       (if (r.0 = 1) then let val _ = lsp_guard(lam () => evict_stamp(r.1)) in evict_affected(rest, n+1) end
+        else evict_affected(rest, n)) end)
+fun docs_affected(uris: list(string), affected: list(string)): list(string) =
+  (case+ uris of
+   | list_nil() => list_nil()
+   | list_cons(uri, r) => let val dp = lsp_norm(lsp_uri2path(uri)) in
+       (if (if strn_eq(dp, "") then false else list_mem(affected, dp))
+          then list_cons(uri, docs_affected(r, affected))
+          else docs_affected(r, affected)) end)
+fun watched_kind(ct: sint): string =
+  if (ct = 1) then "create" else if (ct = 3) then "delete" else "change"
+fun on_watched(uri: string, ct: sint): void = let
+  val npath = lsp_norm(lsp_uri2path(uri))
+in
+  if (if strn_eq(npath, "") then true else JS_path_is_prelude(npath)) then ()
+  else let
+    val () = (if (ct = 3) then proj_remove_file(npath)
+              else let val _ = proj_index_file(npath, lsp_fs_read(npath)) in () end)
+    val affected = list_cons(npath, split_nl_ne(proj_rev_closure(npath)))
+    val evicted = evict_affected(affected, 0)
+    val () = JS_sig_forget(npath, (if (ct = 3) then 1 else 0))
+    val toReval = docs_affected(cell_get{list(string)}(the_openset), affected)
+    val ml = strn_append("[xats-lsp-resident] watched ", watched_kind(ct))
+    val ml = strn_append(ml, " ") val ml = strn_append(ml, npath)
+    val ml = strn_append(ml, " -> affected=") val ml = strn_append(ml, int2str(list_len(affected)))
+    val ml = strn_append(ml, " evicted=") val ml = strn_append(ml, int2str(evicted))
+    val ml = strn_append(ml, " revalidated=") val ml = strn_append(ml, int2str(list_len(toReval)))
+    val ml = strn_append(ml, "\n")
+    val () = lsp_log(ml)
+  in reval_open_docs(toReval) end
+end
+fun on_watched_all(m: jval): void = let
+  fun go(xs: list(jval)): void =
+    (case+ xs of list_nil() => ()
+     | list_cons(c, r) => (on_watched(jas_str(jget(c, "uri"), ""), jas_int(jget(c, "type"), 0)); go(r)))
+in go(jas_arr(jget2(m, "params", "changes"))) end
+//
+(* ---- notification handlers ---- *)
+fun on_didopen(m: jval): void = let
+  val uri = jas_str(jget3(m, "params", "textDocument", "uri"), "")
+  val text = jas_str(jget3(m, "params", "textDocument", "text"), "")
+  val ver = jas_int(jget3(m, "params", "textDocument", "version"), 0)
+  val () = doc_set(uri, text, ver)
+in run_validation(uri, text, "disk", 0) end
+fun on_didsave(m: jval): void = let
+  val uri = jas_str(jget3(m, "params", "textDocument", "uri"), "")
+  val fpath = lsp_uri2path(uri)
+in
+  if JS_path_is_prelude(fpath) then reload_and_revalidate(uri)
+  else (if doc_has(uri) then run_validation(uri, doc_text(uri), "disk", 0) else ())
+end
+fun on_didclose(m: jval): void = let
+  val uri = jas_str(jget3(m, "params", "textDocument", "uri"), "")
+  val () = doc_del(uri)
+  val () = oset_del(uri)
+  val () = idx_evict(uri)
+in publish_raw(uri, "[]") end
+//
+fun handle_notification(method: string, m: jval): void =
+  if strn_eq(method, "initialized") then on_initialized()
+  else if strn_eq(method, "exit") then lsp_exit()
+  else if strn_eq(method, "textDocument/didOpen") then on_didopen(m)
+  else if strn_eq(method, "textDocument/didSave") then on_didsave(m)
+  else if strn_eq(method, "textDocument/didClose") then on_didclose(m)
+  else if strn_eq(method, "workspace/didChangeWatchedFiles") then on_watched_all(m)
+  else ()
+//
+(* ---- request router ---- *)
+fun incl_decl(m: jval): sint = (if jas_bool(jget3(m, "params", "context", "includeDeclaration")) then 1 else 0)
+fun stats_uri(m: jval): string =
+  let val u = jas_str(jget2(m, "params", "uri"), "") in
+    (if strn_eq(u, "") then jas_str(jget3(m, "params", "textDocument", "uri"), "") else u) end
+fun handle_request(idv: jval, method: string, m: jval): void =
+  if strn_eq(method, "initialize") then on_initialize(idv, m)
+  else if strn_eq(method, "shutdown") then respond(idv, JVnull())
+  else if strn_eq(method, "textDocument/hover") then respond_raw(idv, idx_query(p_uri(m), 0, p_line(m), p_char(m), 0, 0))
+  else if strn_eq(method, "textDocument/definition") then respond_raw(idv, idx_query(p_uri(m), 1, p_line(m), p_char(m), 0, 0))
+  else if strn_eq(method, "textDocument/typeDefinition") then respond_raw(idv, idx_query(p_uri(m), 2, p_line(m), p_char(m), 0, 0))
+  else if strn_eq(method, "textDocument/references") then respond_raw(idv, idx_query(p_uri(m), 3, p_line(m), p_char(m), incl_decl(m), 0))
+  else if strn_eq(method, "textDocument/documentHighlight") then respond_raw(idv, idx_query(p_uri(m), 4, p_line(m), p_char(m), 0, 0))
+  else if strn_eq(method, "textDocument/documentSymbol") then respond_raw(idv, idx_query(p_uri(m), 9, 0, 0, 0, 0))
+  else if strn_eq(method, "textDocument/inlayHint") then on_inlay(idv, m)
+  else if strn_eq(method, "workspace/symbol") then respond_raw(idv, idx_workspace(jas_str(jget2(m, "params", "query"), "")))
+  else if strn_eq(method, "textDocument/completion") then respond_raw(idv, do_completion(m))
+  else if strn_eq(method, "textDocument/semanticTokens/full") then respond_raw(idv, idx_query(p_uri(m), 7, 0, 0, 0, 0))
+  else if strn_eq(method, "xats/indexStats") then respond_raw(idv, idx_query(stats_uri(m), 8, 0, 0, 0, 0))
+  else respond(idv, JVnull())
+//
+fun on_message(frame: string): void = let
+  val m = json_parse(frame)
+  val method = jas_str(jget(m, "method"), "")
+  val idv = jget(m, "id")
+in
+  if strn_eq(method, "") then ()                 // a response to our own request -> ignore
+  else (case+ idv of JVnull() => handle_notification(method, m) | _ => handle_request(idv, method, m))
+end
+//
+(* ---- didChange (debounced): apply edit + prune now; validate on timeout ---- *)
+fun apply_change(frame: string): string = let
+  val m = json_parse(frame)
+  val uri = jas_str(jget3(m, "params", "textDocument", "uri"), "")
+in
+  if (doc_has(uri) = false) then ""
+  else let
+    fun apply_one(text: string, ch: jval): string = let
+      val rng = jget(ch, "range")
+    in
+      if jis_obj(rng)
+        then doc_apply_range(text,
+               jas_int(jget2(rng, "start", "line"), 0), jas_int(jget2(rng, "start", "character"), 0),
+               jas_int(jget2(rng, "end", "line"), 0), jas_int(jget2(rng, "end", "character"), 0),
+               jas_str(jget(ch, "text"), ""))
+        else jas_str(jget(ch, "text"), text)
+    end
+    fun apply_all(text: string, xs: list(jval)): string =
+      (case+ xs of list_nil() => text | list_cons(c, r) => apply_all(apply_one(text, c), r))
+    val text1 = apply_all(doc_text(uri), jas_arr(jget2(m, "params", "contentChanges")))
+    val ver = jas_int(jget3(m, "params", "textDocument", "version"), 0)
+    val () = doc_set(uri, text1, ver)
+    val _ = lsp_guard(lam () => cache_pruner(cur_deps(), $UN.cast10{url}(uri)))
+  in uri end
+end
+fun validate_live(uri: string): void =
+  if JS_path_is_prelude(lsp_uri2path(uri)) then ()
+  else let val _ = lsp_guard(lam () => (if doc_has(uri) then run_validation(uri, doc_text(uri), "live", 1) else ())) in () end
+//
+(* ---- the message loop + debounce (lsp_msg_read provides the timeout) ---- *)
+fun msg_kind(frame: string): sint = let
+  val method = jas_str(jget(json_parse(frame), "method"), "")
+in
+  if strn_eq(method, "textDocument/didChange") then 1
+  else if strn_eq(method, "textDocument/didSave") then 2
+  else if strn_eq(method, "textDocument/didClose") then 3 else 0
+end
+fun msg_uri(frame: string): string = jas_str(jget3(json_parse(frame), "params", "textDocument", "uri"), "")
+fun on_message_guarded(frame: string): void = let val _ = lsp_guard(lam () => on_message(frame)) in () end
+fun serve_loop(pending: string): void = let
+  val rd = lsp_msg_read(if strn_eq(pending, "") then (0 - 1) else the_debounce_ms)
+  val kind = rd.0
+in
+  if (kind = 2) then ()                           // EOF
+  else if (kind = 1) then                          // debounce timeout
+    (if strn_eq(pending, "") then serve_loop("") else let val () = validate_live(pending) in serve_loop("") end)
+  else let
+    val frame = rd.1
+    val mk = msg_kind(frame)
+  in
+    if (mk = 1) then let val u = apply_change(frame) in serve_loop(u) end
+    else if (mk = 2) then let
+      val u = msg_uri(frame)
+      val () = on_message_guarded(frame)
+    in serve_loop(if strn_eq(pending, u) then "" else pending) end
+    else if (mk = 3) then let
+      val u = msg_uri(frame)
+      val () = on_message_guarded(frame)
+    in serve_loop(if strn_eq(pending, u) then "" else pending) end
+    else let val () = on_message_guarded(frame) in serve_loop(pending) end
+  end
+end
+//
+(* ****** ****** *)
 //
 // initialize the xatsopt environment ONCE (loads the prelude), set the flags,
 // then bootstrap the vscode-languageserver connection loop. These run on load.
@@ -1018,19 +1517,13 @@ val () = prelude_pvsload()
 //
 val () = prelude_take_snapshot()
 //
-// the ATS per-uri index API handed to the glue as eight closures (the harvest
-// sinks accumulate into this module; the glue commits + serves requests, by uri).
-val () = initialize
-  ( text_validator, live_validator, cache_pruner, reload_prelude, evict_stamp, lsp_addflag
-  , idx_reset, idx_commit, idx_evict, idx_clear, idx_diagnostics, idx_ndiags, idx_count, idx_query
-  , proj_index_file, proj_remove_file, proj_rev_closure, proj_fwd_count, proj_rev_count
-  , idx_workspace, idx_completion, idx_proj_store, idx_proj_delete
-  // Stage 6a: the document store (xats_lsp_doc).
-  , doc_set, doc_has, doc_text, doc_del, doc_uris, doc_apply_range, doc_complete_ctx
-  // Stage 6b/6c: the per-check conversion layer (xats_lsp_conv).
-  , conv_set_cur
-  // Stage 6d: the prelude-root classifier (xats_lsp_conv).
-  , JS_path_is_prelude)
+// Stage 6 cutover: the dispatch + validation loop is now THIS driver (above).
+// Bind the two closures the floor's FS workspace-scan still needs (proj_index_file
+// + the prelude classifier), announce readiness, then run the message loop over
+// the floor's lsp_msg_read/lsp_msg_write.  These run on load.
+val () = lsp_boot(proj_index_file, proj_fwd_count, proj_rev_count, JS_path_is_prelude)
+val () = lsp_log("[xats-lsp-resident] listening on stdio (resident, in-process)\n")
+val () = serve_loop("")
 //
 (* ****** ****** *)
 (*
