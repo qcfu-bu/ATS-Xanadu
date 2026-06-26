@@ -103,6 +103,11 @@
           "default": "chez",
           "markdownDescription": "The Chez Scheme executable used to run the resident server `.so` (default `chez`; set an absolute path if `chez` is not on `PATH`)."
         },
+        "ats3.server.debounceMs": {
+          "type": "number",
+          "default": 0,
+          "markdownDescription": "Live-on-change debounce in milliseconds (passed to the server as `ATS3_LSP_DEBOUNCE_MS`). `0` (default) leaves the server's own default (150 ms). Lower it (e.g. `50`) for snappier as-you-type diagnostics at the cost of re-checking more aggressively while typing."
+        },
         "ats3.server.denoPath": {
           "type": "string",
           "default": "",

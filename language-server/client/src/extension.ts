@@ -197,10 +197,21 @@ export function activate(context: ExtensionContext): void {
     channel.appendLine(`[ats3] XATSHOME does not exist: ${xatshome}`);
     return;
   }
-  const serverEnv = { ...process.env, XATSHOME: xatshome };
+  const serverEnv: NodeJS.ProcessEnv = { ...process.env, XATSHOME: xatshome };
+
+  // Optional behavioral knobs passed into the server's environment. The server
+  // reads these via getenv at startup; exposing them as VSCode settings means
+  // users do not have to export shell env (which a Dock-launched VSCode misses).
+  const debounceMs = workspace.getConfiguration("ats3").get<number>("server.debounceMs", 0);
+  if (debounceMs && debounceMs > 0) {
+    serverEnv.ATS3_LSP_DEBOUNCE_MS = String(Math.floor(debounceMs));
+  }
 
   channel.appendLine(`[ats3] launching server: ${spec.command} ${spec.args.join(" ")} [${spec.label}]`);
   channel.appendLine(`[ats3] XATSHOME=${xatshome}`);
+  if (serverEnv.ATS3_LSP_DEBOUNCE_MS) {
+    channel.appendLine(`[ats3] ATS3_LSP_DEBOUNCE_MS=${serverEnv.ATS3_LSP_DEBOUNCE_MS}`);
+  }
 
   // Launch the server binary; communicate over stdio. `--stdio` is passed
   // explicitly: vscode-languageserver selects its transport from this flag.

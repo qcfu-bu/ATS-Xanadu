@@ -234,9 +234,17 @@ fun member_push
 // per-file caches. The .cats's workspace/didChangeWatchedFiles handler calls it
 // for every file in the changed file's transitive project-reverse closure.
 #typedef evict_stamp_t = (stamp) -> void
+// add_flag_t: set ONE compiler flag (e.g. "--_XATS2JS_") in the global flag
+// table (xatsopt_flag$pvsadd0). The .cats reads the workspace `.xats-lsp` file at
+// initialize and calls this for each configured flag, so `#if defq(...)` blocks
+// resolve the way the project's real build does (no spurious LSP diagnostics on
+// build-flag-gated declarations).
+#typedef add_flag_t = (string) -> void
 fun initialize
   ( text_validator_t, live_validator_t
-  , cache_pruner_t, reload_prelude_t, evict_stamp_t) : void
+  , cache_pruner_t, reload_prelude_t, evict_stamp_t, add_flag_t) : void
+// lsp_addflag: the flag-setter callback impl (passed to initialize).
+fun lsp_addflag(string): void
 //
 // the resident callbacks themselves (declared here, #implfun'd in the DATS,
 // then passed to initialize). The reference declares these in server.sats.

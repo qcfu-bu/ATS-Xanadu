@@ -40,9 +40,27 @@ error and the server does not start — it never silently crashes.
 | `ats3.server.backend`   | `auto` (default; prefers the bundled Chez server), `chez`, or `deno`.                       |
 | `ats3.server.chezPath`  | Override the path to `chez-lsp-resident.so` (empty = auto-resolve from `server-dist`/repo). |
 | `ats3.server.chezBin`   | The Chez executable used to run the `.so` (default `chez`).                                  |
+| `ats3.server.debounceMs`| Live-on-change debounce in ms (`0` = server default 150). Lower (e.g. `50`) for snappier as-you-type checks. |
 | `ats3.xatshome`         | Path to the ATS3/Xanadu repo root (`XATSHOME`). **Required for an installed `.vsix`.**       |
 | `ats3.server.denoPath`  | Path to the alternative self-contained Deno server binary (when `backend` is `deno`).       |
 | `ats3.trace.server`     | LSP trace level (`off` / `messages` / `verbose`).                                            |
+
+## Project flags: `.xats-lsp`
+
+Some ATS3 source is gated on build flags via `#if defq(FLAG)` (e.g. the compiler
+itself uses `_XATS2JS_`). When the LSP checks such a file without that flag, the
+gated declarations don't exist and you get spurious diagnostics. Put a `.xats-lsp`
+file at your **workspace root** to tell the checker which flags your project
+builds with — one flag per line (like `compile_flags.txt`):
+
+```
+# .xats-lsp — compiler flags for LSP type-checking (one per line; # = comment)
+--_XATS2JS_
+```
+
+Bare names work too (`_XATS2JS_` ≡ `--_XATS2JS_`). The flags are applied
+project-wide at startup, before any file is checked. Editing `.xats-lsp` takes
+effect on the next server start (reload the window).
 
 ## Develop / package
 

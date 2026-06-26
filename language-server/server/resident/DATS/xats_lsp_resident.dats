@@ -294,12 +294,18 @@ end
     ( l0: int, c0: int, l1: int, c1: int
     , name: string, typ: string): void = $extnam() }
 //
-#implfun initialize(f, lv, g, h, e) =
-  vscode_initialize(f, lv, g, h, e)
+#implfun initialize(f, lv, g, h, e, af) =
+  vscode_initialize(f, lv, g, h, e, af)
   where { #extern fun
     vscode_initialize
     ( f: text_validator_t, lv: live_validator_t, g: cache_pruner_t
-    , h: reload_prelude_t, e: evict_stamp_t): void = $extnam() }
+    , h: reload_prelude_t, e: evict_stamp_t, af: add_flag_t): void = $extnam() }
+//
+// lsp_addflag: add ONE compiler flag to the global flag table. The .cats calls
+// this (via initialize's add_flag_t callback) for each flag in the workspace
+// `.xats-lsp` file, BEFORE any file is checked, so `#if defq(...)` blocks resolve
+// the way the project's real build does.
+#implfun lsp_addflag(flag) = xatsopt_flag$pvsadd0(flag)
 //
 (* ****** ****** *)
 (* ====================================================================== *)
@@ -830,7 +836,7 @@ val () = prelude_pvsload()
 //
 val () = prelude_take_snapshot()
 //
-val () = initialize(text_validator, live_validator, cache_pruner, reload_prelude, evict_stamp)
+val () = initialize(text_validator, live_validator, cache_pruner, reload_prelude, evict_stamp, lsp_addflag)
 //
 (* ****** ****** *)
 (*

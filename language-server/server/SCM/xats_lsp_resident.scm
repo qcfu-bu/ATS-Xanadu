@@ -1130,7 +1130,23 @@
 (define LSP-qeof #f)
 (define LSP-DEBOUNCE-MS (let ((v (getenv "ATS3_LSP_DEBOUNCE_MS"))) (if v (or (string->number v) 150) 150)))
 
-(define (vscode_initialize validator liveValidator pruner reloadPreludeFn evictStampFn)
+;; read a workspace `.xats-lsp` file: one compiler flag per non-blank, non-`#`
+;; line (bare names get a `--` prefix), set each via the ATS addFlag callback so
+;; `#if defq(...)` blocks resolve the way the project's real build does.
+(define (LSP-load-project-flags root addFlag)
+  (let ((cfg (string-append root "/.xats-lsp")))
+    (when (file-exists? cfg)
+      (let ((text (guard (e (#t "")) (LSP-read-file cfg))))
+        (for-each
+         (lambda (line)
+           (let ((s (LSP-trim line)))
+             (unless (or (string=? s "") (char=? (string-ref s 0) #\#))
+               (let ((flag (if (LSP-starts-with? s "--") s (string-append "--" s))))
+                 (guard (e (#t #f)) (addFlag flag))
+                 (LSP-stderr (string-append "[xats-lsp-resident] .xats-lsp flag: " flag "\n"))))))
+         (LSP-string-split text #\newline))))))
+
+(define (vscode_initialize validator liveValidator pruner reloadPreludeFn evictStampFn addFlag)
 
   ;; shared driver: per-check context + accumulators -> snapshot index + publish.
   (define (runValidation uri sourceText mode runCheck)
@@ -1255,6 +1271,8 @@
           (let ((wcap (jget* params "capabilities" "workspace")))
             (set! LSP_hasSemanticRefresh (and (hashtable? wcap) (hashtable? (jget wcap "semanticTokens")) (not (eq? (jget* wcap "semanticTokens" "refreshSupport") 'null)))))
           (set! LSP_pending_roots (LSP_workspace_roots params))
+          ;; apply project `.xats-lsp` compiler flags BEFORE any file is checked.
+          (for-each (lambda (root) (guard (e (#t #f)) (LSP-load-project-flags root addFlag))) LSP_pending_roots)
           (LSP-respond id (capabilities))))
        ((string=? method "shutdown") (LSP-respond id jnull))
        ((string=? method "textDocument/hover") (LSP-respond id (LSP_build_hover (p-uri m) (p-line m) (p-char m))))
