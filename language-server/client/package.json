@@ -142,8 +142,9 @@
     "watch": "tsc -watch -p ./",
     "bundle": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
     "build:deno": "node scripts/build-deno.js",
+    "stage:chez": "mkdir -p server-dist && cp ../server/BUILD/chez/chez-lsp-resident.so server-dist/chez-lsp-resident.so",
     "test:grammar": "node fixtures/tokenize-test.js",
-    "package": "npm run bundle && npm run build:deno && vsce package --out ats3-lsp-client.vsix"
+    "package": "npm run bundle && npm run stage:chez && vsce package --out ats3-lsp-client.vsix"
   },
   "dependencies": {
     "vscode-languageclient": "9.0.1"
