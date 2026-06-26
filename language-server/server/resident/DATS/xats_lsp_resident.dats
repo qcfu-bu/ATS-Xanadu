@@ -46,6 +46,22 @@ pretty-print), §8 (def loc), §9 (traversal), §10.5 (compiler-linking build).
 // DATS -> resident -> server -> language-server -> ATS-Xanadu -> frontend.)
 #staload "./../../../../frontend/SATS/pyfront_lsp.sats"
 //
+// PORTABLE LSP MODULES (Stage 4b+ rearchitect): the JSON tree, path<->uri codec,
+// byte->UTF-16 column conversion, and item dedup/sort, all in backend-agnostic
+// ATS3.  Each is emitted as its own cz fragment (see chez-build-resident.sh) and
+// linked here by deterministic .sats-stamp mangled names (validated: jget_1066 /
+// json_serialize_960 match between fragment and this driver-context emit).
+#staload "./../SATS/xats_lsp_json.sats"
+#staload "./../SATS/xats_lsp_uri.sats"
+#staload "./../SATS/xats_lsp_u16.sats"
+#staload "./../SATS/xats_lsp_dedup.sats"
+//
+// Stage 4b+: the mutable-cell FFI floor (#include, NOT #staload, so cell_make/
+// cell_get/cell_set emit by plain name) + unsafe casts for implementing the
+// abstract depset/depgraph (<= p0tr) over cells.
+#include "./../HATS/xats_lsp_ref.hats"
+#staload UN = "srcgen1/prelude/SATS/unsafex.sats"
+//
 (* ****** ****** *)
 (* ====================================================================== *)
 (*                    FFI bindings (impl in the .cats)                     *)
@@ -99,56 +115,105 @@ pretty-print), §8 (def loc), §9 (traversal), §10.5 (compiler-linking build).
   where { #extern fun
     vscode_regex_test(re: regex, input: string): bool = $extnam() }
 //
-(* ---- dependency set / graph (ported from reference lsp_bootstrap) ---- *)
+(* ---- dependency set / graph (ported to ATS; reps = cells over assoc-lists) ---- *)
+//
+// depset  = a set of files keyed by STAMP, value = the sym_t (so pop hands back a
+//           real sym handle).  rep: a cell holding list(@(stamp, sym_t)).
+// depgraph= STAMP -> (the file's own sym, the depset of its dependents).
+//           rep: a cell holding list(@(stamp, @(sym_t, depset))).
+// Both abstract types are <= p0tr; a cell is boxed, so the $UN casts are
+// representation-safe.  Keys compared with stamp_cmp (=0 means equal).  This
+// mirrors the former JS_depset_*/JS_depgraph_* glue exactly.
+//
+#typedef deplist = list(@(stamp, sym_t))
+#typedef grafent = @(sym_t, depset)
+#typedef graflist = list(@(stamp, grafent))
+//
+fun ds_cell(dp: depset): lspcell(deplist) = $UN.cast10{lspcell(deplist)}(dp)
+fun dg_cell(dp: depgraph): lspcell(graflist) = $UN.cast10{lspcell(graflist)}(dp)
+//
+fun ds_has_st(xs: deplist, st: stamp): bool =
+( case+ xs of
+  | list_nil() => false
+  | list_cons(p, r) => (if stamp_cmp(p.0, st) = 0 then true else ds_has_st(r, st)) )
+//
+fun dg_has_st(xs: graflist, st: stamp): bool =
+( case+ xs of
+  | list_nil() => false
+  | list_cons(p, r) => (if stamp_cmp(p.0, st) = 0 then true else dg_has_st(r, st)) )
+//
+// returns the entry's depset; the nil branch is unreachable (callers guard).
+fun dg_get_ds(xs: graflist, st: stamp): depset =
+( case+ xs of
+  | list_nil() => depset_make()
+  | list_cons(p, r) => (if stamp_cmp(p.0, st) = 0 then (p.1).1 else dg_get_ds(r, st)) )
+//
+fun dg_del_st(xs: graflist, st: stamp): graflist =
+( case+ xs of
+  | list_nil() => list_nil()
+  | list_cons(p, r) => (if stamp_cmp(p.0, st) = 0 then r else list_cons(p, dg_del_st(r, st))) )
 //
 #implfun depset_make() =
-  JS_depset_make()
-  where { #extern fun JS_depset_make(): depset = $extnam() }
+  $UN.cast10{depset}(cell_make{deplist}(list_nil()))
 //
-#implfun depset_add(dp, key) =
-  JS_depset_add(dp, key)
-  where { #extern fun JS_depset_add(dp: depset, key: sym_t): void = $extnam() }
+#implfun depset_add(dp, key) = let
+  val c = ds_cell(dp)
+  val st = key.stmp()
+  val xs = cell_get{deplist}(c)
+in
+  if ds_has_st(xs, st) then () else cell_set{deplist}(c, list_cons(@(st, key), xs))
+end
 //
-#implfun depset_pop(dp) =
-  JS_depset_pop(dp)
-  where { #extern fun JS_depset_pop(dp: depset): sym_t = $extnam() }
+#implfun depset_pop(dp) = let
+  val c = ds_cell(dp)
+  val xs = cell_get{deplist}(c)
+in
+  case+ xs of
+  | list_cons(p, r) => let val () = cell_set{deplist}(c, r) in p.1 end
+  | list_nil() => the_symbl_nil
+end
 //
 #implfun depset_is_empty(dp) =
-  JS_depset_is_empty(dp)
-  where { #extern fun JS_depset_is_empty(dp: depset): bool = $extnam() }
+( case+ cell_get{deplist}(ds_cell(dp)) of list_nil() => true | _ => false )
 //
 #implfun depset_has(dp, key) =
-  JS_depset_has(dp, key)
-  where { #extern fun JS_depset_has(dp: depset, key: sym_t): bool = $extnam() }
+  ds_has_st(cell_get{deplist}(ds_cell(dp)), key.stmp())
 //
-#implfun depset_union(dp1, dp2) =
-  JS_depset_union(dp1, dp2)
-  where { #extern fun
-    JS_depset_union(dp1: depset, dp2: depset): depset = $extnam() }
+// union = a NEW depset holding every member of both (deduped by stamp).
+fun du_addall(out: depset, xs: deplist): void =
+( case+ xs of
+  | list_nil() => ()
+  | list_cons(p, r) => let val () = depset_add(out, p.1) in du_addall(out, r) end )
 //
-// depgraph is keyed in JS by the file's STAMP (a number), but we also store the
-// sym_t itself (k0) so depset_union/pop can hand back real sym_t handles. This
-// matches the reference exactly: JS_depgraph_add(dp, k.stmp(), k, v).
+#implfun depset_union(dp1, dp2) = let
+  val out = depset_make()
+  val () = du_addall(out, cell_get{deplist}(ds_cell(dp1)))
+  val () = du_addall(out, cell_get{deplist}(ds_cell(dp2)))
+in out end
 //
-#implfun depgraph_add(dp, k, v) =
-  JS_depgraph_add(dp, k.stmp(), k, v)
-  where { #extern fun
-    JS_depgraph_add(dp: depgraph, k: stamp, k0: sym_t, v: sym_t): void = $extnam() }
+#implfun depgraph_add(dp, k, v) = let
+  val c = dg_cell(dp)
+  val st = k.stmp()
+  val xs = cell_get{graflist}(c)
+in
+  if dg_has_st(xs, st) then depset_add(dg_get_ds(xs, st), v)
+  else let
+    val ds = depset_make()
+    val () = depset_add(ds, v)
+  in cell_set{graflist}(c, list_cons(@(st, @(k, ds)), xs)) end
+end
 //
-#implfun depgraph_delete(dp, k) =
-  JS_depgraph_delete(dp, k.stmp())
-  where { #extern fun
-    JS_depgraph_delete(dp: depgraph, k: stamp): void = $extnam() }
+#implfun depgraph_delete(dp, k) = let
+  val c = dg_cell(dp)
+in cell_set{graflist}(c, dg_del_st(cell_get{graflist}(c), k.stmp())) end
 //
 #implfun depgraph_has(dp, k) =
-  JS_depgraph_has(dp, k.stmp())
-  where { #extern fun
-    JS_depgraph_has(dp: depgraph, k: stamp): bool = $extnam() }
+  dg_has_st(cell_get{graflist}(dg_cell(dp)), k.stmp())
 //
-#implfun depgraph_find(dp, k) =
-  JS_depgraph_find(dp, k.stmp())
-  where { #extern fun
-    JS_depgraph_find(dp: depgraph, k: stamp): depset = $extnam() }
+#implfun depgraph_find(dp, k) = let
+  val xs = cell_get{graflist}(dg_cell(dp))
+  val st = k.stmp()
+in if dg_has_st(xs, st) then dg_get_ds(xs, st) else depset_make() end
 //
 #implfun fwd_graph() =
   JS_fwd_graph()

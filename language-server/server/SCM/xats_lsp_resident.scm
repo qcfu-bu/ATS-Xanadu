@@ -31,6 +31,19 @@
 (define (LSP->int x) (if (number? x) (exact (floor x)) 0))
 (define (LSP->str x) (cond ((string? x) x) ((not x) "")
                           (else (let ((p (open-output-string))) (display x p) (get-output-string p)))))
+
+;; ---- FFI floor leaves for the portable ATS3 modules -------------------------
+;; The 4 codepoint-normalized string leaves (xats_lsp_{json,uri,u16,dedup}) +
+;; the 3-op mutable cell (xats_lsp_ref.hats).  Chez strings are codepoint-indexed,
+;; so string-ref/string-length already give code POINTS (matching the modules'
+;; contract); a cell is a 1-vector.
+(define (int2str n) (number->string n))
+(define (str_len s) (string-length s))
+(define (str_char_code s i) (char->integer (string-ref s i)))
+(define (str_of_code c) (string (integer->char c)))
+(define (cell_make x) (vector x))
+(define (cell_get c) (vector-ref c 0))
+(define (cell_set c x) (vector-set! c 0 x) _xunit)
 (define LSP-hexdig "0123456789ABCDEF")
 ;; stderr log line (the server's diagnostics go to stderr; stdout is the LSP wire)
 (define (LSP-stderr s) (put-string (current-error-port) s) (flush-output-port (current-error-port)) _xunit)
@@ -211,43 +224,21 @@
 (define (jstr-or x d) (if (string? x) x d))
 
 ;; ====================================================================== ;;
-;; depset (Set of sym_t)  +  depgraph (Map stamp -> [sym, depset])         ;;
+;; depset + depgraph: now implemented in ATS (xats_lsp_resident.dats) over the   ;;
+;; portable cell (xats_lsp_ref.hats).  The glue only OWNS the two top-level graph ;;
+;; OBJECTS (created here, passed OPAQUE to the ATS validator/pruner, reset on a   ;;
+;; prelude reload) — it never inspects them.  An empty graph is a cell holding    ;;
+;; the ATS empty list: list_nil() emits as (vector 0), so an empty depgraph is    ;;
+;; (cell_make (vector 0)).  JS_depset_*/JS_depgraph_* are GONE (ATS owns them).   ;;
 ;; ====================================================================== ;;
-;; depset: eq-hashtable keyed by the interned sym_t object (value = the sym, so
-;; pop returns a real sym_t).  depgraph: equal-hashtable keyed by the stamp NUMBER
-;; (stamp is a plain-number newtype: stamp_get_uint/uint2sint are identity, so the
-;; stamp == the compiler topmap's own key) -> (cons sym_t depset-of-dependents).
 
-(define (JS_depset_make) (make-eq-hashtable))
-(define (JS_depset_add dp k) (hashtable-set! dp k k) _xunit)
-(define (JS_depset_has dp k) (hashtable-contains? dp k))
-(define (JS_depset_is_empty dp) (= (hashtable-size dp) 0))
-(define (JS_depset_pop dp)
-  (let ((ks (hashtable-keys dp)))
-    (if (= (vector-length ks) 0) #f
-        (let ((k (vector-ref ks 0))) (hashtable-delete! dp k) k))))
-(define (JS_depset_union dp1 dp2)
-  (let ((out (make-eq-hashtable)))
-    (vector-for-each (lambda (k) (hashtable-set! out k k)) (hashtable-keys dp1))
-    (vector-for-each (lambda (k) (hashtable-set! out k k)) (hashtable-keys dp2))
-    out))
+;; ATS empty list = (vector 0); an empty depset/depgraph = a cell holding it.
+(define (LSP_empty_graph) (cell_make (vector 0)))
 
 ;; the reverse depgraph (dependents) + the R2a forward graph (staloads).
-(define LSP_dependencies (make-hashtable equal-hash equal?))
-(define LSP_fwd (make-hashtable equal-hash equal?))
+(define LSP_dependencies (LSP_empty_graph))
+(define LSP_fwd (LSP_empty_graph))
 (define (JS_fwd_graph) LSP_fwd)
-
-(define (JS_depgraph_add dp k k0 v)            ; k=stamp number, k0,v = sym_t
-  (let ((edges (hashtable-ref dp k #f)))
-    (if (not edges)
-        (let ((s (make-eq-hashtable))) (hashtable-set! s v v) (hashtable-set! dp k (cons k0 s)))
-        (hashtable-set! (cdr edges) v v)))
-  _xunit)
-(define (JS_depgraph_delete dp k) (hashtable-delete! dp k) _xunit)
-(define (JS_depgraph_has dp k) (and (hashtable-ref dp k #f) #t))
-(define (JS_depgraph_find dp k)
-  (let ((edges (hashtable-ref dp k #f)))
-    (if (not edges) (make-eq-hashtable) (cdr edges))))
 
 ;; ====================================================================== ;;
 ;; THE cache-eviction primitive: delete env[stamp] from a topmap            ;;
@@ -1272,8 +1263,8 @@
     (guard (e (#t (LSP-stderr "reload_prelude threw\n")))
       (reloadPreludeFn)
       (set! LSP_index (make-hashtable equal-hash equal?))
-      (set! LSP_dependencies (make-hashtable equal-hash equal?))
-      (set! LSP_fwd (make-hashtable equal-hash equal?))
+      (set! LSP_dependencies (LSP_empty_graph))   ; ATS-owned depgraph rep
+      (set! LSP_fwd (LSP_empty_graph))
       (set! LSP_signatures (make-hashtable equal-hash equal?))
       (set! LSP_path2stamp (make-hashtable equal-hash equal?))
       ;; staloaded-API index is stamp-keyed -> stale after a reload (new stamps).
