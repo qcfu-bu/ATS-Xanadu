@@ -55,6 +55,13 @@ pretty-print), §8 (def loc), §9 (traversal), §10.5 (compiler-linking build).
 #staload "./../SATS/xats_lsp_uri.sats"
 #staload "./../SATS/xats_lsp_u16.sats"
 #staload "./../SATS/xats_lsp_dedup.sats"
+// Stage 3+4: the per-uri index — accumulators + dedup + request builders, in ATS.
+// The harvest sinks (diag/hover/def/token/inlay_push) forward here; the glue drives
+// commit/query/diagnostics by uri (the idx_* API, passed to initialize).
+#staload "./../SATS/xats_lsp_index.sats"
+// Stage 5: the project staload graph (fwd/rev path edges + the #staload scanner +
+// the reverse closure for the watched-files cascade), in ATS.
+#staload "./../SATS/xats_lsp_proj.sats"
 //
 // Stage 4b+: the mutable-cell FFI floor (#include, NOT #staload, so cell_make/
 // cell_get/cell_set emit by plain name) + unsafe casts for implementing the
@@ -287,44 +294,26 @@ end
 //
 (* ---- harvest push primitives (per-uri index in the .cats) ---- *)
 //
+// Stage 3+4: these five sinks now accumulate into the ATS xats_lsp_index module
+// (idx_*_push), which builds the jval rows + dedups + serves the requests.  The
+// UTF-16/path/friendly conversion stays in the glue (called by the index module).
 #implfun diag_push(l0, c0, l1, c1, code, message) =
-  LSP_diag_push(l0, c0, l1, c1, code, message)
-  where { #extern fun
-    LSP_diag_push
-    ( l0: int, c0: int, l1: int, c1: int
-    , code: string, message: string): void = $extnam() }
+  idx_diag_push(l0, c0, l1, c1, code, message)
 //
 #implfun hover_push(l0, c0, l1, c1, typ, kind) =
-  LSP_hover_push(l0, c0, l1, c1, typ, kind)
-  where { #extern fun
-    LSP_hover_push
-    ( l0: int, c0: int, l1: int, c1: int
-    , typ: string, kind: string): void = $extnam() }
+  idx_hover_push(l0, c0, l1, c1, typ, kind)
 //
 #implfun def_push
   ( ul0, uc0, ul1, uc1, defpath
   , dl0, dc0, dl1, dc1, entity, hastdef, tdpath
   , tl0, tc0, tl1, tc1) =
-  LSP_def_push
+  idx_def_push
   ( ul0, uc0, ul1, uc1, defpath
   , dl0, dc0, dl1, dc1, entity, hastdef, tdpath
   , tl0, tc0, tl1, tc1)
-  where { #extern fun
-    LSP_def_push
-    ( ul0: int, uc0: int, ul1: int, uc1: int
-    , defpath: string
-    , dl0: int, dc0: int, dl1: int, dc1: int
-    , entity: string
-    , hastdef: int
-    , tdpath: string
-    , tl0: int, tc0: int, tl1: int, tc1: int): void = $extnam() }
 //
 #implfun token_push(l0, c0, l1, c1, ttype, tmods, defpath) =
-  LSP_token_push(l0, c0, l1, c1, ttype, tmods, defpath)
-  where { #extern fun
-    LSP_token_push
-    ( l0: int, c0: int, l1: int, c1: int
-    , ttype: int, tmods: int, defpath: string): void = $extnam() }
+  idx_token_push(l0, c0, l1, c1, ttype, tmods, defpath)
 //
 // WS-6: the prelude/global completion cache is filled by harvest_prelude_globals
 // (below) directly from the loaded pervasive name topmaps — these are its sinks.
@@ -340,10 +329,7 @@ end
     , name: string, kind: int, container: string, typ: string): void = $extnam() }
 //
 #implfun inlay_push(line, col, label, kind) =
-  LSP_inlay_push(line, col, label, kind)
-  where { #extern fun
-    LSP_inlay_push
-    ( line: int, col: int, label: string, kind: int): void = $extnam() }
+  idx_inlay_push(line, col, label, kind)
 //
 #implfun scope_push(l0, c0, l1, c1, name, typ) =
   LSP_scope_push(l0, c0, l1, c1, name, typ)
@@ -359,12 +345,17 @@ end
     ( l0: int, c0: int, l1: int, c1: int
     , name: string, typ: string): void = $extnam() }
 //
-#implfun initialize(f, lv, g, h, e, af) =
-  vscode_initialize(f, lv, g, h, e, af)
+#implfun initialize(f, lv, g, h, e, af, ir, ic, iv, icl, idg, ind, ict, iq, pix, prm, prc, pfc, prv) =
+  vscode_initialize(f, lv, g, h, e, af, ir, ic, iv, icl, idg, ind, ict, iq, pix, prm, prc, pfc, prv)
   where { #extern fun
     vscode_initialize
     ( f: text_validator_t, lv: live_validator_t, g: cache_pruner_t
-    , h: reload_prelude_t, e: evict_stamp_t, af: add_flag_t): void = $extnam() }
+    , h: reload_prelude_t, e: evict_stamp_t, af: add_flag_t
+    , ir: () -> void, ic: (string) -> void, iv: (string) -> void, icl: () -> void
+    , idg: () -> string, ind: () -> int, ict: (string, int) -> int
+    , iq: (string, int, int, int, int, int) -> string
+    , pix: (string, string) -> string, prm: (string) -> void, prc: (string) -> string
+    , pfc: () -> int, prv: () -> int): void = $extnam() }
 //
 // lsp_addflag: add ONE compiler flag to the global flag table. The .cats calls
 // this (via initialize's add_flag_t callback) for each flag in the workspace
@@ -1013,7 +1004,12 @@ val () = prelude_pvsload()
 //
 val () = prelude_take_snapshot()
 //
-val () = initialize(text_validator, live_validator, cache_pruner, reload_prelude, evict_stamp, lsp_addflag)
+// the ATS per-uri index API handed to the glue as eight closures (the harvest
+// sinks accumulate into this module; the glue commits + serves requests, by uri).
+val () = initialize
+  ( text_validator, live_validator, cache_pruner, reload_prelude, evict_stamp, lsp_addflag
+  , idx_reset, idx_commit, idx_evict, idx_clear, idx_diagnostics, idx_ndiags, idx_count, idx_query
+  , proj_index_file, proj_remove_file, proj_rev_closure, proj_fwd_count, proj_rev_count)
 //
 (* ****** ****** *)
 (*

@@ -80,6 +80,9 @@
 (define jnull 'jnull)
 (define (jobj kvs) (cons 'obj kvs))
 (define (jarr vs) (cons 'arr vs))
+;; a pre-serialized JSON string spliced verbatim into the wire (the ATS index
+;; builders return serialized jval; the glue wraps it so json-emit emits it raw).
+(define (jraw s) (cons 'raw s))
 
 (define (json-escape out s)
   (put-char out #\")
@@ -114,6 +117,7 @@
                                                      (number->string n)
                                                      (number->string (LSP->int n))))))
       ((bool) (put-string out (if (cdr v) "true" "false")))
+      ((raw) (put-string out (cdr v)))
       ((obj)
        (put-char out #\{)
        (let loop ((kvs (cdr v)) (first #t))
@@ -870,36 +874,29 @@
                                                (when back (hashtable-delete! back from) (when (= (hashtable-size back) 0) (hashtable-delete! LSP_proj_rev to)))))
                                 (hashtable-keys olds)))
     (hashtable-delete! LSP_proj_fwd from)))
+;; Stage 5: the forward/reverse staload graph + the #staload/#include/#dynload
+;; scanner + the reverse closure now live in ATS (xats_lsp_proj).  The glue keeps
+;; LSP_proj_indexed (bg-index worklist) + LSP_proj_symbols (completion symbol
+;; cache).  These vars hold the ATS closures, set in vscode_initialize.
+(define LSP-ats-proj-index #f)        ; (path text) -> normpath | ""
+(define LSP-ats-proj-remove #f)       ; (path) -> void
+(define LSP-ats-proj-revclosure #f)   ; (path) -> "p1\np2..." (dependents)
+(define LSP-ats-proj-fwdcount #f)     ; () -> int
+(define LSP-ats-proj-revcount #f)     ; () -> int
 (define (LSP_proj_index_file filePath text0)
+  (let ((text (or text0 (guard (e (#t #f)) (LSP-read-file (LSP_norm filePath))))))
+    (if (not text) ""
+        (let ((n (LSP-ats-proj-index filePath text)))
+          (unless (string=? n "") (hashtable-set! LSP_proj_indexed n #t))
+          n))))
+(define (LSP_proj_remove_file filePath)
   (let ((n (LSP_norm filePath)))
-    (if (or (string=? n "") (JS_path_is_prelude n)) ""
-        (let ((text (or text0 (guard (e (#t #f)) (LSP-read-file n)))))
-          (if (not text) ""
-              (begin (LSP_proj_unlink n)
-                     (let ((targets (LSP_parse_staloads n text)))
-                       (when (pair? targets)
-                         (let ((fset (make-hashtable equal-hash equal?)))
-                           (for-each (lambda (to) (hashtable-set! fset to #t)
-                                             (let ((back (or (hashtable-ref LSP_proj_rev to #f) (let ((b (make-hashtable equal-hash equal?))) (hashtable-set! LSP_proj_rev to b) b))))
-                                               (hashtable-set! back n #t)))
-                                     targets)
-                           (hashtable-set! LSP_proj_fwd n fset))))
-                     (hashtable-set! LSP_proj_indexed n #t) n))))))
-(define (LSP_proj_remove_file filePath) (let ((n (LSP_norm filePath))) (unless (string=? n "") (LSP_proj_unlink n) (hashtable-delete! LSP_proj_indexed n))))
+    (unless (string=? n "") (LSP-ats-proj-remove filePath) (hashtable-delete! LSP_proj_indexed n))))
 (define (LSP_proj_rev_closure path)
-  (let ((start (LSP_norm path)) (out (make-hashtable equal-hash equal?)))
-    (if (string=? start "") out
-        (let ((seen (make-hashtable equal-hash equal?)))
-          (hashtable-set! seen start #t)
-          (let loop ((stack (list start)))
-            (if (null? stack) out
-                (let ((cur (car stack)) (rest (cdr stack)) (new '()))
-                  (let ((deps (hashtable-ref LSP_proj_rev cur #f)))
-                    (when deps
-                      (vector-for-each (lambda (d) (unless (hashtable-contains? seen d)
-                                                     (hashtable-set! seen d #t) (hashtable-set! out d #t) (set! new (cons d new))))
-                                       (hashtable-keys deps))))
-                  (loop (append new rest)))))))))
+  (let ((s (LSP-ats-proj-revclosure path)) (out (make-hashtable equal-hash equal?)))
+    (unless (string=? s "")
+      (for-each (lambda (p) (unless (string=? p "") (hashtable-set! out p #t))) (LSP-string-split s #\newline)))
+    out))
 (define (LSP_proj_scan_dir root)
   (let ((count 0) (capped #f))
     (let loop ((stack (list (LSP_norm root))))
@@ -920,7 +917,7 @@
 (define (LSP_proj_scan_workspace roots)
   (let ((total 0) (capped #f))
     (for-each (lambda (r) (when (and r (not (string=? r ""))) (let ((res (LSP_proj_scan_dir r))) (set! total (+ total (car res))) (set! capped (or capped (cdr res)))))) roots)
-    (LSP-stderr (string-append "[xats-lsp-resident] project-index: files=" (number->string total) " fwd=" (number->string (hashtable-size LSP_proj_fwd)) " rev=" (number->string (hashtable-size LSP_proj_rev)) (if capped " capped=1" "") "\n"))
+    (LSP-stderr (string-append "[xats-lsp-resident] project-index: files=" (number->string total) " fwd=" (number->string (LSP-ats-proj-fwdcount)) " rev=" (number->string (LSP-ats-proj-revcount)) (if capped " capped=1" "") "\n"))
     _xunit))
 (define (LSP_workspace_roots params)
   (let ((roots '()) (seen (make-hashtable equal-hash equal?)))
@@ -1201,34 +1198,51 @@
                  (LSP-stderr (string-append "[xats-lsp-resident] .xats-lsp flag: " flag "\n"))))))
          (LSP-string-split text #\newline))))))
 
-(define (vscode_initialize validator liveValidator pruner reloadPreludeFn evictStampFn addFlag)
+(define (vscode_initialize validator liveValidator pruner reloadPreludeFn evictStampFn addFlag
+                           LSP-idx-reset LSP-idx-commit LSP-idx-evict LSP-idx-clear
+                           LSP-idx-diags LSP-idx-ndiags LSP-idx-count LSP-idx-query
+                           projIndex projRemove projRevClosure projFwdCount projRevCount)
+
+  ;; The ATS xats_lsp_index module API (passed as eight closures via initialize):
+  ;; the diag/hover/def/token/inlay accumulators + their dedups + the per-uri
+  ;; snapshot + the request builders all live in ATS now; the glue drives them by
+  ;; uri string.  (symbols/scopes/members + completion/workspace stay glue-side,
+  ;; reading LSP_index's 3 trailing fields.)
+  ;;   LSP-idx-reset  : () -> clear accumulators
+  ;;   LSP-idx-commit : (uri) -> dedup + store snapshot
+  ;;   LSP-idx-evict  : (uri) -> drop a uri          LSP-idx-clear : () -> drop all
+  ;;   LSP-idx-diags  : () -> published Diagnostic[] (JSON string)
+  ;;   LSP-idx-ndiags : () -> its length             LSP-idx-count : (uri,which)->int
+  ;;   LSP-idx-query  : (uri, kind, a,b,c,d) -> serialized JSON value
 
   ;; shared driver: per-check context + accumulators -> snapshot index + publish.
   (define (runValidation uri sourceText mode runCheck)
     (let ((t0 (real-time)))
-      (set! LSP_cur_diags '()) (set! LSP_cur_hovers '()) (set! LSP_cur_defs '()) (set! LSP_cur_tokens '())
-      (set! LSP_cur_symbols '()) (set! LSP_cur_inlays '()) (set! LSP_cur_scopes '()) (set! LSP_cur_members '())
+      (LSP-idx-reset)
+      (set! LSP_cur_symbols '()) (set! LSP_cur_scopes '()) (set! LSP_cur_members '())
       (set! LSP_cur_uri uri) (set! LSP_cur_path (vscode_url_to_path uri)) (set! LSP_cur_path_norm (LSP_norm LSP_cur_path))
       (set! LSP_cur_u16 (LSP_u16_make sourceText)) (set! LSP_other_u16 (make-hashtable equal-hash equal?))
       (guard (e (#t #f)) (LSP_proj_index_file LSP_cur_path sourceText))
       (let ((validatorError (guard (e (#t e)) (runCheck) #f)))
+        ;; diag/hover/def/token/inlay snapshot is ATS-owned (idx_commit); the glue
+        ;; LSP_index keeps only the 3 trailing fields it still reads (symbols/scopes/
+        ;; members for documentSymbol/workspace/completion).  Slots 0-2/4 are unused.
+        (LSP-idx-commit uri)
         (hashtable-set! LSP_index uri
-          (vector (LSP_dedup_hovers (reverse LSP_cur_hovers)) (LSP_dedup_defs (reverse LSP_cur_defs))
-                  (LSP_encode_tokens (reverse LSP_cur_tokens)) (LSP_dedup_symbols (reverse LSP_cur_symbols))
-                  (LSP_dedup_inlays (reverse LSP_cur_inlays)) (LSP_dedup_scopes (reverse LSP_cur_scopes))
+          (vector '() '() '() (LSP_dedup_symbols (reverse LSP_cur_symbols))
+                  '() (LSP_dedup_scopes (reverse LSP_cur_scopes))
                   (LSP_dedup_members (reverse LSP_cur_members))))
         (hashtable-delete! LSP_proj_symbols LSP_cur_path_norm)
         (let ((lspDiags (if validatorError
                             (jarr (list (vscode_diagnostic_make 2 (vscode_range_make (vscode_position_make 0 0) (vscode_position_make 0 1))
                                           "ats3: could not analyze this file (the compiler aborted). This usually means the file staloads the ATS3 compiler itself; ordinary ATS3 files are unaffected." "ats3")))
-                            (LSP_current_lsp_diagnostics))))
+                            (jraw (LSP-idx-diags)))))
           (LSP-send-notification "textDocument/publishDiagnostics" (jobj (list (cons "uri" (jstr uri)) (cons "diagnostics" lspDiags))))
           (when LSP_hasSemanticRefresh (guard (e (#t #f)) (LSP-send-request "workspace/semanticTokens/refresh" jnull)))
-          (let ((r (LSP-idx-get uri)))
-            (LSP-stderr (string-append "[xats-lsp-metric] check uri=" uri " mode=" mode " ms=" (number->string (- (real-time) t0))
-                                       " diags=" (number->string (length (if (eq? lspDiags 'jnull) '() (cdr lspDiags))))
-                                       " hovers=" (number->string (length (idx-hovers r))) " defs=" (number->string (length (idx-defs r)))
-                                       " tokens=" (number->string (quotient (length (idx-sem r)) 5)) " stats=" (number->string (LSP_stat_count_reset)) " staloadsyms=" (number->string (length LSP_staload_symbols)) " staloadfiles=" (number->string (hashtable-size LSP_staload_seen_files)) "\n")))
+          (LSP-stderr (string-append "[xats-lsp-metric] check uri=" uri " mode=" mode " ms=" (number->string (- (real-time) t0))
+                                     " diags=" (number->string (if validatorError 1 (LSP-idx-ndiags)))
+                                     " hovers=" (number->string (LSP-idx-count uri 0)) " defs=" (number->string (LSP-idx-count uri 1))
+                                     " tokens=" (number->string (LSP-idx-count uri 2)) " stats=" (number->string (LSP_stat_count_reset)) " staloadsyms=" (number->string (length LSP_staload_symbols)) " staloadfiles=" (number->string (hashtable-size LSP_staload_seen_files)) "\n"))
           (set! LSP_cur_uri #f) (set! LSP_cur_path #f) (set! LSP_cur_path_norm #f) (set! LSP_cur_u16 #f)))))
 
   (define (textValidator uri text) (runValidation uri text "disk" (lambda () (validator LSP_dependencies #f uri))))
@@ -1246,8 +1260,8 @@
                (unless (or (hashtable-contains? LSP_index uri) (JS_path_is_prelude n))
                  (let ((text (guard (e (#t #f)) (LSP-read-file n))))
                    (when text
-                     (set! LSP_cur_diags '()) (set! LSP_cur_hovers '()) (set! LSP_cur_defs '()) (set! LSP_cur_tokens '())
-                     (set! LSP_cur_symbols '()) (set! LSP_cur_inlays '()) (set! LSP_cur_scopes '()) (set! LSP_cur_members '())
+                     (LSP-idx-reset)   ; symbols-only pass: accumulate then discard (no commit)
+                     (set! LSP_cur_symbols '()) (set! LSP_cur_scopes '()) (set! LSP_cur_members '())
                      (set! LSP_cur_uri uri) (set! LSP_cur_path n) (set! LSP_cur_path_norm n)
                      (set! LSP_cur_u16 (LSP_u16_make text)) (set! LSP_other_u16 (make-hashtable equal-hash equal?))
                      (guard (e (#t #f)) (validator LSP_dependencies #f uri))
@@ -1262,6 +1276,7 @@
     (LSP-stderr (string-append "[xats-lsp-resident] reload_prelude: " savedUri "\n"))
     (guard (e (#t (LSP-stderr "reload_prelude threw\n")))
       (reloadPreludeFn)
+      (LSP-idx-clear)
       (set! LSP_index (make-hashtable equal-hash equal?))
       (set! LSP_dependencies (LSP_empty_graph))   ; ATS-owned depgraph rep
       (set! LSP_fwd (LSP_empty_graph))
@@ -1332,21 +1347,23 @@
           (for-each (lambda (root) (guard (e (#t #f)) (LSP-load-project-flags root addFlag))) LSP_pending_roots)
           (LSP-respond id (capabilities))))
        ((string=? method "shutdown") (LSP-respond id jnull))
-       ((string=? method "textDocument/hover") (LSP-respond id (LSP_build_hover (p-uri m) (p-line m) (p-char m))))
-       ((string=? method "textDocument/definition") (LSP-respond id (LSP_build_definition (p-uri m) (p-line m) (p-char m))))
-       ((string=? method "textDocument/typeDefinition") (LSP-respond id (LSP_build_type_definition (p-uri m) (p-line m) (p-char m))))
+       ((string=? method "textDocument/hover") (LSP-respond id (jraw (LSP-idx-query (p-uri m) 0 (p-line m) (p-char m) 0 0))))
+       ((string=? method "textDocument/definition") (LSP-respond id (jraw (LSP-idx-query (p-uri m) 1 (p-line m) (p-char m) 0 0))))
+       ((string=? method "textDocument/typeDefinition") (LSP-respond id (jraw (LSP-idx-query (p-uri m) 2 (p-line m) (p-char m) 0 0))))
        ((string=? method "textDocument/references")
-        (LSP-respond id (LSP_build_references (p-uri m) (p-line m) (p-char m) (let ((inc (jget* m "params" "context" "includeDeclaration"))) (eq? inc #t)))))
-       ((string=? method "textDocument/documentHighlight") (LSP-respond id (LSP_build_highlights (p-uri m) (p-line m) (p-char m))))
+        (LSP-respond id (jraw (LSP-idx-query (p-uri m) 3 (p-line m) (p-char m) (if (eq? (jget* m "params" "context" "includeDeclaration") #t) 1 0) 0))))
+       ((string=? method "textDocument/documentHighlight") (LSP-respond id (jraw (LSP-idx-query (p-uri m) 4 (p-line m) (p-char m) 0 0))))
        ((string=? method "textDocument/documentSymbol") (LSP-respond id (LSP_build_document_symbols (p-uri m))))
        ((string=? method "textDocument/inlayHint")
         (let ((rng (jget* m "params" "range")))
-          (LSP-respond id (LSP_build_inlays (p-uri m) (if (hashtable? rng) (vector (jnum->int (jget* rng "start" "line")) (jnum->int (jget* rng "start" "character")) (jnum->int (jget* rng "end" "line")) (jnum->int (jget* rng "end" "character"))) #f)))))
+          (if (hashtable? rng)
+              (LSP-respond id (jraw (LSP-idx-query (p-uri m) 6 (jnum->int (jget* rng "start" "line")) (jnum->int (jget* rng "start" "character")) (jnum->int (jget* rng "end" "line")) (jnum->int (jget* rng "end" "character")))))
+              (LSP-respond id (jraw (LSP-idx-query (p-uri m) 5 0 0 0 0))))))
        ((string=? method "workspace/symbol") (LSP-respond id (LSP_build_workspace_symbols (jstr-or (jget* m "params" "query") ""))))
        ((string=? method "textDocument/completion") (LSP-respond id (LSP_build_completion (p-uri m) (p-line m) (p-char m))))
-       ((string=? method "textDocument/semanticTokens/full") (LSP-respond id (LSP_build_semantic_tokens (p-uri m))))
+       ((string=? method "textDocument/semanticTokens/full") (LSP-respond id (jraw (LSP-idx-query (p-uri m) 7 0 0 0 0))))
        ((string=? method "xats/indexStats")
-        (LSP-respond id (LSP_build_index_stats (jstr-or (jget* m "params" "uri") (jstr-or (jget* m "params" "textDocument" "uri") "")))))
+        (LSP-respond id (jraw (LSP-idx-query (jstr-or (jget* m "params" "uri") (jstr-or (jget* m "params" "textDocument" "uri") "")) 8 0 0 0 0))))
        (else (LSP-respond id jnull)))))
 
   (define (LSP-handle-notification method m)
@@ -1375,7 +1392,7 @@
               (let ((doc (LSP-doc-get uri))) (when doc (textValidator uri (LSP-doc-text doc)))))))
        ((string=? method "textDocument/didClose")
         (let ((uri (jstr-or (jget* m "params" "textDocument" "uri") "")))
-          (LSP-doc-del uri) (hashtable-delete! LSP_index uri)
+          (LSP-doc-del uri) (hashtable-delete! LSP_index uri) (LSP-idx-evict uri)
           (LSP-send-notification "textDocument/publishDiagnostics" (jobj (list (cons "uri" (jstr uri)) (cons "diagnostics" (jarr '())))))))
        ((string=? method "workspace/didChangeWatchedFiles")
         (let ((changes (jget* m "params" "changes")))
@@ -1402,6 +1419,13 @@
             (cons uri text)))))
   (define (msg-method m) (and (hashtable? m) (jget m "method")))
   (define (msg-uri m) (jstr-or (jget* m "params" "textDocument" "uri") ""))
+
+  ;; bind the ATS project-graph closures into the top-level wrappers (also reached
+  ;; from scan_dir, a top-level fn outside this scope).  Placed here (after the
+  ;; internal defines) so it is in expression context.
+  (set! LSP-ats-proj-index projIndex) (set! LSP-ats-proj-remove projRemove)
+  (set! LSP-ats-proj-revclosure projRevClosure)
+  (set! LSP-ats-proj-fwdcount projFwdCount) (set! LSP-ats-proj-revcount projRevCount)
 
   ;; reader thread: read framed messages -> parse -> enqueue + signal.  Only this
   ;; thread touches stdin + json-parse (pure); the main thread runs the compiler.

@@ -240,9 +240,24 @@ fun member_push
 // resolve the way the project's real build does (no spurious LSP diagnostics on
 // build-flag-gated declarations).
 #typedef add_flag_t = (string) -> void
+// Stage 3+4: the ATS per-uri index API, handed to the glue as eight closures (the
+// glue calls them by uri to commit snapshots + serve hover/def/refs/inlay/semantic/
+// indexStats + the published diagnostics).  Passed as flat args (not a tuple — a
+// flat tuple of closures fails the sort check as a top-level val).  Types:
+//   idx_reset:()->void  idx_commit:(uri)->void  idx_evict:(uri)->void
+//   idx_clear:()->void  idx_diagnostics:()->string  idx_ndiags:()->int
+//   idx_count:(uri,which)->int  idx_query:(uri,kind,a,b,c,d)->string
+// ...plus the project staload-graph API (5 more closures): proj_index_file(path,
+// text)->normpath, proj_remove_file(path), proj_rev_closure(path)->"p1\np2..."
+// (dependents), proj_fwd_count, proj_rev_count.
 fun initialize
   ( text_validator_t, live_validator_t
-  , cache_pruner_t, reload_prelude_t, evict_stamp_t, add_flag_t) : void
+  , cache_pruner_t, reload_prelude_t, evict_stamp_t, add_flag_t
+  , () -> void, (string) -> void, (string) -> void, () -> void
+  , () -> string, () -> int, (string, int) -> int
+  , (string, int, int, int, int, int) -> string
+  , (string, string) -> string, (string) -> void, (string) -> string
+  , () -> int, () -> int) : void
 // lsp_addflag: the flag-setter callback impl (passed to initialize).
 fun lsp_addflag(string): void
 //
