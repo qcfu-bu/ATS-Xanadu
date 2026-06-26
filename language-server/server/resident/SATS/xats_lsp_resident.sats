@@ -30,34 +30,12 @@ per-uri in-memory index held in the .cats, which onHover/onDefinition read.
 //
 (* ****** ****** *)
 //
-// LSP diagnostic severity (opaque enum handle).
-//
-#abstype severity <= p0tr
-fun severity_error$make() : severity
-//
-(* ****** ****** *)
-//
-// LSP Position / Range (opaque {line,character} / {start,end} handles).
-//
-#abstype position <= p0tr
-fun position_make(line: int, offs: int) : position
-//
-#abstype range <= p0tr
-fun range_make(pbeg: position, pend: position) : range
-fun range_of_loctn(loctn) : range
-//
-(* ****** ****** *)
-//
-// LSP Diagnostic + the per-validation diagnostics accumulator (opaque array).
-//
-#abstype diagnostic <= p0tr
-fun diagnostic_make
-  (severity: severity, location: range, message: string, source: string)
-  : diagnostic
+// (Stage 6 cleanup: the severity/position/range/diagnostic handle types + their
+// makers are gone — diagnostics are built as jval in xats_lsp_index and serialized
+// straight to the wire.)  `diagnostics` survives ONLY as the unused 2nd parameter
+// of the validator signatures (the driver passes a cast-dummy); no longer pushed to.
 //
 #abstype diagnostics <= p0tr
-fun diagnostics_push(ds: diagnostics, d: diagnostic) : void
-#symload push with diagnostics_push
 //
 (* ****** ****** *)
 //
@@ -240,44 +218,11 @@ fun member_push
 // resolve the way the project's real build does (no spurious LSP diagnostics on
 // build-flag-gated declarations).
 #typedef add_flag_t = (string) -> void
-// Stage 3+4: the ATS per-uri index API, handed to the glue as eight closures (the
-// glue calls them by uri to commit snapshots + serve hover/def/refs/inlay/semantic/
-// indexStats + the published diagnostics).  Passed as flat args (not a tuple — a
-// flat tuple of closures fails the sort check as a top-level val).  Types:
-//   idx_reset:()->void  idx_commit:(uri)->void  idx_evict:(uri)->void
-//   idx_clear:()->void  idx_diagnostics:()->string  idx_ndiags:()->int
-//   idx_count:(uri,which)->int  idx_query:(uri,kind,a,b,c,d)->string
-// ...plus the project staload-graph API (5 more closures): proj_index_file(path,
-// text)->normpath, proj_remove_file(path), proj_rev_closure(path)->"p1\np2..."
-// (dependents), proj_fwd_count, proj_rev_count.
-fun initialize
-  ( text_validator_t, live_validator_t
-  , cache_pruner_t, reload_prelude_t, evict_stamp_t, add_flag_t
-  , () -> void, (string) -> void, (string) -> void, () -> void
-  , () -> string, () -> int, (string, int) -> int
-  , (string, int, int, int, int, int) -> string
-  , (string, string) -> string, (string) -> void, (string) -> string
-  , () -> int, () -> int
-  // ...plus the symbol-surface builders + project symbol cache: idx_workspace(query)
-  // ->json, idx_completion(uri,line,char,word,isMember,dotLine,dotCol,wcol)->json,
-  // idx_proj_store(path,uri), idx_proj_delete(path).
-  , (string) -> string, (string, int, int, string, int, int, int, int) -> string
-  , (string, string) -> void, (string) -> void
-  // ...plus the document store (xats_lsp_doc): doc_set(uri,text,version),
-  // doc_has(uri), doc_text(uri), doc_del(uri), doc_uris()->"uri\n..." (trailing
-  // newline; backend splits + drops empties), doc_apply_range(text,sl,sc,el,ec,
-  // newtext)->newtext (one incremental change), doc_complete_ctx(uri,line,char)
-  // ->"word\nisMember\ndotCol\nwcol".
-  , (string, string, int) -> void, (string) -> bool, (string) -> string
-  , (string) -> void, () -> string
-  , (string, int, int, int, int, string) -> string
-  , (string, int, int) -> string
-  // ...plus the per-check conversion layer (xats_lsp_conv): conv_set_cur(uri,path,
-  // text) — the validate driver sets the current uri + path + source text before
-  // each check (used by friendly/def_in_current/path2uri/cur_b2u; "","","" clears).
-  // ...and JS_path_is_prelude(path) — the prelude-root classifier (was a glue leaf).
-  , (string, string, string) -> void, (string) -> bool) : void
-// lsp_addflag: the flag-setter callback impl (passed to initialize).
+// (Stage 6 cutover: the old `initialize` entry — which handed ~32 closures to the
+// Scheme `vscode_initialize` loop — is gone.  The driver now owns the message loop
+// + dispatch directly (serve_loop), calling the ATS modules + its own validators,
+// over the floor's lsp_msg_read/lsp_msg_write.)
+// lsp_addflag: the flag-setter callback impl (set ONE compiler flag).
 fun lsp_addflag(string): void
 //
 // the resident callbacks themselves (declared here, #implfun'd in the DATS,
