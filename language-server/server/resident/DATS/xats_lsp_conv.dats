@@ -226,6 +226,32 @@ in
 end
 //
 (* ****** ****** *)
+(* ---- prelude-root classification (matches glue JS_path_is_prelude) ---- *)
+//
+// The loaded prelude/compiler tree lives ONLY under these $XATSHOME subdirs (NOT
+// the whole repo) — so files merely living inside the repo (language-server/,
+// frontend/) are NOT immutable.  Roots computed once at module load.
+val the_xatshome: string =
+  let val h = lsp_getenv("XATSHOME") in (if strn_eq(h, "") then "" else path_norm(h)) end
+fun mk_roots(h: string): list(string) =
+  if strn_eq(h, "") then list_nil()
+  else list_cons(strn_append(h, "/prelude/"),
+       list_cons(strn_append(h, "/srcgen1/"),
+       list_cons(strn_append(h, "/srcgen2/"),
+       list_cons(strn_append(h, "/xassets/"), list_nil()))))
+val the_roots: list(string) = mk_roots(the_xatshome)
+fun any_prefix(roots: list(string), sp: string): bool =
+  (case+ roots of
+   | list_nil() => false
+   | list_cons(r, rr) => (if startswith(sp, r) then true else any_prefix(rr, sp)))
+//
+#implfun JS_path_is_prelude(path) =
+  (case+ the_roots of
+   | list_nil() => false
+   | list_cons(_, _) => let val s = path_norm(path) in
+       (if strn_eq(s, "") then false else any_prefix(the_roots, strn_append(s, "/"))) end)
+//
+(* ****** ****** *)
 (*
 end of [language-server/server/resident/DATS/xats_lsp_conv.dats]
 *)

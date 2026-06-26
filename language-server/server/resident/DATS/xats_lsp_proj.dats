@@ -15,17 +15,18 @@ LSP_parse_staloads / LSP_proj_* byte-for-byte.  Interface: SATS/xats_lsp_proj.sa
 #include "prelude/HATS/prelude_JS_dats.hats"
 //
 #staload "./../SATS/xats_lsp_proj.sats"
+// JS_path_is_prelude is now ATS (xats_lsp_conv) — call it ATS->ATS in the scanner.
+#staload "./../SATS/xats_lsp_conv.sats"
 //
 #include "./../HATS/xats_lsp_ref.hats"
 //
 (* ****** ****** *)
 //
-// leaves: int->text + the 3 string primitives + the prelude classifier (glue).
+// leaves: int->text + the 3 string primitives.
 #extern fun int2str(n: sint): string = $extnam()
 #extern fun str_len(s: string): sint = $extnam()
 #extern fun str_char_code(s: string, i: sint): sint = $extnam()
 #extern fun str_of_code(c: sint): string = $extnam()
-#extern fun JS_path_is_prelude(path: string): bool = $extnam()
 //
 (* ****** ****** *)
 //

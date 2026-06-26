@@ -297,11 +297,12 @@
       (let ((h (substring LSP_xatshome 0 (- (string-length LSP_xatshome) 1))))   ; strip trailing /
         (map (lambda (d) (string-append h "/" d "/")) '("prelude" "srcgen1" "srcgen2" "xassets")))))
 (define (LSP-any pred lst) (and (pair? lst) (or (pred (car lst)) (LSP-any pred (cdr lst)))))
-(define (JS_path_is_prelude path)
-  (if (null? LSP_prelude_roots) #f
-      (let ((s (LSP_norm path)))
-        (and (not (string=? s ""))
-             (let ((sp (string-append s "/"))) (LSP-any (lambda (r) (LSP-starts-with? sp r)) LSP_prelude_roots))))))
+;; Stage 6d: prelude-root classification now lives in ATS (xats_lsp_conv).  This is
+;; a thin wrapper forwarding to that closure (bound in vscode_initialize); kept as a
+;; top-level name because top-level fns (LSP_immutable, scan_dir) call it too.
+;; (LSP_xatshome / LSP_prelude_roots / LSP-any above are now dead — cleanup later.)
+(define LSP-ats-pip #f)
+(define (JS_path_is_prelude path) (LSP-ats-pip path))
 
 ;; ---- prelude snapshot (R2a secondary guard): stamps cached at startup ----
 (define LSP_prelude_stamps (make-hashtable equal-hash equal?))
@@ -1192,7 +1193,7 @@
                            projIndex projRemove projRevClosure projFwdCount projRevCount
                            LSP-idx-workspace LSP-idx-completion LSP-idx-proj-store LSP-idx-proj-delete
                            docSet docHas docText docDel docUris docApply docCtx
-                           convSetCur)
+                           convSetCur pathIsPrelude)
 
   ;; The ATS xats_lsp_index module API (passed as eight closures via initialize):
   ;; the diag/hover/def/token/inlay accumulators + their dedups + the per-uri
@@ -1421,6 +1422,8 @@
   (set! LSP-ats-doc-set docSet) (set! LSP-ats-doc-has docHas) (set! LSP-ats-doc-text docText)
   (set! LSP-ats-doc-del docDel) (set! LSP-ats-doc-uris docUris)
   (set! LSP-ats-doc-apply docApply) (set! LSP-ats-doc-ctx docCtx)
+  ;; bind the ATS prelude-root classifier (xats_lsp_conv).
+  (set! LSP-ats-pip pathIsPrelude)
 
   ;; reader thread: read framed messages -> parse -> enqueue + signal.  Only this
   ;; thread touches stdin + json-parse (pure); the main thread runs the compiler.

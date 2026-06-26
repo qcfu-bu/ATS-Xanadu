@@ -345,8 +345,8 @@ fun LSP_prelude_sym_done((*void*)): void = lsp_log_prelude_index(idx_prelude_cou
 #implfun member_push(l0, c0, l1, c1, name, typ) =
   idx_member_push(l0, c0, l1, c1, name, typ)
 //
-#implfun initialize(f, lv, g, h, e, af, ir, ic, iv, icl, idg, ind, ict, iq, pix, prm, prc, pfc, prv, iws, icp, pst, pdl, ds, dh, dt, dd, du, da, dc, cs) =
-  vscode_initialize(f, lv, g, h, e, af, ir, ic, iv, icl, idg, ind, ict, iq, pix, prm, prc, pfc, prv, iws, icp, pst, pdl, ds, dh, dt, dd, du, da, dc, cs)
+#implfun initialize(f, lv, g, h, e, af, ir, ic, iv, icl, idg, ind, ict, iq, pix, prm, prc, pfc, prv, iws, icp, pst, pdl, ds, dh, dt, dd, du, da, dc, cs, pip) =
+  vscode_initialize(f, lv, g, h, e, af, ir, ic, iv, icl, idg, ind, ict, iq, pix, prm, prc, pfc, prv, iws, icp, pst, pdl, ds, dh, dt, dd, du, da, dc, cs, pip)
   where { #extern fun
     vscode_initialize
     ( f: text_validator_t, lv: live_validator_t, g: cache_pruner_t
@@ -364,7 +364,9 @@ fun LSP_prelude_sym_done((*void*)): void = lsp_log_prelude_index(idx_prelude_cou
     , da: (string, int, int, int, int, string) -> string
     , dc: (string, int, int) -> string
     // Stage 6b/6c: the per-check conversion layer (xats_lsp_conv) — conv_set_cur.
-    , cs: (string, string, string) -> void): void = $extnam() }
+    , cs: (string, string, string) -> void
+    // Stage 6d: the prelude-root classifier (xats_lsp_conv) — JS_path_is_prelude.
+    , pip: (string) -> bool): void = $extnam() }
 //
 // lsp_addflag: add ONE compiler flag to the global flag table. The .cats calls
 // this (via initialize's add_flag_t callback) for each flag in the workspace
@@ -1025,8 +1027,10 @@ val () = initialize
   , idx_workspace, idx_completion, idx_proj_store, idx_proj_delete
   // Stage 6a: the document store (xats_lsp_doc).
   , doc_set, doc_has, doc_text, doc_del, doc_uris, doc_apply_range, doc_complete_ctx
-  // Stage 6b: the per-check conversion layer (xats_lsp_conv).
-  , conv_set_cur)
+  // Stage 6b/6c: the per-check conversion layer (xats_lsp_conv).
+  , conv_set_cur
+  // Stage 6d: the prelude-root classifier (xats_lsp_conv).
+  , JS_path_is_prelude)
 //
 (* ****** ****** *)
 (*

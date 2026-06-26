@@ -275,7 +275,8 @@ fun initialize
   // ...plus the per-check conversion layer (xats_lsp_conv): conv_set_cur(uri,path,
   // text) — the validate driver sets the current uri + path + source text before
   // each check (used by friendly/def_in_current/path2uri/cur_b2u; "","","" clears).
-  , (string, string, string) -> void) : void
+  // ...and JS_path_is_prelude(path) — the prelude-root classifier (was a glue leaf).
+  , (string, string, string) -> void, (string) -> bool) : void
 // lsp_addflag: the flag-setter callback impl (passed to initialize).
 fun lsp_addflag(string): void
 //

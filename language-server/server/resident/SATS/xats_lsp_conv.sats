@@ -44,6 +44,11 @@ fun LSP_def_in_current(uri: string): bool
 // the editor's own uri (so within-file go-to-def stays in the same document).
 fun LSP_path2uri(path: string): string
 //
+// is `path` under one of the loaded-prelude roots ($XATSHOME/{prelude,srcgen1,
+// srcgen2,xassets}/)?  Immutable files: never live-validated, trigger a prelude
+// reload on save.  Roots are computed once from $XATSHOME at module load.
+fun JS_path_is_prelude(path: string): bool
+//
 (* ****** ****** *)
 (*
 end of [language-server/server/resident/SATS/xats_lsp_conv.sats]
