@@ -285,9 +285,22 @@
 (define LSP_xatshome
   (let ((h (or (getenv "XATSHOME") "")))
     (if (string=? h "") "" (let ((n (LSP_norm h))) (if (string=? n "") "" (string-append n "/"))))))
+;; The LOADED prelude/compiler tree (the files the_tr12env_pvsl00d parses at
+;; startup) lives ONLY under these $XATSHOME subdirs — NOT the whole repo.  Using
+;; the bare $XATSHOME prefix wrongly classified user files that merely live inside
+;; the repo (e.g. language-server/, frontend/) as immutable, disabling
+;; live-on-change for them and forcing a full prelude reload on every save.  A
+;; file is "immutable prelude" iff it is under one of these roots.
+(define LSP_prelude_roots
+  (if (string=? LSP_xatshome "") '()
+      (let ((h (substring LSP_xatshome 0 (- (string-length LSP_xatshome) 1))))   ; strip trailing /
+        (map (lambda (d) (string-append h "/" d "/")) '("prelude" "srcgen1" "srcgen2" "xassets")))))
+(define (LSP-any pred lst) (and (pair? lst) (or (pred (car lst)) (LSP-any pred (cdr lst)))))
 (define (JS_path_is_prelude path)
-  (if (string=? LSP_xatshome "") #f
-      (let ((s (LSP_norm path))) (and (not (string=? s "")) (LSP-starts-with? (string-append s "/") LSP_xatshome)))))
+  (if (null? LSP_prelude_roots) #f
+      (let ((s (LSP_norm path)))
+        (and (not (string=? s ""))
+             (let ((sp (string-append s "/"))) (LSP-any (lambda (r) (LSP-starts-with? sp r)) LSP_prelude_roots))))))
 
 ;; ---- prelude snapshot (R2a secondary guard): stamps cached at startup ----
 (define LSP_prelude_stamps (make-hashtable equal-hash equal?))
