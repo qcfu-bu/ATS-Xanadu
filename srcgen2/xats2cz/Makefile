@@ -29,6 +29,13 @@ LIB2OPT := $(SRCGEN2)/lib/lib2xatsopt.js                          # frontend (js
 LIB2JS  := $(SRCGEN2)/xats2js/srcgen1/lib/lib2xats2js.js          # intrep0+trxd3i0 (js2)
 
 NODE  := node --stack-size=8801
+# Compiling the full COMPILER source (the self-host fragments, in parallel) needs two
+# things the single-file path doesn't: (1) deep recursion — the JS-compiled emitter has
+# no loops, and V8's --stack-size MUST stay under the OS thread stack or it faults past
+# the guard page (SIGSEGV) instead of throwing; so raise the OS stack, then give V8 a big
+# stack inside it.  (2) NO shared V8 compile cache — parallel procs racing one cache file
+# corrupt it and SIGSEGV; disable it per-proc (the sequential bundle build keeps the cache).
+NODE_DEEP := ulimit -s 65520 2>/dev/null; NODE_COMPILE_CACHE= node --stack-size=60000
 CHEZ  ?= chez --script
 # cache V8 bytecode so repeated runs of the ~200MB bundle parse fast (sequential
 # use only — parallel procs racing the cache is unsafe).
@@ -86,15 +93,28 @@ JS_JS2   := $(BUILD)/js.js2.js
 CZBUNDLE := $(BUILD)/xats2cz-bundle.js
 
 ########################################################################
-.PHONY: all bundle clean cleanall help dirs
+.PHONY: all bundle clean cleanall distclean help dirs
 .DEFAULT_GOAL := bundle
 .SECONDARY:
-.PRECIOUS: $(OUT0) $(NSJS)
+.PRECIOUS: $(OUT0) $(NSJS) $(SH_FRAGS)
 
 all: bundle
 
 help:
-	@echo "xats2cz targets: bundle | dump/NAME | run/NAME | clean | cleanall"
+	@echo "xats2cz — Chez backend for ATS3.  Targets:"
+	@echo "  SEED compiler (ATS3 -> Scheme, runs on Node):"
+	@echo "    make bundle          build the emitter bundle (default)"
+	@echo "    make dump/NAME       emit Scheme for TEST/NAME.dats"
+	@echo "    make run/NAME        emit + run on Chez"
+	@echo "    make cmp/NAME        differential test (Chez stdout == JS stdout)"
+	@echo "    make suite           run cmp on all TEST/*.dats"
+	@echo "  SELF-HOSTED compiler (the same emitter, running on Chez):"
+	@echo "    make -j8 fragments   seed-compile all compiler source -> fragments"
+	@echo "    make selfhost        assemble -> chez_selfhost.scm"
+	@echo "    make native          precompile -> native chez_selfhost.so"
+	@echo "    make selfrun/NAME    run the self-hosted compiler on TEST/NAME.dats"
+	@echo "    make selfcompile     FIXPOINT: Chez compiler recompiles its own source"
+	@echo "  clean | cleanall | distclean"
 
 dirs:
 	@mkdir -p $(JSDIR)
@@ -257,10 +277,113 @@ suite: $(CZBUNDLE)
 	[ "$$fail" -eq 0 ]
 
 ########################################################################
+# SELF-HOST — build the Chez-hosted compiler and prove the fixpoint.
+#
+#   make fragments     seed-compile ALL compiler source -> per-file Scheme fragments
+#   make selfhost      assemble fragments + runtime -> chez_selfhost.scm
+#   make native        precompile that -> native chez_selfhost.so (3x faster startup)
+#   make selfrun/NAME  run the self-hosted compiler on TEST/NAME.dats
+#   make selfcompile   FIXPOINT: the Chez compiler recompiles its OWN source and we
+#                      assert every fragment is byte-identical to the seed-built one
+#
+# The compiler-source set = the frontend SRCDATS (from the seed's Makefile_xjsemit),
+# the xats2js backend's intrep0+trxd3i0, this emitter (cz0emit), and the driver.
+########################################################################
+SELFHOST     := $(BUILD)/selfhost
+# SH_SCM  = gen-1 fragments (seed/Node-built);  SH_SCM2 = gen-2 (Chez-built; fixpoint).
+# NOTE: no inline trailing comments on these — GNU make keeps the spaces in the value.
+SH_SCM       := $(SELFHOST)/scm
+SH_SCM2      := $(SELFHOST)/scm2
+SELFHOST_SCM := $(SELFHOST)/chez_selfhost.scm
+SELFHOST_SO  := $(SELFHOST)/chez_selfhost.so
+
+SH_FE := $(shell awk '/^SRCDATS[ ]*:?=/{c=1} c{print; if(!/\\$$/)exit}' $(SRCGEN2)/Makefile_xjsemit | grep -oE '[a-z0-9_]+\.dats')
+SH_BE := intrep0.dats intrep0_print0.dats intrep0_utils0.dats \
+         trxd3i0.dats trxd3i0_myenv0.dats trxd3i0_dynexp.dats trxd3i0_decl00.dats
+SH_FRAGS := $(addprefix $(SH_SCM)/fe_,$(addsuffix .scm,$(SH_FE))) \
+            $(addprefix $(SH_SCM)/be_,$(addsuffix .scm,$(SH_BE))) \
+            $(SH_SCM)/cz_cz0emit.dats.scm $(SH_SCM)/drv_driver.dats.scm
+
+# gen-2 fragment list (Chez-built, one per gen-1 fragment) for the fixpoint check.
+SH_FRAGS2 := $(addprefix $(SH_SCM2)/fe_,$(addsuffix .scm,$(SH_FE))) \
+             $(addprefix $(SH_SCM2)/be_,$(addsuffix .scm,$(SH_BE))) \
+             $(SH_SCM2)/cz_cz0emit.dats.scm $(SH_SCM2)/drv_driver.dats.scm
+
+# cz-emit : SEED-compile one source -> gen-1 fragment (the BUNDLE is a prereq, so a
+#           change to cz0emit.dats rebuilds the bundle and then every fragment).
+# cz-self : CHEZ-compile one source -> gen-2 fragment (the self-hosted .so).
+# Single logical line each (canned recipes; keeps GNU make 3.81 happy).
+define cz-emit
+@mkdir -p $(@D); echo ">> seed-emit $(<F)"; $(NODE_DEEP) $(CZBUNDLE) $< 2> $@.err | awk '/^;;==XATS2CZ-BEGIN==/{f=1;next}/^;;==XATS2CZ-END==/{f=0}f' > $@
+endef
+define cz-self
+@mkdir -p $(@D); echo ">> chez-emit $(<F)"; chez --script $(SELFHOST_SO) $< 2>/dev/null | awk '/^;;==XATS2CZ-BEGIN==/{f=1;next}/^;;==XATS2CZ-END==/{f=0}f' > $@
+endef
+
+# gen-1 fragments (seed/Node)                       gen-2 fragments (self-hosted Chez)
+$(SH_SCM)/fe_%.dats.scm: $(SRCGEN2)/DATS/%.dats $(CZBUNDLE)
+	$(cz-emit)
+$(SH_SCM)/be_%.dats.scm: $(SRCGEN2)/xats2js/srcgen1/DATS/%.dats $(CZBUNDLE)
+	$(cz-emit)
+$(SH_SCM)/cz_%.dats.scm: $(DATSDIR)/%.dats $(CZBUNDLE)
+	$(cz-emit)
+$(SH_SCM)/drv_driver.dats.scm: $(DRIVER) $(CZBUNDLE)
+	$(cz-emit)
+$(SH_SCM2)/fe_%.dats.scm: $(SRCGEN2)/DATS/%.dats $(SELFHOST_SO)
+	$(cz-self)
+$(SH_SCM2)/be_%.dats.scm: $(SRCGEN2)/xats2js/srcgen1/DATS/%.dats $(SELFHOST_SO)
+	$(cz-self)
+$(SH_SCM2)/cz_%.dats.scm: $(DATSDIR)/%.dats $(SELFHOST_SO)
+	$(cz-self)
+$(SH_SCM2)/drv_driver.dats.scm: $(DRIVER) $(SELFHOST_SO)
+	$(cz-self)
+
+.PHONY: fragments selfhost native selfcompile
+# fragments: seed-compile all $(words $(SH_FRAGS)) source files (use `make -jN`).
+fragments: $(SH_FRAGS)
+	@echo ">> $(words $(SH_FRAGS)) fragments up to date in $(SH_SCM)"
+
+# selfhost: runtime ++ fragments (in concat order) -> the Chez self-host compiler.
+selfhost: $(SELFHOST_SCM)
+$(SELFHOST_SCM): $(CZRT_FILES) $(SH_FRAGS)
+	@echo ">> assemble chez_selfhost.scm (runtime + $(words $(SH_FRAGS)) fragments)"
+	@cat $(CZRT_FILES) $(SH_FRAGS) > $@
+	@echo "   -> $@ ($$(wc -l < $@) lines)"
+
+# native: precompile the self-host compiler to a native .so (optimize-level 3).
+native: $(SELFHOST_SO)
+$(SELFHOST_SO): $(SELFHOST_SCM)
+	@echo '(optimize-level 3)(generate-inspector-information #f)(compile-file "$(SELFHOST_SCM)" "$(SELFHOST_SO)")' | chez -q
+	@echo ">> built $@  (run: make selfrun/NAME)"
+
+# selfrun/NAME: run the self-hosted (native .so) compiler on TEST/NAME.dats.
+selfrun/%: $(SELFHOST_SO)
+	@chez --script $(SELFHOST_SO) $(TESTDIR)/$*.dats 2>/dev/null
+
+# selfcompile: the FIXPOINT.  The gen-2 fragments are built by the Chez compiler
+# (above pattern rules; `make -jN selfcompile` parallelizes), then we assert each
+# is byte-identical to the seed-built gen-1 fragment.
+selfcompile: $(SH_FRAGS) $(SH_FRAGS2)
+	@id=0; df=0; em=0; bad=""; \
+	for g1 in $(SH_FRAGS); do t=$$(basename $$g1); g2=$(SH_SCM2)/$$t; \
+	  if diff -q $$g1 $$g2 >/dev/null 2>&1; then id=$$((id+1)); \
+	  elif [ ! -s $$g2 ]; then em=$$((em+1)); bad="$$bad EMPTY:$$t"; \
+	  else df=$$((df+1)); bad="$$bad DIFF:$$t"; fi; \
+	done; \
+	echo "=== FIXPOINT: $$id identical / $$df diff / $$em real-empty (of $(words $(SH_FRAGS))) ==="; \
+	[ -z "$$bad" ] && echo "*** the Chez compiler reproduces all its own fragments byte-for-byte ***" \
+	              || { echo "non-identical:$$bad"; exit 1; }
+
+########################################################################
 clean:
-	@echo ">> clean emitter artifacts (keep cached fixed libs)"
+	@echo ">> clean emitter artifacts (keep cached fixed libs + self-host fragments)"
 	@rm -f $(OUT0) $(NSJS) $(LIB2CZ) $(DRV_CZ) $(CZBUNDLE) $(JSDIR)/*.err $(BUILD)/transpile_*.err
 
 cleanall: clean
-	@echo ">> cleanall (also cached fixed libs)"
+	@echo ">> cleanall (also cached fixed libs + the assembled self-host compiler)"
 	@rm -f $(OPT_JS1) $(JS_JS2)
+	@rm -rf $(SELFHOST)
+
+distclean:
+	@echo ">> distclean — remove the entire BUILD/ tree (everything is regenerable)"
+	@rm -rf $(BUILD)
