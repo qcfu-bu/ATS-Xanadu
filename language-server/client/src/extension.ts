@@ -78,6 +78,38 @@ function isPackaged(context: ExtensionContext): boolean {
 }
 
 /**
+ * Resolve the CHEZ resident server (the xats2cz backend): a compiled `.so`
+ * launched as `chez --script <so> --stdio`. The prelude loads once (~420 ms),
+ * then edits re-check in ~1 ms. This is the preferred backend when present.
+ *
+ * Priority: `ats3.server.chezPath` setting; then the packaged payload in
+ * `server-dist/`; then the repo-relative dev build at
+ * `server/BUILD/chez/chez-lsp-resident.so`. The Chez executable is `chez` (or
+ * the `ats3.server.chezBin` setting).
+ */
+function resolveChezServer(
+  context: ExtensionContext,
+): { command: string; args: string[]; label: string } | undefined {
+  const cfg = workspace.getConfiguration("ats3");
+  const chezBin = (cfg.get<string>("server.chezBin", "chez").trim() || "chez");
+  const configured = cfg.get<string>("server.chezPath", "").trim();
+  const candidates =
+    configured.length > 0
+      ? [configured]
+      : [
+          path.join(context.extensionPath, "server-dist", "chez-lsp-resident.so"),
+          path.join(context.extensionPath, "..", "server", "BUILD", "chez", "chez-lsp-resident.so"),
+          path.join(context.extensionPath, "server", "BUILD", "chez", "chez-lsp-resident.so"),
+        ];
+  for (const so of candidates) {
+    if (fs.existsSync(so)) {
+      return { command: chezBin, args: ["--script", so, "--stdio"], label: `chez .so (${so})` };
+    }
+  }
+  return undefined;
+}
+
+/**
  * Resolve XATSHOME (the ATS3/Xanadu repo root, needed by the checker to find
  * the prelude). Returns `undefined` when it cannot be determined.
  *
@@ -115,14 +147,26 @@ export function activate(context: ExtensionContext): void {
   const channel: OutputChannel = window.createOutputChannel("ATS3 Language Server");
   context.subscriptions.push(channel);
 
-  const denoBin = resolveDenoBinary(context);
-  if (denoBin === undefined) {
+  // Choose a backend. "auto" (default) prefers the Chez resident server (.so)
+  // when present, else the self-contained Deno binary. "chez"/"deno" force one.
+  const backend = (workspace.getConfiguration("ats3").get<string>("server.backend", "auto").trim() || "auto");
+  let spec: { command: string; args: string[]; label: string } | undefined;
+  if (backend !== "deno") {
+    spec = resolveChezServer(context);
+  }
+  if (spec === undefined && backend !== "chez") {
+    const denoBin = resolveDenoBinary(context);
+    if (denoBin !== undefined) {
+      spec = { command: denoBin, args: ["--stdio"], label: `deno binary (${denoBin})` };
+    }
+  }
+  if (spec === undefined) {
     window.showErrorMessage(
-      `ATS3 LSP: server binary not found. Build it with "npm run build:deno" ` +
-        `(it lands in server-dist/xats-lsp-deno), or set "ats3.server.denoPath" ` +
-        `to the compiled Deno binary.`,
+      `ATS3 LSP: no server found. Build the Chez server ` +
+        `(server/chez-build-resident.sh -> server/BUILD/chez/chez-lsp-resident.so) ` +
+        `or the Deno binary ("npm run build:deno"), or set "ats3.server.chezPath" / "ats3.server.denoPath".`,
     );
-    channel.appendLine(`[ats3] server binary not found (no server-dist/xats-lsp-deno)`);
+    channel.appendLine(`[ats3] no server found (backend=${backend})`);
     return;
   }
 
@@ -155,7 +199,7 @@ export function activate(context: ExtensionContext): void {
   }
   const serverEnv = { ...process.env, XATSHOME: xatshome };
 
-  channel.appendLine(`[ats3] launching server: ${denoBin} (deno binary)`);
+  channel.appendLine(`[ats3] launching server: ${spec.command} ${spec.args.join(" ")} [${spec.label}]`);
   channel.appendLine(`[ats3] XATSHOME=${xatshome}`);
 
   // Launch the server binary; communicate over stdio. `--stdio` is passed
@@ -163,20 +207,13 @@ export function activate(context: ExtensionContext): void {
   // (TransportKind.stdio already implies it, but being explicit keeps the
   // bare-launch path and the client path identical.) The stack flag and
   // permissions are compiled into the binary, so no extra args are needed.
-  const serverOptions: ServerOptions = {
-    run: {
-      command: denoBin,
-      args: ["--stdio"],
-      transport: TransportKind.stdio,
-      options: { env: serverEnv },
-    },
-    debug: {
-      command: denoBin,
-      args: ["--stdio"],
-      transport: TransportKind.stdio,
-      options: { env: serverEnv },
-    },
+  const launch = {
+    command: spec.command,
+    args: spec.args,
+    transport: TransportKind.stdio,
+    options: { env: serverEnv },
   };
+  const serverOptions: ServerOptions = { run: launch, debug: launch };
 
   const clientOptions: LanguageClientOptions = {
     // Bind to both language ids registered in package.json.

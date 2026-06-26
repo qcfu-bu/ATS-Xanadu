@@ -1211,10 +1211,20 @@ case+ idcl.node() of
      | _ =>
        (cz_str(filr, "(define ("); cz_dimpl_name(filr, dimp); cz_params(filr, fargs);
         cz_str(filr, ") "); cz_fnbody(filr, fargs, body); cz_str(filr, ")\n"))))
-(* extern, includes, errck-dropped(none1), benign-empty: no Scheme. *)
+(* extern, errck-dropped(none1), benign-empty: no Scheme. *)
 | I0Dextern(_, _) => ()
 | I0Dd3ecl(_) => ()
-| I0Dinclude(_, _, _, _, _) => ()
+(* #include: emit the included declarations (textual inclusion = same
+   compilation unit).  cz0emit consumes RAW intrep0, where an #include is still
+   wrapped in I0Dinclude (the JS path's trxi0i1/ANF flattens it away before
+   js1emit, so js1emit never sees this node).  Recurse like I0Ddclst0/I0Dlocal0.
+   Pure-declaration includes (the compiler's xatsopt_sats/dpre.hats: only
+   #staload/#define/#symload) emit nothing, so this never duplicates defines;
+   code-bearing includes (the LSP's shared harvest/typrint .hats) now emit. *)
+| I0Dinclude(_, _, _, _, dopt) =>
+  ( case+ dopt of
+    | optn_nil() => ()
+    | optn_cons(ds) => i0dclist_cz0(filr, ds) )
 | I0Dnone0() => ()
 | I0Dnone1(_) => ()
 | I0Dfundclst(_, _, _, ifs) => i0fundclist_cz0(filr, ifs)

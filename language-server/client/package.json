@@ -83,6 +83,26 @@
       "type": "object",
       "title": "ATS3 Language Server",
       "properties": {
+        "ats3.server.backend": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "chez",
+            "deno"
+          ],
+          "default": "auto",
+          "markdownDescription": "Which language-server backend to launch. `auto` (default) prefers the **Chez** resident server (xats2cz, `chez --script <so>`) when its `.so` is present, otherwise the self-contained Deno binary. `chez` / `deno` force one."
+        },
+        "ats3.server.chezPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Absolute path to the compiled Chez resident server (`chez-lsp-resident.so`, built by `server/chez-build-resident.sh`). When empty, the client auto-resolves it from `server-dist/` (packaged) or the repo `server/BUILD/chez/` (dev)."
+        },
+        "ats3.server.chezBin": {
+          "type": "string",
+          "default": "chez",
+          "markdownDescription": "The Chez Scheme executable used to run the resident server `.so` (default `chez`; set an absolute path if `chez` is not on `PATH`)."
+        },
         "ats3.server.denoPath": {
           "type": "string",
           "default": "",

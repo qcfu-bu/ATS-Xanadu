@@ -61,6 +61,34 @@ than the original process-per-check. The client defaults to the resident server;
 server and `ats-check.sh` CLI remain for batch use. Remaining: the editor GUI try (F5), R2
 invalidation, and P4 hardening.
 
+## Chez backend (xats2cz) — faster, no Node at runtime
+A second backend compiles the **same ATS3 server/checker sources** to **Chez Scheme**
+via the `xats2cz` compiler (instead of to JS via `xats2js`), linking against the
+self-hosted Chez front-end (`srcgen2/xats2cz/BUILD/selfhost/scm/`). The `.cats` JS
+FFI is reimplemented in Scheme (`server/SCM/*.scm`) — including a hand-written LSP
+JSON-RPC transport (no `vscode-languageserver`) with a reader thread + debounce.
+
+```sh
+export XATSHOME=/Users/qcfu/Projects/ATS-Xanadu
+# prereq (one-time): the xats2cz emitter bundle + self-host frontend fragments
+( cd ../srcgen2/xats2cz && make bundle && make -j8 fragments )
+# one-shot checker -> server/BUILD/chez/chez-lsp-check.so
+cd language-server/server && bash chez-build-check.sh
+# resident server  -> server/BUILD/chez/chez-lsp-resident.so
+bash chez-build-resident.sh
+# verify (no GUI):
+node scripts/smoke-chez.js                                   # core features, spawns chez
+RESIDENT_SERVER=$PWD/scripts/chez-lsp-shim.js node resident/scripts/smoke-resident.js
+```
+Run: `chez --script server/BUILD/chez/chez-lsp-resident.so --stdio`. The client
+prefers this backend automatically when the `.so` exists (`ats3.server.backend:auto`;
+force with `chez`/`deno`, override the path via `ats3.server.chezPath`).
+
+**Status:** the one-shot checker is **byte-identical** to the JS checker across the
+test corpus; the resident server passes **15/16** of the existing resident smoke
+tests (every feature except `.pdats`/`.psats` pyfront, which is not yet ported).
+Prelude loads once (~420 ms); warm checks are ~1 ms.
+
 ## Build everything, then F5
 ```sh
 export XATSHOME=/Users/qcfu/Projects/ATS-Xanadu
