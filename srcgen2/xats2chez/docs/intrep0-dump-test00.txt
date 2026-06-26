@@ -1,3 +1,0 @@
-== [xats2chez M0] intrep0 dump BEGIN ==
-I0PARSED(1;0;LCSRCsome1(/Users/qcfu/Projects/ATS-Xanadu/srcgen2/xats2chez/srcgen2/TEST/test00_xats2chez.dats);$optn($list(I0Dvaldclst(T_VAL(VLKval);$list(I0VALDCL(I0Pvar(theAnswer(2));TEQI0EXPsome(T_EQ0();I0Eint(T_INT01(42)))))),I0Dnone1(LCSRCsome1(/Users/qcfu/Projects/ATS-Xanadu/srcgen2/xats2chez/srcgen2/TEST/test00_xats2chez.dats)@(625(line=20,offs=1)--625(line=20,offs=1));D3Cnone0()))))
-== [xats2chez M0] intrep0 dump END ==
