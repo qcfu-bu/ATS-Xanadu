@@ -600,6 +600,115 @@ precheck(dp: depgraph, fwd: depgraph, key0: sym_t): void = let
 // which we delegate to — so the resident and the one-shot checker walk + filter
 // IDENTICALLY (the include-leak source filter can never drift between them again).
 //
+(* ====================================================================== *)
+(*   STALOAD-AWARE COMPLETION                                              *)
+(*   Index the names a file's #staload/#include closure brings into scope  *)
+(*   (the staloaded API — e.g. xatsopt_flag$pvsadd0), so completion offers *)
+(*   them, not just the file's own decls + the pervasive prelude. Each     *)
+(*   staloaded file is descended ONCE per session (deduped by its STAMP);  *)
+(*   the index persists in the .cats and is cleared on a prelude reload.   *)
+(*   The .cats's LSP_staload_seen returns true for ALL stamps when the      *)
+(*   feature is off (ATS3_LSP_STALOAD_COMPLETE=0) -> no descent, no cost.   *)
+(* ====================================================================== *)
+//
+#extern fun LSP_staload_seen(s: sint): bool = $extnam()
+#extern fun LSP_staload_mark(s: sint): void = $extnam()
+#extern fun
+LSP_staload_sym_push(name: string, kind: int, typ: string): void = $extnam()
+//
+fun
+stld_emit_dcons(cs: d2conlst, kind: int): void =
+( case+ cs of
+  | list_nil() => ()
+  | list_cons(c, rest) =>
+    ( LSP_staload_sym_push
+        (symbl_get_name(d2con_get_name(c)), kind, typ_pretty(d2con_get_styp(c)))
+    ; stld_emit_dcons(rest, kind) ) )
+//
+fun
+stld_emit_scst1(s2c: s2cst, kind: int): void =
+  LSP_staload_sym_push
+    (symbl_get_name(s2cst_get_name(s2c)), kind, typr_sort2name(s2cst_get_sort(s2c)))
+fun
+stld_emit_scsts(cs: s2cstlst, kind: int): void =
+( case+ cs of
+  | list_nil() => ()
+  | list_cons(c, rest) => (stld_emit_scst1(c, kind); stld_emit_scsts(rest, kind)) )
+//
+// a SATS `fun`/`val` declaration group (D2Cdynconst) -> each d2cst's name.
+fun
+stld_emit_d2cstdcls(cs: d2cstdclist): void =
+( case+ cs of
+  | list_nil() => ()
+  | list_cons(c, rest) => let
+      val dc = d2cstdcl_get_dpid(c)
+    in
+      LSP_staload_sym_push(symbl_get_name(d2cst_get_name(dc)),
+        (if typr_funq(d2cst_get_styp(dc)) then 12(*Function*) else 14(*Constant*)),
+        typ_pretty(d2cst_get_styp(dc)));
+      stld_emit_d2cstdcls(rest)
+    end )
+//
+// walk a STALOADED file's (d2 interface) decls -> emit each name.
+fun
+stld_index_d2ecl(dcl: d2ecl): void =
+( case+ dcl.node() of
+  | D2Cerrck(_, d1) => stld_index_d2ecl(d1)
+  | D2Cstatic(_, d1) => stld_index_d2ecl(d1)
+  | D2Cextern(_, d1) => stld_index_d2ecl(d1)
+  | D2Clocal0(da, db) => (stld_index_d2eclist(da); stld_index_d2eclist(db))
+  | D2Cdynconst(_, _, dcdcls) => stld_emit_d2cstdcls(dcdcls)
+  | D2Cdatatype(_, s2cs) => stld_emit_scsts(s2cs, 10(*Enum*))
+  | D2Csexpdef(s2c, _) => stld_emit_scst1(s2c, 11(*Interface*))
+  | D2Cstacst0(s2c, _) => stld_emit_scst1(s2c, 26(*TypeParam*))
+  | D2Cabstype(s2c, _) => stld_emit_scst1(s2c, 5(*Class*))
+  | D2Cexcptcon(_, d2cs) => stld_emit_dcons(d2cs, 22(*EnumMember*))
+  | D2Cnone2(d2cl) => stld_index_d2ecl(d2cl)
+  | _ => () )
+and
+stld_index_d2eclist(xs: d2eclist): void =
+( case+ xs of list_nil() => () | list_cons(x, xs) => (stld_index_d2ecl(x); stld_index_d2eclist(xs)) )
+and
+stld_index_d2eclistopt(xo: d2eclistopt): void =
+( case+ xo of optn_nil() => () | optn_cons(xs) => stld_index_d2eclist(xs) )
+//
+// THE STALOADED API = every file the compiler has PARSED+CHECKED is cached in
+// the_d3parenv (topmap stamp -> d3parsed).  A file's #staload sub-parses come back
+// S3TALOADnone (cached, not embedded), so we enumerate the cache directly (like
+// the prelude/global index enumerates the_dexpenv) and walk each cached file's
+// decls.  Deduped by the topmap STAMP key (a sint) so each file is walked once;
+// the cache grows monotonically (prelude + compiler + checked user files), so
+// after the first compiler-linking check the whole API is indexed and later
+// checks add only newly-cached files.  This over-includes slightly (names from
+// cached files the current file doesn't staload) — harmless for completion.
+//
+#typedef d2kxs_t = @(sint, list(d2parsed))
+//
+fun
+stld_index_dpars(xs: list(d2parsed)): void =
+( case+ xs of
+  | list_nil() => ()
+  | list_cons(dp, rest) =>
+    (stld_index_d2eclistopt(d2parsed_get_parsed(dp)); stld_index_dpars(rest)) )
+//
+fun
+stld_strm(kxss: strm_vt(d2kxs_t)): void =
+( case+ !kxss of
+  | ~strmcon_vt_nil() => ()
+  | ~strmcon_vt_cons(kxs1, rest) =>
+    ( if LSP_staload_seen(kxs1.0) then ()
+      else (LSP_staload_mark(kxs1.0); stld_index_dpars(kxs1.1))
+    ; stld_strm(rest) ) )
+//
+// enumerate the d2 cache (the staloaded SATS interfaces — fun/val/type decls);
+// the d3 cache (the_d3parenv) holds only checked .dats (already document/project
+// symbols), so the SATS API lives in d2.
+fun
+harvest_staload_syms((*void*)): void =
+  stld_strm(topmap_strmize(the_d2parenv_pvstmap()))
+//
+(* ****** ****** *)
+//
 fun
 harvest_with_deps
 (dp: depgraph, fwd: depgraph, key: sym_t, path: strn, dpar: d3parsed): void = let
@@ -614,6 +723,9 @@ harvest_with_deps
     // SHARED harvest: set the top-path source filter from d3parsed_get_source,
     // walk (diagnostics + hovers + defs + semantic tokens), reset the filter.
     val () = harvest_d3parsed(dpar)
+    // staload-aware completion: index the staloaded API from the global d3 cache
+    // (deduped per cached-file stamp; cheap after the first compiler-linking check).
+    val () = harvest_staload_syms()
   in (*nothing*) end
 //
 #implfun text_validator(dp, ds, uri) = let

@@ -206,6 +206,12 @@ export function activate(context: ExtensionContext): void {
   if (debounceMs && debounceMs > 0) {
     serverEnv.ATS3_LSP_DEBOUNCE_MS = String(Math.floor(debounceMs));
   }
+  // staload-aware completion is ON by default; let users disable it (e.g. if the
+  // first check of a compiler-linking file is too heavy in their project).
+  const staloadCompletion = workspace.getConfiguration("ats3").get<boolean>("server.staloadCompletion", true);
+  if (staloadCompletion === false) {
+    serverEnv.ATS3_LSP_STALOAD_COMPLETE = "0";
+  }
 
   channel.appendLine(`[ats3] launching server: ${spec.command} ${spec.args.join(" ")} [${spec.label}]`);
   channel.appendLine(`[ats3] XATSHOME=${xatshome}`);

@@ -41,6 +41,7 @@ error and the server does not start — it never silently crashes.
 | `ats3.server.chezPath`  | Override the path to `chez-lsp-resident.so` (empty = auto-resolve from `server-dist`/repo). |
 | `ats3.server.chezBin`   | The Chez executable used to run the `.so` (default `chez`).                                  |
 | `ats3.server.debounceMs`| Live-on-change debounce in ms (`0` = server default 150). Lower (e.g. `50`) for snappier as-you-type checks. |
+| `ats3.server.staloadCompletion`| Complete the API a file's `#staload`/`#include` pulls in (not just the file's own + prelude). Default on. |
 | `ats3.xatshome`         | Path to the ATS3/Xanadu repo root (`XATSHOME`). **Required for an installed `.vsix`.**       |
 | `ats3.server.denoPath`  | Path to the alternative self-contained Deno server binary (when `backend` is `deno`).       |
 | `ats3.trace.server`     | LSP trace level (`off` / `messages` / `verbose`).                                            |

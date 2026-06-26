@@ -811,6 +811,29 @@
     ((12) 3) ((14) 21) ((13) 6) ((10) 13) ((11) 8) ((5) 7) ((26) 25) ((22) 20) ((9) 4) (else 6)))
 
 ;; ====================================================================== ;;
+;; staload-aware completion index (the staloaded API a file pulls in)       ;;
+;; ====================================================================== ;;
+;; The ATS harvest descends each file's staload closure ONCE per session
+;; (deduped by staloaded-file STAMP via LSP_staload_seen/mark) and pushes each
+;; staloaded declaration's (name,kind,type) here.  Kill-switch:
+;; ATS3_LSP_STALOAD_COMPLETE=0 makes seen return #t for everything -> no descent.
+(define LSP_staload_enabled (not (equal? (getenv "ATS3_LSP_STALOAD_COMPLETE") "0")))
+(define LSP_staload_symbols '())                      ; list of #(name kind typ)
+(define LSP_staload_seen_names (make-hashtable string-hash string=?))
+(define LSP_staload_seen_files (make-hashtable equal-hash equal?))   ; stamp -> #t
+(define (LSP_staload_seen stamp) (or (not LSP_staload_enabled) (hashtable-contains? LSP_staload_seen_files stamp)))
+(define (LSP_staload_mark stamp) (hashtable-set! LSP_staload_seen_files stamp #t) _xunit)
+(define (LSP_staload_sym_push name kind typ)
+  (let ((nm (LSP->str name)))
+    (if (or (string=? nm "") (hashtable-contains? LSP_staload_seen_names nm)) _xunit
+        (begin (hashtable-set! LSP_staload_seen_names nm #t)
+               (set! LSP_staload_symbols (cons (vector nm (LSP->int kind) (LSP->str typ)) LSP_staload_symbols)) _xunit))))
+(define (LSP-staload-reset)
+  (set! LSP_staload_symbols '())
+  (set! LSP_staload_seen_names (make-hashtable string-hash string=?))
+  (set! LSP_staload_seen_files (make-hashtable equal-hash equal?)))
+
+;; ====================================================================== ;;
 ;; R2c project staload index (path-keyed forward/reverse graphs)            ;;
 ;; ====================================================================== ;;
 (define LSP_proj_fwd (make-hashtable equal-hash equal?))    ; path -> hashtable(path->#t)
@@ -1056,7 +1079,7 @@
     (define (add name symKind src detail)
       (when (and (not (string=? name "")) (not (hashtable-contains? seen name)) (LSP-ci-prefix? name word) (< cnt cap))
         (hashtable-set! seen name #t) (set! cnt (+ cnt 1))
-        (set! items (cons (jobj (list (cons "label" (jstr name)) (cons "kind" (jnum (if (string=? src "4") 14 (LSP_sk_to_cik symKind))))
+        (set! items (cons (jobj (list (cons "label" (jstr name)) (cons "kind" (jnum (if (string=? src "5") 14 (LSP_sk_to_cik symKind))))
                                       (cons "detail" (jstr detail)) (cons "sortText" (jstr (string-append src name)))
                                       (cons "textEdit" (jobj (list (cons "range" rng) (cons "newText" (jstr name))))))) items))))
     (let ((r (LSP-idx-get uri)))
@@ -1075,10 +1098,12 @@
       (vector-for-each (lambda (np rec) (unless (or (not rec) (string=? (car rec) uri) (hashtable-contains? LSP_index (car rec)))
                                           (for-each (lambda (s) (add (vr s 4) (vr s 5) "2" (cand-detail (vector (vr s 4) (vr s 5) (vr s 7)) "project"))) (cdr rec))))
                        ps prs))
-    ;; 3: prelude/global
-    (for-each (lambda (s) (add (vr s 0) (vr s 1) "3" (cand-detail s "prelude"))) LSP_prelude_symbols)
-    ;; 4: keywords
-    (for-each (lambda (kw) (add kw 0 "4" "keyword")) LSP_KEYWORDS)
+    ;; 3: prelude/global (the pervasive prelude API)
+    (when (< cnt cap) (for-each (lambda (s) (add (vr s 0) (vr s 1) "3" (cand-detail s "prelude"))) LSP_prelude_symbols))
+    ;; 4: staloaded API (the names this file's #staload/#include closure pulls in)
+    (when (< cnt cap) (for-each (lambda (s) (add (vr s 0) (vr s 1) "4" (cand-detail s "staload"))) LSP_staload_symbols))
+    ;; 5: keywords
+    (for-each (lambda (kw) (add kw 0 "5" "keyword")) LSP_KEYWORDS)
     (jobj (list (cons "isIncomplete" (jbool #t)) (cons "items" (jarr (reverse items)))))))
 
 ;; ====================================================================== ;;
@@ -1173,7 +1198,7 @@
             (LSP-stderr (string-append "[xats-lsp-metric] check uri=" uri " mode=" mode " ms=" (number->string (- (real-time) t0))
                                        " diags=" (number->string (length (if (eq? lspDiags 'jnull) '() (cdr lspDiags))))
                                        " hovers=" (number->string (length (idx-hovers r))) " defs=" (number->string (length (idx-defs r)))
-                                       " tokens=" (number->string (quotient (length (idx-sem r)) 5)) " stats=" (number->string (LSP_stat_count_reset)) "\n")))
+                                       " tokens=" (number->string (quotient (length (idx-sem r)) 5)) " stats=" (number->string (LSP_stat_count_reset)) " staloadsyms=" (number->string (length LSP_staload_symbols)) " staloadfiles=" (number->string (hashtable-size LSP_staload_seen_files)) "\n")))
           (set! LSP_cur_uri #f) (set! LSP_cur_path #f) (set! LSP_cur_path_norm #f) (set! LSP_cur_u16 #f)))))
 
   (define (textValidator uri text) (runValidation uri text "disk" (lambda () (validator LSP_dependencies #f uri))))
@@ -1212,6 +1237,8 @@
       (set! LSP_fwd (make-hashtable equal-hash equal?))
       (set! LSP_signatures (make-hashtable equal-hash equal?))
       (set! LSP_path2stamp (make-hashtable equal-hash equal?))
+      ;; staloaded-API index is stamp-keyed -> stale after a reload (new stamps).
+      (LSP-staload-reset)
       (for-each (lambda (uri) (let ((doc (LSP-doc-get uri))) (when doc (textValidator uri (LSP-doc-text doc))))) (LSP-doc-uris))))
 
   ;; watched files (Created=1 Changed=2 Deleted=3): keep project index current,

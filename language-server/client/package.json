@@ -108,6 +108,11 @@
           "default": 0,
           "markdownDescription": "Live-on-change debounce in milliseconds (passed to the server as `ATS3_LSP_DEBOUNCE_MS`). `0` (default) leaves the server's own default (150 ms). Lower it (e.g. `50`) for snappier as-you-type diagnostics at the cost of re-checking more aggressively while typing."
         },
+        "ats3.server.staloadCompletion": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Offer completions for the API a file's `#staload`/`#include` closure brings into scope (not just the file's own symbols + the pervasive prelude). On by default; disabling it (sets `ATS3_LSP_STALOAD_COMPLETE=0`) skips indexing the staloaded interfaces — useful only if the first check of a compiler-linking file is too heavy."
+        },
         "ats3.server.denoPath": {
           "type": "string",
           "default": "",
