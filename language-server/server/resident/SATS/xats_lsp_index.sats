@@ -60,6 +60,32 @@ fun idx_token_push
 fun idx_inlay_push
   ( line: int, col: int, label: string, kind: int) : void
 //
+// WS-5/WS-6 sinks: document symbols + scope binders + receiver members.  These
+// feed documentSymbol / workspaceSymbol / completion (all ATS now).
+fun idx_symbol_push
+  ( l0: int, c0: int, l1: int, c1: int
+  , name: string, kind: int, container: string, typ: string) : void
+fun idx_scope_push
+  ( l0: int, c0: int, l1: int, c1: int, name: string, typ: string) : void
+fun idx_member_push
+  ( l0: int, c0: int, l1: int, c1: int, name: string, typ: string) : void
+//
+// ---- completion symbol caches (filled by the driver's prelude/staload harvest) ----
+// prelude pervasives (indexed once at startup) + the staloaded-API closure (indexed
+// once per staloaded file, deduped by file STAMP).  Names are NOT deduped at push
+// (the completion query's per-request `seen` set handles it) to keep the build O(n).
+fun idx_prelude_reset((*void*)): void
+fun idx_prelude_push(name: string, kind: int, typ: string): void
+fun idx_prelude_done((*void*)): void
+fun idx_staload_seen(stamp: int): bool
+fun idx_staload_mark(stamp: int): void
+fun idx_staload_push(name: string, kind: int, typ: string): void
+fun idx_staload_reset((*void*)): void
+// project symbol cache: bg-indexed (unopened) files' symbols, path-keyed.
+// idx_proj_store snapshots the CURRENT symbol accumulator under `path`/`uri`.
+fun idx_proj_store(path: string, uri: string): void
+fun idx_proj_delete(path: string): void
+//
 (* ****** ****** *)
 //
 // ---- lifecycle + builders (driven by the glue, by uri string) ----
@@ -75,10 +101,17 @@ fun idx_count(uri: string, which: int): int
 //
 // kind: 0 hover, 1 definition, 2 typeDefinition, 3 references (c=includeDecl),
 //       4 documentHighlight, 5 inlayHint (all), 6 inlayHint (range a/b/c/d),
-//       7 semanticTokens/full, 8 indexStats.  a/b = position line/char (0..5);
-// returns a serialized JSON value ("null" / "[]" / "{...}").
+//       7 semanticTokens/full, 8 indexStats, 9 documentSymbol.  a/b = position
+//       line/char.  Returns a serialized JSON value ("null" / "[]" / "{...}").
 fun idx_query
   (uri: string, kind: int, a: int, b: int, c: int, d: int): string
+// workspace/symbol (fuzzy-filtered across the index + project cache).
+fun idx_workspace(query: string): string
+// completion: the glue supplies the doc-store-derived partial word + member-mode
+// state (isMember 0/1, the dot position, and the replacement column wcol).
+fun idx_completion
+  ( uri: string, line: int, char: int, word: string
+  , isMember: int, dotLine: int, dotCol: int, wcol: int): string
 //
 (* ****** ****** *)
 (*

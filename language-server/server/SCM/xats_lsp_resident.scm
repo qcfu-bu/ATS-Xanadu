@@ -44,6 +44,7 @@
 (define (cell_make x) (vector x))
 (define (cell_get c) (vector-ref c 0))
 (define (cell_set c x) (vector-set! c 0 x) _xunit)
+(define (lsp_getenv n) (or (getenv n) ""))   ; for the ATS index module's env-configured caches
 (define LSP-hexdig "0123456789ABCDEF")
 ;; stderr log line (the server's diagnostics go to stderr; stdout is the LSP wire)
 (define (LSP-stderr s) (put-string (current-error-port) s) (flush-output-port (current-error-port)) _xunit)

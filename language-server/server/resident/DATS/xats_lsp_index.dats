@@ -37,6 +37,9 @@ external here.  Everything else is backend-agnostic ATS3.
 //   JS_path_is_prelude (path)            -> is this path under the loaded prelude?
 //
 #extern fun int2str(n: sint): string = $extnam()
+#extern fun str_len(s: string): sint = $extnam()
+#extern fun str_char_code(s: string, i: sint): sint = $extnam()
+#extern fun str_of_code(c: sint): string = $extnam()
 #extern fun LSP_cur_b2u(line: int, col: int): int = $extnam()
 #extern fun LSP_other_b2u(path: string, line: int, col: int): int = $extnam()
 #extern fun LSP_path2uri(p: string): string = $extnam()
@@ -46,22 +49,52 @@ external here.  Everything else is backend-agnostic ATS3.
 //
 (* ****** ****** *)
 //
-// a per-uri snapshot: (dedup'd hovers, dedup'd defs, encoded semantic ints,
-// dedup'd inlays).  scopes/members/symbols stay glue-side (Step 5).
-#typedef idxrec = @(list(jval), list(jval), list(sint), list(jval))
+// a per-uri snapshot: dedup'd hovers, defs, encoded semantic ints, inlays, then
+// the WS-5/WS-6 rows: document symbols, scope binders, receiver members.
+#typedef idxrec =
+  @(list(jval), list(jval), list(sint), list(jval), list(jval), list(jval), list(jval))
 // a reference target: (found, defUri, dl0, dc0, dl1, dc1).
 #typedef reftgt = @(bool, string, sint, sint, sint, sint)
+// a bg-indexed (unopened) file's symbols: (uri, dedup'd symbol rows).
+#typedef projrec = @(string, list(jval))
+//
+#extern fun lsp_getenv(name: string): string = $extnam()
 //
 (* ****** ****** *)
 (* ---- accumulator + index cells (module-owned, init at fragment load) ---- *)
 //
-val the_diags:  lspcell(list(jval)) = cell_make(list_nil())
-val the_hovers: lspcell(list(jval)) = cell_make(list_nil())
-val the_defs:   lspcell(list(jval)) = cell_make(list_nil())
-val the_tokens: lspcell(list(jval)) = cell_make(list_nil())
-val the_inlays: lspcell(list(jval)) = cell_make(list_nil())
-val the_ndiags: lspcell(sint) = cell_make(0)
-val the_index:  lspcell(list(@(string, idxrec))) = cell_make(list_nil())
+val the_diags:   lspcell(list(jval)) = cell_make(list_nil())
+val the_hovers:  lspcell(list(jval)) = cell_make(list_nil())
+val the_defs:    lspcell(list(jval)) = cell_make(list_nil())
+val the_tokens:  lspcell(list(jval)) = cell_make(list_nil())
+val the_inlays:  lspcell(list(jval)) = cell_make(list_nil())
+val the_syms:    lspcell(list(jval)) = cell_make(list_nil())
+val the_scopes:  lspcell(list(jval)) = cell_make(list_nil())
+val the_members: lspcell(list(jval)) = cell_make(list_nil())
+val the_ndiags:  lspcell(sint) = cell_make(0)
+val the_index:   lspcell(list(@(string, idxrec))) = cell_make(list_nil())
+// completion caches: prelude pervasives + the staloaded API (jval rows {name,kind,
+// typ}) + the seen staloaded-file stamps + the path-keyed bg-indexed symbol cache.
+val the_prelude:       lspcell(list(jval)) = cell_make(list_nil())
+val the_staload:       lspcell(list(jval)) = cell_make(list_nil())
+val the_staload_files: lspcell(list(sint)) = cell_make(list_nil())
+val the_proj:          lspcell(list(@(string, projrec))) = cell_make(list_nil())
+//
+// env-configured once at load (matches the glue defaults).
+fun env_is0(name: string): bool = strn_eq(lsp_getenv(name), "0")
+fun parse_cap(s: string): sint = let
+  val n = str_len(s)
+  fun loop(i: sint, acc: sint, any: bool): sint =
+    if (i >= n) then (if any then acc else 200)
+    else let val c = str_char_code(s, i) in
+      if (if (c >= 48) then (c <= 57) else false) then loop(i+1, acc*10 + (c-48), true)
+      else 200   // non-numeric -> glue default
+    end
+in
+  if strn_eq(s, "") then 200 else loop(0, 0, false)
+end
+val the_staload_enabled: bool = (if env_is0("ATS3_LSP_STALOAD_COMPLETE") then false else true)
+val the_complete_cap: sint = parse_cap(lsp_getenv("ATS3_LSP_COMPLETE_CAP"))
 //
 fun push_cell(c: lspcell(list(jval)), row: jval): void =
   cell_set(c, list_cons(row, cell_get(c)))
@@ -194,6 +227,33 @@ fun inl_key(r: jval): string =
   k_str(k_int(k_int(k_int("", gi(r,"line")), gi(r,"col")), gi(r,"kind")) , gs(r,"label"))
 fun dedup_inlays(rows: list(jval)): list(jval) =
   jstable_sort(jdedup1(jfilter(rows, inl_keep), inl_key, list_nil()), line_col_before)
+//
+(* ****** ****** *)
+(* ---- symbol / scope / member dedup ---- *)
+//
+fun pos2_keep(r: jval): bool = (if (gi(r,"l0") >= 0) then (gi(r,"c0") >= 0) else false)
+// document symbols: key l0:c0:l1:c1:kind:name:container ; sort by (l0,c0) asc.
+fun sym_key(r: jval): string =
+  k_str(k_str(k_int(k_int(k_int(k_int(k_int("",
+    gi(r,"l0")), gi(r,"c0")), gi(r,"l1")), gi(r,"c1")), gi(r,"kind")), gs(r,"name")), gs(r,"container"))
+fun line_col2_before(a: jval, b: jval): bool = // (l0,c0) ascending (symbols)
+  let val a0 = gi(a,"l0") val b0 = gi(b,"l0") in
+    if (a0 = b0) then (gi(a,"c0") < gi(b,"c0")) else (a0 < b0)
+  end
+fun dedup_symbols(rows: list(jval)): list(jval) =
+  jstable_sort(jdedup1(jfilter(rows, pos2_keep), sym_key, list_nil()), line_col2_before)
+// scopes: key l0:c0:l1:c1:name:typ ; NO sort (push order preserved, as the glue).
+fun scope_key(r: jval): string =
+  k_str(k_str(k_int(k_int(k_int(k_int("",
+    gi(r,"l0")), gi(r,"c0")), gi(r,"l1")), gi(r,"c1")), gs(r,"name")), gs(r,"typ"))
+fun dedup_scopes(rows: list(jval)): list(jval) =
+  jdedup1(jfilter(rows, pos2_keep), scope_key, list_nil())
+// members: key l0:c0:l1:c1:name ; NO sort.
+fun member_key(r: jval): string =
+  k_str(k_int(k_int(k_int(k_int("",
+    gi(r,"l0")), gi(r,"c0")), gi(r,"l1")), gi(r,"c1")), gs(r,"name"))
+fun dedup_members(rows: list(jval)): list(jval) =
+  jdedup1(jfilter(rows, pos2_keep), member_key, list_nil())
 //
 (* ****** ****** *)
 (* ---- diagnostics dedup (overlap suppression + severity rank) ---- *)
@@ -333,7 +393,7 @@ fun innermost(rows: list(jval), line: sint, ch: sint): @(bool, jval) =
 //
 fun idx_lookup_go(lst: list(@(string, idxrec)), uri: string): @(bool, idxrec) =
   (case+ lst of
-   | list_nil() => @(false, @(list_nil(), list_nil(), list_nil(), list_nil()))
+   | list_nil() => @(false, @(list_nil(), list_nil(), list_nil(), list_nil(), list_nil(), list_nil(), list_nil()))
    | list_cons(kv, rest) => if strn_eq(kv.0, uri) then @(true, kv.1) else idx_lookup_go(rest, uri))
 fun idx_lookup(uri: string): @(bool, idxrec) = idx_lookup_go(cell_get(the_index), uri)
 //
@@ -381,6 +441,18 @@ fun mkdef
     list_cons(jpr("tl0", JVint tl0), list_cons(jpr("tc0", JVint tc0),
     list_cons(jpr("tl1", JVint tl1), list_cons(jpr("tc1", JVint tc1),
     list_nil()))))))))))))))))
+fun mksym(l0: sint, c0: sint, l1: sint, c1: sint, name: string, kind: sint, container: string, typ: string): jval =
+  JVobj(list_cons(jpr("l0", JVint l0), list_cons(jpr("c0", JVint c0),
+        list_cons(jpr("l1", JVint l1), list_cons(jpr("c1", JVint c1),
+        list_cons(jpr("name", JVstr name), list_cons(jpr("kind", JVint kind),
+        list_cons(jpr("container", JVstr container), list_cons(jpr("typ", JVstr typ), list_nil())))))))))
+fun mksm2(l0: sint, c0: sint, l1: sint, c1: sint, name: string, typ: string): jval =
+  JVobj(list_cons(jpr("l0", JVint l0), list_cons(jpr("c0", JVint c0),
+        list_cons(jpr("l1", JVint l1), list_cons(jpr("c1", JVint c1),
+        list_cons(jpr("name", JVstr name), list_cons(jpr("typ", JVstr typ), list_nil()))))))) // scope/member row
+fun mknk(name: string, kind: sint, typ: string): jval =   // prelude/staload cache row
+  JVobj(list_cons(jpr("name", JVstr name), list_cons(jpr("kind", JVint kind),
+        list_cons(jpr("typ", JVstr typ), list_nil()))))
 //
 (* ****** ****** *)
 (* ---- bit4 (defaultLibrary) modifier ---- *)
@@ -448,6 +520,58 @@ end
   then ()
   else push_cell(the_inlays, mkinlay(line, LSP_cur_b2u(line, col), label, kind))
 //
+#implfun idx_symbol_push(l0, c0, l1, c1, name, kind, container, typ) =
+  if (if (l0 < 0) then true else (if (c0 < 0) then true else strn_eq(name, "")))
+  then ()
+  else push_cell(the_syms, mksym(l0, LSP_cur_b2u(l0, c0), l1, LSP_cur_b2u(l1, c1), name, kind, container, typ))
+//
+#implfun idx_scope_push(l0, c0, l1, c1, name, typ) =
+  if (if (l0 < 0) then true else (if (c0 < 0) then true else strn_eq(name, "")))
+  then ()
+  else push_cell(the_scopes, mksm2(l0, LSP_cur_b2u(l0, c0), l1, LSP_cur_b2u(l1, c1), name, typ))
+//
+#implfun idx_member_push(l0, c0, l1, c1, name, typ) =
+  if (if (l0 < 0) then true else (if (c0 < 0) then true else strn_eq(name, "")))
+  then ()
+  else push_cell(the_members, mksm2(l0, LSP_cur_b2u(l0, c0), l1, LSP_cur_b2u(l1, c1), name, typ))
+//
+(* ---- completion symbol caches (name-dedup deferred to query time) ---- *)
+//
+fun ilist_has(xs: list(sint), x: sint): bool =
+  (case+ xs of list_nil() => false | list_cons(y, r) => (if (y = x) then true else ilist_has(r, x)))
+//
+#implfun idx_prelude_reset() = cell_set(the_prelude, list_nil())
+#implfun idx_prelude_push(name, kind, typ) =
+  if strn_eq(name, "") then () else cell_set(the_prelude, list_cons(mknk(name, kind, typ), cell_get(the_prelude)))
+#implfun idx_prelude_done() = ()
+//
+#implfun idx_staload_seen(stamp) =
+  if (if the_staload_enabled then false else true) then true
+  else ilist_has(cell_get(the_staload_files), stamp)
+#implfun idx_staload_mark(stamp) = cell_set(the_staload_files, list_cons(stamp, cell_get(the_staload_files)))
+#implfun idx_staload_push(name, kind, typ) =
+  if strn_eq(name, "") then () else cell_set(the_staload, list_cons(mknk(name, kind, typ), cell_get(the_staload)))
+#implfun idx_staload_reset() = let
+  val _ = cell_set(the_staload, list_nil())
+  val _ = cell_set(the_staload_files, list_nil())
+in () end
+//
+// snapshot the CURRENT symbol accumulator (deduped) under `path`/`uri`.
+fun proj_put(lst: list(@(string, projrec)), path: string, rec: projrec): list(@(string, projrec)) =
+  (case+ lst of
+   | list_nil() => list_cons(@(path, rec), list_nil())
+   | list_cons(kv, r) =>
+     if strn_eq(kv.0, path) then list_cons(@(path, rec), r) else list_cons(kv, proj_put(r, path, rec)))
+fun proj_rm(lst: list(@(string, projrec)), path: string): list(@(string, projrec)) =
+  (case+ lst of
+   | list_nil() => list_nil()
+   | list_cons(kv, r) => if strn_eq(kv.0, path) then r else list_cons(kv, proj_rm(r, path)))
+#implfun idx_proj_store(path, uri) = let
+  val sym = dedup_symbols(list_reverse(cell_get(the_syms)))
+  val rec = @(uri, sym) : projrec
+in cell_set(the_proj, proj_put(cell_get(the_proj), path, rec)) end
+#implfun idx_proj_delete(path) = cell_set(the_proj, proj_rm(cell_get(the_proj), path))
+//
 (* ****** ****** *)
 (* ---- lifecycle ---- *)
 //
@@ -457,6 +581,9 @@ end
   val _ = cell_set(the_defs, list_nil())
   val _ = cell_set(the_tokens, list_nil())
   val _ = cell_set(the_inlays, list_nil())
+  val _ = cell_set(the_syms, list_nil())
+  val _ = cell_set(the_scopes, list_nil())
+  val _ = cell_set(the_members, list_nil())
 in () end
 //
 #implfun idx_commit(uri) = let
@@ -464,7 +591,10 @@ in () end
   val def = dedup_defs(list_reverse(cell_get(the_defs)))
   val sem = encode_tokens(list_reverse(cell_get(the_tokens)))
   val inl = dedup_inlays(list_reverse(cell_get(the_inlays)))
-  val rec = @(hov, def, sem, inl) : idxrec
+  val sym = dedup_symbols(list_reverse(cell_get(the_syms)))
+  val scp = dedup_scopes(list_reverse(cell_get(the_scopes)))
+  val mem = dedup_members(list_reverse(cell_get(the_members)))
+  val rec = @(hov, def, sem, inl, sym, scp, mem) : idxrec
 in
   cell_set(the_index, idx_put(cell_get(the_index), uri, rec))
 end
@@ -678,6 +808,223 @@ fun build_index_stats(found: bool, rec: idxrec): string =
   end
 //
 (* ****** ****** *)
+(* ---- documentSymbol ---- *)
+//
+fun docsym_items(syms: list(jval)): list(jval) =
+  (case+ syms of
+   | list_nil() => list_nil()
+   | list_cons(s, r) => let
+       val rng = mkrange(gi(s,"l0"), gi(s,"c0"), gi(s,"l1"), gi(s,"c1"))
+     in
+       list_cons(JVobj(
+         list_cons(jpr("name", JVstr (gs(s,"name"))), list_cons(jpr("kind", JVint (gi(s,"kind"))),
+         list_cons(jpr("detail", JVstr (gs(s,"typ"))),
+         list_cons(jpr("range", rng), list_cons(jpr("selectionRange", rng),
+         list_cons(jpr("children", JVarr(list_nil())), list_nil()))))))),
+         docsym_items(r))
+     end)
+fun build_docsym(found: bool, syms: list(jval)): string =
+  if (if found then false else true) then "null" else json_serialize(JVarr(docsym_items(syms)))
+//
+(* ****** ****** *)
+(* ---- string helpers for completion / workspace ---- *)
+//
+fun downcase_char(c: sint): sint = if (if (c >= 65) then (c <= 90) else false) then (c + 32) else c
+fun downcase_str(s: string): string = let
+  val n = str_len(s)
+  fun loop(i: sint, acc: string): string =
+    if (i >= n) then acc else loop(i+1, strn_append(acc, str_of_code(downcase_char(str_char_code(s, i)))))
+in loop(0, "") end
+// case-insensitive prefix: wlow is the pre-downcased query, wlen its length.
+fun ci_prefix(name: string, wlow: string, wlen: sint): bool =
+  if (wlen = 0) then true
+  else if (str_len(name) >= wlen) then let
+    fun loop(i: sint): bool =
+      if (i >= wlen) then true
+      else if (downcase_char(str_char_code(name, i)) = str_char_code(wlow, i)) then loop(i+1) else false
+  in loop(0) end
+  else false
+// SymbolKind -> CompletionItemKind (mirrors the glue LSP_sk_to_cik table).
+fun sk_to_cik(k: sint): sint =
+  if (k = 12) then 3 else if (k = 14) then 21 else if (k = 13) then 6
+  else if (k = 10) then 13 else if (k = 11) then 8 else if (k = 5) then 7
+  else if (k = 26) then 25 else if (k = 22) then 20 else if (k = 9) then 4 else 6
+fun cand_detail(kind: sint, typ: string, src: string): string =
+  if (if strn_eq(typ, "") then false else true) then typ
+  else if (kind = 12) then "overloaded" else src
+// case-insensitive subsequence (workspace fuzzy); qlow pre-downcased.
+fun subseq(q: string, qi: sint, ql: sint, n: string, ni: sint, nl: sint): bool =
+  if (qi >= ql) then true
+  else if (ni >= nl) then false
+  else if (str_char_code(q, qi) = str_char_code(n, ni)) then subseq(q, qi+1, ql, n, ni+1, nl)
+  else subseq(q, qi, ql, n, ni+1, nl)
+fun ws_fuzzy(qlow: string, name: string): bool =
+  if strn_eq(qlow, "") then true
+  else let val nlow = downcase_str(name) in subseq(qlow, 0, str_len(qlow), nlow, 0, str_len(nlow)) end
+//
+(* ****** ****** *)
+(* ---- completion (4-tier; the doc-store word is supplied by the glue) ---- *)
+//
+// completion state: (items reversed, seen names, count).
+#typedef cst = @(list(jval), list(string), sint)
+fun cst_empty((*void*)): cst = @(list_nil(), list_nil(), 0)
+//
+val the_keywords: list(string) =
+  list_cons("val", list_cons("valpar", list_cons("val-", list_cons("var", list_cons("fun",
+  list_cons("fn", list_cons("fnx", list_cons("prval", list_cons("prfun", list_cons("prfn",
+  list_cons("praxi", list_cons("castfn", list_cons("let", list_cons("in", list_cons("end",
+  list_cons("local", list_cons("where", list_cons("begin", list_cons("case", list_cons("case+",
+  list_cons("case-", list_cons("of", list_cons("if", list_cons("then", list_cons("else",
+  list_cons("sif", list_cons("scase", list_cons("while", list_cons("for", list_cons("lam",
+  list_cons("llam", list_cons("fix", list_cons("when", list_cons("and", list_cons("rec",
+  list_cons("datatype", list_cons("datavtype", list_cons("dataprop", list_cons("typedef", list_cons("abstype",
+  list_cons("abstbox", list_cons("stacst", list_cons("sortdef", list_cons("sexpdef", list_cons("exception",
+  list_cons("implement", list_cons("extern", list_cons("staload", list_cons("include", list_cons("dynload",
+  list_cons("addr", list_cons("view", list_cons("true", list_cons("false",
+  list_nil()))))))))))))))))))))))))))))))))))))))))))))))))))))))
+//
+fun comp_add(name: string, symKind: sint, src: string, detail: string,
+             rng: jval, wlow: string, wlen: sint, cap: sint, st: cst): cst = let
+  val items = st.0 val seen = st.1 val cnt = st.2
+in
+  if (if (cnt < cap) then
+        (if (if strn_eq(name, "") then false else true) then
+           (if seen_has(seen, name) then false else ci_prefix(name, wlow, wlen))
+         else false)
+      else false)
+  then let
+    val cik = if strn_eq(src, "5") then 14 else sk_to_cik(symKind)
+    val te = JVobj(list_cons(jpr("range", rng), list_cons(jpr("newText", JVstr name), list_nil())))
+    val item = JVobj(
+      list_cons(jpr("label", JVstr name), list_cons(jpr("kind", JVint cik),
+      list_cons(jpr("detail", JVstr detail), list_cons(jpr("sortText", JVstr (strn_append(src, name))),
+      list_cons(jpr("textEdit", te), list_nil()))))))
+  in @(list_cons(item, items), list_cons(name, seen), cnt+1) end
+  else st
+end
+// add a row list (#{name,kind,typ}) under a sortText tier.
+fun add_rows(rows: list(jval), src: string, dsrc: string,
+             rng: jval, wlow: string, wlen: sint, cap: sint, st: cst): cst =
+  (case+ rows of
+   | list_nil() => st
+   | list_cons(s, r) =>
+     if (st.2 < cap) then let
+       val det = cand_detail(gi(s,"kind"), gs(s,"typ"), dsrc)
+       val st1 = comp_add(gs(s,"name"), gi(s,"kind"), src, det, rng, wlow, wlen, cap, st)
+     in add_rows(r, src, dsrc, rng, wlow, wlen, cap, st1) end
+     else st)
+// tier 0: in-scope locals (position-filtered).
+fun add_scopes(scopes: list(jval), line: sint, ch: sint,
+               rng: jval, wlow: string, wlen: sint, cap: sint, st: cst): cst =
+  (case+ scopes of
+   | list_nil() => st
+   | list_cons(s, r) => let
+       val inrange =
+         if posLE(gi(s,"l0"),gi(s,"c0"),line,ch) then posLE(line,ch,gi(s,"l1"),gi(s,"c1")) else false
+       val st1 =
+         if inrange then let
+           val det = if strn_eq(gs(s,"typ"), "") then "local" else gs(s,"typ")
+         in comp_add(gs(s,"name"), 13, "0", det, rng, wlow, wlen, cap, st) end
+         else st
+     in add_scopes(r, line, ch, rng, wlow, wlen, cap, st1) end)
+fun index_has(lst: list(@(string, idxrec)), uri: string): bool =
+  (case+ lst of list_nil() => false | list_cons(kv, r) => (if strn_eq(kv.0, uri) then true else index_has(r, uri)))
+// tier 2a: other open buffers' symbols.
+fun add_other(idxlist: list(@(string, idxrec)), uri: string,
+              rng: jval, wlow: string, wlen: sint, cap: sint, st: cst): cst =
+  (case+ idxlist of
+   | list_nil() => st
+   | list_cons(kv, r) =>
+     if (st.2 < cap) then let
+       val st1 = if (if strn_eq(kv.0, uri) then false else true)
+                 then add_rows((kv.1).4, "2", "project", rng, wlow, wlen, cap, st) else st
+     in add_other(r, uri, rng, wlow, wlen, cap, st1) end
+     else st)
+// tier 2b: bg-indexed (unopened) files' symbols.
+fun add_projc(projlist: list(@(string, projrec)), uri: string, idxlist: list(@(string, idxrec)),
+              rng: jval, wlow: string, wlen: sint, cap: sint, st: cst): cst =
+  (case+ projlist of
+   | list_nil() => st
+   | list_cons(kv, r) =>
+     if (st.2 < cap) then let
+       val u = (kv.1).0
+       val skip = if strn_eq(u, uri) then true else index_has(idxlist, u)
+       val st1 = if skip then st else add_rows((kv.1).1, "2", "project", rng, wlow, wlen, cap, st)
+     in add_projc(r, uri, idxlist, rng, wlow, wlen, cap, st1) end
+     else st)
+// tier 5: keywords.
+fun add_keywords(kws: list(string), rng: jval, wlow: string, wlen: sint, cap: sint, st: cst): cst =
+  (case+ kws of
+   | list_nil() => st
+   | list_cons(kw, r) =>
+     if (st.2 < cap) then let val st1 = comp_add(kw, 0, "5", "keyword", rng, wlow, wlen, cap, st)
+                          in add_keywords(r, rng, wlow, wlen, cap, st1) end
+     else st)
+// member mode (recv.field): members whose END == the dot position.
+fun mem_match(m: jval, dotLine: sint, dotCol: sint, seen: list(string), wlow: string, wlen: sint): bool =
+  if (gi(m,"l1") = dotLine) then
+    (if (gi(m,"c1") = dotCol) then
+       (if seen_has(seen, gs(m,"name")) then false else ci_prefix(gs(m,"name"), wlow, wlen))
+     else false)
+  else false
+fun mem_item(m: jval, rng: jval): jval = let
+  val nm = gs(m,"name")
+  val det = if strn_eq(gs(m,"typ"), "") then "field" else strn_append(": ", gs(m,"typ"))
+  val te = JVobj(list_cons(jpr("range", rng), list_cons(jpr("newText", JVstr nm), list_nil())))
+in
+  JVobj(
+    list_cons(jpr("label", JVstr nm), list_cons(jpr("kind", JVint 5),
+    list_cons(jpr("detail", JVstr det), list_cons(jpr("sortText", JVstr (strn_append("0", nm))),
+    list_cons(jpr("textEdit", te), list_nil()))))))
+end
+fun add_members(members: list(jval), dotLine: sint, dotCol: sint,
+                rng: jval, wlow: string, wlen: sint, st: cst): cst =
+  (case+ members of
+   | list_nil() => st
+   | list_cons(m, r) => let
+       val st1 = if mem_match(m, dotLine, dotCol, st.1, wlow, wlen)
+                 then @(list_cons(mem_item(m, rng), st.0), list_cons(gs(m,"name"), st.1), st.2)
+                 else st
+     in add_members(r, dotLine, dotCol, rng, wlow, wlen, st1) end)
+//
+(* ****** ****** *)
+(* ---- workspace/symbol ---- *)
+//
+#typedef wst = @(list(jval), sint)
+fun wst_empty((*void*)): wst = @(list_nil(), 0)
+fun ws_item(s: jval, uri: string): jval = let
+  val loc = JVobj(list_cons(jpr("uri", JVstr uri),
+              list_cons(jpr("range", mkrange(gi(s,"l0"), gi(s,"c0"), gi(s,"l1"), gi(s,"c1"))), list_nil())))
+in
+  JVobj(
+    list_cons(jpr("name", JVstr (gs(s,"name"))), list_cons(jpr("kind", JVint (gi(s,"kind"))),
+    list_cons(jpr("location", loc), list_cons(jpr("containerName", JVstr (gs(s,"container"))), list_nil())))))
+end
+fun ws_items(syms: list(jval), uri: string, qlow: string, cap: sint, st: wst): wst =
+  (case+ syms of
+   | list_nil() => st
+   | list_cons(s, r) =>
+     if (st.1 >= cap) then st
+     else let
+       val st1 = if ws_fuzzy(qlow, gs(s,"name")) then @(list_cons(ws_item(s, uri), st.0), st.1+1) else st
+     in ws_items(r, uri, qlow, cap, st1) end)
+fun ws_index(idxlist: list(@(string, idxrec)), qlow: string, cap: sint, st: wst): wst =
+  (case+ idxlist of
+   | list_nil() => st
+   | list_cons(kv, r) =>
+     if (st.1 >= cap) then st
+     else let val st1 = ws_items((kv.1).4, kv.0, qlow, cap, st) in ws_index(r, qlow, cap, st1) end)
+fun ws_proj(projlist: list(@(string, projrec)), idxlist: list(@(string, idxrec)), qlow: string, cap: sint, st: wst): wst =
+  (case+ projlist of
+   | list_nil() => st
+   | list_cons(kv, r) =>
+     if (st.1 >= cap) then st
+     else let
+       val u = (kv.1).0
+       val st1 = if index_has(idxlist, u) then st else ws_items((kv.1).1, u, qlow, cap, st)
+     in ws_proj(r, idxlist, qlow, cap, st1) end)
+//
+(* ****** ****** *)
 //
 #implfun idx_query(uri, kind, a, b, c, d) = let
   val lk = idx_lookup(uri)
@@ -693,7 +1040,37 @@ in
   else if (kind = 6) then build_inlays(rec.3, true, a, b, c, d)
   else if (kind = 7) then build_semantic(rec.2)
   else if (kind = 8) then build_index_stats(found, rec)
+  else if (kind = 9) then build_docsym(found, rec.4)
   else "null"
+end
+//
+#implfun idx_workspace(query) = let
+  val qlow = downcase_str(query)
+  val s1 = ws_index(cell_get(the_index), qlow, 1000, wst_empty())
+  val s2 = ws_proj(cell_get(the_proj), cell_get(the_index), qlow, 1000, s1)
+in json_serialize(JVarr(list_reverse(s2.0))) end
+//
+#implfun idx_completion(uri, line, ch, word, isMember, dotLine, dotCol, wcol) = let
+  val lk = idx_lookup(uri)
+  val rec = lk.1
+  val rng = JVobj(list_cons(jpr("start", mkpos(line, wcol)), list_cons(jpr("end", mkpos(line, ch)), list_nil())))
+  val wlow = downcase_str(word)
+  val wlen = str_len(wlow)
+  val cap = the_complete_cap
+  val items =
+    if (isMember = 1) then let val mr = add_members(rec.6, dotLine, dotCol, rng, wlow, wlen, cst_empty()) in mr.0 end
+    else let
+      val s0 = add_scopes(rec.5, line, ch, rng, wlow, wlen, cap, cst_empty())
+      val s1 = add_rows(rec.4, "1", "this file", rng, wlow, wlen, cap, s0)
+      val s2 = add_other(cell_get(the_index), uri, rng, wlow, wlen, cap, s1)
+      val s3 = add_projc(cell_get(the_proj), uri, cell_get(the_index), rng, wlow, wlen, cap, s2)
+      val s4 = add_rows(cell_get(the_prelude), "3", "prelude", rng, wlow, wlen, cap, s3)
+      val s5 = add_rows(cell_get(the_staload), "4", "staload", rng, wlow, wlen, cap, s4)
+      val s6 = add_keywords(the_keywords, rng, wlow, wlen, cap, s5)
+    in s6.0 end
+in
+  json_serialize(JVobj(list_cons(jpr("isIncomplete", JVbool true),
+    list_cons(jpr("items", JVarr(list_reverse(items))), list_nil()))))
 end
 //
 (* ****** ****** *)
