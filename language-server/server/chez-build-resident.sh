@@ -29,7 +29,7 @@ OUTDIR="$HERE/BUILD/chez"; OUT="$OUTDIR/chez-lsp-resident${BUILD_TAG:-}.scm"; SO
 COMPILE="${COMPILE:-1}"
 # Portable LSP modules (Stage 4b+): each .dats is emitted as its own cz fragment
 # and linked into the assembly; the driver #staloads the matching .sats.
-LSP_MODULES="${LSP_MODULES:-xats_lsp_json xats_lsp_uri xats_lsp_u16 xats_lsp_dedup xats_lsp_index xats_lsp_proj}"
+LSP_MODULES="${LSP_MODULES:-xats_lsp_json xats_lsp_uri xats_lsp_conv xats_lsp_u16 xats_lsp_dedup xats_lsp_index xats_lsp_proj xats_lsp_doc}"
 mkdir -p "$OUTDIR"
 
 [ -f "$CZBUNDLE" ] || { echo "!! $CZBUNDLE missing — (cd $XATS2CZ && make bundle)"; exit 1; }

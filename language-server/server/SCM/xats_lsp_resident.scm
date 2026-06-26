@@ -41,6 +41,7 @@
 (define (str_len s) (string-length s))
 (define (str_char_code s i) (char->integer (string-ref s i)))
 (define (str_of_code c) (string (integer->char c)))
+(define (str_slice s a b) (substring s a b))   ; O(len) codepoint-indexed substring (doc range edits)
 (define (cell_make x) (vector x))
 (define (cell_get c) (vector-ref c 0))
 (define (cell_set c x) (vector-set! c 0 x) _xunit)
@@ -1010,67 +1011,46 @@
 ;; as 1 UTF-16 unit (exact for BMP; astral chars only affect sync math).
 ;; line-starts is a lazily-built vector of per-line char offsets so (line,char)<->
 ;; offset is O(1)/O(log) instead of an O(file) walk on every keystroke.
-(define LSP_docs (make-hashtable equal-hash equal?))
-(define (LSP-doc-get uri) (hashtable-ref LSP_docs uri #f))
-(define (LSP-doc-text doc) (vector-ref doc 1))
-(define (LSP-doc-set uri text version) (hashtable-set! LSP_docs uri (vector uri text version #f)))
-(define (LSP-doc-line-starts doc)
-  (or (vector-ref doc 3)
-      (let* ((text (vector-ref doc 1)) (n (string-length text))
-             (ls (let loop ((i 0) (acc '(0)))
-                   (cond ((>= i n) (list->vector (reverse acc)))
-                         ((char=? (string-ref text i) #\newline) (loop (+ i 1) (cons (+ i 1) acc)))
-                         (else (loop (+ i 1) acc))))))
-        (vector-set! doc 3 ls) ls)))
-;; O(1) (line,char) -> char offset via cached line-starts.
-(define (LSP-offset-at-ls ls text line char)
-  (if (and (>= line 0) (< line (vector-length ls)))
-      (min (string-length text) (+ (vector-ref ls line) (max 0 char)))
-      (string-length text)))
-(define (LSP-doc-del uri) (hashtable-delete! LSP_docs uri))
-(define (LSP-doc-uris) (vector->list (hashtable-keys LSP_docs)))
-(define (LSP-offset-at text line char)
-  (let ((n (string-length text)))
-    (let loop ((i 0) (ln 0))
-      (cond ((= ln line) (min n (+ i char)))
-            ((>= i n) n)
-            ((char=? (string-ref text i) #\newline) (loop (+ i 1) (+ ln 1)))
-            (else (loop (+ i 1) ln))))))
-(define (LSP-pos-at text off)
-  (let ((n (min off (string-length text))))
-    (let loop ((i 0) (ln 0) (col 0))
-      (cond ((>= i n) (cons ln col))
-            ((char=? (string-ref text i) #\newline) (loop (+ i 1) (+ ln 1) 0))
-            (else (loop (+ i 1) ln (+ col 1)))))))
+;; Stage 6a: the document store lives in ATS (xats_lsp_doc).  These top-level
+;; wrappers forward to the closures bound in vscode_initialize (#f until then; the
+;; wrappers run only at request/check time, after binding).  LSP-doc-get returns
+;; the URI itself as an opaque "doc handle" (or #f) so the existing call sites
+;; `(let ((doc (LSP-doc-get uri))) (when doc (... (LSP-doc-text doc))))` are
+;; unchanged — `doc` IS the uri, and LSP-doc-text takes the uri.
+(define LSP-ats-doc-set #f)     ; (uri text version) -> void
+(define LSP-ats-doc-has #f)     ; (uri) -> bool
+(define LSP-ats-doc-text #f)    ; (uri) -> text
+(define LSP-ats-doc-del #f)     ; (uri) -> void
+(define LSP-ats-doc-uris #f)    ; () -> "uri\n...\n"
+(define LSP-ats-doc-apply #f)   ; (text sl sc el ec newtext) -> newtext
+(define LSP-ats-doc-ctx #f)     ; (uri line char) -> "word\nisMember\ndotCol\nwcol"
+(define (LSP-doc-get uri) (if (LSP-ats-doc-has uri) uri #f))
+(define (LSP-doc-text uri) (LSP-ats-doc-text uri))   ; `uri` is the doc handle now
+(define (LSP-doc-set uri text version) (LSP-ats-doc-set uri text version))
+(define (LSP-doc-del uri) (LSP-ats-doc-del uri))
+(define (LSP-doc-uris)
+  (filter (lambda (s) (not (string=? s ""))) (LSP-string-split (LSP-ats-doc-uris) #\newline)))
 ;; apply one incremental contentChange (range+text, or whole-doc text) to `text`.
 (define (LSP-apply-change text change)
   (let ((rng (jget change "range")))
     (if (not (hashtable? rng)) (jstr-or (jget change "text") text)
-        (let* ((sl (jnum->int (jget* rng "start" "line"))) (sc (jnum->int (jget* rng "start" "character")))
-               (el (jnum->int (jget* rng "end" "line"))) (ec (jnum->int (jget* rng "end" "character")))
-               (so (LSP-offset-at text sl sc)) (eo (LSP-offset-at text el ec))
-               (nt (jstr-or (jget change "text") "")))
-          (string-append (substring text 0 so) nt (substring text eo (string-length text)))))))
+        (LSP-ats-doc-apply text
+          (jnum->int (jget* rng "start" "line")) (jnum->int (jget* rng "start" "character"))
+          (jnum->int (jget* rng "end" "line")) (jnum->int (jget* rng "end" "character"))
+          (jstr-or (jget change "text") "")))))
 
 ;; ---- completion builder (needs the doc store) ----
-(define (LSP-ident-ch? c) (or (char<=? #\A c #\Z) (char<=? #\a c #\z) (char<=? #\0 c #\9) (memv c '(#\_ #\$ #\'))))
-;; Stage 5b: completion is built in ATS (idx_completion).  The DOC-STORE-derived
-;; partial word + member-mode detection stays glue (the doc model is still glue =
-;; Step 6); this shim computes them and hands them to the ATS builder.
+;; Stage 6a: completion is built in ATS (idx_completion), and the DOC-STORE-derived
+;; partial word + member-mode detection is now in ATS too (xats_lsp_doc's
+;; doc_complete_ctx).  This shim splits its "word\nisMember\ndotCol\nwcol" reply and
+;; hands the pieces to the ATS completion builder.
 (define (LSP_build_completion uri line char idxComplete)
-  (let ((doc (LSP-doc-get uri)))
-    (if (not doc) (jobj (list (cons "isIncomplete" (jbool #f)) (cons "items" (jarr '()))))
-        (let* ((text (LSP-doc-text doc)) (ls (LSP-doc-line-starts doc)) (offset (LSP-offset-at-ls ls text line char)))
-          ;; partial word + member detection (the backward scans are bounded by the
-          ;; word/whitespace run; wstart and j0 are on the cursor's line, so their
-          ;; columns are computed directly — no O(file) pos-at walk).
-          (let* ((wstart (let loop ((i offset)) (if (and (> i 0) (LSP-ident-ch? (string-ref text (- i 1)))) (loop (- i 1)) i)))
-                 (word (substring text wstart offset))
-                 (j0 (let loop ((j (- wstart 1))) (if (and (>= j 0) (memv (string-ref text j) '(#\space #\tab))) (loop (- j 1)) j)))
-                 (member? (and (>= j0 0) (char=? (string-ref text j0) #\.)))
-                 (wcol (- char (- offset wstart)))
-                 (dotCol (if member? (- char (- offset j0)) 0)))
-            (jraw (idxComplete uri line char word (if member? 1 0) line dotCol wcol)))))))
+  (if (not (LSP-ats-doc-has uri))
+      (jobj (list (cons "isIncomplete" (jbool #f)) (cons "items" (jarr '()))))
+      (let* ((parts (LSP-string-split (LSP-ats-doc-ctx uri line char) #\newline))
+             (word (car parts)) (member? (string=? (cadr parts) "1"))
+             (dotCol (or (string->number (caddr parts)) 0)) (wcol (or (string->number (cadddr parts)) 0)))
+        (jraw (idxComplete uri line char word (if member? 1 0) line dotCol wcol)))))
 ;; allocation-free case-insensitive prefix test against a PRE-LOWERCASED query
 ;; (downcases only the candidate's first wlen chars, on the fly, exiting early on
 ;; the first mismatch — no per-candidate string allocation).
@@ -1207,7 +1187,9 @@
                            LSP-idx-reset LSP-idx-commit LSP-idx-evict LSP-idx-clear
                            LSP-idx-diags LSP-idx-ndiags LSP-idx-count LSP-idx-query
                            projIndex projRemove projRevClosure projFwdCount projRevCount
-                           LSP-idx-workspace LSP-idx-completion LSP-idx-proj-store LSP-idx-proj-delete)
+                           LSP-idx-workspace LSP-idx-completion LSP-idx-proj-store LSP-idx-proj-delete
+                           docSet docHas docText docDel docUris docApply docCtx
+                           convSetCur)
 
   ;; The ATS xats_lsp_index module API (passed as eight closures via initialize):
   ;; the diag/hover/def/token/inlay accumulators + their dedups + the per-uri
@@ -1227,6 +1209,7 @@
       (LSP-idx-reset)
       (set! LSP_cur_symbols '()) (set! LSP_cur_scopes '()) (set! LSP_cur_members '())
       (set! LSP_cur_uri uri) (set! LSP_cur_path (vscode_url_to_path uri)) (set! LSP_cur_path_norm (LSP_norm LSP_cur_path))
+      (convSetCur LSP_cur_uri LSP_cur_path)   ; ATS conv layer: friendly/def_in_current/path2uri per-check state
       (set! LSP_cur_u16 (LSP_u16_make sourceText)) (set! LSP_other_u16 (make-hashtable equal-hash equal?))
       (guard (e (#t #f)) (LSP_proj_index_file LSP_cur_path sourceText))
       (let ((validatorError (guard (e (#t e)) (runCheck) #f)))
@@ -1248,7 +1231,7 @@
                                      " diags=" (number->string (if validatorError 1 (LSP-idx-ndiags)))
                                      " hovers=" (number->string (LSP-idx-count uri 0)) " defs=" (number->string (LSP-idx-count uri 1))
                                      " tokens=" (number->string (LSP-idx-count uri 2)) " stats=" (number->string (LSP_stat_count_reset)) " staloadsyms=" (number->string (length LSP_staload_symbols)) " staloadfiles=" (number->string (hashtable-size LSP_staload_seen_files)) "\n"))
-          (set! LSP_cur_uri #f) (set! LSP_cur_path #f) (set! LSP_cur_path_norm #f) (set! LSP_cur_u16 #f)))))
+          (set! LSP_cur_uri #f) (set! LSP_cur_path #f) (set! LSP_cur_path_norm #f) (set! LSP_cur_u16 #f) (convSetCur "" "")))))
 
   (define (textValidator uri text) (runValidation uri text "disk" (lambda () (validator LSP_dependencies #f uri))))
   (define (liveValidate uri text) (runValidation uri text "live" (lambda () (liveValidator LSP_dependencies #f uri text))))
@@ -1267,11 +1250,12 @@
                    (when text
                      (LSP-idx-reset)   ; symbols-only pass: accumulate -> proj cache (no commit)
                      (set! LSP_cur_uri uri) (set! LSP_cur_path n) (set! LSP_cur_path_norm n)
+                     (convSetCur uri n)
                      (set! LSP_cur_u16 (LSP_u16_make text)) (set! LSP_other_u16 (make-hashtable equal-hash equal?))
                      (guard (e (#t #f)) (validator LSP_dependencies #f uri))
                      (LSP-idx-proj-store n uri)
                      (set! done (+ done 1))
-                     (set! LSP_cur_uri #f) (set! LSP_cur_path #f) (set! LSP_cur_u16 #f))))))
+                     (set! LSP_cur_uri #f) (set! LSP_cur_path #f) (set! LSP_cur_u16 #f) (convSetCur "" ""))))))
            (hashtable-keys LSP_proj_indexed))))
         (LSP-stderr (string-append "[xats-lsp-resident] bg-index: " (number->string done) " file(s) indexed\n")))))
 
@@ -1430,6 +1414,10 @@
   (set! LSP-ats-proj-index projIndex) (set! LSP-ats-proj-remove projRemove)
   (set! LSP-ats-proj-revclosure projRevClosure)
   (set! LSP-ats-proj-fwdcount projFwdCount) (set! LSP-ats-proj-revcount projRevCount)
+  ;; bind the ATS document-store closures (xats_lsp_doc) into the top-level wrappers.
+  (set! LSP-ats-doc-set docSet) (set! LSP-ats-doc-has docHas) (set! LSP-ats-doc-text docText)
+  (set! LSP-ats-doc-del docDel) (set! LSP-ats-doc-uris docUris)
+  (set! LSP-ats-doc-apply docApply) (set! LSP-ats-doc-ctx docCtx)
 
   ;; reader thread: read framed messages -> parse -> enqueue + signal.  Only this
   ;; thread touches stdin + json-parse (pure); the main thread runs the compiler.

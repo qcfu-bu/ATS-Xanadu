@@ -21,6 +21,9 @@ external here.  Everything else is backend-agnostic ATS3.
 //
 #staload "./../SATS/xats_lsp_json.sats"
 #staload "./../SATS/xats_lsp_index.sats"
+// Stage 6b: the per-check conversion layer (friendly / def_in_current / path2uri)
+// is now ATS — call it ATS->ATS instead of via the old glue leaves.
+#staload "./../SATS/xats_lsp_conv.sats"
 //
 #include "./../HATS/xats_lsp_ref.hats"
 //
@@ -42,9 +45,8 @@ external here.  Everything else is backend-agnostic ATS3.
 #extern fun str_of_code(c: sint): string = $extnam()
 #extern fun LSP_cur_b2u(line: int, col: int): int = $extnam()
 #extern fun LSP_other_b2u(path: string, line: int, col: int): int = $extnam()
-#extern fun LSP_path2uri(p: string): string = $extnam()
-#extern fun LSP_friendly(msg: string): string = $extnam()
-#extern fun LSP_def_in_current(uri: string): bool = $extnam()
+// LSP_path2uri / LSP_friendly / LSP_def_in_current now come from xats_lsp_conv
+// (#staload'd above) — ATS->ATS, no longer glue leaves.
 #extern fun JS_path_is_prelude(path: string): bool = $extnam()
 //
 (* ****** ****** *)

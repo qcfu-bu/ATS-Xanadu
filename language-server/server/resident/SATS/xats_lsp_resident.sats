@@ -262,7 +262,19 @@ fun initialize
   // ->json, idx_completion(uri,line,char,word,isMember,dotLine,dotCol,wcol)->json,
   // idx_proj_store(path,uri), idx_proj_delete(path).
   , (string) -> string, (string, int, int, string, int, int, int, int) -> string
-  , (string, string) -> void, (string) -> void) : void
+  , (string, string) -> void, (string) -> void
+  // ...plus the document store (xats_lsp_doc): doc_set(uri,text,version),
+  // doc_has(uri), doc_text(uri), doc_del(uri), doc_uris()->"uri\n..." (trailing
+  // newline; backend splits + drops empties), doc_apply_range(text,sl,sc,el,ec,
+  // newtext)->newtext (one incremental change), doc_complete_ctx(uri,line,char)
+  // ->"word\nisMember\ndotCol\nwcol".
+  , (string, string, int) -> void, (string) -> bool, (string) -> string
+  , (string) -> void, () -> string
+  , (string, int, int, int, int, string) -> string
+  , (string, int, int) -> string
+  // ...plus the per-check conversion layer (xats_lsp_conv): conv_set_cur(uri,path)
+  // — the validate driver sets the current uri + path before each check ("","" clears).
+  , (string, string) -> void) : void
 // lsp_addflag: the flag-setter callback impl (passed to initialize).
 fun lsp_addflag(string): void
 //

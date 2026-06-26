@@ -63,6 +63,15 @@ pretty-print), §8 (def loc), §9 (traversal), §10.5 (compiler-linking build).
 // the reverse closure for the watched-files cascade), in ATS.
 #staload "./../SATS/xats_lsp_proj.sats"
 //
+// Stage 6a: the document store (editor text buffers + incremental range edits +
+// completion-context extraction), in ATS.  Passed to the glue as 7 closures.
+#staload "./../SATS/xats_lsp_doc.sats"
+//
+// Stage 6b: the per-check conversion layer (friendly/def_in_current/path2uri) is
+// in ATS (called ATS->ATS by the index); the validate driver sets its per-check
+// state via the conv_set_cur closure.
+#staload "./../SATS/xats_lsp_conv.sats"
+//
 // Stage 4b+: the mutable-cell FFI floor (#include, NOT #staload, so cell_make/
 // cell_get/cell_set emit by plain name) + unsafe casts for implementing the
 // abstract depset/depgraph (<= p0tr) over cells.
@@ -336,8 +345,8 @@ fun LSP_prelude_sym_done((*void*)): void = lsp_log_prelude_index(idx_prelude_cou
 #implfun member_push(l0, c0, l1, c1, name, typ) =
   idx_member_push(l0, c0, l1, c1, name, typ)
 //
-#implfun initialize(f, lv, g, h, e, af, ir, ic, iv, icl, idg, ind, ict, iq, pix, prm, prc, pfc, prv, iws, icp, pst, pdl) =
-  vscode_initialize(f, lv, g, h, e, af, ir, ic, iv, icl, idg, ind, ict, iq, pix, prm, prc, pfc, prv, iws, icp, pst, pdl)
+#implfun initialize(f, lv, g, h, e, af, ir, ic, iv, icl, idg, ind, ict, iq, pix, prm, prc, pfc, prv, iws, icp, pst, pdl, ds, dh, dt, dd, du, da, dc, cs) =
+  vscode_initialize(f, lv, g, h, e, af, ir, ic, iv, icl, idg, ind, ict, iq, pix, prm, prc, pfc, prv, iws, icp, pst, pdl, ds, dh, dt, dd, du, da, dc, cs)
   where { #extern fun
     vscode_initialize
     ( f: text_validator_t, lv: live_validator_t, g: cache_pruner_t
@@ -348,7 +357,14 @@ fun LSP_prelude_sym_done((*void*)): void = lsp_log_prelude_index(idx_prelude_cou
     , pix: (string, string) -> string, prm: (string) -> void, prc: (string) -> string
     , pfc: () -> int, prv: () -> int
     , iws: (string) -> string, icp: (string, int, int, string, int, int, int, int) -> string
-    , pst: (string, string) -> void, pdl: (string) -> void): void = $extnam() }
+    , pst: (string, string) -> void, pdl: (string) -> void
+    // Stage 6a: the document store (xats_lsp_doc) — 7 closures.
+    , ds: (string, string, int) -> void, dh: (string) -> bool, dt: (string) -> string
+    , dd: (string) -> void, du: () -> string
+    , da: (string, int, int, int, int, string) -> string
+    , dc: (string, int, int) -> string
+    // Stage 6b: the per-check conversion layer (xats_lsp_conv) — conv_set_cur.
+    , cs: (string, string) -> void): void = $extnam() }
 //
 // lsp_addflag: add ONE compiler flag to the global flag table. The .cats calls
 // this (via initialize's add_flag_t callback) for each flag in the workspace
@@ -1006,7 +1022,11 @@ val () = initialize
   ( text_validator, live_validator, cache_pruner, reload_prelude, evict_stamp, lsp_addflag
   , idx_reset, idx_commit, idx_evict, idx_clear, idx_diagnostics, idx_ndiags, idx_count, idx_query
   , proj_index_file, proj_remove_file, proj_rev_closure, proj_fwd_count, proj_rev_count
-  , idx_workspace, idx_completion, idx_proj_store, idx_proj_delete)
+  , idx_workspace, idx_completion, idx_proj_store, idx_proj_delete
+  // Stage 6a: the document store (xats_lsp_doc).
+  , doc_set, doc_has, doc_text, doc_del, doc_uris, doc_apply_range, doc_complete_ctx
+  // Stage 6b: the per-check conversion layer (xats_lsp_conv).
+  , conv_set_cur)
 //
 (* ****** ****** *)
 (*
