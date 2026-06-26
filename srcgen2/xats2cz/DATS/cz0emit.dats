@@ -62,9 +62,17 @@ fun
 cz_dvar
 ( filr: FILR, dvar: d2var): void =
 (
+(* name + stamp + DECLARATION-LOCATION offset.  The stamp alone is a per-compilation
+   counter that RESETS each separate-process file compile, so two structurally-identical
+   module files (e.g. the *_mymap0.dats dict instances) give their private top-level vals
+   the SAME name+stamp -> a flat-namespace collision (the symbol map merged with the
+   keyword map).  d2vars are file-local, and a decl's location offset is intrinsic + per-
+   position, so appending it disambiguates across files while staying def/use-consistent. *)
 cz_name(filr, d2var_get_name(dvar));
 cz_str(filr, "_");
-cz_uint(filr, stamp_get_uint(d2var_get_stmp(dvar))))
+cz_uint(filr, stamp_get_uint(d2var_get_stmp(dvar)));
+cz_str(filr, "_");
+fprint_loctn_as_stamp(filr, d2var_get_lctn(dvar)))
 (* ****** ****** *)
 (* cz_dcst: a constant reference, classified per docs/04.
    cast (fcast/castfn)        -> identity (xs -> xs): a runtime no-op reinterpret,
@@ -1113,16 +1121,14 @@ case+ ivs of
          (cz_str(filr, "(let (("); cz_dvar(filr, dvar); cz_str(filr, " ");
           i0exp_cz0(filr, rhs); cz_str(filr, ")) ");
           cz_val_body(filr, ivs_rest, rest, body); cz_str(filr, ")"))
-       | _ (*else*) =>
-         if cz_pat_hasvar(ipat)
-         then
-           (cz_str(filr, "(let-values ((("); cz_pv_vars(filr, ipat);
-            cz_str(filr, ") (let ((czpv "); i0exp_cz0(filr, rhs);
-            cz_str(filr, ")) (values"); cz_pv_accs(filr, ipat); cz_str(filr, ")))) ");
-            cz_val_body(filr, ivs_rest, rest, body); cz_str(filr, ")"))
-         else
-           (cz_str(filr, "(begin "); i0exp_cz0(filr, rhs); cz_str(filr, " ");
-            cz_val_body(filr, ivs_rest, rest, body); cz_str(filr, ")")))
+       | _ (*else: compound pattern*) =>
+         (* bind czscrut=rhs ONCE, then recursively bind every nested var via
+            cz_pat_binds (handles con/tuple/nested like optn_cons@(shrd,dpar); the
+            one-level cz_pv_* missed vars under a wrapper -> dropped binding).  An
+            all-wildcard/unit pattern yields no binds -> just the effect of rhs. *)
+         (cz_str(filr, "(let ((czscrut "); i0exp_cz0(filr, rhs);
+          cz_str(filr, ")) (let ("); cz_pat_binds(filr, ipat); cz_str(filr, ") ");
+          cz_val_body(filr, ivs_rest, rest, body); cz_str(filr, "))")))
   end
 )
 //
