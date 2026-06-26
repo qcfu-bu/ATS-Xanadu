@@ -257,7 +257,12 @@ fun initialize
   , () -> string, () -> int, (string, int) -> int
   , (string, int, int, int, int, int) -> string
   , (string, string) -> string, (string) -> void, (string) -> string
-  , () -> int, () -> int) : void
+  , () -> int, () -> int
+  // ...plus the symbol-surface builders + project symbol cache: idx_workspace(query)
+  // ->json, idx_completion(uri,line,char,word,isMember,dotLine,dotCol,wcol)->json,
+  // idx_proj_store(path,uri), idx_proj_delete(path).
+  , (string) -> string, (string, int, int, string, int, int, int, int) -> string
+  , (string, string) -> void, (string) -> void) : void
 // lsp_addflag: the flag-setter callback impl (passed to initialize).
 fun lsp_addflag(string): void
 //

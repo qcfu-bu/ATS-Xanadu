@@ -316,37 +316,28 @@ end
   idx_token_push(l0, c0, l1, c1, ttype, tmods, defpath)
 //
 // WS-6: the prelude/global completion cache is filled by harvest_prelude_globals
-// (below) directly from the loaded pervasive name topmaps — these are its sinks.
-#extern fun LSP_prelude_sym_reset((*void*)): void = $extnam()
-#extern fun LSP_prelude_sym_push(name: string, kind: int, typ: string): void = $extnam()
-#extern fun LSP_prelude_sym_done((*void*)): void = $extnam()
+// (below); its sinks now forward to the ATS xats_lsp_index cache (idx_prelude_*).
+fun LSP_prelude_sym_reset((*void*)): void = idx_prelude_reset()
+fun LSP_prelude_sym_push(name: string, kind: int, typ: string): void = idx_prelude_push(name, kind, typ)
+fun LSP_prelude_sym_done((*void*)): void = lsp_log_prelude_index(idx_prelude_count())
+  where { #extern fun lsp_log_prelude_index(n: int): void = $extnam() }
 //
+// Stage 5b: the symbol/scope/member harvest sinks now accumulate into the ATS
+// xats_lsp_index module (idx_*), feeding documentSymbol / workspace / completion.
 #implfun symbol_push(l0, c0, l1, c1, name, kind, container, typ) =
-  LSP_symbol_push(l0, c0, l1, c1, name, kind, container, typ)
-  where { #extern fun
-    LSP_symbol_push
-    ( l0: int, c0: int, l1: int, c1: int
-    , name: string, kind: int, container: string, typ: string): void = $extnam() }
+  idx_symbol_push(l0, c0, l1, c1, name, kind, container, typ)
 //
 #implfun inlay_push(line, col, label, kind) =
   idx_inlay_push(line, col, label, kind)
 //
 #implfun scope_push(l0, c0, l1, c1, name, typ) =
-  LSP_scope_push(l0, c0, l1, c1, name, typ)
-  where { #extern fun
-    LSP_scope_push
-    ( l0: int, c0: int, l1: int, c1: int
-    , name: string, typ: string): void = $extnam() }
+  idx_scope_push(l0, c0, l1, c1, name, typ)
 //
 #implfun member_push(l0, c0, l1, c1, name, typ) =
-  LSP_member_push(l0, c0, l1, c1, name, typ)
-  where { #extern fun
-    LSP_member_push
-    ( l0: int, c0: int, l1: int, c1: int
-    , name: string, typ: string): void = $extnam() }
+  idx_member_push(l0, c0, l1, c1, name, typ)
 //
-#implfun initialize(f, lv, g, h, e, af, ir, ic, iv, icl, idg, ind, ict, iq, pix, prm, prc, pfc, prv) =
-  vscode_initialize(f, lv, g, h, e, af, ir, ic, iv, icl, idg, ind, ict, iq, pix, prm, prc, pfc, prv)
+#implfun initialize(f, lv, g, h, e, af, ir, ic, iv, icl, idg, ind, ict, iq, pix, prm, prc, pfc, prv, iws, icp, pst, pdl) =
+  vscode_initialize(f, lv, g, h, e, af, ir, ic, iv, icl, idg, ind, ict, iq, pix, prm, prc, pfc, prv, iws, icp, pst, pdl)
   where { #extern fun
     vscode_initialize
     ( f: text_validator_t, lv: live_validator_t, g: cache_pruner_t
@@ -355,7 +346,9 @@ end
     , idg: () -> string, ind: () -> int, ict: (string, int) -> int
     , iq: (string, int, int, int, int, int) -> string
     , pix: (string, string) -> string, prm: (string) -> void, prc: (string) -> string
-    , pfc: () -> int, prv: () -> int): void = $extnam() }
+    , pfc: () -> int, prv: () -> int
+    , iws: (string) -> string, icp: (string, int, int, string, int, int, int, int) -> string
+    , pst: (string, string) -> void, pdl: (string) -> void): void = $extnam() }
 //
 // lsp_addflag: add ONE compiler flag to the global flag table. The .cats calls
 // this (via initialize's add_flag_t callback) for each flag in the workspace
@@ -667,10 +660,11 @@ precheck(dp: depgraph, fwd: depgraph, key0: sym_t): void = let
 (*   feature is off (ATS3_LSP_STALOAD_COMPLETE=0) -> no descent, no cost.   *)
 (* ====================================================================== *)
 //
-#extern fun LSP_staload_seen(s: sint): bool = $extnam()
-#extern fun LSP_staload_mark(s: sint): void = $extnam()
-#extern fun
-LSP_staload_sym_push(name: string, kind: int, typ: string): void = $extnam()
+// Stage 5b: the staloaded-API index now lives in the ATS xats_lsp_index module
+// (idx_staload_*); the per-session file dedup (by stamp) + the kill-switch are there.
+fun LSP_staload_seen(s: sint): bool = idx_staload_seen(s)
+fun LSP_staload_mark(s: sint): void = idx_staload_mark(s)
+fun LSP_staload_sym_push(name: string, kind: int, typ: string): void = idx_staload_push(name, kind, typ)
 //
 fun
 stld_emit_dcons(cs: d2conlst, kind: int): void =
@@ -983,6 +977,8 @@ end
 //
 #implfun reload_prelude((*void*)) = let
   val () = xglobal_reset()
+  // the staloaded-API cache is stamp-keyed -> stale after the reset (new stamps).
+  val () = idx_staload_reset()
   val () = prelude_pvsload()
 in prelude_take_snapshot()
 end
@@ -1009,7 +1005,8 @@ val () = prelude_take_snapshot()
 val () = initialize
   ( text_validator, live_validator, cache_pruner, reload_prelude, evict_stamp, lsp_addflag
   , idx_reset, idx_commit, idx_evict, idx_clear, idx_diagnostics, idx_ndiags, idx_count, idx_query
-  , proj_index_file, proj_remove_file, proj_rev_closure, proj_fwd_count, proj_rev_count)
+  , proj_index_file, proj_remove_file, proj_rev_closure, proj_fwd_count, proj_rev_count
+  , idx_workspace, idx_completion, idx_proj_store, idx_proj_delete)
 //
 (* ****** ****** *)
 (*

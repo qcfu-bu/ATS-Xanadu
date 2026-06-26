@@ -77,6 +77,7 @@ fun idx_member_push
 fun idx_prelude_reset((*void*)): void
 fun idx_prelude_push(name: string, kind: int, typ: string): void
 fun idx_prelude_done((*void*)): void
+fun idx_prelude_count((*void*)): int   // for the startup metric line
 fun idx_staload_seen(stamp: int): bool
 fun idx_staload_mark(stamp: int): void
 fun idx_staload_push(name: string, kind: int, typ: string): void

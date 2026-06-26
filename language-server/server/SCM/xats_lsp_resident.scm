@@ -45,6 +45,10 @@
 (define (cell_get c) (vector-ref c 0))
 (define (cell_set c x) (vector-set! c 0 x) _xunit)
 (define (lsp_getenv n) (or (getenv n) ""))   ; for the ATS index module's env-configured caches
+;; the startup prelude-index metric line (the ATS index module owns the count now).
+(define (lsp_log_prelude_index n)
+  (put-string (current-error-port) (string-append "[xats-lsp-resident] prelude-index: " (number->string n) " name(s) [env]\n"))
+  (flush-output-port (current-error-port)) _xunit)
 (define LSP-hexdig "0123456789ABCDEF")
 ;; stderr log line (the server's diagnostics go to stderr; stdout is the LSP wire)
 (define (LSP-stderr s) (put-string (current-error-port) s) (flush-output-port (current-error-port)) _xunit)
@@ -1050,7 +1054,10 @@
 
 ;; ---- completion builder (needs the doc store) ----
 (define (LSP-ident-ch? c) (or (char<=? #\A c #\Z) (char<=? #\a c #\z) (char<=? #\0 c #\9) (memv c '(#\_ #\$ #\'))))
-(define (LSP_build_completion uri line char)
+;; Stage 5b: completion is built in ATS (idx_completion).  The DOC-STORE-derived
+;; partial word + member-mode detection stays glue (the doc model is still glue =
+;; Step 6); this shim computes them and hands them to the ATS builder.
+(define (LSP_build_completion uri line char idxComplete)
   (let ((doc (LSP-doc-get uri)))
     (if (not doc) (jobj (list (cons "isIncomplete" (jbool #f)) (cons "items" (jarr '()))))
         (let* ((text (LSP-doc-text doc)) (ls (LSP-doc-line-starts doc)) (offset (LSP-offset-at-ls ls text line char)))
@@ -1062,11 +1069,8 @@
                  (j0 (let loop ((j (- wstart 1))) (if (and (>= j 0) (memv (string-ref text j) '(#\space #\tab))) (loop (- j 1)) j)))
                  (member? (and (>= j0 0) (char=? (string-ref text j0) #\.)))
                  (wcol (- char (- offset wstart)))
-                 (rng (jobj (list (cons "start" (jobj (list (cons "line" (jnum line)) (cons "character" (jnum wcol)))))
-                                  (cons "end" (jobj (list (cons "line" (jnum line)) (cons "character" (jnum char)))))))))
-            (if member?
-                (LSP-completion-member uri word rng (cons line (- char (- offset j0))))
-                (LSP-completion-general uri word rng line char)))))))
+                 (dotCol (if member? (- char (- offset j0)) 0)))
+            (jraw (idxComplete uri line char word (if member? 1 0) line dotCol wcol)))))))
 ;; allocation-free case-insensitive prefix test against a PRE-LOWERCASED query
 ;; (downcases only the candidate's first wlen chars, on the fly, exiting early on
 ;; the first mismatch — no per-candidate string allocation).
@@ -1202,7 +1206,8 @@
 (define (vscode_initialize validator liveValidator pruner reloadPreludeFn evictStampFn addFlag
                            LSP-idx-reset LSP-idx-commit LSP-idx-evict LSP-idx-clear
                            LSP-idx-diags LSP-idx-ndiags LSP-idx-count LSP-idx-query
-                           projIndex projRemove projRevClosure projFwdCount projRevCount)
+                           projIndex projRemove projRevClosure projFwdCount projRevCount
+                           LSP-idx-workspace LSP-idx-completion LSP-idx-proj-store LSP-idx-proj-delete)
 
   ;; The ATS xats_lsp_index module API (passed as eight closures via initialize):
   ;; the diag/hover/def/token/inlay accumulators + their dedups + the per-uri
@@ -1228,12 +1233,11 @@
         ;; diag/hover/def/token/inlay snapshot is ATS-owned (idx_commit); the glue
         ;; LSP_index keeps only the 3 trailing fields it still reads (symbols/scopes/
         ;; members for documentSymbol/workspace/completion).  Slots 0-2/4 are unused.
+        ;; the per-uri snapshot (incl. symbols/scopes/members) is ATS-owned now;
+        ;; LSP_index is just the glue's set of indexed (open/checked) uris.
         (LSP-idx-commit uri)
-        (hashtable-set! LSP_index uri
-          (vector '() '() '() (LSP_dedup_symbols (reverse LSP_cur_symbols))
-                  '() (LSP_dedup_scopes (reverse LSP_cur_scopes))
-                  (LSP_dedup_members (reverse LSP_cur_members))))
-        (hashtable-delete! LSP_proj_symbols LSP_cur_path_norm)
+        (hashtable-set! LSP_index uri #t)
+        (LSP-idx-proj-delete LSP_cur_path_norm)
         (let ((lspDiags (if validatorError
                             (jarr (list (vscode_diagnostic_make 2 (vscode_range_make (vscode_position_make 0 0) (vscode_position_make 0 1))
                                           "ats3: could not analyze this file (the compiler aborted). This usually means the file staloads the ATS3 compiler itself; ordinary ATS3 files are unaffected." "ats3")))
@@ -1261,16 +1265,15 @@
                (unless (or (hashtable-contains? LSP_index uri) (JS_path_is_prelude n))
                  (let ((text (guard (e (#t #f)) (LSP-read-file n))))
                    (when text
-                     (LSP-idx-reset)   ; symbols-only pass: accumulate then discard (no commit)
-                     (set! LSP_cur_symbols '()) (set! LSP_cur_scopes '()) (set! LSP_cur_members '())
+                     (LSP-idx-reset)   ; symbols-only pass: accumulate -> proj cache (no commit)
                      (set! LSP_cur_uri uri) (set! LSP_cur_path n) (set! LSP_cur_path_norm n)
                      (set! LSP_cur_u16 (LSP_u16_make text)) (set! LSP_other_u16 (make-hashtable equal-hash equal?))
                      (guard (e (#t #f)) (validator LSP_dependencies #f uri))
-                     (hashtable-set! LSP_proj_symbols n (cons uri (LSP_dedup_symbols (reverse LSP_cur_symbols))))
+                     (LSP-idx-proj-store n uri)
                      (set! done (+ done 1))
                      (set! LSP_cur_uri #f) (set! LSP_cur_path #f) (set! LSP_cur_u16 #f))))))
            (hashtable-keys LSP_proj_indexed))))
-        (LSP-stderr (string-append "[xats-lsp-resident] bg-index: " (number->string (hashtable-size LSP_proj_symbols)) " file(s) indexed\n")))))
+        (LSP-stderr (string-append "[xats-lsp-resident] bg-index: " (number->string done) " file(s) indexed\n")))))
 
   ;; prelude reload (a $XATSHOME file was saved).
   (define (reloadPreludeAndRevalidate savedUri)
@@ -1354,14 +1357,14 @@
        ((string=? method "textDocument/references")
         (LSP-respond id (jraw (LSP-idx-query (p-uri m) 3 (p-line m) (p-char m) (if (eq? (jget* m "params" "context" "includeDeclaration") #t) 1 0) 0))))
        ((string=? method "textDocument/documentHighlight") (LSP-respond id (jraw (LSP-idx-query (p-uri m) 4 (p-line m) (p-char m) 0 0))))
-       ((string=? method "textDocument/documentSymbol") (LSP-respond id (LSP_build_document_symbols (p-uri m))))
+       ((string=? method "textDocument/documentSymbol") (LSP-respond id (jraw (LSP-idx-query (p-uri m) 9 0 0 0 0))))
        ((string=? method "textDocument/inlayHint")
         (let ((rng (jget* m "params" "range")))
           (if (hashtable? rng)
               (LSP-respond id (jraw (LSP-idx-query (p-uri m) 6 (jnum->int (jget* rng "start" "line")) (jnum->int (jget* rng "start" "character")) (jnum->int (jget* rng "end" "line")) (jnum->int (jget* rng "end" "character")))))
               (LSP-respond id (jraw (LSP-idx-query (p-uri m) 5 0 0 0 0))))))
-       ((string=? method "workspace/symbol") (LSP-respond id (LSP_build_workspace_symbols (jstr-or (jget* m "params" "query") ""))))
-       ((string=? method "textDocument/completion") (LSP-respond id (LSP_build_completion (p-uri m) (p-line m) (p-char m))))
+       ((string=? method "workspace/symbol") (LSP-respond id (jraw (LSP-idx-workspace (jstr-or (jget* m "params" "query") "")))))
+       ((string=? method "textDocument/completion") (LSP-respond id (LSP_build_completion (p-uri m) (p-line m) (p-char m) LSP-idx-completion)))
        ((string=? method "textDocument/semanticTokens/full") (LSP-respond id (jraw (LSP-idx-query (p-uri m) 7 0 0 0 0))))
        ((string=? method "xats/indexStats")
         (LSP-respond id (jraw (LSP-idx-query (jstr-or (jget* m "params" "uri") (jstr-or (jget* m "params" "textDocument" "uri") "")) 8 0 0 0 0))))

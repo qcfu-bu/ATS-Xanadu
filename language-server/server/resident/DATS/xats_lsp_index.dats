@@ -544,6 +544,7 @@ fun ilist_has(xs: list(sint), x: sint): bool =
 #implfun idx_prelude_push(name, kind, typ) =
   if strn_eq(name, "") then () else cell_set(the_prelude, list_cons(mknk(name, kind, typ), cell_get(the_prelude)))
 #implfun idx_prelude_done() = ()
+#implfun idx_prelude_count() = jlen(cell_get(the_prelude))
 //
 #implfun idx_staload_seen(stamp) =
   if (if the_staload_enabled then false else true) then true
