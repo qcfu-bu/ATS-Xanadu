@@ -44,9 +44,14 @@
 
 (define (str_of_code c) (string (integer->char c)))
 
-(define (str_slice s a b) (substring s a b))
-
-   ; O(len) codepoint-indexed substring (doc range edits)
+(define (str_slice s a b) (substring s a b))   ; O(len) codepoint-indexed substring (doc range edits)
+;; string builder (O(1) amortized append) for xats_lsp_json's parse/serialize hot
+;; paths — a Chez output-string-port: sb_str=put-string, sb_code=put-char, sb_get=
+;; get-output-string.  Replaces char-by-char strn_append (which was O(n^2)).
+(define (sb_new) (open-output-string))
+(define (sb_str b s) (put-string b s) _xunit)
+(define (sb_code b c) (put-char b (integer->char c)) _xunit)
+(define (sb_get b) (get-output-string b))
 (define (cell_make x) (vector x))
 
 (define (cell_get c) (vector-ref c 0))
