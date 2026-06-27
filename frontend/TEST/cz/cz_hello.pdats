@@ -1,0 +1,15 @@
+# cz_hello — the pyfront -> Chez tracer bullet (faithful pythonic m0_hello).
+#
+# Pythonic source -> (pyfront) parse/lower to a faithful L2 -> (stock compiler, UNCHANGED)
+# the full d3parsed_of_trans03 pipeline (incl. trans3a, which builds the t3penv) -> trxd3i0 ->
+# intrep0 -> cz0emit -> Chez Scheme -> runs on Chez.  Output: 42.
+#
+# This is the pythonic spelling of srcgen2/xats2cz/TEST/m0_hello.dats, using the SAME prelude
+# `#include`s (now via `include`).  lower_include splices the included decls into the d2parsed,
+# and trans3a builds the staload t3penvs, so the prelude templates (sint_print / strn_print /
+# the_print_store_log) resolve + emit through the unchanged backend.
+include "prelude/HATS/prelude_dats.hats"
+include "prelude/HATS/prelude_JS_dats.hats"
+sint_print(42)
+strn_print("\n")
+the_print_store_log()
