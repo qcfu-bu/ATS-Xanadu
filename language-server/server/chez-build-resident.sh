@@ -72,7 +72,7 @@ echo "   -> $OUT ($(wc -l < "$OUT") lines, $(du -h "$OUT" | awk '{print $1}'))"
 
 if [ "$COMPILE" = "1" ]; then
   echo ">> [3/3] compile-file -> chez-lsp-resident.so"
-  echo "(optimize-level 2)(generate-inspector-information #f)(compile-file \"$OUT\" \"$SO\")" | chez -q 2>"$OUTDIR/compile.err" \
+  echo "(optimize-level 3)(generate-interrupt-trap #f)(generate-inspector-information #f)(compile-file \"$OUT\" \"$SO\")" | chez -q 2>"$OUTDIR/compile.err" \
     && echo "   -> $SO ($(du -h "$SO" | awk '{print $1}'))" \
     || { echo "!! compile-file failed; see $OUTDIR/compile.err"; tail -20 "$OUTDIR/compile.err"; exit 1; }
 else
