@@ -29,7 +29,7 @@ datatype jval =
 // opaque backend string-builder handle (impl: 4 leaf externs in the .dats; Chez =
 // an output-string-port).  Used by parse/serialize to stay O(n).  Declared here
 // because abstype decls aren't allowed in a .dats.
-#abstype sbuf <= p0tr
+#abstbox sbuf // ptr
 //
 (* ****** ****** *)
 //

@@ -25,7 +25,7 @@ per-uri in-memory index held in the .cats, which onHover/onDefinition read.
 //
 // uri (an opaque LSP document-uri string handle) and the url->fspath map.
 //
-#abstype url <= p0tr
+#abstbox url // ptr
 #extern fun url_to_path(url) : string
 //
 (* ****** ****** *)
@@ -35,13 +35,13 @@ per-uri in-memory index held in the .cats, which onHover/onDefinition read.
 // straight to the wire.)  `diagnostics` survives ONLY as the unused 2nd parameter
 // of the validator signatures (the driver passes a cast-dummy); no longer pushed to.
 //
-#abstype diagnostics <= p0tr
+#abstbox diagnostics // ptr
 //
 (* ****** ****** *)
 //
 // regex (used to dispatch .dats vs .sats on the resolved path).
 //
-#abstype regex <= p0tr
+#abstbox regex // ptr
 fun regex_make(pat: string) : regex
 fun regex_test(re: regex, input: string): bool
 //
@@ -51,7 +51,7 @@ fun regex_test(re: regex, input: string): bool
 // (its sym_t, the Set of dependent files' sym_t). depset is the worklist of
 // files to evict. Ported verbatim from the reference lsp_bootstrap.{sats,js}.
 //
-#abstype depset <= p0tr
+#abstbox depset // ptr
 fun depset_make(): depset
 fun depset_add(depset, sym_t): void
 fun depset_pop(depset): sym_t
@@ -59,7 +59,7 @@ fun depset_is_empty(depset): bool
 fun depset_has(depset, sym_t): bool
 fun depset_union(depset, depset): depset
 //
-#abstype depgraph <= p0tr
+#abstbox depgraph // ptr
 fun depgraph_add(depgraph, sym_t, sym_t): void
 fun depgraph_delete(depgraph, sym_t): void
 fun depgraph_has(depgraph, sym_t): bool

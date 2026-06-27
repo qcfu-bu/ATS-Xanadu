@@ -2,7 +2,7 @@
 (*
 Per-uri LSP index: harvest accumulators + dedup + request builders — INTERFACE.
 
-This is the ATS3 port of the Scheme glue's per-check accumulators (LSP_cur_*), the
+This is the ATS3 port of the Scheme glue's per-check accumulators (the LSP_cur_* set), the
 per-uri index (LSP_index), the diag/hover/def/inlay dedups + token delta-encoder,
 and the request builders for hover / definition / typeDefinition / references /
 documentHighlight / inlayHint / semanticTokens / indexStats + the published

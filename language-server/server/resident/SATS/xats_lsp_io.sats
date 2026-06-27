@@ -43,7 +43,7 @@ fun lsp_fs_exists(path: string): bool
 fun lsp_fs_read(path: string): string          // file contents; "" on error
 fun lsp_fs_mtime(path: string): double         // mtime in ms; ~1.0 (negative) on error
 fun lsp_fs_size(path: string): sint            // size in bytes; ~1 on error
-fun lsp_fs_dirlist(path: string): jsa1sz(string) // entry names (no "."/"..","node_modules" kept); empty on error
+fun lsp_fs_dirlist(path: string): list(string)   // entry names (no "."/"..","node_modules" kept); empty on error
 fun lsp_fs_isdir(path: string): bool
 fun lsp_fs_realpath(path: string): string      // normalized absolute path ("" on error)
 //
