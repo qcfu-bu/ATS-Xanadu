@@ -1,5 +1,0 @@
-def apply(f: (Int) -> Int, x: Int) -> Int:
-    f(x)
-
-def go() -> Int:
-    apply(5, 5)
