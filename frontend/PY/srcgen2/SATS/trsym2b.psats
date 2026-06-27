@@ -1,0 +1,117 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/trans2a" import *
+
+@extern
+def list_trsym2b_fnp[X0: Type](a: !Tr2aenv, b: List[X0], c: (!Tr2aenv, X0) -> Void) -> Void
+
+@extern
+def optn_trsym2b_fnp[X0: Type](a: !Tr2aenv, b: Optn[X0], c: (!Tr2aenv, X0) -> Void) -> Void
+
+@extern
+def trsym2b_d2pat(a: !Tr2aenv, b: D2pat) -> Void
+
+@extern
+def trsym2b_d2exp(a: !Tr2aenv, b: D2exp) -> Void
+
+@extern
+def trsym2b_l2d2p(a: !Tr2aenv, b: L2d2p) -> Void
+
+@extern
+def trsym2b_l2d2e(a: !Tr2aenv, b: L2d2e) -> Void
+
+@extern
+def trsym2b_f2arg(a: !Tr2aenv, b: F2arg) -> Void
+
+@extern
+def trsym2b_d2gua(a: !Tr2aenv, b: D2gua) -> Void
+
+@extern
+def trsym2b_d2gpt(a: !Tr2aenv, b: D2gpt) -> Void
+
+@extern
+def trsym2b_d2cls(a: !Tr2aenv, b: D2cls) -> Void
+
+@extern
+def trsym2b_d2ecl(a: !Tr2aenv, b: D2ecl) -> Void
+
+@extern
+def trsym2b_d2patlst(a: !Tr2aenv, b: D2patlst) -> Void
+
+@extern
+def trsym2b_d2expopt(a: !Tr2aenv, b: D2expopt) -> Void
+
+@extern
+def trsym2b_d2explst(a: !Tr2aenv, b: D2explst) -> Void
+
+@extern
+def trsym2b_l2d2plst(a: !Tr2aenv, b: L2d2plst) -> Void
+
+@extern
+def trsym2b_l2d2elst(a: !Tr2aenv, b: L2d2elst) -> Void
+
+@extern
+def trsym2b_f2arglst(a: !Tr2aenv, b: F2arglst) -> Void
+
+@extern
+def trsym2b_d2gualst(a: !Tr2aenv, b: D2gualst) -> Void
+
+@extern
+def trsym2b_d2clslst(a: !Tr2aenv, b: D2clslst) -> Void
+
+@extern
+def trsym2b_d2eclist(a: !Tr2aenv, b: D2eclist) -> Void
+
+@extern
+def trsym2b_teqd2exp(a: !Tr2aenv, b: Teqd2exp) -> Void
+
+@extern
+def trsym2b_d2valdcl(a: !Tr2aenv, b: D2valdcl) -> Void
+
+@extern
+def trsym2b_d2vardcl(a: !Tr2aenv, b: D2vardcl) -> Void
+
+@extern
+def trsym2b_d2fundcl(a: !Tr2aenv, b: D2fundcl) -> Void
+
+@extern
+def trsym2b_d2valdclist(a: !Tr2aenv, b: D2valdclist) -> Void
+
+@extern
+def trsym2b_d2vardclist(a: !Tr2aenv, b: D2vardclist) -> Void
+
+@extern
+def trsym2b_d2fundclist(a: !Tr2aenv, b: D2fundclist) -> Void
+
+@extern
+def trsym2b_d2eclistopt(a: !Tr2aenv, b: D2eclistopt) -> Void
+
+@extern
+def match2a_d2var(a: !Tr2aenv, b: D2var, c: S2typ) -> Bool
+
+@extern
+def match2a_d2con(a: !Tr2aenv, b: D2con, c: S2typ) -> Bool
+
+@extern
+def match2a_d2ap1(a: !Tr2aenv, b: D2con, c: S2typ) -> Bool
+
+@extern
+def match2a_d2cst(a: !Tr2aenv, b: D2cst, c: S2typ) -> Bool
+
+@extern
+def match2a_d2itm(a: !Tr2aenv, b: D2itm, c: S2typ) -> D2itmopt
+
+@extern
+def match2a_d2ptm(a: !Tr2aenv, b: D2ptm, c: S2typ) -> D2ptmopt
+
+@extern
+def match2a_d2conlst(a: !Tr2aenv, b: D2conlst, c: S2typ) -> D2conlst
+
+@extern
+def match2a_d2ap1lst(a: !Tr2aenv, b: D2conlst, c: S2typ) -> D2conlst
+
+@extern
+def match2a_d2ptmlst(a: !Tr2aenv, b: D2ptmlst, c: S2typ) -> D2ptmlst
+

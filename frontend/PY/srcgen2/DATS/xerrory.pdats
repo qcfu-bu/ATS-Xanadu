@@ -1,0 +1,21 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xerrory" import *
+
+exception FatalErrorExn
+
+exception FatalErrorExn_interr
+
+@impl
+def abort():
+    raise FatalErrorExn
+
+@impl
+def abort_interr():
+    raise FatalErrorExn_interr
+
+

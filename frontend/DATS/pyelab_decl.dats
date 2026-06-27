@@ -286,6 +286,11 @@ let_binder_name(p: pypat): strn =
   | PyPvar(_, nm) => nm
   | PyPann(_, p1, _) => let_binder_name(p1)
   | PyPas(_, _, nm) => nm
+  // An UPPERCASE binder (`let INT0_symbl: Symbl`, `@static let TYPESORT: SInt`) lexes as a
+  // constructor pattern (PyPcon) by the UIDENT convention, but here it is the NAME of a value /
+  // static constant — extract it. (ATS has many uppercase VALUE-constant names: *_symbl, sort/token
+  // constants, etc. Without this they registered under "?" and stayed unbound in consumers.)
+  | PyPcon(_, nm, _, _) => nm
   | _ => "?" )
 //
 //   sortref_of_typopt(ann) : the SORT-reference string of a `: SInt`-style annotation (a bare type
@@ -311,6 +316,13 @@ static_let_decl(loc: loctn, p: pypat, ann: pytypopt, rhs: pyexp): list(pcdecl) =
 ( if is_stacst_sentinel(rhs)
     then list_sing(PCCstacst(loc, let_binder_name(p), sortref_of_typopt(ann)))
     else list_sing(PCCstadef(loc, let_binder_name(p), elab_exp(list_nil(), rhs))) )
+//
+//   extern_let_decl(...) : route an `@extern let NAME: T` (bodyless `val NAME: T` round-trip) to a
+//     DYNAMIC constant -> PCCexternval (M3 lowers it to a D2Cdynconst VAL). Defined here so the
+//     local `let_binder_name` is in scope, exactly like static_let_decl.
+fun
+extern_let_decl(loc: loctn, p: pypat, ann: pytypopt): list(pcdecl) =
+  list_sing(PCCexternval(loc, let_binder_name(p), list_nil()(*tvs*), ann))
 //
 (* ****** ****** *)
 //
@@ -680,9 +692,12 @@ case+ s of
     // (the L2 lowering — D2Cstacst0 / D2Csexpdef — is reused unchanged, exactly the old keyword path).
     if decos_has(decos, "static") then static_let_decl(loc, p, ann, rhs)
     else (
-      if decos_has(decos, "proof")
-        then list_sing(PCCprval(loc, elab_pat(p), ann, elab_exp(list_nil(), rhs)))
-        else list_sing(PCCval(loc, elab_pat(p), elab_exp(list_nil(), rhs)))
+      if decos_has(decos, "extern") then extern_let_decl(loc, p, ann)
+      else (
+        if decos_has(decos, "proof")
+          then list_sing(PCCprval(loc, elab_pat(p), ann, elab_exp(list_nil(), rhs)))
+          else list_sing(PCCval(loc, elab_pat(p), elab_exp(list_nil(), rhs)))
+      )
     )
 | PySexpr(loc, e) =>
     list_sing(PCCval(loc, PCPwild(loc), elab_exp(list_nil(), e)))

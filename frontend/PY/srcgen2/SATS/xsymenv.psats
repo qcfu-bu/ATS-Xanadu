@@ -1,0 +1,18 @@
+import "srcgen2/SATS/xsymbol" as SYM
+
+import "srcgen2/SATS/xsymmap" as MAP
+
+type Sym_t = SYM.sym_t
+
+type Topmap[Itm: Type] = MAP.topmap[Itm]
+
+type Stkmap[Itm: Type] = MAP.stkmap[Itm]
+
+@abstract
+type Symenv_vtbx[Itm]
+
+type Symenv[Itm: Type] = Symenv_vtbx[Itm]
+
+@extern
+def symenv_make_nil[Itm: Tbox]() -> Symenv[Itm]
+

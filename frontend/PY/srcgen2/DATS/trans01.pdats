@@ -1,0 +1,97 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+import "srcgen2/SATS/xsymbol" as SYM
+
+import "srcgen2/SATS/xlabel0" as LAM
+
+from "srcgen2/SATS/filpath" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/dynexp0" import *
+
+from "srcgen2/SATS/parsing" import *
+
+from "srcgen2/SATS/pread00" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/trans01" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@impl
+def the_drpth_push_lcsrc(source):
+    match source:
+        case LCSRCnone0():
+            ()
+        case LCSRCsome1(name):
+            let dir1 = fpath_dpart(name)
+            let dir1 = drpth_make_name(dir1)
+            the_drpth_push(dir1)
+        case LCSRCfpath(fpth):
+            let fnm1 = fpath_get_fnm1(fpth)
+            let dir1 = fpath_dpart(fnm1)
+            let dir1 = drpth_make_name(dir1)
+            the_drpth_push(dir1)
+
+@impl
+def the_drpth_pop0_lcsrc(source):
+    match source:
+        case LCSRCnone0(_):
+            ()
+        case LCSRCsome1(name):
+            the_drpth_pop0()
+        case LCSRCfpath(fpth):
+            the_drpth_pop0()
+
+@impl
+def d1parsed_of_trans01(dpar):
+    let stadyn = d0parsed_get_stadyn(dpar)
+    let nerror = d0parsed_get_nerror(dpar)
+    let source = d0parsed_get_source(dpar)
+    let parsed = d0parsed_get_parsed(dpar)
+    the_drpth_push_lcsrc(source)
+    let env0 = tr01env_make_nil()
+    let parsed = trans01_d0eclistopt(env0, parsed)
+    the_drpth_pop0_lcsrc(source)
+    let topenv = tr01env_free_top(env0)
+    d1parsed(stadyn, nerror, source, topenv, parsed)
+
+@impl
+def trans01_from_fpath(stadyn, source):
+    d1parsed_of_trans01(dpar)
+where:
+    let dpar = d0parsed_from_fpath(stadyn, source)
+    let dpar = d0parsed_of_pread00(dpar)
+
+@impl[]
+def list_trans01_fnp[X0, Y0](e1, xs, fopr):
+    @inst[X0] @inst[Y0] @inst[e1] list_map/e1nv(xs, e1)
+where:
+    type E1 = tr01env
+    @impl[X0, Y0, E1]
+    def map/e1nv/fopr(x0, e1):
+        fopr(e1, x0)
+
+@impl[]
+def optn_trans01_fnp[X0, Y0](e1, xs, fopr):
+    @inst[X0] @inst[Y0] @inst[e1] optn_map/e1nv(xs, e1)
+where:
+    type E1 = tr01env
+    @impl[X0, Y0, E1]
+    def map/e1nv/fopr(x0, e1):
+        fopr(e1, x0)
+

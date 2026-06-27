@@ -1,0 +1,300 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/lexing0" import *
+
+@impl
+def token_fprint(tok, out):
+    tnode_fprint(tok.node(), out)
+
+@impl
+def tnode_fprint(tnd, out):
+    match tnd:
+        case T_EOF():
+            print("T_EOF")
+        case T_ERR():
+            print("T_ERR")
+        case T_EOL():
+            print("T_EOL")
+        case T_BLANK(rep):
+            prints("T_BLANK(", rep, ")")
+        case T_CLNLT(rep):
+            prints("T_CLNLT(", rep, ")")
+        case T_DOTLT(rep):
+            prints("T_DOTLT(", rep, ")")
+        case T_SPCHR(rep):
+            prints("T_SPCHR(", rep, ")")
+        case T_IDENT(rep):
+            prints("T_IDENT(", rep, ")")
+        case T_IDALP(rep):
+            prints("T_IDALP(", rep, ")")
+        case T_IDSYM(rep):
+            prints("T_IDSYM(", rep, ")")
+        case T_IDDLR(rep):
+            prints("T_IDDLR(", rep, ")")
+        case T_IDSRP(rep):
+            prints("T_IDSRP(", rep, ")")
+        case T_IDQUA(rep):
+            prints("T_IDQUA(", rep, ")")
+        case T_INT01(rep):
+            prints("T_INT01(", rep, ")")
+        case T_INT02(bas, rep):
+            prints("T_INT02(", bas, ";", rep, ")")
+        case T_INT03(bas, rep, sfx):
+            prints("T_INT03(", bas, ";", rep, ";", sfx, ")")
+        case T_FLT01(rep):
+            prints("T_FLT01(", rep, ")")
+        case T_FLT02(bas, rep):
+            prints("T_FLT02(", bas, ";", rep, ")")
+        case T_FLT03(bas, rep, sfx):
+            prints("T_FLT03(", bas, ";", rep, ";", sfx, ")")
+        case T_CHAR1_nil0(rep):
+            prints("T_CHAR1_nil0(", rep, ")")
+        case T_CHAR2_char(rep):
+            prints("T_CHAR2_char(", rep, ")")
+        case T_CHAR3_blsh(rep):
+            prints("T_CHAR3_blsh(", rep, ")")
+        case T_STRN1_clsd(rep, len):
+            @impl[String]
+            def g_print:
+                my_strn_print
+            prints("T_STRN1_clsd(", rep, ";", len, ")")
+        case T_STRN2_ncls(rep, len):
+            @impl[String]
+            def g_print:
+                my_strn_print
+            prints("T_STRN2_ncls(", rep, ";", len, ")")
+        case T_CMNT1_line(ag1, ag2):
+            prints("T_CMNT1_line(", ag1, ";", ag2, ")")
+        case T_CMNT2_rest(ag1, ag2):
+            prints("T_CMNT2_rest(", ag1, ";", ag2, ")")
+        case T_CMNT3_ccbl(lvl, rep):
+            prints("T_CMNT3_ccbl(", lvl, ";", rep, ")")
+        case T_CMNT4_mlbl(lvl, rep):
+            prints("T_CMNT4_mlbl(", lvl, ";", rep, ")")
+        case T_AT0():
+            prints("T_AT0(", ")")
+        case T_BAR():
+            prints("T_BAR(", ")")
+        case T_CLN():
+            prints("T_CLN(", ")")
+        case T_DOT():
+            prints("T_DOT(", ")")
+        case T_EQ0():
+            prints("T_EQ0(", ")")
+        case T_LT0():
+            prints("T_LT0(", ")")
+        case T_GT0():
+            prints("T_GT0(", ")")
+        case T_DLR():
+            prints("T_DLR(", ")")
+        case T_SRP():
+            prints("T_SRP(", ")")
+        case T_EQLT():
+            prints("T_EQLT(", ")")
+        case T_EQGT():
+            prints("T_EQGT(", ")")
+        case T_LTGT():
+            prints("T_LTGT(", ")")
+        case T_GTLT():
+            prints("T_GTLT(", ")")
+        case T_MSLT():
+            prints("T_MSLT(", ")")
+        case T_MSGT():
+            prints("T_MSGT(", ")")
+        case T_GTDOT():
+            prints("T_GTDOT(", ")")
+        case T_COMMA():
+            prints("T_COMMA(", ")")
+        case T_SMCLN():
+            prints("T_SMCLN(", ")")
+        case T_BSLSH():
+            prints("T_BSLSH(", ")")
+        case T_LPAREN():
+            prints("T_LPAREN(", ")")
+        case T_RPAREN():
+            prints("T_RPAREN(", ")")
+        case T_LBRCKT():
+            prints("T_LBRCKT(", ")")
+        case T_RBRCKT():
+            prints("T_RBRCKT(", ")")
+        case T_LBRACE():
+            prints("T_LBRACE(", ")")
+        case T_RBRACE():
+            prints("T_RBRACE(", ")")
+        case T_EXISTS(knd):
+            prints("T_EXISTS(", knd, ")")
+        case T_TRCD10(knd):
+            prints("T_TRCD10(", knd, ")")
+        case T_TRCD20(knd):
+            prints("T_TRCD20(", knd, ")")
+        case T_AS0():
+            prints("T_AS0(", ")")
+        case T_OF0():
+            prints("T_OF0(", ")")
+        case T_OP1():
+            prints("T_OP1(", ")")
+        case T_OP2(tok):
+            prints("T_OP2(", tok, ")")
+        case T_OP3(tok):
+            prints("T_OP3(", tok, ")")
+        case T_IN0():
+            prints("T_IN0(", ")")
+        case T_AND():
+            prints("T_AND(", ")")
+        case T_END():
+            prints("T_END(", ")")
+        case T_IF0():
+            prints("T_IF0(", ")")
+        case T_SIF():
+            prints("T_SIF(", ")")
+        case T_THEN():
+            prints("T_THEN(", ")")
+        case T_ELSE():
+            prints("T_ELSE(", ")")
+        case T_WHEN():
+            prints("T_WHEN(", ")")
+        case T_WITH():
+            prints("T_WITH(", ")")
+        case T_SCAS():
+            prints("T_SCAS(", ")")
+        case T_CASE(csk):
+            prints("T_CASE(", csk, ")")
+        case T_ENDST():
+            prints("T_ENDST(", ")")
+        case T_LAM(knd):
+            prints("T_LAM(", knd, ")")
+        case T_FIX(knd):
+            prints("T_FIX(", knd, ")")
+        case T_LET():
+            prints("T_LET(", ")")
+        case T_TRY():
+            prints("T_TRY(", ")")
+        case T_WHERE():
+            prints("T_WHERE(", ")")
+        case T_LOCAL():
+            prints("T_LOCAL(", ")")
+        case T_ENDIF0():
+            prints("T_ENDIF0(", ")")
+        case T_ENDCAS():
+            prints("T_ENDCAS(", ")")
+        case T_ENDLAM():
+            prints("T_ENDLAM(", ")")
+        case T_ENDFIX():
+            prints("T_ENDFIX(", ")")
+        case T_ENDLET():
+            prints("T_ENDLET(", ")")
+        case T_ENDWHR():
+            prints("T_ENDWHR(", ")")
+        case T_ENDLOC():
+            prints("T_ENDLOC(", ")")
+        case T_ENDTRY():
+            prints("T_ENDTRY(", ")")
+        case T_VAL(vlk):
+            prints("T_VAL(", vlk, ")")
+        case T_VAR(vlk):
+            prints("T_VAR(", vlk, ")")
+        case T_FUN(fnk):
+            prints("T_FUN(", fnk, ")")
+        case T_IMPLMNT(knd):
+            prints("T_IMPLMNT(", knd, ")")
+        case T_STACST0():
+            prints("T_STACST0(", ")")
+        case T_ABSSORT():
+            prints("T_ABSSORT(", ")")
+        case T_SORTDEF():
+            prints("T_SORTDEF(", ")")
+        case T_SEXPDEF(knd):
+            prints("T_SEXPDEF(", knd, ")")
+        case T_ABSIMPL():
+            prints("T_ABSIMPL(", ")")
+        case T_ABSOPEN():
+            prints("T_ABSOPEN(", ")")
+        case T_ABSTYPE(knd):
+            prints("T_ABSTYPE(", knd, ")")
+        case T_DATASORT():
+            prints("T_DATASORT(", ")")
+        case T_EXCPTCON():
+            prints("T_EXCPTCON(", ")")
+        case T_DATATYPE(knd):
+            prints("T_DATATYPE(", knd, ")")
+        case T_WITHTYPE(knd):
+            prints("T_WITHTYPE(", knd, ")")
+        case T_DLR_RAISE():
+            prints("T_DLR_RAISE(", ")")
+        case T_DLR_EXTNAM():
+            prints("T_DLR_EXTNAM(", ")")
+        case T_DLR_EXISTS():
+            prints("T_DLR_EXISTS(", ")")
+        case T_DLR_SYNEXT():
+            prints("T_DLR_SYNEXT(", ")")
+        case T_SRP_THEN0():
+            prints("T_SRP_THEN0(", ")")
+        case T_SRP_ELSE1():
+            prints("T_SRP_ELSE1(", ")")
+        case T_SRP_ENDIF():
+            prints("T_SRP_ENDIF(", ")")
+        case T_SRP_IFEXP():
+            prints("T_SRP_IFEXP(", ")")
+        case T_SRP_ELSIF():
+            prints("T_SRP_ELSIF(", ")")
+        case T_SRP_NONFIX():
+            prints("T_SRP_NONFIX(", ")")
+        case T_SRP_FIXITY(knd):
+            prints("T_SRP_FIXITY(", knd, ")")
+        case T_SRP_STATIC():
+            prints("T_SRP_STATIC(", ")")
+        case T_SRP_EXTERN():
+            prints("T_SRP_EXTERN(", ")")
+        case T_SRP_STAVAL():
+            prints("T_SRP_STAVAL(", ")")
+        case T_SRP_EXTVAL():
+            prints("T_SRP_EXTVAL(", ")")
+        case T_SRP_DEFINE():
+            prints("T_SRP_DEFINE(", ")")
+        case T_SRP_MACDEF():
+            prints("T_SRP_MACDEF(", ")")
+        case T_SRP_SYMLOAD():
+            prints("T_SRP_SYMLOAD(", ")")
+        case T_SRP_STALOAD():
+            prints("T_SRP_STALOAD(", ")")
+        case T_SRP_DYNINIT():
+            prints("T_SRP_DYNINIT(", ")")
+        case T_SRP_INCLUDE():
+            prints("T_SRP_INCLUDE(", ")")
+        case T_SRP_EXTCODE():
+            prints("T_SRP_EXTCODE(", ")")
+where:
+    def my_strn_print(rep: String) -> Void:
+        let n0 = strn_length(rep)
+        def loop1(i0: nint) -> Void:
+            if (i0 >= n0):
+                ()
+            else:
+                let c0 = rep[i0]
+                if (c0 == '\\'):
+                    loop2(i0 + 1)
+                else:
+                    char_fprint(c0, out)
+                    loop1(i0 + 1)
+
+        def loop2(i1: nint) -> Void:
+            if (i1 >= n0):
+                char_fprint('\\', out)
+            else:
+                let c1 = rep[i1]
+                if (c1 == '\n'):
+                    loop1(i1 + 1)
+                else:
+                    char_fprint('\\', out)
+                    char_fprint(c1, out)
+                    loop1(i1 + 1)
+        let i0 = 0
+        loop1(i0)
+    @impl[]
+    def g_print/out():
+        out
+

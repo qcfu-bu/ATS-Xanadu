@@ -1,0 +1,719 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/lexing0" import *
+
+@extern
+def EOLq(ch: Char) -> Bool
+
+@extern
+def EMPq(ch: Char) -> Bool
+
+@extern
+def DOTq(ch: Char) -> Bool
+
+@extern
+def CLNq(ch: Char) -> Bool
+
+@extern
+def ALNUMq(ch: Char) -> Bool
+
+@extern
+def ALNUM_q(ch: Char) -> Bool
+
+@extern
+def DIGITq(ch: Char) -> Bool
+
+@extern
+def XDIGITq(ch: Char) -> Bool
+
+@extern
+def IDFSTq(ch: Char) -> Bool
+
+@extern
+def IDRSTq(ch: Char) -> Bool
+
+@extern
+def IDSYMq(ch: Char) -> Bool
+
+@extern
+def SYDLRq(ch: Char) -> Bool
+
+@extern
+def SYSRPq(ch: Char) -> Bool
+
+@extern
+def SLASHq(ch: Char) -> Bool
+
+@extern
+def STRSKq(ch: Char) -> Bool
+
+@extern
+def SLASH4q(cs: String) -> Bool
+
+@extern
+def LPARENq(ck: Char) -> Bool
+
+@extern
+def RPARENq(ch: Char) -> Bool
+
+@extern
+def SQUOTEq(ch: Char) -> Bool
+
+@extern
+def DQUOTEq(ch: Char) -> Bool
+
+@impl
+def EOLq(ch):
+    ch == '\n'
+
+@impl
+def EMPq(ch):
+    if (ch == ' '):
+        true
+    else:
+        if (ch == '\t'):
+            true
+        else:
+            false
+
+@impl
+def DOTq(ch):
+    ch == '.'
+
+@impl
+def CLNq(ch):
+    ch == ':'
+
+@impl
+def ALNUMq(ch):
+    isalnum(ch)
+
+@impl
+def DIGITq(ch):
+    isdigit(ch)
+
+@impl
+def ALNUM_q(ch):
+    if isalnum(ch):
+        true
+    else:
+        ch == '_'
+
+@impl
+def XDIGITq(ch):
+    isxdigit(ch)
+
+@impl
+def IDFSTq(ch):
+    match 0:
+        case _ if isalpha(ch):
+            true
+        case _ if (ch == '_'):
+            true
+        case _:
+            false
+
+@impl
+def IDRSTq(ch):
+    match 0:
+        case _ if isalnum(ch):
+            true
+        case _ if (ch == '_'):
+            true
+        case _ if (ch == '$'):
+            true
+        case _ if (ch == '\''):
+            true
+        case _:
+            false
+
+@impl
+def IDSYMq(ch):
+    @inst[String] @inst[cgtz] gseq_memberq(symseq, ch)
+where:
+    let symseq = "%&+-*/.:=@~`^|!?<>#"
+
+@impl
+def SYDLRq(ch):
+    ch == '$'
+
+@impl
+def SYSRPq(ch):
+    ch == '#'
+
+@impl
+def SLASHq(ch):
+    ch == '/'
+
+@impl
+def STRSKq(ch):
+    ch == '*'
+
+@impl
+def SLASH4q(cs):
+    let s4 = "////"
+    @inst[String] @inst[Char] gseq_prefixq(s4, cs)
+
+@impl
+def LPARENq(ch):
+    ch == '\('
+
+@impl
+def RPARENq(ch):
+    ch == '\)'
+
+@impl
+def SQUOTEq(ch):
+    ch == '\''
+
+@impl
+def DQUOTEq(ch):
+    ch == '\"'
+
+@extern
+def lexing_CMNT1_line[Obj: Vt](buf: !Obj, sym: String) -> tnode
+
+@extern
+def lexing_CMNT2_rest[Obj: Vt](buf: !Obj, sym: String) -> tnode
+
+@extern
+def lexing_CMNT3_ccbl[Obj: Vt](buf: !Obj, ci0: SInt, ci1: SInt) -> tnode
+
+@extern
+def lexing_CMNT4_mlbl[Obj: Vt](buf: !Obj, ci0: SInt, ci1: SInt) -> tnode
+
+@extern
+def lexing_DIGIT[Obj: Vt](buf: !Obj, ci0: SInt) -> tnode
+
+@impl[]
+def gobj_lexing_tnode[Obj: Vt](buf):
+    let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+    let cc0 = char_make_code(ci0)
+    def f0_DIGIT(buf: !Obj, ci0: SInt) -> tnode:
+        lexing_DIGIT(buf, ci0)
+    match 0:
+        case _ if EMPq(cc0):
+            f0_EMP(buf, ci0)
+        case _ if EOLq(cc0):
+            f0_EOL(buf, ci0)
+        case _ if CLNq(cc0):
+            f0_CLN(buf, ci0)
+        case _ if DOTq(cc0):
+            f0_DOT(buf, ci0)
+        case _ if SLASHq(cc0):
+            f0_SLASH(buf, ci0)
+        case _ if DIGITq(cc0):
+            f0_DIGIT(buf, ci0)
+        case _ if IDFSTq(cc0):
+            f0_IDFST(buf, ci0)
+        case _ if SYDLRq(cc0):
+            f0_SYDLR(buf, ci0)
+        case _ if SYSRPq(cc0):
+            f0_SYSRP(buf, ci0)
+        case _ if IDSYMq(cc0):
+            f0_IDSYM(buf, ci0)
+        case _ if LPARENq(cc0):
+            f0_LPAREN(buf, ci0)
+        case _ if SQUOTEq(cc0):
+            f0_SQUOTE(buf, ci0)
+        case _ if DQUOTEq(cc0):
+            f0_DQUOTE(buf, ci0)
+        case _:
+            f0_otherwise(buf, ci0)
+where:
+    def f0_EMP(buf: !Obj, ci0: SInt) -> tnode:
+        loop(buf)
+    where:
+        def loop(buf: !Obj) -> tnode:
+            let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+            let cc0 = char_make_code(ci0)
+            if EMPq(cc0):
+                loop(buf)
+            else:
+                let cix = gobj_lexing/unget(buf, ci0)
+                T_BLANK(gobj_lexing/fcseg(buf))
+    def f0_EOL(buf: !Obj, ci0: SInt) -> tnode:
+        gobj_lexing/fcnil(buf)
+        T_EOL()
+    def f0_CLN(buf: !Obj, ci0: SInt) -> tnode:
+        let ci1 = @inst[Obj] gobj_lexing/getc1(buf)
+        let cc1 = char_make_code(ci1)
+        match 0:
+            case _ if (cc1 == '<'):
+                T_CLNLT(gobj_lexing/fcseg(buf))
+            case _:
+                let cix = @inst[Obj] gobj_lexing/unget(buf, ci1)
+                f0_IDSYM(buf, ci0)
+
+    def f0_DOT(buf: !Obj, ci0: SInt) -> tnode:
+        let ci1 = @inst[Obj] gobj_lexing/getc1(buf)
+        let cc1 = char_make_code(ci1)
+        match 0:
+            case _ if (cc1 == '<'):
+                T_DOTLT(gobj_lexing/fcseg(buf))
+            case _:
+                let cix = @inst[Obj] gobj_lexing/unget(buf, ci1)
+                f0_IDSYM(buf, ci0)
+
+    def f0_SLASH(buf: !Obj, ci0: SInt) -> tnode:
+        let ci1 = @inst[Obj] gobj_lexing/getc1(buf)
+        let cc1 = char_make_code(ci1)
+        match 0:
+            case _ if (cc1 == '*'):
+                lexing_CMNT3_ccbl(buf, ci0, ci1)
+            case _ if (cc1 == '/'):
+                let T_IDSYM(sym) = f0_IDSYM(buf, ci0)
+                if SLASH4q(sym):
+                    lexing_CMNT2_rest(buf, sym)
+                else:
+                    lexing_CMNT1_line(buf, sym)
+            case _:
+                let cix = gobj_lexing/unget(buf, ci1)
+                f0_IDSYM(buf, ci0)
+
+    def f0_IDFST(buf: !Obj, ci0: SInt) -> tnode:
+        loop(buf)
+    where:
+        def loop(buf: !Obj) -> tnode:
+            let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+            let cc0 = char_make_code(ci0)
+            if IDRSTq(cc0):
+                loop(buf)
+            else:
+                let cix = gobj_lexing/unget(buf, ci0)
+                T_IDALP(gobj_lexing/fcseg(buf))
+
+    def f0_SYDLR(buf: !Obj, ci0: SInt) -> tnode:
+        loop(buf, 0)
+    where:
+        def loop(buf: !Obj, kk0: SInt) -> tnode:
+            let ci1 = @inst[Obj] gobj_lexing/getc1(buf)
+            let cc1 = char_make_code(ci1)
+            if IDRSTq(cc1):
+                loop(buf, kk0 + 1)
+            else:
+                if (kk0 > 0):
+                    if (cc1 == '.'):
+                        T_IDQUA(gobj_lexing/fcseg(buf))
+                    else:
+                        let cix = gobj_lexing/unget(buf, ci1)
+                        T_IDDLR(gobj_lexing/fcseg(buf))
+                else:
+                    let cix = gobj_lexing/unget(buf, ci1)
+                    f0_IDSYM(buf, ci0)
+
+    def f0_SYSRP(buf: !Obj, ci0: SInt) -> tnode:
+        loop(buf, 0)
+    where:
+        def loop(buf: !Obj, kk0: SInt) -> tnode:
+            let ci1 = @inst[Obj] gobj_lexing/getc1(buf)
+            let cc1 = char_make_code(ci1)
+            if ALNUM_q(cc1):
+                loop(buf, kk0 + 1)
+            else:
+                let cix = gobj_lexing/unget(buf, ci1)
+                if (kk0 == 0):
+                    f0_IDSYM(buf, ci0)
+                else:
+                    T_IDSRP(gobj_lexing/fcseg(buf))
+
+    def f0_IDSYM(buf: !Obj, ci0: SInt) -> tnode:
+        loop(buf)
+    where:
+        def loop(buf: !Obj) -> tnode:
+            let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+            let cc0 = char_make_code(ci0)
+            if IDSYMq(cc0):
+                loop(buf)
+            else:
+                let cix = gobj_lexing/unget(buf, ci0)
+                T_IDSYM(gobj_lexing/fcseg(buf))
+    def f0_LPAREN(buf: !Obj, ci0: SInt) -> tnode:
+        let ci1 = @inst[Obj] gobj_lexing/getc1(buf)
+        let cc1 = char_make_code(ci1)
+        match 0:
+            case _ if (cc1 == '*'):
+                lexing_CMNT4_mlbl(buf, ci0, ci1)
+            case _:
+                let cix = gobj_lexing/unget(buf, ci1)
+                gobj_lexing/fcnil(buf)
+                T_SPCHR(ci0)
+    def f0_SQUOTE(buf: !Obj, ci0: SInt) -> tnode:
+        fmain(buf)
+    where:
+        def fmain(buf: !Obj) -> tnode:
+            let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+            let cc0 = char_make_code(ci0)
+            match 0:
+                case _ if (cc0 == '\\'):
+                    loop10(buf)
+                case _ if (cc0 == '\''):
+                    loop20(buf)
+                case _:
+                    loop30(buf)
+
+        def loop10(buf: !Obj) -> tnode:
+            let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+            let cc0 = char_make_code(ci0)
+            match 0:
+                case _ if isdigit(cc0):
+                    loop11(buf)
+                case _:
+                    loop12(buf)
+
+        def loop20(buf: !Obj) -> tnode:
+            T_CHAR1_nil0(gobj_lexing/fcseg(buf))
+
+        def loop30(buf: !Obj) -> tnode:
+            let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+            let cc0 = char_make_code(ci0)
+            match 0:
+                case _ if SQUOTEq(cc0):
+                    T_CHAR2_char(gobj_lexing/fcseg(buf))
+                case _:
+                    let cix = gobj_lexing/unget(buf, ci0)
+                    T_CHAR2_char(gobj_lexing/fcseg(buf))
+
+        def loop11(buf: !Obj) -> tnode:
+            let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+            let cc0 = char_make_code(ci0)
+            match 0:
+                case _ if isdigit(cc0):
+                    loop11(buf)
+                case _ if SQUOTEq(cc0):
+                    T_CHAR3_blsh(gobj_lexing/fcseg(buf))
+                case _:
+                    let cix = gobj_lexing/unget(buf, ci0)
+                    T_CHAR3_blsh(gobj_lexing/fcseg(buf))
+
+        def loop12(buf: !Obj) -> tnode:
+            let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+            let cc0 = char_make_code(ci0)
+            match 0:
+                case _ if SQUOTEq(cc0):
+                    T_CHAR3_blsh(gobj_lexing/fcseg(buf))
+                case _:
+                    let cix = gobj_lexing/unget(buf, ci0)
+                    T_CHAR3_blsh(gobj_lexing/fcseg(buf))
+    def f0_DQUOTE(buf: !Obj, ci0: SInt) -> tnode:
+        loop(buf)
+    where:
+        def loop(buf: !Obj) -> tnode:
+            let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+            let cc0 = char_make_code(ci0)
+            match 0:
+                case _ if cc0 == '\"':
+                    let ccs = gobj_lexing/fclst(buf)
+                    let len = length1(ccs)
+                    T_STRN1_clsd(strn(ccs), len)
+                case _ if cc0 == '\\':
+                    let ci1 = gobj_lexing/getc1(buf)
+                    loop(buf)
+                case _:
+                    if (ci0 >= 0):
+                        loop(buf)
+                    else:
+                        let ccs = gobj_lexing/fclst(buf)
+                        let len = length1(ccs)
+                        T_STRN2_ncls(strn(ccs), len)
+    def f0_otherwise(buf: !Obj, ci0: SInt) -> tnode:
+        if (ci0 >= 0):
+            T_SPCHR(ci0)
+        else:
+            T_EOF()
+    where:
+        gobj_lexing/fcnil(buf)
+
+@impl[]
+def lexing_CMNT1_line[Obj: Vt](buf, sym):
+    loop0(buf)
+where:
+    def loop0(buf: !Obj) -> tnode:
+        let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+        let cc0 = char_make_code(ci0)
+        if EOLq(cc0):
+            let cix = gobj_lexing/unget(buf, ci0)
+            T_CMNT1_line(sym, @inst[Obj] gobj_lexing/fcseg(buf))
+        else:
+            if (ci0 >= 0):
+                loop0(buf)
+            else:
+                T_CMNT1_line(sym, @inst[Obj] gobj_lexing/fcseg(buf))
+
+@impl[]
+def lexing_CMNT2_rest[Obj: Vt](buf, sym):
+    loop0(buf)
+where:
+    def loop0(buf: !Obj) -> tnode:
+        let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+        let cc0 = char_make_code(ci0)
+        if (ci0 >= 0):
+            loop0(buf)
+        else:
+            T_CMNT2_rest(sym, @inst[Obj] gobj_lexing/fcseg(buf))
+
+@impl[]
+def lexing_CMNT3_ccbl[Obj: Vt](buf, ci0, ci1):
+    loop0(buf, 1)
+where:
+    def loop0(buf: !Obj, lvl: SInt) -> tnode:
+        if (lvl > 0):
+            let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+            let cc0 = char_make_code(ci0)
+            match 0:
+                case _ if STRSKq(cc0):
+                    loop1(buf, lvl)
+                case _:
+                    if (ci0 >= 0):
+                        loop0(buf, lvl)
+                    else:
+                        T_CMNT3_ccbl(lvl, gobj_lexing/fcseg(buf))
+        else:
+            T_CMNT3_ccbl(lvl, gobj_lexing/fcseg(buf))
+
+    def loop1(buf: !Obj, lvl: SInt) -> tnode:
+        let ci1 = @inst[Obj] gobj_lexing/getc1(buf)
+        let cc1 = char_make_code(ci1)
+        match 0:
+            case _ if SLASHq(cc1):
+                loop0(buf, lvl - 1)
+            case _ if STRSKq(cc1):
+                loop1(buf, lvl - 0)
+            case _:
+                loop0(buf, lvl)
+
+@impl[]
+def lexing_CMNT4_mlbl[Obj: Vt](buf, ci0, ci1):
+    loop0(buf, 1)
+where:
+    def loop0(buf: !Obj, lvl: SInt) -> tnode:
+        if (lvl <= 0):
+            T_CMNT4_mlbl(lvl, gobj_lexing/fcseg(buf))
+        else:
+            let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+            let cc0 = char_make_code(ci0)
+            match 0:
+                case _ if STRSKq(cc0):
+                    loop1(buf, lvl)
+                case _ if LPARENq(cc0):
+                    loop2(buf, lvl)
+                case _:
+                    if (ci0 >= 0):
+                        loop0(buf, lvl)
+                    else:
+                        T_CMNT4_mlbl(lvl, gobj_lexing/fcseg(buf))
+
+    def loop1(buf: !Obj, lvl: SInt) -> tnode:
+        let ci1 = @inst[Obj] gobj_lexing/getc1(buf)
+        let cc1 = char_make_code(ci1)
+        match 0:
+            case _ if STRSKq(cc1):
+                loop1(buf, lvl - 0)
+            case _ if RPARENq(cc1):
+                loop0(buf, lvl - 1)
+            case _:
+                loop0(buf, lvl)
+
+    def loop2(buf: !Obj, lvl: SInt) -> tnode:
+        let ci1 = @inst[Obj] gobj_lexing/getc1(buf)
+        let cc1 = char_make_code(ci1)
+        match 0:
+            case _ if STRSKq(cc1):
+                loop0(buf, lvl + 1)
+            case _ if LPARENq(cc1):
+                loop2(buf, lvl + 0)
+            case _:
+                loop0(buf, lvl)
+
+@impl[]
+def lexing_DIGIT[Obj: Vt](buf, ci0):
+    let cc0 = char_make_code(ci0)
+    match 0:
+        case _ if (cc0 == '0'):
+            loop00(buf)
+        case _:
+            loop10(buf)
+where:
+    let xatsv_OCT = 8
+    let xatsv_DEC = 10
+    let xatsv_HEX = 16
+    def ft_digits(buf: !Obj) -> SInt:
+        loop(buf, 0)
+    where:
+        def loop(buf: !Obj, kk0: SInt) -> SInt:
+            let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+            let cc0 = char_make_code(ci0)
+            if DIGITq(cc0):
+                loop(buf, kk0 + 1)
+            else:
+                let cix = gobj_lexing/unget(buf, ci0)
+                kk0
+    def ft_sgndgts(buf: !Obj) -> SInt:
+        let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+        let cc0 = char_make_code(ci0)
+        match 0:
+            case _ if (cc0 == '+'):
+                1 + ft_digits(buf)
+            case _ if (cc0 == '-'):
+                1 + ft_digits(buf)
+            case _ if DIGITq(cc0):
+                1 + ft_digits(buf)
+            case _:
+                let cix = gobj_lexing/unget(buf, ci0)
+                0
+    def ft_numsfx(buf: !Obj, ci0: SInt) -> SInt:
+        loop(buf, 0)
+    where:
+        def loop(buf: !Obj, kk0: SInt) -> SInt:
+            let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+            let cc0 = char_make_code(ci0)
+            match 0:
+                case _ if isalpha(cc0):
+                    loop(buf, kk0 + 1)
+                case _:
+                    let cix = gobj_lexing/unget(buf, ci0)
+                    kk0
+    def ft_fltext(buf: !Obj, ci0: SInt) -> SInt:
+        let cc0 = char_make_code(ci0)
+        match 0:
+            case _ if (cc0 == '.'):
+                loop0(buf, 1)
+            case _ if (cc0 == 'e'):
+                loop1(buf, ci0, 0)
+            case _ if (cc0 == 'E'):
+                loop1(buf, ci0, 0)
+            case _:
+                let cix = gobj_lexing/unget(buf, ci0)
+                0
+    where:
+        def loop0(buf: !Obj, kk0: SInt) -> SInt:
+            let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+            let cc0 = char_make_code(ci0)
+            if DIGITq(cc0):
+                loop0(buf, kk0 + 1)
+            else:
+                loop1(buf, ci0, kk0)
+
+        def loop1(buf: !Obj, ci0: SInt, kk0: SInt) -> SInt:
+            let cc0 = char_make_code(ci0)
+            match 0:
+                case _ if (cc0 == 'e'):
+                    kk0 + 1 + ft_sgndgts(buf)
+                case _ if (cc0 == 'E'):
+                    kk0 + 1 + ft_sgndgts(buf)
+                case _:
+                    let cix = gobj_lexing/unget(buf, ci0)
+                    kk0
+    def ft_fltext_hex(buf: !Obj, ci0: SInt) -> SInt:
+        let cc0 = char_make_code(ci0)
+        match 0:
+            case _ if (cc0 == '.'):
+                loop0(buf, 1)
+            case _ if (cc0 == 'p'):
+                loop1(buf, ci0, 0)
+            case _ if (cc0 == 'P'):
+                loop1(buf, ci0, 0)
+            case _:
+                let cix = gobj_lexing/unget(buf, ci0)
+                0
+    where:
+        def loop0(buf: !Obj, kk0: SInt) -> SInt:
+            let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+            let cc0 = char_make_code(ci0)
+            if XDIGITq(cc0):
+                loop0(buf, kk0 + 1)
+            else:
+                loop1(buf, ci0, kk0)
+
+        def loop1(buf: !Obj, ci0: SInt, kk0: SInt) -> SInt:
+            let cc0 = char_make_code(ci0)
+            match 0:
+                case _ if (cc0 == 'p'):
+                    kk0 + 1 + ft_sgndgts(buf)
+                case _ if (cc0 == 'P'):
+                    kk0 + 1 + ft_sgndgts(buf)
+                case _:
+                    let cix = gobj_lexing/unget(buf, ci0)
+                    kk0
+    def loop00(buf: !Obj) -> tnode:
+        let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+        let cc0 = char_make_code(ci0)
+        match 0:
+            case _ if (cc0 == 'x'):
+                loop0x(buf)
+            case _ if (cc0 == 'X'):
+                loop0X(buf)
+            case _:
+                if DIGITq(cc0):
+                    loop0d(buf)
+                else:
+                    let cix = gobj_lexing/unget(buf, ci0)
+                    loop10(buf)
+
+    def loop0d(buf: !Obj) -> tnode:
+        let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+        let cc0 = char_make_code(ci0)
+        if DIGITq(cc0):
+            loop0d(buf)
+        else:
+            let kk0 = ft_fltext(buf, ci0)
+            if (kk0 == 0):
+                let kk1 = ft_numsfx(buf, ci0)
+                if (kk1 == 0):
+                    T_INT02(xatsv_OCT, gobj_lexing/fcseg(buf))
+                else:
+                    T_INT03(xatsv_OCT, gobj_lexing/fcseg(buf), kk1)
+            else:
+                let kk1 = ft_numsfx(buf, ci0)
+                if (kk1 == 0):
+                    T_FLT02(xatsv_DEC, gobj_lexing/fcseg(buf))
+                else:
+                    T_FLT03(xatsv_DEC, gobj_lexing/fcseg(buf), kk1)
+
+    def loop0x(buf: !Obj) -> tnode:
+        loop0X(buf)
+
+    def loop0X(buf: !Obj) -> tnode:
+        let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+        let cc0 = char_make_code(ci0)
+        if XDIGITq(cc0):
+            loop0x(buf)
+        else:
+            let kk0 = ft_fltext_hex(buf, ci0)
+            if (kk0 == 0):
+                let kk1 = ft_numsfx(buf, ci0)
+                if (kk1 == 0):
+                    T_INT02(xatsv_HEX, gobj_lexing/fcseg(buf))
+                else:
+                    T_INT03(xatsv_HEX, gobj_lexing/fcseg(buf), kk1)
+            else:
+                let kk1 = ft_numsfx(buf, ci0)
+                if (kk1 == 0):
+                    T_FLT02(xatsv_HEX, gobj_lexing/fcseg(buf))
+                else:
+                    T_FLT03(xatsv_HEX, gobj_lexing/fcseg(buf), kk1)
+
+    def loop10(buf: !Obj) -> tnode:
+        let ci0 = @inst[Obj] gobj_lexing/getc1(buf)
+        let cc0 = char_make_code(ci0)
+        if DIGITq(cc0):
+            loop10(buf)
+        else:
+            let kk0 = ft_fltext(buf, ci0)
+            if (kk0 == 0):
+                let kk1 = ft_numsfx(buf, ci0)
+                if (kk1 == 0):
+                    T_INT01(gobj_lexing/fcseg(buf))
+                else:
+                    T_INT03(xatsv_DEC, gobj_lexing/fcseg(buf), kk1)
+            else:
+                let kk1 = ft_numsfx(buf, ci0)
+                if (kk1 == 0):
+                    T_FLT01(gobj_lexing/fcseg(buf))
+                else:
+                    T_FLT03(xatsv_DEC, gobj_lexing/fcseg(buf), kk1)
+

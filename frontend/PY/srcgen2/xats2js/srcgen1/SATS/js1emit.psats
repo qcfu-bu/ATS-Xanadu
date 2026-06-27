@@ -1,0 +1,122 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+from "srcgen2/xats2js/srcgen1/SATS/intrep0" import *
+
+from "srcgen2/xats2js/srcgen1/SATS/intrep1" import *
+
+from "srcgen2/xats2js/srcgen1/SATS/xats2js" import *
+
+@extern
+def d2conjs1(a: FILR, b: D2con) -> Void
+
+@extern
+def d2cstjs1(a: FILR, b: D2cst) -> Void
+
+@extern
+def d2varjs1(a: FILR, b: D2var) -> Void
+
+@extern
+def i0i00js1(a: FILR, b: SInt) -> Void
+
+@extern
+def i0b00js1(a: FILR, b: Bool) -> Void
+
+@extern
+def i0c00js1(a: FILR, b: Char) -> Void
+
+@extern
+def i0f00js1(a: FILR, b: Float) -> Void
+
+@extern
+def i0s00js1(a: FILR, b: String) -> Void
+
+@extern
+def i0intjs1(a: FILR, b: Token) -> Void
+
+@extern
+def i0btfjs1(a: FILR, b: Sym_t) -> Void
+
+@extern
+def i0chrjs1(a: FILR, b: Token) -> Void
+
+@extern
+def i0fltjs1(a: FILR, b: Token) -> Void
+
+@extern
+def i0strjs1(a: FILR, b: Token) -> Void
+
+@extern
+def i1tnmjs1(a: FILR, b: I1tnm) -> Void
+
+@extern
+def i0pckjs1(a: FILR, b: I1val, c: I0pat) -> Void
+
+@extern
+def fjas1js1(a: FILR, b: Fjarglst) -> Void
+
+@extern
+def i1valjs1(a: FILR, b: I1val) -> Void
+
+@extern
+def l1i1vjs1(a: FILR, b: L1i1v) -> Void
+
+@extern
+def list_js1emit_fnp[X0: Type](a: !Envx2js, b: List[X0], c: (!Envx2js, X0) -> Void) -> Void
+
+@extern
+def optn_js1emit_fnp[X0: Type](a: !Envx2js, b: Optn[X0], c: (!Envx2js, X0) -> Void) -> Void
+
+@extern
+def js1emit_i1parsed(a: FILR, b: I1parsed) -> Void
+
+@extern
+def js1emit_i1let(a: !Envx2js, b: I1let) -> Void
+
+@extern
+def js1emit_i1bnd(a: !Envx2js, b: I1bnd) -> Void
+
+@extern
+def js1emit_i1cmp(a: !Envx2js, b: I1cmp) -> Void
+
+@extern
+def js1emit_i1dcl(a: !Envx2js, b: I1dcl) -> Void
+
+@extern
+def js1emit_dimpl(a: !Envx2js, b: Dimpl) -> Void
+
+@extern
+def js1emit_t1imp(a: !Envx2js, b: T1imp) -> Void
+
+@extern
+def js1emit_i1letlst(a: !Envx2js, b: I1letlst) -> Void
+
+@extern
+def js1emit_i1cmplst(a: !Envx2js, b: I1cmplst) -> Void
+
+@extern
+def js1emit_fjarglst(a: !Envx2js, b: Fjarglst) -> Void
+
+@extern
+def js1emit_i1dclist(a: !Envx2js, b: I1dclist) -> Void
+
+@extern
+def js1emit_i1valdcl(a: !Envx2js, b: I1valdcl) -> Void
+
+@extern
+def js1emit_i1vardcl(a: !Envx2js, b: I1vardcl) -> Void
+
+@extern
+def js1emit_i1fundcl(a: !Envx2js, b: I1fundcl) -> Void
+
+@extern
+def js1emit_i1valdclist(a: !Envx2js, b: I1valdclist) -> Void
+
+@extern
+def js1emit_i1vardclist(a: !Envx2js, b: I1vardclist) -> Void
+
+@extern
+def js1emit_i1fundclist(a: !Envx2js, b: I1fundclist) -> Void
+
+@extern
+def js1emit_i1dclistopt(a: !Envx2js, b: I1dclistopt) -> Void
+

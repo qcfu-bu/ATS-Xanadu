@@ -1,0 +1,113 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xlibext" import *
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+import "srcgen1/prelude/DATS/CATS/JS/basics3.dats" as _
+
+private:
+    enum Symbl:
+        case SYMBL(String, stamp)
+    @impl
+    type Symbl_tbox = Symbl
+    let mytmper = stamper_new()
+
+@impl
+def the_symbl_nil:
+    SYMBL("", the_stamp_nil)
+
+@impl
+def symbl_get_name(sym):
+    let SYMBL(nam, tmp) = sym
+    nam
+
+@impl
+def symbl_get_stmp(sym):
+    let SYMBL(nam, tmp) = sym
+    tmp
+
+@impl
+def symbl_make_name(nam):
+    let opt = symbl_search/opt(nam)
+    match opt:
+        case ~optn_vt_nil():
+            let tmp = mytmper.getinc()
+            let sym = SYMBL(nam, tmp)
+            symbl_insert/any(sym)
+            the_xsymbls_insert(sym)
+            sym
+        case ~optn_vt_cons(sym):
+            sym
+
+
+@impl
+def symbl_cmp(x1, x2):
+    stamp_cmp(x1.stmp(), x2.stmp())
+
+@impl
+def symbl_nilq(sym):
+    symbl_cmp(sym, the_symbl_nil) == 0
+
+@impl
+def symbl_neqz(sym):
+    symbl_cmp(sym, the_symbl_nil) != 0
+
+@impl
+def symbl_wcard_kind(sym):
+    loop(cs, 0)
+where:
+    let cs = strn_strmize(sym.name())
+    def loop(cs: strm_vt[cgtz], r0: SInt) -> SInt:
+        match !(cs):
+            case ~strmcon_vt_nil():
+                r0
+            case ~strmcon_vt_cons(c0, cs):
+                if (c0 == '_'):
+                    loop(cs, r0 + 1)
+                else:
+                    g_free(cs)
+                    -(1)
+
+@extern
+def strn_append_uint(name: String, stmp: UInt) -> String
+
+@impl
+def symbl_extend_stamp(sym0, stmp):
+    let name = symbl_get_name(sym0)
+    let uint = stamp_get_uint(stmp)
+    symbl_make_name(strn_append_uint(name, uint))
+
+@impl
+def strn_append_uint(name, stmp):
+    XATSOPT_strn_append_uint(name, stmp)
+where:
+    @extern
+    def XATSOPT_strn_append_uint(name: String, stmp: UInt) -> String = extnam()
+
+private:
+    type Xatslocal0_key = SInt
+    type Xatslocal1_itm = sym_t
+    @overload stmp = symbl_get_stmp
+    let the_xsymbls = @inst[Xatslocal0_key] @inst[Xatslocal1_itm] mydict_make_nil()
+
+@impl
+def the_xsymbls_search(key):
+    let map = the_xsymbls
+    @inst[Xatslocal0_key] @inst[Xatslocal1_itm] mydict_search/opt(map, key)
+
+@impl
+def the_xsymbls_insert(sym):
+    let k0 = sym.stmp()
+    let k0 = g0u2s(uint(k0))
+    let x0 = sym
+    let map = the_xsymbls
+    @inst[Xatslocal0_key] @inst[Xatslocal1_itm] mydict_insert/any(map, k0, x0)
+
+

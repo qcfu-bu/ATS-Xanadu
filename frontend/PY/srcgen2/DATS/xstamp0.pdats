@@ -1,0 +1,53 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xstamp0" import *
+
+private:
+    @impl
+    type Stamp_type = UInt
+
+@impl
+def the_stamp_nil:
+    gint_sint2uint(0)
+
+@impl
+def stamp_get_uint(tmp):
+    tmp
+
+@impl
+def stamp_make_uint(tmp):
+    tmp
+
+
+private:
+    @impl
+    type Stamper_tbox = a0ref[UInt]
+
+@impl
+def stamper_new():
+    a0ref_make_1val(g0s2u(1))
+
+@impl
+def stamper_tmpset(obj, cnt):
+    a0ref_set(obj, g0s2u(cnt))
+
+@impl
+def stamper_getinc(obj):
+    stamp(cnt)
+where:
+    let cnt = a0ref_get(obj)
+    a0ref_set(obj, suc(cnt))
+
+
+@impl
+def stamp_nilq(tmp):
+    tmp.uint() == g0s2u(0)
+
+@impl
+def stamp_cmp(tmp1, tmp2):
+    g_cmp(tmp1.uint(), (tmp2.uint()))
+

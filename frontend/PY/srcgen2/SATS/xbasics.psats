@@ -1,0 +1,181 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+@overload[0] & = land
+
+@overload[0] << = lsln
+
+@overload[0] >> = asrn
+
+@overload[0] >>> = lsrn
+
+let xatsv_KINFIX0 = 0
+
+let xatsv_KINFIXL = 1
+
+let xatsv_KINFIXR = 2
+
+let xatsv_KPREFIX = 3
+
+let xatsv_KPSTFIX = 4
+
+let xatsv_BOXKIND = 0x001
+
+let xatsv_LINKIND = 0x010
+
+let xatsv_PRFKIND = 0x100
+
+let xatsv_PROPSORT = 4
+
+let xatsv_VIEWSORT = 6
+
+let xatsv_TYPESORT = 0
+
+let xatsv_TBOXSORT = 1
+
+let xatsv_TFLTSORT = 0
+
+let xatsv_VWTPSORT = 2
+
+let xatsv_VTBXSORT = 3
+
+let xatsv_VTFTSORT = 2
+
+@extern
+def sortbox(a: SInt) -> SInt
+
+@extern
+def sortlin(a: SInt) -> SInt
+
+@extern
+def sortprf(a: SInt) -> SInt
+
+@extern
+def sortpol(a: SInt) -> SInt
+
+@extern
+def sortpolpos(a: SInt) -> SInt
+
+@extern
+def sortpolneg(a: SInt) -> SInt
+
+@extern
+def subsort_test(a: Int, b: Int) -> Bool
+
+enum Dctkind:
+    case DCKfun()
+    case DCKval()
+    case DCKpraxi()
+    case DCKprfun()
+    case DCKprval()
+    case DCKfcast()
+    case DCKnspec()
+
+@extern
+def dctkind_fprint(a: Dctkind, b: FILR) -> Void
+
+enum Valkind:
+    case VLKval
+    case VLKvlp
+    case VLKvln
+    case VLKvlr
+    case VLKprval()
+
+@extern
+def valkind_fprint(a: Valkind, b: FILR) -> Void
+
+@extern
+def valkind_recq(a: Valkind) -> Bool
+
+@extern
+def valkind_prvq(a: Valkind) -> Bool
+
+enum Varkind:
+    case VRKvar
+
+@extern
+def varkind_fprint(a: Varkind, b: FILR) -> Void
+
+enum Funkind:
+    case FNKfn0
+    case FNKfn1
+    case FNKfn2
+    case FNKfnx
+    case FNKfun
+    case FNKpraxi
+    case FNKprfn0
+    case FNKprfn1
+    case FNKprfun
+    case FNKfcast
+
+@extern
+def funkind_fprint(a: Funkind, b: FILR) -> Void
+
+@extern
+def funkind_recq(a: Funkind) -> Bool
+
+@extern
+def funkind_prfq(a: Funkind) -> Bool
+
+enum Caskind:
+    case CSKcas0
+    case CSKcas1
+    case CSKcasp
+    case CSKcasn
+
+@extern
+def caskind_fprint(a: Caskind, b: FILR) -> Void
+
+enum Implknd:
+    case IMPLgen
+    case IMPLprf
+    case IMPLval
+    case IMPLfun
+    case IMPLtmp
+    case IMPLtmpr
+
+@extern
+def implknd_recq(a: Implknd) -> Bool
+
+@extern
+def implknd_fprint(a: Implknd, b: FILR) -> Void
+
+let xatsv_CXFREF = -1
+
+let xatsv_C0FENV = 00
+
+let xatsv_C1FENV = 01
+
+let xatsv_C0FPTR = 10
+
+let xatsv_C1FPTR = 11
+
+enum F2clknd:
+    case F2CLfun()
+    case F2CLclo(Int)
+
+@extern
+def f2clknd_linq(a: F2clknd) -> Bool
+
+@extern
+def f2clknd_equal(a: F2clknd, b: F2clknd) -> Bool
+
+@extern
+def f2clknd_fprint(a: F2clknd, b: FILR) -> Void
+
+enum Trcdknd:
+    case TRCDflt0
+    case TRCDbox0
+    case TRCDbox1
+    case TRCDbox2
+
+@extern
+def trcdknd_fltq(a: Trcdknd) -> Bool
+
+@extern
+def trcdknd_equal(a: Trcdknd, b: Trcdknd) -> Bool
+
+@extern
+def trcdknd_fprint(a: Trcdknd, b: FILR) -> Void
+

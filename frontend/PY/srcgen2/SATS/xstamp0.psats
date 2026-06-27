@@ -1,0 +1,70 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+@abstract
+type Stamp_type <= UInt
+
+type Stamp = Stamp_type
+
+@abstract
+type Stamper_tbox
+
+type Stamper = Stamper_tbox
+
+@extern
+let the_stamp_nil: Stamp
+
+@extern
+def stamp_nilq(a: Stamp) -> Bool
+
+@overload[1000] nilq = stamp_nilq
+
+@extern
+def stamp_cmp(a: Stamp, b: Stamp) -> SInt
+
+@extern
+def stamp_fprint(a: Stamp, b: FILR) -> Void
+
+@extern
+def stamp_get_uint(a: Stamp) -> UInt
+
+@overload uint = stamp_get_uint
+
+@extern
+def stamp_make_uint(a: UInt) -> Stamp
+
+@overload stamp = stamp_make_uint
+
+@extern
+def stamper_new() -> Stamper
+
+@extern
+def stamper_getinc(a: Stamper) -> Stamp
+
+@extern
+def stamper_tmpset(a: Stamper, b: SInt) -> Void
+
+@overload getinc = stamper_getinc
+
+@overload tmpset = stamper_tmpset
+
+@abstract
+type Tmpmap_tbox[X0]
+
+type Tmpmap[X0: Type] = Tmpmap_tbox[X0]
+
+type Key = Stamp
+
+@extern
+def tmpmap_make_nil[Itm: Tbox]() -> Tmpmap[Itm]
+
+@extern
+def tmpmap_strmize[Itm: Tbox](a: Tmpmap[Itm]) -> Strm_vt[(SInt, Itm)]
+
+@extern
+def tmpmap_search/opt[Itm: Tbox](a: Tmpmap[Itm], b: Key) -> Optn_vt[Itm]
+
+@extern
+def tmpmap_insert/any[Itm: Tbox](a: Tmpmap[Itm], b: Key, c: Itm) -> Void
+

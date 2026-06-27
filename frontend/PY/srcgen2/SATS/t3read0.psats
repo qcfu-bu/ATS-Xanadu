@@ -1,0 +1,168 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+import "srcgen2/SATS/lexing0" as LEX
+
+import "srcgen2/SATS/staexp2" as S2E
+
+import "srcgen2/SATS/statyp2" as T2P
+
+import "srcgen2/SATS/dynexp2" as D2E
+
+import "srcgen2/SATS/dynexp3" as D3E
+
+@abstract
+type T3r0evn_vtbx
+
+type T3r0evn = T3r0evn_vtbx
+
+type D3pat = D3E.d3pat
+
+type L3d3p = D3E.l3d3p
+
+type D3exp = D3E.d3exp
+
+type L3d3e = D3E.l3d3e
+
+type F3arg = D3E.f3arg
+
+type D3gua = D3E.d3gua
+
+type D3gpt = D3E.d3gpt
+
+type D3cls = D3E.d3cls
+
+type Timpl = D3E.timpl
+
+type D3ecl = D3E.d3ecl
+
+type D3patlst = D3E.d3patlst
+
+type L3d3plst = D3E.l3d3plst
+
+type D3explst = D3E.d3explst
+
+type D3expopt = D3E.d3expopt
+
+type L3d3elst = D3E.l3d3elst
+
+type F3arglst = D3E.f3arglst
+
+type D3gualst = D3E.d3gualst
+
+type D3clslst = D3E.d3clslst
+
+type Timplist = D3E.timplist
+
+type D3eclist = D3E.d3eclist
+
+type D3parsed = D3E.d3parsed
+
+type Teqd3exp = D3E.teqd3exp
+
+type D3valdcl = D3E.d3valdcl
+
+type D3vardcl = D3E.d3vardcl
+
+type D3fundcl = D3E.d3fundcl
+
+type D3valdclist = D3E.d3valdclist
+
+type D3vardclist = D3E.d3vardclist
+
+type D3fundclist = D3E.d3fundclist
+
+type D3explstopt = D3E.d3explstopt
+
+type D3eclistopt = D3E.d3eclistopt
+
+@extern
+def d3parsed_of_t3read0(a: D3parsed) -> D3parsed
+
+@extern
+def t3r0evn_make_nil() -> T3r0evn
+
+@extern
+def t3r0evn_free_nil(a: T3r0evn) -> Void
+
+@extern
+def t3r0evn_tmps/get(a: !T3r0evn) -> Timplist
+
+@extern
+def t3r0evn_timp/pop(a: !T3r0evn) -> Void
+
+@extern
+def t3r0evn_timp/psh(a: !T3r0evn, b: Timpl) -> Void
+
+type Ft3read0[Syn: Tbox] = (!T3r0evn, Syn, &SInt >> _) -> Syn
+
+@extern
+def optn_t3read0_fnp[X0: Tx](a: !T3r0evn, b: Optn[X0], c: &SInt >> _, d: Ft3read0[X0]) -> Optn[X0]
+
+@extern
+def list_t3read0_fnp[X0: Tx](a: !T3r0evn, b: List[X0], c: &SInt >> _, d: Ft3read0[X0]) -> List[X0]
+
+@extern
+def t3read0_d3pat(a: !T3r0evn, b: D3pat, c: &SInt >> _) -> D3pat
+
+@extern
+def t3read0_d3exp(a: !T3r0evn, b: D3exp, c: &SInt >> _) -> D3exp
+
+@extern
+def t3read0_d3cls(a: !T3r0evn, b: D3cls, c: &SInt >> _) -> D3cls
+
+@extern
+def t3read0_timpl(a: !T3r0evn, b: Timpl, c: &SInt >> _) -> Timpl
+
+@extern
+def t3read0_d3ecl(a: !T3r0evn, b: D3ecl, c: &SInt >> _) -> D3ecl
+
+@extern
+def t3read0_d3patlst() -> Ft3read0[D3patlst]
+
+@extern
+def t3read0_l3d3plst() -> Ft3read0[L3d3plst]
+
+@extern
+def t3read0_d3explst() -> Ft3read0[D3explst]
+
+@extern
+def t3read0_d3expopt() -> Ft3read0[D3expopt]
+
+@extern
+def t3read0_l3d3elst() -> Ft3read0[L3d3elst]
+
+@extern
+def t3read0_d3clslst() -> Ft3read0[D3clslst]
+
+@extern
+def t3read0_d3eclist() -> Ft3read0[D3eclist]
+
+@extern
+def t3read0_teqd3exp() -> Ft3read0[Teqd3exp]
+
+@extern
+def t3read0_d3valdcl() -> Ft3read0[D3valdcl]
+
+@extern
+def t3read0_d3vardcl() -> Ft3read0[D3vardcl]
+
+@extern
+def t3read0_d3fundcl() -> Ft3read0[D3fundcl]
+
+@extern
+def t3read0_d3valdclist() -> Ft3read0[D3valdclist]
+
+@extern
+def t3read0_d3vardclist() -> Ft3read0[D3vardclist]
+
+@extern
+def t3read0_d3fundclist() -> Ft3read0[D3fundclist]
+
+@extern
+def t3read0_d3explstopt() -> Ft3read0[D3explstopt]
+
+@extern
+def t3read0_d3eclistopt() -> Ft3read0[D3eclistopt]
+

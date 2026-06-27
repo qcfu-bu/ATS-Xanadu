@@ -1,0 +1,374 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/xlabel0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+import "srcgen2/DATS/statyp2_tmplib.dats" as _
+
+@overload name = s2cst_get_name
+
+@overload sort = s2cst_get_sort
+
+@overload name = s2var_get_name
+
+@overload sort = s2var_get_sort
+
+@overload sort = s2exp_get_sort
+
+@overload node = s2exp_get_node
+
+@overload sort = s2typ_get_sort
+
+@overload node = s2typ_get_node
+
+@impl
+def s2typ_linq(t2p0):
+    sort2_linq(t2p0.sort())
+
+@impl
+def s2typ_prfq(t2p0):
+    sort2_prfq(t2p0.sort())
+
+@impl
+def s2typ_cbrfq(t2p0):
+    match t2p0.node():
+        case T2Parg1(knd0, _):
+            knd0 < 0
+        case T2Patx2(t2p1, _):
+            s2typ_cbrfq(t2p1)
+        case _:
+            false
+
+@impl
+def s2typ_dataq(t2p0):
+    match t2p0.node():
+        case T2Pcst(s2c1):
+            s2cst_dataq(s2c1)
+        case T2Papps(tfun, t2ps):
+            s2typ_dataq(tfun)
+        case _:
+            false
+
+@impl
+def s2typlst_linq(t2ps):
+    list_exists(t2ps)
+where:
+    @impl[s2typ]
+    def exists/test:
+        s2typ_linq
+
+@impl
+def s2typlst_prfq(t2ps):
+    list_forall(t2ps)
+where:
+    @impl[s2typ]
+    def forall/test:
+        s2typ_prfq
+
+@impl
+def l2t2plst_linq(ltps):
+    match ltps:
+        case list_nil():
+            false
+        case list_cons(ltp1, ltps):
+            let S2LAB(lab0, t2p1) = ltp1
+            if s2typ_linq(t2p1):
+                true
+            else:
+                l2t2plst_linq(ltps)
+
+@impl
+def l2t2plst_prfq(ltps):
+    match ltps:
+        case list_nil():
+            true
+        case list_cons(ltp1, ltps):
+            let S2LAB(lab0, t2p1) = ltp1
+            if s2typ_prfq(t2p1):
+                l2t2plst_prfq(ltps)
+            else:
+                false
+
+@impl
+def s2vts_stleq(svts):
+    @inst[s2vt] list_forall(svts)
+where:
+    type S2vt = (s2var, s2typ)
+    @impl[S2vt]
+    def forall/test(s2vt):
+        let (s2v1, t2p2) = s2vt
+        let s2t1 = s2v1.sort()
+        let s2t2 = t2p2.sort()
+        lte_sort2_sort2(s2t2, s2t1)
+
+@impl
+def s2vts_search/opt(svts, s2v0):
+    auxmain(svts)
+where:
+    def auxmain(svts: s2vts) -> s2typopt_vt:
+        match svts:
+            case list_nil():
+                optn_vt_nil()
+            case list_cons(svt1, svts):
+                if (s2v0 == svt1.0):
+                    optn_vt_cons(svt1.1)
+                else:
+                    auxmain(svts)
+
+@impl
+def s2vts_make_s2vs_t2ps(s2vs, t2ps):
+    auxmain(s2vs, t2ps)
+where:
+    def auxmain(s2vs: s2varlst, t2ps: s2typlst) -> s2vts:
+        match s2vs:
+            case list_nil():
+                list_nil()
+            case list_cons(s2v1, s2vs):
+                let list_cons(t2p1, t2ps) = t2ps
+                list_cons((s2v1, t2p1), auxmain(s2vs, t2ps))
+
+@impl
+def s2typ_prjout/opt(t2p0, lab0):
+    match t2p0.node():
+        case T2Ptrcd(knd0, npf1, ltps):
+            auxloop(ltps)
+        case _:
+            optn_vt_nil()
+where:
+    def auxloop(ltps: l2t2plst) -> s2typopt_vt:
+        match ltps:
+            case list_nil():
+                optn_vt_nil()
+            case list_cons(ltp1, ltps):
+                let S2LAB(lab1, t2p1) = ltp1
+                if label_cmp(lab0, lab1) == 0:
+                    optn_vt_cons(t2p1)
+                else:
+                    auxloop(ltps)
+
+private:
+    def isP1TR(s2c0: s2cst) -> Bool:
+        s2c0.name() == P1TR_TBOX_symbl
+    def isP2TR(s2c0: s2cst) -> Bool:
+        s2c0.name() == P2TR_TBOX_symbl
+
+@impl
+def s2typ_p1tr0q(t2p0):
+    match t2p0.node():
+        case T2Pcst(s2c0):
+            isP1TR(s2c0)
+        case _:
+            false
+
+@impl
+def s2typ_p2tr0q(t2p0):
+    match t2p0.node():
+        case T2Pcst(s2c0):
+            isP2TR(s2c0)
+        case _:
+            false
+
+
+@impl
+def s2typ_p2tr1q(t2p0):
+    match t2p0.node():
+        case T2Papps(t2f0, _):
+            s2typ_p2tr0q(t2f0)
+        case _:
+            false
+
+private:
+    def isL0AZY(s2c0: s2cst) -> Bool:
+        s2c0.name() == L0AZY_TBOX_symbl
+    def isL1AZY(s2c0: s2cst) -> Bool:
+        s2c0.name() == L1AZY_VTBX_symbl
+
+@impl
+def s2typ_l0azy0q(t2p0):
+    match t2p0.node():
+        case T2Pcst(s2c0):
+            isL0AZY(s2c0)
+        case _:
+            false
+
+@impl
+def s2typ_l1azy0q(t2p0):
+    match t2p0.node():
+        case T2Pcst(s2c0):
+            isL1AZY(s2c0)
+        case _:
+            false
+
+
+@impl
+def s2typ_l0azy1q(t2p0):
+    match t2p0.node():
+        case T2Papps(t2f0, _):
+            s2typ_l0azy0q(t2f0)
+        case _:
+            false
+
+@impl
+def s2typ_l1azy1q(t2p0):
+    match t2p0.node():
+        case T2Papps(t2f0, _):
+            s2typ_l1azy0q(t2f0)
+        case _:
+            false
+
+@impl
+def s2typ_xtpck0(t2p0, xtp0):
+    match t2p0.node():
+        case T2Pcst(_):
+            false
+        case T2Pvar(_):
+            false
+        case T2Pxtv(xtp1):
+            if xtp0 == xtp1:
+                true
+            else:
+                let t2p1 = xtp1.styp()
+                s2typ_xtpck0(t2p1, xtp0)
+        case T2Plam1(s2vs, t2p1):
+            s2typ_xtpck0(t2p1, xtp0)
+        case T2Papps(t2f0, t2ps):
+            if s2typ_xtpck0(t2f0, xtp0):
+                true
+            else:
+                s2typlst_xtpck0(t2ps, xtp0)
+        case T2Ptrcd(tknd, npf1, ltps):
+            l2t2plst_xtpck0(ltps, xtp0)
+        case T2Ptext(tnm1, t2ps):
+            s2typlst_xtpck0(t2ps, xtp0)
+        case _:
+            false
+
+@impl
+def s2typlst_xtpck0(t2ps, xtp0):
+    @inst[s2typ] list_exists(t2ps)
+where:
+    @impl[s2typ]
+    def exists/test(t2p1):
+        s2typ_xtpck0(t2p1, xtp0)
+
+@impl
+def l2t2plst_xtpck0(ltps, xtp0):
+    @inst[l2t2p] list_exists(ltps)
+where:
+    @impl[l2t2p]
+    def exists/test(lt2p):
+        match lt2p:
+            case S2LAB(l0, x0):
+                s2typ_xtpck0(x0, xtp0)
+
+@impl
+def s2varlst_imprq(s2vs):
+    @inst[x0] list_filter(s2vs)
+where:
+    type X0 = s2var
+    @impl[X0]
+    def filter/test(s2v):
+        let s2t = s2v.sort()
+        sort2_imprq(s2t)
+
+private:
+    def f0_impr(s2e0: s2exp) -> s2typ:
+        let s2t0 = s2e0.sort()
+        match s2e0.node():
+            case S2Ecst(s2c1):
+                s2typ_make_node(s2t0, T2Pcst(s2c1))
+            case S2Evar(s2v1):
+                s2typ_make_node(s2t0, T2Pvar(s2v1))
+            case S2Etop0(s2e1):
+                let t2p1 = f0_impr(s2e1)
+                s2typ(s2t0, T2Ptop0(t2p1))
+            case S2Etop1(s2e1):
+                let t2p1 = f0_impr(s2e1)
+                s2typ(s2t0, T2Ptop1(t2p1))
+            case S2Earg1(knd0, s2e1):
+                let t2p1 = f0_impr(s2e1)
+                let s2t1 = t2p1.sort()
+                s2typ_make_node(s2t1, T2Parg1(knd0, t2p1))
+            case S2Eatx2(s2e1, s2e2):
+                let t2p1 = f0_impr(s2e1)
+                let t2p2 = f0_impr(s2e2)
+                let s2t1 = t2p1.sort()
+                s2typ_make_node(s2t1, T2Patx2(t2p1, t2p2))
+            case S2Eapps(s2f0, s2es):
+                let t2f0 = f0_impr(s2f0)
+                let t2ps = s2explst_stpize(s2es)
+                s2typ_make_node(s2t0, T2Papps(t2f0, t2ps))
+            case S2Elam1(s2vs, s2e1):
+                let t2p1 = f0_impr(s2e1)
+                s2typ_make_node(s2t0, T2Plam1(s2vs, t2p1))
+            case S2Efun1(f2cl, npf1, s2es, sres):
+                let f2cl = s2typ_f2cl(f2cl)
+                let t2ps = s2explst_stpize(s2es)
+                let tres = s2exp_stpize(sres)
+                s2typ_make_node(s2t0, T2Pfun1(f2cl, npf1, t2ps, tres))
+            case S2Eexi0(s2vs, s2ps, s2e1):
+                let t2p1 = f0_impr(s2e1)
+                let s2vs = s2varlst_imprq(s2vs)
+                match s2vs:
+                    case list_nil():
+                        t2p1
+                    case list_cons(_):
+                        s2typ_make_node(s2t0, T2Pexi0(s2vs, t2p1))
+            case S2Euni0(s2vs, s2ps, s2e1):
+                let t2p1 = f0_impr(s2e1)
+                let s2vs = s2varlst_imprq(s2vs)
+                match s2vs:
+                    case list_nil():
+                        t2p1
+                    case list_cons(_):
+                        s2typ_make_node(s2t0, T2Puni0(s2vs, t2p1))
+            case S2Etext(name, s2es):
+                let t2ps = s2explst_stpize(s2es)
+                s2typ_make_node(s2t0, T2Ptext(name, t2ps))
+            case S2Etrcd(tknd, npf1, lses):
+                let ltps = l2s2elst_stpize(lses)
+                s2typ_make_node(s2t0, T2Ptrcd(tknd, npf1, ltps))
+            case _:
+                s2typ_make_node(s2t0, T2Ps2exp(s2e0))
+
+@impl
+def s2exp_stpize(s2e0):
+    let s2t0 = s2e0.sort()
+    if sort2_imprq(s2t0):
+        f0_impr(s2e0)
+    else:
+        s2typ_make_node(s2t0, T2Pnone0)
+
+
+@impl
+def s2explst_stpize(s2es):
+    @inst[x0] @inst[y0] list_map(s2es)
+where:
+    type X0 = s2exp
+    type Y0 = s2typ
+    @impl[X0, Y0]
+    def map/fopr:
+        s2exp_stpize
+
+@impl
+def l2s2elst_stpize(lses):
+    @inst[lx] @inst[ly] list_map(lses)
+where:
+    type Lx = l2s2e
+    type Ly = l2t2p
+    @impl[Lx, Ly]
+    def map/fopr(lx):
+        let S2LAB(l0, x0) = lx
+        S2LAB(l0, stpize(x0))
+

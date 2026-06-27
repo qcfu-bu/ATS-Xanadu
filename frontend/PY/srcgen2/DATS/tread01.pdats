@@ -1,0 +1,88 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/dynexp0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/tread01" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@impl
+def list_tread01_fnp[Syn: Tx](lst, err, fpr):
+    auxlst(lst, err)
+where:
+    def auxlst(lst: list[Syn], err: &SInt >> _) -> list[Syn]:
+        match lst:
+            case list_nil():
+                list_nil()
+            case list_cons(tm1, tms):
+                let e00 = err
+                let tm1 = fpr(tm1, err)
+                let tm2 = auxlst(tms, err)
+                if (err == e00):
+                    lst
+                else:
+                    list_cons(tm1, tm2)
+
+@impl
+def optn_tread01_fnp[Syn: Tx](opt, err, fpr):
+    match opt:
+        case optn_nil():
+            opt
+        case optn_cons(tm1):
+            let e00 = err
+            let tm1 = fpr(tm1, err)
+            if (err == e00):
+                opt
+            else:
+                optn_cons(tm1)
+
+@impl
+def d1parsed_of_tread01(dpar):
+    var nerror: SInt = 0
+    let stadyn = d1parsed_get_stadyn(dpar)
+    let source = d1parsed_get_source(dpar)
+    let topenv = d1parsed_get_topenv(dpar)
+    let parsed = d1parsed_get_parsed(dpar)
+    let parsed = tread01_d1eclistopt(parsed, nerror)
+    if (nerror == 0):
+        dpar
+    else:
+        d1parsed(stadyn, nerror, source, topenv, parsed)
+
+@impl
+def tread01_d1eclistopt(dopt, err):
+    optn_tread01_fnp(dopt, err, tread01_d1eclist)
+
+@impl
+def d1parsed_fpemsg(out, dpar):
+    let nerror = d1parsed_get_nerror(dpar)
+    if (nerror > 0):
+        let parsed = d1parsed_get_parsed(dpar)
+        d1eclistopt_fpemsg(out, parsed)
+    else:
+        ()
+
+@impl
+def d1eclistopt_fpemsg(out, dopt):
+    match dopt:
+        case optn_nil():
+            ()
+        case optn_cons(d1cs):
+            d1eclist_fpemsg(out, d1cs)
+

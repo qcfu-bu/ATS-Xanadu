@@ -1,0 +1,46 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/SATS/trtmp3b" import *
+
+@impl
+def d3parsed_of_trtmp3b(dpar):
+    let stadyn = d3parsed_get_stadyn(dpar)
+    let nerror = d3parsed_get_nerror(dpar)
+    let source = d3parsed_get_source(dpar)
+    let t1penv = d3parsed_get_t1penv(dpar)
+    let t2penv = d3parsed_get_t2penv(dpar)
+    let t3penv = d3parsed_get_t3penv(dpar)
+    let parsed = d3parsed_get_parsed(dpar)
+    let env0 = tr3benv_make_nil()
+    let parsed = trtmp3b_d3eclistopt(env0, parsed)
+    tr3benv_free_nil(env0)
+    d3parsed(stadyn, nerror, source, t1penv, t2penv, t3penv, parsed)
+
+@impl[]
+def list_trtmp3b_fnp[X0, Y0](e1, xs, fopr):
+    @inst[X0] @inst[Y0] @inst[e1] list_map/e1nv(xs, e1)
+where:
+    type E1 = tr3benv
+    @impl[X0, Y0, E1]
+    def map/e1nv/fopr(x0, e1):
+        fopr(e1, x0)
+
+@impl[]
+def optn_trtmp3b_fnp[X0, Y0](e1, xs, fopr):
+    @inst[X0] @inst[Y0] @inst[e1] optn_map/e1nv(xs, e1)
+where:
+    type E1 = tr3benv
+    @impl[X0, Y0, E1]
+    def map/e1nv/fopr(x0, e1):
+        fopr(e1, x0)
+

@@ -1,0 +1,4 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/xsynoug" import *
+

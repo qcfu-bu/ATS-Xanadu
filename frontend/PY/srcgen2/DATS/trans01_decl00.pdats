@@ -1,0 +1,896 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+import "srcgen2/DATS/trans01.dats" as _
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/filpath" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/xfixity" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/dynexp0" import *
+
+from "srcgen2/SATS/parsing" import *
+
+from "srcgen2/SATS/pread00" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/trans01" import *
+
+from "srcgen2/SATS/xglobal" import *
+
+@overload name = drpth_get_name
+
+@overload name = symbl_get_name
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload lctn = i0dnt_get_lctn
+
+@overload node = i0dnt_get_node
+
+@overload lctn = s0ymb_get_lctn
+
+@overload node = s0ymb_get_node
+
+@overload lctn = s0tdf_get_lctn
+
+@overload node = s0tdf_get_node
+
+@overload lctn = d0pat_get_lctn
+
+@overload node = d0pat_get_node
+
+@overload lctn = d0exp_get_lctn
+
+@overload node = d0exp_get_node
+
+@overload lctn = d0ecl_get_lctn
+
+@overload node = d0ecl_get_node
+
+@overload lctn = q0arg_get_lctn
+
+@overload node = q0arg_get_node
+
+@overload lctn = s0qag_get_lctn
+
+@overload node = s0qag_get_node
+
+@overload lctn = t0qag_get_lctn
+
+@overload node = t0qag_get_node
+
+@overload lctn = t0iag_get_lctn
+
+@overload node = t0iag_get_node
+
+@overload lctn = a0typ_get_lctn
+
+@overload node = a0typ_get_node
+
+@overload lctn = d0arg_get_lctn
+
+@overload node = d0arg_get_node
+
+def xstrunqtize(src0: String, ln: SInt) -> String:
+    let n0 = ln - 1
+    type Chrs = list_vt[Char]
+    def loop(i0: SInt, cs: Chrs) -> String:
+        if (i0 < n0):
+            let c0 = src0[i0]
+            match 0:
+                case _ if (c0 == '\\'):
+                    let i1 = i0 + 1
+                    let c1 = src0[i1]
+                    let ch = match 0:
+                        case _ if c1 == 'n':
+                            '\n'
+                        case _ if c1 == 't':
+                            '\t'
+                        case _ if c1 == 'r':
+                            '\r'
+                        case _ if c1 == 'b':
+                            '\b'
+                        case _ if c1 == 'f':
+                            '\f'
+                        case _ if c1 == 'v':
+                            '\v'
+                        case _:
+                            c1
+                    if (ch == '\n'):
+                        loop(i1 + 1, cs)
+                    else:
+                        loop(i1 + 1, list_vt_cons(ch, cs))
+                case _:
+                    loop(i0 + 1, list_vt_cons(c0, cs))
+        else:
+            strn_make_llist(list_vt_reverse0(cs))
+    loop(1, list_vt_nil())
+
+@impl
+def trans01_q0arg(tenv, q0a0):
+    match q0a0.node():
+        case Q0ARGsome(sid0, tres):
+            let sid0 = trans01_i0dnt(tenv, sid0)
+            let tres = trans01_sort0opt(tenv, tres)
+            q1arg_make_node(q0a0.lctn(), Q1ARGsome(sid0, tres))
+
+@impl
+def trans01_s0qag(tenv, sqa0):
+    match sqa0.node():
+        case S0QAGnone(tok):
+            let q1as = list_nil
+            s1qag_make_node(sqa0.lctn(), S1QAGsome(q1as))
+        case S0QAGsome(tbeg, q0as, tend):
+            let q1as = trans01_q0arglst(tenv, q0as)
+            s1qag_make_node(sqa0.lctn(), S1QAGsome(q1as))
+
+@impl
+def trans01_t0qag(tenv, tqa0):
+    match tqa0.node():
+        case T0QAGnone(tok):
+            let q1as = list_nil
+            t1qag_make_node(tqa0.lctn(), T1QAGsome(q1as))
+        case T0QAGsome(tbeg, q0as, tend):
+            let q1as = trans01_q0arglst(tenv, q0as)
+            t1qag_make_node(tqa0.lctn(), T1QAGsome(q1as))
+
+@impl
+def trans01_t0iag(tenv, tia0):
+    match tia0.node():
+        case T0IAGnone(tok):
+            let s1es = list_nil
+            t1iag_make_node(tia0.lctn(), T1IAGsome(s1es))
+        case T0IAGsome(tbeg, s0es, tend):
+            let s1es = trans01_s0explst(tenv, s0es)
+            t1iag_make_node(tia0.lctn(), T1IAGsome(s1es))
+
+@impl
+def trans01_a0typ(tenv, a0t0):
+    let loc0 = a0t0.lctn()
+    match a0t0.node():
+        case A0TYPsome(s0e1, topt):
+            let s1e1 = trans01_s0exp(tenv, s0e1)
+            a1typ_make_node(loc0, A1TYPsome(s1e1, topt))
+
+@impl
+def trans01_d0arg(tenv, d0a0):
+    let loc0 = d0a0.lctn()
+    match d0a0.node():
+        case D0ARGnone(tok):
+            let loc = tok.lctn()
+            let tok = token_make_node(loc, T0IDALP_NONE)
+            d1arg_make_node(loc0, D1ARGdyn1(tok))
+        case D0ARGsta0(_, s0qs, _):
+            let s1qs = trans01_s0qualst(tenv, s0qs)
+            d1arg_make_node(loc0, D1ARGsta0(s1qs))
+        case D0ARGdyn1(dpid):
+            let dpid = trans01_i0dnt(tenv, dpid)
+            d1arg_make_node(loc0, D1ARGdyn1(dpid))
+        case D0ARGdyn2(tbeg, a0ts, aopt, tend):
+            let a1ts = trans01_a0typlst(tenv, a0ts)
+            let aopt = optn_trans01_fnp(tenv, aopt, trans01_a0typlst)
+            d1arg_make_node(loc0, D1ARGdyn2(a1ts, aopt))
+
+def s1taload_from_fpath(fpth: fpath) -> (SInt, d1parsed):
+    let fnm2 = fpath_get_fnm2(fpth)
+    let opt2 = the_d1parenv_pvsfind(fnm2)
+    match opt2:
+        case ~optn_vt_nil():
+            let fnm1 = fpath_get_fnm1(fpth)
+            let knd1 = fname_stadyn(fnm1)
+            let knd1 = if knd1 < 0:
+                0
+            else: knd1
+            let dpar = d0parsed_from_fpath(knd1, fnm1)
+            let dpar = d0parsed_of_pread00(dpar)
+            let dpar = d1parsed_of_trans01(dpar)
+            the_d1parenv_pvsadd0(fnm2, dpar)
+            (0, dpar)
+        case ~optn_vt_cons(dpar):
+            (1, dpar)
+
+@impl
+def trans01_d0ecl(tenv, d0cl):
+    match d0cl.node():
+        case D0Cfixity(_):
+            f0_fixity(tenv, d0cl)
+        case D0Cnonfix(_):
+            f0_nonfix(tenv, d0cl)
+        case D0Cstatic(_):
+            f0_static(tenv, d0cl)
+        case D0Cextern(_):
+            f0_extern(tenv, d0cl)
+        case D0Cdefine(_):
+            f0_define(tenv, d0cl)
+        case D0Cmacdef(_):
+            f0_macdef(tenv, d0cl)
+        case D0Clocal0(tbeg, dcs1, topt, dcs2, tend):
+            let loc0 = d0cl.lctn()
+            tr01env_pshloc1(tenv)
+            let dcs1 = trans01_d0eclist(tenv, dcs1)
+            tr01env_pshloc2(tenv)
+            let dcs2 = trans01_d0eclist(tenv, dcs2)
+            tr01env_locjoin(tenv)
+            d1ecl(loc0, D1Clocal0(dcs1, dcs2))
+        case D0Cabssort(_):
+            f0_abssort(tenv, d0cl)
+        case D0Cstacst0(_):
+            f0_stacst0(tenv, d0cl)
+        case D0Csortdef(_):
+            f0_sortdef(tenv, d0cl)
+        case D0Csexpdef(_):
+            f0_sexpdef(tenv, d0cl)
+        case D0Cabstype(_):
+            f0_abstype(tenv, d0cl)
+        case D0Cabsopen(_):
+            f0_absopen(tenv, d0cl)
+        case D0Cabsimpl(_):
+            f0_absimpl(tenv, d0cl)
+        case D0Csymload(_):
+            f0_symload(tenv, d0cl)
+        case D0Cinclude(_):
+            f0_include(tenv, d0cl)
+        case D0Cstaload(_):
+            f0_staload(tenv, d0cl)
+        case D0Cdyninit(_):
+            f0_dyninit(tenv, d0cl)
+        case D0Cextcode(_):
+            f0_extcode(tenv, d0cl)
+        case D0Cdatasort(_):
+            f0_datasort(tenv, d0cl)
+        case D0Cvaldclst(_):
+            f0_valdclst(tenv, d0cl)
+        case D0Cvardclst(_):
+            f0_vardclst(tenv, d0cl)
+        case D0Cfundclst(_):
+            f0_fundclst(tenv, d0cl)
+        case D0Cimplmnt0(_):
+            f0_implmnt0(tenv, d0cl)
+        case D0Cexcptcon(_):
+            f0_excptcon(tenv, d0cl)
+        case D0Cdatatype(_):
+            f0_datatype(tenv, d0cl)
+        case D0Cdynconst(_):
+            f0_dynconst(tenv, d0cl)
+        case D0Ctkerr(tok):
+            match tok.node():
+                case T_EOF():
+                    d1ecl_none0(d0cl.lctn())
+                case _:
+                    d1ecl_none1(d0cl)
+        case _:
+            d1ecl_none1(d0cl)
+where:
+    def f0_fixity(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cfixity(tknd, id0s, popt) = d0cl.node()
+        let T_SRP_FIXITY(knd0) = tknd.node()
+        let pval = prcdv_encode(h1precopt(tenv, popt))
+        let fxty = if (knd0 == KINFIX0):
+            FIXTYinf(pval, ASSOCnon)
+        else: match ():
+            case ():
+                if (knd0 == KINFIXL):
+                    FIXTYinf(pval, ASSOClft)
+                else:
+                    if (knd0 == KINFIXR):
+                        FIXTYinf(pval, ASSOCrgt)
+                    else:
+                        if (knd0 == KPREFIX):
+                            FIXTYpre(pval)
+                        else:
+                            if (knd0 == KPSTFIX):
+                                FIXTYpst(pval)
+                            else:
+                                FIXTYnon()
+        def loop(tenv: !tr01env, id0s: i0dntlst) -> Void:
+            match id0s:
+                case list_nil():
+                    ()
+                case list_cons(id0, id0s):
+                    let tok = trans01_i0dnt(tenv, id0)
+                    let sym = match tok.node():
+                        case T_IDALP(nam):
+                            symbl(nam)
+                        case T_IDSYM(nam):
+                            symbl(nam)
+                        case T_IDDLR(nam):
+                            symbl(nam)
+                    tr01env_insmix/any(tenv, sym, fxty)
+                    loop(tenv, id0s)
+        loop(tenv, id0s)
+        d1ecl_make_node(loc0, D1Cd0ecl(d0cl))
+    where:
+        def h1signint(pint: precint) -> SInt:
+            match pint:
+                case PINTint1(tint):
+                    token2sint(tint)
+                case PINTopr2(topr, tint):
+                    match topr.node():
+                        case T_IDSYM("+"):
+                            0 + token2sint(tint)
+                        case T_IDSYM("-"):
+                            0 - token2sint(tint)
+        def h1precopt(tenv: !tr01env, popt: precopt) -> SInt:
+            match popt:
+                case PRECnil0():
+                    0
+                case PRECint1(tint):
+                    token2sint(tint)
+                case PRECopr2(topr, pmod):
+                    let tok = trans01_i0dnt(tenv, topr)
+                    let sym = match tok.node():
+                        case T_IDALP(nam):
+                            symbl(nam)
+                        case T_IDSYM(nam):
+                            symbl(nam)
+                    let fopt = tr01env_search/opt(tenv, sym)
+                    let pval = match fopt:
+                        case ~optn_vt_nil():
+                            let nam = sym.name()
+                            prerrs("TRANS01-WARN1:", tok.lctn())
+                            prerrsln(":[", nam, "] is a non-operator!")
+                            0
+                        case ~optn_vt_cons(fxty):
+                            prcdv_decode(fixty_prcdv(fxty))
+                    match pmod:
+                        case PMODnone():
+                            pval
+                        case PMODsome(tbeg, pint, tend):
+                            pval + h1signint(pint)
+    def f0_nonfix(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cnonfix(tknd, id0s) = d0cl.node()
+        def loop(tenv: !tr01env, id0s: i0dntlst) -> Void:
+            match id0s:
+                case list_nil():
+                    ()
+                case list_cons(id0, id0s):
+                    let tok = trans01_i0dnt(tenv, id0)
+                    let sym = match tok.node():
+                        case T_IDALP(nam):
+                            symbl(nam)
+                        case T_IDSYM(nam):
+                            symbl(nam)
+                    tr01env_insert/any(tenv, sym, FIXTYnon)
+                    loop(tenv, id0s)
+        loop(tenv, id0s)
+        d1ecl_make_node(loc0, D1Cd0ecl(d0cl))
+    def f0_static(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cstatic(tknd, dcl1) = d0cl.node()
+        let dcl1 = trans01_d0ecl(tenv, dcl1)
+        d1ecl(loc0, D1Cstatic(tknd, dcl1))
+    def f0_extern(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cextern(tknd, dcl1) = d0cl.node()
+        let dcl1 = trans01_d0ecl(tenv, dcl1)
+        d1ecl(loc0, D1Cextern(tknd, dcl1))
+    def f0_define(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cdefine(tknd, geid, gmas, gedf) = d0cl.node()
+        let geid = trans01_i0dnt(tenv, geid)
+        let gmas = trans01_g0maglst(tenv, gmas)
+        let gedf = match gedf:
+            case G0EDFnone():
+                optn_nil()
+            case G0EDFsome(topt, g0e1):
+                optn_cons(trans01_g0exp(tenv, g0e1))
+        d1ecl_make_node(loc0, D1Cdefine(tknd, geid, gmas, gedf))
+    def f0_macdef(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cmacdef(tknd, geid, gmas, dedf) = d0cl.node()
+        let geid = trans01_i0dnt(tenv, geid)
+        let gmas = trans01_g0maglst(tenv, gmas)
+        let dedf = match dedf:
+            case D0EDFnone():
+                optn_nil()
+            case D0EDFsome(topt, d0e1):
+                optn_cons(trans01_d0exp(tenv, d0e1))
+        d1ecl_make_node(loc0, D1Cmacdef(tknd, geid, gmas, dedf))
+    def f0_abssort(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cabssort(tknd, tid0) = d0cl.node()
+        let tid0 = trans01_i0dnt(tenv, tid0)
+        d1ecl(loc0, D1Cabssort(tknd, tid0))
+    def f0_stacst0(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cstacst0(tknd, sid0, tmas, tcln, s0t1) = d0cl.node()
+        let sid0 = trans01_i0dnt(tenv, sid0)
+        let tmas = trans01_t0maglst(tenv, tmas)
+        let s1t1 = trans01_sort0(tenv, s0t1)
+        d1ecl_make_node(loc0, D1Cstacst0(tknd, sid0, tmas, s1t1))
+    def f0_sortdef(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let D0Csortdef(tknd, tid0, teq1, stdf) = d0cl.node()
+        let tid0 = trans01_i0dnt(tenv, tid0)
+        let stdf = match stdf.node():
+            case S0TDFsort(s0t1):
+                let s1t1 = trans01_sort0(tenv, s0t1)
+                s1tdf(stdf.lctn(), S1TDFsort(s1t1))
+            case S0TDFtsub(tbeg, s0a1, tbar, s0es, tend):
+                let s1a1 = trans01_s0arg(tenv, s0a1)
+                let s1es = trans01_s0explst(tenv, s0es)
+                s1tdf(stdf.lctn(), S1TDFtsub(s1a1, s1es))
+        d1ecl_make_node(d0cl.lctn(), D1Csortdef(tknd, tid0, stdf))
+    def f0_sexpdef(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Csexpdef(tknd, seid, smas, tres, teq1, s0e2) = d0cl.node()
+        let seid = trans01_i0dnt(tenv, seid)
+        let smas = trans01_s0maglst(tenv, smas)
+        let tres = trans01_sort0opt(tenv, tres)
+        let s1e2 = trans01_s0exp(tenv, s0e2)
+        d1ecl_make_node(loc0, D1Csexpdef(tknd, seid, smas, tres, s1e2))
+    def f0_abstype(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cabstype(tknd, seid, tmas, tres, atdf) = d0cl.node()
+        let seid = trans01_i0dnt(tenv, seid)
+        let tmas = trans01_t0maglst(tenv, tmas)
+        let tres = trans01_sort0opt(tenv, tres)
+        let atdf = match atdf:
+            case A0TDFsome():
+                A1TDFsome()
+            case A0TDFlteq(tknd, s0e1):
+                A1TDFlteq(trans01_s0exp(tenv, s0e1))
+            case A0TDFeqeq(tknd, s0e1):
+                A1TDFeqeq(trans01_s0exp(tenv, s0e1))
+        d1ecl_make_node(loc0, D1Cabstype(tknd, seid, tmas, tres, atdf))
+    def f0_absopen(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cabsopen(tknd, sqid) = d0cl.node()
+        let sqid = trans01_s0qid(tenv, sqid)
+        d1ecl_make_node(loc0, D1Cabsopen(tknd, sqid))
+    def f0_absimpl(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cabsimpl(tknd, sqid, smas, tres, teq1, s0e2) = d0cl.node()
+        let sqid = trans01_s0qid(tenv, sqid)
+        let smas = trans01_s0maglst(tenv, smas)
+        let tres = trans01_sort0opt(tenv, tres)
+        let s1e2 = trans01_s0exp(tenv, s0e2)
+        d1ecl_make_node(loc0, D1Cabsimpl(tknd, sqid, smas, tres, s1e2))
+    def f0_symload(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Csymload(tknd, symb, twth, dqid, gopt) = d0cl.node()
+        let deid = match symb.node():
+            case S0YMBi0dnt(deid):
+                let tok = trans01_i0dnt(tenv, deid)
+                match tok.node():
+                    case T_IDALP(nam):
+                        symbl(nam)
+                    case T_IDSYM(nam):
+                        symbl(nam)
+                    case T_IDDLR(nam):
+                        symbl(nam)
+            case S0YMBbrckt(tlb, trb):
+                symbl("[]")
+        let dqid = trans01_d0qid(tenv, dqid)
+        let gopt = trans01_g0expopt(tenv, gopt)
+        d1ecl_make_node(loc0, D1Csymload(tknd, deid, dqid, gopt))
+    private:
+        def xstrnormize(base: String) -> String:
+            base
+        def xstrevalize(base: String) -> String:
+            base
+        def f0_g1e1(g1e1: g1exp) -> fnameopt:
+            match g1e1.node():
+                case G1Estr(_):
+                    f1_gstr(g1e1)
+                case _:
+                    optn_nil()
+
+        def f1_gstr(g1e1: g1exp) -> fnameopt:
+            f1_tokn(tok1)
+        where:
+            let G1Estr(tok1) = g1e1.node()
+
+        def f1_tokn(tok1: token) -> fnameopt:
+            match tok1.node():
+                case T_STRN1_clsd(base, ln):
+                    let base = xstrunqtize(base, ln)
+                    let base = xstrnormize(base)
+                    let base = xstrevalize(base)
+                    optn_cons(FNMbase(base))
+                case _:
+                    optn_nil()
+
+    def f0_include(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let D0Cinclude(knd0, tknd, g0e1) = d0cl.node()
+        let g1e1 = trans01_g0exp(tenv, g0e1)
+        let opt0 = f0_g1e1(g1e1)
+        let opt1 = match opt0:
+            case optn_nil():
+                optn_nil()
+            case optn_cons(fnm0):
+                fsrch_combined(fnm0)
+        let dopt = match opt1:
+            case optn_nil():
+                optn_nil()
+            case optn_cons(fpth):
+                let fnm1 = fpath_get_fnm1(fpth)
+                let knd1 = if knd0 <= 0:
+                    knd0
+                else: match ():
+                    case ():
+                        let knd1 = fname_stadyn(fnm1)
+                        if knd1 < 0:
+                            knd0
+                        else:
+                            knd1
+                let dpar = d0parsed_from_fpath(knd1, fnm1)
+                let src0 = d0parsed_get_source(dpar)
+                let dopt = d0parsed_get_parsed(dpar)
+                the_drpth_push_lcsrc(src0)
+                let dopt = trans01_d0eclistopt(tenv, dopt)
+                the_drpth_pop0_lcsrc(src0)
+                dopt
+        d1ecl_make_node(loc0, D1Cinclude(knd0, tknd, g1e1, opt1, dopt))
+    where:
+        let loc0 = d0cl.lctn()
+    private:
+        def xstrnormize(base: String) -> String:
+            base
+        def xstrevalize(base: String) -> String:
+            base
+        def f0_g1e1(g1e1: g1exp) -> fnameopt:
+            match g1e1.node():
+                case G1Estr(_):
+                    f1_gstr(g1e1)
+                case G1Ea2pp(_):
+                    f1_a2pp(g1e1)
+                case _:
+                    optn_nil()
+
+        def f1_gstr(g1e1: g1exp) -> fnameopt:
+            f1_tokn(tok1)
+        where:
+            let G1Estr(tok1) = g1e1.node()
+
+        def f1_tokn(tok1: token) -> fnameopt:
+            match tok1.node():
+                case T_STRN1_clsd(base, ln):
+                    let base = xstrunqtize(base, ln)
+                    let base = xstrnormize(base)
+                    let base = xstrevalize(base)
+                    optn_cons(FNMbase(base))
+                case _:
+                    optn_nil()
+
+        def f1_a2pp(gapp: g1exp) -> fnameopt:
+            match gapp.node():
+                case G1Ea2pp(g1f0, g1e1, g1e2):
+                    match g1f0.node():
+                        case G1Eid0(id0):
+                            if (id0 != EQ0_symbl):
+                                optn_nil
+                            else:
+                                match g1e2.node():
+                                    case G1Estr(_):
+                                        f1_gstr(g1e2)
+                                    case _:
+                                        optn_nil()
+                        case _:
+                            optn_nil()
+
+    def f0_staload(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let D0Cstaload(knd0, tknd, g0e1) = d0cl.node()
+        let g1e1 = trans01_g0exp(tenv, g0e1)
+        let opt0 = f0_g1e1(g1e1)
+        let opt1 = match opt0:
+            case optn_nil():
+                optn_nil()
+            case optn_cons(fnm0):
+                fsrch_combined(fnm0)
+        let dopt = match opt1:
+            case optn_nil():
+                optn_nil()
+            case optn_cons(fpth):
+                optn_cons(s1taload_from_fpath(fpth))
+        let knd0 = match dopt:
+            case optn_nil():
+                knd0
+            case optn_cons((shrd, dpar)):
+                dpar.stadyn()
+        d1ecl(loc0, D1Cstaload(knd0, tknd, g1e1, opt1, dopt))
+    where:
+        let loc0 = d0cl.lctn()
+    def f0_dyninit(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let D0Cdyninit(tknd, g0e1) = d0cl.node()
+        let g1e1 = trans01_g0exp(tenv, g0e1)
+        d1ecl(loc0, D1Cdyninit(tknd, g1e1))
+    where:
+        let loc0 = d0cl.lctn()
+    def f0_extcode(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let D0Cextcode(tknd, g0e1) = d0cl.node()
+        let g1e1 = trans01_g0exp(tenv, g0e1)
+        d1ecl(loc0, D1Cextcode(tknd, g1e1))
+    where:
+        let loc0 = d0cl.lctn()
+    def f0_datasort(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cdatasort(tknd, d0ts) = d0cl.node()
+        let d1ts = trans01_d0tstlst(tenv, d0ts)
+        d1ecl(loc0, D1Cdatasort(tknd, d1ts))
+    def f0_valdclst(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cvaldclst(tknd, d0vs) = d0cl.node()
+        let d1vs = trans01_d0valdclist(tenv, d0vs)
+        d1ecl(loc0, D1Cvaldclst(tknd, d1vs))
+    def f0_vardclst(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cvardclst(tknd, d0vs) = d0cl.node()
+        let d1vs = trans01_d0vardclist(tenv, d0vs)
+        d1ecl(loc0, D1Cvardclst(tknd, d1vs))
+    def f0_fundclst(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cfundclst(tknd, tqas, d0fs) = d0cl.node()
+        let tqas = trans01_t0qaglst(tenv, tqas)
+        let d1fs = trans01_d0fundclist(tenv, d0fs)
+        d1ecl(loc0, D1Cfundclst(tknd, tqas, d1fs))
+    def f0_implmnt0(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cimplmnt0(tknd, sqas, tqas, dqid, tias, f0as, sres, teq1, body) = d0cl.node()
+        let sqas = trans01_s0qaglst(tenv, sqas)
+        let tqas = trans01_t0qaglst(tenv, tqas)
+        let dqid = trans01_d0qid(tenv, dqid)
+        let tias = trans01_t0iaglst(tenv, tias)
+        let f1as = trans01_f0arglst(tenv, f0as)
+        let sres = trans01_s0res(tenv, sres)
+        let body = trans01_d0exp(tenv, body)
+        d1ecl_make_node(loc0, D1Cimplmnt0(tknd, sqas, tqas, dqid, tias, f1as, sres, body))
+    def f0_excptcon(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cexcptcon(tknd, topt, tcns) = d0cl.node()
+        let tcns = trans01_d0tcnlst(tenv, tcns)
+        d1ecl_make_node(loc0, D1Cexcptcon(tknd, tcns))
+    def f0_datatype(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cdatatype(tknd, d0ts, wdcs) = d0cl.node()
+        let d1ts = trans01_d0typlst(tenv, d0ts)
+        let wdcs = trans01_wd0eclseq(tenv, wdcs)
+        d1ecl(loc0, D1Cdatatype(tknd, d1ts, wdcs))
+    def f0_dynconst(tenv: !tr01env, d0cl: d0ecl) -> d1ecl:
+        let loc0 = d0cl.lctn()
+        let D0Cdynconst(tknd, tqas, d0cs) = d0cl.node()
+        let tqas = trans01_t0qaglst(tenv, tqas)
+        let d1cs = trans01_d0cstdclist(tenv, d0cs)
+        d1ecl(loc0, D1Cdynconst(tknd, tqas, d1cs))
+
+@impl
+def trans01_d0valdcl(tenv, dval):
+    let loc0 = d0valdcl_get_lctn(dval)
+    let dpat = d0valdcl_get_dpat(dval)
+    let dpat = trans01_d0pat(tenv, dpat)
+    let tdxp = d0valdcl_get_tdxp(dval)
+    let tdxp = trans01_teqd0exp(tenv, tdxp)
+    let wsxp = d0valdcl_get_wsxp(dval)
+    let wsxp = trans01_wths0exp(tenv, wsxp)
+    d1valdcl_make_args(loc0, dpat, tdxp, wsxp)
+
+@impl
+def trans01_d0vardcl(tenv, dvar):
+    let loc0 = d0vardcl_get_lctn(dvar)
+    let dpid = d0vardcl_get_dpid(dvar)
+    let dpid = trans01_i0dnt(tenv, dpid)
+    let vpid = d0vardcl_get_vpid(dvar)
+    let vpid = trans01_i0dntopt(tenv, vpid)
+    let sres = d0vardcl_get_sres(dvar)
+    let sres = trans01_s0expopt(tenv, sres)
+    let dini = d0vardcl_get_dini(dvar)
+    let dini = trans01_teqd0exp(tenv, dini)
+    d1vardcl_make_args(loc0, dpid, vpid, sres, dini)
+
+@impl
+def trans01_d0fundcl(tenv, dfun):
+    let loc0 = d0fundcl_get_lctn(dfun)
+    let dpid = d0fundcl_get_dpid(dfun)
+    let dpid = trans01_i0dnt(tenv, dpid)
+    let wsxp = d0fundcl_get_wsxp(dfun)
+    let wsxp = trans01_wths0exp(tenv, wsxp)
+    let farg = d0fundcl_get_farg(dfun)
+    let farg = trans01_f0arglst(tenv, farg)
+    let sres = d0fundcl_get_sres(dfun)
+    let sres = trans01_s0res(tenv, sres)
+    let tdxp = d0fundcl_get_tdxp(dfun)
+    let tdxp = trans01_teqd0exp(tenv, tdxp)
+    d1fundcl(loc0, dpid, farg, sres, tdxp, wsxp)
+
+@impl
+def trans01_d0cstdcl(tenv, dcst):
+    let loc0 = d0cstdcl_get_lctn(dcst)
+    let dpid = d0cstdcl_get_dpid(dcst)
+    let darg = d0cstdcl_get_darg(dcst)
+    let sres = d0cstdcl_get_sres(dcst)
+    let dres = d0cstdcl_get_dres(dcst)
+    let dpid = trans01_i0dnt(tenv, dpid)
+    let darg = trans01_d0arglst(tenv, darg)
+    let sres = trans01_s0res(tenv, sres)
+    let dres = trans01_d0res(tenv, dres)
+    d1cstdcl_make_args(loc0, dpid, darg, sres, dres)
+
+@impl
+def trans01_d0eclist(tenv, dcls):
+    let dres = list_vt_nil()
+    list_vt2t(list_vt_reverse0(f0_d0eclist(tenv, dcls, dres)))
+where:
+    type D1eclist_vt = list_vt[d1ecl]
+    def d1cls_vt2t_reverse0(dcls: list_vt[d1ecl]) -> d1eclist:
+        list_vt2t(@inst[d1ecl] list_vt_reverse0(dcls))
+    def f1_then0(tenv: !tr01env, dcl0: d0ecl, dcls: d0eclist) -> (d1eclopt, d0eclist):
+        match dcls:
+            case list_nil():
+                let dthn = optn_nil()
+                (dthn, dcls)
+            case list_cons(dcl1, d2ls):
+                match dcl1.node():
+                    case D0Cthen0(_):
+                        let dres = list_vt_nil()
+                        let (dres, dcls) = f1_d0eclist(tenv, d2ls, dres)
+                        let loc1 = dcl1.lctn()
+                        let opt1 = optn_cons(d1ecl(loc1, D1Cthen0(dres)))
+                        (opt1, dcls)
+                    case _:
+                        let dres = list_vt_nil()
+                        let (dres, dcls) = f1_d0eclist(tenv, dcls, dres)
+                        let loc1 = dcl0.lctn()
+                        let opt1 = optn_cons(d1ecl(loc1, D1Cthen0(dres)))
+                        (opt1, dcls)
+
+    def f1_else1(tenv: !tr01env, dcl0: d0ecl, dcls: d0eclist) -> (d1eclopt, d0eclist):
+        match dcls:
+            case list_nil():
+                let dels = optn_nil()
+                (dels, dcls)
+            case list_cons(dcl1, d2ls):
+                match dcl1.node():
+                    case D0Celse1(_):
+                        let dres = list_vt_nil()
+                        let (dres, dcls) = f1_d0eclist(tenv, d2ls, dres)
+                        let loc1 = dcl1.lctn()
+                        let opt1 = optn_cons(d1ecl(loc1, D1Celse1(dres)))
+                        (opt1, dcls)
+                    case D0Celsif(tknd, gexp):
+                        let (dthn, dcls) = f1_then0(tenv, dcl1, d2ls)
+                        let (dels, dcls) = f1_else1(tenv, dcl1, dcls)
+                        let dend = optn_nil
+                        let loc1 = dcl1.lctn()
+                        let gexp = trans01_g0exp(tenv, gexp)
+                        let opt1 = optn_cons(d1ecl(loc1, D1Celsif(gexp, dthn, dels, dend)))
+                        (opt1, dcls)
+                    case _:
+                        let dels = optn_nil()
+                        (dels, dcls)
+
+    def f1_endif(tenv: !tr01env, dcl0: d0ecl, dcls: d0eclist) -> (d1eclopt, d0eclist):
+        match dcls:
+            case list_nil():
+                let dels = optn_nil()
+                (dels, dcls)
+            case list_cons(dcl1, d2ls):
+                match dcl1.node():
+                    case D0Cendif(tend):
+                        let loc1 = dcl1.lctn()
+                        let opt1 = optn_cons(d1ecl(loc1, D1Cendif(tend)))
+                        (opt1, d2ls)
+                    case _:
+                        let dels = optn_nil()
+                        (dels, dcls)
+
+    def f1_d0ecl(tenv: !tr01env, dcl0: d0ecl, dcls: d0eclist) -> (d1ecl, d0eclist):
+        match dcl0.node():
+            case D0Cifexp(tknd, gexp):
+                let (dthn, dcls) = f1_then0(tenv, dcl0, dcls)
+                let (dels, dcls) = f1_else1(tenv, dcl0, dcls)
+                let (dend, dcls) = f1_endif(tenv, dcl0, dcls)
+                let loc0 = dcl0.lctn()
+                let gexp = trans01_g0exp(tenv, gexp)
+                let dcl0 = d1ecl(loc0, D1Cifexp(gexp, dthn, dels, dend))
+                (dcl0, dcls)
+            case _:
+                let dcl0 = trans01_d0ecl(tenv, dcl0)
+                (dcl0, dcls)
+
+    def f1_d0eclist(tenv: !tr01env, dcls: d0eclist, dres: D1eclist_vt) -> (d1eclist, d0eclist):
+        match dcls:
+            case list_nil():
+                let dres = d1cls_vt2t_reverse0(dres)
+                (dres, dcls)
+            case list_cons(dcl1, d2ls):
+                match dcl1.node():
+                    case D0Celse1(_):
+                        let dres = d1cls_vt2t_reverse0(dres)
+                        (dres, dcls)
+                    case D0Celsif(_):
+                        let dres = d1cls_vt2t_reverse0(dres)
+                        (dres, dcls)
+                    case D0Cendif(_):
+                        let dres = d1cls_vt2t_reverse0(dres)
+                        (dres, dcls)
+                    case _:
+                        let (dcl1, dcls) = f1_d0ecl(tenv, dcl1, d2ls)
+                        let dres = list_vt_cons(dcl1, dres)
+                        f1_d0eclist(tenv, dcls, dres)
+    def f0_d0eclist(tenv: !tr01env, dcls: d0eclist, dres: D1eclist_vt) -> D1eclist_vt:
+        match dcls:
+            case list_nil():
+                dres
+            case list_cons(dcl1, d2ls):
+                match dcl1.node():
+                    case D0Cifexp(_):
+                        let (dcl1, dcls) = f1_d0ecl(tenv, dcl1, d2ls)
+                        let dres = list_vt_cons(dcl1, dres)
+                        f0_d0eclist(tenv, dcls, dres)
+                    case _:
+                        let dcl1 = trans01_d0ecl(tenv, dcl1)
+                        let dres = list_vt_cons(dcl1, dres)
+                        f0_d0eclist(tenv, d2ls, dres)
+
+@impl
+def trans01_q0arglst(tenv, q0as):
+    list_trans01_fnp(tenv, q0as, trans01_q0arg)
+
+@impl
+def trans01_s0qaglst(tenv, sqas):
+    list_trans01_fnp(tenv, sqas, trans01_s0qag)
+
+@impl
+def trans01_t0qaglst(tenv, tqas):
+    list_trans01_fnp(tenv, tqas, trans01_t0qag)
+
+@impl
+def trans01_t0iaglst(tenv, tias):
+    list_trans01_fnp(tenv, tias, trans01_t0iag)
+
+@impl
+def trans01_a0typlst(tenv, a0ts):
+    list_trans01_fnp(tenv, a0ts, trans01_a0typ)
+
+@impl
+def trans01_d0arglst(tenv, d0as):
+    list_trans01_fnp(tenv, d0as, trans01_d0arg)
+
+@impl
+def trans01_wd0eclseq(tenv, wdcs):
+    match wdcs:
+        case WD0CSnone():
+            WD1CSnone()
+        case WD0CSsome(twhr, topt, dcls, tend):
+            WD1CSsome(trans01_d0eclist(tenv, dcls))
+
+@impl
+def trans01_d0valdclist(tenv, dcls):
+    list_trans01_fnp(tenv, dcls, trans01_d0valdcl)
+
+@impl
+def trans01_d0vardclist(tenv, dcls):
+    list_trans01_fnp(tenv, dcls, trans01_d0vardcl)
+
+@impl
+def trans01_d0fundclist(tenv, dcls):
+    list_trans01_fnp(tenv, dcls, trans01_d0fundcl)
+
+@impl
+def trans01_d0cstdclist(tenv, dcls):
+    list_trans01_fnp(tenv, dcls, trans01_d0cstdcl)
+
+@impl
+def trans01_d0eclistopt(tenv, dopt):
+    optn_trans01_fnp(tenv, dopt, trans01_d0eclist)
+

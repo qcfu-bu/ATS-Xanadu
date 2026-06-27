@@ -1,0 +1,96 @@
+import "srcgen2/SATS/xsymbol" as SYM
+
+type Key = SYM.sym_t
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+@abstract
+type Topmap_tbox[X0]
+
+type Topmap[X0: Type] = Topmap_tbox[X0]
+
+@abstract
+type Stkmap_vtbx[X0]
+
+type Stkmap[X0: Type] = Stkmap_vtbx[X0]
+
+@extern
+def stkmap_nilq[Itm: Tbox](a: !Stkmap[Itm]) -> Bool
+
+@extern
+def stkmap_topq[Itm: Tbox](a: !Stkmap[Itm]) -> Bool
+
+@extern
+def topmap_make_nil[Itm: Tbox]() -> Topmap[Itm]
+
+@extern
+def stkmap_make_nil[Itm: Tbox]() -> Stkmap[Itm]
+
+@extern
+def topmap_strmize[Itm: Tbox](a: Topmap[Itm]) -> Strm_vt[(SInt, List[Itm])]
+
+@extern
+def topmap_fprint[X0: Type](a: Topmap[X0], b: FILR) -> Void
+
+@extern
+def stkmap_fprint1[X0: Type](a: !Stkmap[X0], b: FILR) -> Void
+
+@extern
+def stkmap_free_nil[Itm: Tbox](a: Stkmap[Itm]) -> Void
+
+@extern
+def stkmap_poptop0[Itm: Tbox](a: &Stkmap[Itm] >> _) -> SInt
+
+@extern
+def stkmap_poplam0[Itm: Tbox](a: &Stkmap[Itm] >> _) -> SInt
+
+@extern
+def stkmap_pshlam0[Itm: Tbox](a: &Stkmap[Itm] >> _) -> Void
+
+@extern
+def stkmap_poplet0[Itm: Tbox](a: &Stkmap[Itm] >> _) -> SInt
+
+@extern
+def stkmap_pshlet0[Itm: Tbox](a: &Stkmap[Itm] >> _) -> Void
+
+@extern
+def stkmap_poploc0[Itm: Tbox](a: &Stkmap[Itm] >> _) -> (SInt, List_vt[(Key, Itm)])
+
+@extern
+def stkmap_pshloc1[Itm: Tbox](a: &Stkmap[Itm] >> _) -> Void
+
+@extern
+def stkmap_pshloc2[Itm: Tbox](a: &Stkmap[Itm] >> _) -> Void
+
+@extern
+def topmap_search/opt[Itm: Tbox](a: Topmap[Itm], b: Key) -> Optn_vt[Itm]
+
+@extern
+def stkmap_search/opt[Itm: Tbox](a: !Stkmap[Itm], b: Key) -> Optn_vt[Itm]
+
+@extern
+def topmap_insert/any[Itm: Tbox](a: Topmap[Itm], b: Key, c: Itm) -> Void
+
+@extern
+def topmap_insert/kxs[Itm: Tbox](a: Topmap[Itm], b: List_vt[(Key, Itm)]) -> Void
+
+@extern
+def stkmap_insert/any[Itm: Tbox](a: &Stkmap[Itm] >> _, b: Key, c: Itm) -> Void
+
+@extern
+def stkmap_insert/kxs[Itm: Tbox](a: &Stkmap[Itm] >> _, b: List_vt[(Key, Itm)]) -> Void
+
+@extern
+def topmap_insmix/any[Itm: Tbox](a: Topmap[Itm], b: Key, c: Itm, d: (Itm, Itm) -> Itm) -> Void
+
+@extern
+def topmap_insmix/kxs[Itm: Tbox](a: Topmap[Itm], b: List_vt[(Key, Itm)], c: (Itm, Itm) -> Itm) -> Void
+
+@extern
+def stkmap_insmix/any[Itm: Tbox](a: &Stkmap[Itm] >> _, b: Key, c: Itm, d: (Itm, Itm) -> Itm) -> Void
+
+@extern
+def stkmap_insmix/kxs[Itm: Tbox](a: &Stkmap[Itm] >> _, b: List_vt[(Key, Itm)], c: (Itm, Itm) -> Itm) -> Void
+

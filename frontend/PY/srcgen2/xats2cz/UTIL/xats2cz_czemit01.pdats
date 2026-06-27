@@ -1,0 +1,62 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+include "srcgen2/xats2cz/HATS/libxatsopt.hats"
+
+from "srcgen2/xats2js/srcgen1/SATS/intrep0" import *
+
+from "srcgen2/xats2js/srcgen1/SATS/trxd3i0" import *
+
+from "srcgen2/xats2cz/SATS/cz0emit" import *
+
+type Argv = jsa1sz[String]
+
+@extern
+def XATSOPT_argv/get() -> Argv = extnam()
+
+def mymain_work(fpth: string) -> Void:
+    let dpar = d3parsed_of_tread3a(dpar)
+    let dpar = d3parsed_of_trtmp3b(dpar)
+    let dpar = d3parsed_of_trtmp3c(dpar)
+    let dpar = d3parsed_of_t3read0(dpar)
+    let out0 = g_stderr()
+    prerrsln("F3PERR0_D3PARSED:")
+    f3perr0_d3parsed(out0, dpar)
+    let ipar = i0parsed_of_trxd3i0(dpar)
+    let filr = @inst[] g_stdout()
+    i0parsed_cz0emit(ipar, filr)
+where:
+    let dpar = d3parsed_of_fildats(fpth)
+
+def argv/loop(argv: Argv) -> Void:
+    loop(3)
+where:
+    let n0 = length(argv)
+    def loop(i0: SInt) -> Void:
+        if (i0 < n0):
+            xatsopt_flag/pvsadd0(argv[i0])
+            loop(i0 + 1)
+
+def mymain_main() -> Void:
+    let alen = length(argv)
+    if (alen >= 3):
+        let ret1 = the_fxtyenv_pvsl00d()
+        if (ret1 > 0):
+            prerrsln("// The fixity-defs loaded!")
+        let ret2 = the_tr12env_pvsl00d()
+        if (ret2 > 0):
+            prerrsln("// The trans12-defs loaded!")
+        xatsopt_flag/pvsadd0("--_XATS2JS_")
+        xatsopt_flag/pvsadd0("--_SRCGEN2_XATS2JS_")
+        argv/loop(argv)
+        mymain_work(argv[2])
+    if (alen <= 2):
+        prerrsln("ERROR: no source is given: ", argv)
+where:
+    prerrsln("// Welcome from ATS3/Xanadu! (xats2cz M0)")
+    prerrsln("// XATSHOME = ", the_XATSHOME())
+    let argv = XATSOPT_argv/get()
+
+mymain_main()
+

@@ -1,0 +1,828 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+import "srcgen2/SATS/xsymbol" as SYM
+
+import "srcgen2/SATS/xsymmap" as MAP
+
+import "srcgen2/SATS/xfixity" as FIX
+
+import "srcgen2/SATS/lexing0" as LEX
+
+type Sym_t = SYM.sym_t
+
+type Symbl = SYM.symbl
+
+type Token = LEX.token
+
+type Fixty = FIX.fixty
+
+type Fixtyopt_vt = Optn_vt[Fixty]
+
+import "srcgen2/SATS/filpath" as FIL
+
+type Fpath = FIL.fpath
+
+import "srcgen2/SATS/locinfo" as LOC
+
+type Lcsrc = LOC.lcsrc
+
+import "srcgen2/SATS/staexp0" as S0E
+
+import "srcgen2/SATS/dynexp0" as D0E
+
+import "srcgen2/SATS/staexp1" as S1E
+
+import "srcgen2/SATS/dynexp1" as D1E
+
+type I0dnt = S0E.i0dnt
+
+type T0int = S0E.t0int
+
+type T0chr = S0E.t0chr
+
+type T0flt = S0E.t0flt
+
+type T0str = S0E.t0str
+
+type I1dnt = S1E.i1dnt
+
+type T1int = S1E.t1int
+
+type T1chr = S1E.t1chr
+
+type T1flt = S1E.t1flt
+
+type T1str = S1E.t1str
+
+type S0qid = S0E.s0qid
+
+type D0qid = S0E.d0qid
+
+type S1qid = S1E.s1qid
+
+type D1qid = S1E.d1qid
+
+type I0dntlst = S0E.i0dntlst
+
+type I1dntlst = S1E.i1dntlst
+
+type I0dntopt = S0E.i0dntopt
+
+type I1dntopt = S1E.i1dntopt
+
+type G0nam = S0E.g0nam
+
+type G1nam = S1E.g1nam
+
+type G0exp = S0E.g0exp
+
+type G1exp = S1E.g1exp
+
+type G0arg = S0E.g0arg
+
+type G1arg = S1E.g1arg
+
+type G0mag = S0E.g0mag
+
+type G1mag = S1E.g1mag
+
+type G0namlst = S0E.g0namlst
+
+type G1namlst = S1E.g1namlst
+
+type G0explst = S0E.g0explst
+
+type G0expopt = S0E.g0expopt
+
+type G1explst = S1E.g1explst
+
+type G1expopt = S1E.g1expopt
+
+type G0arglst = S0E.g0arglst
+
+type G1arglst = S1E.g1arglst
+
+type G0maglst = S0E.g0maglst
+
+type G1maglst = S1E.g1maglst
+
+type Sort0 = S0E.sort0
+
+type S0exp = S0E.s0exp
+
+type L0s0e = S0E.l0s0e
+
+type Sort1 = S1E.sort1
+
+type S1exp = S1E.s1exp
+
+type L1s1e = S1E.l1s1e
+
+type S0arg = S0E.s0arg
+
+type S0mag = S0E.s0mag
+
+type S1arg = S1E.s1arg
+
+type S1mag = S1E.s1mag
+
+type T0arg = S0E.t0arg
+
+type T0mag = S0E.t0mag
+
+type T1arg = S1E.t1arg
+
+type T1mag = S1E.t1mag
+
+type S0qua = S0E.s0qua
+
+type S0tcn = S0E.s0tcn
+
+type D0tst = S0E.d0tst
+
+type S0uni = S0E.s0uni
+
+type S1qua = S1E.s1qua
+
+type S1tcn = S1E.s1tcn
+
+type D1tst = S1E.d1tst
+
+type S1uni = S1E.s1uni
+
+type D0tcn = S0E.d0tcn
+
+type D1tcn = S1E.d1tcn
+
+type D0typ = S0E.d0typ
+
+type D1typ = S1E.d1typ
+
+type Sort0lst = S0E.sort0lst
+
+type S0explst = S0E.s0explst
+
+type L0s0elst = S0E.l0s0elst
+
+type Sort1lst = S1E.sort1lst
+
+type S1explst = S1E.s1explst
+
+type L1s1elst = S1E.l1s1elst
+
+type Sort0opt = S0E.sort0opt
+
+type S0expopt = S0E.s0expopt
+
+type Sort1opt = S1E.sort1opt
+
+type S1expopt = S1E.s1expopt
+
+type S0arglst = S0E.s0arglst
+
+type S0maglst = S0E.s0maglst
+
+type S1arglst = S1E.s1arglst
+
+type S1maglst = S1E.s1maglst
+
+type T0arglst = S0E.t0arglst
+
+type T0maglst = S0E.t0maglst
+
+type T1arglst = S1E.t1arglst
+
+type T1maglst = S1E.t1maglst
+
+type S0qualst = S0E.s0qualst
+
+type S0tcnlst = S0E.s0tcnlst
+
+type D0tstlst = S0E.d0tstlst
+
+type S1qualst = S1E.s1qualst
+
+type S1tcnlst = S1E.s1tcnlst
+
+type D1tstlst = S1E.d1tstlst
+
+type S0unilst = S0E.s0unilst
+
+type S1unilst = S1E.s1unilst
+
+type D0tcnlst = S0E.d0tcnlst
+
+type D1tcnlst = S1E.d1tcnlst
+
+type D0typlst = S0E.d0typlst
+
+type D1typlst = S1E.d1typlst
+
+type D0pat = D0E.d0pat
+
+type D0exp = D0E.d0exp
+
+type D0ecl = D0E.d0ecl
+
+type D1pat = D1E.d1pat
+
+type D1exp = D1E.d1exp
+
+type D1ecl = D1E.d1ecl
+
+type L0d0p = D0E.l0d0p
+
+type L0d0e = D0E.l0d0e
+
+type L1d1p = D1E.l1d1p
+
+type L1d1e = D1E.l1d1e
+
+type D0exp_THEN = D0E.d0exp_THEN
+
+type D0exp_ELSE = D0E.d0exp_ELSE
+
+type D1expopt = D1E.d1expopt
+
+type F0arg = D0E.f0arg
+
+type D0gua = D0E.d0gua
+
+type D0gpt = D0E.d0gpt
+
+type D0cls = D0E.d0cls
+
+type F1arg = D1E.f1arg
+
+type D1gua = D1E.d1gua
+
+type D1gpt = D1E.d1gpt
+
+type D1cls = D1E.d1cls
+
+type Q0arg = D0E.q0arg
+
+type S0qag = D0E.s0qag
+
+type T0qag = D0E.t0qag
+
+type Q1arg = D1E.q1arg
+
+type S1qag = D1E.s1qag
+
+type T1qag = D1E.t1qag
+
+type T0iag = D0E.t0iag
+
+type T1iag = D1E.t1iag
+
+type A0typ = D0E.a0typ
+
+type D0arg = D0E.d0arg
+
+type A1typ = D1E.a1typ
+
+type D1arg = D1E.d1arg
+
+type S0eff = D0E.s0eff
+
+type S0res = D0E.s0res
+
+type S1eff = D1E.s1eff
+
+type S1res = D1E.s1res
+
+type D0res = D0E.d0res
+
+type D1res = D1E.d1res
+
+type T0qua = D0E.t0qua
+
+type T1qua = D1E.t1qua
+
+type T0inv = D0E.t0inv
+
+type T1inv = D1E.t1inv
+
+type D0patlst = D0E.d0patlst
+
+type D0explst = D0E.d0explst
+
+type D0eclist = D0E.d0eclist
+
+type D1patlst = D1E.d1patlst
+
+type D1explst = D1E.d1explst
+
+type D1eclist = D1E.d1eclist
+
+type D0expopt = D0E.d0expopt
+
+type D1expopt = D1E.d1expopt
+
+type L0d0plst = D0E.l0d0plst
+
+type L0d0elst = D0E.l0d0elst
+
+type L1d1plst = D1E.l1d1plst
+
+type L1d1elst = D1E.l1d1elst
+
+type Q0arglst = D0E.q0arglst
+
+type S0qaglst = D0E.s0qaglst
+
+type T0qaglst = D0E.t0qaglst
+
+type Q1arglst = D1E.q1arglst
+
+type S1qaglst = D1E.s1qaglst
+
+type T1qaglst = D1E.t1qaglst
+
+type T0iaglst = D0E.t0iaglst
+
+type T1iaglst = D1E.t1iaglst
+
+type F0arglst = D0E.f0arglst
+
+type F1arglst = D1E.f1arglst
+
+type F0unarrw = D0E.f0unarrw
+
+type F1unarrw = D1E.f1unarrw
+
+type D0gualst = D0E.d0gualst
+
+type D0clslst = D0E.d0clslst
+
+type D1gualst = D1E.d1gualst
+
+type D1clslst = D1E.d1clslst
+
+type A0typlst = D0E.a0typlst
+
+type A1typlst = D1E.a1typlst
+
+type D0arglst = D0E.d0arglst
+
+type D1arglst = D1E.d1arglst
+
+type Teqd0exp = D0E.teqd0exp
+
+type Teqd1exp = D1E.teqd1exp
+
+type Wths0exp = D0E.wths0exp
+
+type Wths1exp = D1E.wths1exp
+
+type T0qualst = D0E.t0qualst
+
+type T1qualst = D1E.t1qualst
+
+type D0valdcl = D0E.d0valdcl
+
+type D0vardcl = D0E.d0vardcl
+
+type D0fundcl = D0E.d0fundcl
+
+type D1valdcl = D1E.d1valdcl
+
+type D1vardcl = D1E.d1vardcl
+
+type D1fundcl = D1E.d1fundcl
+
+type D0cstdcl = D0E.d0cstdcl
+
+type D1cstdcl = D1E.d1cstdcl
+
+type D0parsed = D0E.d0parsed
+
+type D1parsed = D1E.d1parsed
+
+type D1topenv = D1E.d1topenv
+
+type Wd0eclseq = D0E.wd0eclseq
+
+type Wd1eclseq = D1E.wd1eclseq
+
+type D0valdclist = D0E.d0valdclist
+
+type D1valdclist = D1E.d1valdclist
+
+type D0vardclist = D0E.d0vardclist
+
+type D1vardclist = D1E.d1vardclist
+
+type D0fundclist = D0E.d0fundclist
+
+type D1fundclist = D1E.d1fundclist
+
+type D0cstdclist = D0E.d0cstdclist
+
+type D1cstdclist = D1E.d1cstdclist
+
+@extern
+def the_drpth_push_lcsrc(a: Lcsrc) -> Void
+
+@extern
+def the_drpth_pop0_lcsrc(a: Lcsrc) -> Void
+
+@extern
+def d1parsed_of_trans01(a: D0parsed) -> D1parsed
+
+@abstract
+type Tr01env_vtbx
+
+type Tr01env = Tr01env_vtbx
+
+@extern
+def tr01env_make_nil() -> Tr01env
+
+@extern
+def tr01env_free_top(a: Tr01env) -> D1topenv
+
+@extern
+def tr01env_poplet0(a: !Tr01env) -> Void
+
+@extern
+def tr01env_pshlet0(a: !Tr01env) -> Void
+
+@extern
+def tr01env_pshloc1(a: !Tr01env) -> Void
+
+@extern
+def tr01env_pshloc2(a: !Tr01env) -> Void
+
+@extern
+def tr01env_locjoin(a: !Tr01env) -> Void
+
+@extern
+def tr01env_search/opt(a: !Tr01env, b: Sym_t) -> Fixtyopt_vt
+
+@extern
+def tr01env_insert/any(a: !Tr01env, b: Sym_t, c: Fixty) -> Void
+
+@extern
+def tr01env_insmix/any(a: !Tr01env, b: Sym_t, c: Fixty) -> Void
+
+@extern
+def token2sint(a: Token) -> SInt
+
+@extern
+def token2dint(a: Token) -> SInt
+
+@extern
+def symbl2sbtf(a: Symbl) -> Bool
+
+@extern
+def symbl2dbtf(a: Symbl) -> Bool
+
+@extern
+def token2schr(a: Token) -> Char
+
+@extern
+def token2dchr(a: Token) -> Char
+
+@extern
+def token2sflt(a: Token) -> Double
+
+@extern
+def token2dflt(a: Token) -> Double
+
+@extern
+def token2sstr(a: Token) -> String
+
+@extern
+def token2dstr(a: Token) -> String
+
+@extern
+def gnamid_sym(a: Token) -> Sym_t
+
+@extern
+def gexpid_sym(a: Token) -> Sym_t
+
+@extern
+def sortid_sym(a: Token) -> Sym_t
+
+@extern
+def sargid_sym(a: Token) -> Sym_t
+
+@extern
+def sexpid_sym(a: Token) -> Sym_t
+
+@extern
+def dpatid_sym(a: Token) -> Sym_t
+
+@extern
+def dexpid_sym(a: Token) -> Sym_t
+
+@extern
+def list_trans01_fnp[X0: Type, Y0: Type](a: !Tr01env, b: List[X0], c: (!Tr01env, X0) -> Y0) -> List[Y0]
+
+@extern
+def optn_trans01_fnp[X0: Type, Y0: Type](a: !Tr01env, b: Optn[X0], c: (!Tr01env, X0) -> Y0) -> Optn[Y0]
+
+@extern
+def trans01_i0dnt(a: !Tr01env, b: I0dnt) -> I1dnt
+
+@extern
+def trans01_t0int(a: !Tr01env, b: T0int) -> T1int
+
+@extern
+def trans01_t0chr(a: !Tr01env, b: T0chr) -> T1chr
+
+@extern
+def trans01_t0flt(a: !Tr01env, b: T0flt) -> T1flt
+
+@extern
+def trans01_t0str(a: !Tr01env, b: T0str) -> T1str
+
+@extern
+def trans01_i0dntlst(a: !Tr01env, b: I0dntlst) -> I1dntlst
+
+@extern
+def trans01_i0dntopt(a: !Tr01env, b: I0dntopt) -> I1dntopt
+
+@extern
+def trans01_s0qid(a: !Tr01env, b: S0qid) -> S1qid
+
+@extern
+def trans01_d0qid(a: !Tr01env, b: D0qid) -> D1qid
+
+@extern
+def trans01_g0nam(a: !Tr01env, b: G0nam) -> G1nam
+
+@extern
+def trans01_g0exp(a: !Tr01env, b: G0exp) -> G1exp
+
+@extern
+def trans01_g0arg(a: !Tr01env, b: G0arg) -> G1arg
+
+@extern
+def trans01_g0mag(a: !Tr01env, b: G0mag) -> G1mag
+
+@extern
+def trans01_g0namlst(a: !Tr01env, b: G0namlst) -> G1namlst
+
+@extern
+def trans01_g0explst(a: !Tr01env, b: G0explst) -> G1explst
+
+@extern
+def trans01_g0expopt(a: !Tr01env, b: G0expopt) -> G1expopt
+
+@extern
+def trans01_g0arglst(a: !Tr01env, b: G0arglst) -> G1arglst
+
+@extern
+def trans01_g0maglst(a: !Tr01env, b: G0maglst) -> G1maglst
+
+@extern
+def trans01_sort0(a: !Tr01env, b: Sort0) -> Sort1
+
+@extern
+def trans01_s0exp(a: !Tr01env, b: S0exp) -> S1exp
+
+@extern
+def trans01_l0s0e(a: !Tr01env, b: L0s0e) -> L1s1e
+
+@extern
+def trans01_sort0lst(a: !Tr01env, b: Sort0lst) -> Sort1lst
+
+@extern
+def trans01_s0explst(a: !Tr01env, b: S0explst) -> S1explst
+
+@extern
+def trans01_l0s0elst(a: !Tr01env, b: L0s0elst) -> L1s1elst
+
+@extern
+def trans01_sort0opt(a: !Tr01env, b: Sort0opt) -> Sort1opt
+
+@extern
+def trans01_s0expopt(a: !Tr01env, b: S0expopt) -> S1expopt
+
+@extern
+def trans01_s0tcn(a: !Tr01env, b: S0tcn) -> S1tcn
+
+@extern
+def trans01_d0tst(a: !Tr01env, b: D0tst) -> D1tst
+
+@extern
+def trans01_s0tcnlst(a: !Tr01env, b: S0tcnlst) -> S1tcnlst
+
+@extern
+def trans01_d0tstlst(a: !Tr01env, b: D0tstlst) -> D1tstlst
+
+@extern
+def trans01_s0arg(a: !Tr01env, b: S0arg) -> S1arg
+
+@extern
+def trans01_s0mag(a: !Tr01env, b: S0mag) -> S1mag
+
+@extern
+def trans01_t0arg(a: !Tr01env, b: T0arg) -> T1arg
+
+@extern
+def trans01_t0mag(a: !Tr01env, b: T0mag) -> T1mag
+
+@extern
+def trans01_s0qua(a: !Tr01env, b: S0qua) -> S1qua
+
+@extern
+def trans01_s0uni(a: !Tr01env, b: S0uni) -> S1uni
+
+@extern
+def trans01_d0tcn(a: !Tr01env, b: D0tcn) -> D1tcn
+
+@extern
+def trans01_d0typ(a: !Tr01env, b: D0typ) -> D1typ
+
+@extern
+def trans01_s0arglst(a: !Tr01env, b: S0arglst) -> S1arglst
+
+@extern
+def trans01_s0maglst(a: !Tr01env, b: S0maglst) -> S1maglst
+
+@extern
+def trans01_t0arglst(a: !Tr01env, b: T0arglst) -> T1arglst
+
+@extern
+def trans01_t0maglst(a: !Tr01env, b: T0maglst) -> T1maglst
+
+@extern
+def trans01_s0qualst(a: !Tr01env, b: S0qualst) -> S1qualst
+
+@extern
+def trans01_s0unilst(a: !Tr01env, b: S0unilst) -> S1unilst
+
+@extern
+def trans01_d0tcnlst(a: !Tr01env, b: D0tcnlst) -> D1tcnlst
+
+@extern
+def trans01_d0typlst(a: !Tr01env, b: D0typlst) -> D1typlst
+
+@extern
+def trans01_d0pat(a: !Tr01env, b: D0pat) -> D1pat
+
+@extern
+def trans01_d0exp(a: !Tr01env, b: D0exp) -> D1exp
+
+@extern
+def trans01_l0d0p(a: !Tr01env, b: L0d0p) -> L1d1p
+
+@extern
+def trans01_l0d0e(a: !Tr01env, b: L0d0e) -> L1d1e
+
+@extern
+def trans01_d0patlst(a: !Tr01env, b: D0patlst) -> D1patlst
+
+@extern
+def trans01_l0d0plst(a: !Tr01env, b: L0d0plst) -> L1d1plst
+
+@extern
+def trans01_d0explst(a: !Tr01env, b: D0explst) -> D1explst
+
+@extern
+def trans01_d0expopt(a: !Tr01env, b: D0expopt) -> D1expopt
+
+@extern
+def trans01_l0d0elst(a: !Tr01env, b: L0d0elst) -> L1d1elst
+
+@extern
+def trans01_d0expseq(a: !Tr01env, b: D0explst) -> D1explst
+
+@extern
+def trans01_f0arg(a: !Tr01env, b: F0arg) -> F1arg
+
+@extern
+def trans01_d0gua(a: !Tr01env, b: D0gua) -> D1gua
+
+@extern
+def trans01_d0gpt(a: !Tr01env, b: D0gpt) -> D1gpt
+
+@extern
+def trans01_d0cls(a: !Tr01env, b: D0cls) -> D1cls
+
+@extern
+def trans01_f0arglst(a: !Tr01env, b: F0arglst) -> F1arglst
+
+@extern
+def trans01_f0unarrw(a: !Tr01env, b: F0unarrw) -> F1unarrw
+
+@extern
+def trans01_d0gualst(a: !Tr01env, b: D0gualst) -> D1gualst
+
+@extern
+def trans01_d0clslst(a: !Tr01env, b: D0clslst) -> D1clslst
+
+@extern
+def trans01_d0exp_THEN(a: !Tr01env, b: D0exp_THEN) -> D1expopt
+
+@extern
+def trans01_d0exp_ELSE(a: !Tr01env, b: D0exp_ELSE) -> D1expopt
+
+@extern
+def trans01_q0arg(a: !Tr01env, b: Q0arg) -> Q1arg
+
+@extern
+def trans01_s0qag(a: !Tr01env, b: S0qag) -> S1qag
+
+@extern
+def trans01_t0qag(a: !Tr01env, b: T0qag) -> T1qag
+
+@extern
+def trans01_t0iag(a: !Tr01env, b: T0iag) -> T1iag
+
+@extern
+def trans01_q0arglst(a: !Tr01env, b: Q0arglst) -> Q1arglst
+
+@extern
+def trans01_s0qaglst(a: !Tr01env, b: S0qaglst) -> S1qaglst
+
+@extern
+def trans01_t0qaglst(a: !Tr01env, b: T0qaglst) -> T1qaglst
+
+@extern
+def trans01_t0iaglst(a: !Tr01env, b: T0iaglst) -> T1iaglst
+
+@extern
+def trans01_a0typ(a: !Tr01env, b: A0typ) -> A1typ
+
+@extern
+def trans01_d0arg(a: !Tr01env, b: D0arg) -> D1arg
+
+@extern
+def trans01_a0typlst(a: !Tr01env, b: A0typlst) -> A1typlst
+
+@extern
+def trans01_d0arglst(a: !Tr01env, b: D0arglst) -> D1arglst
+
+@extern
+def trans01_d0ecl(a: !Tr01env, b: D0ecl) -> D1ecl
+
+@extern
+def trans01_d0eclist(a: !Tr01env, b: D0eclist) -> D1eclist
+
+@extern
+def trans01_wd0eclseq(a: !Tr01env, b: Wd0eclseq) -> Wd1eclseq
+
+type D0eclistopt = Optn[D0eclist]
+
+type D1eclistopt = Optn[D1eclist]
+
+@extern
+def trans01_s0eff(a: !Tr01env, b: S0eff) -> S1eff
+
+@extern
+def trans01_s0res(a: !Tr01env, b: S0res) -> S1res
+
+@extern
+def trans01_d0res(a: !Tr01env, b: D0res) -> D1res
+
+@extern
+def trans01_t0qua(a: !Tr01env, b: T0qua) -> T1qua
+
+@extern
+def trans01_t0inv(a: !Tr01env, b: T0inv) -> T1inv
+
+@extern
+def trans01_teqd0exp(a: !Tr01env, b: Teqd0exp) -> Teqd1exp
+
+@extern
+def trans01_wths0exp(a: !Tr01env, b: Wths0exp) -> Wths1exp
+
+@extern
+def trans01_t0qualst(a: !Tr01env, b: T0qualst) -> T1qualst
+
+@extern
+def trans01_d0valdcl(a: !Tr01env, b: D0valdcl) -> D1valdcl
+
+@extern
+def trans01_d0vardcl(a: !Tr01env, b: D0vardcl) -> D1vardcl
+
+@extern
+def trans01_d0fundcl(a: !Tr01env, b: D0fundcl) -> D1fundcl
+
+@extern
+def trans01_d0cstdcl(a: !Tr01env, b: D0cstdcl) -> D1cstdcl
+
+@extern
+def trans01_d0valdclist(a: !Tr01env, b: D0valdclist) -> D1valdclist
+
+@extern
+def trans01_d0vardclist(a: !Tr01env, b: D0vardclist) -> D1vardclist
+
+@extern
+def trans01_d0fundclist(a: !Tr01env, b: D0fundclist) -> D1fundclist
+
+@extern
+def trans01_d0cstdclist(a: !Tr01env, b: D0cstdclist) -> D1cstdclist
+
+@extern
+def trans01_d0eclistopt(a: !Tr01env, b: D0eclistopt) -> D1eclistopt
+
+@extern
+def trans01_from_fpath(a: SInt, b: String) -> D1parsed
+

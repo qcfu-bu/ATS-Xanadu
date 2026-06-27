@@ -1,0 +1,349 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/xats2js/srcgen1/SATS/intrep0" import *
+
+@overload lctn = d2var_get_lctn
+
+@overload lctn = d3pat_get_lctn
+
+@overload node = d3pat_get_node
+
+@overload lctn = d3exp_get_lctn
+
+@overload node = d3exp_get_node
+
+@overload lctn = d3ecl_get_lctn
+
+@overload node = d3ecl_get_node
+
+@impl
+def i0pat_var(dvar):
+    let loc0 = dvar.lctn()
+    i0pat(loc0, I0Pvar(dvar))
+
+@impl
+def i0pat_none0(loc0):
+    i0pat_make_node(loc0, I0Pnone0())
+
+@impl
+def i0pat_none1(d3p0):
+    i0pat_make_node(d3p0.lctn(), I0Pnone1(d3p0))
+
+@impl
+def i0exp_addr(iexp):
+    i0exp_make_node(loc0, I0Eaddr(iexp))
+where:
+    let loc0 = iexp.lctn()
+
+@impl
+def i0exp_none0(loc0):
+    i0exp_make_node(loc0, I0Enone0())
+
+@impl
+def i0exp_none1(d3e0):
+    i0exp_make_node(d3e0.lctn(), I0Enone1(d3e0))
+
+@impl
+def i0dcl_none1(d3cl):
+    i0dcl_make_node(d3cl.lctn(), I0Dnone1(d3cl))
+
+private:
+    enum I0pat:
+        case I0PAT(loctn, i0pat_node)
+    @linear
+    enum I0pat_vt:
+        case I0PAT_vt(loctn, i0pat_node)
+    @impl
+    type I0pat_tbox = I0pat
+
+@impl
+def i0pat_make_node(loc, nod):
+    I0PAT(loc, nod)
+
+@impl
+def i0pat_lctn/get(i0p):
+    let I0PAT(loc, nod) = i0p
+    loc
+
+@impl
+def i0pat_node/get(i0p):
+    let I0PAT(loc, nod) = i0p
+    nod
+
+
+private:
+    enum I0exp:
+        case I0EXP(loctn, i0exp_node)
+    @linear
+    enum I0exp_vt:
+        case I0EXP_vt(loctn, i0exp_node)
+    @impl
+    type I0exp_tbox = I0exp
+
+@impl
+def i0exp_make_node(loc, nod):
+    I0EXP(loc, nod)
+
+@impl
+def i0exp_lctn/get(i0e):
+    let I0EXP(loc, nod) = i0e
+    loc
+
+@impl
+def i0exp_node/get(i0e):
+    let I0EXP(loc, nod) = i0e
+    nod
+
+
+private:
+    enum Fiarg:
+        case FIARG(loctn, fiarg_node)
+    @impl
+    type Fiarg_tbox = Fiarg
+
+@impl
+def fiarg_make_node(loc, nod):
+    FIARG(loc, nod)
+
+@impl
+def fiarg_lctn/get(fia):
+    let FIARG(loc, nod) = fia
+    loc
+
+@impl
+def fiarg_node/get(fia):
+    let FIARG(loc, nod) = fia
+    nod
+
+
+private:
+    enum I0gua:
+        case I0GUA(loctn, i0gua_node)
+    @impl
+    type I0gua_tbox = I0gua
+
+@impl
+def i0gua_make_node(loc, nod):
+    I0GUA(loc, nod)
+
+@impl
+def i0gua_lctn/get(gua):
+    let I0GUA(loc, nod) = gua
+    loc
+
+@impl
+def i0gua_node/get(gua):
+    let I0GUA(loc, nod) = gua
+    nod
+
+
+private:
+    enum I0gpt:
+        case I0GPT(loctn, i0gpt_node)
+    @impl
+    type I0gpt_tbox = I0gpt
+
+@impl
+def i0gpt_make_node(loc, nod):
+    I0GPT(loc, nod)
+
+@impl
+def i0gpt_lctn/get(gpt):
+    let I0GPT(loc, nod) = gpt
+    loc
+
+@impl
+def i0gpt_node/get(gpt):
+    let I0GPT(loc, nod) = gpt
+    nod
+
+
+private:
+    enum I0cls:
+        case I0CLS(loctn, i0cls_node)
+    @impl
+    type I0cls_tbox = I0cls
+
+@impl
+def i0cls_make_node(loc, nod):
+    I0CLS(loc, nod)
+
+@impl
+def i0cls_lctn/get(cls):
+    let I0CLS(loc, nod) = cls
+    loc
+
+@impl
+def i0cls_node/get(cls):
+    let I0CLS(loc, nod) = cls
+    nod
+
+
+private:
+    enum T0imp:
+        case T0IMP(stamp, t0imp_node)
+    enum T0imp_vt:
+        case T0IMP_vt(stamp, t0imp_node)
+    @impl
+    type T0imp_tbox = T0imp
+
+@impl
+def t0imp_make_node(stm, nod):
+    T0IMP(stm, nod)
+
+@impl
+def t0imp_stmp/get(tmp):
+    let T0IMP(stm, nod) = tmp
+    stm
+
+@impl
+def t0imp_node/get(tmp):
+    let T0IMP(stm, nod) = tmp
+    nod
+
+
+private:
+    enum I0dcl:
+        case I0DCL(loctn, i0dcl_node)
+    @impl
+    type I0dcl_tbox = I0dcl
+
+@impl
+def i0dcl_make_node(loc, nod):
+    I0DCL(loc, nod)
+
+@impl
+def i0dcl_lctn/get(dcl):
+    let I0DCL(loc, nod) = dcl
+    loc
+
+@impl
+def i0dcl_node/get(dcl):
+    let I0DCL(loc, nod) = dcl
+    nod
+
+
+private:
+    enum I0valdcl:
+        case I0VALDCL(loc_t, I0pat, teqi0exp)
+    @impl
+    type I0valdcl_tbox = I0valdcl
+
+@impl
+def i0valdcl_lctn/get(ival):
+    let I0VALDCL(lctn, ipat, tdxp) = ival
+    lctn
+
+@impl
+def i0valdcl_ipat/get(ival):
+    let I0VALDCL(lctn, ipat, tdxp) = ival
+    ipat
+
+@impl
+def i0valdcl_tdxp/get(ival):
+    let I0VALDCL(lctn, ipat, tdxp) = ival
+    tdxp
+
+@impl
+def i0valdcl_make_args(lctn, ipat, tdxp):
+    I0VALDCL(lctn, ipat, tdxp)
+
+
+private:
+    enum I0vardcl:
+        case I0VARDCL(loc_t, d2var, teqi0exp)
+    @impl
+    type I0vardcl_tbox = I0vardcl
+
+@impl
+def i0vardcl_lctn/get(ivar):
+    let I0VARDCL(lctn, dpid, dini) = ivar
+    lctn
+
+@impl
+def i0vardcl_dpid/get(ivar):
+    let I0VARDCL(lctn, dpid, dini) = ivar
+    dpid
+
+@impl
+def i0vardcl_dini/get(ivar):
+    let I0VARDCL(lctn, dpid, dini) = ivar
+    dini
+
+@impl
+def i0vardcl_make_args(lctn, dpid, dini):
+    I0VARDCL(lctn, dpid, dini)
+
+
+private:
+    enum I0fundcl:
+        case I0FUNDCL(loc_t, d2var, fiarglst, teqi0exp)
+    @impl
+    type I0fundcl_tbox = I0fundcl
+
+@impl
+def i0fundcl_lctn/get(ifun):
+    let I0FUNDCL(lctn, dpid, farg, tdxp) = ifun
+    lctn
+
+@impl
+def i0fundcl_dpid/get(ifun):
+    let I0FUNDCL(lctn, dpid, farg, tdxp) = ifun
+    dpid
+
+@impl
+def i0fundcl_farg/get(ifun):
+    let I0FUNDCL(lctn, dpid, farg, tdxp) = ifun
+    farg
+
+@impl
+def i0fundcl_tdxp/get(ifun):
+    let I0FUNDCL(lctn, dpid, farg, tdxp) = ifun
+    tdxp
+
+@impl
+def i0fundcl_make_args(lctn, dpid, farg, tdxp):
+    I0FUNDCL(lctn, dpid, farg, tdxp)
+
+
+private:
+    enum I0parsed:
+        case I0PARSED(SInt, SInt, lcsrc, i0dclistopt)
+    @impl
+    type I0parsed_tbox = I0parsed
+
+@impl
+def i0parsed_stadyn/get(ipar):
+    stadyn
+where:
+    let I0PARSED(stadyn, nerror, source, parsed) = ipar
+
+@impl
+def i0parsed_nerror/get(ipar):
+    nerror
+where:
+    let I0PARSED(stadyn, nerror, source, parsed) = ipar
+
+@impl
+def i0parsed_source/get(ipar):
+    source
+where:
+    let I0PARSED(stadyn, nerror, source, parsed) = ipar
+
+@impl
+def i0parsed_parsed/get(ipar):
+    parsed
+where:
+    let I0PARSED(stadyn, nerror, source, parsed) = ipar
+
+@impl
+def i0parsed_make_args(stadyn, nerror, source, parsed):
+    I0PARSED(stadyn, nerror, source, parsed)
+
+

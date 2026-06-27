@@ -1,0 +1,211 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+import "srcgen2/DATS/lexing0_print0.dats" as _
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+@overload name = s2cst_get_name
+
+@overload lctn = s2cst_get_lctn
+
+@overload node = s2arg_get_node
+
+@overload node = s2exp_get_node
+
+@overload sort = s2exp_get_sort
+
+@overload node = l2s2e_get_node
+
+@impl
+def t2abs_fprint(tabs, out):
+    @impl[]
+    def g_print/out():
+        out
+    let sym = t2abs_get_name(tabs)
+    let tmp = t2abs_get_stmp(tabs)
+    prints(sym, "(", tmp, ")")
+
+@impl
+def t2dat_fprint(tdat, out):
+    @impl[]
+    def g_print/out():
+        out
+    let sym = t2dat_get_name(tdat)
+    let tmp = t2dat_get_stmp(tdat)
+    prints(sym, "(", tmp, ")")
+
+@impl
+def t2bas_fprint(tbas, out):
+    @impl[]
+    def g_print/out():
+        out
+    match tbas:
+        case T2Bpred(name):
+            prints("T2Bpred(", name, ")")
+        case T2Btabs(tabs):
+            prints("T2Btabs(", tabs, ")")
+        case T2Btdat(tdat):
+            prints("T2Btdat(", tdat, ")")
+        case T2Bimpr(knd0, name):
+            prints("T2Bimpr(", knd0, ";", name, ")")
+
+@impl
+def sort2_fprint(s2t0, out):
+    @impl[]
+    def g_print/out():
+        out
+    match s2t0:
+        case S2Tid0(tid):
+            prints("S2Tid0(", tid, ")")
+        case S2Tint(int):
+            prints("S2Tint(", int, ")")
+        case S2Tbas(t2b):
+            prints("S2Tbas(", t2b, ")")
+        case S2Ttup(s2ts):
+            prints("S2Ttup(", s2ts, ")")
+        case S2Tfun0():
+            prints("S2Tfun0(", ")")
+        case S2Tfun1(s2ts, s2t1):
+            prints("S2Tfun1(", s2ts, ";", s2t1, ")")
+        case S2Tapps(s2f0, s2ts):
+            prints("S2Tapps(", s2f0, ";", s2ts, ")")
+        case S2Tnone0():
+            prints("S2Tnone0(", ")")
+        case S2Tnone1(s1t1):
+            prints("S2Tnone1(", s1t1, ")")
+        case S2Terrck(lvl0, s2t1):
+            prints("S2Terrck(", lvl0, ";", s2t1, ")")
+
+@impl
+def s2arg_fprint(s2a0, out):
+    @impl[]
+    def g_print/out():
+        out
+    match s2a0.node():
+        case S2Avar(s2v1):
+            prints("S2Avar(", s2v1, ")")
+        case S2Atck(s2v1, s2t2):
+            prints("S2Atck(", s2v1, ";", s2t2, ")")
+
+@impl
+def s2tex_fprint(s2tx, out):
+    @impl[]
+    def g_print/out():
+        out
+    match s2tx:
+        case S2TEXsrt(s2t1):
+            prints("S2TEXsrt(", s2t1, ")")
+        case S2TEXsub(s2vs, s2ps):
+            prints("S2TEXsub(", s2vs, ";", s2ps, ")")
+
+@impl
+def s2cst_fprint(s2c0, out):
+    @impl[]
+    def g_print/out():
+        out
+    print(s2cst_get_name(s2c0))
+
+@impl
+def s2var_fprint(s2v0, out):
+    @impl[]
+    def g_print/out():
+        out
+    print(s2var_get_name(s2v0))
+    prints("[", s2v0.stmp(), "]")
+
+@impl
+def s2exp_fprint(s2e0, out):
+    @impl[]
+    def g_print/out():
+        out
+    match s2e0.node():
+        case S2Eint(int):
+            prints("S2Eint(", int, ")")
+        case S2Ebtf(btf):
+            prints("S2Ebtf(", btf, ")")
+        case S2Echr(chr):
+            prints("S2Echr(", chr, ")")
+        case S2Estr(str):
+            prints("S2Estr(", str, ")")
+        case S2Ecst(s2c):
+            prints("S2Ecst(", s2c, ")")
+        case S2Evar(s2v):
+            prints("S2Evar(", s2v, ")")
+        case S2Eany(knd):
+            prints("S2Eany(", knd, ")")
+        case S2Etop0(s2e):
+            prints("S2Etop0(", s2e, ")")
+        case S2Etop1(s2e):
+            prints("S2Etop1(", s2e, ")")
+        case S2Ecsts(s2cs):
+            @impl[s2cst]
+            def g_print(x):
+                prints(x.name(), "(", x.lctn(), ")")
+            prints("S2Ecsts(", s2cs, ")")
+        case S2Earg1(knd0, s2e1):
+            prints("S2Earg1(", knd0, ";", s2e1, ")")
+        case S2Eatx2(s2e1, s2e2):
+            prints("S2Eatx2(", s2e1, ";", s2e2, ")")
+        case S2Eapps(s2f0, s2es):
+            prints("S2Eapps(", s2f0, ";", s2es, ")")
+        case S2Elam1(s2vs, s2e1):
+            prints("S2Elam1(", s2vs, ";", s2e1, ")")
+        case S2Efun1(f2cl, npf1, s2es, s2r0):
+            prints("S2Efun1(", f2cl, ";")
+            prints(npf1, ";", s2es, ";", s2r0, ")")
+        case S2Emet0(s2es, s2e1):
+            prints("S2Emet0(", s2es, ";", s2e1, ")")
+        case S2Eexi0(s2vs, s2ps, s2e1):
+            print("S2Eexi0(")
+            prints(s2vs, ";", s2ps, ";", s2e1, ")")
+        case S2Euni0(s2vs, s2ps, s2e1):
+            print("S2Euni0(")
+            prints(s2vs, ";", s2ps, ";", s2e1, ")")
+        case S2Elist(s2es):
+            prints("S2Elist(", s2es, ")")
+        case S2Etype(s2tp):
+            prints("S2Etype(", s2tp, ")")
+        case S2Etext(name, s2es):
+            prints("S2Etext(", name, ";", s2es, ")")
+        case S2Etrcd(knd0, npf1, lses):
+            prints("S2Etrcd(", knd0, ";", npf1, ";", lses, ")")
+        case S2Eimpr(loc0, s2e1):
+            prints("S2Eimpr(", loc0, ";", s2e1, ")")
+        case S2Eprgm(loc0, s2e1):
+            prints("S2Eprgm(", loc0, ";", s2e1, ")")
+        case S2Ecast(loc0, s2e1, s2t2):
+            let s2t1 = s2e1.sort()
+            prints("S2Ecast(", loc0, ";")
+            prints(s2e1, ";", s2t1, ";", s2t2, ")")
+        case S2Enone0():
+            prints("S2Enone0(", ")")
+        case S2Enone1(s1e1):
+            prints("S2Enone1(", s1e1, ")")
+        case S2Enone2(s2e1):
+            prints("S2Enone2(", s2e1, ")")
+        case S2Eerrck(lvl0, s2e1):
+            prints("S2Eerrck(", lvl0, ";", s2e1, ")")
+
+@impl
+def s2itm_fprint(s2i0, out):
+    @impl[]
+    def g_print/out():
+        out
+    match s2i0:
+        case S2ITMvar(s2v1):
+            prints("S2ITMvar(", s2v1, ")")
+        case S2ITMcst(s2cs):
+            prints("S2ITMcst(", s2cs, ")")
+        case S2ITMenv(envs):
+            prints("S2ITMenv(", "...", ")")
+

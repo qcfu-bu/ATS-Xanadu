@@ -1,0 +1,608 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/parsing" import *
+
+@overload getk0 = tokbuf_getk0
+
+@overload getk1 = tokbuf_getk1
+
+@overload skip1 = tokbuf_skip1
+
+@overload node = token_get_node
+
+@impl
+def t0_t0int(tnd):
+    match tnd:
+        case T_INT01(_):
+            true
+        case T_INT02(_):
+            true
+        case T_INT03(_):
+            true
+        case _:
+            false
+
+@impl
+def t0_t0flt(tnd):
+    match tnd:
+        case T_FLT01(_):
+            true
+        case T_FLT02(_):
+            true
+        case T_FLT03(_):
+            true
+        case _:
+            false
+
+@impl
+def t0_t0chr(tnd):
+    match tnd:
+        case T_CHAR1_nil0(_):
+            true
+        case T_CHAR2_char(_):
+            true
+        case T_CHAR3_blsh(_):
+            true
+        case _:
+            false
+
+@impl
+def t0_t0str(tnd):
+    match tnd:
+        case T_STRN1_clsd(_):
+            true
+        case T_STRN2_ncls(_):
+            true
+        case _:
+            false
+
+@impl
+def t0_dtsel(tnd):
+    match tnd:
+        case T_DOT(_):
+            true
+        case T_MSGT(_):
+            true
+        case _:
+            false
+
+@impl
+def t0_g0nid(tnd):
+    match tnd:
+        case T_IDALP(_):
+            true
+        case T_IDSYM(_):
+            true
+        case _:
+            false
+
+@impl
+def t0_g0eid(tnd):
+    match tnd:
+        case T_IDALP(_):
+            true
+        case T_IDSYM(_):
+            true
+        case T_IDDLR(_):
+            true
+        case T_EQ0():
+            true
+        case T_LT0():
+            true
+        case T_GT0():
+            true
+        case T_BSLSH():
+            true
+        case _:
+            false
+
+@impl
+def t0_s0tid(tnd):
+    match tnd:
+        case T_IDALP(_):
+            true
+        case T_IDSYM(_):
+            true
+        case T_MSGT():
+            true
+        case T_BSLSH():
+            true
+        case _:
+            false
+
+@impl
+def t0_s0aid(tnd):
+    match tnd:
+        case T_IDALP(_):
+            true
+        case _:
+            false
+
+@impl
+def t0_s0eid(tnd):
+    match tnd:
+        case T_IDALP(_):
+            true
+        case T_IDSYM(_):
+            true
+        case T_IDDLR(_):
+            true
+        case T_AT0():
+            true
+        case T_EQ0():
+            true
+        case T_LT0():
+            true
+        case T_GT0():
+            true
+        case T_LTGT():
+            true
+        case T_MSGT():
+            true
+        case T_BSLSH():
+            true
+        case _:
+            false
+
+@impl
+def t0_d0pid(tnd):
+    match tnd:
+        case T_IDALP(_):
+            true
+        case T_IDSYM(_):
+            true
+        case T_AT0():
+            true
+        case T_BSLSH():
+            true
+        case _:
+            false
+
+@impl
+def t0_d0eid(tnd):
+    match tnd:
+        case T_IDALP(_):
+            true
+        case T_IDSYM(_):
+            true
+        case T_IDDLR(_):
+            true
+        case T_AT0():
+            true
+        case T_EQ0():
+            true
+        case T_EQGT():
+            true
+        case T_BSLSH():
+            true
+        case _:
+            false
+
+@impl
+def t0_dctkind(tnd):
+    match tnd:
+        case T_FUN(k0):
+            true
+        case T_VAL(k0):
+            true
+        case _:
+            false
+
+@impl
+def p1_EQ0(buf, err):
+    let e00 = err
+    let tok = tokbuf_getk0(buf)
+    match tok.node():
+        case T_EQ0():
+            buf.skip1()
+            tok
+        case _:
+            err := e00 + 1
+            tok
+
+@impl
+def pq_EQ0(buf, err):
+    let tok = buf.getk0()
+    match tok.node():
+        case T_EQ0():
+            buf.skip1()
+            optn_cons(tok)
+        case _:
+            optn_nil()
+
+@impl
+def p1_GT0(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_GT0():
+            buf.skip1()
+            tok
+        case _:
+            err := e00 + 1
+            tok
+
+@impl
+def p1_BAR(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_BAR():
+            buf.skip1()
+            tok
+        case _:
+            err := e00 + 1
+            tok
+
+@impl
+def pq_BAR(buf, err):
+    let tok = buf.getk0()
+    match tok.node():
+        case T_BAR():
+            buf.skip1()
+            optn_cons(tok)
+        case _:
+            optn_nil()
+
+@impl
+def p1_CLN(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_CLN():
+            buf.skip1()
+            tok
+        case _:
+            err := e00 + 1
+            tok
+
+@impl
+def p1_EQGT(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_EQGT():
+            buf.skip1()
+            tok
+        case _:
+            err := e00 + 1
+            tok
+
+@impl
+def p1_GTDOT(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_GTDOT():
+            buf.skip1()
+            tok
+        case _:
+            err := e00 + 1
+            tok
+
+@impl
+def pq_SMCLN(buf, err):
+    let tok = buf.getk0()
+    match tok.node():
+        case T_SMCLN():
+            buf.skip1()
+            optn_cons(tok)
+        case _:
+            optn_nil()
+
+@impl
+def p1_LPAREN(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_LPAREN():
+            buf.skip1()
+            tok
+        case _:
+            err := e00 + 1
+            tok
+
+@impl
+def p1_RPAREN(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_RPAREN():
+            buf.skip1()
+            tok
+        case _:
+            err := e00 + 1
+            tok
+
+@impl
+def p1_LBRCKT(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_LBRCKT():
+            buf.skip1()
+            tok
+        case _:
+            err := e00 + 1
+            tok
+
+@impl
+def p1_RBRCKT(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_RBRCKT():
+            buf.skip1()
+            tok
+        case _:
+            err := e00 + 1
+            tok
+
+@impl
+def p1_LBRACE(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_LBRACE():
+            buf.skip1()
+            tok
+        case _:
+            err := e00 + 1
+            tok
+
+@impl
+def pq_LBRACE(buf, err):
+    let tok = buf.getk0()
+    match tok.node():
+        case T_LBRACE():
+            buf.skip1()
+            optn_cons(tok)
+        case _:
+            optn_nil()
+
+@impl
+def p1_RBRACE(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_RBRACE():
+            buf.skip1()
+            tok
+        case _:
+            err := e00 + 1
+            tok
+
+@impl
+def p1_IN0(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_IN0():
+            buf.skip1()
+            tok
+        case _:
+            err := e00 + 1
+            tok
+
+@impl
+def pq_IN0(buf, err):
+    let tok = buf.getk0()
+    match tok.node():
+        case T_IN0():
+            buf.skip1()
+            optn_cons(tok)
+        case _:
+            optn_nil()
+
+@impl
+def p1_OF0(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_OF0():
+            buf.skip1()
+            tok
+        case _:
+            err := e00 + 1
+            tok
+
+@impl
+def p1_WITH(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_WITH():
+            buf.skip1()
+            tok
+        case _:
+            err := e00 + 1
+            tok
+
+@impl
+def p1_END(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_END():
+            buf.skip1()
+            tok
+        case _:
+            err := e00 + 1
+            tok
+
+@impl
+def pq_ENDIF0(buf, err):
+    let tok = buf.getk0()
+    match tok.node():
+        case T_ENDIF0():
+            buf.skip1()
+            optn_cons(tok)
+        case _:
+            optn_nil()
+
+@impl
+def pq_ENDCAS(buf, err):
+    let tok = buf.getk0()
+    match tok.node():
+        case T_ENDCAS():
+            buf.skip1()
+            optn_cons(tok)
+        case _:
+            optn_nil()
+
+@impl
+def pq_ENDLAM(buf, err):
+    let tok = buf.getk0()
+    match tok.node():
+        case T_ENDLAM():
+            buf.skip1()
+            optn_cons(tok)
+        case _:
+            optn_nil()
+
+@impl
+def pq_ENDFIX(buf, err):
+    let tok = buf.getk0()
+    match tok.node():
+        case T_ENDFIX():
+            buf.skip1()
+            optn_cons(tok)
+        case _:
+            optn_nil()
+
+@impl
+def p1_ENDLET(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_END():
+            buf.skip1()
+            tok
+        case T_ENDLET():
+            buf.skip1()
+            tok
+        case _:
+            err := e00 + 1
+            tok
+
+@impl
+def pq_ENDTRY(buf, err):
+    let tok = buf.getk0()
+    match tok.node():
+        case T_ENDTRY():
+            buf.skip1()
+            optn_cons(tok)
+        case _:
+            optn_nil()
+
+@impl
+def p1_ENDLOC(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_END():
+            buf.skip1()
+            tok
+        case T_ENDLOC():
+            buf.skip1()
+            tok
+        case _:
+            err := e00 + 1
+            tok
+
+@impl
+def ps_p1fun[A: Tx](buf, err, pfn):
+    let e00 = err
+    type Res = list_vt[A]
+    def loop(buf: !tkbf0, err: &Int >> _, res: list_vt[A]) -> Res:
+        let x0 = pfn(buf, err)
+        if (err == e00):
+            loop(buf, err, cons_vt(x0, res))
+        else:
+            err := e00
+            list_vt_reverse0(res)
+    loop(buf, err, list_vt_nil)
+
+@impl
+def ps_sep_p1fun[A: Tx](buf, err, fsp, pfn):
+    let e00 = err
+    let fst = pfn(buf, err)
+    type Res = list_vt[A]
+    def loop(buf: !tkbf0, err: &Int >> _, res: list_vt[A]) -> Res:
+        let tok = buf.getk0()
+        if not (fsp(tok.node())):
+            list_vt_reverse0(res)
+        else:
+            buf.skip1()
+            let x0 = pfn(buf, err)
+            loop(buf, err, cons_vt(x0, res))
+    if (err == e00):
+        let res = list_vt_sing(fst)
+        loop(buf, err, res)
+    else:
+        err := e00
+        list_vt_nil
+
+@impl
+def ps_AND_p1fun[A: Tx](buf, err, pfn):
+    ps_sep_p1fun(buf, err, tnode_ANDq, pfn)
+where:
+    def tnode_ANDq(tnd: tnode) -> Bool:
+        match tnd:
+            case T_AND():
+                true
+            case _:
+                false
+
+@impl
+def ps_BAR_p1fun[A: Tx](buf, err, pfn):
+    ps_sep_p1fun(buf, err, tnode_BARq, pfn)
+where:
+    def tnode_BARq(tnd: tnode) -> Bool:
+        match tnd:
+            case T_BAR():
+                true
+            case _:
+                false
+
+@impl
+def ps_COMMA_p1fun[A: Tx](buf, err, pfn):
+    ps_sep_p1fun(buf, err, tnode_COMMAq, pfn)
+where:
+    def tnode_COMMAq(tnd: tnode) -> Bool:
+        match tnd:
+            case T_COMMA():
+                true
+            case _:
+                false
+
+@impl
+def ps_SMCLN_p1fun[A: Tx](buf, err, pfn):
+    ps_sep_p1fun(buf, err, tnode_SMCLNq, pfn)
+where:
+    def tnode_SMCLNq(tnd: tnode) -> Bool:
+        match tnd:
+            case T_SMCLN():
+                true
+            case _:
+                false
+
+@impl
+def ps_BSCLN_p1fun[A: Tx](buf, err, pfn):
+    ps_sep_p1fun(buf, err, tnode_BSCLNq, pfn)
+where:
+    def tnode_BSCLNq(tnd: tnode) -> Bool:
+        match tnd:
+            case T_BAR():
+                true
+            case T_SMCLN():
+                true
+            case _:
+                false
+

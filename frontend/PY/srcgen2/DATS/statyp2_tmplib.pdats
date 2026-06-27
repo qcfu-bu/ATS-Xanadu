@@ -1,0 +1,779 @@
+import "srcgen1/prelude/SATS/unsafex" as UN
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/xlabel0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+@impl
+def s2typ_hnfiz0_e1nv[E1nv](e1nv, t2p0):
+    var flag: SInt = 0
+    @inst[E1nv] s2typ_hnfizx_e1nv(e1nv, t2p0, flag)
+
+@impl
+def s2typ_subst0_e1nv[E1nv](e1nv, t2p0, svts):
+    var flag: SInt = 0
+    @inst[E1nv] s2typ_substx_e1nv(e1nv, t2p0, svts, flag)
+
+@impl[]
+def s2typ_hnfizx_e1nv[E1nv](e1nv, t2p0, flag):
+    s2typ_hnfizx(e1nv, t2p0, flag)
+where:
+    def s2typ_substx(e1nv: !E1nv, t2p0: s2typ, svts: s2vts, flag: &SInt >> _) -> s2typ:
+        @inst[E1nv] s2typ_substx_e1nv(e1nv, t2p0, svts, flag)
+    def s2typ_hnfizx(e1nv: !E1nv, t2p0: s2typ, flag: &SInt >> _) -> s2typ:
+        match t2p0.node():
+            case T2Pf2cl(_):
+                t2p0
+            case T2Plam1(_):
+                t2p0
+            case T2Pnone0(_):
+                t2p0
+            case T2Pnone1(_):
+                t2p0
+            case T2Ps2exp(_):
+                t2p0
+            case T2Pcst(_):
+                f0_cst(e1nv, t2p0, flag)
+            case T2Pvar(_):
+                f0_var(e1nv, t2p0, flag)
+            case T2Plft(_):
+                f0_lft(e1nv, t2p0, flag)
+            case T2Pxtv(_):
+                f0_xtv(e1nv, t2p0, flag)
+            case T2Ptop0(_):
+                f0_top0(e1nv, t2p0, flag)
+            case T2Ptop1(_):
+                f0_top1(e1nv, t2p0, flag)
+            case T2Parg1(_):
+                f0_arg1(e1nv, t2p0, flag)
+            case T2Patx2(_):
+                f0_atx2(e1nv, t2p0, flag)
+            case T2Papps(_):
+                f0_apps(e1nv, t2p0, flag)
+            case T2Plam1(_):
+                f0_lam1(e1nv, t2p0, flag)
+            case T2Pfun1(_):
+                f0_fun1(e1nv, t2p0, flag)
+            case T2Ptrcd(_):
+                f0_trcd(e1nv, t2p0, flag)
+            case T2Ptext(_):
+                f0_text(e1nv, t2p0, flag)
+            case T2Pexi0(_):
+                f0_exi0(e1nv, t2p0, flag)
+            case T2Puni0(_):
+                f0_uni0(e1nv, t2p0, flag)
+            case _:
+                s2typ_none1(t2p0)
+    where:
+        def f0_cst(e1nv: !E1nv, t2p0: s2typ, flag: &SInt >> _) -> s2typ:
+            match opt1:
+                case ~optn_vt_nil():
+                    t2p0
+                case ~optn_vt_cons(t2p1):
+                    flag := flag + 1
+                    s2typ_hnfizx(e1nv, t2p1, flag)
+        where:
+            let T2Pcst(s2c1) = t2p0.node()
+            let opt1 = @inst[E1nv] s2typ_eval/s2cst(e1nv, s2c1)
+        def f0_var(e1nv: !E1nv, t2p0: s2typ, flag: &SInt >> _) -> s2typ:
+            match opt1:
+                case ~optn_vt_nil():
+                    t2p0
+                case ~optn_vt_cons(t2p1):
+                    flag := flag + 1
+                    s2typ_hnfizx(e1nv, t2p1, flag)
+        where:
+            let T2Pvar(s2v1) = t2p0.node()
+            let opt1 = @inst[E1nv] s2typ_eval/s2var(e1nv, s2v1)
+        def f0_lft(e1nv: !E1nv, t2p0: s2typ, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let t2p1 = s2typ_hnfizx(e1nv, t2p1, flag)
+            if (flag <= fval):
+                t2p0
+            else:
+                s2typ(t2p0.sort(), T2Plft(t2p1))
+        where:
+            let T2Plft(t2p1) = t2p0.node()
+        def f0_xtv(e1nv: !E1nv, t2p0: s2typ, flag: &SInt >> _) -> s2typ:
+            let t2p1 = xtp1.styp()
+            match t2p1.node():
+                case T2Pnone0():
+                    t2p0
+                case _:
+                    flag := flag + 1
+                    let t2p1 = s2typ_hnfizx(e1nv, t2p1, flag)
+                    xtp1.styp(t2p1)
+                    t2p1
+        where:
+            let T2Pxtv(xtp1) = t2p0.node()
+        def f0_top0(e1nv: !E1nv, t2p0: s2typ, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let T2Ptop0(t2p1) = t2p0.node()
+            let t2p1 = s2typ_hnfizx(e1nv, t2p1, flag)
+            if (flag <= fval):
+                t2p0
+            else:
+                s2typ(t2p0.sort(), T2Ptop0(t2p1))
+        def f0_top1(e1nv: !E1nv, t2p0: s2typ, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let T2Ptop1(t2p1) = t2p0.node()
+            let t2p1 = s2typ_hnfizx(e1nv, t2p1, flag)
+            if (flag <= fval):
+                t2p0
+            else:
+                s2typ(t2p0.sort(), T2Ptop1(t2p1))
+        def f0_arg1(e1nv: !E1nv, t2p0: s2typ, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let t2p1 = s2typ_hnfizx(e1nv, t2p1, flag)
+            if (flag <= fval):
+                t2p0
+            else:
+                s2typ_make_node(t2p0.sort(), T2Parg1(knd0, t2p1))
+        where:
+            let T2Parg1(knd0, t2p1) = t2p0.node()
+        def f0_atx2(e1nv: !E1nv, t2p0: s2typ, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let t2p1 = s2typ_hnfizx(e1nv, t2p1, flag)
+            let t2p2 = s2typ_hnfizx(e1nv, t2p2, flag)
+            if (flag <= fval):
+                t2p0
+            else:
+                s2typ_make_node(t2p0.sort(), T2Patx2(t2p1, t2p2))
+        where:
+            let T2Patx2(t2p1, t2p2) = t2p0.node()
+        def f0_apps(e1nv: !E1nv, t2p0: s2typ, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let t2f0 = s2typ_hnfizx(e1nv, t2f0, flag)
+            let t2ps = s2typlst_hnfizx(e1nv, t2ps, flag)
+            match t2f0.node():
+                case T2Plam1(s2vs, t2p1):
+                    flag := flag + 1
+                    let svts = s2vts(s2vs, t2ps)
+                    let tres = s2typ_substx(e1nv, t2p1, svts, flag)
+                    s2typ_hnfizx(e1nv, tres, flag)
+                case _:
+                    if (flag <= fval):
+                        t2p0
+                    else:
+                        s2typ_make_node(t2p0.sort(), T2Papps(t2f0, t2ps))
+        where:
+            let T2Papps(t2f0, t2ps) = t2p0.node()
+        def f0_lam1(e1nv: !E1nv, t2p0: s2typ, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let t2p1 = s2typ_hnfizx(e1nv, t2p1, flag)
+            if (flag <= fval):
+                t2p0
+            else:
+                s2typ_make_node(t2p0.sort(), T2Plam1(s2vs, t2p1))
+        where:
+            let T2Plam1(s2vs, t2p1) = t2p0.node()
+        def f0_fun1(e1nv: !E1nv, t2p0: s2typ, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let f2cl = s2typ_hnfizx(e1nv, f2cl, flag)
+            let tres = s2typ_hnfizx(e1nv, tres, flag)
+            let targ = s2typlst_hnfizx(e1nv, targ, flag)
+            if (flag <= fval):
+                t2p0
+            else:
+                s2typ_make_node(t2p0.sort(), T2Pfun1(f2cl, npf1, targ, tres))
+        where:
+            let T2Pfun1(f2cl, npf1, targ, tres) = t2p0.node()
+        def f0_trcd(e1nv: !E1nv, t2p0: s2typ, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let ltps = l2t2plst_hnfizx(e1nv, ltps, flag)
+            if (flag <= fval):
+                t2p0
+            else:
+                s2typ_make_node(t2p0.sort(), T2Ptrcd(tknd, npf1, ltps))
+        where:
+            let T2Ptrcd(tknd, npf1, ltps) = t2p0.node()
+        def f0_text(e1nv: !E1nv, t2p0: s2typ, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let t2ps = s2typlst_hnfizx(e1nv, t2ps, flag)
+            if (flag <= fval):
+                t2p0
+            else:
+                s2typ_make_node(t2p0.sort(), T2Ptext(tnm1, t2ps))
+        where:
+            let T2Ptext(tnm1, t2ps) = t2p0.node()
+        def f0_exi0(e1nv: !E1nv, t2p0: s2typ, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let t2p1 = s2typ_hnfizx(e1nv, t2p1, flag)
+            if (flag <= fval):
+                t2p0
+            else:
+                s2typ_make_node(t2p0.sort(), T2Pexi0(s2vs, t2p1))
+        where:
+            let T2Pexi0(s2vs, t2p1) = t2p0.node()
+        def f0_uni0(e1nv: !E1nv, t2p0: s2typ, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let t2p1 = s2typ_hnfizx(e1nv, t2p1, flag)
+            if (flag <= fval):
+                t2p0
+            else:
+                s2typ_make_node(t2p0.sort(), T2Puni0(s2vs, t2p1))
+        where:
+            let T2Puni0(s2vs, t2p1) = t2p0.node()
+
+    def l2t2p_hnfizx(e1nv: !E1nv, ltp0: l2t2p, flag: &SInt >> _) -> l2t2p:
+        let fval = flag
+        let S2LAB(l0, t2p0) = ltp0
+        let t2p0 = s2typ_hnfizx(e1nv, t2p0, flag)
+        if flag <= fval:
+            ltp0
+        else:
+            S2LAB(l0, t2p0)
+
+    def s2typlst_hnfizx(e1nv: !E1nv, t2ps: s2typlst, flag: &SInt >> _) -> s2typlst:
+        match t2ps:
+            case list_nil():
+                list_nil()
+            case list_cons(t2p1, tps2):
+                let fval = flag
+                let t2p1 = s2typ_hnfizx(e1nv, t2p1, flag)
+                let tps2 = s2typlst_hnfizx(e1nv, tps2, flag)
+                if (flag <= fval):
+                    t2ps
+                else:
+                    list_cons(t2p1, tps2)
+
+    def l2t2plst_hnfizx(e1nv: !E1nv, ltps: l2t2plst, flag: &SInt >> _) -> l2t2plst:
+        match ltps:
+            case list_nil():
+                list_nil()
+            case list_cons(ltp1, lts2):
+                let fval = flag
+                let ltp1 = l2t2p_hnfizx(e1nv, ltp1, flag)
+                let lts2 = l2t2plst_hnfizx(e1nv, lts2, flag)
+                if (flag <= fval):
+                    ltps
+                else:
+                    list_cons(ltp1, lts2)
+
+@impl[]
+def s2typ_substx_e1nv[E1nv](e1nv, t2p0, s2vtx, flag):
+    s2typ_substx(e1nv, t2p0, s2vtx, flag)
+where:
+    def s2typ_substx(e1nv: !E1nv, t2p0: s2typ, svts: s2vts, flag: &SInt >> _) -> s2typ:
+        match t2p0.node():
+            case T2Pcst(_):
+                f0_cst(e1nv, t2p0, svts, flag)
+            case T2Pvar(_):
+                f0_var(e1nv, t2p0, svts, flag)
+            case T2Pxtv(_):
+                f0_xtv(e1nv, t2p0, svts, flag)
+            case T2Ptop0(_):
+                f0_top0(e1nv, t2p0, svts, flag)
+            case T2Ptop1(_):
+                f0_top1(e1nv, t2p0, svts, flag)
+            case T2Parg1(_):
+                f0_arg1(e1nv, t2p0, svts, flag)
+            case T2Patx2(_):
+                f0_atx2(e1nv, t2p0, svts, flag)
+            case T2Papps(_):
+                f0_apps(e1nv, t2p0, svts, flag)
+            case T2Pfun1(_):
+                f0_fun1(e1nv, t2p0, svts, flag)
+            case T2Plam1(_):
+                f0_lam1(e1nv, t2p0, svts, flag)
+            case T2Ptext(_):
+                f0_text(e1nv, t2p0, svts, flag)
+            case T2Pexi0(_):
+                f0_exi0(e1nv, t2p0, svts, flag)
+            case T2Puni0(_):
+                f0_uni0(e1nv, t2p0, svts, flag)
+            case T2Ptrcd(_):
+                f0_trcd(e1nv, t2p0, svts, flag)
+            case T2Pnone0(_):
+                t2p0
+            case T2Pnone1(_):
+                t2p0
+            case T2Ps2exp(_):
+                t2p0
+            case _:
+                s2typ_none1(t2p0)
+    where:
+        def f0_cst(e1nv: !E1nv, t2p0: s2typ, svts: s2vts, flag: &SInt >> _) -> s2typ:
+            let T2Pcst(s2c1) = t2p0.node()
+            let opt1 = s2typ_eval/s2cst(e1nv, s2c1)
+            match opt1:
+                case ~optn_vt_nil():
+                    t2p0
+                case ~optn_vt_cons(t2p1):
+                    let fval = flag
+                    let t2p1 = s2typ_substx(e1nv, t2p1, svts, flag)
+                    if flag <= fval:
+                        t2p0
+                    else:
+                        t2p1
+        def f0_var(e1nv: !E1nv, t2p0: s2typ, svts: s2vts, flag: &SInt >> _) -> s2typ:
+            let T2Pvar(s2v1) = t2p0.node()
+            let opt1 = s2vts_search/opt(svts, s2v1)
+            match opt1:
+                case ~optn_vt_nil():
+                    t2p0
+                case ~optn_vt_cons(t2p1):
+                    flag := flag + 1
+                    t2p1
+        def f0_xtv(e1nv: !E1nv, t2p0: s2typ, svts: s2vts, flag: &SInt >> _) -> s2typ:
+            let T2Pxtv(xt2p) = t2p0.node()
+            let t2p1 = xt2p.styp()
+            match t2p1.node():
+                case T2Pnone0():
+                    t2p0
+                case _:
+                    flag := flag + 1
+                    s2typ_substx(e1nv, t2p1, svts, flag)
+        def f0_top0(e1nv: !E1nv, t2p0: s2typ, svts: s2vts, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let T2Ptop0(t2p1) = t2p0.node()
+            let t2p1 = s2typ_substx(e1nv, t2p1, svts, flag)
+            if flag <= fval:
+                t2p0
+            else:
+                s2typ(t2p0.sort(), T2Ptop0(t2p1))
+        def f0_top1(e1nv: !E1nv, t2p0: s2typ, svts: s2vts, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let T2Ptop1(t2p1) = t2p0.node()
+            let t2p1 = s2typ_substx(e1nv, t2p1, svts, flag)
+            if flag <= fval:
+                t2p0
+            else:
+                s2typ(t2p0.sort(), T2Ptop1(t2p1))
+        def f0_arg1(e1nv: !E1nv, t2p0: s2typ, svts: s2vts, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let T2Parg1(knd0, t2p1) = t2p0.node()
+            let t2p1 = s2typ_substx(e1nv, t2p1, svts, flag)
+            if flag <= fval:
+                t2p0
+            else:
+                s2typ(t2p0.sort(), T2Parg1(knd0, t2p1))
+        def f0_atx2(e1nv: !E1nv, t2p0: s2typ, svts: s2vts, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let T2Patx2(t2p1, t2p2) = t2p0.node()
+            let t2p1 = s2typ_substx(e1nv, t2p1, svts, flag)
+            let t2p2 = s2typ_substx(e1nv, t2p2, svts, flag)
+            if flag <= fval:
+                t2p0
+            else:
+                s2typ(t2p0.sort(), T2Patx2(t2p1, t2p2))
+        def f0_apps(e1nv: !E1nv, t2p0: s2typ, svts: s2vts, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let T2Papps(t2f0, t2ps) = t2p0.node()
+            let t2f0 = s2typ_substx(e1nv, t2f0, svts, flag)
+            let t2ps = s2typlst_substx(e1nv, t2ps, svts, flag)
+            if flag <= fval:
+                t2p0
+            else:
+                s2typ(t2p0.sort(), T2Papps(t2f0, t2ps))
+        def f0_lam1(e1nv: !E1nv, t2p0: s2typ, svts: s2vts, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let T2Plam1(s2vs, t2p1) = t2p0.node()
+            let t2p1 = s2typ_substx(e1nv, t2p1, svts, flag)
+            if flag <= fval:
+                t2p0
+            else:
+                s2typ(t2p0.sort(), T2Plam1(s2vs, t2p1))
+        def f0_fun1(e1nv: !E1nv, t2p0: s2typ, svts: s2vts, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let T2Pfun1(f2cl, npf1, t2ps, tres) = t2p0.node()
+            let t2ps = s2typlst_substx(e1nv, t2ps, svts, flag)
+            let tres = s2typ_substx(e1nv, tres, svts, flag)
+            if flag <= fval:
+                t2p0
+            else:
+                let s2t0 = t2p0.sort()
+                s2typ(s2t0, T2Pfun1(f2cl, npf1, t2ps, tres))
+        def f0_text(e1nv: !E1nv, t2p0: s2typ, svts: s2vts, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let T2Ptext(name, t2ps) = t2p0.node()
+            let t2ps = s2typlst_substx(e1nv, t2ps, svts, flag)
+            if flag <= fval:
+                t2p0
+            else:
+                s2typ(t2p0.sort(), T2Ptext(name, t2ps))
+        def f0_exi0(e1nv: !E1nv, t2p0: s2typ, svts: s2vts, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let T2Pexi0(s2vs, t2p1) = t2p0.node()
+            let t2p1 = s2typ_substx(e1nv, t2p1, svts, flag)
+            if flag <= fval:
+                t2p0
+            else:
+                s2typ(t2p0.sort(), T2Pexi0(s2vs, t2p1))
+        def f0_uni0(e1nv: !E1nv, t2p0: s2typ, svts: s2vts, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let T2Puni0(s2vs, t2p1) = t2p0.node()
+            let t2p1 = s2typ_substx(e1nv, t2p1, svts, flag)
+            if flag <= fval:
+                t2p0
+            else:
+                s2typ(t2p0.sort(), T2Puni0(s2vs, t2p1))
+        def f0_trcd(e1nv: !E1nv, t2p0: s2typ, svts: s2vts, flag: &SInt >> _) -> s2typ:
+            let fval = flag
+            let T2Ptrcd(knd0, npf1, ltps) = t2p0.node()
+            let ltps = l2t2plst_substx(e1nv, ltps, svts, flag)
+            if flag <= fval:
+                t2p0
+            else:
+                s2typ_make_node(t2p0.sort(), T2Ptrcd(knd0, npf1, ltps))
+
+    def s2typlst_substx(e1nv: !E1nv, t2ps: s2typlst, svts: s2vts, flag: &SInt >> _) -> s2typlst:
+        match t2ps:
+            case list_nil():
+                list_nil()
+            case list_cons(t2p1, tps2):
+                let fval = flag
+                let t2p1 = s2typ_substx(e1nv, t2p1, svts, flag)
+                let tps2 = s2typlst_substx(e1nv, tps2, svts, flag)
+                if flag <= fval:
+                    t2ps
+                else:
+                    list_cons(t2p1, tps2)
+
+    def l2t2plst_substx(e1nv: !E1nv, ltps: l2t2plst, svts: s2vts, flag: &SInt >> _) -> l2t2plst:
+        match ltps:
+            case list_nil():
+                list_nil()
+            case list_cons(ltp1, lts2):
+                let fval = flag
+                let S2LAB(lab1, t2p1) = ltp1
+                let t2p1 = s2typ_substx(e1nv, t2p1, svts, flag)
+                let ltp1 = if (flag <= fval):
+                    ltp1
+                else: S2LAB(lab1, t2p1)
+                let lts2 = l2t2plst_substx(e1nv, lts2, svts, flag)
+                if flag <= fval:
+                    ltps
+                else:
+                    list_cons(ltp1, lts2)
+
+@impl[]
+def unify00_s2typ_e1nv[E1nv: Vwtp](e1nv, t2p1, t2p2):
+    false
+
+@impl[]
+def match00_s2typ_e1nv[E1nv: Vwtp](e1nv, t2p1, t2p2):
+    false
+
+@impl[]
+def unify00_s2typ/xset(xtp1, t2p2):
+    x2t2p_set_styp(xtp1, t2p2)
+
+@impl[]
+def unify00_s2typ_e1nv[E1nv: Vwtp](e1nv, t2p1, t2p2):
+    unify00_s2typ(e1nv, t2p1, t2p2)
+where:
+    def isXTV(t2p0: s2typ) -> Bool:
+        match t2p0.node():
+            case T2Pxtv(_):
+                true
+            case _:
+                false
+    def f2clknd_lteq(fcl1: f2clknd, fcl2: f2clknd) -> Bool:
+        match fcl1:
+            case F2CLfun():
+                true
+            case F2CLclo(knd1):
+                match fcl2:
+                    case F2CLfun():
+                        false
+                    case F2CLclo(knd2):
+                        knd1 == knd2
+    def s2typ_subst0(e1nv: !E1nv, t2p0: s2typ, svts: s2vts) -> s2typ:
+        @inst[E1nv] s2typ_subst0_e1nv(e1nv, t2p0, svts)
+    def s2typ_exi0_abst(e1nv: !E1nv, t2p0: s2typ) -> s2typ:
+        t2p0
+    def s2typ_uni0_abst(e1nv: !E1nv, t2p0: s2typ) -> s2typ:
+        t2p0
+    private:
+        def f0_inst_s2vs(s2vs: s2varlst) -> s2vts:
+            @inst[x0] @inst[y0] list_maprev(s2vs)
+        where:
+            type X0 = s2var
+            type Y0 = (s2var, s2typ)
+            def x2t2p_make():
+                x2t2p_make_lctn(loctn_dummy())
+            @impl[X0, Y0]
+            def map/fopr(s2v1):
+                (s2v1, s2typ_xtv(x2t2p_make()))
+
+    def s2typ_exi0_inst(e1nv: !E1nv, t2p0: s2typ) -> s2typ:
+        match t2p0.node():
+            case T2Pexi0(s2vs, t2p1):
+                let svts = f0_inst_s2vs(s2vs)
+                s2typ_exi0_inst(e1nv, s2typ_subst0(e1nv, t2p1, svts))
+            case _:
+                t2p0
+    def s2typ_uni0_inst(e1nv: !E1nv, t2p0: s2typ) -> s2typ:
+        match t2p0.node():
+            case T2Puni0(s2vs, t2p1):
+                let svts = f0_inst_s2vs(s2vs)
+                s2typ_uni0_inst(e1nv, s2typ_subst0(e1nv, t2p1, svts))
+            case _:
+                t2p0
+    def unify00_s2typ(e1nv: !E1nv, t2p1: s2typ, t2p2: s2typ) -> Bool:
+        if isXTV(t2p1):
+            f0_xtv1(e1nv, t2p1, t2p2)
+        else:
+            if isXTV(t2p2):
+                f0_xtv2(e1nv, t2p1, t2p2)
+            else:
+                match t2p1.node():
+                    case T2Pcst(s2c1):
+                        match t2p2.node():
+                            case T2Pcst(s2c2):
+                                s2c1 == s2c2
+                            case _:
+                                false
+                    case T2Pvar(s2v1):
+                        match t2p2.node():
+                            case T2Pvar(s2v2):
+                                s2v1 == s2v2
+                            case _:
+                                false
+                    case T2Pf2cl(fcl1):
+                        match t2p2.node():
+                            case T2Pf2cl(fcl2):
+                                f2clknd_lteq(fcl1, fcl2)
+                            case _:
+                                false
+                    case T2Ptop0(_):
+                        f0_top0(e1nv, t2p1, t2p2)
+                    case T2Ptop1(_):
+                        f0_top1(e1nv, t2p1, t2p2)
+                    case T2Papps(_):
+                        f0_apps(e1nv, t2p1, t2p2)
+                    case T2Pfun1(_):
+                        f0_fun1(e1nv, t2p1, t2p2)
+                    case T2Ptext(_):
+                        f0_text(e1nv, t2p1, t2p2)
+                    case T2Ptrcd(_):
+                        f0_trcd(e1nv, t2p1, t2p2)
+                    case T2Pnone0(_):
+                        match t2p2.node():
+                            case T2Pnone0(_):
+                                true
+                            case T2Ps2exp(_):
+                                true
+                            case _:
+                                false
+                    case T2Ps2exp(_):
+                        match t2p2.node():
+                            case T2Pnone0(_):
+                                true
+                            case T2Ps2exp(_):
+                                true
+                            case _:
+                                false
+    where:
+        def f1_xset(xtp1: x2t2p, t2p2: s2typ) -> Void:
+            @inst[] unify00_s2typ/xset(xtp1, t2p2)
+        def f0_xtv1(e1nv: !E1nv, t2p1: s2typ, t2p2: s2typ) -> Bool:
+            let T2Pxtv(xtp1) = t2p1.node()
+            match t2p2.node():
+                case T2Pxtv(xtp2):
+                    if (xtp1 == xtp2):
+                        true
+                    else:
+                        f1_xset(xtp1, t2p2)
+                        true
+                case _:
+                    if s2typ_xtpck0(t2p2, xtp1):
+                        false
+                    else:
+                        f1_xset(xtp1, t2p2)
+                        true
+        def f0_xtv2(e1nv: !E1nv, t2p1: s2typ, t2p2: s2typ) -> Bool:
+            let T2Pxtv(xtp2) = t2p2.node()
+            if s2typ_xtpck0(t2p1, xtp2):
+                false
+            else:
+                f1_xset(xtp2, t2p1)
+                true
+        def f0_top0(e1nv: !E1nv, t2p1: s2typ, t2p2: s2typ) -> Bool:
+            let T2Ptop0(tp11) = t2p1.node()
+            match t2p2.node():
+                case T2Ptop0(tp21):
+                    unify00_s2typ(e1nv, tp11, tp21)
+                case _:
+                    false
+        def f0_top1(e1nv: !E1nv, t2p1: s2typ, t2p2: s2typ) -> Bool:
+            let T2Ptop1(tp11) = t2p1.node()
+            match t2p2.node():
+                case T2Ptop1(tp21):
+                    unify00_s2typ(e1nv, tp11, tp21)
+                case _:
+                    false
+        def f0_apps(e1nv: !E1nv, t2p1: s2typ, t2p2: s2typ) -> Bool:
+            let T2Papps(t2f1, tps1) = t2p1.node()
+            match t2p2.node():
+                case T2Papps(t2f2, tps2):
+                    let btf1 = unify00_s2typ(e1nv, t2f1, t2f2)
+                    if btf1:
+                        unify00_s2typlst(e1nv, tps1, tps2)
+                    else:
+                        false
+                case _:
+                    false
+        def f0_fun1(e1nv: !E1nv, t2p1: s2typ, t2p2: s2typ) -> Bool:
+            let T2Pfun1(fcl1, npf1, tps1, trs1) = t2p1.node()
+            match t2p2.node():
+                case T2Pfun1(fcl2, npf2, tps2, trs2):
+                    let btf1 = unify00_s2typ(e1nv, fcl1, fcl2)
+                    let btf2 = unify00_s2typ(e1nv, trs1, trs2)
+                    let btf3 = unify00_s2typlst(e1nv, tps2, tps1)
+                    if btf1:
+                        if btf2:
+                            btf3
+                        else:
+                            false
+                    else:
+                        false
+                case _:
+                    false
+        def f0_text(e1nv: !E1nv, t2p1: s2typ, t2p2: s2typ) -> Bool:
+            let T2Ptext(tnm1, tps1) = t2p1.node()
+            match t2p2.node():
+                case T2Ptext(tnm2, tps2):
+                    if (tnm1 == tnm2):
+                        unify00_s2typlst(e1nv, tps1, tps2)
+                    else:
+                        false
+                case _:
+                    false
+        def f0_trcd(e1nv: !E1nv, t2p1: s2typ, t2p2: s2typ) -> Bool:
+            let T2Ptrcd(knd1, npf1, lts1) = t2p1.node()
+            match t2p2.node():
+                case T2Ptrcd(knd2, npf2, lts2):
+                    if bool_mul(trcdknd_equal(knd1, knd2), (npf1 == npf2)):
+                        unify00_l2t2plst(e1nv, lts1, lts2)
+                    else:
+                        false
+                case _:
+                    false
+        let t2p1 = unify00_s2typ/hnfz(e1nv, t2p1)
+        let t2p2 = unify00_s2typ/hnfz(e1nv, t2p2)
+        let t2p1 = s2typ_uni0_inst(e1nv, t2p1)
+        let t2p2 = s2typ_exi0_inst(e1nv, t2p2)
+
+    def unify00_s2typlst(e1nv: !E1nv, tps1: s2typlst, tps2: s2typlst) -> Bool:
+        match tps1:
+            case list_nil():
+                match tps2:
+                    case list_nil():
+                        true
+                    case list_cons(_):
+                        false
+            case list_cons(t2p1, tps1):
+                match tps2:
+                    case list_nil():
+                        false
+                    case list_cons(t2p2, tps2):
+                        let btf1 = unify00_s2typ(e1nv, t2p1, t2p2)
+                        let btf2 = unify00_s2typlst(e1nv, tps1, tps2)
+                        if btf1:
+                            btf2
+                        else:
+                            false
+
+    def unify00_l2t2plst(e1nv: !E1nv, lts1: l2t2plst, lts2: l2t2plst) -> Bool:
+        def f1_labck(lts1: l2t2plst, lts2: l2t2plst) -> Bool:
+            match lts1:
+                case list_nil():
+                    match lts2:
+                        case list_nil(_):
+                            true
+                        case list_cons(_):
+                            false
+                case list_cons(ltp1, lts1):
+                    match lts2:
+                        case list_nil():
+                            false
+                        case list_cons(ltp2, lts2):
+                            let S2LAB(l1, t2p1) = ltp1
+                            let S2LAB(l2, t2p2) = ltp2
+                            if (l1 != l2):
+                                false
+                            else:
+                                f1_labck(lts1, lts2)
+        def f1_unify(e1nv: !E1nv, lts1: l2t2plst, lts2: l2t2plst) -> Bool:
+            match lts1:
+                case list_nil():
+                    match lts2:
+                        case list_nil():
+                            true
+                        case list_cons(_, _):
+                            false
+                case list_cons(ltp1, lts1):
+                    match lts2:
+                        case list_nil():
+                            false
+                        case list_cons(ltp2, lts2):
+                            let S2LAB(l1, t2p1) = ltp1
+                            let S2LAB(l2, t2p2) = ltp2
+                            let btf1 = if l1 != l2:
+                                false
+                            else: unify00_s2typ(e1nv, t2p1, t2p2)
+                            let btf2 = f1_unify(e1nv, lts1, lts2)
+                            if btf1:
+                                btf2
+                            else:
+                                false
+        if f1_labck(lts1, lts2):
+            f1_unify(e1nv, lts1, lts2)
+        else:
+            false
+
+private:
+    enum X2stk:
+        case X2STK(list[x2t2p])
+    @linear
+    enum X2stk_vt:
+        case X2STK_vt(list_vt[x2t2p])
+
+@impl[]
+def match00_s2typ_e1nv[E1nv: Vwtp](e1nv, t2p1, t2p2):
+    let xstk = X2STK(list_nil)
+    @impl[]
+    def unify00_s2typ/xset(xtp1, t2p2):
+        x2stk_push(xstk, xtp1)
+        x2t2p_set_styp(xtp1, t2p2)
+    let ans = @inst[E1nv] unify00_s2typ_e1nv(e1nv, t2p1, t2p2)
+    x2stk_free_all(xstk)
+    ans
+where:
+    def x2stk_push(xstk: X2stk, xtp0: x2t2p) -> Void:
+        let xstk = @sapp[X2stk_vt] UN.castlin10(xstk)
+        let @(X2STK_vt)(!xref) = xstk
+        xref := list_vt_cons(xtp0, xref)
+    def x2stk_free_all(xstk: X2stk) -> Void:
+        let xstk = @sapp[X2stk_vt] UN.castlin10(xstk)
+        let @(X2STK_vt)(!xref) = xstk
+        let xtps = xref
+        xref := list_vt_nil
+        auxfree(xtps)
+    where:
+        def auxfree(xtps: list_vt[x2t2p]) -> Void:
+            match xtps:
+                case ~list_vt_nil():
+                    ()
+                case ~list_vt_cons(xtp1, xtps):
+                    let t2p0 = s2typ_none0()
+                    xtp1.styp(t2p0)
+                    auxfree(xtps)
+
+

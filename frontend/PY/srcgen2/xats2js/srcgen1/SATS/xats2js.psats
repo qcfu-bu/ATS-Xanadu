@@ -1,0 +1,173 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+from "srcgen2/xats2js/srcgen1/SATS/intrep0" import *
+
+from "srcgen2/xats2js/srcgen1/SATS/intrep1" import *
+
+@abstract
+type Envx2js_vtbx
+
+type Envx2js = Envx2js_vtbx
+
+@extern
+def valtok_prvq(a: Token) -> Bool
+
+@extern
+def funtok_prfq(a: Token) -> Bool
+
+@extern
+def i0pat_allq(a: I0pat) -> Bool
+
+@extern
+def envx2js_filr/get(a: !Envx2js) -> FILEref
+
+@extern
+def envx2js_nind/get(a: !Envx2js) -> SInt
+
+@extern
+def envx2js_make_out(a: FILR) -> Envx2js
+
+@extern
+def envx2js_free_nil(a: ~Envx2js) -> Void
+
+@extern
+def envx2js_incnind(a: !Envx2js, b: SInt) -> Void
+
+@extern
+def envx2js_decnind(a: !Envx2js, b: SInt) -> Void
+
+@extern
+def envx2js_pshlam0(a: !Envx2js) -> Void
+
+@extern
+def envx2js_pshlet0(a: !Envx2js) -> Void
+
+@extern
+def envx2js_poplam0(a: !Envx2js) -> Void
+
+@extern
+def envx2js_poplet0(a: !Envx2js) -> Void
+
+@extern
+def list_xats2js_fnp[X0: Type](a: !Envx2js, b: List[X0], c: (!Envx2js, X0) -> Void) -> Void
+
+@extern
+def optn_xats2js_fnp[X0: Type](a: !Envx2js, b: Optn[X0], c: (!Envx2js, X0) -> Void) -> Void
+
+@extern
+def nindfpr(a: FILR, b: SInt) -> Void
+
+@extern
+def strnfpr(a: FILR, b: String) -> Void
+
+@extern
+def nindstrnfpr(a: FILR, b: SInt, c: String) -> Void
+
+@extern
+def tokenfpr(a: FILR, b: Token) -> Void
+
+@extern
+def d2confpr(a: FILR, b: D2con) -> Void
+
+@extern
+def d2cstfpr(a: FILR, b: D2cst) -> Void
+
+@extern
+def d2varfpr(a: FILR, b: D2var) -> Void
+
+@extern
+def i0chrfpr(a: FILR, b: Token) -> Void
+
+@extern
+def i0strfpr(a: FILR, b: Token) -> Void
+
+@extern
+def i1tnmfpr(a: FILR, b: I1tnm) -> Void
+
+@extern
+def xats2js_i1parsed(a: FILR, b: I1parsed) -> Void
+
+@extern
+def xats2js_i1let(a: !Envx2js, b: I1let) -> Void
+
+@extern
+def xats2js_i1bnd(a: !Envx2js, b: I1bnd) -> Void
+
+@extern
+def xats2js_i1cmp(a: !Envx2js, b: I1cmp) -> Void
+
+@extern
+def xats2js_i1ins(a: !Envx2js, b: I1ins) -> Void
+
+@extern
+def xats2js_fjarg(a: !Envx2js, b: Fjarg) -> Void
+
+@extern
+def xats2js_i1gpt(a: !Envx2js, b: I1gpt) -> Void
+
+@extern
+def xats2js_i1cls(a: !Envx2js, b: I1cls) -> Void
+
+@extern
+def xats2js_i1dcl(a: !Envx2js, b: I1dcl) -> Void
+
+@extern
+def xats2js_dimpl(a: !Envx2js, b: Dimpl) -> Void
+
+@extern
+def xats2js_t1imp(a: !Envx2js, b: T1imp) -> Void
+
+@extern
+def xats2js_i1letlst(a: !Envx2js, b: I1letlst) -> Void
+
+@extern
+def xats2js_i1cmplst(a: !Envx2js, b: I1cmplst) -> Void
+
+@extern
+def xats2js_fjarglst(a: !Envx2js, b: Fjarglst) -> Void
+
+@extern
+def xats2js_i1clslst(a: !Envx2js, b: I1clslst) -> Void
+
+@extern
+def xats2js_i1dclist(a: !Envx2js, b: I1dclist) -> Void
+
+@extern
+def xats2js_i1prvdcl(a: !Envx2js, b: I1valdcl) -> Void
+
+@extern
+def xats2js_i1valdcl(a: !Envx2js, b: I1valdcl) -> Void
+
+@extern
+def xats2js_i1vardcl(a: !Envx2js, b: I1vardcl) -> Void
+
+@extern
+def xats2js_i1prfdcl(a: !Envx2js, b: I1fundcl) -> Void
+
+@extern
+def xats2js_i1fundcl(a: !Envx2js, b: I1fundcl) -> Void
+
+@extern
+def xats2js_i1tfndcl(a: !Envx2js, b: I1fundcl) -> Void
+
+@extern
+def xats2js_i1prvdclist(a: !Envx2js, b: I1valdclist) -> Void
+
+@extern
+def xats2js_i1valdclist(a: !Envx2js, b: I1valdclist) -> Void
+
+@extern
+def xats2js_i1vardclist(a: !Envx2js, b: I1vardclist) -> Void
+
+@extern
+def xats2js_i1prfdclist(a: !Envx2js, b: I1fundclist) -> Void
+
+@extern
+def xats2js_i1fundclist(a: !Envx2js, b: I1fundclist) -> Void
+
+@extern
+def xats2js_i1tfndclist(a: !Envx2js, b: I1fundclist) -> Void
+
+@extern
+def xats2js_i1dclistopt(a: !Envx2js, b: I1dclistopt) -> Void
+

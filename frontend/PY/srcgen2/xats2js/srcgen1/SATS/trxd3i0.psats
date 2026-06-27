@@ -1,0 +1,102 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+from "srcgen2/xats2js/srcgen1/SATS/intrep0" import *
+
+@extern
+def i0parsed_of_trxd3i0(a: D3parsed) -> I0parsed
+
+@abstract
+type Envd3i0_vtbx
+
+type Envd3i0 = Envd3i0_vtbx
+
+@extern
+def envd3i0_make_nil() -> Envd3i0
+
+@extern
+def envd3i0_free_nil(a: Envd3i0) -> Void
+
+@extern
+def list_trxd3i0_fnp[X0: Type, Y0: Type](a: !Envd3i0, b: List[X0], c: (!Envd3i0, X0) -> Y0) -> List[Y0]
+
+@extern
+def optn_trxd3i0_fnp[X0: Type, Y0: Type](a: !Envd3i0, b: Optn[X0], c: (!Envd3i0, X0) -> Y0) -> Optn[Y0]
+
+@extern
+def trxd3i0_d3pat(a: !Envd3i0, b: D3pat) -> I0pat
+
+@extern
+def trxd3i0_d3exp(a: !Envd3i0, b: D3exp) -> I0exp
+
+@extern
+def trxd3i0_l3d3p(a: !Envd3i0, b: L3d3p) -> L0i0p
+
+@extern
+def trxd3i0_l3d3e(a: !Envd3i0, b: L3d3e) -> L0i0e
+
+@extern
+def trxd3i0_d3gua(a: !Envd3i0, b: D3gua) -> I0gua
+
+@extern
+def trxd3i0_d3gpt(a: !Envd3i0, b: D3gpt) -> I0gpt
+
+@extern
+def trxd3i0_d3cls(a: !Envd3i0, b: D3cls) -> I0cls
+
+@extern
+def trxd3i0_timpl(a: !Envd3i0, b: Timpl) -> T0imp
+
+@extern
+def trxd3i0_d3ecl(a: !Envd3i0, b: D3ecl) -> I0dcl
+
+@extern
+def trxd3i0_d3patlst(a: !Envd3i0, b: D3patlst) -> I0patlst
+
+@extern
+def trxd3i0_d3explst(a: !Envd3i0, b: D3explst) -> I0explst
+
+@extern
+def trxd3i0_d3expopt(a: !Envd3i0, b: D3expopt) -> I0expopt
+
+@extern
+def trxd3i0_l3d3plst(a: !Envd3i0, b: L3d3plst) -> L0i0plst
+
+@extern
+def trxd3i0_l3d3elst(a: !Envd3i0, b: L3d3elst) -> L0i0elst
+
+@extern
+def trxd3i0_f3arglst(a: !Envd3i0, b: F3arglst) -> Fiarglst
+
+@extern
+def trxd3i0_d3gualst(a: !Envd3i0, b: D3gualst) -> I0gualst
+
+@extern
+def trxd3i0_d3clslst(a: !Envd3i0, b: D3clslst) -> I0clslst
+
+@extern
+def trxd3i0_d3eclist(a: !Envd3i0, b: D3eclist) -> I0dclist
+
+@extern
+def trxd3i0_teqd3exp(a: !Envd3i0, b: Teqd3exp) -> Teqi0exp
+
+@extern
+def trxd3i0_d3valdcl(a: !Envd3i0, b: D3valdcl) -> I0valdcl
+
+@extern
+def trxd3i0_d3vardcl(a: !Envd3i0, b: D3vardcl) -> I0vardcl
+
+@extern
+def trxd3i0_d3fundcl(a: !Envd3i0, b: D3fundcl) -> I0fundcl
+
+@extern
+def trxd3i0_d3valdclist(a: !Envd3i0, b: D3valdclist) -> I0valdclist
+
+@extern
+def trxd3i0_d3vardclist(a: !Envd3i0, b: D3vardclist) -> I0vardclist
+
+@extern
+def trxd3i0_d3fundclist(a: !Envd3i0, b: D3fundclist) -> I0fundclist
+
+@extern
+def trxd3i0_d3eclistopt(a: !Envd3i0, b: D3eclistopt) -> I0dclistopt
+

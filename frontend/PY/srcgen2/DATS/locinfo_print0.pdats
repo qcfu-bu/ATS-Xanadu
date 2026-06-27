@@ -1,0 +1,51 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/locinfo" import *
+
+@impl
+def lcsrc_fprint(src, out):
+    @impl[]
+    def g_print/out():
+        out
+    match src:
+        case LCSRCnone0():
+            print("()")
+        case LCSRCfpath(fpx):
+            prints("LCSRCfpath(", fpx, ")")
+        case LCSRCsome1(txt):
+            prints("LCSRCsome1(", txt, ")")
+
+@impl
+def postn_fprint(pos, out):
+    let ntot = pos.ntot()
+    let nrow = pos.nrow()
+    let ncol = pos.ncol()
+    @impl[]
+    def g_print/out():
+        out
+    prints((ntot + 1), "(line=", nrow + 1, ",offs=", ncol + 1, ")")
+
+@impl
+def loctn_fprint(loc, out):
+    let lsrc = loc.lsrc()
+    let pbeg = loc.pbeg()
+    let pend = loc.pend()
+    @impl[]
+    def g_print/out():
+        out
+    prints(lsrc, "@(", pbeg, "--", pend, ")")
+
+@impl
+def fprint_loctn_as_stamp(out, loc):
+    print(ntot)
+where:
+    @impl[]
+    def g_print/out():
+        out
+    let pbeg = loc.pbeg()
+    let ntot = postn_get_ntot(pbeg)
+

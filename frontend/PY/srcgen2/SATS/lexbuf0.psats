@@ -1,0 +1,92 @@
+import "srcgen2/SATS/locinfo" as LOC
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+type Pos_t = LOC.pos_t
+
+type Loc_t = LOC.loc_t
+
+@abstract
+type Lxbf1_vtbx
+
+type Lxbf1 = Lxbf1_vtbx
+
+@abstract
+type Lxbf2_vtbx
+
+type Lxbf2 = Lxbf2_vtbx
+
+type Lxbf0_getc0[Obj: Vt] = !Obj -> SInt
+
+type Lxbf0_getc1[Obj: Vt] = !Obj -> SInt
+
+@extern
+def lxbf1_getc0(a: !Lxbf1) -> SInt
+
+@extern
+def lxbf1_getc1(a: !Lxbf1) -> SInt
+
+@overload getc0 = lxbf1_getc0
+
+@overload getc1 = lxbf1_getc1
+
+@extern
+def lxbf1_unget(a: !Lxbf1, b: SInt) -> SInt
+
+@overload unget = lxbf1_unget
+
+@extern
+def lxbf1_take_clst(a: !Lxbf1) -> List_vt[Char]
+
+@overload tclst = lxbf1_take_clst
+
+@extern
+def lxbf1_make_strn(a: String) -> Lxbf1
+
+@extern
+def lxbf1_make_fpath(a: String) -> Lxbf1
+
+@extern
+def lxbf1_make_cstrm(a: ~Strm_vt[Char]) -> Lxbf1
+
+@extern
+def lxbf1_make_cstrx(a: ~Strx_vt[SInt]) -> Lxbf1
+
+@extern
+def lxbf2_getc0(a: !Lxbf2) -> SInt
+
+@extern
+def lxbf2_getc1(a: !Lxbf2) -> SInt
+
+@overload getc0 = lxbf2_getc0
+
+@overload getc1 = lxbf2_getc1
+
+@extern
+def lxbf2_unget(a: !Lxbf2) -> SInt
+
+@overload unget = lxbf2_unget
+
+@extern
+def lxbf2_copy_pbeg(a: !Lxbf2) -> Pos_t
+
+@extern
+def lxbf2_copy_pcur(a: !Lxbf2) -> Pos_t
+
+@overload cpbeg = lxbf2_copy_pbeg
+
+@overload cpcur = lxbf2_copy_pcur
+
+@extern
+def lxbf2_take_clst(a: !Lxbf2) -> List_vt[Char]
+
+@overload tclst = lxbf2_take_clst
+
+@extern
+def lxbf2_make_strn(a: String) -> Lxbf2
+
+@extern
+def lxbf2_make_cstrx(a: ~Strx_vt[SInt]) -> Lxbf2
+

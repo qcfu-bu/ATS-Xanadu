@@ -1,0 +1,115 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/xglobal" import *
+
+from "srcgen2/SATS/gmacro1" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/SATS/trans23" import *
+
+@overload name = s2cst_get_name
+
+@overload styp = s2cst_get_styp
+
+private:
+    @linear
+    enum Tr23env:
+        case TR23ENV(stkmap[s2cstlst])
+    @impl
+    type Tr23env_vtbx = Tr23env
+
+@impl
+def tr23env_make_nil():
+    let stkmap = @sapp[s2cstlst] stkmap_make_nil()
+    TR23ENV(stkmap)
+
+@impl
+def tr23env_free_nil(env0):
+    match env0:
+        case ~TR23ENV(stkmap):
+            var stkmap = stkmap
+            let nerr = stkmap_poptop0(stkmap)
+            stkmap_free_nil(stkmap)
+            ()
+
+@impl
+def tr23env_pshlet0(env0):
+    let @(TR23ENV)(!stkmap) = env0
+    stkmap_pshlet0(stkmap)
+    fold(env0)
+
+@impl
+def tr23env_poplet0(env0):
+    let @(TR23ENV)(!stkmap) = env0
+    let nerr = stkmap_poplet0(stkmap)
+    fold(env0)
+
+@impl
+def tr23env_pshloc1(env0):
+    let @(TR23ENV)(!stkmap) = env0
+    let nerr = stkmap_pshloc1(stkmap)
+    fold(env0)
+
+@impl
+def tr23env_pshloc2(env0):
+    let @(TR23ENV)(!stkmap) = env0
+    let nerr = stkmap_pshloc2(stkmap)
+    fold(env0)
+
+@impl
+def tr23env_locjoin(env0):
+    let @(TR23ENV)(!stkmap) = env0
+    let (nerr, kxs) = stkmap_poploc0(stkmap)
+    stkmap_insert/kxs(stkmap, kxs)
+    fold(env0)
+
+@impl
+def tr23env_search/opt(env0, s2c0):
+    let k0 = s2c0.name()
+    let TR23ENV(stkmap) = env0
+    let opt1 = stkmap_search/opt(stkmap, k0)
+    match opt1:
+        case ~optn_vt_nil():
+            list_nil()
+        case ~optn_vt_cons(s2cs):
+            s2cs
+
+@impl
+def tr23env_insert/any(env0, s2c0):
+    let s2cs = tr23env_search/opt(env0, s2c0)
+    let s2cs = list_cons(s2c0, s2cs)
+    let x0 = s2cs
+    let k0 = s2c0.name()
+    let @(TR23ENV)(!stkmap) = env0
+    stkmap_insert/any(stkmap, k0, x0)
+
+
+@impl
+def tr23env_evstyp_cst(env0, s2c0):
+    let s2cs = tr23env_search/opt(env0, s2c0)
+    def f0_s2cs(s2cs: s2cstlst) -> s2typopt_vt:
+        match s2cs:
+            case list_nil():
+                optn_vt_nil()
+            case list_cons(s2c1, s2cs):
+                if (s2c0 == s2c1):
+                    s2abs_get_styp(s2c0)
+                else:
+                    f0_s2cs(s2cs)
+    f0_s2cs(s2cs)
+

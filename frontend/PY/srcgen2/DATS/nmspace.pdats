@@ -1,0 +1,129 @@
+import "srcgen1/prelude/SATS/unsafex" as UN
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/nmspace" import *
+
+type Nmitmlst_vt = list_vt[nmitm]
+
+type Nmitmlst2_vt = list_vt[Nmitmlst_vt]
+
+type Savednmlst_vt = list_vt[(Nmitmlst_vt, Nmitmlst2_vt)]
+
+def nmitmlst_vt_free(xs: Nmitmlst_vt) -> Void:
+    @inst[nmitm] list_vt_free(xs)
+
+def nmitmlst2_vt_free[N: SInt](xss: list_vt[Nmitmlst_vt, N]) -> Void:
+    match xss:
+        case ~list_vt_nil():
+            ()
+        case ~list_vt_cons(xs1, xss):
+            nmitmlst_vt_free(xs1)
+            nmitmlst2_vt_free(xss)
+
+private:
+    let the_nmitmlst = @inst[Nmitmlst_vt] a0ref_make_1val(list_vt_nil())
+    let the_nmitmlst2 = @inst[Nmitmlst2_vt] a0ref_make_1val(list_vt_nil())
+    let the_savednmlst = @inst[Savednmlst_vt] a0ref_make_1val(list_vt_nil())
+
+@impl
+def the_nmspace_top0():
+    let xs = @inst[Nmitmlst_vt] a0ref_dtget(the_nmitmlst)
+    let xs = UN.enlinear(xs)
+    let list_vt_cons(x0, _) = xs
+    let xs = UN.delinear(xs)
+    x0
+
+@impl
+def the_nmspace_pop0():
+    ()
+where:
+    let xss = @inst[Nmitmlst2_vt] a0ref_dtget(the_nmitmlst2)
+    let xss = UN.enlinear(xss)
+    let ~list_vt_cons(xs1, xss) = xss
+    let xss = @inst[Nmitmlst2_vt] a0ref_exch(the_nmitmlst2, xss)
+    let xss = UN.delinear(xss)
+    let xs1 = xs1
+    let xs0 = @inst[Nmitmlst_vt] a0ref_exch(the_nmitmlst, xs1)
+    nmitmlst_vt_free(xs0)
+
+@impl
+def the_nmspace_push():
+    ()
+where:
+    let xs = list_vt_nil()
+    let xs = @inst[Nmitmlst_vt] a0ref_exch(the_nmitmlst, xs)
+    let xss = @inst[Nmitmlst2_vt] a0ref_dtget(the_nmitmlst2)
+    let xss = UN.delinear(list_vt_cons(xs, UN.enlinear(xss)))
+    @inst[Nmitmlst2_vt] a0ref_dtset(the_nmitmlst2, xss)
+
+@impl
+def the_nmspace_filsave():
+    ()
+where:
+    let xs0 = list_vt_nil()
+    let xs0 = @inst[Nmitmlst_vt] a0ref_exch(the_nmitmlst, xs0)
+    let xss = list_vt_nil()
+    let xss = @inst[Nmitmlst2_vt] a0ref_exch(the_nmitmlst2, xss)
+    let xys = @inst[Savednmlst_vt] a0ref_dtget(the_savednmlst)
+    let xys = UN.delinear(list_vt_cons((xs0, xss), UN.enlinear(xys)))
+    a0ref_dtset(the_savednmlst, xys)
+
+@impl
+def the_nmspace_filrest():
+    ()
+where:
+    let xys = @inst[Savednmlst_vt] a0ref_dtget(the_savednmlst)
+    let ~list_vt_cons(xy0, xys) = UN.enlinear(xys)
+    let xys = UN.delinear(xys)
+    a0ref_dtset(the_savednmlst, xys)
+    let xy0 = xy0
+    let (xs0, xss) = xy0
+    let xs0 = a0ref_exch(the_nmitmlst, xs0)
+    let xss = a0ref_exch(the_nmitmlst2, xss)
+    nmitmlst_vt_free(xs0)
+    nmitmlst2_vt_free(xss)
+
+@impl
+def the_nmspace_find/f1un[A: Tx](fopr):
+    type Fopr_t = nmitm -> optn_vt[A]
+    def auxlst(f0: Fopr_t, xs: !Nmitmlst_vt) -> optn_vt[A]:
+        match xs:
+            case list_vt_nil():
+                optn_vt_nil()
+            case list_vt_cons(x0, xs):
+                match f0(x0):
+                    case ~optn_vt_nil():
+                        auxlst(f0, xs)
+                    case ans:
+                        ans
+    def auxlst2(f0: !Fopr_t, xss: !Nmitmlst2_vt) -> optn_vt[A]:
+        match xss:
+            case list_vt_nil():
+                optn_vt_nil()
+            case list_vt_cons(xs0, xss):
+                match auxlst(f0, xs0):
+                    case ~optn_vt_nil():
+                        auxlst2(f0, xss)
+                    case ans:
+                        ans
+    let xs0 = @inst[Nmitmlst_vt] a0ref_dtget(the_nmitmlst)
+    let xs0 = UN.enlinear(xs0)
+    let ans = auxlst(fopr, xs0)
+    let xs0 = UN.delinear(xs0)
+    let ans = ans
+    match ans:
+        case ~optn_vt_nil():
+            let xss = @inst[Nmitmlst2_vt] a0ref_dtget(the_nmitmlst2)
+            let xss = UN.enlinear(xss)
+            let ans = auxlst2(fopr, xss)
+            let xss = UN.delinear(xss)
+            ans
+        case _:
+            ans
+
+

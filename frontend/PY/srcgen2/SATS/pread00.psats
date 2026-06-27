@@ -1,0 +1,607 @@
+import "srcgen2/SATS/lexing0" as LEX
+
+import "srcgen2/SATS/staexp0" as S0E
+
+import "srcgen2/SATS/dynexp0" as D0E
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+type Token = LEX.token
+
+type I0dnt = S0E.i0dnt
+
+type L0abl = S0E.l0abl
+
+type S0ymb = S0E.s0ymb
+
+type S0qid = S0E.s0qid
+
+type D0qid = S0E.d0qid
+
+type T0int = S0E.t0int
+
+type T0chr = S0E.t0chr
+
+type T0flt = S0E.t0flt
+
+type T0str = S0E.t0str
+
+type G0exp = S0E.g0exp
+
+type G0mag = S0E.g0mag
+
+type Sort0 = S0E.sort0
+
+type S0exp = S0E.s0exp
+
+type L0s0e = S0E.l0s0e
+
+type S0arg = S0E.s0arg
+
+type S0mag = S0E.s0mag
+
+type T0arg = S0E.t0arg
+
+type T0mag = S0E.t0mag
+
+type S0qua = S0E.s0qua
+
+type S0uni = S0E.s0uni
+
+type S0tdf = S0E.s0tdf
+
+type D0pat = D0E.d0pat
+
+type D0exp = D0E.d0exp
+
+type L0d0p = D0E.l0d0p
+
+type L0d0e = D0E.l0d0e
+
+type F0arg = D0E.f0arg
+
+type S0res = D0E.s0res
+
+type D0res = D0E.d0res
+
+type T0qua = D0E.t0qua
+
+type T0inv = D0E.t0inv
+
+type D0cls = D0E.d0cls
+
+type D0gua = D0E.d0gua
+
+type D0gpt = D0E.d0gpt
+
+type D0ecl = D0E.d0ecl
+
+type A0tdf = D0E.a0tdf
+
+type S0exp_RPAREN = S0E.s0exp_RPAREN
+
+type L0s0e_RBRACE = S0E.l0s0e_RBRACE
+
+type I0dntopt = S0E.i0dntopt
+
+type I0dntlst = S0E.i0dntlst
+
+type G0explst = S0E.g0explst
+
+type G0expopt = S0E.g0expopt
+
+type G0maglst = S0E.g0maglst
+
+type S0expopt = S0E.s0expopt
+
+type Sort0opt = S0E.sort0opt
+
+type Sort0lst = S0E.sort0lst
+
+type S0explst = S0E.s0explst
+
+type L0s0elst = S0E.l0s0elst
+
+type S0arglst = S0E.s0arglst
+
+type S0maglst = S0E.s0maglst
+
+type T0arglst = S0E.t0arglst
+
+type T0maglst = S0E.t0maglst
+
+type S0qualst = S0E.s0qualst
+
+type S0unilst = S0E.s0unilst
+
+type D0exp_THEN = D0E.d0exp_THEN
+
+type D0exp_ELSE = D0E.d0exp_ELSE
+
+type D0pat_RPAREN = D0E.d0pat_RPAREN
+
+type L0d0p_RBRACE = D0E.l0d0p_RBRACE
+
+type D0exp_RPAREN = D0E.d0exp_RPAREN
+
+type L0d0e_RBRACE = D0E.l0d0e_RBRACE
+
+type D0eclseq_WHERE = D0E.d0eclseq_WHERE
+
+type F0unarrw = D0E.f0unarrw
+
+type D0patopt = D0E.d0patopt
+
+type D0expopt = D0E.d0expopt
+
+type D0patlst = D0E.d0patlst
+
+type L0d0plst = D0E.l0d0plst
+
+type D0explst = D0E.d0explst
+
+type L0d0elst = D0E.l0d0elst
+
+type F0arglst = D0E.f0arglst
+
+type T0qualst = D0E.t0qualst
+
+type D0clslst = D0E.d0clslst
+
+type D0gualst = D0E.d0gualst
+
+type D0eclist = D0E.d0eclist
+
+type D0parsed = D0E.d0parsed
+
+type D0eclistopt = Optn[D0eclist]
+
+@extern
+def d0parsed_of_pread00(a: D0parsed) -> D0parsed
+
+type Fpread00[Syn: Tbox] = (Syn, &SInt >> _) -> Syn
+
+@extern
+def pread00_i0dnt() -> Fpread00[I0dnt]
+
+@extern
+def pread00_l0abl() -> Fpread00[L0abl]
+
+@extern
+def pread00_s0ymb() -> Fpread00[S0ymb]
+
+@extern
+def pread00_s0qid() -> Fpread00[S0qid]
+
+@extern
+def pread00_d0qid() -> Fpread00[D0qid]
+
+@extern
+def pread00_g0exp() -> Fpread00[G0exp]
+
+@extern
+def pread00_g0mag() -> Fpread00[G0mag]
+
+@extern
+def pread00_sort0() -> Fpread00[Sort0]
+
+@extern
+def pread00_s0exp() -> Fpread00[S0exp]
+
+@extern
+def pread00_l0s0e() -> Fpread00[L0s0e]
+
+@extern
+def pread00_s0arg() -> Fpread00[S0arg]
+
+@extern
+def pread00_s0mag() -> Fpread00[S0mag]
+
+@extern
+def pread00_t0arg() -> Fpread00[T0arg]
+
+@extern
+def pread00_t0mag() -> Fpread00[T0mag]
+
+@extern
+def pread00_s0qua() -> Fpread00[S0qua]
+
+@extern
+def pread00_s0tdf() -> Fpread00[S0tdf]
+
+@overload pread00 = pread00_i0dnt
+
+@overload pread00 = pread00_s0qid
+
+@overload pread00 = pread00_d0qid
+
+@overload pread00 = pread00_g0exp
+
+@overload pread00 = pread00_g0mag
+
+@overload pread00 = pread00_sort0
+
+@overload pread00 = pread00_s0exp
+
+@overload pread00 = pread00_l0s0e
+
+@overload pread00 = pread00_s0arg
+
+@overload pread00 = pread00_s0mag
+
+@overload pread00 = pread00_t0arg
+
+@overload pread00 = pread00_t0mag
+
+@overload pread00 = pread00_s0qua
+
+@extern
+def list_pread00_fnp[Syn: Tx](a: List[Syn], b: &SInt >> _, c: Fpread00[Syn]) -> List[Syn]
+
+@extern
+def optn_pread00_fnp[Syn: Tx](a: Optn[Syn], b: &SInt >> _, c: Fpread00[Syn]) -> Optn[Syn]
+
+@extern
+def pread00_i0dntopt() -> Fpread00[I0dntopt]
+
+@extern
+def pread00_i0dntlst() -> Fpread00[I0dntlst]
+
+@extern
+def pread00_g0explst() -> Fpread00[G0explst]
+
+@extern
+def pread00_g0expopt() -> Fpread00[G0expopt]
+
+@extern
+def pread00_g0maglst() -> Fpread00[G0maglst]
+
+@extern
+def pread00_sort0lst() -> Fpread00[Sort0lst]
+
+@extern
+def pread00_sort0opt() -> Fpread00[Sort0opt]
+
+@extern
+def pread00_s0explst() -> Fpread00[S0explst]
+
+@extern
+def pread00_s0expopt() -> Fpread00[S0expopt]
+
+@extern
+def pread00_l0s0elst() -> Fpread00[L0s0elst]
+
+@extern
+def pread00_s0arglst() -> Fpread00[S0arglst]
+
+@extern
+def pread00_s0maglst() -> Fpread00[S0maglst]
+
+@extern
+def pread00_t0arglst() -> Fpread00[T0arglst]
+
+@extern
+def pread00_t0maglst() -> Fpread00[T0maglst]
+
+@extern
+def pread00_s0qualst() -> Fpread00[S0qualst]
+
+@overload pread00 = pread00_sort0opt
+
+@overload pread00 = pread00_s0expopt
+
+@overload pread00 = pread00_sort0lst
+
+@overload pread00 = pread00_s0explst
+
+@overload pread00 = pread00_l0s0elst
+
+@overload pread00 = pread00_s0arglst
+
+@overload pread00 = pread00_s0maglst
+
+@overload pread00 = pread00_t0maglst
+
+@overload pread00 = pread00_s0qualst
+
+@extern
+def pread00_s0exp_RPAREN() -> Fpread00[S0exp_RPAREN]
+
+@extern
+def pread00_l0s0e_RBRACE() -> Fpread00[L0s0e_RBRACE]
+
+@extern
+def pread00_d0pat() -> Fpread00[D0pat]
+
+@extern
+def pread00_l0d0p() -> Fpread00[L0d0p]
+
+@extern
+def pread00_d0exp() -> Fpread00[D0exp]
+
+@extern
+def pread00_l0d0e() -> Fpread00[L0d0e]
+
+@extern
+def pread00_f0arg() -> Fpread00[F0arg]
+
+@extern
+def pread00_s0res() -> Fpread00[S0res]
+
+@extern
+def pread00_d0res() -> Fpread00[D0res]
+
+@extern
+def pread00_t0inv() -> Fpread00[T0inv]
+
+@extern
+def pread00_d0cls() -> Fpread00[D0cls]
+
+@extern
+def pread00_d0gua() -> Fpread00[D0gua]
+
+@extern
+def pread00_d0gpt() -> Fpread00[D0gpt]
+
+@extern
+def pread00_d0ecl() -> Fpread00[D0ecl]
+
+@extern
+def pread00_a0tdf() -> Fpread00[A0tdf]
+
+@extern
+def pread00_d0patopt() -> Fpread00[D0patopt]
+
+@extern
+def pread00_d0expopt() -> Fpread00[D0expopt]
+
+@extern
+def pread00_d0patlst() -> Fpread00[D0patlst]
+
+@extern
+def pread00_d0explst() -> Fpread00[D0explst]
+
+@extern
+def pread00_d0expseq() -> Fpread00[D0explst]
+
+@extern
+def pread00_l0d0plst() -> Fpread00[L0d0plst]
+
+@extern
+def pread00_l0d0elst() -> Fpread00[L0d0elst]
+
+@extern
+def pread00_f0arglst() -> Fpread00[F0arglst]
+
+@extern
+def pread00_d0clslst() -> Fpread00[D0clslst]
+
+@extern
+def pread00_d0gualst() -> Fpread00[D0gualst]
+
+@extern
+def pread00_d0eclist() -> Fpread00[D0eclist]
+
+@extern
+def pread00_d0eclistopt() -> Fpread00[D0eclistopt]
+
+@overload pread00 = pread00_d0pat
+
+@overload pread00 = pread00_d0exp
+
+@overload pread00 = pread00_d0ecl
+
+@overload pread00 = pread00_d0patlst
+
+@overload pread00 = pread00_d0explst
+
+@overload pread00 = pread00_d0eclist
+
+@overload pread00 = pread00_d0eclistopt
+
+@extern
+def pread00_d0pat_RPAREN() -> Fpread00[D0pat_RPAREN]
+
+@extern
+def pread00_l0d0p_RBRACE() -> Fpread00[L0d0p_RBRACE]
+
+@extern
+def pread00_d0exp_THEN() -> Fpread00[D0exp_THEN]
+
+@extern
+def pread00_d0exp_ELSE() -> Fpread00[D0exp_ELSE]
+
+@extern
+def pread00_d0exp_RPAREN() -> Fpread00[D0exp_RPAREN]
+
+@extern
+def pread00_l0d0e_RBRACE() -> Fpread00[L0d0e_RBRACE]
+
+@extern
+def pread00_d0eclseq_WHERE() -> Fpread00[D0eclseq_WHERE]
+
+@extern
+def s0ymb_fpemsg(a: FILR, b: S0ymb) -> Void
+
+@extern
+def i0dnt_fpemsg(a: FILR, b: I0dnt) -> Void
+
+@extern
+def l0abl_fpemsg(a: FILR, b: L0abl) -> Void
+
+@extern
+def t0int_fpemsg(a: FILR, b: T0int) -> Void
+
+@extern
+def t0chr_fpemsg(a: FILR, b: T0chr) -> Void
+
+@extern
+def t0flt_fpemsg(a: FILR, b: T0flt) -> Void
+
+@extern
+def t0str_fpemsg(a: FILR, b: T0str) -> Void
+
+@extern
+def s0qid_fpemsg(a: FILR, b: S0qid) -> Void
+
+@extern
+def d0qid_fpemsg(a: FILR, b: D0qid) -> Void
+
+@extern
+def g0exp_fpemsg(a: FILR, b: G0exp) -> Void
+
+@extern
+def sort0_fpemsg(a: FILR, b: Sort0) -> Void
+
+@extern
+def s0exp_fpemsg(a: FILR, b: S0exp) -> Void
+
+@extern
+def l0s0e_fpemsg(a: FILR, b: L0s0e) -> Void
+
+@extern
+def s0arg_fpemsg(a: FILR, b: S0arg) -> Void
+
+@extern
+def s0mag_fpemsg(a: FILR, b: S0mag) -> Void
+
+@extern
+def t0arg_fpemsg(a: FILR, b: T0arg) -> Void
+
+@extern
+def t0mag_fpemsg(a: FILR, b: T0mag) -> Void
+
+@extern
+def s0qua_fpemsg(a: FILR, b: S0qua) -> Void
+
+@extern
+def s0uni_fpemsg(a: FILR, b: S0uni) -> Void
+
+@extern
+def s0tdf_fpemsg(a: FILR, b: S0tdf) -> Void
+
+@extern
+def i0dntlst_fpemsg(a: FILR, b: I0dntlst) -> Void
+
+@extern
+def g0expopt_fpemsg(a: FILR, b: G0expopt) -> Void
+
+@extern
+def sort0opt_fpemsg(a: FILR, b: Sort0opt) -> Void
+
+@extern
+def s0expopt_fpemsg(a: FILR, b: S0expopt) -> Void
+
+@extern
+def sort0lst_fpemsg(a: FILR, b: Sort0lst) -> Void
+
+@extern
+def s0explst_fpemsg(a: FILR, b: S0explst) -> Void
+
+@extern
+def l0s0elst_fpemsg(a: FILR, b: L0s0elst) -> Void
+
+@extern
+def s0arglst_fpemsg(a: FILR, b: S0arglst) -> Void
+
+@extern
+def s0maglst_fpemsg(a: FILR, b: S0maglst) -> Void
+
+@extern
+def t0arglst_fpemsg(a: FILR, b: T0arglst) -> Void
+
+@extern
+def t0maglst_fpemsg(a: FILR, b: T0maglst) -> Void
+
+@extern
+def s0qualst_fpemsg(a: FILR, b: S0qualst) -> Void
+
+@extern
+def s0unilst_fpemsg(a: FILR, b: S0unilst) -> Void
+
+@extern
+def s0exp_RPAREN_fpemsg(a: FILR, b: S0exp_RPAREN) -> Void
+
+@extern
+def l0s0e_RBRACE_fpemsg(a: FILR, b: L0s0e_RBRACE) -> Void
+
+@extern
+def d0pat_fpemsg(a: FILR, b: D0pat) -> Void
+
+@extern
+def d0exp_fpemsg(a: FILR, b: D0exp) -> Void
+
+@extern
+def l0d0p_fpemsg(a: FILR, b: L0d0p) -> Void
+
+@extern
+def l0d0e_fpemsg(a: FILR, b: L0d0e) -> Void
+
+@extern
+def d0cls_fpemsg(a: FILR, b: D0cls) -> Void
+
+@extern
+def d0gua_fpemsg(a: FILR, b: D0gua) -> Void
+
+@extern
+def d0gpt_fpemsg(a: FILR, b: D0gpt) -> Void
+
+@extern
+def d0ecl_fpemsg(a: FILR, b: D0ecl) -> Void
+
+@extern
+def d0patopt_fpemsg(a: FILR, b: D0patopt) -> Void
+
+@extern
+def d0expopt_fpemsg(a: FILR, b: D0expopt) -> Void
+
+@extern
+def d0patlst_fpemsg(a: FILR, b: D0patlst) -> Void
+
+@extern
+def l0d0plst_fpemsg(a: FILR, b: L0d0plst) -> Void
+
+@extern
+def d0explst_fpemsg(a: FILR, b: D0explst) -> Void
+
+@extern
+def l0d0elst_fpemsg(a: FILR, b: L0d0elst) -> Void
+
+@extern
+def d0clslst_fpemsg(a: FILR, b: D0clslst) -> Void
+
+@extern
+def d0gualst_fpemsg(a: FILR, b: D0gualst) -> Void
+
+@extern
+def d0eclist_fpemsg(a: FILR, b: D0eclist) -> Void
+
+@extern
+def f0unarrw_fpemsg(a: FILR, b: F0unarrw) -> Void
+
+@extern
+def d0parsed_fpemsg(a: FILR, b: D0parsed) -> Void
+
+@extern
+def d0eclistopt_fpemsg(a: FILR, b: D0eclistopt) -> Void
+
+@extern
+def d0exp_THEN_fpemsg(a: FILR, b: D0exp_THEN) -> Void
+
+@extern
+def d0exp_ELSE_fpemsg(a: FILR, b: D0exp_ELSE) -> Void
+
+@extern
+def d0pat_RPAREN_fpemsg(a: FILR, b: D0pat_RPAREN) -> Void
+
+@extern
+def l0d0p_RBRACE_fpemsg(a: FILR, b: L0d0p_RBRACE) -> Void
+
+@extern
+def d0exp_RPAREN_fpemsg(a: FILR, b: D0exp_RPAREN) -> Void
+
+@extern
+def l0d0e_RBRACE_fpemsg(a: FILR, b: L0d0e_RBRACE) -> Void
+

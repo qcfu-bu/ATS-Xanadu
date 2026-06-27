@@ -1,0 +1,410 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/xlabel0" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+@overload lctn = token_get_lctn
+
+@overload lctn = g0exp_get_lctn
+
+@overload lctn = sort0_get_lctn
+
+@overload lctn = s0exp_get_lctn
+
+@impl
+def g1exp_none0(loc0):
+    g1exp_make_node(loc0, G1Enone0)
+
+@impl
+def g1exp_none1(g1e0):
+    g1exp_make_node(g1e0.lctn(), G1Enone1(g1e0))
+
+@impl
+def sort1_none0(loc0):
+    sort1_make_node(loc0, S1Tnone0)
+
+@impl
+def sort1_none1(s0t0):
+    sort1_make_node(s0t0.lctn(), S1Tnone1(s0t0))
+
+@impl
+def s1exp_none0(loc0):
+    s1exp_make_node(loc0, S1Enone0)
+
+@impl
+def s1exp_none1(s0e0):
+    s1exp_make_node(s0e0.lctn(), S1Enone1(s0e0))
+
+@impl
+def s1qid_get_lctn(sqid):
+    match sqid:
+        case S1QIDnone(sid0):
+            sid0.lctn()
+        case S1QIDsome(tok0, sid1):
+            tok0.lctn() + sid1.lctn()
+
+@impl
+def d1qid_get_lctn(dqid):
+    match dqid:
+        case D1QIDnone(did0):
+            did0.lctn()
+        case D1QIDsome(tok0, did1):
+            tok0.lctn() + did1.lctn()
+
+private:
+    enum G1exp:
+        case G1EXP(loctn, g1exp_node)
+    @impl
+    type G1exp_tbox = G1exp
+
+@impl
+def g1exp_make_node(loc, nod):
+    G1EXP(loc, nod)
+
+@impl
+def g1exp_get_lctn(g1e):
+    let G1EXP(loc, nod) = g1e
+    loc
+
+@impl
+def g1exp_get_node(g1e):
+    let G1EXP(loc, nod) = g1e
+    nod
+
+
+private:
+    enum G1arg:
+        case G1ARG(loctn, g1arg_node)
+    @impl
+    type G1arg_tbox = G1arg
+
+@impl
+def g1arg_make_node(loc, nod):
+    G1ARG(loc, nod)
+
+@impl
+def g1arg_get_lctn(g1a):
+    let G1ARG(loc, nod) = g1a
+    loc
+
+@impl
+def g1arg_get_node(g1a):
+    let G1ARG(loc, nod) = g1a
+    nod
+
+
+private:
+    enum G1mag:
+        case G1MAG(loctn, g1mag_node)
+    @impl
+    type G1mag_tbox = G1mag
+
+@impl
+def g1mag_make_node(loc, nod):
+    G1MAG(loc, nod)
+
+@impl
+def g1mag_get_lctn(gma):
+    let G1MAG(loc, nod) = gma
+    loc
+
+@impl
+def g1mag_get_node(gma):
+    let G1MAG(loc, nod) = gma
+    nod
+
+
+private:
+    enum Sort1:
+        case SORT1(loctn, sort1_node)
+    @impl
+    type Sort1_tbox = Sort1
+
+@impl
+def sort1_make_node(loc, nod):
+    SORT1(loc, nod)
+
+@impl
+def sort1_get_lctn(s1t):
+    let SORT1(loc, nod) = s1t
+    loc
+
+@impl
+def sort1_get_node(s1t):
+    let SORT1(loc, nod) = s1t
+    nod
+
+
+private:
+    enum S1exp:
+        case S1EXP(loctn, s1exp_node)
+    @impl
+    type S1exp_tbox = S1exp
+
+@impl
+def s1exp_make_node(loc, nod):
+    S1EXP(loc, nod)
+
+@impl
+def s1exp_get_lctn(s1e):
+    let S1EXP(loc, nod) = s1e
+    loc
+
+@impl
+def s1exp_get_node(s1e):
+    let S1EXP(loc, nod) = s1e
+    nod
+
+
+@impl
+def l1s1e_get_lctn(lx):
+    s1exp_get_lctn(lx.itm())
+
+@impl
+def l1s1e_get_node(lx):
+    s1exp_get_node(lx.itm())
+
+private:
+    enum S1tcn:
+        case S1TCN(loctn, s1tcn_node)
+    @impl
+    type S1tcn_tbox = S1tcn
+
+@impl
+def s1tcn_make_node(loc, nod):
+    S1TCN(loc, nod)
+
+@impl
+def s1tcn_get_lctn(s1e):
+    let S1TCN(loc, nod) = s1e
+    loc
+
+@impl
+def s1tcn_get_node(s1e):
+    let S1TCN(loc, nod) = s1e
+    nod
+
+
+private:
+    enum D1tst:
+        case D1TST(loctn, d1tst_node)
+    @impl
+    type D1tst_tbox = D1tst
+
+@impl
+def d1tst_make_node(loc, nod):
+    D1TST(loc, nod)
+
+@impl
+def d1tst_get_lctn(stdf):
+    let D1TST(loc, nod) = stdf
+    loc
+
+@impl
+def d1tst_get_node(stdf):
+    let D1TST(loc, nod) = stdf
+    nod
+
+
+private:
+    enum S1tdf:
+        case S1TDF(loctn, s1tdf_node)
+    @impl
+    type S1tdf_tbox = S1tdf
+
+@impl
+def s1tdf_make_node(loc, nod):
+    S1TDF(loc, nod)
+
+@impl
+def s1tdf_get_lctn(stdf):
+    let S1TDF(loc, nod) = stdf
+    loc
+
+@impl
+def s1tdf_get_node(stdf):
+    let S1TDF(loc, nod) = stdf
+    nod
+
+
+private:
+    enum S1arg:
+        case S1ARG(loctn, s1arg_node)
+    @impl
+    type S1arg_tbox = S1arg
+
+@impl
+def s1arg_make_node(loc, nod):
+    S1ARG(loc, nod)
+
+@impl
+def s1arg_get_lctn(s1a):
+    let S1ARG(loc, nod) = s1a
+    loc
+
+@impl
+def s1arg_get_node(s1a):
+    let S1ARG(loc, nod) = s1a
+    nod
+
+
+private:
+    enum S1mag:
+        case S1MAG(loctn, s1mag_node)
+    @impl
+    type S1mag_tbox = S1mag
+
+@impl
+def s1mag_make_node(loc, nod):
+    S1MAG(loc, nod)
+
+@impl
+def s1mag_get_lctn(sma):
+    let S1MAG(loc, nod) = sma
+    loc
+
+@impl
+def s1mag_get_node(sma):
+    let S1MAG(loc, nod) = sma
+    nod
+
+
+private:
+    enum T1arg:
+        case T1ARG(loctn, t1arg_node)
+    @impl
+    type T1arg_tbox = T1arg
+
+@impl
+def t1arg_make_node(loc, nod):
+    T1ARG(loc, nod)
+
+@impl
+def t1arg_get_lctn(t1a):
+    let T1ARG(loc, nod) = t1a
+    loc
+
+@impl
+def t1arg_get_node(t1a):
+    let T1ARG(loc, nod) = t1a
+    nod
+
+
+private:
+    enum T1mag:
+        case T1MAG(loctn, t1mag_node)
+    @impl
+    type T1mag_tbox = T1mag
+
+@impl
+def t1mag_make_node(loc, nod):
+    T1MAG(loc, nod)
+
+@impl
+def t1mag_get_lctn(sma):
+    let T1MAG(loc, nod) = sma
+    loc
+
+@impl
+def t1mag_get_node(sma):
+    let T1MAG(loc, nod) = sma
+    nod
+
+
+private:
+    enum S1qua:
+        case S1QUA(loctn, s1qua_node)
+    @impl
+    type S1qua_tbox = S1qua
+
+@impl
+def s1qua_make_node(loc, nod):
+    S1QUA(loc, nod)
+
+@impl
+def s1qua_get_lctn(s1q):
+    let S1QUA(loc, nod) = s1q
+    loc
+
+@impl
+def s1qua_get_node(s1q):
+    let S1QUA(loc, nod) = s1q
+    nod
+
+
+private:
+    enum S1uni:
+        case S1UNI(loctn, s1uni_node)
+    @impl
+    type S1uni_tbox = S1uni
+
+@impl
+def s1uni_make_node(loc, nod):
+    S1UNI(loc, nod)
+
+@impl
+def s1uni_get_lctn(s1u):
+    let S1UNI(loc, nod) = s1u
+    loc
+
+@impl
+def s1uni_get_node(s1u):
+    let S1UNI(loc, nod) = s1u
+    nod
+
+
+private:
+    enum D1tcn:
+        case D1TCN(loctn, d1tcn_node)
+    @impl
+    type D1tcn_tbox = D1tcn
+
+@impl
+def d1tcn_make_node(loc, nod):
+    D1TCN(loc, nod)
+
+@impl
+def d1tcn_get_lctn(s1u):
+    let D1TCN(loc, nod) = s1u
+    loc
+
+@impl
+def d1tcn_get_node(s1u):
+    let D1TCN(loc, nod) = s1u
+    nod
+
+
+private:
+    enum D1typ:
+        case D1TYP(loctn, d1typ_node)
+    @impl
+    type D1typ_tbox = D1typ
+
+@impl
+def d1typ_make_node(loc, nod):
+    D1TYP(loc, nod)
+
+@impl
+def d1typ_get_lctn(s1u):
+    let D1TYP(loc, nod) = s1u
+    loc
+
+@impl
+def d1typ_get_node(s1u):
+    let D1TYP(loc, nod) = s1u
+    nod
+
+

@@ -1,0 +1,1765 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/dynexp0" import *
+
+from "srcgen2/SATS/pread00" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload lctn = i0dnt_get_lctn
+
+@overload node = i0dnt_get_node
+
+@overload lctn = l0abl_get_lctn
+
+@overload node = l0abl_get_node
+
+@overload lctn = s0qid_get_lctn
+
+@overload lctn = d0qid_get_lctn
+
+@overload lctn = g0exp_get_lctn
+
+@overload node = g0exp_get_node
+
+@overload lctn = sort0_get_lctn
+
+@overload node = sort0_get_node
+
+@overload lctn = s0exp_get_lctn
+
+@overload node = s0exp_get_node
+
+@overload lctn = s0tcn_get_lctn
+
+@overload node = s0tcn_get_node
+
+@overload lctn = d0tst_get_lctn
+
+@overload node = d0tst_get_node
+
+@overload lctn = s0tdf_get_lctn
+
+@overload node = s0tdf_get_node
+
+@overload lctn = s0arg_get_lctn
+
+@overload node = s0arg_get_node
+
+@overload lctn = s0mag_get_lctn
+
+@overload node = s0mag_get_node
+
+@overload lctn = t0arg_get_lctn
+
+@overload node = t0arg_get_node
+
+@overload lctn = t0mag_get_lctn
+
+@overload node = t0mag_get_node
+
+@overload lctn = s0qua_get_lctn
+
+@overload node = s0qua_get_node
+
+@overload lctn = s0uni_get_lctn
+
+@overload node = s0uni_get_node
+
+@overload lctn = d0tcn_get_lctn
+
+@overload node = d0tcn_get_node
+
+@overload lctn = d0typ_get_lctn
+
+@overload node = d0typ_get_node
+
+@overload lctn = d0pat_get_lctn
+
+@overload node = d0pat_get_node
+
+@overload lctn = f0arg_get_lctn
+
+@overload node = f0arg_get_node
+
+@overload lctn = d0gua_get_lctn
+
+@overload node = d0gua_get_node
+
+@overload lctn = d0gpt_get_lctn
+
+@overload node = d0gpt_get_node
+
+@overload lctn = d0cls_get_lctn
+
+@overload node = d0cls_get_node
+
+@overload lctn = d0exp_get_lctn
+
+@overload node = d0exp_get_node
+
+@overload lctn = q0arg_get_lctn
+
+@overload node = q0arg_get_node
+
+@overload lctn = s0qag_get_lctn
+
+@overload node = s0qag_get_node
+
+@overload lctn = t0qag_get_lctn
+
+@overload node = t0qag_get_node
+
+@overload lctn = t0iag_get_lctn
+
+@overload node = t0iag_get_node
+
+@overload node = a0typ_get_node
+
+@overload node = d0arg_get_node
+
+@overload lctn = d0ecl_get_lctn
+
+@overload node = d0ecl_get_node
+
+let xatsv_FPEMSG_ERRLVL = 3
+
+@overload fpemsg = i0dnt_fpemsg
+
+@overload fpemsg = l0abl_fpemsg
+
+@overload fpemsg = s0ymb_fpemsg
+
+@overload fpemsg = t0int_fpemsg
+
+@overload fpemsg = t0chr_fpemsg
+
+@overload fpemsg = t0flt_fpemsg
+
+@overload fpemsg = t0str_fpemsg
+
+@overload fpemsg = s0qid_fpemsg
+
+@overload fpemsg = d0qid_fpemsg
+
+@overload fpemsg = g0exp_fpemsg
+
+@overload fpemsg = sort0_fpemsg
+
+@overload fpemsg = s0exp_fpemsg
+
+@overload fpemsg = l0s0e_fpemsg
+
+@overload fpemsg = sort0opt_fpemsg
+
+@overload fpemsg = s0expopt_fpemsg
+
+@overload fpemsg = sort0lst_fpemsg
+
+@overload fpemsg = s0explst_fpemsg
+
+@overload fpemsg = s0exp_RPAREN_fpemsg
+
+@overload fpemsg = l0s0e_RBRACE_fpemsg
+
+@overload fpemsg = d0pat_fpemsg
+
+@overload fpemsg = d0exp_fpemsg
+
+@overload fpemsg = d0ecl_fpemsg
+
+@overload fpemsg = d0patopt_fpemsg
+
+@overload fpemsg = d0expopt_fpemsg
+
+@overload fpemsg = d0patlst_fpemsg
+
+@overload fpemsg = d0explst_fpemsg
+
+@overload fpemsg = l0d0plst_fpemsg
+
+@overload fpemsg = l0d0elst_fpemsg
+
+@overload fpemsg = d0eclist_fpemsg
+
+@overload fpemsg = f0unarrw_fpemsg
+
+@overload fpemsg = d0exp_THEN_fpemsg
+
+@overload fpemsg = d0exp_ELSE_fpemsg
+
+@overload fpemsg = d0pat_RPAREN_fpemsg
+
+@overload fpemsg = l0d0p_RBRACE_fpemsg
+
+@overload fpemsg = d0exp_RPAREN_fpemsg
+
+@overload fpemsg = l0d0e_RBRACE_fpemsg
+
+@extern
+def token_AS0_fpemsg() -> (FILR, token) -> Void
+
+@extern
+def token_BAR_fpemsg() -> (FILR, token) -> Void
+
+@extern
+def token_EQ0_fpemsg() -> (FILR, token) -> Void
+
+@extern
+def token_GT0_fpemsg() -> (FILR, token) -> Void
+
+@extern
+def token_OF0_fpemsg() -> (FILR, token) -> Void
+
+@extern
+def token_EQGT_fpemsg() -> (FILR, token) -> Void
+
+@extern
+def token_WHEN_fpemsg() -> (FILR, token) -> Void
+
+@extern
+def token_WITH_fpemsg() -> (FILR, token) -> Void
+
+@extern
+def token_GTDOT_fpemsg() -> (FILR, token) -> Void
+
+@extern
+def token_RPAREN_fpemsg() -> (FILR, token) -> Void
+
+@extern
+def token_RBRACE_fpemsg() -> (FILR, token) -> Void
+
+@extern
+def token_RBRCKT_fpemsg() -> (FILR, token) -> Void
+
+@extern
+def token_ENDLET_fpemsg() -> (FILR, token) -> Void
+
+@extern
+def token_ENDWHR_fpemsg() -> (FILR, token) -> Void
+
+@extern
+def token_ENDTRY_fpemsg() -> (FILR, token) -> Void
+
+@extern
+def tkend_WHERE_fpemsg(out: FILR, topt: tokenopt, tend: tkend_WHERE) -> Void
+
+@impl
+def s0ymb_fpemsg(out, sym):
+    @impl[]
+    def g_print/out():
+        out
+    printsln("PREAD00-ERROR:", sym)
+
+@impl
+def i0dnt_fpemsg(out, id0):
+    @impl[]
+    def g_print/out():
+        out
+    match id0.node():
+        case I0DNTsome(_):
+            ()
+        case I0DNTnone(tok):
+            let loc = tok.lctn()
+            printsln("PREAD00-ERROR:", loc, ":", id0)
+
+@impl
+def l0abl_fpemsg(out, lab):
+    @impl[]
+    def g_print/out():
+        out
+    match lab.node():
+        case L0ABLsome(_):
+            ()
+        case L0ABLnone(tok):
+            let loc = tok.lctn()
+            printsln("PREAD00-ERROR:", loc, ":", lab)
+
+@impl
+def t0int_fpemsg(out, int):
+    @impl[]
+    def g_print/out():
+        out
+    match int:
+        case T0INTsome(_):
+            ()
+        case T0INTnone(tok):
+            let loc = tok.lctn()
+            printsln("PREAD00-ERROR:", loc, ":", int)
+
+@impl
+def t0chr_fpemsg(out, chr):
+    @impl[]
+    def g_print/out():
+        out
+    match chr:
+        case T0CHRsome(_):
+            ()
+        case T0CHRnone(tok):
+            printsln("PREAD00-ERROR:", tok.lctn(), ":", chr)
+
+@impl
+def t0flt_fpemsg(out, flt):
+    @impl[]
+    def g_print/out():
+        out
+    match flt:
+        case T0FLTsome(_):
+            ()
+        case T0FLTnone(tok):
+            printsln("PREAD00-ERROR:", tok.lctn(), ":", flt)
+
+@impl
+def t0str_fpemsg(out, str):
+    @impl[]
+    def g_print/out():
+        out
+    match str:
+        case T0STRsome(_):
+            ()
+        case T0STRnone(tok):
+            printsln("PREAD00-ERROR:", tok.lctn(), ":", str)
+
+@impl
+def s0qid_fpemsg(out, qid):
+    @impl[]
+    def g_print/out():
+        out
+    let loc = qid.lctn()
+    printsln("PREAD00-ERROR:", loc, ":", qid)
+
+@impl
+def d0qid_fpemsg(out, qid):
+    @impl[]
+    def g_print/out():
+        out
+    let loc = qid.lctn()
+    printsln("PREAD00-ERROR:", loc, ":", qid)
+
+@impl
+def g0exp_fpemsg(out, g0e):
+    @impl[]
+    def g_print/out():
+        out
+    match g0e.node():
+        case G0Eerrck(lvl, ge1):
+            let loc = g0e.lctn()
+        case _:
+            ()
+
+private:
+    def auxmain(out: FILR, s0t: sort0) -> Void:
+        @impl[]
+        def g_print/out():
+            out
+        match s0t.node():
+            case S0Tid0(id0):
+                i0dnt_fpemsg(out, id0)
+            case S0Tint(int):
+                t0int_fpemsg(out, int)
+            case S0Tapps(sts):
+                sort0lst_fpemsg(out, sts)
+            case S0Tlpar(tkb, sts, tke):
+                sort0lst_fpemsg(out, sts)
+            case S0Ttkerr(_):
+                ()
+            case S0Terrck(_):
+                sort0_fpemsg(out, s0t)
+
+@impl
+def sort0_fpemsg(out, s0t):
+    @impl[]
+    def g_print/out():
+        out
+    match s0t.node():
+        case S0Terrck(lvl, st1):
+            auxmain(out, st1)
+            if (lvl >= xatsv_FPEMSG_ERRLVL):
+                ()
+            else:
+                printsln("PREAD00-ERROR:", s0t.lctn(), ":", s0t)
+        case _:
+            ()
+
+
+private:
+    def auxmain(out: FILR, s0e: s0exp) -> Void:
+        @impl[]
+        def g_print/out():
+            out
+        match s0e.node():
+            case S0Eid0(id0):
+                i0dnt_fpemsg(out, id0)
+            case S0Eint(int):
+                t0int_fpemsg(out, int)
+            case S0Echr(chr):
+                t0chr_fpemsg(out, chr)
+            case S0Eflt(flt):
+                t0flt_fpemsg(out, flt)
+            case S0Estr(str):
+                t0str_fpemsg(out, str)
+            case S0Eop1(_):
+                ()
+            case S0Eop2(_):
+                ()
+            case S0Eop3(_):
+                ()
+            case S0Eapps(ses):
+                s0explst_fpemsg(out, ses)
+            case S0Efimp(tkb, ses, tke):
+                s0explst_fpemsg(out, ses)
+            case S0Elpar(tkb, ses, srp):
+                fpemsg(out, ses)
+                fpemsg(out, srp)
+            case S0Etkerr(_):
+                ()
+            case S0Eerrck(_):
+                s0exp_fpemsg(out, s0e)
+
+@impl
+def s0exp_fpemsg(out, s0e):
+    @impl[]
+    def g_print/out():
+        out
+    match s0e.node():
+        case S0Eerrck(lvl, se1):
+            auxmain(out, se1)
+            if (lvl >= xatsv_FPEMSG_ERRLVL):
+                ()
+            else:
+                printsln("PREAD00-ERROR:", s0e.lctn(), ":", s0e)
+        case _:
+            ()
+
+
+@impl
+def l0s0e_fpemsg(out, lse):
+    match lse:
+        case S0LAB(lab, teq, s0e):
+            s0exp_fpemsg(out, s0e)
+
+@impl
+def s0arg_fpemsg(out, s0a):
+    @impl[]
+    def g_print/out():
+        out
+    match s0a.node():
+        case S0ARGnone(tok):
+            printsln("PREAD00-ERROR:", tok.lctn(), ":", s0a)
+        case S0ARGsome(sid0, topt):
+            fpemsg(out, sid0)
+            fpemsg(out, topt)
+
+@impl
+def s0mag_fpemsg(out, sma):
+    @impl[]
+    def g_print/out():
+        out
+    match sma.node():
+        case S0MAGnone(tok):
+            let loc = sma.lctn()
+            printsln("PREAD00-ERROR:", loc, ":", sma)
+        case S0MAGsing(sid0):
+            i0dnt_fpemsg(out, sid0)
+        case S0MAGlist(tbeg, s0as, tend):
+            s0arglst_fpemsg(out, s0as)
+            token_RPAREN_fpemsg(out, tend)
+
+@impl
+def t0arg_fpemsg(out, t0a):
+    @impl[]
+    def g_print/out():
+        out
+    match t0a.node():
+        case T0ARGnone(tok):
+            let loc = t0a.lctn()
+            printsln("PREAD00-ERROR:", loc, ":", t0a)
+        case T0ARGsome(s0t1, topt):
+            fpemsg(out, s0t1)
+
+@impl
+def t0mag_fpemsg(out, tma):
+    @impl[]
+    def g_print/out():
+        out
+    match tma.node():
+        case T0MAGnone(tok):
+            let loc = tok.lctn()
+            printsln("PREAD00-ERROR:", loc, ":", tma)
+        case T0MAGlist(tbeg, t0as, tend):
+            t0arglst_fpemsg(out, t0as)
+            token_RPAREN_fpemsg(out, tend)
+
+@impl
+def s0qua_fpemsg(out, s0q):
+    match s0q.node():
+        case S0QUAprop(s0e):
+            s0exp_fpemsg(out, s0e)
+        case S0QUAvars(sids, tres):
+            i0dntlst_fpemsg(out, sids)
+            sort0opt_fpemsg(out, tres)
+
+@impl
+def s0uni_fpemsg(out, s0u):
+    match s0u.node():
+        case S0UNInone(tok):
+            ()
+        case S0UNIsome(tbeg, s0qs, tend):
+            s0qualst_fpemsg(out, s0qs)
+            token_RBRACE_fpemsg(out, tend)
+
+@impl
+def s0tdf_fpemsg(out, tdf):
+    match tdf.node():
+        case S0TDFsort(s0t):
+            sort0_fpemsg(out, s0t)
+        case S0TDFtsub(tbeg, s0a1, tbar, s0es, tend):
+            s0arg_fpemsg(out, s0a1)
+            token_BAR_fpemsg(out, tbar)
+            s0explst_fpemsg(out, s0es)
+            token_RBRACE_fpemsg(out, tend)
+
+@impl
+def g0expopt_fpemsg(out, opt):
+    match opt:
+        case optn_nil():
+            ()
+        case optn_cons(g0e):
+            g0exp_fpemsg(out, g0e)
+
+@impl
+def sort0opt_fpemsg(out, opt):
+    match opt:
+        case optn_nil():
+            ()
+        case optn_cons(s0t):
+            sort0_fpemsg(out, s0t)
+
+@impl
+def s0expopt_fpemsg(out, opt):
+    match opt:
+        case optn_nil():
+            ()
+        case optn_cons(s0e):
+            s0exp_fpemsg(out, s0e)
+
+@impl
+def i0dntlst_fpemsg(out, ids):
+    @inst[i0dnt] list_foritm(ids)
+where:
+    @impl[i0dnt]
+    def foritm/work(id1):
+        i0dnt_fpemsg(out, id1)
+
+@impl
+def sort0lst_fpemsg(out, sts):
+    @inst[sort0] list_foritm(sts)
+where:
+    @impl[sort0]
+    def foritm/work(st1):
+        sort0_fpemsg(out, st1)
+
+@impl
+def s0explst_fpemsg(out, ses):
+    @inst[s0exp] list_foritm(ses)
+where:
+    @impl[s0exp]
+    def foritm/work(se1):
+        s0exp_fpemsg(out, se1)
+
+@impl
+def l0s0elst_fpemsg(out, lxs):
+    @inst[l0s0e] list_foritm(lxs)
+where:
+    @impl[l0s0e]
+    def foritm/work(lx1):
+        l0s0e_fpemsg(out, lx1)
+
+@impl
+def s0arglst_fpemsg(out, sas):
+    @inst[s0arg] list_foritm(sas)
+where:
+    @impl[s0arg]
+    def foritm/work(s0a):
+        s0arg_fpemsg(out, s0a)
+
+@impl
+def s0maglst_fpemsg(out, sms):
+    @inst[s0mag] list_foritm(sms)
+where:
+    @impl[s0mag]
+    def foritm/work(sma):
+        s0mag_fpemsg(out, sma)
+
+@impl
+def t0arglst_fpemsg(out, tas):
+    @inst[t0arg] list_foritm(tas)
+where:
+    @impl[t0arg]
+    def foritm/work(t0a):
+        t0arg_fpemsg(out, t0a)
+
+@impl
+def t0maglst_fpemsg(out, tms):
+    @inst[t0mag] list_foritm(tms)
+where:
+    @impl[t0mag]
+    def foritm/work(tma):
+        t0mag_fpemsg(out, tma)
+
+@impl
+def s0qualst_fpemsg(out, sqs):
+    @inst[s0qua] list_foritm(sqs)
+where:
+    @impl[s0qua]
+    def foritm/work(s0q):
+        s0qua_fpemsg(out, s0q)
+
+@impl
+def s0unilst_fpemsg(out, sus):
+    @inst[s0uni] list_foritm(sus)
+where:
+    @impl[s0uni]
+    def foritm/work(s0u):
+        s0uni_fpemsg(out, s0u)
+
+@impl
+def s0exp_RPAREN_fpemsg(out, srp):
+    match srp:
+        case s0exp_RPAREN_cons0(tend):
+            token_RPAREN_fpemsg(out, tend)
+        case s0exp_RPAREN_cons1(tbar, s0es, tend):
+            s0explst_fpemsg(out, s0es)
+
+@impl
+def l0s0e_RBRACE_fpemsg(out, lsrb):
+    match lsrb:
+        case l0s0e_RBRACE_cons0(tend):
+            token_RBRACE_fpemsg(out, tend)
+        case l0s0e_RBRACE_cons1(tbar, lses, tend):
+            l0s0elst_fpemsg(out, lses)
+
+@extern
+def s0eff_fpemsg() -> (FILR, s0eff) -> Void
+
+@extern
+def s0res_fpemsg() -> (FILR, s0res) -> Void
+
+@extern
+def d0res_fpemsg() -> (FILR, d0res) -> Void
+
+@overload fpemsg = s0res_fpemsg
+
+@overload fpemsg = d0res_fpemsg
+
+@extern
+def f0arg_fpemsg() -> (FILR, f0arg) -> Void
+
+@extern
+def f0arglst_fpemsg() -> (FILR, f0arglst) -> Void
+
+@extern
+def d0cls_fpemsg() -> (FILR, d0cls) -> Void
+
+@extern
+def d0clslst_fpemsg() -> (FILR, d0clslst) -> Void
+
+@extern
+def t0qua_fpemsg() -> (FILR, t0qua) -> Void
+
+@extern
+def t0inv_fpemsg() -> (FILR, t0inv) -> Void
+
+@extern
+def t0qualst_fpemsg() -> (FILR, t0qualst) -> Void
+
+private:
+    def auxmain(out: FILR, d0p: d0pat) -> Void:
+        @impl[]
+        def g_print/out():
+            out
+        match d0p.node():
+            case D0Pid0(id0):
+                i0dnt_fpemsg(out, id0)
+            case D0Pint(int):
+                t0int_fpemsg(out, int)
+            case D0Pchr(chr):
+                t0chr_fpemsg(out, chr)
+            case D0Pflt(flt):
+                t0flt_fpemsg(out, flt)
+            case D0Pstr(str):
+                t0str_fpemsg(out, str)
+            case D0Paspt(tas, dp1):
+                d0pat_fpemsg(out, dp1)
+            case D0Papps(dps):
+                d0patlst_fpemsg(out, dps)
+            case D0Psarg(tkb, sas, tke):
+                s0arglst_fpemsg(out, sas)
+                token_RBRACE_fpemsg(out, tke)
+            case D0Plpar(tkb, dps, drp):
+                fpemsg(out, dps)
+                fpemsg(out, drp)
+            case D0Ptup1(tbeg, topt, d0ps, tend):
+                fpemsg(out, d0ps)
+                fpemsg(out, tend)
+            case D0Prcd2(tbeg, topt, ldps, tend):
+                fpemsg(out, ldps)
+                fpemsg(out, tend)
+            case D0Pannot(d0p1, s0e2):
+                fpemsg(out, d0p1)
+                fpemsg(out, s0e2)
+            case D0Ptkerr(_):
+                ()
+            case D0Perrck(lvl0, d0p1):
+                d0pat_fpemsg(out, d0p)
+
+@impl
+def d0pat_fpemsg(out, d0p):
+    @impl[]
+    def g_print/out():
+        out
+    match d0p.node():
+        case D0Perrck(lvl, dp1):
+            auxmain(out, dp1)
+            if (lvl >= xatsv_FPEMSG_ERRLVL):
+                ()
+            else:
+                printsln("PREAD00-ERROR:", d0p.lctn(), ":", d0p)
+        case _:
+            ()
+
+
+@impl
+def l0d0p_fpemsg(out, ldp):
+    match ldp:
+        case D0LAB(lab, teq, d0p):
+            d0pat_fpemsg(out, d0p)
+
+private:
+    def auxmain(out: FILR, d0e: d0exp) -> Void:
+        @impl[]
+        def g_print/out():
+            out
+        match d0e.node():
+            case D0Eid0(id0):
+                i0dnt_fpemsg(out, id0)
+            case D0Eint(int):
+                t0int_fpemsg(out, int)
+            case D0Echr(chr):
+                t0chr_fpemsg(out, chr)
+            case D0Eflt(flt):
+                t0flt_fpemsg(out, flt)
+            case D0Estr(str):
+                t0str_fpemsg(out, str)
+            case D0Eopid(id0):
+                i0dnt_fpemsg(out, id0)
+            case D0Eapps(des):
+                d0explst_fpemsg(out, des)
+            case D0Esarg(tkb, ses, tke):
+                s0explst_fpemsg(out, ses)
+                token_RBRACE_fpemsg(out, tke)
+            case D0Etarg(tkb, ses, tke):
+                s0explst_fpemsg(out, ses)
+                token_RBRACE_fpemsg(out, tke)
+            case D0Elpar(tkb, des, drp):
+                fpemsg(out, des)
+                fpemsg(out, drp)
+            case D0Eift0(tift, d0e1, dthn, dels):
+                fpemsg(out, d0e1)
+                fpemsg(out, dthn)
+                fpemsg(out, dels)
+            case D0Eift1(tift, d0e1, dthn, dels, tinv):
+                fpemsg(out, d0e1)
+                fpemsg(out, dthn)
+                fpemsg(out, dels)
+                t0inv_fpemsg(out, tinv)
+            case D0Ecas0(tcas, d0e1, tkof, tbar, dcls):
+                d0exp_fpemsg(out, d0e1)
+                token_OF0_fpemsg(out, tkof)
+                d0clslst_fpemsg(out, dcls)
+            case D0Etup1(tbeg, topt, d0es, tend):
+                fpemsg(out, d0es)
+                fpemsg(out, tend)
+            case D0Ercd2(tbeg, topt, ldes, tend):
+                fpemsg(out, ldes)
+                fpemsg(out, tend)
+            case D0Elet0(tknd, dcls, topt, d0es, tend):
+                d0eclist_fpemsg(out, dcls)
+                d0explst_fpemsg(out, d0es)
+                token_ENDLET_fpemsg(out, tend)
+            case D0Ewhere(d0e1, dcls):
+                match dcls:
+                    case d0eclseq_WHERE(tbeg, topt, d0cs, tend):
+                        d0exp_fpemsg(out, d0e1)
+                        d0eclist_fpemsg(out, d0cs)
+                        tkend_WHERE_fpemsg(out, topt, tend)
+            case D0Ebrckt(tbeg, d0es, tend):
+                d0explst_fpemsg(out, d0es)
+                token_RBRCKT_fpemsg(out, tend)
+            case D0Edtsel(tdot, lab1, opt2):
+                fpemsg(out, lab1)
+                fpemsg(out, opt2)
+            case D0Etry0(tknd, d0es, twth, tbar, dcls, tend):
+                d0explst_fpemsg(out, d0es)
+                token_WITH_fpemsg(out, twth)
+                d0clslst_fpemsg(out, dcls)
+            case D0Elam0(tknd, fags, sres, arrw, body, tend):
+                f0arglst_fpemsg(out, fags)
+                fpemsg(out, sres)
+                fpemsg(out, arrw)
+                fpemsg(out, body)
+            case D0Efix0(tknd, dpid, fags, arrw, sres, body, tend):
+                i0dnt_fpemsg(out, dpid)
+                f0arglst_fpemsg(out, fags)
+                fpemsg(out, sres)
+                fpemsg(out, arrw)
+                fpemsg(out, body)
+            case D0Eraise(tknd, d0e1):
+                fpemsg(out, d0e1)
+            case D0Eannot(d0e1, s0e2):
+                fpemsg(out, d0e1)
+                fpemsg(out, s0e2)
+            case D0Equal0(tok1, d0e2):
+                fpemsg(out, d0e2)
+            case D0Eextnam(tok1, gnm2):
+                ()
+            case D0Eexists(tknd, d0es, d0e1):
+                fpemsg(out, d0es)
+                fpemsg(out, d0e1)
+            case D0Esynext(tok1, d0e2):
+                fpemsg(out, d0e2)
+            case D0Etkerr(tok1):
+                ()
+            case D0Eerrck(lvl0, d0e1):
+                d0exp_fpemsg(out, d0e)
+
+@impl
+def d0exp_fpemsg(out, d0e):
+    @impl[]
+    def g_print/out():
+        out
+    match d0e.node():
+        case D0Eerrck(lvl, de1):
+            auxmain(out, de1)
+            if (lvl >= xatsv_FPEMSG_ERRLVL):
+                ()
+            else:
+                printsln("PREAD00-ERROR:", d0e.lctn(), ":", d0e)
+        case _:
+            ()
+
+
+@impl
+def l0d0e_fpemsg(out, lde):
+    match lde:
+        case D0LAB(lab, teq, d0e):
+            d0exp_fpemsg(out, d0e)
+
+@impl
+def d0gua_fpemsg(out, dgua):
+    match dgua.node():
+        case D0GUAexp(d0e1):
+            d0exp_fpemsg(out, d0e1)
+        case D0GUAmat(d0e1, tkas, d0p2):
+            d0exp_fpemsg(out, d0e1)
+            token_AS0_fpemsg(out, tkas)
+            d0pat_fpemsg(out, d0p2)
+
+@impl
+def d0gpt_fpemsg(out, dgpt):
+    match dgpt.node():
+        case D0GPTpat(d0p1):
+            d0pat_fpemsg(out, d0p1)
+        case D0GPTgua(d0p1, twhn, d0gs):
+            d0pat_fpemsg(out, d0p1)
+            token_WHEN_fpemsg(out, twhn)
+            d0gualst_fpemsg(out, d0gs)
+
+@impl
+def d0cls_fpemsg(out, dcls):
+    match dcls.node():
+        case D0CLSgpt(dgpt):
+            d0gpt_fpemsg(out, dgpt)
+        case D0CLScls(dgpt, tkeg, d0e2):
+            d0gpt_fpemsg(out, dgpt)
+            token_EQGT_fpemsg(out, tkeg)
+            d0exp_fpemsg(out, d0e2)
+
+@impl
+def s0eff_fpemsg(out, seff):
+    match seff:
+        case S0EFFnone(tok):
+            ()
+        case S0EFFsome(tbeg, s0es, tend):
+            s0explst_fpemsg(out, s0es)
+            token_GT0_fpemsg(out, tend)
+
+@impl
+def f0arg_fpemsg(out, farg):
+    match farg.node():
+        case F0ARGnone(tok):
+            ()
+        case F0ARGdapp(dpat):
+            d0pat_fpemsg(out, dpat)
+        case F0ARGsapp(tbeg, s0qs, tend):
+            s0qualst_fpemsg(out, s0qs)
+            token_RBRACE_fpemsg(out, tend)
+        case F0ARGmets(tbeg, s0es, tend):
+            s0explst_fpemsg(out, s0es)
+            token_GTDOT_fpemsg(out, tend)
+
+@impl
+def s0res_fpemsg(out, sres):
+    match sres:
+        case S0RESnone():
+            ()
+        case S0RESsome(seff, s0e1):
+            s0eff_fpemsg(out, seff)
+            s0exp_fpemsg(out, s0e1)
+
+@impl
+def d0res_fpemsg(out, dres):
+    match dres:
+        case D0RESnone():
+            ()
+        case D0RESsome(teq1, d0e2):
+            token_EQ0_fpemsg(out, teq1)
+            d0exp_fpemsg(out, d0e2)
+
+@impl
+def t0qua_fpemsg(out, t0q0):
+    match t0q0:
+        case T0QUAnone(tok):
+            ()
+        case T0QUAsome(tbeg, s0qs, tend):
+            s0qualst_fpemsg(out, s0qs)
+            token_RBRACE_fpemsg(out, tend)
+
+@impl
+def t0inv_fpemsg(out, tinv):
+    match tinv:
+        case T0INVnone(t0qs, tok1):
+            t0qualst_fpemsg(out, t0qs)
+        case T0INVsome(t0qs, tbeg, d0ps, tend):
+            t0qualst_fpemsg(out, t0qs)
+            d0patlst_fpemsg(out, d0ps)
+            token_RPAREN_fpemsg(out, tend)
+
+@extern
+def s0tcn_fpemsg() -> (FILR, s0tcn) -> Void
+
+@extern
+def d0tst_fpemsg() -> (FILR, d0tst) -> Void
+
+@extern
+def s0tcnlst_fpemsg() -> (FILR, s0tcnlst) -> Void
+
+@extern
+def d0tstlst_fpemsg() -> (FILR, d0tstlst) -> Void
+
+@extern
+def d0tcn_fpemsg() -> (FILR, d0tcn) -> Void
+
+@extern
+def d0typ_fpemsg() -> (FILR, d0typ) -> Void
+
+@extern
+def d0tcnlst_fpemsg() -> (FILR, d0tcnlst) -> Void
+
+@extern
+def d0typlst_fpemsg() -> (FILR, d0typlst) -> Void
+
+@extern
+def wd0eclseq_fpemsg() -> (FILR, wd0eclseq) -> Void
+
+@extern
+def q0arg_fpemsg() -> (FILR, q0arg) -> Void
+
+@extern
+def s0qag_fpemsg() -> (FILR, s0qag) -> Void
+
+@extern
+def t0qag_fpemsg() -> (FILR, t0qag) -> Void
+
+@extern
+def t0iag_fpemsg() -> (FILR, t0iag) -> Void
+
+@extern
+def q0arglst_fpemsg() -> (FILR, q0arglst) -> Void
+
+@extern
+def s0qaglst_fpemsg() -> (FILR, s0qaglst) -> Void
+
+@extern
+def t0qaglst_fpemsg() -> (FILR, t0qaglst) -> Void
+
+@extern
+def t0iaglst_fpemsg() -> (FILR, t0iaglst) -> Void
+
+@extern
+def a0typ_fpemsg() -> (FILR, a0typ) -> Void
+
+@extern
+def d0arg_fpemsg() -> (FILR, d0arg) -> Void
+
+@extern
+def a0typlst_fpemsg() -> (FILR, a0typlst) -> Void
+
+@extern
+def d0arglst_fpemsg() -> (FILR, d0arglst) -> Void
+
+@extern
+def d0valdcl_fpemsg() -> (FILR, d0valdcl) -> Void
+
+@extern
+def d0vardcl_fpemsg() -> (FILR, d0vardcl) -> Void
+
+@extern
+def d0fundcl_fpemsg() -> (FILR, d0fundcl) -> Void
+
+@extern
+def d0cstdcl_fpemsg() -> (FILR, d0cstdcl) -> Void
+
+@extern
+def teqd0exp_fpemsg() -> (FILR, teqd0exp) -> Void
+
+@extern
+def wths0exp_fpemsg() -> (FILR, wths0exp) -> Void
+
+@extern
+def d0valdclist_fpemsg() -> (FILR, d0valdclist) -> Void
+
+@extern
+def d0vardclist_fpemsg() -> (FILR, d0vardclist) -> Void
+
+@extern
+def d0fundclist_fpemsg() -> (FILR, d0fundclist) -> Void
+
+@extern
+def d0cstdclist_fpemsg() -> (FILR, d0cstdclist) -> Void
+
+private:
+    def auxmain(out: FILR, dcl: d0ecl) -> Void:
+        @impl[]
+        def g_print/out():
+            out
+        match dcl.node():
+            case D0Cnonfix(knd, ids):
+                i0dntlst_fpemsg(out, ids)
+            case D0Cfixity(knd, ids, opt):
+                i0dntlst_fpemsg(out, ids)
+            case D0Cstatic(knd, dc1):
+                fpemsg(out, dc1)
+            case D0Cextern(knd, dc1):
+                fpemsg(out, dc1)
+            case D0Clocal0(tkb, ds1, tin, ds2, tke):
+                d0eclist_fpemsg(out, ds1)
+                d0eclist_fpemsg(out, ds2)
+            case D0Cabssort(tknd, tid0):
+                fpemsg(out, tid0)
+            case D0Cstacst0(tknd, sid0, tmas, tcln, s0t1):
+                fpemsg(out, sid0)
+                t0maglst_fpemsg(out, tmas)
+                fpemsg(out, s0t1)
+            case D0Csortdef(tknd, tid0, teq1, tdf2):
+                fpemsg(out, tid0)
+                token_EQ0_fpemsg(out, teq1)
+                s0tdf_fpemsg(out, tdf2)
+            case D0Csymload(tknd, symb, twth, dqid, gopt):
+                s0ymb_fpemsg(out, symb)
+                d0qid_fpemsg(out, dqid)
+                g0expopt_fpemsg(out, gopt)
+            case D0Cinclude(knd0, tknd, g0e1):
+                g0exp_fpemsg(out, g0e1)
+            case D0Cstaload(knd0, tknd, g0e1):
+                g0exp_fpemsg(out, g0e1)
+            case D0Cdyninit(tknd, g0e1):
+                g0exp_fpemsg(out, g0e1)
+            case D0Cextcode(tknd, g0e1):
+                g0exp_fpemsg(out, g0e1)
+            case D0Cdatasort(tknd, d0ts):
+                d0tstlst_fpemsg(out, d0ts)
+            case D0Cvaldclst(tknd, d0cs):
+                d0valdclist_fpemsg(out, d0cs)
+            case D0Cvardclst(tknd, d0cs):
+                d0vardclist_fpemsg(out, d0cs)
+            case D0Cfundclst(tknd, tqas, d0cs):
+                t0qaglst_fpemsg(out, tqas)
+                d0fundclist_fpemsg(out, d0cs)
+            case D0Cimplmnt0(tknd, sqas, tqas, dqid, tias, f0as, sres, tkeq, body):
+                s0qaglst_fpemsg(out, sqas)
+                t0qaglst_fpemsg(out, tqas)
+                t0iaglst_fpemsg(out, tias)
+                s0res_fpemsg(out, sres)
+                f0arglst_fpemsg(out, f0as)
+                d0exp_fpemsg(out, body)
+            case D0Cdatatype(tknd, d0ts, wdcs):
+                d0typlst_fpemsg(out, d0ts)
+                wd0eclseq_fpemsg(out, wdcs)
+            case D0Cdynconst(tknd, tqas, d0cs):
+                t0qaglst_fpemsg(out, tqas)
+                d0cstdclist_fpemsg(out, d0cs)
+            case D0Ctkerr(_):
+                ()
+            case D0Cerrck(_, _):
+                d0ecl_fpemsg(out, dcl)
+            case _:
+                ()
+
+@impl
+def d0ecl_fpemsg(out, dcl):
+    @impl[]
+    def g_print/out():
+        out
+    match dcl.node():
+        case D0Cerrck(lvl, d1c):
+            auxmain(out, d1c)
+            printsln()
+            printsln("PREAD00-ERROR:", dcl.lctn(), ":", dcl)
+        case _:
+            ()
+
+
+@impl
+def d0patopt_fpemsg(out, opt):
+    match opt:
+        case optn_nil():
+            ()
+        case optn_cons(d0p):
+            d0pat_fpemsg(out, d0p)
+
+@impl
+def d0expopt_fpemsg(out, opt):
+    match opt:
+        case optn_nil():
+            ()
+        case optn_cons(d0e):
+            d0exp_fpemsg(out, d0e)
+
+@impl
+def d0patlst_fpemsg(out, dps):
+    @inst[d0pat] list_foritm(dps)
+where:
+    @impl[d0pat]
+    def foritm/work(dp1):
+        d0pat_fpemsg(out, dp1)
+
+@impl
+def l0d0plst_fpemsg(out, dps):
+    @inst[l0d0p] list_foritm(dps)
+where:
+    @impl[l0d0p]
+    def foritm/work(ldp):
+        l0d0p_fpemsg(out, ldp)
+
+@impl
+def d0explst_fpemsg(out, des):
+    @inst[d0exp] list_foritm(des)
+where:
+    @impl[d0exp]
+    def foritm/work(de1):
+        d0exp_fpemsg(out, de1)
+
+@impl
+def l0d0elst_fpemsg(out, des):
+    @inst[l0d0e] list_foritm(des)
+where:
+    @impl[l0d0e]
+    def foritm/work(lde):
+        l0d0e_fpemsg(out, lde)
+
+@impl
+def f0arglst_fpemsg(out, f0as):
+    @inst[f0arg] list_foritm(f0as)
+where:
+    @impl[f0arg]
+    def foritm/work(f0a1):
+        f0arg_fpemsg(out, f0a1)
+
+@impl
+def t0qualst_fpemsg(out, t0qs):
+    @inst[t0qua] list_foritm(t0qs)
+where:
+    @impl[t0qua]
+    def foritm/work(t0q1):
+        t0qua_fpemsg(out, t0q1)
+
+@impl
+def d0gualst_fpemsg(out, d0gs):
+    @inst[d0gua] list_foritm(d0gs)
+where:
+    @impl[d0gua]
+    def foritm/work(dgua):
+        d0gua_fpemsg(out, dgua)
+
+@impl
+def d0clslst_fpemsg(out, d0cs):
+    @inst[d0cls] list_foritm(d0cs)
+where:
+    @impl[d0cls]
+    def foritm/work(dcls):
+        d0cls_fpemsg(out, dcls)
+
+@impl
+def d0eclist_fpemsg(out, dcls):
+    @inst[d0ecl] list_foritm(dcls)
+where:
+    @impl[d0ecl]
+    def foritm/work(dcl1):
+        d0ecl_fpemsg(out, dcl1)
+
+@impl
+def token_AS0_fpemsg(out, tok0):
+    @impl[]
+    def g_print/out():
+        out
+    match tok0.node():
+        case T_AS0():
+            ()
+        case _:
+            printsln("PREAD00-ERROR:", tok0.lctn(), ":", tok0)
+
+@impl
+def token_BAR_fpemsg(out, tok0):
+    @impl[]
+    def g_print/out():
+        out
+    match tok0.node():
+        case T_BAR():
+            ()
+        case _:
+            printsln("PREAD00-ERROR:", tok0.lctn(), ":", tok0)
+
+@impl
+def token_EQ0_fpemsg(out, tok0):
+    @impl[]
+    def g_print/out():
+        out
+    match tok0.node():
+        case T_EQ0():
+            ()
+        case _:
+            printsln("PREAD00-ERROR:", tok0.lctn(), ":", tok0)
+
+@impl
+def token_GT0_fpemsg(out, tok0):
+    @impl[]
+    def g_print/out():
+        out
+    match tok0.node():
+        case T_GT0():
+            ()
+        case _:
+            printsln("PREAD00-ERROR:", tok0.lctn(), ":", tok0)
+
+@impl
+def token_OF0_fpemsg(out, tok0):
+    @impl[]
+    def g_print/out():
+        out
+    match tok0.node():
+        case T_OF0():
+            ()
+        case _:
+            printsln("PREAD00-ERROR:", tok0.lctn(), ":", tok0)
+
+@impl
+def token_EQGT_fpemsg(out, tok0):
+    @impl[]
+    def g_print/out():
+        out
+    match tok0.node():
+        case T_EQGT():
+            ()
+        case _:
+            printsln("PREAD00-ERROR:", tok0.lctn(), ":", tok0)
+
+@impl
+def token_WHEN_fpemsg(out, tok0):
+    @impl[]
+    def g_print/out():
+        out
+    match tok0.node():
+        case T_WHEN():
+            ()
+        case _:
+            printsln("PREAD00-ERROR:", tok0.lctn(), ":", tok0)
+
+@impl
+def token_WITH_fpemsg(out, tok0):
+    @impl[]
+    def g_print/out():
+        out
+    match tok0.node():
+        case T_WITH():
+            ()
+        case _:
+            printsln("PREAD00-ERROR:", tok0.lctn(), ":", tok0)
+
+@impl
+def token_GTDOT_fpemsg(out, tok0):
+    @impl[]
+    def g_print/out():
+        out
+    match tok0.node():
+        case T_GTDOT():
+            ()
+        case _:
+            printsln("PREAD00-ERROR:", tok0.lctn(), ":", tok0)
+
+@impl
+def token_RPAREN_fpemsg(out, tok0):
+    @impl[]
+    def g_print/out():
+        out
+    match tok0.node():
+        case T_RPAREN():
+            ()
+        case _:
+            printsln("PREAD00-ERROR:", tok0.lctn(), ":", tok0)
+
+@impl
+def token_RBRACE_fpemsg(out, tok0):
+    @impl[]
+    def g_print/out():
+        out
+    match tok0.node():
+        case T_RBRACE():
+            ()
+        case _:
+            printsln("PREAD00-ERROR:", tok0.lctn(), ":", tok0)
+
+@impl
+def token_RBRCKT_fpemsg(out, tok0):
+    @impl[]
+    def g_print/out():
+        out
+    match tok0.node():
+        case T_RBRCKT():
+            ()
+        case _:
+            printsln("PREAD00-ERROR:", tok0.lctn(), ":", tok0)
+
+@impl
+def token_ENDWHR_fpemsg(out, tok0):
+    @impl[]
+    def g_print/out():
+        out
+    match tok0.node():
+        case T_ENDWHR():
+            ()
+        case _:
+            printsln("PREAD00-ERROR:", tok0.lctn(), ":", tok0)
+
+@impl
+def token_ENDLET_fpemsg(out, tok0):
+    @impl[]
+    def g_print/out():
+        out
+    match tok0.node():
+        case T_END():
+            ()
+        case T_ENDLET():
+            ()
+        case _:
+            printsln("PREAD00-ERROR:", tok0.lctn(), ":", tok0)
+
+@impl
+def tkend_WHERE_fpemsg(out, topt, tend):
+    match topt:
+        case optn_nil():
+            match tend:
+                case tkend_WHERE_cons1(tok1):
+                    token_ENDWHR_fpemsg(out, tok1)
+        case optn_cons(_):
+            match tend:
+                case tkend_WHERE_cons1(tok1):
+                    token_RBRACE_fpemsg(out, tok1)
+
+@impl
+def token_ENDTRY_fpemsg(out, tok0):
+    @impl[]
+    def g_print/out():
+        out
+    match tok0.node():
+        case T_END():
+            ()
+        case T_ENDTRY():
+            ()
+        case _:
+            printsln("PREAD00-ERROR:", tok0.lctn(), ":", tok0)
+
+@impl
+def s0tcn_fpemsg(out, tcn0):
+    match tcn0.node():
+        case S0TCNnode(seid, tres):
+            i0dnt_fpemsg(out, seid)
+            sort0opt_fpemsg(out, tres)
+
+@impl
+def d0tst_fpemsg(out, d0t0):
+    match d0t0.node():
+        case D0TSTnode(stid, teq1, tbar, tcns):
+            i0dnt_fpemsg(out, stid)
+            token_EQ0_fpemsg(out, teq1)
+            s0tcnlst_fpemsg(out, tcns)
+
+@impl
+def s0tcnlst_fpemsg(out, tcns):
+    @inst[s0tcn] list_foritm(tcns)
+where:
+    @impl[s0tcn]
+    def foritm/work(tcn1):
+        s0tcn_fpemsg(out, tcn1)
+
+@impl
+def d0tstlst_fpemsg(out, d0ts):
+    @inst[d0tst] list_foritm(d0ts)
+where:
+    @impl[d0tst]
+    def foritm/work(d0t1):
+        d0tst_fpemsg(out, d0t1)
+
+@impl
+def d0tcn_fpemsg(out, tcn0):
+    match tcn0.node():
+        case D0TCNnode(s0us, deid, s0es, sres):
+            i0dnt_fpemsg(out, deid)
+            s0unilst_fpemsg(out, s0us)
+            s0explst_fpemsg(out, s0es)
+            s0expopt_fpemsg(out, sres)
+
+@impl
+def d0typ_fpemsg(out, d0t0):
+    match d0t0.node():
+        case D0TYPnode(deid, tmas, tres, teq1, tcns):
+            i0dnt_fpemsg(out, deid)
+            t0maglst_fpemsg(out, tmas)
+            sort0opt_fpemsg(out, tres)
+            token_EQ0_fpemsg(out, teq1)
+            d0tcnlst_fpemsg(out, tcns)
+
+@impl
+def d0tcnlst_fpemsg(out, tcns):
+    @inst[d0tcn] list_foritm(tcns)
+where:
+    @impl[d0tcn]
+    def foritm/work(tcn1):
+        d0tcn_fpemsg(out, tcn1)
+
+@impl
+def d0typlst_fpemsg(out, d0ts):
+    @inst[d0typ] list_foritm(d0ts)
+where:
+    @impl[d0typ]
+    def foritm/work(d0t1):
+        d0typ_fpemsg(out, d0t1)
+
+@impl
+def wd0eclseq_fpemsg(out, wdcs):
+    match wdcs:
+        case WD0CSnone():
+            ()
+        case WD0CSsome(twhr, topt, d0es, tend):
+            d0eclist_fpemsg(out, d0es)
+            match topt:
+                case optn_nil():
+                    token_ENDWHR_fpemsg(out, tend)
+                case optn_cons(_):
+                    token_RBRACE_fpemsg(out, tend)
+
+@impl
+def q0arg_fpemsg(out, q0a):
+    @impl[]
+    def g_print/out():
+        out
+    match q0a.node():
+        case Q0ARGsome(sid0, tres):
+            i0dnt_fpemsg(out, sid0)
+            sort0opt_fpemsg(out, tres)
+
+@impl
+def s0qag_fpemsg(out, sqa):
+    @impl[]
+    def g_print/out():
+        out
+    match sqa.node():
+        case S0QAGnone(tok):
+            let loc = sqa.lctn()
+            printsln("PREAD00-ERROR:", loc, ":", sqa)
+        case S0QAGsome(tbeg, q0as, tend):
+            q0arglst_fpemsg(out, q0as)
+            token_RPAREN_fpemsg(out, tend)
+
+@impl
+def t0qag_fpemsg(out, tqa):
+    @impl[]
+    def g_print/out():
+        out
+    match tqa.node():
+        case T0QAGnone(tok):
+            let loc = tqa.lctn()
+            printsln("PREAD00-ERROR:", loc, ":", tqa)
+        case T0QAGsome(tbeg, q0as, tend):
+            q0arglst_fpemsg(out, q0as)
+            token_GT0_fpemsg(out, tend)
+
+@impl
+def t0iag_fpemsg(out, tia):
+    @impl[]
+    def g_print/out():
+        out
+    match tia.node():
+        case T0IAGnone(tok):
+            let loc = tia.lctn()
+            printsln("PREAD00-ERROR:", loc, ":", tia)
+        case T0IAGsome(tbeg, s0es, tend):
+            s0explst_fpemsg(out, s0es)
+            token_GT0_fpemsg(out, tend)
+
+@impl
+def a0typ_fpemsg(out, atp):
+    match atp.node():
+        case A0TYPsome(s0e1, topt):
+            s0exp_fpemsg(out, s0e1)
+
+@impl
+def d0arg_fpemsg(out, d0a):
+    match d0a.node():
+        case D0ARGnone(tok):
+            ()
+        case D0ARGsta0(tbeg, s0qs, tend):
+            s0qualst_fpemsg(out, s0qs)
+            token_RBRACE_fpemsg(out, tend)
+        case D0ARGdyn1(dpid):
+            i0dnt_fpemsg(out, dpid)
+        case D0ARGdyn2(tbeg, atps, opt1, tend):
+            a0typlst_fpemsg(out, atps)
+            match opt1:
+                case optn_nil():
+                    ()
+                case optn_cons(atps):
+                    a0typlst_fpemsg(out, atps)
+            token_RPAREN_fpemsg(out, tend)
+
+@impl
+def q0arglst_fpemsg(out, q0as):
+    @inst[q0arg] list_foritm(q0as)
+where:
+    @impl[q0arg]
+    def foritm/work(q0a1):
+        q0arg_fpemsg(out, q0a1)
+
+@impl
+def s0qaglst_fpemsg(out, sqas):
+    @inst[s0qag] list_foritm(sqas)
+where:
+    @impl[s0qag]
+    def foritm/work(sqa1):
+        s0qag_fpemsg(out, sqa1)
+
+@impl
+def t0qaglst_fpemsg(out, tqas):
+    @inst[t0qag] list_foritm(tqas)
+where:
+    @impl[t0qag]
+    def foritm/work(tqa1):
+        t0qag_fpemsg(out, tqa1)
+
+@impl
+def t0iaglst_fpemsg(out, tias):
+    @inst[t0iag] list_foritm(tias)
+where:
+    @impl[t0iag]
+    def foritm/work(tia1):
+        t0iag_fpemsg(out, tia1)
+
+@impl
+def a0typlst_fpemsg(out, atps):
+    @inst[a0typ] list_foritm(atps)
+where:
+    @impl[a0typ]
+    def foritm/work(atp1):
+        a0typ_fpemsg(out, atp1)
+
+@impl
+def d0arglst_fpemsg(out, d0as):
+    @inst[d0arg] list_foritm(d0as)
+where:
+    @impl[d0arg]
+    def foritm/work(d0a1):
+        d0arg_fpemsg(out, d0a1)
+
+@impl
+def d0valdcl_fpemsg(out, dval):
+    d0pat_fpemsg(out, dpat)
+    teqd0exp_fpemsg(out, tdxp)
+    wths0exp_fpemsg(out, wsxp)
+where:
+    let dpat = d0valdcl_get_dpat(dval)
+    let tdxp = d0valdcl_get_tdxp(dval)
+    let wsxp = d0valdcl_get_wsxp(dval)
+
+@impl
+def d0vardcl_fpemsg(out, dvar):
+    i0dnt_fpemsg(out, dpid)
+    match vpid:
+        case optn_nil():
+            ()
+        case optn_cons(vpid):
+            i0dnt_fpemsg(out, vpid)
+    s0expopt_fpemsg(out, sres)
+    teqd0exp_fpemsg(out, dini)
+where:
+    let dpid = d0vardcl_get_dpid(dvar)
+    let vpid = d0vardcl_get_vpid(dvar)
+    let sres = d0vardcl_get_sres(dvar)
+    let dini = d0vardcl_get_dini(dvar)
+
+@impl
+def d0fundcl_fpemsg(out, dfun):
+    i0dnt_fpemsg(out, dpid)
+    f0arglst_fpemsg(out, fags)
+    s0res_fpemsg(out, sres)
+    teqd0exp_fpemsg(out, tdxp)
+    wths0exp_fpemsg(out, wsxp)
+where:
+    let dpid = d0fundcl_get_dpid(dfun)
+    let fags = d0fundcl_get_farg(dfun)
+    let sres = d0fundcl_get_sres(dfun)
+    let tdxp = d0fundcl_get_tdxp(dfun)
+    let wsxp = d0fundcl_get_wsxp(dfun)
+
+@impl
+def d0cstdcl_fpemsg(out, dcst):
+    i0dnt_fpemsg(out, dpid)
+    d0arglst_fpemsg(out, dags)
+    s0res_fpemsg(out, sres)
+    d0res_fpemsg(out, dres)
+where:
+    let dpid = d0cstdcl_get_dpid(dcst)
+    let dags = d0cstdcl_get_darg(dcst)
+    let sres = d0cstdcl_get_sres(dcst)
+    let dres = d0cstdcl_get_dres(dcst)
+
+@impl
+def teqd0exp_fpemsg(out, tdxp):
+    match tdxp:
+        case TEQD0EXPnone():
+            ()
+        case TEQD0EXPsome(teq1, d0e2):
+            d0exp_fpemsg(out, d0e2)
+
+@impl
+def wths0exp_fpemsg(out, wsxp):
+    match wsxp:
+        case WTHS0EXPnone():
+            ()
+        case WTHS0EXPsome(twth, s0e1):
+            s0exp_fpemsg(out, s0e1)
+
+@impl
+def f0unarrw_fpemsg(out, arrw):
+    match arrw:
+        case F0UNARRWnone(tok):
+            ()
+        case F0UNARRWdflt(tok):
+            ()
+        case F0UNARRWlist(tbeg, s0es, tend):
+            s0explst_fpemsg(out, s0es)
+            token_GT0_fpemsg(out, tend)
+
+@impl
+def d0exp_THEN_fpemsg(out, dthn):
+    match dthn:
+        case d0exp_THEN_none(tok):
+            ()
+        case d0exp_THEN_some(tok, d0e):
+            d0exp_fpemsg(out, d0e)
+
+@impl
+def d0exp_ELSE_fpemsg(out, dels):
+    match dels:
+        case d0exp_ELSE_none(tok):
+            ()
+        case d0exp_ELSE_some(tok, d0e):
+            d0exp_fpemsg(out, d0e)
+
+@impl
+def d0pat_RPAREN_fpemsg(out, drp0):
+    match drp0:
+        case d0pat_RPAREN_cons0(tend):
+            token_RPAREN_fpemsg(out, tend)
+        case d0pat_RPAREN_cons1(tbar, d0ps, tend):
+            d0patlst_fpemsg(out, d0ps)
+
+@impl
+def l0d0p_RBRACE_fpemsg(out, ldrb):
+    match ldrb:
+        case l0d0p_RBRACE_cons0(tend):
+            token_RBRACE_fpemsg(out, tend)
+        case l0d0p_RBRACE_cons1(tbar, ldps, tend):
+            l0d0plst_fpemsg(out, ldps)
+
+@impl
+def d0exp_RPAREN_fpemsg(out, drp0):
+    match drp0:
+        case d0exp_RPAREN_cons0(tend):
+            token_RPAREN_fpemsg(out, tend)
+        case d0exp_RPAREN_cons1(tbar, d0es, tend):
+            d0explst_fpemsg(out, d0es)
+        case d0exp_RPAREN_cons2(tbar, d0es, tend):
+            d0explst_fpemsg(out, d0es)
+
+@impl
+def l0d0e_RBRACE_fpemsg(out, ldrb):
+    match ldrb:
+        case l0d0e_RBRACE_cons0(tend):
+            token_RBRACE_fpemsg(out, tend)
+        case l0d0e_RBRACE_cons1(tbar, ldes, tend):
+            l0d0elst_fpemsg(out, ldes)
+
+@impl
+def d0valdclist_fpemsg(out, d0cs):
+    @inst[d0valdcl] list_foritm(d0cs)
+where:
+    @impl[d0valdcl]
+    def foritm/work(d0c1):
+        d0valdcl_fpemsg(out, d0c1)
+
+@impl
+def d0vardclist_fpemsg(out, d0cs):
+    @inst[d0vardcl] list_foritm(d0cs)
+where:
+    @impl[d0vardcl]
+    def foritm/work(d0c1):
+        d0vardcl_fpemsg(out, d0c1)
+
+@impl
+def d0fundclist_fpemsg(out, d0cs):
+    @inst[d0fundcl] list_foritm(d0cs)
+where:
+    @impl[d0fundcl]
+    def foritm/work(d0c1):
+        d0fundcl_fpemsg(out, d0c1)
+
+@impl
+def d0cstdclist_fpemsg(out, d0cs):
+    @inst[d0cstdcl] list_foritm(d0cs)
+where:
+    @impl[d0cstdcl]
+    def foritm/work(d0c1):
+        d0cstdcl_fpemsg(out, d0c1)
+

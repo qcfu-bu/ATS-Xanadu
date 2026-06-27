@@ -1,0 +1,627 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/xlabel0" import *
+
+from "srcgen2/SATS/filpath" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+type Stamp = Stamp
+
+type Sym_t = Sym_t
+
+type Label = Label
+
+type Loctn = Loctn
+
+type Loc_t = Loctn
+
+type Lcsrc = Lcsrc
+
+type Fpath = Fpath
+
+import "srcgen2/SATS/lexing0" as LEX
+
+type Token = LEX.token
+
+import "srcgen2/SATS/staexp1" as S1E
+
+import "srcgen2/SATS/dynexp1" as D1E
+
+type G1nam = S1E.g1nam
+
+type G1exp = S1E.g1exp
+
+type D1exp = D1E.d1exp
+
+import "srcgen2/SATS/staexp2" as S2E
+
+import "srcgen2/SATS/statyp2" as T2P
+
+import "srcgen2/SATS/dynexp2" as D2E
+
+type S2exp = S2E.s2exp
+
+type S2typ = S2E.s2typ
+
+type S2vts = T2P.s2vts
+
+type D2con = D2E.d2con
+
+type D2cst = D2E.d2cst
+
+type D2var = D2E.d2var
+
+type T2qag = D2E.t2qag
+
+type T2iag = D2E.t2iag
+
+type T2jag = D2E.t2jag
+
+type Dimpl = D2E.dimpl
+
+import "srcgen2/SATS/dynexp3" as D3E
+
+type D3pat = D3E.d3pat
+
+type D3exp = D3E.d3exp
+
+type L3d3p = D3E.l3d3p
+
+type L3d3e = D3E.l3d3e
+
+type F3arg = D3E.f3arg
+
+type D3gua = D3E.d3gua
+
+type D3gpt = D3E.d3gpt
+
+type D3cls = D3E.d3cls
+
+type Timpl = D3E.timpl
+
+type D3ecl = D3E.d3ecl
+
+type Fpathopt = Fpathopt
+
+type S2explst = S2E.s2explst
+
+type S2typlst = S2E.s2typlst
+
+type D2conlst = D2E.d2conlst
+
+type D2cstlst = D2E.d2cstlst
+
+type D2varlst = D2E.d2varlst
+
+type T2qaglst = D2E.t2qaglst
+
+type T2iaglst = D2E.t2iaglst
+
+type T2jaglst = D2E.t2jaglst
+
+type D3patlst = D3E.d3patlst
+
+type D3explst = D3E.d3explst
+
+type D3expopt = D3E.d3expopt
+
+type L3d3plst = D3E.l3d3plst
+
+type L3d3elst = D3E.l3d3elst
+
+type F3arglst = D3E.f3arglst
+
+type D3gualst = D3E.d3gualst
+
+type D3clslst = D3E.d3clslst
+
+type D3eclist = D3E.d3eclist
+
+type Teqd3exp = D3E.teqd3exp
+
+type D3valdcl = D3E.d3valdcl
+
+type D3vardcl = D3E.d3vardcl
+
+type D3fundcl = D3E.d3fundcl
+
+type D3parsed = D3E.d3parsed
+
+type D3valdclist = D3E.d3valdclist
+
+type D3vardclist = D3E.d3vardclist
+
+type D3fundclist = D3E.d3fundclist
+
+type D3explstopt = D3E.d3explstopt
+
+type D3eclistopt = D3E.d3eclistopt
+
+enum I0lab[X0]:
+    case I0LAB(Label, X0)
+
+@extern
+def i0lab_fprint[X0: Type](a: I0lab[X0], b: FILR) -> Void
+
+@abstract
+type I0pat_tbox
+
+type I0pat = I0pat_tbox
+
+@abstract
+type I0exp_tbox
+
+type I0exp = I0exp_tbox
+
+@abstract
+type Fiarg_tbox
+
+type Fiarg = Fiarg_tbox
+
+@abstract
+type I0gua_tbox
+
+@abstract
+type I0gpt_tbox
+
+@abstract
+type I0cls_tbox
+
+type I0gua = I0gua_tbox
+
+type I0gpt = I0gpt_tbox
+
+type I0cls = I0cls_tbox
+
+@abstract
+type I0dcl_tbox
+
+type I0dcl = I0dcl_tbox
+
+@abstract
+type T0imp_tbox
+
+type T0imp = T0imp_tbox
+
+type L0i0p = I0lab[I0pat]
+
+type L0i0e = I0lab[I0exp]
+
+type I0patlst = List[I0pat]
+
+type L0i0plst = List[L0i0p]
+
+type I0expopt = Optn[I0exp]
+
+type I0explst = List[I0exp]
+
+type L0i0elst = List[L0i0e]
+
+type I0gualst = List[I0gua]
+
+type I0clslst = List[I0cls]
+
+@abstract
+type I0parsed_tbox
+
+@abstract
+type I0valdcl_tbox
+
+@abstract
+type I0vardcl_tbox
+
+@abstract
+type I0fundcl_tbox
+
+type I0dclist = List[I0dcl]
+
+type I0dclopt = Optn[I0dcl]
+
+type I0valdcl = I0valdcl_tbox
+
+type I0vardcl = I0vardcl_tbox
+
+type I0fundcl = I0fundcl_tbox
+
+type I0parsed = I0parsed_tbox
+
+type I0valdclist = List[I0valdcl]
+
+type I0vardclist = List[I0vardcl]
+
+type I0fundclist = List[I0fundcl]
+
+type I0dclistopt = Optn[I0dclist]
+
+enum I0pat_node:
+    case I0Pany()
+    case I0Pvar(D2var)
+    case I0Pint(Token)
+    case I0Pbtf(Sym_t)
+    case I0Pchr(Token)
+    case I0Pflt(Token)
+    case I0Pstr(Token)
+    case I0Pcon(D2con)
+    case I0Pbang(I0pat)
+    case I0Pflat(I0pat)
+    case I0Pfree(I0pat)
+    case I0Pdap1(I0pat)
+    case I0Pdapp(I0pat, I0patlst)
+    case I0Prfpt(I0pat, I0pat)
+    case I0Ptup0(I0patlst)
+    case I0Ptup1(Token, I0patlst)
+    case I0Prcd2(Token, L0i0plst)
+    case I0Pnone0()
+    case I0Pnone1(D3pat)
+
+@extern
+def i0pat_fprint(a: I0pat, b: FILR) -> Void
+
+@extern
+def i0pat_lctn/get(a: I0pat) -> Loc_t
+
+@extern
+def i0pat_node/get(a: I0pat) -> I0pat_node
+
+@overload lctn = i0pat_lctn/get
+
+@overload node = i0pat_node/get
+
+@extern
+def i0pat_var(a: D2var) -> I0pat
+
+@extern
+def i0pat_none0(a: Loctn) -> I0pat
+
+@extern
+def i0pat_none1(a: D3pat) -> I0pat
+
+@extern
+def i0pat_make_node(a: Loctn, b: I0pat_node) -> I0pat
+
+@overload i0pat = i0pat_make_node
+
+enum Fiarg_node:
+    case FIARGdarg(I0patlst)
+
+type Fiarglst = List[Fiarg]
+
+type Fiarglstopt = Optn[Fiarglst]
+
+@extern
+def fiarg_fprint(a: Fiarg, b: FILR) -> Void
+
+@extern
+def fiarg_lctn/get(a: Fiarg) -> Loc_t
+
+@extern
+def fiarg_node/get(a: Fiarg) -> Fiarg_node
+
+@overload lctn = fiarg_lctn/get
+
+@overload node = fiarg_node/get
+
+@extern
+def fiarg_make_node(a: Loc_t, b: Fiarg_node) -> Fiarg
+
+@overload fiarg = fiarg_make_node
+
+enum I0exp_node:
+    case I0Eint(Token)
+    case I0Ebtf(Sym_t)
+    case I0Echr(Token)
+    case I0Eflt(Token)
+    case I0Estr(Token)
+    case I0Ei00(SInt)
+    case I0Eb00(Bool)
+    case I0Ec00(Char)
+    case I0Ef00(Float)
+    case I0Es00(String)
+    case I0Etop(Sym_t)
+    case I0Evar(D2var)
+    case I0Econ(D2con)
+    case I0Ecst(D2cst)
+    case I0Etimp(I0exp, T0imp)
+    case I0Etapp(I0exp)
+    case I0Etapq(I0exp, T2jaglst)
+    case I0Edap0(I0exp)
+    case I0Edapp(I0exp, I0explst)
+    case I0Epcon(Label, I0exp)
+    case I0Epflt(Label, I0exp)
+    case I0Eproj(Label, I0exp)
+    case I0Elet0(I0dclist, I0exp)
+    case I0Eift0(I0exp, I0expopt, I0expopt)
+    case I0Ecas0(Token, I0exp, I0clslst)
+    case I0Eseqn(I0explst, I0exp)
+    case I0Etup0(I0explst)
+    case I0Etup1(Token, I0explst)
+    case I0Ercd2(Token, L0i0elst)
+    case I0Elam0(Token, Fiarglst, I0exp)
+    case I0Efix0(Token, D2var, Fiarglst, I0exp)
+    case I0Etry0(Token, I0exp, I0clslst)
+    case I0Eaddr(I0exp)
+    case I0Eflat(I0exp)
+    case I0Eeval(I0exp)
+    case I0Efold(I0exp)
+    case I0Efree(I0exp)
+    case I0Edp2tr(I0exp)
+    case I0Edl0az(I0exp)
+    case I0Edl1az(I0exp)
+    case I0Ewhere(I0exp, I0dclist)
+    case I0Eassgn(I0exp, I0exp)
+    case I0Eraise(Token, I0exp)
+    case I0El0azy(D1exp, I0exp)
+    case I0El1azy(D1exp, I0exp, I0explst)
+    case I0Eextnam(Token, G1nam)
+    case I0Esynext(Token, G1exp)
+    case I0Enone0()
+    case I0Enone1(D3exp)
+
+@extern
+def i0exp_fprint(a: I0exp, b: FILR) -> Void
+
+@extern
+def i0exp_lctn/get(a: I0exp) -> Loc_t
+
+@extern
+def i0exp_node/get(a: I0exp) -> I0exp_node
+
+@overload lctn = i0exp_lctn/get
+
+@overload node = i0exp_node/get
+
+@extern
+def i0exp_addr(a: I0exp) -> I0exp
+
+@extern
+def i0exp_none0(a: Loctn) -> I0exp
+
+@extern
+def i0exp_none1(a: D3exp) -> I0exp
+
+@extern
+def i0exp_make_node(a: Loctn, b: I0exp_node) -> I0exp
+
+@overload i0exp = i0exp_make_node
+
+enum I0gua_node:
+    case I0GUAexp(I0exp)
+    case I0GUAmat(I0exp, I0pat)
+
+enum I0cls_node:
+    case I0CLSgpt(I0gpt)
+    case I0CLScls(I0gpt, I0exp)
+enum I0gpt_node:
+    case I0GPTpat(I0pat)
+    case I0GPTgua(I0pat, I0gualst)
+
+@extern
+def i0gua_fprint(a: I0gua, b: FILR) -> Void
+
+@extern
+def i0gpt_fprint(a: I0gpt, b: FILR) -> Void
+
+@extern
+def i0cls_fprint(a: I0cls, b: FILR) -> Void
+
+@extern
+def i0gua_lctn/get(a: I0gua) -> Loc_t
+
+@extern
+def i0gua_node/get(a: I0gua) -> I0gua_node
+
+@overload lctn = i0gua_lctn/get
+
+@overload node = i0gua_node/get
+
+@extern
+def i0gpt_lctn/get(a: I0gpt) -> Loc_t
+
+@extern
+def i0gpt_node/get(a: I0gpt) -> I0gpt_node
+
+@overload lctn = i0gpt_lctn/get
+
+@overload node = i0gpt_node/get
+
+@extern
+def i0cls_lctn/get(a: I0cls) -> Loc_t
+
+@extern
+def i0cls_node/get(a: I0cls) -> I0cls_node
+
+@overload lctn = i0cls_lctn/get
+
+@overload node = i0cls_node/get
+
+@extern
+def i0gua_make_node(a: Loc_t, b: I0gua_node) -> I0gua
+
+@extern
+def i0gpt_make_node(a: Loc_t, b: I0gpt_node) -> I0gpt
+
+@extern
+def i0cls_make_node(a: Loc_t, b: I0cls_node) -> I0cls
+
+@overload i0gua = i0gua_make_node
+
+@overload i0gpt = i0gpt_make_node
+
+@overload i0cls = i0cls_make_node
+
+enum T0imp_node:
+    case T0IMPall1(D2cst, T2jaglst, I0dclopt)
+    case T0IMPallx(D2cst, T2jaglst, I0dclopt)
+
+@extern
+def t0imp_fprint(a: T0imp, b: FILR) -> Void
+
+@extern
+def t0imp_stmp/get(a: T0imp) -> Stamp
+
+@extern
+def t0imp_node/get(a: T0imp) -> T0imp_node
+
+@overload stmp = t0imp_stmp/get
+
+@overload node = t0imp_node/get
+
+@extern
+def t0imp_make_node(a: Stamp, b: T0imp_node) -> T0imp
+
+@overload t0imp = t0imp_make_node
+
+enum Teqi0exp:
+    case TEQI0EXPnone()
+    case TEQI0EXPsome(Token, I0exp)
+
+enum I0dcl_node:
+    case I0Dd3ecl(D3ecl)
+    case I0Dstatic(Token, I0dcl)
+    case I0Dextern(Token, I0dcl)
+    case I0Dtmpsub(S2vts, I0dcl)
+    case I0Ddclst0(I0dclist)
+    case I0Dlocal0(I0dclist, I0dclist)
+    case I0Dinclude(SInt, Token, G1exp, Fpathopt, I0dclistopt)
+    case I0Ddyninit(Token, G1exp)
+    case I0Dextcode(Token, G1exp)
+    case I0Dvaldclst(Token, I0valdclist)
+    case I0Dvardclst(Token, I0vardclist)
+    case I0Dfundclst(Token, T2qaglst, D2cstlst, I0fundclist)
+    case I0Dimplmnt0(Token, Stamp, Dimpl, Fiarglst, I0exp)
+    case I0Dnone0()
+    case I0Dnone1(D3ecl)
+
+@extern
+def i0dcl_fprint(a: I0dcl, b: FILR) -> Void
+
+@extern
+def i0dcl_lctn/get(a: I0dcl) -> Loc_t
+
+@extern
+def i0dcl_node/get(a: I0dcl) -> I0dcl_node
+
+@overload lctn = i0dcl_lctn/get
+
+@overload node = i0dcl_node/get
+
+@extern
+def i0dcl_none0(a: Loctn) -> I0dcl
+
+@extern
+def i0dcl_none1(a: D3ecl) -> I0dcl
+
+@extern
+def i0dcl_make_node(a: Loctn, b: I0dcl_node) -> I0dcl
+
+@overload i0dcl = i0dcl_make_node
+
+@extern
+def i0valdcl_fprint(a: I0valdcl, b: FILR) -> Void
+
+@extern
+def i0vardcl_fprint(a: I0vardcl, b: FILR) -> Void
+
+@extern
+def i0fundcl_fprint(a: I0fundcl, b: FILR) -> Void
+
+@extern
+def i0valdcl_lctn/get(a: I0valdcl) -> Loc_t
+
+@extern
+def i0vardcl_lctn/get(a: I0vardcl) -> Loc_t
+
+@extern
+def i0fundcl_lctn/get(a: I0fundcl) -> Loc_t
+
+@overload lctn = i0valdcl_lctn/get
+
+@overload lctn = i0vardcl_lctn/get
+
+@overload lctn = i0fundcl_lctn/get
+
+@extern
+def i0valdcl_ipat/get(a: I0valdcl) -> I0pat
+
+@extern
+def i0valdcl_tdxp/get(a: I0valdcl) -> Teqi0exp
+
+@overload ipat = i0valdcl_ipat/get
+
+@overload tdxp = i0valdcl_tdxp/get
+
+@extern
+def i0vardcl_dpid/get(a: I0vardcl) -> D2var
+
+@extern
+def i0vardcl_dini/get(a: I0vardcl) -> Teqi0exp
+
+@overload dpid = i0vardcl_dpid/get
+
+@overload dini = i0vardcl_dini/get
+
+@extern
+def i0fundcl_dpid/get(a: I0fundcl) -> D2var
+
+@extern
+def i0fundcl_farg/get(a: I0fundcl) -> Fiarglst
+
+@extern
+def i0fundcl_tdxp/get(a: I0fundcl) -> Teqi0exp
+
+@overload dpid = i0fundcl_dpid/get
+
+@overload farg = i0fundcl_farg/get
+
+@overload tdxp = i0fundcl_tdxp/get
+
+@extern
+def i0valdcl_make_args(a: Loc_t, b: I0pat, c: Teqi0exp) -> I0valdcl
+
+@extern
+def i0vardcl_make_args(a: Loc_t, b: D2var, c: Teqi0exp) -> I0vardcl
+
+@extern
+def i0fundcl_make_args(a: Loc_t, b: D2var, c: Fiarglst, d: Teqi0exp) -> I0fundcl
+
+@overload i0valdcl = i0valdcl_make_args
+
+@overload i0vardcl = i0vardcl_make_args
+
+@overload i0fundcl = i0fundcl_make_args
+
+@extern
+def i0parsed_fprint(a: I0parsed, b: FILR) -> Void
+
+@extern
+def i0parsed_stadyn/get(a: I0parsed) -> SInt
+
+@extern
+def i0parsed_nerror/get(a: I0parsed) -> SInt
+
+@extern
+def i0parsed_source/get(a: I0parsed) -> Lcsrc
+
+@extern
+def i0parsed_parsed/get(a: I0parsed) -> I0dclistopt
+
+@overload stadyn = i0parsed_stadyn/get
+
+@overload nerror = i0parsed_nerror/get
+
+@overload source = i0parsed_source/get
+
+@overload parsed = i0parsed_parsed/get
+
+@extern
+def i0parsed_make_args(a: SInt, b: SInt, c: Lcsrc, d: I0dclistopt) -> I0parsed
+
+@overload i0parsed = i0parsed_make_args
+

@@ -1,0 +1,1641 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/filpath" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/gmacro1" import *
+
+from "srcgen2/SATS/trans01" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/trans12" import *
+
+from "srcgen2/SATS/xglobal" import *
+
+import "srcgen2/DATS/trans12.dats" as _
+
+@overload name = symbl_get_name
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload node = g1exp_get_node
+
+@overload lctn = s1qid_get_lctn
+
+@overload lctn = d1qid_get_lctn
+
+@overload lctn = sort1_get_lctn
+
+@overload node = sort1_get_node
+
+@overload lctn = t1arg_get_lctn
+
+@overload node = t1arg_get_node
+
+@overload lctn = t1mag_get_lctn
+
+@overload node = t1mag_get_node
+
+@overload lctn = s1exp_get_lctn
+
+@overload node = s1exp_get_node
+
+@overload lctn = s1tdf_get_lctn
+
+@overload node = s1tdf_get_node
+
+@overload lctn = s1tcn_get_lctn
+
+@overload node = s1tcn_get_node
+
+@overload lctn = d1tst_get_lctn
+
+@overload node = d1tst_get_node
+
+@overload lctn = s1uni_get_lctn
+
+@overload node = s1uni_get_node
+
+@overload lctn = d1tcn_get_lctn
+
+@overload node = d1tcn_get_node
+
+@overload lctn = d1typ_get_lctn
+
+@overload node = d1typ_get_node
+
+@overload lctn = d1pat_get_lctn
+
+@overload node = d1pat_get_node
+
+@overload lctn = d1exp_get_lctn
+
+@overload node = d1exp_get_node
+
+@overload lctn = q1arg_get_lctn
+
+@overload node = q1arg_get_node
+
+@overload lctn = s1qag_get_lctn
+
+@overload node = s1qag_get_node
+
+@overload lctn = t1qag_get_lctn
+
+@overload node = t1qag_get_node
+
+@overload lctn = t1iag_get_lctn
+
+@overload node = t1iag_get_node
+
+@overload lctn = a1typ_get_lctn
+
+@overload node = a1typ_get_node
+
+@overload lctn = d1arg_get_lctn
+
+@overload node = d1arg_get_node
+
+@overload lctn = d1ecl_get_lctn
+
+@overload node = d1ecl_get_node
+
+@overload lctn = s2cst_get_lctn
+
+@overload name = s2cst_get_name
+
+@overload sort = s2cst_get_sort
+
+@overload name = s2var_get_name
+
+@overload sort = s2var_get_sort
+
+@overload sort = s2var_set_sort
+
+@overload sort = s2exp_get_sort
+
+@overload node = s2exp_get_node
+
+@overload stmp = d2cst_get_stmp
+
+@overload tqas = d2cst_get_tqas
+
+@overload node = dimpl_get_node
+
+@overload tdxp = d2fundcl_get_tdxp
+
+@extern
+def trans12_q1arg_wth(env0: !tr12env, q1a1: q1arg, s2v2: s2var) -> s2var
+
+@extern
+def trans12_t1qag_wth(env0: !tr12env, t1qa: t1qag, t2qa: t2qag) -> t2qag
+
+@extern
+def trans12_q1arglst_wth(env0: !tr12env, q1as: q1arglst, s2vs: s2varlst) -> s2varlst
+
+@extern
+def trans12_t1qaglst_wth(env0: !tr12env, t1qs: t1qaglst, t2qs: t2qaglst) -> t2qaglst
+
+def fint_rep_bas(rep: String, bas: SInt) -> SInt:
+    @inst[String] @inst[cgtz] @inst[SInt] gseq_foldl(rep, 0)
+where:
+    @overload[1001] - = sub_char_char
+    @impl[cgtz, SInt]
+    def foldl/fopr(r0, c0):
+        r0 * bas + (c0 - '0')
+
+def sort2_ofknd(knd0: SInt) -> sort2:
+    if (knd0 == TYPESORT):
+        the_sort2_type
+    else:
+        if (knd0 == VWTPSORT):
+            the_sort2_vwtp
+        else:
+            if (knd0 == TBOXSORT):
+                the_sort2_tbox
+            else:
+                if (knd0 == VTBXSORT):
+                    the_sort2_vtbx
+                else:
+                    if (knd0 == PROPSORT):
+                        the_sort2_prop
+                    else:
+                        if (knd0 == VIEWSORT):
+                            the_sort2_view
+                        else:
+                            if (knd0 == TFLTSORT):
+                                the_sort2_tflt
+                            else:
+                                if (knd0 == VTFTSORT):
+                                    the_sort2_vtft
+                                else:
+                                    S2Tnone0()
+
+def abstype_sort2(tknd: token) -> sort2:
+    sort2_ofknd(knd0)
+where:
+    let T_ABSTYPE(knd0) = tknd.node()
+
+def sexpdef_sort2(tknd: token) -> sort2:
+    sort2_ofknd(knd0)
+where:
+    let T_SEXPDEF(knd0) = tknd.node()
+
+private:
+    def DLRDT(nm0: String) -> String:
+        strn_tabulate/f1un(n0 + 2, (i0) => fopr(i0))
+    where:
+        let n0 = strn_length(nm0)
+        def fopr(i0: SInt) -> Char:
+            if i0 == 0:
+                '$'
+            else:
+                if i0 <= n0:
+                    nm0[i0 - 1]
+                else:
+                    '.'
+    def iseq0(x0: g1exp) -> Bool:
+        match x0.node():
+            case G1Eid0(sym):
+                sym == SYM.EQ0_symbl
+            case _:
+                false
+
+@impl
+def g1exp_nmspace(g1e0):
+    match g1e0.node():
+        case G1Ea2pp(x0, x1, x2):
+            if iseq0(x0):
+                match x1.node():
+                    case G1Eid0(sym):
+                        let nm0 = SYM.symbl_get_name(sym)
+                        optn_cons(SYM.symbl_make_name(DLRDT(nm0)))
+                    case _:
+                        optn_nil
+            else:
+                optn_nil()
+        case _:
+            optn_nil()
+
+
+@impl
+def trans12_q1arg(env0, q1a0):
+    match q1a0.node():
+        case Q1ARGsome(tok1, opt2):
+            let opt2 = trans12_sort1opt(env0, opt2)
+            let s2t2 = match opt2:
+                case optn_nil():
+                    the_sort2_type
+                case optn_cons(s2t2):
+                    s2t2
+            let sid1 = sexpid_sym(tok1)
+            s2var_make_idst(sid1, s2t2)
+
+@impl
+def trans12_q1arg_wth(env0, q1a1, s2v2):
+    match q1a1.node():
+        case Q1ARGsome(tok1, opt2):
+            let opt2 = trans12_sort1opt(env0, opt2)
+            let s2t2 = match opt2:
+                case optn_nil():
+                    s2v2.sort()
+                case optn_cons(s2t2):
+                    s2t2
+            let sid1 = sexpid_sym(tok1)
+            s2var_make_idst(sid1, s2t2)
+
+@impl
+def trans12_s1qag(env0, s1qa):
+    let loc0 = s1qa.lctn()
+    match s1qa.node():
+        case S1QAGsome(q1as):
+            let s2vs = trans12_q1arglst(env0, q1as)
+            s2qag_make_s2vs(loc0, s2vs)
+
+@impl
+def trans12_t1qag(env0, t1qa):
+    let loc0 = t1qa.lctn()
+    match t1qa.node():
+        case T1QAGsome(q1as):
+            let s2vs = trans12_q1arglst(env0, q1as)
+            t2qag_make_s2vs(loc0, s2vs)
+
+@impl
+def trans12_t1qag_wth(env0, t1qa, t2qa):
+    let loc0 = t1qa.lctn()
+    match t1qa.node():
+        case T1QAGsome(q1as):
+            let s2vs = trans12_q1arglst_wth(env0, q1as, t2qa.s2vs())
+            t2qag_make_s2vs(loc0, s2vs)
+
+@impl
+def trans12_t1iag(env0, t1ia):
+    let loc0 = t1ia.lctn()
+    match t1ia.node():
+        case T1IAGsome(s1es):
+            let s2es = trans12_s1explst(env0, s1es)
+            t2iag_make_s2es(loc0, s2es)
+
+private:
+    def f0_a1typ(env0: !tr12env, a1t0: a1typ) -> s2exp:
+        match a1t0.node():
+            case A1TYPsome(s1e1, topt):
+                trans12_s1exp(env0, s1e1)
+    def f0_a1typlst(env0: !tr12env, a1ts: a1typlst) -> s2explst:
+        list_map/e1nv(a1ts, env0)
+    where:
+        type X0 = a1typ
+        type Y0 = s2exp
+        type E1 = tr12env
+        @impl[X0, Y0, E1]
+        def map/e1nv/fopr(x0, e1):
+            f0_a1typ(e1, x0)
+
+@impl
+def trans12_d1arg(env0, darg):
+    let loc0 = darg.lctn()
+    match darg.node():
+        case D1ARGdyn1(dpid):
+            let loc1 = dpid.lctn()
+            let sym1 = dpatid_sym(dpid)
+            let s1e1 = s1exp(loc1, S1Eid0(sym1))
+            let s2e1 = trans12_s1exp(env0, s1e1)
+            d2arg(loc0, D2ARGdyn1(s2e1))
+        case D1ARGsta0(s1qs):
+            let (s2vs, s2ps) = trans12_s1qualst(env0, s1qs)
+            d2arg(loc0, D2ARGsta0(s2vs, s2ps))
+        case D1ARGdyn2(a1ts, aopt):
+            let npf1 = match aopt:
+                case optn_nil():
+                    -(1)
+                case optn_cons(_):
+                    list_length(a1ts)
+            let s2es = f0_a1typlst(env0, a1ts)
+            let s2es = match aopt:
+                case optn_nil():
+                    s2es
+                case optn_cons(ats2):
+                    let ses2 = f0_a1typlst(env0, ats2)
+                    list_append(s2es, ses2)
+            d2arg(loc0, D2ARGdyn2(npf1, s2es))
+
+
+def process_static(env0: !tr12env, d2cl: d2ecl) -> Void:
+    match d2cl.node():
+        case D2Cfundclst(tknd, tqas, d2cs, d2fs):
+            match tqas:
+                case list_nil():
+                    tr12env_add1_d2cs(env0, d2cs)
+                case list_cons(_):
+                    ()
+        case _:
+            ()
+
+def process_extern(env0: !tr12env, d2cl: d2ecl) -> Void:
+    match d2cl.node():
+        case D2Cfundclst(tknd, tqas, d2cs, d2fs):
+            match tqas:
+                case list_nil():
+                    tr12env_add1_d2cs(env0, d2cs)
+                case list_cons(_):
+                    ()
+        case _:
+            ()
+
+def s2taload_from_fpath(fpth: fpath, dpar: d1parsed) -> (SInt, d2parsed):
+    let fnm2 = fpath_get_fnm2(fpth)
+    let opt2 = the_d2parenv_pvsfind(fnm2)
+    match opt2:
+        case ~optn_vt_nil():
+            let dpar = d2parsed_of_trans12(dpar)
+            let dpar = d2parsed_of_trans2a(dpar)
+            d2parsed_by_trsym2b(dpar)
+            the_d2parenv_pvsadd0(fnm2, dpar)
+            (0, dpar)
+        case ~optn_vt_cons(dpar):
+            (1, dpar)
+
+@impl
+def trans12_d1ecl(env0, d1cl):
+    match d1cl.node():
+        case D1Cd0ecl(_):
+            let loc0 = d1cl.lctn()
+            d2ecl(loc0, D2Cd1ecl(d1cl))
+        case D1Cstatic(tknd, dcl1):
+            let loc0 = d1cl.lctn()
+            let dcl1 = trans12_d1ecl(env0, dcl1)
+            process_static(env0, dcl1)
+            d2ecl(loc0, D2Cstatic(tknd, dcl1))
+        case D1Cextern(tknd, dcl1):
+            let loc0 = d1cl.lctn()
+            let dcl1 = trans12_d1ecl(env0, dcl1)
+            process_extern(env0, dcl1)
+            d2ecl(loc0, D2Cextern(tknd, dcl1))
+        case D1Cdefine(_):
+            f0_define(env0, d1cl)
+        case D1Cmacdef(_):
+            f0_macdef(env0, d1cl)
+        case D1Clocal0(_):
+            f0_local0(env0, d1cl)
+        case D1Cabssort(_):
+            f0_abssort(env0, d1cl)
+        case D1Cstacst0(_):
+            f0_stacst0(env0, d1cl)
+        case D1Csortdef(_):
+            f0_sortdef(env0, d1cl)
+        case D1Csexpdef(_):
+            f0_sexpdef(env0, d1cl)
+        case D1Cabstype(_):
+            f0_abstype(env0, d1cl)
+        case D1Cabsopen(_):
+            f0_absopen(env0, d1cl)
+        case D1Cabsimpl(_):
+            f0_absimpl(env0, d1cl)
+        case D1Csymload(_):
+            f0_symload(env0, d1cl)
+        case D1Cinclude(_):
+            f0_include(env0, d1cl)
+        case D1Cstaload(_):
+            f0_staload(env0, d1cl)
+        case D1Cdyninit(_):
+            f0_dyninit(env0, d1cl)
+        case D1Cextcode(_):
+            f0_extcode(env0, d1cl)
+        case D1Cdatasort(_):
+            f0_datasort(env0, d1cl)
+        case D1Cvaldclst(_):
+            f0_valdclst(env0, d1cl)
+        case D1Cvardclst(_):
+            f0_vardclst(env0, d1cl)
+        case D1Cfundclst(_):
+            f0_fundclst(env0, d1cl)
+        case D1Cexcptcon(_):
+            f0_excptcon(env0, d1cl)
+        case D1Cdatatype(_):
+            f0_datatype(env0, d1cl)
+        case D1Cimplmnt0(_):
+            f0_implmnt0(env0, d1cl)
+        case D1Cdynconst(_):
+            f0_dynconst(env0, d1cl)
+        case D1Cnone0():
+            d2ecl_none0(d1cl.lctn())
+        case D1Cthen0(d1cls):
+            let d2cls = trans12_d1eclist(env0, d1cls)
+            d2ecl_make_node(d1cl.lctn(), D2Cthen0(d2cls))
+        case D1Celse1(d1cls):
+            let d2cls = trans12_d1eclist(env0, d1cls)
+            d2ecl_make_node(d1cl.lctn(), D2Celse1(d2cls))
+        case D1Cifexp(gexp, dthn, dels, dend):
+            let loc0 = d1cl.lctn()
+            let test = tr12env_eval_ifexp(env0, gexp)
+            if test:
+                match dthn:
+                    case optn_nil():
+                        d2ecl_none0(loc0)
+                    case optn_cons(dcl1):
+                        trans12_d1ecl(env0, dcl1)
+            else:
+                match dels:
+                    case optn_nil():
+                        d2ecl_none0(loc0)
+                    case optn_cons(dcl1):
+                        trans12_d1ecl(env0, dcl1)
+        case D1Celsif(gexp, dthn, dels, dend):
+            let loc0 = d1cl.lctn()
+            let test = tr12env_eval_ifexp(env0, gexp)
+            if test:
+                match dthn:
+                    case optn_nil():
+                        d2ecl_none0(loc0)
+                    case optn_cons(dcl1):
+                        trans12_d1ecl(env0, dcl1)
+            else:
+                match dels:
+                    case optn_nil():
+                        d2ecl_none0(loc0)
+                    case optn_cons(dcl1):
+                        trans12_d1ecl(env0, dcl1)
+        case _:
+            let loc0 = d1cl.lctn()
+            d2ecl_make_node(loc0, D2Cnone1(d1cl))
+where:
+    def f0_define(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Cdefine(tknd, gid0, gmas, def1) = d1cl.node()
+        let sym0 = gexpid_sym(gid0)
+        let def1 = trans11_gmdef(gmas, def1)
+        tr12env_add0_g1mac(env0, sym0, def1)
+        d2ecl_make_node(loc0, D2Cd1ecl(d1cl))
+    def f0_macdef(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Cmacdef(tknd, gid0, gmas, def1) = d1cl.node()
+        let sym0 = gexpid_sym(gid0)
+        d2ecl_make_node(loc0, D2Cd1ecl(d1cl))
+    def f0_local0(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Clocal0(head, body) = d1cl.node()
+        tr12env_pshloc1(env0)
+        let head = trans12_d1eclist(env0, head)
+        tr12env_pshloc2(env0)
+        let body = trans12_d1eclist(env0, body)
+        tr12env_locjoin(env0)
+        d2ecl(loc0, D2Clocal0(head, body))
+    def f0_abssort(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Cabssort(tknd, tok1) = d1cl.node()
+        let tid1 = sortid_sym(tok1)
+        let tabs = t2abs_make_name(tid1)
+        let s2tx = S2TEXsrt(S2Tbas(T2Btabs(tabs)))
+        tr12env_add0_s2tex(env0, tid1, s2tx)
+        d2ecl_make_node(loc0, D2Cabssort(tid1))
+    def f0_stacst0(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Cstacst0(tknd, tok1, tmas, tres) = d1cl.node()
+        def auxtfun(tres: sort2, stss: sort2lstlst) -> sort2:
+            match stss:
+                case list_nil():
+                    tres
+                case list_cons(s2ts, stss):
+                    let tres = S2Tfun1(s2ts, tres)
+                    auxtfun(tres, stss)
+        let sid1 = sexpid_sym(tok1)
+        let stss = trans12_t1maglst(env0, tmas)
+        let tres = trans12_sort1(env0, tres)
+        let s2t2 = auxtfun(tres, stss)
+        let s2c1 = s2cst_make_idst(loc0, sid1, s2t2)
+        tr12env_add1_s2cst(env0, s2c1)
+        d2ecl_make_node(loc0, D2Cstacst0(s2c1, s2t2))
+    def f0_sortdef(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Csortdef(tknd, tok1, stdf) = d1cl.node()
+        match stdf.node():
+            case S1TDFsort(s1t1):
+                let s2t1 = trans12_sort1(env0, s1t1)
+                let s2tx = S2TEXsrt(s2t1)
+                let tid1 = sortid_sym(tok1)
+                tr12env_add0_s2tex(env0, tid1, s2tx)
+                d2ecl_make_node(loc0, D2Csortdef(tid1, s2tx))
+            case S1TDFtsub(s1a1, s1es):
+                let (s2v1, sps1) = trans12_s1arg_tsub(env0, s1a1)
+                tr12env_pshlam0(env0)
+                tr12env_add0_s2var(env0, s2v1)
+                let s2t0 = the_sort2_bool
+                let sps2 = trans12_s1explst_stck1(env0, s1es, s2t0)
+                tr12env_poplam0(env0)
+                let s2ps = list_append(sps1, sps2)
+                let s2tx = S2TEXsub(s2v1, s2ps)
+                let tid1 = sortid_sym(tok1)
+                tr12env_add0_s2tex(env0, tid1, s2tx)
+                d2ecl_make_node(loc0, D2Csortdef(tid1, s2tx))
+    def f0_sexpdef(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Csexpdef(tknd, tok1, smas, topt, sdef) = d1cl.node()
+        tr12env_pshlam0(env0)
+        let svss = trans12_s1maglst(env0, smas)
+        let sdef = match topt:
+            case optn_nil():
+                trans12_s1exp(env0, sdef)
+            case optn_cons(s1t1):
+                let s2t1 = trans12_sort1(env0, s1t1)
+                trans12_s1exp_stck(env0, sdef, s2t1)
+        let tres = sexpdef_sort2(tknd)
+        let sdef = match tres:
+            case S2Tnone0():
+                sdef
+            case _:
+                s2exp_stck(loc0, sdef, tres)
+        def auxslam(sdef: s2exp, svss: s2varlstlst) -> s2exp:
+            match svss:
+                case list_nil():
+                    sdef
+                case list_cons(s2vs, svss):
+                    let sdef = s2exp_lam1(s2vs, sdef)
+                    auxslam(sdef, svss)
+        let sdef = auxslam(sdef, svss)
+        tr12env_poplam0(env0)
+        let s2t2 = sdef.sort()
+        let sid1 = sexpid_sym(tok1)
+        let tdef = s2exp_stpize(sdef)
+        let s2c1 = s2cst_make_idst(loc0, sid1, s2t2)
+        s2cst_set_sexp(s2c1, sdef)
+        s2cst_set_styp(s2c1, tdef)
+        let s2c1 = s2c1
+        tr12env_add1_s2cst(env0, s2c1)
+        d2ecl_make_node(loc0, D2Csexpdef(s2c1, sdef))
+    def f0_abstype(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Cabstype(tknd, tok1, tmas, topt, atdf) = d1cl.node()
+        let sid1 = sexpid_sym(tok1)
+        let stss = trans12_t1maglst(env0, tmas)
+        let tres = match topt:
+            case optn_nil():
+                abstype_sort2(tknd)
+            case optn_cons(s1t1):
+                trans12_sort1(env0, s1t1)
+        def f1_stss(stss: sort2lstlst, tres: sort2) -> sort2:
+            match stss:
+                case list_nil():
+                    tres
+                case list_cons(s2ts, stss):
+                    S2Tfun1(s2ts, f1_stss(stss, tres))
+        let tfun = f1_stss(stss, tres)
+        def f1_add0_svss(env0: !tr12env, svss: s2varlstlst) -> Void:
+            match svss:
+                case list_nil():
+                    ()
+                case list_cons(s2vs, svss):
+                    tr12env_add0_s2varlst(env0, s2vs)
+                    f1_add0_svss(env0, svss)
+        def f1_tma1_s2ts(tma1: t1mag, s2ts: sort2lst) -> s2varlst:
+            match tma1.node():
+                case T1MAGlist(t1as):
+                    f1_t1as_s2ts(t1as, s2ts)
+
+        def f1_t1as_s2ts(t1as: t1arglst, s2ts: sort2lst) -> s2varlst:
+            match t1as:
+                case list_nil():
+                    list_nil()
+                case list_cons(t1a1, t1as):
+                    let list_cons(s2t1, s2ts) = s2ts
+                    let sym1 = match t1a1.node():
+                        case T1ARGsome(s1t1, topt):
+                            match topt:
+                                case optn_nil():
+                                    the_symbl_nil
+                                case optn_cons(tok1):
+                                    sexpid_sym(tok1)
+                    let s2v1 = s2var_make_idst(sym1, s2t1)
+                    list_cons(s2v1, f1_t1as_s2ts(t1as, s2ts))
+        def f1_tmas_stss(tmas: t1maglst, stss: sort2lstlst) -> s2varlstlst:
+            match tmas:
+                case list_nil():
+                    list_nil()
+                case list_cons(tma1, tmas):
+                    let list_cons(s2ts, stss) = stss
+                    let s2vs = f1_tma1_s2ts(tma1, s2ts)
+                    list_cons(s2vs, f1_tmas_stss(tmas, stss))
+        tr12env_pshlam0(env0)
+        let svss = f1_tmas_stss(tmas, stss)
+        f1_add0_svss(env0, svss)
+        let atdf = trans12_a1tdf_stck(env0, atdf, tres)
+        tr12env_poplam0(env0)
+        let s2c1 = s2cst_make_idst(loc0, sid1, tfun)
+        tr12env_add1_s2cst(env0, s2c1)
+        d2ecl(loc0, D2Cabstype(s2c1, atdf))
+    private:
+        type S2vss = list[s2varlst]
+        def f2_svar(s2v1: s2var, s2t1: sort2) -> Void:
+            match s2v1.sort():
+                case S2Tnone0():
+                    s2v1.sort(s2t1)
+                case _:
+                    ()
+
+        def f2_s2vs(s2vs: s2varlst, s2ts: sort2lst) -> Void:
+            match s2vs:
+                case list_nil():
+                    ()
+                case list_cons(s2v1, s2vs):
+                    match s2ts:
+                        case list_nil():
+                            ()
+                        case list_cons(s2t1, s2ts):
+                            f2_svar(s2v1, s2t1)
+                            f2_s2vs(s2vs, s2ts)
+        def f2_svss(svss: S2vss, tres: sort2) -> Void:
+            match svss:
+                case list_nil():
+                    ()
+                case list_cons(s2vs, svss):
+                    match tres:
+                        case S2Tfun1(s2ts, tres):
+                            f2_s2vs(s2vs, s2ts)
+                            f2_svss(svss, tres)
+                        case _:
+                            ()
+        def f1_sqid(env0: !tr12env, sqid: s1qid) -> simpl:
+            simpl(sqid.lctn(), SIMPLall1(sqid, s2cs))
+        where:
+            let s2cs = match sqid:
+                case S1QIDnone(tok1):
+                    let sid1 = sexpid_sym(tok1)
+                    let opt1 = tr12env_find_s2itm(env0, sid1)
+                    match opt1:
+                        case ~optn_vt_nil():
+                            list_nil()
+                        case ~optn_vt_cons(s2i1):
+                            match s2i1:
+                                case S2ITMcst(s2cs):
+                                    s2cs
+                                case _:
+                                    list_nil()
+                case S1QIDsome(tqua, tok1):
+                    let sid1 = sexpid_sym(tok1)
+                    let opt1 = tr12env_qfind_s2itm(env0, tqua, sid1)
+                    match opt1:
+                        case ~optn_vt_nil():
+                            list_nil()
+                        case ~optn_vt_cons(s2i1):
+                            match s2i1:
+                                case S2ITMcst(s2cs):
+                                    s2cs
+                                case _:
+                                    list_nil()
+        def f1_smas(env0: !tr12env, smas: s1maglst) -> S2vss:
+            @inst[x0] @inst[y0] @inst[e1] list_map/e1nv(smas, env0)
+        where:
+            type X0 = s1mag
+            type E1 = tr12env
+            type Y0 = s2varlst
+            @impl[X0, Y0, E1]
+            def map/e1nv/fopr(x0, e1):
+                trans12_s1mag(e1, x0)
+        def f1_lams(env0: !tr12env, svss: S2vss, tres: sort1opt, s1e2: s1exp) -> s2exp:
+            match svss:
+                case list_nil():
+                    match tres:
+                        case optn_nil():
+                            trans12_s1exp_impr(env0, s1e2)
+                        case optn_cons(s1t1):
+                            trans12_s1exp_stck(env0, s1e2, trans12_sort1(env0, s1t1))
+                case list_cons(s2vs, svss):
+                    tr12env_add0_s2varlst(env0, s2vs)
+                    let s2e2 = f1_lams(env0, svss, tres, s1e2)
+                    s2exp_lam1(s2vs, s2e2)
+
+    def f0_absopen(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Cabsopen(tknd, sqid) = d1cl.node()
+        let simp = f1_sqid(env0, sqid)
+        let simp = match simp.node():
+            case SIMPLall1(sqid, s2cs):
+                if list_singq(s2cs):
+                    simpl_make_node(simp.lctn(), SIMPLone1(s2cs.head()))
+                else:
+                    simp
+        d2ecl(loc0, D2Cabsopen(tknd, simp))
+    def f0_absimpl(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Cabsimpl(tknd, sqid, smas, tres, sdef) = d1cl.node()
+        let sqid = f1_sqid(env0, sqid)
+        let svss = f1_smas(env0, smas)
+        let SIMPLall1(sqid, s2cs) = sqid.node()
+        if list_singq(s2cs):
+            let s2c1 = s2cs.head()
+            f2_svss(svss, s2cst_get_sort(s2c1))
+        tr12env_pshlam0(env0)
+        let sdef = f1_lams(env0, svss, tres, sdef)
+        tr12env_poplam0(env0)
+        let SIMPLall1(sqid, s2cs) = sqid.node()
+        let sqid = if list_singq(s2cs):
+            let s2c1 = s2cs.head()
+            simpl(sqid.lctn(), SIMPLone1(s2c1))
+        else: match ():
+            case ():
+                type X0 = s2cst
+                @impl[X0]
+                def filter/test(s2c1):
+                    sdef.sort() <= s2c1.sort()
+                let sopt = @inst[X0] list_filter(s2cs)
+                if list_singq(sopt):
+                    let s2c1 = sopt.head()
+                    simpl(sqid.lctn(), SIMPLone1(s2c1))
+                else:
+                    simpl(sqid.lctn(), SIMPLopt2(sqid, s2cs, sopt))
+        d2ecl(loc0, D2Cabsimpl(tknd, sqid, sdef))
+    def f0_symload(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Csymload(tknd, sym1, dqid, gopt) = d1cl.node()
+        let dopt = match dqid:
+            case D1QIDnone(tok1):
+                let did1 = dexpid_sym(tok1)
+                tr12env_find_d2itm(env0, did1)
+            case D1QIDsome(tqua, tok1):
+                let did1 = dexpid_sym(tok1)
+                tr12env_qfind_d2itm(env0, tqua, did1)
+        let dptm = match dopt:
+            case ~optn_vt_nil():
+                D2PTMnone(dqid)
+            case ~optn_vt_cons(ditm):
+                let pval = f1_pval(gopt)
+                D2PTMsome(pval, ditm)
+        let opt1 = tr12env_find_d2itm(env0, sym1)
+        let d2ps = match opt1:
+            case ~optn_vt_nil():
+                list_nil()
+            case ~optn_vt_cons(d2i1):
+                match d2i1:
+                    case D2ITMsym(_, d2ps):
+                        d2ps
+                    case _:
+                        list_sing(D2PTMsome(0, d2i1))
+        let ditm = D2ITMsym(sym1, list_cons(dptm, d2ps))
+        tr12env_add0_d2itm(env0, sym1, ditm)
+        d2ecl_make_node(loc0, D2Csymload(tknd, sym1, dptm))
+    where:
+        def f1_pval(gopt: g1expopt) -> SInt:
+            match gopt:
+                case optn_nil():
+                    0
+                case optn_cons(gexp):
+                    match gexp.node():
+                        case G1Eint(tint):
+                            match tint.node():
+                                case T_INT01(rep):
+                                    fint_rep_bas(rep, 10)
+                                case T_INT02(bas, rep):
+                                    fint_rep_bas(rep, bas)
+                                case T_INT03(bas, rep, _):
+                                    fint_rep_bas(rep, bas)
+                        case _:
+                            -(1)
+    def f0_include(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Cinclude(knd0, tknd, gsrc, fopt, dopt) = d1cl.node()
+        let dopt = match dopt:
+            case optn_nil():
+                optn_nil
+            case optn_cons(dcls):
+                optn_cons(trans12_d1eclist(env0, dcls))
+        d2ecl_make_node(loc0, D2Cinclude(knd0, tknd, gsrc, fopt, dopt))
+    def f0_staload(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Cstaload(knd0, tknd, gsrc, fopt, dopt) = d1cl.node()
+        var dres: s2taloadopt = S2TALOADnone()
+        let dopt = match fopt:
+            case optn_nil():
+                optn_nil()
+            case optn_cons(fpth):
+                let optn_cons((shrd, dpar)) = dopt
+                optn_cons(s2taload_from_fpath(fpth, dpar))
+        let gsym = match g1exp_nmspace(gsrc):
+            case optn_nil():
+                DLRDT_symbl
+            case optn_cons(gsym):
+                gsym
+        match dopt:
+            case optn_nil():
+                let gopt = f1_geid(gsrc)
+                match gopt:
+                    case optn_nil():
+                        ()
+                    case optn_cons(sym0):
+                        let name = sym0.name()
+                        let sym1 = symbl(strn_append(name, "."))
+                        let sopt = tr12env_find_s2qua(env0, sym1)
+                        match sopt:
+                            case ~optn_vt_nil():
+                                ()
+                            case ~optn_vt_cons(s2i0):
+                                match s2i0:
+                                    case S2ITMenv(envs):
+                                        let list_cons(fenv, _) = envs
+                                        dres := S2TALOADfenv(fenv)
+                                        tr12env_add1_f2env(env0, gsym, fenv)
+                                    case _:
+                                        ()
+            case optn_cons((shrd, dpar)):
+                let fenv = f2env_of_d2parsed(dpar)
+                if (gsym == SYM.DLRDT_symbl):
+                    f0_staload_aft(env0, dpar)
+                dres := S2TALOADdpar(shrd, dpar)
+                tr12env_add1_f2env(env0, gsym, fenv)
+        d2ecl_make_node(loc0, D2Cstaload(knd0, tknd, gsrc, fopt, dres))
+    where:
+        def f1_geid(gexp: g1exp) -> optn[sym_t]:
+            match gexp.node():
+                case G1Eid0(sym1):
+                    optn_cons(sym1)
+                case G1Ea2pp(g1f0, g1e1, g1e2):
+                    match g1f0.node():
+                        case G1Eid0(id0):
+                            if (id0 != EQ0_symbl):
+                                optn_nil
+                            else:
+                                match g1e2.node():
+                                    case G1Eid0(sym2):
+                                        optn_cons(sym2)
+                                    case _:
+                                        optn_nil()
+                        case _:
+                            optn_nil()
+                case _:
+                    optn_nil()
+
+    def f0_staload_aft(env0: !tr12env, dpar: d2parsed) -> Void:
+        let dopt = d2parsed_get_parsed(dpar)
+        match dopt:
+            case optn_nil():
+                ()
+            case optn_cons(dcls):
+                f1_dcls(env0, dcls)
+    where:
+        def f1_dcls(env0: !tr12env, dcls: d2eclist) -> Void:
+            match dcls:
+                case list_nil():
+                    ()
+                case list_cons(dcl1, dcls):
+                    match dcl1.node():
+                        case D2Clocal0(head, body):
+                            f1_dcls(env0, body)
+                            f1_dcls(env0, dcls)
+                        case D2Csymload(tknd, sym1, dptm):
+                            let opt1 = tr12env_find_d2itm(env0, sym1)
+                            let d2ps = match opt1:
+                                case ~optn_vt_nil():
+                                    list_nil()
+                                case ~optn_vt_cons(d2i1):
+                                    match d2i1:
+                                        case D2ITMsym(_, d2ps):
+                                            d2ps
+                                        case _:
+                                            list_sing(D2PTMsome(0, d2i1))
+                            let ditm = D2ITMsym(sym1, list_cons(dptm, d2ps))
+                            tr12env_add0_d2itm(env0, sym1, ditm)
+                            f1_dcls(env0, dcls)
+                        case _:
+                            f1_dcls(env0, dcls)
+    def f0_dyninit(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let D1Cdyninit(tknd, g1e1) = d1cl.node()
+        d2ecl(loc0, D2Cdyninit(tknd, g1e1))
+    where:
+        let loc0 = d1cl.lctn()
+    def f0_extcode(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let D1Cextcode(tknd, g1e1) = d1cl.node()
+        d2ecl(loc0, D2Cextcode(tknd, g1e1))
+    where:
+        let loc0 = d1cl.lctn()
+    def f0_datasort(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Cdatasort(tknd, d1ts) = d1cl.node()
+        let s2ts = f1_d1ts(d1ts)
+        d2ecl_make_node(loc0, D2Cdatasort(d1cl, s2ts))
+    where:
+        def f1_d1t0(d1t0: d1tst) -> sort2:
+            let D1TSTnode(tok1, tcns) = d1t0.node()
+            let tid1 = sortid_sym(tok1)
+            private:
+                let s2td = t2dat_make_name(tid1)
+
+            let s2t1 = S2Tbas(T2Btdat(s2td))
+            tr12env_add0_s2tex(env0, tid1, S2TEXsrt(s2t1))
+            s2t1
+        def f1_d1ts(d1ts: d1tstlst) -> sort2lst:
+            @inst[x0] @inst[y0] list_map(d1ts)
+        where:
+            type X0 = d1tst
+            type Y0 = sort2
+            @impl[X0, Y0]
+            def map/fopr:
+                f1_d1t0
+        def f2_d1t0(env0: !tr12env, d1t0: d1tst, s2t0: sort2) -> Void:
+            let S2Tbas(s2tb) = s2t0
+            let T2Btdat(tdat) = s2tb
+            def loop(env0: !tr12env, tcns: s1tcnlst, s2cs: s2cstlst_vt) -> Void:
+                match tcns:
+                    case list_nil():
+                        let s2cs = list_vt2t(list_vt_reverse0(s2cs))
+                        t2dat_set_s2cs(tdat, s2cs)
+                    case list_cons(tcn1, tcns):
+                        let S1TCNnode(tok1, topt) = tcn1.node()
+                        let sid1 = sexpid_sym(tok1)
+                        let targ = match topt:
+                            case optn_nil():
+                                list_nil()
+                            case optn_cons(s1t1):
+                                match s1t1.node():
+                                    case S1Tlist(s1ts):
+                                        trans12_sort1lst(env0, s1ts)
+                                    case _:
+                                        let s2t1 = trans12_sort1(env0, s1t1)
+                                        list_sing(s2t1)
+                        let loc1 = tcn1.lctn()
+                        let tfun = S2Tfun1(targ, s2t0)
+                        let s2c1 = s2cst_make_idst(loc1, sid1, tfun)
+                        let s2cs = list_vt_cons(s2c1, s2cs)
+                        tr12env_add1_s2cst(env0, s2c1)
+                        loop(env0, tcns, s2cs)
+            let s2cs = list_vt_nil()
+            let D1TSTnode(tok0, tcns) = d1t0.node()
+            loop(env0, tcns, s2cs)
+        def f2_d1ts(env0: !tr12env, d1ts: d1tstlst, s2ts: sort2lst) -> Void:
+            match d1ts:
+                case list_nil():
+                    ()
+                case list_cons(d1t1, d1ts):
+                    let list_cons(s2t1, s2ts) = s2ts
+                    f2_d1t0(env0, d1t1, s2t1)
+                    f2_d1ts(env0, d1ts, s2ts)
+    def f0_valdclst(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Cvaldclst(tknd, d1vs) = d1cl.node()
+        let recq = match tknd.node():
+            case T_VAL(vlk):
+                valkind_recq(vlk)
+            case _:
+                false
+        def f1_dval(env0: !tr12env, dval: d1valdcl) -> d2pat:
+            let dpat = d1valdcl_get_dpat(dval)
+            trans12_d1pat(env0, dpat)
+        let d2ps = list_trans12_fnp(env0, d1vs, f1_dval)
+        if (recq):
+            tr12env_add0_d2ps(env0, d2ps)
+        let d2vs = trans12_d1valdclist(env0, d2ps, d1vs)
+        if not(recq):
+            tr12env_add0_d2ps(env0, d2ps)
+        d2ecl(loc0, D2Cvaldclst(tknd, d2vs))
+    private:
+        def f1_add0_d2vs(env0: !tr12env, d2vs: d2vardclist) -> Void:
+            match d2vs:
+                case list_nil():
+                    ()
+                case list_cons(d2v1, d2vs):
+                    let dpid = d2vardcl_get_dpid(d2v1)
+                    let vpid = d2vardcl_get_vpid(d2v1)
+                    tr12env_add0_d2var(env0, dpid)
+                    tr12env_add0_d2varopt(env0, vpid)
+                    f1_add0_d2vs(env0, d2vs)
+
+    def f0_vardclst(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Cvardclst(tknd, d1vs) = d1cl.node()
+        let d2vs = trans12_d1vardclist(env0, d1vs)
+        f1_add0_d2vs(env0, d2vs)
+        d2ecl(loc0, D2Cvardclst(tknd, d2vs))
+    def f0_fundclst(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Cfundclst(tknd, tqas, d1fs) = d1cl.node()
+        let recq = match tknd.node():
+            case T_FUN(fnk):
+                funkind_recq(fnk)
+            case _:
+                false
+        def f1_dfun(env0: !tr12env, dfun: d1fundcl) -> d2var:
+            let dpid = d1fundcl_get_dpid(dfun)
+            trans12_d1pid(env0, dpid)
+        let d2vs = list_trans12_fnp(env0, d1fs, f1_dfun)
+        if recq:
+            tr12env_add0_d2vs(env0, d2vs)
+        tr12env_pshlam0(env0)
+        let tqas = trans12_t1qaglst(env0, tqas)
+        tr12env_add0_tqas(env0, tqas)
+        let d2fs = trans12_d1fundclist(env0, d2vs, d1fs)
+        tr12env_poplam0(env0)
+        if not(recq):
+            tr12env_add0_d2vs(env0, d2vs)
+        type X0 = d2var
+        type Y0 = d2cst
+        @impl[X0, Y0]
+        def map/fopr(dvar):
+            d2cst_make_dvar(tknd, dvar, tqas)
+        let d2cs = list_map(d2vs)
+        if list_consq(tqas):
+            tr12env_add1_d2cs(env0, d2cs)
+        f1_d2cs_d2fs_xnam(d2cs, d2fs)
+        d2ecl_make_node(loc0, D2Cfundclst(tknd, tqas, d2cs, d2fs))
+
+    def f1_d2cs_d2fs_xnam(d2cs: d2cstlst, d2fs: d2fundclist) -> Void:
+        match d2cs:
+            case list_nil():
+                ()
+            case list_cons(d2c1, d2cs):
+                match d2fs:
+                    case list_nil():
+                        ()
+                    case list_cons(d2f1, d2fs):
+                        let stmp = d2cst_get_stmp(d2c1)
+                        let xnam = match d2f1.tdxp():
+                            case TEQD2EXPnone():
+                                X2NAMnone()
+                            case TEQD2EXPsome(tkeq, dexp):
+                                match dexp.node():
+                                    case D2Eextnam(_):
+                                        X2NAMsome(dexp)
+                                    case _:
+                                        X2NAMnone
+                        the_d2cstmap_xnmadd0(stmp, xnam)
+                        f1_d2cs_d2fs_xnam(d2cs, d2fs)
+    def f0_excptcon(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Cexcptcon(tknd, tcns) = d1cl.node()
+        let svss = list_nil
+        let s2c0 = the_s2cst_excptn()
+        let d2cs = trans12_d1tcnlst(env0, tcns, s2c0, svss)
+        tr12env_add1_d2conlst(env0, d2cs)
+        d2ecl(loc0, D2Cexcptcon(d1cl, d2cs))
+    def f0_datatype(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Cdatatype(tknd, d1ts, wdcs) = d1cl.node()
+        let s2t0 = match tknd.node():
+            case T_DATATYPE(knd0):
+                if sortlin(knd0) == 0:
+                    the_sort2_tbox
+                else:
+                    the_sort2_vtbx
+        let s2cs = trans12_d1typlst(env0, d1ts, s2t0)
+        let dcls = f0_wdeclseq(env0, wdcs)
+        trans12_d1tsclst(env0, d1ts, s2cs)
+        d2ecl(loc0, D2Cdatatype(d1cl, s2cs))
+
+    def f0_wdeclseq(env0: !tr12env, wdcs: wd1eclseq) -> d2eclist:
+        match wdcs:
+            case WD1CSnone():
+                list_nil()
+            case WD1CSsome(d1cs):
+                trans12_d1eclist(env0, d1cs)
+    private:
+        def f1_dqid(env0: !tr12env, dqid: d1qid) -> dimpl:
+            if list_nilq(d2cs):
+                dimpl(loc0, DIMPLnon1(dqid))
+            else:
+                let d2c1 = d2cs.head()
+                dimpl(loc0, DIMPLone1(d2c1))
+        where:
+            let loc0 = dqid.lctn()
+            let d2cs = match dqid:
+                case D1QIDnone(tok1):
+                    let sym1 = dexpid_sym(tok1)
+                    let opt1 = tr12env_find_d2itm(env0, sym1)
+                    match opt1:
+                        case ~optn_vt_nil():
+                            list_nil()
+                        case ~optn_vt_cons(d2i1):
+                            f1_ditm(sym1, d2i1)
+                case D1QIDsome(tqua, tok1):
+                    let sym1 = dexpid_sym(tok1)
+                    let opt1 = tr12env_qfind_d2itm(env0, tqua, sym1)
+                    match opt1:
+                        case ~optn_vt_nil():
+                            list_nil()
+                        case ~optn_vt_cons(d2i1):
+                            f1_ditm(sym1, d2i1)
+
+        def f1_ditm(sym0: symbl, d2i0: d2itm) -> d2cstlst:
+            match d2i0:
+                case D2ITMvar(d2v1):
+                    list_nil()
+                case D2ITMcon(d2cs):
+                    list_nil()
+                case D2ITMcst(d2cs):
+                    d2cs
+                case D2ITMsym(sym1, d2ps):
+                    f1_d2ps(sym0, d2ps)
+
+        def f1_d2i1(sym0: symbl, d2i1: d2itm) -> d2cstlst:
+            match d2i1:
+                case D2ITMvar(d2v1):
+                    list_nil()
+                case D2ITMcon(d2cs):
+                    list_nil()
+                case D2ITMcst(d2cs):
+                    @impl[d2cst]
+                    def filter/test(dcst):
+                        SYM.symbl_cmp(sym0, dcst.name()) == 0
+                    list_filter(d2cs)
+                case D2ITMsym(sym1, d2ps):
+                    f1_d2ps(sym0, d2ps)
+
+        def f1_d2p1(sym0: symbl, d2p0: d2ptm) -> d2cstlst:
+            match d2p0:
+                case D2PTMnone(dqid):
+                    list_nil()
+                case D2PTMsome(pval, d2i1):
+                    f1_d2i1(sym0, d2i1)
+
+        def f1_d2ps(sym0: symbl, d2ps: d2ptmlst) -> d2cstlst:
+            match d2ps:
+                case list_nil():
+                    list_nil()
+                case list_cons(d2p1, d2ps):
+                    let d2cs = f1_d2p1(sym0, d2p1)
+                    list_append(d2cs, f1_d2ps(sym0, d2ps))
+
+    def f0_implmnt0(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let D1Cimplmnt0(tknd, sqas, tqas, dqid, tias, f1as, sres, dexp) = d1cl.node()
+        let dimp = f1_dqid(env0, dqid)
+        f0_implmnt0_dimp(env0, d1cl, dimp)
+
+    def f0_implmnt0_dimp(env0: !tr12env, d1cl: d1ecl, dimp: dimpl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Cimplmnt0(tknd, sqas, tqas, dqid, tias, f1as, sres, dexp) = d1cl.node()
+        let sqas = trans12_s1qaglst(env0, sqas)
+        let tqas = match dimp.node():
+            case DIMPLnon1(dqid):
+                trans12_t1qaglst(env0, tqas)
+            case DIMPLone1(d2c1):
+                let t2qs = d2cst_get_tqas(d2c1)
+                trans12_t1qaglst_wth(env0, tqas, t2qs)
+        tr12env_pshlam0(env0)
+        tr12env_add0_sqas(env0, sqas)
+        tr12env_add0_tqas(env0, tqas)
+        let tias = trans12_t1iaglst(env0, tias)
+        let f2as = trans12_f1arglst(env0, f1as)
+        tr12env_add0_f2as(env0, f2as)
+        let sres = trans12_s1res(env0, sres)
+        let dexp = trans12_d1exp(env0, dexp)
+        tr12env_poplam0(env0)
+        d2ecl(loc0, D2Cimplmnt0(tknd, sqas, tqas, dimp, tias, f2as, sres, dexp))
+    def f0_dynconst(env0: !tr12env, d1cl: d1ecl) -> d2ecl:
+        let loc0 = d1cl.lctn()
+        let D1Cdynconst(tknd, tqas, d1cs) = d1cl.node()
+        let tqas = trans12_t1qaglst(env0, tqas)
+        let d2cs = trans12_d1cstdclist(env0, tknd, d1cs, tqas)
+        d2ecl(loc0, D2Cdynconst(tknd, tqas, d2cs))
+
+@impl
+def trans12_a1tdf_stck(env0, atdf, tres):
+    match atdf:
+        case A1TDFsome():
+            A2TDFsome()
+        case A1TDFlteq(s1e1):
+            let loc0 = s1e1.lctn()
+            let s2e1 = trans12_s1exp_stck(env0, s1e1, tres)
+            A2TDFlteq(s2exp_impr(loc0, s2e1))
+        case A1TDFeqeq(s1e1):
+            let loc0 = s1e1.lctn()
+            let s2e1 = trans12_s1exp_stck(env0, s1e1, tres)
+            A2TDFeqeq(s2exp_impr(loc0, s2e1))
+
+private:
+    def f0_t1as(env0: !tr12env, t1as: t1arglst) -> sort2lst:
+        @inst[x0] @inst[y0] @inst[e1] list_map/e1nv(t1as, env0)
+    where:
+        type X0 = t1arg
+        type Y0 = sort2
+        type E1 = tr12env
+        @impl[X0, Y0, E1]
+        def map/e1nv/fopr(x0, e1):
+            match x0.node():
+                case T1ARGsome(s1t1, topt):
+                    trans12_sort1(e1, s1t1)
+    def f0_tmas(env0: !tr12env, tmas: t1maglst, tres: sort2) -> sort2:
+        match tmas:
+            case list_nil():
+                tres
+            case list_cons(t1ma, tmas):
+                match t1ma.node():
+                    case T1MAGlist(t1as):
+                        S2Tfun1(f0_t1as(env0, t1as), f0_tmas(env0, tmas, tres))
+    def f1_s2vs(env0: !tr12env, t1as: t1arglst, s2ts: sort2lst) -> s2varlst:
+        match t1as:
+            case list_nil():
+                list_nil()
+            case list_cons(t1a1, t1as):
+                let list_cons(s2t1, s2ts) = s2ts
+                match t1a1.node():
+                    case T1ARGsome(s1t1, topt):
+                        let sym1 = match topt:
+                            case optn_nil():
+                                the_symbl_nil
+                            case optn_cons(tok1):
+                                sexpid_sym(tok1)
+                        let s2v1 = s2var_make_idst(sym1, s2t1)
+                        tr12env_add0_s2var(env0, s2v1)
+                        list_cons(s2v1, f1_s2vs(env0, t1as, s2ts))
+    def f1_svss(env0: !tr12env, tmas: t1maglst, tres: sort2) -> s2varlstlst:
+        match tmas:
+            case list_nil():
+                list_nil()
+            case list_cons(t1ma, tmas):
+                let S2Tfun1(s2ts, tres) = tres
+                match t1ma.node():
+                    case T1MAGlist(t1as):
+                        let s2vs = f1_s2vs(env0, t1as, s2ts)
+                        list_cons(s2vs, f1_svss(env0, tmas, tres))
+
+@impl
+def trans12_d1typ(env0, d1t0, s2t0):
+    let D1TYPnode(tok0, tmas, sres, tcns) = d1t0.node()
+    let sres = match sres:
+        case optn_nil():
+            s2t0
+        case optn_cons(s1t0):
+            trans12_sort1(env0, s1t0)
+    let ltok = tok0.lctn()
+    let sid0 = sexpid_sym(tok0)
+    let s2t0 = f0_tmas(env0, tmas, sres)
+    let s2c0 = s2cst_make_idst(ltok, sid0, s2t0)
+    tr12env_add1_s2cst(env0, s2c0)
+    s2c0
+
+@impl
+def trans12_d1tsc(env0, d1t0, s2c0):
+    let D1TYPnode(tok0, tmas, sres, tcns) = d1t0.node()
+    tr12env_pshlam0(env0)
+    let s2t0 = s2c0.sort()
+    let svss = f1_svss(env0, tmas, s2t0)
+    let d2cs = trans12_d1tcnlst(env0, tcns, s2c0, svss)
+    @impl[d2con]
+    def iforitm/work(tag, d2c):
+        d2con_set_ctag(d2c, tag)
+    list_iforitm(d2cs)
+    tr12env_poplam0(env0)
+    s2cst_set_d2cs(s2c0, d2cs)
+    tr12env_add1_d2cs(env0, d2cs)
+
+
+private:
+    type Xatslocal0_s2vss = list[s2varlst]
+    type Xatslocal1_s2ess = list[s2explst]
+    def f1_s2vs(s2vs: s2varlst) -> s2explst:
+        @inst[x0] @inst[y0] list_map(s2vs)
+    where:
+        type X0 = s2var
+        type Y0 = s2exp
+        @impl[X0, Y0]
+        def map/fopr(x0):
+            s2exp_var(x0)
+    def f1_svss(svss: Xatslocal0_s2vss) -> s2explstlst:
+        @inst[x0] @inst[y0] list_map(svss)
+    where:
+        type X0 = s2varlst
+        type Y0 = s2explst
+        @impl[X0, Y0]
+        def map/fopr:
+            f1_s2vs
+    def f1_sres(loc0: loc_t, s2e0: s2exp, sess: Xatslocal1_s2ess) -> s2exp:
+        match sess:
+            case list_nil():
+                s2e0
+            case list_cons(s2es, sess):
+                let s2e0 = s2exp_apps(loc0, s2e0, s2es)
+                f1_sres(loc0, s2e0, sess)
+    def f0_sarg(env0: !tr12env, sopt: s1expopt, npf1: &SInt >> _) -> s2explst:
+        match sopt:
+            case optn_nil():
+                list_nil
+            case optn_cons(s1e0):
+                match s1e0.node():
+                    case S1El1st(s1es):
+                        trans12_s1explst_impr(env0, s1es)
+                    case S1El2st(ses1, ses2):
+                        npf1 := list_length(ses1)
+                        let ses1 = trans12_s1explst_impr(env0, ses1)
+                        let ses2 = trans12_s1explst_prgm(env0, ses2)
+                        list_append(ses1, ses2)
+                    case _:
+                        list_sing(trans12_s1exp_impr(env0, s1e0))
+    def f0_idxs(env0: !tr12env, svss: Xatslocal0_s2vss, s1is: s1explst) -> Xatslocal1_s2ess:
+        match s1is:
+            case list_nil(_):
+                f1_svss(svss)
+            case list_cons(_):
+                f0_s1is(env0, s1is)
+
+    def f0_s1is(env0: !tr12env, s1is: s1explst) -> Xatslocal1_s2ess:
+        match s1is:
+            case list_nil():
+                list_nil
+            case list_cons(s1i0, s1is):
+                match s1i0.node():
+                    case S1El1st(s1es):
+                        let s2es = trans12_s1explst(env0, s1es)
+                        list_cons(s2es, f0_s1is(env0, s1is))
+                    case S1El2st(ses1, ses2):
+                        let ses1 = trans12_s1explst(env0, ses1)
+                        let ses2 = trans12_s1explst(env0, ses2)
+                        let s2es = list_append(ses1, ses2)
+                        list_cons(s2es, f0_s1is(env0, s1is))
+                    case _:
+                        let s2es = list_sing(trans12_s1exp(env0, s1i0))
+                        list_cons(s2es, f0_s1is(env0, s1is))
+
+@impl
+def trans12_d1tcn(env0, t1cn, s2c0, tqas, svss):
+    tr12env_pshlam0(env0)
+    let s2e0 = f0_s1us(env0, s1us)
+    tr12env_poplam0(env0)
+    d2con_make_idtp(tok0, tqas, s2e0)
+where:
+    let D1TCNnode(s1us, tok0, s1is, sarg) = t1cn.node()
+    let ltok = tok0.lctn()
+    def f0_s1us(env0: !tr12env, s1us: s1unilst) -> s2exp:
+        match s1us:
+            case list_nil():
+                var npf1: SInt = -(1)
+                let sess = f0_idxs(env0, svss, s1is)
+                let sarg = f0_sarg(env0, sarg, npf1)
+                let s2e0 = s2exp_cst(s2c0)
+                let s2e0 = f1_sres(ltok, s2e0, sess)
+                s2exp_fun1_nil0(npf1, sarg, s2e0)
+            case list_cons(s1u1, s1us):
+                let S1UNIsome(s1qs) = s1u1.node()
+                let (s2vs, s2ps) = trans12_s1qualst(env0, s1qs)
+                s2exp_uni0(s2vs, s2ps, f0_s1us(env0, s1us))
+
+
+@impl
+def trans12_d1valdcl(env0, dpat, dval):
+    let loc0 = d1valdcl_get_lctn(dval)
+    let tdxp = d1valdcl_get_tdxp(dval)
+    let tdxp = trans12_teqd1exp(env0, tdxp)
+    let wsxp = d1valdcl_get_wsxp(dval)
+    let wsxp = trans12_wths1exp(env0, wsxp)
+    d2valdcl_make_args(loc0, dpat, tdxp, wsxp)
+
+@impl
+def trans12_d1vardcl(env0, dvar):
+    let loc0 = d1vardcl_get_lctn(dvar)
+    let dpid = d1vardcl_get_dpid(dvar)
+    let dpid = trans12_d1pid(env0, dpid)
+    let vpid = d1vardcl_get_vpid(dvar)
+    let vpid = trans12_d1pidopt(env0, vpid)
+    let sres = d1vardcl_get_sres(dvar)
+    let sres = trans12_s1expopt(env0, sres)
+    let dini = d1vardcl_get_dini(dvar)
+    let dini = trans12_teqd1exp(env0, dini)
+    d2vardcl_make_args(loc0, dpid, vpid, sres, dini)
+
+@impl
+def trans12_d1fundcl(env0, dvar, dfun):
+    let loc0 = d1fundcl_get_lctn(dfun)
+    let farg = d1fundcl_get_farg(dfun)
+    let sres = d1fundcl_get_sres(dfun)
+    let wsxp = d1fundcl_get_wsxp(dfun)
+    let tdxp = d1fundcl_get_tdxp(dfun)
+    tr12env_pshlam0(env0)
+    let wsxp = trans12_wths1exp(env0, wsxp)
+    let farg = trans12_f1arglst(env0, farg)
+    let sres = trans12_s1res(env0, sres)
+    tr12env_add0_f2arglst(env0, farg)
+    let tdxp = trans12_teqd1exp(env0, tdxp)
+    tr12env_poplam0(env0)
+    d2fundcl_make_args(loc0, dvar, farg, sres, tdxp, wsxp)
+
+private:
+    def f1_f2cl(i0: SInt) -> f2clknd:
+        if (i0 == 0):
+            F2CLfun()
+        else:
+            F2CLclo(1)
+    def f1_sres(i0: SInt, sres: s2res) -> s2exp:
+        match sres:
+            case S2RESnone():
+                s2exp_none0()
+            case S2RESsome(seff, s2e1):
+                s2e1
+    def f1_d2a1(i0: SInt, d2a1: d2arg, sres: s2res) -> s2exp:
+        let fres = f1_sres(i0, sres)
+        match d2a1.node():
+            case D2ARGsta0(s2vs, s2ps):
+                s2exp_uni0(s2vs, s2ps, fres)
+            case D2ARGdyn1(s2e1):
+                let npf1 = -(1)
+                let f2cl = f1_f2cl(i0)
+                let s2es = list_sing(s2e1)
+                s2exp_fun1_full(f2cl, npf1, s2es, fres)
+            case D2ARGdyn2(npf1, s2es):
+                let f2cl = f1_f2cl(i0)
+                s2exp_fun1_full(f2cl, npf1, s2es, fres)
+    def f1_d2as(i0: SInt, d2as: d2arglst, sres: s2res) -> s2exp:
+        match d2as:
+            case list_nil():
+                f1_sres(i0, sres)
+            case list_cons(d2a1, d2as):
+                match d2as:
+                    case list_nil():
+                        f1_d2a1(i0, d2a1, sres)
+                    case list_cons(_):
+                        match d2a1.node():
+                            case D2ARGsta0(s2vs, s2ps):
+                                let fres = f1_d2as(i0 + 0, d2as, sres)
+                                s2exp_uni0(s2vs, s2ps, fres)
+                            case D2ARGdyn1(s2e1):
+                                let npf1 = -(1)
+                                let f2cl = f1_f2cl(i0)
+                                let s2es = list_sing(s2e1)
+                                let fres = f1_d2as(i0 + 1, d2as, sres)
+                                s2exp_fun1_full(f2cl, npf1, s2es, fres)
+                            case D2ARGdyn2(npf1, s2es):
+                                let f2cl = f1_f2cl(i0)
+                                let fres = f1_d2as(i0 + 1, d2as, sres)
+                                s2exp_fun1_full(f2cl, npf1, s2es, fres)
+
+@impl
+def trans12_d1cstdcl(env0, tknd, dcst, tqas):
+    let loc0 = d1cstdcl_get_lctn(dcst)
+    let dpid = d1cstdcl_get_dpid(dcst)
+    let darg = d1cstdcl_get_darg(dcst)
+    let sres = d1cstdcl_get_sres(dcst)
+    let dres = d1cstdcl_get_dres(dcst)
+    tr12env_pshlam0(env0)
+    tr12env_add0_tqas(env0, tqas)
+    let d2as = trans12_d1arglst(env0, darg)
+    let sres = trans12_s1res(env0, sres)
+    let dres = trans12_teqd1exp(env0, dres)
+    tr12env_poplam0(env0)
+    let sfun = f1_d2as(0, d2as, sres)
+    let d2c1 = d2cst_make_idtp(tknd, dpid, tqas, sfun)
+    tr12env_add1_d2cst(env0, d2c1)
+    d2cstdcl(loc0, d2c1, d2as, sres, dres)
+
+
+@impl
+def trans12_d1eclist(env0, dcls):
+    list_trans12_fnp(env0, dcls, trans12_d1ecl)
+
+@impl
+def trans12_q1arglst(env0, q1as):
+    list_trans12_fnp(env0, q1as, trans12_q1arg)
+
+@impl
+def trans12_s1qaglst(env0, sqas):
+    list_trans12_fnp(env0, sqas, trans12_s1qag)
+
+@impl
+def trans12_t1qaglst(env0, tqas):
+    list_trans12_fnp(env0, tqas, trans12_t1qag)
+
+@impl
+def trans12_q1arglst_wth(env0, q1as, s2vs):
+    match q1as:
+        case list_nil():
+            list_nil()
+        case list_cons(q1a1, qas1):
+            match s2vs:
+                case list_nil():
+                    trans12_q1arglst(env0, q1as)
+                case list_cons(s2v1, svs2):
+                    let svar = trans12_q1arg_wth(env0, q1a1, s2v1)
+                    list_cons(svar, trans12_q1arglst_wth(env0, qas1, svs2))
+
+@impl
+def trans12_t1qaglst_wth(env0, t1qs, t2qs):
+    match t1qs:
+        case list_nil():
+            list_nil()
+        case list_cons(t1qa, tqs1):
+            match t2qs:
+                case list_nil():
+                    trans12_t1qaglst(env0, t1qs)
+                case list_cons(t2qa, tqs2):
+                    let tqag = trans12_t1qag_wth(env0, t1qa, t2qa)
+                    list_cons(tqag, trans12_t1qaglst_wth(env0, tqs1, tqs2))
+
+@impl
+def trans12_t1iaglst(env0, tias):
+    list_trans12_fnp(env0, tias, trans12_t1iag)
+
+@impl
+def trans12_d1arglst(env0, d1as):
+    list_trans12_fnp(env0, d1as, trans12_d1arg)
+
+@impl
+def trans12_d1typlst(env0, d1ts, s2t0):
+    @inst[x0] @inst[y0] @inst[e1] list_map/e1nv(d1ts, env0)
+where:
+    type X0 = d1typ
+    type Y0 = s2cst
+    type E1 = tr12env
+    @impl[X0, Y0, E1]
+    def map/e1nv/fopr(x0, e1):
+        trans12_d1typ(e1, x0, s2t0)
+
+@impl
+def trans12_d1tsclst(env0, d1ts, s2cs):
+    match d1ts:
+        case list_nil():
+            ()
+        case list_cons(d1t1, d1ts):
+            match s2cs:
+                case list_cons(s2c1, s2cs):
+                    trans12_d1tsc(env0, d1t1, s2c1)
+                    trans12_d1tsclst(env0, d1ts, s2cs)
+
+private:
+    def f1_s2vs(s2vs: s2varlst) -> s2varlst:
+        match s2vs:
+            case list_nil():
+                list_nil()
+            case list_cons(s2v1, s2vs):
+                if (s2v1.name() == the_symbl_nil):
+                    f1_s2vs(s2vs)
+                else:
+                    list_cons(s2v1, f1_s2vs(s2vs))
+    def f1_tqas(s2c0: s2cst, svss: s2varlstlst) -> t2qaglst:
+        match svss:
+            case list_nil():
+                list_nil()
+            case list_cons(s2vs, svss):
+                match s2vs:
+                    case list_nil(_):
+                        f1_tqas(s2c0, svss)
+                    case list_cons(_):
+                        let s2vs = f1_s2vs(s2vs)
+                        let tqa1 = t2qag(s2c0.lctn(), s2vs)
+                        list_cons(tqa1, f1_tqas(s2c0, svss))
+
+@impl
+def trans12_d1tcnlst(env0, tcns, s2c0, svss):
+    @inst[x0] @inst[y0] @inst[e1] list_map/e1nv(tcns, env0)
+where:
+    type X0 = d1tcn
+    type Y0 = d2con
+    type E1 = tr12env
+    let tqas = f1_tqas(s2c0, svss)
+    @impl[X0, Y0, E1]
+    def map/e1nv/fopr(x0, e1):
+        trans12_d1tcn(e1, x0, s2c0, tqas, svss)
+
+
+@impl
+def trans12_d1eclistopt(env0, dopt):
+    optn_trans12_fnp(env0, dopt, trans12_d1eclist)
+
+@impl
+def trans12_d1valdclist(env0, d2ps, d1fs):
+    match d1fs:
+        case list_nil():
+            list_nil()
+        case list_cons(d1f1, d1fs):
+            let list_cons(d2p1, d2ps) = d2ps
+            let d2f1 = trans12_d1valdcl(env0, d2p1, d1f1)
+            list_cons(d2f1, trans12_d1valdclist(env0, d2ps, d1fs))
+
+@impl
+def trans12_d1vardclist(env0, d1vs):
+    list_trans12_fnp(env0, d1vs, trans12_d1vardcl)
+
+@impl
+def trans12_d1fundclist(env0, d2vs, d1fs):
+    match d1fs:
+        case list_nil():
+            list_nil()
+        case list_cons(d1f1, d1fs):
+            let list_cons(d2v1, d2vs) = d2vs
+            let d2f1 = trans12_d1fundcl(env0, d2v1, d1f1)
+            list_cons(d2f1, trans12_d1fundclist(env0, d2vs, d1fs))
+
+@impl
+def trans12_d1cstdclist(env0, tknd, d1cs, tqas):
+    @inst[x0] @inst[y0] @inst[e1] list_map/e1nv(d1cs, env0)
+where:
+    type E1 = tr12env
+    type X0 = d1cstdcl
+    type Y0 = d2cstdcl
+    @impl[X0, Y0, E1]
+    def map/e1nv/fopr(x0, e1):
+        trans12_d1cstdcl(e1, tknd, x0, tqas)
+

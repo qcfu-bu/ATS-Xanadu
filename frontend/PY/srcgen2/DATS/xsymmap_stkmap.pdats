@@ -1,0 +1,282 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+type Key = sym_t
+
+private:
+    @linear
+    enum Stkmap_[Itm]:
+        case Stkmap_nil()
+        case Stkmap_cons(Key, Itm, stkmap[Itm])
+        case Stkmap_lam0(stkmap[Itm])
+        case Stkmap_let0(stkmap[Itm])
+        case Stkmap_loc1(stkmap[Itm])
+        case Stkmap_loc2(stkmap[Itm])
+    @impl
+    type Stkmap_vtbx[Itm: Type] = Stkmap_[Itm]
+
+@impl
+def stkmap_nilq(map):
+    match map:
+        case Stkmap_nil():
+            true
+        case _:
+            false
+
+@impl
+def stkmap_topq[Itm: Tbox](map):
+    loop(map)
+where:
+    def loop(kxs: !stkmap[Itm]) -> Bool:
+        match kxs:
+            case Stkmap_nil():
+                true
+            case Stkmap_cons(k1, x1, kxs):
+                loop(kxs)
+            case _:
+                false
+
+@impl
+def stkmap_make_nil():
+    Stkmap_nil
+
+@impl
+def stkmap_free_nil(map):
+    match map:
+        case ~Stkmap_nil():
+            ()
+
+@impl
+def stkmap_poptop0[Itm: Tbox](map):
+    def loop(kxs: stkmap[Itm], err: &SInt >> _) -> stkmap[Itm]:
+        match kxs:
+            case Stkmap_nil():
+                kxs
+            case ~Stkmap_cons(k1, x1, kxs):
+                loop(kxs, err)
+            case Stkmap_lam0(_):
+                err := 1
+                kxs
+            case Stkmap_let0(_):
+                err := 1
+                kxs
+            case Stkmap_loc1(_):
+                err := 1
+                kxs
+            case Stkmap_loc2(_):
+                err := 1
+                kxs
+    var err: SInt = 0
+    map := loop(map, err)
+    err
+
+@impl
+def stkmap_pshlam0[Itm: Tbox](map):
+    map := Stkmap_lam0(map)
+
+@impl
+def stkmap_pshlet0[Itm: Tbox](map):
+    map := Stkmap_let0(map)
+
+@impl
+def stkmap_pshloc1[Itm: Tbox](map):
+    map := Stkmap_loc1(map)
+
+@impl
+def stkmap_pshloc2[Itm: Tbox](map):
+    map := Stkmap_loc2(map)
+
+@impl
+def stkmap_poplam0[Itm: Tbox](map):
+    def loop(kxs: stkmap[Itm], err: &SInt >> _) -> stkmap[Itm]:
+        match kxs:
+            case ~Stkmap_lam0(kxs):
+                kxs
+            case ~Stkmap_cons(k1, x1, kxs):
+                loop(kxs, err)
+            case Stkmap_nil():
+                err := 1
+                kxs
+            case Stkmap_let0(_):
+                err := 1
+                kxs
+            case Stkmap_loc1(_):
+                err := 1
+                kxs
+            case Stkmap_loc2(_):
+                err := 1
+                kxs
+    var err: SInt = 0
+    map := loop(map, err)
+    err
+
+@impl
+def stkmap_poplet0[Itm: Tbox](map):
+    def loop(kxs: stkmap[Itm], err: &SInt >> _) -> stkmap[Itm]:
+        match kxs:
+            case ~Stkmap_let0(kxs):
+                kxs
+            case ~Stkmap_cons(k1, x1, kxs):
+                loop(kxs, err)
+            case Stkmap_nil():
+                err := 1
+                kxs
+            case Stkmap_lam0(_):
+                err := 1
+                kxs
+            case Stkmap_loc1(_):
+                err := 1
+                kxs
+            case Stkmap_loc2(_):
+                err := 1
+                kxs
+    var err: SInt = 0
+    map := loop(map, err)
+    err
+
+@impl
+def stkmap_poploc0[Itm: Tbox](map):
+    type Kxs = stkmap[Itm]
+    type Res = list_vt[(Key, Itm)]
+    def loop0(kxs: Kxs, err: &SInt >> _, res: Res) -> (Kxs, Res):
+        (kxs, res)
+    def loop1(kxs: Kxs, err: &SInt >> _, res: Res) -> (Kxs, Res):
+        match kxs:
+            case ~Stkmap_loc1(kxs):
+                loop0(kxs, err, res)
+            case ~Stkmap_cons(k1, x1, kxs):
+                loop1(kxs, err, res)
+            case Stkmap_nil():
+                err := err + 1
+                loop0(kxs, err, res)
+            case Stkmap_lam0(_):
+                err := err + 1
+                loop0(kxs, err, res)
+            case Stkmap_let0(_):
+                err := err + 1
+                loop0(kxs, err, res)
+            case Stkmap_loc2(_):
+                err := err + 1
+                loop0(kxs, err, res)
+    def loop2(kxs: Kxs, err: &SInt >> _, res: Res) -> (Kxs, Res):
+        match kxs:
+            case ~Stkmap_loc2(kxs):
+                loop1(kxs, err, res)
+            case ~Stkmap_cons(k1, x1, kxs):
+                let res = list_vt_cons((k1, x1), res)
+                loop2(kxs, err, res)
+            case Stkmap_nil():
+                err := err + 1
+                loop1(kxs, err, res)
+            case Stkmap_lam0(_):
+                err := err + 1
+                loop1(kxs, err, res)
+            case Stkmap_let0(_):
+                err := err + 1
+                loop1(kxs, err, res)
+            case Stkmap_loc1(_):
+                err := err + 1
+                loop1(kxs, err, res)
+    var err: SInt = 0
+    let res = list_vt_nil
+    let (kxs, res) = loop2(map, err, res)
+    map := kxs
+    (err, res)
+
+@impl
+def stkmap_search/opt[Itm: Tbox](map, key):
+    loop(map, key)
+where:
+    type Kxs = stkmap[Itm]
+    def loop(kxs: !Kxs, k0: Key) -> optn_vt[Itm]:
+        match kxs:
+            case Stkmap_nil():
+                optn_vt_nil()
+            case Stkmap_cons(k1, x1, kxs):
+                if (k0 == k1):
+                    optn_vt_cons(x1)
+                else:
+                    loop(kxs, k0)
+            case Stkmap_lam0(kxs):
+                loop(kxs, k0)
+            case Stkmap_let0(kxs):
+                loop(kxs, k0)
+            case Stkmap_loc1(kxs):
+                loop(kxs, k0)
+            case Stkmap_loc2(kxs):
+                loop(kxs, k0)
+
+@impl
+def stkmap_insert/any[Itm: Tbox](map, key, itm):
+    map := Stkmap_cons(key, itm, map)
+
+@impl
+def stkmap_insert/kxs[Itm: Tbox](map, kxs):
+    map := loop(map, kxs)
+where:
+    type Stkmap = Stkmap[Itm]
+    def loop(map: Stkmap, kxs: list_vt[(Key, Itm)]) -> Stkmap:
+        match kxs:
+            case ~list_vt_nil():
+                map
+            case ~list_vt_cons(kx1, kxs):
+                let map = Stkmap_cons(kx1.0, kx1.1, map)
+                loop(map, kxs)
+
+@impl[]
+def stkmap_fprint1[Itm: Type](smap, out):
+    praux(smap)
+where:
+    @impl[]
+    def g_print/out():
+        out
+    def praux(smap: !stkmap[Itm]) -> Void:
+        match smap:
+            case Stkmap_nil():
+                printsln("stkmap_nil(", ")")
+            case Stkmap_cons(k0, x0, smap):
+                printsln("stkmap_cons(", k0, ";", x0)
+                praux(smap)
+            case Stkmap_lam0(smap):
+                printsln("stkmap_lam0(", ")")
+                praux(smap)
+            case Stkmap_let0(smap):
+                printsln("stkmap_let0(", ")")
+                praux(smap)
+            case Stkmap_loc1(smap):
+                printsln("stkmap_loc1(", ")")
+                praux(smap)
+            case Stkmap_loc2(smap):
+                printsln("stkmap_loc2(", ")")
+                praux(smap)
+
+
+@impl
+def stkmap_insmix/any[Itm: Tbox](map, k0, x0, mix):
+    let opt = stkmap_search/opt(map, k0)
+    match opt:
+        case ~optn_vt_nil():
+            stkmap_insert/any(map, k0, x0)
+        case ~optn_vt_cons(x1):
+            stkmap_insert/any(map, k0, mix(x0, x1))
+
+@impl
+def stkmap_insmix/kxs[Itm: Tbox](map, kxs, mix):
+    loop(map, kxs)
+where:
+    type Stkmap = Stkmap[Itm]
+    def loop(map: &Stkmap >> _, kxs: list_vt[(Key, Itm)]) -> Void:
+        match kxs:
+            case ~list_vt_nil():
+                ()
+            case ~list_vt_cons(kx1, kxs):
+                stkmap_insmix/any(map, kx1.0, kx1.1, mix)
+                loop(map, kxs)
+

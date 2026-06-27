@@ -1,0 +1,835 @@
+import "srcgen1/prelude/SATS/unsafex" as UN
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+@overload lte = lte_sort2_sort2
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload lctn = s1exp_get_lctn
+
+@overload node = s1exp_get_node
+
+@overload sort = s2var_get_sort
+
+@overload sort = s2cst_get_sort
+
+@overload name = s2cst_get_name
+
+@overload sexp = s2cst_get_sexp
+
+@overload sort = s2exp_get_sort
+
+@overload node = s2exp_get_node
+
+private:
+    let stamper = stamper_new()
+
+def the_t2abs_stamp_new() -> stamp:
+    stamper.getinc()
+
+
+private:
+    let stamper = stamper_new()
+
+def the_t2dat_stamp_new() -> stamp:
+    stamper.getinc()
+
+
+private:
+    let stamper = stamper_new()
+
+def the_s2cst_stamp_new() -> stamp:
+    stamper.getinc()
+
+
+private:
+    let stamper = stamper_new()
+
+def the_s2var_stamp_new() -> stamp:
+    stamper.getinc()
+
+
+private:
+    let stamper = stamper_new()
+
+def the_s2xtv_stamp_new() -> stamp:
+    stamper.getinc()
+
+
+private:
+    enum T2abs:
+        case T2ABS(sym_t, stamp)
+    @impl
+    type T2abs_tbox = T2abs
+
+@impl
+def t2abs_make_name(sym):
+    T2ABS(sym, tmp)
+where:
+    let tmp = the_t2abs_stamp_new()
+
+@impl
+def t2abs_get_name(t2a):
+    let T2ABS(sym, tmp) = t2a
+    sym
+
+@impl
+def t2abs_get_stmp(t2a):
+    let T2ABS(sym, tmp) = t2a
+    tmp
+
+
+private:
+    enum T2dat:
+        case T2DAT(sym_t, stamp, s2cstlst)
+    @impl
+    type T2dat_tbox = T2dat
+
+@impl
+def t2dat_make_name(name):
+    T2DAT(name, stmp, s2cs)
+where:
+    let stmp = the_t2dat_stamp_new()
+    let s2cs = list_nil()
+
+@impl
+def t2dat_get_name(t2d):
+    let T2DAT(sym, tmp, scs) = t2d
+    sym
+
+@impl
+def t2dat_get_stmp(t2d):
+    let T2DAT(sym, tmp, scs) = t2d
+    tmp
+
+@impl
+def t2dat_get_s2cs(t2d):
+    let T2DAT(sym, tmp, scs) = t2d
+    scs
+
+
+@impl
+def sort2_int(i0):
+    S2Tint(i0)
+
+@impl
+def sort2_none0():
+    S2Tnone0()
+
+@impl
+def sort2_none1(s1t0):
+    S2Tnone1(s1t0)
+
+@impl
+def s2var_make_sort(s2t):
+    let id0 = SRP_symbl
+    s2var_make_idst(id0, s2t)
+
+private:
+    enum S2cst:
+        case S2CST(loc_t, sym_t, sort2, stamp)
+    @impl
+    type S2cst_tbox = S2cst
+
+@impl
+def s2cst_make_idst(loc, sym, s2t):
+    S2CST(loc, sym, s2t, tmp)
+where:
+    let tmp = the_s2cst_stamp_new()
+
+@impl
+def s2cst_get_lctn(s2c):
+    let S2CST(loc, sym, s2t, tmp) = s2c
+    loc
+
+@impl
+def s2cst_get_name(s2c):
+    let S2CST(loc, sym, s2t, tmp) = s2c
+    sym
+
+@impl
+def s2cst_get_sort(s2c):
+    let S2CST(loc, sym, s2t, tmp) = s2c
+    s2t
+
+@impl
+def s2cst_get_stmp(s2c):
+    let S2CST(loc, sym, s2t, tmp) = s2c
+    tmp
+
+
+private:
+    enum S2var:
+        case S2VAR(sym_t, sort2, stamp)
+    @linear
+    enum S2var_vt:
+        case S2VAR_vt(sym_t, sort2, stamp)
+    @impl
+    type S2var_tbox = S2var
+
+@impl
+def s2var_get_name(s2v):
+    let S2VAR(sym, s2t, tmp) = s2v
+    sym
+
+@impl
+def s2var_get_sort(s2v):
+    let S2VAR(sym, s2t, tmp) = s2v
+    s2t
+
+@impl
+def s2var_get_stmp(s2v):
+    let S2VAR(sym, s2t, tmp) = s2v
+    tmp
+
+@impl
+def s2var_set_sort(s2v0, s2t1):
+    let s2v0 = @sapp[S2var_vt] UN.castlin10(s2v0)
+    let @(S2VAR_vt)(sym0, !s2t0, stmp) = s2v0
+    s2t0 := s2t1
+
+@impl
+def s2var_make_name(sid):
+    S2VAR(sid, s2t, tmp)
+where:
+    let s2t = S2Tnone0
+    let tmp = the_s2var_stamp_new()
+
+@impl
+def s2var_make_idst(sid, s2t):
+    S2VAR(sid, s2t, tmp)
+where:
+    let tmp = the_s2var_stamp_new()
+
+
+private:
+    enum S2arg:
+        case S2ARG(sort2, s2arg_node)
+    @impl
+    type S2arg_tbox = S2arg
+
+@impl
+def s2arg_get_sort(s2a0):
+    let S2ARG(s2t0, node) = s2a0
+    s2t0
+
+@impl
+def s2arg_get_node(s2a0):
+    let S2ARG(s2t0, node) = s2a0
+    node
+
+@impl
+def s2arg_make_node(s2t0, node):
+    S2ARG(s2t0, node)
+
+
+@impl
+def s2exp_int(int):
+    let s2t0 = the_sort2_int0
+    s2exp_make_node(s2t0, S2Eint(int))
+
+@impl
+def s2exp_btf(btf):
+    let s2t0 = the_sort2_bool
+    s2exp_make_node(s2t0, S2Ebtf(btf))
+
+@impl
+def s2exp_chr(chr):
+    let s2t0 = the_sort2_char
+    s2exp_make_node(s2t0, S2Echr(chr))
+
+@impl
+def s2exp_str(str):
+    let s2t0 = the_sort2_strn
+    s2exp_make_node(s2t0, S2Estr(str))
+
+@impl
+def s2exp_var(s2v0):
+    let s2t0 = s2v0.sort()
+    s2exp_make_node(s2t0, S2Evar(s2v0))
+
+@impl
+def s2exp_cst(s2c0):
+    let s2t0 = s2c0.sort()
+    s2exp_make_node(s2t0, S2Ecst(s2c0))
+
+@impl
+def s2exp_csts(s2cs):
+    match s2cs:
+        case list_nil():
+            s2exp(S2Tnone0(), S2Ecsts(s2cs))
+        case list_cons(s2c1, scs1):
+            match scs1:
+                case list_nil():
+                    s2exp_cst(s2c1)
+                case list_cons(_):
+                    s2exp(s2c1.sort(), S2Ecsts(s2cs))
+
+@impl
+def s2exp_impr(loc0, s2e0):
+    let s2t0 = the_sort2_type
+    s2exp(s2t0, S2Eimpr(loc0, s2e0))
+
+@impl
+def s2exp_prgm(loc0, s2e0):
+    let s2t0 = the_sort2_type
+    s2exp(s2t0, S2Eprgm(loc0, s2e0))
+
+@impl
+def s2exp_cast(loc0, s2e1, s2t2):
+    s2exp(s2t2, S2Ecast(loc0, s2e1, s2t2))
+
+private:
+    def f1_stcks(loc0: loc_t, s2es: s2explst, s2ts: sort2lst, nerr: &SInt >> _) -> s2explst:
+        match s2es:
+            case list_nil():
+                list_nil()
+            case list_cons(s2e1, ses2):
+                let ne00 = nerr
+                let s2t1 = match s2ts:
+                    case list_nil():
+                        S2Tnone0()
+                    case list_cons(s2t1, _):
+                        s2t1
+                let s2ts = match s2ts:
+                    case list_nil():
+                        list_nil()
+                    case list_cons(_, s2ts):
+                        s2ts
+                let st10 = s2e1.sort()
+                let s2e1 = if st10.lte(s2t1):
+                    s2e1
+                else: match ():
+                    case ():
+                        nerr := (nerr + 1)
+                        s2exp_cast(loc0, s2e1, s2t1)
+                let ses2 = f1_stcks(loc0, ses2, s2ts, nerr)
+                if (ne00 == nerr):
+                    s2es
+                else:
+                    list_cons(s2e1, ses2)
+    def f0_stcks(loc0: loc_t, s2es: s2explst, s2ts: sort2lst) -> s2explst:
+        var nerr: SInt = 0
+        f1_stcks(loc0, s2es, s2ts, nerr)
+
+@impl
+def s2exp_a2pp(loc0, s2f0, s2e1, s2e2):
+    s2exp_apps(loc0, s2f0, s2es)
+where:
+    let s2es = list_pair(s2e1, s2e2)
+
+@impl
+def s2exp_apps(loc0, s2f0, s2es):
+    let s2f0 = match s2f0.sort():
+        case S2Tfun0(_):
+            s2f0
+        case S2Tfun1(_):
+            s2f0
+        case _:
+            s2exp_cast(loc0, s2f0, S2Tfun0())
+    let s2ts = match s2f0.sort():
+        case S2Tfun1(s2ts, _):
+            s2ts
+        case _:
+            list_nil()
+    let tres = match s2f0.sort():
+        case S2Tfun1(_, s2t1):
+            s2t1
+        case _:
+            S2Tnone0()
+    let s2es = f0_stcks(loc0, s2es, s2ts)
+    s2exp_make_node(tres, S2Eapps(s2f0, s2es))
+
+
+@impl
+def s2exp_apps_pq(loc0, s2f0, s2es):
+    match 0:
+        case _ if isTOP0(s2f0):
+            f0_top0(loc0, s2es)
+        case _ if isTOP1(s2f0):
+            f0_top1(loc0, s2es)
+        case _ if isCBV0(s2f0):
+            f0_cbv0(loc0, s2es)
+        case _ if isCBV1(s2f0):
+            f0_cbv1(loc0, s2es)
+        case _ if isCBRF(s2f0):
+            f0_cbrf(loc0, s2es)
+        case _:
+            s2exp_apps(loc0, s2f0, s2es)
+where:
+    def S2Ecbv0(s2e1: S2exp) -> s2exp_node:
+        S2Earg1(0, s2e1)
+    def S2Ecbv1(s2e1: S2exp) -> s2exp_node:
+        S2Earg1(1, s2e1)
+    def S2Ecbrf(s2e1: S2exp) -> s2exp_node:
+        S2Earg1(-(1), s2e1)
+    def f1_test(s2f0: S2exp, name: sym_t) -> Bool:
+        match s2f0.node():
+            case S2Ecst(s2c1):
+                let opt1 = s2c1.sexp()
+                match opt1:
+                    case ~optn_vt_nil():
+                        name == s2cst_get_name(s2c1)
+                    case ~optn_vt_cons(s2f1):
+                        f1_test(s2f1, name)
+            case _:
+                false
+    def isTOP0(s2f0: S2exp) -> Bool:
+        f1_test(s2f0, TOP0_VT_T0_symbl)
+    def isTOP1(s2f0: S2exp) -> Bool:
+        f1_test(s2f0, TOP1_VT_T0_symbl)
+    def isCBV0(s2f0: S2exp) -> Bool:
+        f1_test(s2f0, CBV0_V0_VT_symbl)
+    def isCBV1(s2f0: S2exp) -> Bool:
+        f1_test(s2f0, CBV1_V0_VT_symbl)
+    def isCBRF(s2f0: S2exp) -> Bool:
+        f1_test(s2f0, CBRF_VT_VT_symbl)
+    def f0_top0(loc0: loc_t, s2es: s2explst) -> S2exp:
+        let s2e1 = match s2es:
+            case list_cons(s2e1, _):
+                s2e1
+        let s2t0 = if sort2_boxq(s2e1.sort()):
+            the_sort2_tbox
+        else: the_sort2_type
+        s2exp_make_node(s2t0, S2Etop0(s2e1))
+    def f0_top1(loc0: loc_t, s2es: s2explst) -> S2exp:
+        let s2e1 = match s2es:
+            case list_cons(s2e1, _):
+                s2e1
+        let s2t0 = if sort2_boxq(s2e1.sort()):
+            the_sort2_tbox
+        else: the_sort2_type
+        s2exp_make_node(s2t0, S2Etop1(s2e1))
+    def f0_cbv0(loc0: loc_t, s2es: s2explst) -> S2exp:
+        let s2e1 = match s2es:
+            case list_cons(s2e1, _):
+                s2e1
+        s2exp_make_node(s2e1.sort(), S2Ecbv0(s2e1))
+    def f0_cbv1(loc0: loc_t, s2es: s2explst) -> S2exp:
+        let s2e1 = match s2es:
+            case list_cons(s2e1, _):
+                s2e1
+        s2exp_make_node(s2e1.sort(), S2Ecbv1(s2e1))
+    def f0_cbrf(loc0: loc_t, s2es: s2explst) -> S2exp:
+        let s2e1 = match s2es:
+            case list_cons(s2e1, _):
+                s2e1
+        s2exp_make_node(s2e1.sort(), S2Ecbrf(s2e1))
+
+@impl
+def s2exp_lam1(s2vs, body):
+    @impl[S2var, sort2]
+    def map/fopr:
+        s2var_get_sort
+    let s2ts = list_map(s2vs)
+    let s2t0 = S2Tfun1(s2ts, body.sort())
+    s2exp(s2t0, S2Elam1(s2vs, body))
+
+@impl
+def s2exp_lams(svss, body):
+    match svss:
+        case list_nil():
+            body
+        case list_cons(s2vs, svss):
+            s2exp_lam1(s2vs, s2exp_lams(svss, body))
+
+@impl
+def s2exp_fun1_nil0(npf1, farg, fres):
+    s2exp_fun1_full(f2cl, npf1, farg, fres)
+where:
+    let f2cl = F2CLfun()
+
+@impl
+def s2exp_fun1_all1(npf1, farg, fres):
+    s2exp_fun1_full(f2cl, npf1, farg, fres)
+where:
+    let f2cl = F2CLfun()
+
+@impl
+def s2exp_fun1_full(f2cl, npf1, farg, fres):
+    s2exp_make_node(s2t0, S2Efun1(f2cl, npf1, farg, fres))
+where:
+    let s2t0 = if f2clknd_linq(f2cl):
+        the_sort2_vtbx
+    else: the_sort2_tbox
+
+@impl
+def s2exp_uni0(s2vs, s2ps, body):
+    let nilq = list_nilq(s2vs)
+    let nilq = if nilq:
+        list_nilq(s2ps)
+    else: false
+    if nilq:
+        body
+    else:
+        let s2t0 = body.sort()
+        s2exp(s2t0, S2Euni0(s2vs, s2ps, body))
+
+@impl
+def s2exp_exi0(s2vs, s2ps, body):
+    let nilq = list_nilq(s2vs)
+    let nilq = if nilq:
+        list_nilq(s2ps)
+    else: false
+    if nilq:
+        body
+    else:
+        let s2t0 = body.sort()
+        s2exp(s2t0, S2Eexi0(s2vs, s2ps, body))
+
+@impl
+def s2exp_l1st(loc0, s2es):
+    let impr = s2explst_imprq(s2es)
+    if impr:
+        let knd0 = TRCDflt0
+        let linq = s2explst_linq(s2es)
+        let prfq = s2explst_prfq(s2es)
+        let s2t0 = if linq:
+            if prfq:
+                the_sort2_view
+            else:
+                the_sort2_vwtp
+        else: match ():
+            case ():
+                if prfq:
+                    the_sort2_prop
+                else:
+                    the_sort2_type
+        let s2es = s2explst_stck(loc0, s2es, s2t0)
+        let lses = l2s2elst_make_l1st(s2es)
+        s2exp_make_node(s2t0, S2Etrcd(knd0, -(1), lses))
+    else:
+        type X0 = S2exp
+        type Y0 = sort2
+        @impl[X0, Y0]
+        def map/fopr(x0):
+            x0.sort()
+        let s2ts = @inst[X0] @inst[Y0] list_map(s2es)
+        s2exp(S2Ttup(s2ts), S2Elist(s2es))
+
+@impl
+def s2exp_l2st(loc0, ses1, ses2):
+    let knd0 = TRCDflt0
+    let linq = s2explst_linq(ses1)
+    let s2t1 = if linq:
+        the_sort2_view
+    else: the_sort2_prop
+    let s2t2 = if linq:
+        the_sort2_vwtp
+    else: match ():
+        case ():
+            if s2explst_linq(ses2):
+                the_sort2_vwtp
+            else:
+                the_sort2_type
+    let npf1 = list_length(ses1)
+    let lses = l2s2elst_make_l2st(ses1, ses2)
+    s2exp(s2t2, S2Etrcd(knd0, npf1, lses))
+
+@impl
+def s2exp_t1up(loc0, tok0, s2es):
+    let tnd0 = tok0.node()
+    let linq = s2explst_linq(s2es)
+    let knd0 = match tnd0:
+        case T_TRCD10(0):
+            TRCDflt0
+        case T_TRCD10(1):
+            TRCDbox1
+        case T_TRCD10(2):
+            if linq:
+                TRCDbox1()
+            else:
+                TRCDbox0()
+        case T_TRCD10(3):
+            TRCDbox0
+        case T_TRCD10(4):
+            TRCDbox1
+        case T_TRCD10(5):
+            TRCDbox2
+    let s2t0 = match tnd0:
+        case T_TRCD10(0):
+            let prfq = s2explst_prfq(s2es)
+            if linq:
+                if prfq:
+                    the_sort2_view
+                else:
+                    the_sort2_vwtp
+            else:
+                if prfq:
+                    the_sort2_prop
+                else:
+                    the_sort2_type
+        case T_TRCD10(1):
+            the_sort2_vtbx
+        case T_TRCD10(2):
+            if linq:
+                the_sort2_vtbx
+            else:
+                the_sort2_tbox
+        case T_TRCD10(3):
+            the_sort2_tbox
+        case T_TRCD10(4):
+            the_sort2_vtbx
+        case T_TRCD10(5):
+            the_sort2_tbox
+    let s2es = match tnd0:
+        case T_TRCD10(3):
+            let tres = the_sort2_type
+            s2explst_stck(loc0, s2es, tres)
+        case _:
+            s2es
+    let npf1 = -(1)
+    let lses = l2s2elst_make_l1st(s2es)
+    s2exp_make_node(s2t0, S2Etrcd(knd0, npf1, lses))
+
+@impl
+def s2exp_t2up(loc0, tok0, ses1, ses2):
+    let tnd0 = tok0.node()
+    let linq = s2explst_linq(ses1)
+    let linq = if linq:
+        true
+    else: s2explst_linq(ses2)
+    let knd0 = match tnd0:
+        case T_TRCD10(0):
+            TRCDflt0
+        case T_TRCD10(1):
+            TRCDbox1
+        case T_TRCD10(2):
+            if linq:
+                TRCDbox1
+            else:
+                TRCDbox0
+        case T_TRCD10(3):
+            TRCDbox0
+        case T_TRCD10(4):
+            TRCDbox1
+        case T_TRCD10(5):
+            TRCDbox2
+    let s2t1 = if linq:
+        the_sort2_view
+    else: the_sort2_prop
+    let s2t2 = match tnd0:
+        case T_TRCD10(0):
+            if linq:
+                the_sort2_vwtp
+            else:
+                the_sort2_type
+        case T_TRCD10(1):
+            the_sort2_vtbx
+        case T_TRCD10(2):
+            if linq:
+                the_sort2_vtbx
+            else:
+                the_sort2_tbox
+        case T_TRCD10(3):
+            the_sort2_tbox
+        case T_TRCD10(4):
+            the_sort2_vtbx
+        case T_TRCD10(5):
+            the_sort2_tbox
+    let ses1 = match tnd0:
+        case T_TRCD10(3):
+            let tres = the_sort2_prop
+            s2explst_stck(loc0, ses1, tres)
+        case _:
+            ses1
+    let ses2 = match tnd0:
+        case T_TRCD10(3):
+            let tres = the_sort2_type
+            s2explst_stck(loc0, ses2, tres)
+        case _:
+            ses2
+    let npf1 = list_length(ses1)
+    let lses = l2s2elst_make_l2st(ses1, ses2)
+    s2exp_make_node(s2t2, S2Etrcd(knd0, npf1, lses))
+
+@impl
+def s2exp_r1cd(loc0, tok0, lses):
+    let tnd0 = tok0.node()
+    let linq = l2s2elst_linq(lses)
+    let knd0 = match tnd0:
+        case T_TRCD20(0):
+            TRCDflt0
+        case T_TRCD20(1):
+            TRCDbox1
+        case T_TRCD20(2):
+            if linq:
+                TRCDbox1
+            else:
+                TRCDbox0
+        case T_TRCD20(3):
+            TRCDbox0
+        case T_TRCD20(4):
+            TRCDbox1
+        case T_TRCD20(5):
+            TRCDbox2
+    let s2t0 = match tnd0:
+        case T_TRCD20(0):
+            let prfq = l2s2elst_prfq(lses)
+            if linq:
+                if prfq:
+                    the_sort2_view
+                else:
+                    the_sort2_vwtp
+            else:
+                if prfq:
+                    the_sort2_prop
+                else:
+                    the_sort2_type
+        case T_TRCD20(1):
+            the_sort2_vtbx
+        case T_TRCD20(2):
+            if linq:
+                the_sort2_vtbx
+            else:
+                the_sort2_tbox
+        case T_TRCD20(3):
+            the_sort2_tbox
+        case T_TRCD20(4):
+            the_sort2_vtbx
+        case T_TRCD20(5):
+            the_sort2_tbox
+    let npf1 = -(1)
+    let lses = match tnd0:
+        case T_TRCD10(3):
+            let tres = the_sort2_type
+            l2s2elst_stck(loc0, lses, tres)
+        case _:
+            lses
+    s2exp_make_node(s2t0, S2Etrcd(knd0, npf1, lses))
+
+@impl
+def s2exp_r2cd(loc0, tok0, lss1, lss2):
+    let tnd0 = tok0.node()
+    let linq = l2s2elst_linq(lss1)
+    let linq = if linq:
+        true
+    else: l2s2elst_linq(lss2)
+    let knd0 = match tnd0:
+        case T_TRCD20(0):
+            TRCDflt0
+        case T_TRCD20(1):
+            TRCDbox1
+        case T_TRCD20(2):
+            if linq:
+                TRCDbox1
+            else:
+                TRCDbox0
+        case T_TRCD20(3):
+            TRCDbox0
+        case T_TRCD20(4):
+            TRCDbox1
+        case T_TRCD20(5):
+            TRCDbox2
+    let s2t1 = if linq:
+        the_sort2_view
+    else: the_sort2_prop
+    let s2t2 = match tnd0:
+        case T_TRCD20(0):
+            if linq:
+                the_sort2_vwtp
+            else:
+                the_sort2_type
+        case T_TRCD20(1):
+            the_sort2_vtbx
+        case T_TRCD20(2):
+            if linq:
+                the_sort2_vtbx
+            else:
+                the_sort2_tbox
+        case T_TRCD20(3):
+            the_sort2_tbox
+        case T_TRCD20(4):
+            the_sort2_vtbx
+        case T_TRCD20(5):
+            the_sort2_tbox
+    let lss1 = match tnd0:
+        case T_TRCD20(3):
+            let tres = the_sort2_prop
+            l2s2elst_stck(loc0, lss1, tres)
+        case _:
+            lss1
+    let lss2 = match tnd0:
+        case T_TRCD20(3):
+            let tres = the_sort2_type
+            l2s2elst_stck(loc0, lss2, tres)
+        case _:
+            lss2
+    let npf1 = list_length(lss1)
+    let lses = list_append(lss1, lss2)
+    s2exp(s2t2, S2Etrcd(knd0, npf1, lses))
+
+@impl
+def s2exp_any1():
+    s2exp_anys(1)
+
+@impl
+def s2exp_anys(knd0):
+    s2exp(s2t0, S2Eany(knd0))
+where:
+    let s2t0 = sort2_none0()
+
+@impl
+def s2exp_none0():
+    s2exp(s2t0, S2Enone0())
+where:
+    let s2t0 = sort2_none0()
+
+@impl
+def s2exp_none1(s1e0):
+    let loc0 = s1e0.lctn()
+    let s2t0 = sort2_none0()
+    s2exp_make_node(s2t0, S2Enone1(s1e0))
+
+private:
+    enum S2exp:
+        case S2EXP(sort2, s2exp_node)
+    @impl
+    type S2exp_tbox = S2exp
+
+@impl
+def s2exp_get_sort(s2e0):
+    let S2EXP(s2t0, node) = s2e0
+    s2t0
+
+@impl
+def s2exp_get_node(s2e0):
+    let S2EXP(s2t0, node) = s2e0
+    node
+
+@impl
+def s2exp_make_node(s2t0, node):
+    S2EXP(s2t0, node)
+
+
+@impl
+def l2s2e_get_sort(lx):
+    let s2t = s2exp_get_sort(lx.itm())
+    s2t
+
+@impl
+def l2s2e_get_node(lx):
+    let s2t = s2exp_get_node(lx.itm())
+    s2t
+

@@ -1,0 +1,38 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xlibext" import *
+
+from "srcgen2/SATS/xstamp0" import *
+
+import "srcgen1/prelude/DATS/CATS/JS/basics3.dats" as _
+
+private:
+    type Xatslocal0_key = SInt
+    @impl
+    type Tmpmap_tbox[Itm: Type] = mydict[Xatslocal0_key, Itm]
+
+@impl
+def tmpmap_make_nil():
+    @inst[Xatslocal0_key] mydict_make_nil()
+
+@impl
+def tmpmap_strmize[Itm: Tbox](map):
+    @inst[gmap] @inst[Xatslocal0_key] @inst[Itm] gmap_strmize(map)
+where:
+    type Gmap = mydict[Xatslocal0_key, Itm]
+
+@impl
+def tmpmap_search/opt[Itm: Tbox](map, key):
+    let key = g0u2s(uint(key))
+    @inst[Xatslocal0_key] @inst[Itm] mydict_search/opt(map, key)
+
+@impl
+def tmpmap_insert/any[Itm: Tbox](map, key, itm):
+    let key = g0u2s(uint(key))
+    @inst[Xatslocal0_key] @inst[Itm] mydict_insert/any(map, key, itm)
+
+

@@ -1,0 +1,109 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/SATS/t3read0" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@impl
+def d3parsed_of_t3read0(dpar):
+    let stadyn = d3parsed_get_stadyn(dpar)
+    let nerror = d3parsed_get_nerror(dpar)
+    let source = d3parsed_get_source(dpar)
+    let t1penv = d3parsed_get_t1penv(dpar)
+    let t2penv = d3parsed_get_t2penv(dpar)
+    let t3penv = d3parsed_get_t3penv(dpar)
+    let parsed = d3parsed_get_parsed(dpar)
+    var err0: SInt = (0)
+    let evn0 = t3r0evn_make_nil()
+    let parsed = t3read0_d3eclistopt(evn0, parsed, err0)
+    t3r0evn_free_nil(evn0)
+    if (err0 == 0):
+        dpar
+    else:
+        let nerror = nerror + (err0)
+        d3parsed(stadyn, nerror, source, t1penv, t2penv, t3penv, parsed)
+where:
+    prerrs("d3parsed_t3read0: for ")
+    prerrsln("template-resolution checking!")
+
+@impl
+def optn_t3read0_fnp[X0: Tx](e1, xs, err0, fopr):
+    auxopt(e1, xs, err0)
+where:
+    def auxopt(e1: !t3r0evn, xs: optn[X0], err0: &SInt >> _) -> optn[X0]:
+        match xs:
+            case optn_nil():
+                optn_nil
+            case optn_cons(x1):
+                let n0 = err0
+                let x1 = fopr(e1, x1, err0)
+                if (n0 == err0):
+                    xs
+                else:
+                    optn_cons(x1)
+
+@impl
+def list_t3read0_fnp[X0: Tx](e1, xs, err0, fopr):
+    auxlst(e1, xs, err0)
+where:
+    def auxlst(e1: !t3r0evn, xs: list[X0], err0: &SInt >> _) -> list[X0]:
+        match xs:
+            case list_nil():
+                list_nil
+            case list_cons(x1, rs):
+                let n0 = err0
+                let x1 = fopr(e1, x1, err0)
+                let rs = auxlst(e1, rs, err0)
+                if (n0 == err0):
+                    xs
+                else:
+                    list_cons(x1, rs)
+
+@impl
+def t3read0_d3patlst(evn0, d3ps, err0):
+    d3ps
+
+@impl
+def t3read0_d3explst(evn0, d3es, err0):
+    list_t3read0_fnp(evn0, d3es, err0, t3read0_d3exp)
+
+@impl
+def t3read0_d3expopt(evn0, dopt, err0):
+    optn_t3read0_fnp(evn0, dopt, err0, t3read0_d3exp)
+
+@impl
+def t3read0_d3clslst(evn0, dclz, err0):
+    list_t3read0_fnp(evn0, dclz, err0, t3read0_d3cls)
+
+@impl
+def t3read0_d3eclist(evn0, d3cs, err0):
+    list_t3read0_fnp(evn0, d3cs, err0, t3read0_d3ecl)
+
+@impl
+def t3read0_d3explstopt(evn0, dopt, err0):
+    optn_t3read0_fnp(evn0, dopt, err0, t3read0_d3explst)
+
+@impl
+def t3read0_d3eclistopt(evn0, dopt, err0):
+    optn_t3read0_fnp(evn0, dopt, err0, t3read0_d3eclist)
+

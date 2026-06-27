@@ -1,0 +1,537 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+import "srcgen2/DATS/lexing0_print0.dats" as _
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/dynexp0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+@overload lctn = d1pat_get_lctn
+
+@overload node = d1pat_get_node
+
+@overload lctn = d1exp_get_lctn
+
+@overload node = d1exp_get_node
+
+@overload lctn = d1ecl_get_lctn
+
+@overload node = d1ecl_get_node
+
+@overload lctn = q1arg_get_lctn
+
+@overload node = q1arg_get_node
+
+@overload lctn = s1qag_get_lctn
+
+@overload node = s1qag_get_node
+
+@overload lctn = t1qag_get_lctn
+
+@overload node = t1qag_get_node
+
+@overload lctn = t1iag_get_lctn
+
+@overload node = t1iag_get_node
+
+@overload lctn = f1arg_get_lctn
+
+@overload node = f1arg_get_node
+
+@overload lctn = d1gua_get_lctn
+
+@overload node = d1gua_get_node
+
+@overload lctn = d1gpt_get_lctn
+
+@overload node = d1gpt_get_node
+
+@overload lctn = d1cls_get_lctn
+
+@overload node = d1cls_get_node
+
+@overload lctn = a1typ_get_lctn
+
+@overload node = a1typ_get_node
+
+@overload lctn = d1arg_get_lctn
+
+@overload node = d1arg_get_node
+
+@impl
+def d1pat_fprint(d1p, out):
+    @impl[]
+    def g_print/out():
+        out
+    match d1p.node():
+        case D1Pid0(id0):
+            prints("D1Pid0(", id0, ")")
+        case D1Pint(int):
+            prints("D1Pint(", int, ")")
+        case D1Pchr(chr):
+            prints("D1Pchr(", chr, ")")
+        case D1Pflt(flt):
+            prints("D1Pflt(", flt, ")")
+        case D1Pstr(str):
+            prints("D1Pstr(", str, ")")
+        case D1Pb0sh():
+            prints("D1Pb0sh(", ")")
+        case D1Pb1sh(d1p):
+            prints("D1Pb1sh(", d1p, ")")
+        case D1Paspt(tok, d1p):
+            prints("D1Paspt(", tok, ";", d1p, ")")
+        case D1Pa0pp():
+            prints("D1Pa0pp(", ")")
+        case D1Pa1pp(d1f0, d1p1):
+            prints("D1Pa1pp(", d1f0, ";", d1p1, ")")
+        case D1Pa2pp(d1f0, d1p1, d1p2):
+            print("D1Pa2pp(")
+            prints(d1f0, ";", d1p1, ";", d1p2, ")")
+        case D1Psarg(s1as):
+            prints("D1Psarg(", s1as, ")")
+        case D1Pl1st(d1ps):
+            prints("D1Pl1st(", d1ps, ")")
+        case D1Pl2st(dps1, dps2):
+            prints("D1Pl2st(", dps1, ";", dps2, ")")
+        case D1Pt1up(tok0, d1ps):
+            prints("D1Pt1up(", tok0, ";", d1ps, ")")
+        case D1Pt2up(tok0, dps1, dps2):
+            print("D1Pt2up(")
+            prints(tok0, ";", dps1, ";", dps2, ")")
+        case D1Pannot(d1p1, s1e2):
+            prints("D1Pannot(", d1p1, ";", s1e2, ")")
+        case D1Pqual0(tok1, d1p2):
+            prints("D1Pqual0(", tok1, ";", d1p2, ")")
+        case D1Pnone0():
+            prints("D1Pnone0(", ")")
+        case D1Pnone1(dpat):
+            prints("D1Pnone1(", dpat, ")")
+        case D1Perrck(lvl1, d1p2):
+            prints("D1Perrck(", lvl1, ";", d1p2, ")")
+
+@impl
+def f1arg_fprint(farg, out):
+    @impl[]
+    def g_print/out():
+        out
+    match farg.node():
+        case F1ARGdapp(d1p1):
+            prints("F1ARGdapp(", d1p1, ")")
+        case F1ARGsapp(s1qs):
+            prints("F1ARGsapp(", s1qs, ")")
+        case F1ARGmets(s1es):
+            prints("F1ARGmets(", s1es, ")")
+
+@impl
+def d1gua_fprint(dgua, out):
+    @impl[]
+    def g_print/out():
+        out
+    match dgua.node():
+        case D1GUAexp(d1e1):
+            prints("D1GUAexp(", d1e1, ")")
+        case D1GUAmat(d1e1, d1p2):
+            prints("D1GUAmat(", d1e1, ";", d1p2, ")")
+
+@impl
+def d1cls_fprint(dcls, out):
+    @impl[]
+    def g_print/out():
+        out
+    match dcls.node():
+        case D1CLSgpt(dgpt):
+            prints("D1CLSgpt(", dgpt, ")")
+        case D1CLScls(d1g1, d1e2):
+            prints("D1CLScls(", d1g1, ";", d1e2, ")")
+
+@impl
+def d1gpt_fprint(dgpt, out):
+    @impl[]
+    def g_print/out():
+        out
+    match dgpt.node():
+        case D1GPTpat(d1p1):
+            prints("D1GPTpat(", d1p1, ")")
+        case D1GPTgua(d1p1, d1gs):
+            prints("D1GPTgua(", d1p1, ";", d1gs, ")")
+
+@impl
+def d1exp_fprint(d1e, out):
+    @impl[]
+    def g_print/out():
+        out
+    match d1e.node():
+        case D1Eid0(id0):
+            prints("D1Eid0(", id0, ")")
+        case D1Eint(int):
+            prints("D1Eint(", int, ")")
+        case D1Echr(chr):
+            prints("D1Echr(", chr, ")")
+        case D1Eflt(flt):
+            prints("D1Eflt(", flt, ")")
+        case D1Estr(str):
+            prints("D1Estr(", str, ")")
+        case D1Eb0sh():
+            prints("D1Eb0sh(", ")")
+        case D1Eb1sh(d1e):
+            prints("D1Eb1sh(", d1e, ")")
+        case D1Ea0pp():
+            prints("D1Ea0pp(", ")")
+        case D1Ea1pp(d1f0, d1e1):
+            prints("D1Ea1pp(", d1f0, ";", d1e1, ")")
+        case D1Ea2pp(d1f0, d1e1, d1e2):
+            prints("D1Ea2pp(", d1f0, ";", d1e1, ";", d1e2, ")")
+        case D1Esarg(s1es):
+            prints("D1Esarg(", s1es, ")")
+        case D1Etarg(s1es):
+            prints("D1Etarg(", s1es, ")")
+        case D1El1st(d1es):
+            prints("D1El1st(", d1es, ")")
+        case D1El2st(des1, des2):
+            prints("D1El2st(", des1, ";", des2, ")")
+        case D1Es1eq(d1es):
+            prints("D1Es1eq(", d1es, ")")
+        case D1Es2eq(des1, des2):
+            prints("D1Es2eq(", des1, ";", des2, ")")
+        case D1Eift0(d1e1, dthn, dels):
+            print("D1Eift0(")
+            prints(d1e1, ";", dthn, ";", dels, ")")
+        case D1Ecas0(tknd, d1e1, d1cs):
+            print("D1Ecas0(")
+            prints(tknd, ";", d1e1, ";", d1cs, ")")
+        case D1Elet0(d1cs, d1e1):
+            prints("D1Elet0(", d1cs, ";", d1e1, ")")
+        case D1Et1up(tknd, d1es):
+            prints("D1Et1up(", tknd, ";", d1es, ")")
+        case D1Et2up(tknd, des1, des2):
+            print("D1Et2up(")
+            prints(tknd, ";", des1, ";", des2, ")")
+        case D1Er1cd(tknd, ldes):
+            prints("D1Er1cd(", tknd, ";", ldes, ")")
+        case D1Er2cd(tknd, lds1, lds2):
+            print("D1Er2cd(")
+            prints(tknd, ";", lds1, ";", lds2, ")")
+        case D1Elam0(tknd, f1as, sres, arrw, d1e1):
+            prints("D1Elam0(", tknd, ";")
+            prints(f1as, ";", sres, ";", arrw, ";", d1e1, ")")
+        case D1Efix0(tknd, dpid, f1as, sres, arrw, d1e1):
+            prints("D1Efix0(", tknd, ";", dpid, ";")
+            prints(f1as, ";", sres, ";", arrw, ";", d1e1, ")")
+        case D1Etry0(tknd, d1e1, d1cs):
+            print("D1Etry0(")
+            prints(tknd, ";", d1e1, ";", d1cs, ")")
+        case D1Ewhere(d1e1, d1cs):
+            prints("D1Ewhere(", d1e1, ";", d1cs, ")")
+        case D1Ebrckt(d1es):
+            prints("D1Ebrckt(", d1es, ")")
+        case D1Edtsel(tknd, lab1, dopt):
+            print("D1Edtsel(")
+            prints(tknd, ";", lab1, ";", dopt, ")")
+        case D1Eraise(tknd, d1e1):
+            prints("D1Eraise(", tknd, ";", d1e1, ")")
+        case D1Eannot(d1e1, s1e2):
+            prints("D1Eannot(", d1e1, ";", s1e2, ")")
+        case D1Equal0(tok1, d1e2):
+            prints("D1Equal0(", tok1, ";", d1e2, ")")
+        case D1Eexists(tknd, d1es, d1e1):
+            prints("D1Eexists(", tknd, ";", d1es, ";", d1e1, ")")
+        case D1Eextnam(tknd, gnam):
+            prints("D1Eextnam(", tknd, ";", gnam, ")")
+        case D1Esynext(tknd, gexp):
+            prints("D1Esynext(", tknd, ";", gexp, ")")
+        case D1Enone0():
+            prints("D1Enone0(", ")")
+        case D1Enone1(dexp):
+            prints("D1Enone1(", dexp, ")")
+        case D1Eerrck(lvl1, d1e2):
+            prints("D1Eerrck(", lvl1, ";", d1e2, ")")
+
+@impl
+def d1ecl_fprint(dcl, out):
+    @impl[]
+    def g_print/out():
+        out
+    match dcl.node():
+        case D1Cd0ecl(d0cl):
+            prints("D1Cd0ecl(", d0cl, ")")
+        case D1Cextern(tknd, dcl1):
+            prints("D1Cextern(", tknd, ";", dcl1, ")")
+        case D1Cstatic(tknd, dcl1):
+            prints("D1Cstatic(", tknd, ";", dcl1, ")")
+        case D1Cdefine(tknd, geid, gmas, gopt):
+            print("D1Cdefine(")
+            prints(tknd, ";", geid, ";", gmas, ";", gopt, ")")
+        case D1Cmacdef(tknd, geid, gmas, dopt):
+            print("D1Cmacdef(")
+            prints(tknd, ";", geid, ";", gmas, ";", dopt, ")")
+        case D1Clocal0(head, body):
+            prints("D1Clocal0(", head, ";", body, ")")
+        case D1Cabssort(tknd, tid0):
+            prints("D1Cabssort(", tknd, ";", tid0, ")")
+        case D1Cstacst0(tknd, sid0, tmas, s1t1):
+            print("D1Cstacst0(")
+            prints(tknd, ";", sid0, ";", tmas, ";", s1t1, ")")
+        case D1Csortdef(tknd, tid0, stdf):
+            prints("D1Csortdef(", tknd, ";", tid0, ";", stdf, ")")
+        case D1Csexpdef(tknd, seid, smas, tres, s1e1):
+            prints("D1Csexpdef(", tknd, ";")
+            prints(seid, ";", smas, ";", tres, ";", s1e1, ")")
+        case D1Cabstype(tknd, seid, tmas, tres, atdf):
+            prints("D1Cabstype(", tknd, ";")
+            prints(seid, ";", tmas, ";", tres, ";", atdf, ")")
+        case D1Cabsopen(tknd, sqid):
+            prints("D1Cabsopen(", tknd, ";", sqid, ")")
+        case D1Cabsimpl(tknd, sid1, smas, tres, sdef):
+            prints("D1Cabsimpl(", tknd, ";")
+            prints(sid1, ";", smas, ";", tres, ";", sdef, ")")
+        case D1Csymload(tknd, deid, dqid, gopt):
+            print("D1Csymload(")
+            prints(tknd, ";", deid, ";", dqid, ";", gopt, ")")
+        case D1Cinclude(knd0, tknd, g1e1, fopt, dopt):
+            print("D1Cinclude(")
+            prints(knd0, ";", tknd, ";", g1e1, ";", fopt, ";", "...", ")")
+            ()
+        case D1Cstaload(knd0, tknd, g1e1, fopt, dopt):
+            print("D1Cstaload(")
+            prints(knd0, ";", tknd, ";", g1e1, ";", fopt, ";", "...", ")")
+            ()
+        case D1Cdyninit(tknd, g1e1):
+            prints("D1Cdyninit(", tknd, ";", g1e1, ")")
+        case D1Cextcode(tknd, g1e1):
+            prints("D1Cextcode(", tknd, ";", g1e1, ")")
+        case D1Cdatasort(tknd, dtcs):
+            prints("D1Cdatasort(", tknd, ";", dtcs, ")")
+        case D1Cvaldclst(tknd, d1vs):
+            prints("D1Cvaldclst(", tknd, ";", d1vs, ")")
+        case D1Cvardclst(tknd, d1vs):
+            prints("D1Cvardclst(", tknd, ";", d1vs, ")")
+        case D1Cfundclst(tknd, tqas, d1fs):
+            prints("D1Cfundclst(", tknd, ";", tqas, ";", d1fs, ")")
+        case D1Cimplmnt0(tknd, s0qs, t0qs, dqid, t0is, farg, sres, d0e2):
+            print("D1Cimplmnt0(")
+            prints(tknd, ";", s0qs, ";", t0qs, ";")
+            prints(dqid, ";", t0is, ";", farg, ";", sres, ";", d0e2, ")")
+        case D1Cexcptcon(tknd, dtcs):
+            prints("D1Cexcptcon(", tknd, ";", dtcs, ")")
+        case D1Cdatatype(tknd, d1ts, wdcs):
+            prints("D1Cdatatype(", tknd, ";", d1ts, ";", wdcs, ")")
+        case D1Cdynconst(tknd, tqas, d1cs):
+            prints("D1Cdynconst(", tknd, ";", tqas, ";", d1cs, ")")
+        case D1Cnone0():
+            prints("D1Cnone0(", ")")
+        case D1Cnone1(d0cl):
+            prints("D1Cnone1(", d0cl, ")")
+        case D1Cendif(tend):
+            prints("D1Cendif(", tend, ")")
+        case D1Cthen0(dcls):
+            prints("D1Cthen0(", dcls, ")")
+        case D1Celse1(dcls):
+            prints("D1Celse1(", dcls, ")")
+        case D1Cifexp(gexp, dthn, dels, dend):
+            prints("D1Cifexp(", gexp, ";", dthn, ";", dels, ";", dend, ")")
+        case D1Celsif(gexp, dthn, dels, dend):
+            prints("D1Celsif(", gexp, ";", dthn, ";", dels, ";", dend, ")")
+        case D1Cerrck(lvl1, d1cl):
+            prints("D1Cerrck(", lvl1, ";", d1cl, ")")
+
+@impl
+def q1arg_fprint(q1a, out):
+    @impl[]
+    def g_print/out():
+        out
+    match q1a.node():
+        case Q1ARGsome(sid, opt):
+            prints("Q1ARGsome(", sid, ";", opt, ")")
+
+@impl
+def s1qag_fprint(sqa, out):
+    @impl[]
+    def g_print/out():
+        out
+    match sqa.node():
+        case S1QAGsome(sqs):
+            prints("S1QAGsome(", sqs, ")")
+
+@impl
+def t1qag_fprint(tqa, out):
+    @impl[]
+    def g_print/out():
+        out
+    match tqa.node():
+        case T1QAGsome(tqs):
+            prints("T1QAGsome(", tqs, ")")
+
+@impl
+def t1iag_fprint(tia, out):
+    @impl[]
+    def g_print/out():
+        out
+    match tia.node():
+        case T1IAGsome(ses):
+            prints("T1IAGsome(", ses, ")")
+
+@impl
+def a1typ_fprint(a1t, out):
+    @impl[]
+    def g_print/out():
+        out
+    match a1t.node():
+        case A1TYPsome(s0e1, topt):
+            prints("A1TYPsome(", s0e1, ";", topt, ")")
+
+@impl
+def d1arg_fprint(d1a, out):
+    @impl[]
+    def g_print/out():
+        out
+    match d1a.node():
+        case D1ARGsta0(sqas):
+            prints("D1ARGsta0(", sqas, ")")
+        case D1ARGdyn1(dpid):
+            prints("D1ARGdyn1(", dpid, ")")
+        case D1ARGdyn2(a1ts, atsq):
+            prints("D1ARGdyn2(", ";", a1ts, ";", atsq, ")")
+
+@impl
+def a1tdf_fprint(tdf, out):
+    @impl[]
+    def g_print/out():
+        out
+    match tdf:
+        case A1TDFsome():
+            prints("A1TDFsome(", ")")
+        case A1TDFlteq(s1e1):
+            prints("A1TDFlteq(", s1e1, ")")
+        case A1TDFeqeq(s1e1):
+            prints("A1TDFeqeq(", s1e1, ")")
+
+@impl
+def s1eff_fprint(seff, out0):
+    @impl
+    def g_print/out():
+        out0
+    match seff:
+        case S1EFFnone():
+            prints("S1EFFnone(", ")")
+        case S1EFFsome(s1fs):
+            prints("S1EFFsome(", s1fs, ")")
+
+@impl
+def s1res_fprint(sres, out0):
+    @impl
+    def g_print/out():
+        out0
+    match sres:
+        case S1RESnone():
+            prints("S1RESnone(", ")")
+        case S1RESsome(seff, s1e1):
+            prints("S1RESsome(", seff, ";", s1e1, ")")
+
+@impl
+def t1qua_fprint(tqua, out0):
+    @impl[]
+    def g_print/out():
+        out0
+    match tqua:
+        case T1QUAsome(loc0, s1qs):
+            prints("T1QUAsome(", s1qs, ")")
+
+@impl
+def t1inv_fprint(tinv, out0):
+    @impl[]
+    def g_print/out():
+        out0
+    match tinv:
+        case T1INVsome(loc0, tqas, d1ps):
+            prints("T1INVsome(", tqas, ";", d1ps, ")")
+
+@impl
+def f1unarrw_fprint(arrw, out0):
+    @impl[]
+    def g_print/out():
+        out0
+    match arrw:
+        case F1UNARRWdflt(loc0):
+            prints("F1UNARRWdflt(", ")")
+        case F1UNARRWlist(loc0, s1es):
+            prints("F1UNARRWlist(", s1es, ")")
+
+@impl
+def wd1eclseq_fprint(wdcs, out0):
+    @impl[]
+    def g_print/out():
+        out0
+    match wdcs:
+        case WD1CSnone():
+            prints("WD1CSnone(", ")")
+        case WD1CSsome(dcls):
+            prints("WD1CSsome(", dcls, ")")
+
+@impl
+def d1valdcl_fprint(dval, out0):
+    let dpat = d1valdcl_get_dpat(dval)
+    let tdxp = d1valdcl_get_tdxp(dval)
+    let wsxp = d1valdcl_get_wsxp(dval)
+    @impl[]
+    def g_print/out():
+        out0
+    prints("D1VALDCL(", dpat, ";", tdxp, ";", wsxp, ")")
+
+@impl
+def d1vardcl_fprint(dvar, out0):
+    let dpid = d1vardcl_get_dpid(dvar)
+    let vpid = d1vardcl_get_vpid(dvar)
+    let sres = d1vardcl_get_sres(dvar)
+    let dini = d1vardcl_get_dini(dvar)
+    @impl[]
+    def g_print/out():
+        out0
+    print("D1VARDCL(")
+    prints(dpid, ";", vpid, ";", sres, ";", dini, ")")
+
+@impl
+def d1fundcl_fprint(dfun, out0):
+    let dpid = d1fundcl_get_dpid(dfun)
+    let farg = d1fundcl_get_farg(dfun)
+    let sres = d1fundcl_get_sres(dfun)
+    let tdxp = d1fundcl_get_tdxp(dfun)
+    let wsxp = d1fundcl_get_wsxp(dfun)
+    @impl[]
+    def g_print/out():
+        out0
+    prints("D1FUNDCL(", dpid, ";")
+    prints(farg, ";", sres, ";", tdxp, ";", wsxp, ")")
+
+@impl
+def d1cstdcl_fprint(dcst, out0):
+    let dpid = d1cstdcl_get_dpid(dcst)
+    let darg = d1cstdcl_get_darg(dcst)
+    let sres = d1cstdcl_get_sres(dcst)
+    let dres = d1cstdcl_get_dres(dcst)
+    @impl[]
+    def g_print/out():
+        out0
+    prints("D1CSTDCL(", dpid, ";", darg, ";", sres, ";", dres, ")")
+
+@impl
+def d1parsed_fprint(dpar, out0):
+    let stadyn = d1parsed_get_stadyn(dpar)
+    let nerror = d1parsed_get_nerror(dpar)
+    let source = d1parsed_get_source(dpar)
+    let parsed = d1parsed_get_parsed(dpar)
+    @impl[]
+    def g_print/out():
+        out0
+    print("D1PARSED(")
+    prints(stadyn, ";", nerror, ";", source, ";", parsed, ")")
+

@@ -1,0 +1,460 @@
+import "srcgen1/prelude/SATS/unsafex" as UN
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload node = s2exp_get_node
+
+@overload lctn = d2pat_get_lctn
+
+@overload lctn = d2exp_get_lctn
+
+@overload lctn = d2ecl_get_lctn
+
+@overload lctn = d3pat_get_lctn
+
+@overload lctn = d3exp_get_lctn
+
+@overload lctn = d3ecl_get_lctn
+
+@impl
+def d3pat_none0(loc0):
+    d3pat_make_node(loc0, D3Pnone0())
+
+@impl
+def d3pat_none1(dpat):
+    d3pat_make_node(dpat.lctn(), D3Pnone1(dpat))
+
+@impl
+def d3pat_none2(dpat):
+    d3pat_make_node(dpat.lctn(), D3Pnone2(dpat))
+
+@impl
+def d3exp_none0(loc0):
+    d3exp_make_node(loc0, D3Enone0())
+
+@impl
+def d3exp_none1(dexp):
+    d3exp_make_node(dexp.lctn(), D3Enone1(dexp))
+
+@impl
+def d3exp_none2(dexp):
+    d3exp_make_node(dexp.lctn(), D3Enone2(dexp))
+
+@impl
+def d3ecl_none0(loc0):
+    d3ecl_make_node(loc0, D3Cnone0())
+
+@impl
+def d3ecl_none1(d2cl):
+    d3ecl_make_node(d2cl.lctn(), D3Cnone1(d2cl))
+
+private:
+    let stamper = stamper_new()
+
+@impl
+def the_d3imp_stamp_new():
+    stamper.getinc()
+
+
+private:
+    enum D3pat:
+        case D3PAT(loctn, s2typ, d3pat_node)
+    @linear
+    enum D3pat_vt:
+        case D3PAT_vt(loctn, s2typ, d3pat_node)
+    @impl
+    type D3pat_tbox = D3pat
+
+@impl
+def d3pat_make_node(loc, nod):
+    let t2p = s2typ_none0()
+    D3PAT(loc, t2p, nod)
+
+@impl
+def d3pat_get_lctn(d3p):
+    let D3PAT(loc, t2p, nod) = d3p
+    loc
+
+@impl
+def d3pat_get_node(d3p):
+    let D3PAT(loc, t2p, nod) = d3p
+    nod
+
+@impl
+def d3pat_get_styp(d3p):
+    let D3PAT(loc, t2p, nod) = d3p
+    t2p
+
+@impl
+def d3pat_set_styp(d3p0, t2p0):
+    let d3p0 = @sapp[D3pat_vt] UN.castlin10(d3p0)
+    let @(D3PAT_vt)(loc0, !styp, node) = d3p0
+    styp := t2p0
+
+
+@impl
+def d3pat_make_tpnd(loc0, t2p0, node):
+    let d3p0 = d3pat(loc0, node)
+    d3pat_set_styp(d3p0, t2p0)
+    d3p0
+
+private:
+    enum D3exp:
+        case D3EXP(loctn, s2typ, d3exp_node)
+    @linear
+    enum D3exp_vt:
+        case D3EXP_vt(loctn, s2typ, d3exp_node)
+    @impl
+    type D3exp_tbox = D3exp
+
+@impl
+def d3exp_make_node(loc, nod):
+    let t2p = s2typ_none0()
+    D3EXP(loc, t2p, nod)
+
+@impl
+def d3exp_get_lctn(d3e):
+    let D3EXP(loc, t2p, nod) = d3e
+    loc
+
+@impl
+def d3exp_get_styp(d3e):
+    let D3EXP(loc, t2p, nod) = d3e
+    t2p
+
+@impl
+def d3exp_get_node(d3e):
+    let D3EXP(loc, t2p, nod) = d3e
+    nod
+
+@impl
+def d3exp_set_styp(d3e0, t2p0):
+    let d3e0 = @sapp[D3exp_vt] UN.castlin10(d3e0)
+    let @(D3EXP_vt)(loc0, !styp, node) = d3e0
+    styp := t2p0
+
+
+@impl
+def d3exp_make_tpnd(loc0, t2p0, node):
+    let d3e0 = d3exp_make_node(loc0, node)
+    d3exp_set_styp(d3e0, t2p0)
+    d3e0
+
+private:
+    enum F3arg:
+        case F3ARG(loctn, f3arg_node)
+    @impl
+    type F3arg_tbox = F3arg
+
+@impl
+def f3arg_make_node(loc, nod):
+    F3ARG(loc, nod)
+
+@impl
+def f3arg_get_lctn(f3a):
+    let F3ARG(loc, nod) = f3a
+    loc
+
+@impl
+def f3arg_get_node(f3a):
+    let F3ARG(loc, nod) = f3a
+    nod
+
+
+private:
+    enum D3gua:
+        case D3GUA(loctn, d3gua_node)
+    @impl
+    type D3gua_tbox = D3gua
+
+@impl
+def d3gua_make_node(loc, nod):
+    D3GUA(loc, nod)
+
+@impl
+def d3gua_get_lctn(d3g):
+    let D3GUA(loc, nod) = d3g
+    loc
+
+@impl
+def d3gua_get_node(d3g):
+    let D3GUA(loc, nod) = d3g
+    nod
+
+
+private:
+    enum D3gpt:
+        case D3GPT(loctn, d3gpt_node)
+    @impl
+    type D3gpt_tbox = D3gpt
+
+@impl
+def d3gpt_make_node(loc, nod):
+    D3GPT(loc, nod)
+
+@impl
+def d3gpt_get_lctn(gpt):
+    let D3GPT(loc, nod) = gpt
+    loc
+
+@impl
+def d3gpt_get_node(gpt):
+    let D3GPT(loc, nod) = gpt
+    nod
+
+
+private:
+    enum D3cls:
+        case D3CLS(loctn, d3cls_node)
+    @impl
+    type D3cls_tbox = D3cls
+
+@impl
+def d3cls_make_node(loc, nod):
+    D3CLS(loc, nod)
+
+@impl
+def d3cls_get_lctn(cls):
+    let D3CLS(loc, nod) = cls
+    loc
+
+@impl
+def d3cls_get_node(cls):
+    let D3CLS(loc, nod) = cls
+    nod
+
+
+private:
+    enum Timpl:
+        case TIMPL(stamp, timpl_node)
+    @impl
+    type Timpl_tbox = Timpl
+
+@impl
+def timpl_make_node(stm, nod):
+    TIMPL(stm, nod)
+
+@impl
+def timpl_get_stmp(tmp):
+    let TIMPL(stm, nod) = tmp
+    stm
+
+@impl
+def timpl_get_node(tmp):
+    let TIMPL(stm, nod) = tmp
+    nod
+
+
+private:
+    enum D3ecl:
+        case D3ECL(loctn, d3ecl_node)
+    @impl
+    type D3ecl_tbox = D3ecl
+
+@impl
+def d3ecl_make_node(loc, nod):
+    D3ECL(loc, nod)
+
+@impl
+def d3ecl_get_lctn(dcl):
+    let D3ECL(loc, nod) = dcl
+    loc
+
+@impl
+def d3ecl_get_node(dcl):
+    let D3ECL(loc, nod) = dcl
+    nod
+
+
+private:
+    enum D3valdcl:
+        case D3VALDCL(loc_t, D3pat, teqd3exp, wths2exp)
+    @impl
+    type D3valdcl_tbox = D3valdcl
+
+@impl
+def d3valdcl_get_lctn(dval):
+    let D3VALDCL(lctn, dpat, tdxp, wsxp) = dval
+    lctn
+
+@impl
+def d3valdcl_get_dpat(dval):
+    let D3VALDCL(lctn, dpat, tdxp, wsxp) = dval
+    dpat
+
+@impl
+def d3valdcl_get_tdxp(dval):
+    let D3VALDCL(lctn, dpat, tdxp, wsxp) = dval
+    tdxp
+
+@impl
+def d3valdcl_get_wsxp(dval):
+    let D3VALDCL(lctn, dpat, tdxp, wsxp) = dval
+    wsxp
+
+@impl
+def d3valdcl_make_args(lctn, dpat, tdxp, wsxp):
+    D3VALDCL(lctn, dpat, tdxp, wsxp)
+
+
+private:
+    enum D3vardcl:
+        case D3VARDCL(loc_t, d2var, d2varopt, s2expopt, teqd3exp)
+    @impl
+    type D3vardcl_tbox = D3vardcl
+
+@impl
+def d3vardcl_get_lctn(dvar):
+    let D3VARDCL(lctn, dpid, vpid, sres, dini) = dvar
+    lctn
+
+@impl
+def d3vardcl_get_dpid(dvar):
+    let D3VARDCL(lctn, dpid, vpid, sres, dini) = dvar
+    dpid
+
+@impl
+def d3vardcl_get_vpid(dvar):
+    let D3VARDCL(lctn, dpid, vpid, sres, dini) = dvar
+    vpid
+
+@impl
+def d3vardcl_get_sres(dvar):
+    let D3VARDCL(lctn, dpid, vpid, sres, dini) = dvar
+    sres
+
+@impl
+def d3vardcl_get_dini(dvar):
+    let D3VARDCL(lctn, dpid, vpid, sres, dini) = dvar
+    dini
+
+@impl
+def d3vardcl_make_args(lctn, dpid, vpid, sres, dini):
+    D3VARDCL(lctn, dpid, vpid, sres, dini)
+
+
+private:
+    enum D3fundcl:
+        case D3FUNDCL(loc_t, d2var, d2varlst, f3arglst, s2res, teqd3exp, wths2exp)
+    @impl
+    type D3fundcl_tbox = D3fundcl
+
+@impl
+def d3fundcl_get_lctn(dfun):
+    let D3FUNDCL(lctn, dpid, d2vs, farg, sres, tdxp, wsxp) = dfun
+    lctn
+
+@impl
+def d3fundcl_get_dpid(dfun):
+    let D3FUNDCL(lctn, dpid, d2vs, farg, sres, tdxp, wsxp) = dfun
+    dpid
+
+@impl
+def d3fundcl_get_d2vs(dfun):
+    let D3FUNDCL(lctn, dpid, d2vs, farg, sres, tdxp, wsxp) = dfun
+    d2vs
+
+@impl
+def d3fundcl_get_farg(dfun):
+    let D3FUNDCL(lctn, dpid, d2vs, farg, sres, tdxp, wsxp) = dfun
+    farg
+
+@impl
+def d3fundcl_get_sres(dfun):
+    let D3FUNDCL(lctn, dpid, d2vs, farg, sres, tdxp, wsxp) = dfun
+    sres
+
+@impl
+def d3fundcl_get_tdxp(dfun):
+    let D3FUNDCL(lctn, dpid, d2vs, farg, sres, tdxp, wsxp) = dfun
+    tdxp
+
+@impl
+def d3fundcl_get_wsxp(dfun):
+    let D3FUNDCL(lctn, dpid, d2vs, farg, sres, tdxp, wsxp) = dfun
+    wsxp
+
+@impl
+def d3fundcl_make_args(lctn, dpid, d2vs, farg, sres, tdxp, wsxp):
+    D3FUNDCL(lctn, dpid, d2vs, farg, sres, tdxp, wsxp)
+
+
+private:
+    enum D3parsed:
+        case D3PARSED(SInt, SInt, lcsrc, d1topenv, d2topenv, d3topenv, d3eclistopt)
+    @impl
+    type D3parsed_tbox = D3parsed
+
+@impl
+def d3parsed_get_stadyn(dpar):
+    stadyn
+where:
+    let D3PARSED(stadyn, nerror, source, t1penv, t2penv, t3penv, parsed) = dpar
+
+@impl
+def d3parsed_get_nerror(dpar):
+    nerror
+where:
+    let D3PARSED(stadyn, nerror, source, t1penv, t2penv, t3penv, parsed) = dpar
+
+@impl
+def d3parsed_get_source(dpar):
+    source
+where:
+    let D3PARSED(stadyn, nerror, source, t1penv, t2penv, t3penv, parsed) = dpar
+
+@impl
+def d3parsed_get_t1penv(dpar):
+    t1penv
+where:
+    let D3PARSED(stadyn, nerror, source, t1penv, t2penv, t3penv, parsed) = dpar
+
+@impl
+def d3parsed_get_t2penv(dpar):
+    t2penv
+where:
+    let D3PARSED(stadyn, nerror, source, t1penv, t2penv, t3penv, parsed) = dpar
+
+@impl
+def d3parsed_get_t3penv(dpar):
+    t3penv
+where:
+    let D3PARSED(stadyn, nerror, source, t1penv, t2penv, t3penv, parsed) = dpar
+
+@impl
+def d3parsed_get_parsed(dpar):
+    parsed
+where:
+    let D3PARSED(stadyn, nerror, source, t1penv, t2penv, t3penv, parsed) = dpar
+
+@impl
+def d3parsed_make_args(stadyn, nerror, source, t1penv, t2penv, t3penv, parsed):
+    D3PARSED(stadyn, nerror, source, t1penv, t2penv, t3penv, parsed)
+
+

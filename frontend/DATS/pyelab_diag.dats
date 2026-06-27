@@ -137,6 +137,7 @@ case+ d of
 | PCCabstype(_, _, _, _, _) => acc  // an abstract type carries only a name/params — no poison nodes.
 | PCCassume(_, _, _, _) => acc   // an assume carries only a name/params + a surface type.
 | PCCextern(_, _, _, _, _, _, _) => acc // an extern signature carries only types — no poison nodes.
+| PCCexternval(_, _, _, _) => acc       // a bodyless dynamic constant — only a type, no poison nodes.
 | PCCimplement(_, _, _, _, _, _, _, body, _) => harv_exp(body, acc) // an implement BODY may carry poison nodes.
 // A-TEMPLATE: a template decl's INLINE body (when present) may carry poison nodes; a bodyless one
 // carries only its signature — no poison.

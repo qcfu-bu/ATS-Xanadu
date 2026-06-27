@@ -1,0 +1,666 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+import "srcgen2/SATS/lexing0" as LEX
+
+import "srcgen2/SATS/staexp1" as S1E
+
+import "srcgen2/SATS/dynexp1" as D1E
+
+type Token = LEX.token
+
+type G1exp = S1E.g1exp
+
+type Sort1 = S1E.sort1
+
+type S1exp = S1E.s1exp
+
+type L1s1e = S1E.l1s1e
+
+type S1arg = S1E.s1arg
+
+type S1mag = S1E.s1mag
+
+type T1arg = S1E.t1arg
+
+type T1mag = S1E.t1mag
+
+type S1qua = S1E.s1qua
+
+type S1uni = S1E.s1uni
+
+type S1tdf = S1E.s1tdf
+
+type S1tcn = S1E.s1tcn
+
+type D1tst = S1E.d1tst
+
+type D1tcn = S1E.d1tcn
+
+type D1typ = S1E.d1typ
+
+type D1pat = D1E.d1pat
+
+type D1exp = D1E.d1exp
+
+type L1d1p = D1E.l1d1p
+
+type L1d1e = D1E.l1d1e
+
+type F1arg = D1E.f1arg
+
+type S1res = D1E.s1res
+
+type T1qua = D1E.t1qua
+
+type T1inv = D1E.t1inv
+
+type D1gua = D1E.d1gua
+
+type D1gpt = D1E.d1gpt
+
+type D1cls = D1E.d1cls
+
+type A1typ = D1E.a1typ
+
+type D1arg = D1E.d1arg
+
+type D1ecl = D1E.d1ecl
+
+type Q1arg = D1E.q1arg
+
+type S1qag = D1E.s1qag
+
+type T1qag = D1E.t1qag
+
+type T1iag = D1E.t1iag
+
+type A1tdf = D1E.a1tdf
+
+type Teqd1exp = D1E.teqd1exp
+
+type Wths1exp = D1E.wths1exp
+
+type D1valdcl = D1E.d1valdcl
+
+type D1vardcl = D1E.d1vardcl
+
+type D1fundcl = D1E.d1fundcl
+
+type D1cstdcl = D1E.d1cstdcl
+
+type G1explst = S1E.g1explst
+
+type G1expopt = S1E.g1expopt
+
+type Sort1lst = S1E.sort1lst
+
+type Sort1opt = S1E.sort1opt
+
+type S1explst = S1E.s1explst
+
+type S1expopt = S1E.s1expopt
+
+type L1s1elst = S1E.l1s1elst
+
+type S1arglst = S1E.s1arglst
+
+type S1maglst = S1E.s1maglst
+
+type T1arglst = S1E.t1arglst
+
+type T1maglst = S1E.t1maglst
+
+type S1qualst = S1E.s1qualst
+
+type S1unilst = S1E.s1unilst
+
+type S1tcnlst = S1E.s1tcnlst
+
+type D1tstlst = S1E.d1tstlst
+
+type D1tcnlst = S1E.d1tcnlst
+
+type D1typlst = S1E.d1typlst
+
+type D1patlst = D1E.d1patlst
+
+type D1explst = D1E.d1explst
+
+type D1expopt = D1E.d1expopt
+
+type L1d1plst = D1E.l1d1plst
+
+type L1d1elst = D1E.l1d1elst
+
+type F1arglst = D1E.f1arglst
+
+type T1qualst = D1E.t1qualst
+
+type F1unarrw = D1E.f1unarrw
+
+type D1gualst = D1E.d1gualst
+
+type D1clslst = D1E.d1clslst
+
+type A1typlst = D1E.a1typlst
+
+type D1arglst = D1E.d1arglst
+
+type D1eclist = D1E.d1eclist
+
+type D1eclopt = D1E.d1eclopt
+
+type Q1arglst = D1E.q1arglst
+
+type S1qaglst = D1E.s1qaglst
+
+type T1qaglst = D1E.t1qaglst
+
+type T1iaglst = D1E.t1iaglst
+
+type D1parsed = D1E.d1parsed
+
+type Wd1eclseq = D1E.wd1eclseq
+
+type D1valdclist = D1E.d1valdclist
+
+type D1vardclist = D1E.d1vardclist
+
+type D1fundclist = D1E.d1fundclist
+
+type D1cstdclist = D1E.d1cstdclist
+
+type D1eclistopt = D1E.d1eclistopt
+
+type A1typlstopt = D1E.a1typlstopt
+
+@extern
+def d1parsed_of_tread01(a: D1parsed) -> D1parsed
+
+type Ftread01[Syn: Tbox] = (Syn, &SInt >> _) -> Syn
+
+@extern
+def list_tread01_fnp[Syn: Tx](a: List[Syn], b: &SInt >> _, c: Ftread01[Syn]) -> List[Syn]
+
+@extern
+def optn_tread01_fnp[Syn: Tx](a: Optn[Syn], b: &SInt >> _, c: Ftread01[Syn]) -> Optn[Syn]
+
+@extern
+def tread01_g1exp() -> Ftread01[G1exp]
+
+@extern
+def tread01_sort1() -> Ftread01[Sort1]
+
+@extern
+def tread01_s1exp() -> Ftread01[S1exp]
+
+@extern
+def tread01_l1s1e() -> Ftread01[L1s1e]
+
+@extern
+def tread01_s1arg() -> Ftread01[S1arg]
+
+@extern
+def tread01_s1mag() -> Ftread01[S1mag]
+
+@extern
+def tread01_t1arg() -> Ftread01[T1arg]
+
+@extern
+def tread01_t1mag() -> Ftread01[T1mag]
+
+@extern
+def tread01_s1qua() -> Ftread01[S1qua]
+
+@extern
+def tread01_s1uni() -> Ftread01[S1uni]
+
+@extern
+def tread01_s1tdf() -> Ftread01[S1tdf]
+
+@extern
+def tread01_s1tcn() -> Ftread01[S1tcn]
+
+@extern
+def tread01_d1tst() -> Ftread01[D1tst]
+
+@extern
+def tread01_d1tcn() -> Ftread01[D1tcn]
+
+@extern
+def tread01_d1typ() -> Ftread01[D1typ]
+
+@extern
+def tread01_d1pat() -> Ftread01[D1pat]
+
+@extern
+def tread01_d1exp() -> Ftread01[D1exp]
+
+@extern
+def tread01_l1d1p() -> Ftread01[L1d1p]
+
+@extern
+def tread01_l1d1e() -> Ftread01[L1d1e]
+
+@extern
+def tread01_f1arg() -> Ftread01[F1arg]
+
+@extern
+def tread01_t1qua() -> Ftread01[T1qua]
+
+@extern
+def tread01_t1inv() -> Ftread01[T1inv]
+
+@extern
+def tread01_s1res() -> Ftread01[S1res]
+
+@extern
+def tread01_d1gua() -> Ftread01[D1gua]
+
+@extern
+def tread01_d1gpt() -> Ftread01[D1gpt]
+
+@extern
+def tread01_d1cls() -> Ftread01[D1cls]
+
+@extern
+def tread01_a1typ() -> Ftread01[A1typ]
+
+@extern
+def tread01_d1arg() -> Ftread01[D1arg]
+
+@extern
+def tread01_d1ecl() -> Ftread01[D1ecl]
+
+@extern
+def tread01_q1arg() -> Ftread01[Q1arg]
+
+@extern
+def tread01_s1qag() -> Ftread01[S1qag]
+
+@extern
+def tread01_t1qag() -> Ftread01[T1qag]
+
+@extern
+def tread01_t1iag() -> Ftread01[T1iag]
+
+@extern
+def tread01_a1tdf() -> Ftread01[A1tdf]
+
+@extern
+def tread01_g1explst() -> Ftread01[G1explst]
+
+@extern
+def tread01_g1expopt() -> Ftread01[G1expopt]
+
+@extern
+def tread01_sort1lst() -> Ftread01[Sort1lst]
+
+@extern
+def tread01_sort1opt() -> Ftread01[Sort1opt]
+
+@extern
+def tread01_s1explst() -> Ftread01[S1explst]
+
+@extern
+def tread01_s1expopt() -> Ftread01[S1expopt]
+
+@extern
+def tread01_l1s1elst() -> Ftread01[L1s1elst]
+
+@extern
+def tread01_s1arglst() -> Ftread01[S1arglst]
+
+@extern
+def tread01_s1maglst() -> Ftread01[S1maglst]
+
+@extern
+def tread01_t1arglst() -> Ftread01[T1arglst]
+
+@extern
+def tread01_t1maglst() -> Ftread01[T1maglst]
+
+@extern
+def tread01_s1qualst() -> Ftread01[S1qualst]
+
+@extern
+def tread01_s1unilst() -> Ftread01[S1unilst]
+
+@extern
+def tread01_s1tcnlst() -> Ftread01[S1tcnlst]
+
+@extern
+def tread01_d1tstlst() -> Ftread01[D1tstlst]
+
+@extern
+def tread01_d1tcnlst() -> Ftread01[D1tcnlst]
+
+@extern
+def tread01_d1typlst() -> Ftread01[D1typlst]
+
+@extern
+def tread01_d1patlst() -> Ftread01[D1patlst]
+
+@extern
+def tread01_l1d1plst() -> Ftread01[L1d1plst]
+
+@extern
+def tread01_d1explst() -> Ftread01[D1explst]
+
+@extern
+def tread01_d1expopt() -> Ftread01[D1expopt]
+
+@extern
+def tread01_l1d1elst() -> Ftread01[L1d1elst]
+
+@extern
+def tread01_f1arglst() -> Ftread01[F1arglst]
+
+@extern
+def tread01_t1qualst() -> Ftread01[T1qualst]
+
+@extern
+def tread01_f1unarrw() -> Ftread01[F1unarrw]
+
+@extern
+def tread01_d1gualst() -> Ftread01[D1gualst]
+
+@extern
+def tread01_d1clslst() -> Ftread01[D1clslst]
+
+@extern
+def tread01_a1typlst() -> Ftread01[A1typlst]
+
+@extern
+def tread01_d1arglst() -> Ftread01[D1arglst]
+
+@extern
+def tread01_d1eclist() -> Ftread01[D1eclist]
+
+@extern
+def tread01_d1eclopt() -> Ftread01[D1eclopt]
+
+@extern
+def tread01_q1arglst() -> Ftread01[Q1arglst]
+
+@extern
+def tread01_s1qaglst() -> Ftread01[S1qaglst]
+
+@extern
+def tread01_t1qaglst() -> Ftread01[T1qaglst]
+
+@extern
+def tread01_t1iaglst() -> Ftread01[T1iaglst]
+
+@extern
+def tread01_teqd1exp() -> Ftread01[Teqd1exp]
+
+@extern
+def tread01_wths1exp() -> Ftread01[Wths1exp]
+
+@extern
+def tread01_d1valdcl() -> Ftread01[D1valdcl]
+
+@extern
+def tread01_d1vardcl() -> Ftread01[D1vardcl]
+
+@extern
+def tread01_d1fundcl() -> Ftread01[D1fundcl]
+
+@extern
+def tread01_d1cstdcl() -> Ftread01[D1cstdcl]
+
+@extern
+def tread01_wd1eclseq() -> Ftread01[Wd1eclseq]
+
+@extern
+def tread01_d1valdclist() -> Ftread01[D1valdclist]
+
+@extern
+def tread01_d1vardclist() -> Ftread01[D1vardclist]
+
+@extern
+def tread01_d1fundclist() -> Ftread01[D1fundclist]
+
+@extern
+def tread01_d1cstdclist() -> Ftread01[D1cstdclist]
+
+@extern
+def tread01_d1eclistopt() -> Ftread01[D1eclistopt]
+
+@extern
+def tread01_a1typlstopt() -> Ftread01[A1typlstopt]
+
+@extern
+def g1exp_fpemsg(a: FILR, b: G1exp) -> Void
+
+@extern
+def sort1_fpemsg(a: FILR, b: Sort1) -> Void
+
+@extern
+def s1exp_fpemsg(a: FILR, b: S1exp) -> Void
+
+@extern
+def l1s1e_fpemsg(a: FILR, b: L1s1e) -> Void
+
+@extern
+def s1arg_fpemsg(a: FILR, b: S1arg) -> Void
+
+@extern
+def s1mag_fpemsg(a: FILR, b: S1mag) -> Void
+
+@extern
+def t1arg_fpemsg(a: FILR, b: T1arg) -> Void
+
+@extern
+def t1mag_fpemsg(a: FILR, b: T1mag) -> Void
+
+@extern
+def s1qua_fpemsg(a: FILR, b: S1qua) -> Void
+
+@extern
+def s1uni_fpemsg(a: FILR, b: S1uni) -> Void
+
+@extern
+def s1tdf_fpemsg(a: FILR, b: S1tdf) -> Void
+
+@extern
+def s1tcn_fpemsg(a: FILR, b: S1tcn) -> Void
+
+@extern
+def d1tst_fpemsg(a: FILR, b: D1tst) -> Void
+
+@extern
+def d1tcn_fpemsg(a: FILR, b: D1tcn) -> Void
+
+@extern
+def d1typ_fpemsg(a: FILR, b: D1typ) -> Void
+
+@extern
+def d1pat_fpemsg(a: FILR, b: D1pat) -> Void
+
+@extern
+def d1exp_fpemsg(a: FILR, b: D1exp) -> Void
+
+@extern
+def l1d1p_fpemsg(a: FILR, b: L1d1p) -> Void
+
+@extern
+def l1d1e_fpemsg(a: FILR, b: L1d1e) -> Void
+
+@extern
+def f1arg_fpemsg(a: FILR, b: F1arg) -> Void
+
+@extern
+def s1res_fpemsg(a: FILR, b: S1res) -> Void
+
+@extern
+def d1gua_fpemsg(a: FILR, b: D1gua) -> Void
+
+@extern
+def d1gpt_fpemsg(a: FILR, b: D1gpt) -> Void
+
+@extern
+def d1cls_fpemsg(a: FILR, b: D1cls) -> Void
+
+@extern
+def a1typ_fpemsg(a: FILR, b: A1typ) -> Void
+
+@extern
+def d1arg_fpemsg(a: FILR, b: D1arg) -> Void
+
+@extern
+def d1ecl_fpemsg(a: FILR, b: D1ecl) -> Void
+
+@extern
+def q1arg_fpemsg(a: FILR, b: Q1arg) -> Void
+
+@extern
+def s1qag_fpemsg(a: FILR, b: S1qag) -> Void
+
+@extern
+def t1qag_fpemsg(a: FILR, b: T1qag) -> Void
+
+@extern
+def t1iag_fpemsg(a: FILR, b: T1iag) -> Void
+
+@extern
+def a1tdf_fpemsg(a: FILR, b: A1tdf) -> Void
+
+@extern
+def g1explst_fpemsg(a: FILR, b: G1explst) -> Void
+
+@extern
+def g1expopt_fpemsg(a: FILR, b: G1expopt) -> Void
+
+@extern
+def sort1lst_fpemsg(a: FILR, b: Sort1lst) -> Void
+
+@extern
+def sort1opt_fpemsg(a: FILR, b: Sort1opt) -> Void
+
+@extern
+def s1explst_fpemsg(a: FILR, b: S1explst) -> Void
+
+@extern
+def s1expopt_fpemsg(a: FILR, b: S1expopt) -> Void
+
+@extern
+def l1s1elst_fpemsg(a: FILR, b: L1s1elst) -> Void
+
+@extern
+def s1arglst_fpemsg(a: FILR, b: S1arglst) -> Void
+
+@extern
+def s1maglst_fpemsg(a: FILR, b: S1maglst) -> Void
+
+@extern
+def t1arglst_fpemsg(a: FILR, b: T1arglst) -> Void
+
+@extern
+def t1maglst_fpemsg(a: FILR, b: T1maglst) -> Void
+
+@extern
+def s1qualst_fpemsg(a: FILR, b: S1qualst) -> Void
+
+@extern
+def s1unilst_fpemsg(a: FILR, b: S1unilst) -> Void
+
+@extern
+def s1tcnlst_fpemsg(a: FILR, b: S1tcnlst) -> Void
+
+@extern
+def d1tstlst_fpemsg(a: FILR, b: D1tstlst) -> Void
+
+@extern
+def d1tcnlst_fpemsg(a: FILR, b: D1tcnlst) -> Void
+
+@extern
+def d1typlst_fpemsg(a: FILR, b: D1typlst) -> Void
+
+@extern
+def d1patlst_fpemsg(a: FILR, b: D1patlst) -> Void
+
+@extern
+def d1explst_fpemsg(a: FILR, b: D1explst) -> Void
+
+@extern
+def d1expopt_fpemsg(a: FILR, b: D1expopt) -> Void
+
+@extern
+def l1d1plst_fpemsg(a: FILR, b: L1d1plst) -> Void
+
+@extern
+def l1d1elst_fpemsg(a: FILR, b: L1d1elst) -> Void
+
+@extern
+def f1arglst_fpemsg(a: FILR, b: F1arglst) -> Void
+
+@extern
+def d1gualst_fpemsg(a: FILR, b: D1gualst) -> Void
+
+@extern
+def d1clslst_fpemsg(a: FILR, b: D1clslst) -> Void
+
+@extern
+def q1arglst_fpemsg(a: FILR, b: Q1arglst) -> Void
+
+@extern
+def s1qaglst_fpemsg(a: FILR, b: S1qaglst) -> Void
+
+@extern
+def t1qaglst_fpemsg(a: FILR, b: T1qaglst) -> Void
+
+@extern
+def t1iaglst_fpemsg(a: FILR, b: T1iaglst) -> Void
+
+@extern
+def a1typlst_fpemsg(a: FILR, b: A1typlst) -> Void
+
+@extern
+def d1arglst_fpemsg(a: FILR, b: D1arglst) -> Void
+
+@extern
+def d1eclist_fpemsg(a: FILR, b: D1eclist) -> Void
+
+@extern
+def teqd1exp_fpemsg(a: FILR, b: Teqd1exp) -> Void
+
+@extern
+def wths1exp_fpemsg(a: FILR, b: Wths1exp) -> Void
+
+@extern
+def d1valdcl_fpemsg(a: FILR, b: D1valdcl) -> Void
+
+@extern
+def d1vardcl_fpemsg(a: FILR, b: D1vardcl) -> Void
+
+@extern
+def d1fundcl_fpemsg(a: FILR, b: D1fundcl) -> Void
+
+@extern
+def d1cstdcl_fpemsg(a: FILR, b: D1cstdcl) -> Void
+
+@extern
+def wd1eclseq_fpemsg(a: FILR, b: Wd1eclseq) -> Void
+
+@extern
+def d1valdclist_fpemsg(a: FILR, b: D1valdclist) -> Void
+
+@extern
+def d1vardclist_fpemsg(a: FILR, b: D1vardclist) -> Void
+
+@extern
+def d1fundclist_fpemsg(a: FILR, b: D1fundclist) -> Void
+
+@extern
+def d1cstdclist_fpemsg(a: FILR, b: D1cstdclist) -> Void
+
+@extern
+def d1parsed_fpemsg(a: FILR, b: D1parsed) -> Void
+
+@extern
+def d1eclistopt_fpemsg(a: FILR, b: D1eclistopt) -> Void
+

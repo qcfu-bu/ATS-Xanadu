@@ -1,0 +1,81 @@
+import "srcgen2/SATS/staexp0" as S0E
+
+import "srcgen2/SATS/staexp1" as S1E
+
+import "srcgen2/SATS/staexp2" as S2E
+
+import "srcgen2/SATS/statyp2" as T2P
+
+import "srcgen2/SATS/dynexp0" as D0E
+
+import "srcgen2/SATS/dynexp1" as D1E
+
+import "srcgen2/SATS/dynexp2" as D2E
+
+import "srcgen2/SATS/dynexp3" as D3E
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+@abstract
+type Argv_i0_vx[N: SInt] <= P0tr
+
+type Argv[N: SInt] = Argv_i0_vx[N]
+
+type D0parsed = D0E.d0parsed
+
+type D1parsed = D1E.d1parsed
+
+type D2parsed = D2E.d2parsed
+
+type D3parsed = D3E.d3parsed
+
+@extern
+def xatsopt_flag/split(a: String) -> Optn_vt[(String, Optn_vt[String])]
+
+@extern
+def xatsopt_flag/pvsadd0(a: String) -> Void
+
+@extern
+def xatsopt_version() -> String
+
+@extern
+def xatsopt_fprint_version(a: FILEref) -> Void
+
+@extern
+def d2parsed_of_filsats(a: String) -> D2parsed
+
+@extern
+def d2parsed_of_fildats(a: String) -> D2parsed
+
+@extern
+def d2parsed_of_trans02(a: D0parsed) -> D2parsed
+
+@extern
+def d3parsed_of_filsats(a: String) -> D3parsed
+
+@extern
+def d3parsed_of_fildats(a: String) -> D3parsed
+
+@extern
+def d3parsed_of_trans03(a: D0parsed) -> D3parsed
+
+@extern
+def d3parsdz_of_filsats(a: String) -> D3parsed
+
+@extern
+def d3parsdz_of_fildats(a: String) -> D3parsed
+
+@extern
+def d3parsdz_of_trans03(a: D0parsed) -> D3parsed
+
+@extern
+def xatsopt_args/filxats_d2parsed(a: List[String], b: SInt, c: String) -> D2parsed
+
+@extern
+def xatsopt_args/filxats_d3parsed(a: List[String], b: SInt, c: String) -> D3parsed
+
+@extern
+def xatsopt_args/filxats_d3parsdz(a: List[String], b: SInt, c: String) -> D3parsed
+

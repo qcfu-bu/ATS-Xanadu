@@ -1,0 +1,66 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/trans12" import *
+
+from "srcgen2/SATS/tread12" import *
+
+from "srcgen2/SATS/trans2a" import *
+
+from "srcgen2/SATS/trsym2b" import *
+
+from "srcgen2/SATS/t2read0" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/SATS/trans23" import *
+
+@impl
+def trans03_from_fpath(stadyn, source):
+    d3parsed_of_trans23(dpar)
+where:
+    let dpar = trans02_from_fpath(stadyn, source)
+    let dpar = d2parsed_of_tread12(dpar)
+    let dpar = d2parsed_of_trans2a(dpar)
+    d2parsed_by_trsym2b(dpar)
+    let dpar = d2parsed_of_t2read0(dpar)
+
+@impl
+def d3parsed_of_trans23(dpar):
+    let stadyn = d2parsed_get_stadyn(dpar)
+    let nerror = d2parsed_get_nerror(dpar)
+    let source = d2parsed_get_source(dpar)
+    let t1penv = d2parsed_get_t1penv(dpar)
+    let t2penv = d2parsed_get_t2penv(dpar)
+    let parsed = d2parsed_get_parsed(dpar)
+    let env0 = tr23env_make_nil()
+    let t3penv = D3TOPENVnone()
+    let parsed = trans23_d2eclistopt(env0, parsed)
+    tr23env_free_nil(env0)
+    d3parsed(stadyn, nerror, source, t1penv, t2penv, t3penv, parsed)
+
+@impl[]
+def list_trans23_fnp[X0, Y0](e1, xs, fopr):
+    @inst[X0] @inst[Y0] @inst[e1] list_map/e1nv(xs, e1)
+where:
+    type E1 = tr23env
+    @impl[X0, Y0, E1]
+    def map/e1nv/fopr(x0, e1):
+        fopr(e1, x0)
+
+@impl[]
+def optn_trans23_fnp[X0, Y0](e1, xs, fopr):
+    @inst[X0] @inst[Y0] @inst[e1] optn_map/e1nv(xs, e1)
+where:
+    type E1 = tr23env
+    @impl[X0, Y0, E1]
+    def map/e1nv/fopr(x0, e1):
+        fopr(e1, x0)
+

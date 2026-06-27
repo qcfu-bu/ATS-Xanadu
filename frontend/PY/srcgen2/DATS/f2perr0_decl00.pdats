@@ -1,0 +1,223 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/tread01" import *
+
+from "srcgen2/SATS/tread12" import *
+
+from "srcgen2/SATS/f2perr0" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload lctn = s2cst_get_lctn
+
+@overload sort = s2cst_get_sort
+
+@overload d2cs = s2cst_get_d2cs
+
+@overload sort = s2exp_get_sort
+
+@overload node = s2exp_get_node
+
+@overload sort = s2typ_get_sort
+
+@overload node = s2typ_get_node
+
+@overload lctn = d2con_get_lctn
+
+@overload styp = d2con_get_styp
+
+@overload lctn = d2pat_get_lctn
+
+@overload node = d2pat_get_node
+
+@overload lctn = d2exp_get_lctn
+
+@overload node = d2exp_get_node
+
+@overload lctn = d2ecl_get_lctn
+
+@overload node = d2ecl_get_node
+
+def f2perr0_d2con(out: FILR, d2c0: d2con) -> Void:
+    if f0_errq(d2c0):
+        let loc0 = d2c0.lctn()
+        let t2p0 = d2c0.styp()
+        printsln("F2PERR0-ERROR:", loc0, ":", d2c0, "(", t2p0, ")")
+where:
+    @impl[]
+    def g_print/out():
+        out
+    def f0_errq(d2c0: d2con) -> Bool:
+        let t2p0 = d2c0.styp()
+        match t2p0.node():
+            case T2Ps2exp(_):
+                true
+            case _:
+                false
+
+def f2perr0_d2conlst(out: FILR, d2cs: d2conlst) -> Void:
+    match d2cs:
+        case list_nil():
+            ()
+        case list_cons(d2c1, d2cs):
+            f2perr0_d2con(out, d2c1)
+            f2perr0_d2conlst(out, d2cs)
+where:
+    @impl[]
+    def g_print/out():
+        out
+
+def f2perr0_s2cstlst(out: FILR, s2cs: s2cstlst) -> Void:
+    match s2cs:
+        case list_nil():
+            ()
+        case list_cons(s2c1, s2cs):
+            let loc1 = s2c1.lctn()
+            let s2t1 = s2c1.sort()
+            let opt1 = s2c1.d2cs()
+            printsln("F2PERR0-ERROR:", loc1, ":", s2c1, "(", s2t1, ")")
+            match opt1:
+                case ~optn_vt_nil():
+                    ()
+                case ~optn_vt_cons(d2cs):
+                    f2perr0_d2conlst(out, d2cs)
+            f2perr0_s2cstlst(out, s2cs)
+where:
+    @impl[]
+    def g_print/out():
+        out
+
+private:
+    let xatsv_ERRLVL = 3
+    def auxmain(out: FILR, dcl0: d2ecl) -> Void:
+        @impl[]
+        def g_print/out():
+            out
+        match dcl0.node():
+            case D2Cthen0(dcls):
+                f2perr0_d2eclist(out, dcls)
+            case D2Celse1(dcls):
+                f2perr0_d2eclist(out, dcls)
+            case D2Cstatic(tknd, dcl1):
+                f2perr0_d2ecl(out, dcl1)
+            case D2Cextern(tknd, dcl1):
+                f2perr0_d2ecl(out, dcl1)
+            case D2Clocal0(dcs1, dcs2):
+                f2perr0_d2eclist(out, dcs1)
+                f2perr0_d2eclist(out, dcs2)
+            case D2Cabssort(_):
+                ()
+            case D2Cstacst0(s2c1, s2t2):
+                ()
+            case D2Csortdef(sym1, s2tx):
+                ()
+            case D2Csexpdef(s2c1, s2e2):
+                ()
+            case D2Cinclude(knd0, tknd, gsrc, fopt, dopt):
+                f2perr0_d2eclistopt(out, dopt)
+            case D2Cvaldclst(tknd, d2vs):
+                f2perr0_d2valdclist(out, d2vs)
+            case D2Cvardclst(tknd, d2vs):
+                f2perr0_d2vardclist(out, d2vs)
+            case D2Cfundclst(tknd, tqas, d2cs, d2fs):
+                f2perr0_d2fundclist(out, d2fs)
+            case D2Cimplmnt0(tknd, sqas, tqas, dimp, tias, f2as, sres, dexp):
+                f2perr0_f2arglst(out, f2as)
+                f2perr0_d2exp(out, dexp)
+            case D2Cexcptcon(d1cl, d2cs):
+                f2perr0_d2conlst(out, d2cs)
+            case D2Cdatatype(d1cl, s2cs):
+                f2perr0_s2cstlst(out, s2cs)
+            case D2Cnone0(_):
+                ()
+            case D2Cnone1(d1cl):
+                d1ecl_fpemsg(out, d1cl)
+            case D2Cnone2(d2cl):
+                f2perr0_d2ecl(out, d2cl)
+            case D2Cerrck(lvl1, dcl1):
+                f2perr0_d2ecl(out, dcl0)
+            case _:
+                let loc0 = dcl0.lctn()
+                prerrsln("f2perr0_d2ecl: auxmain: loc0 = ", loc0)
+                prerrsln("f2perr0_d2ecl: auxmain: dcl0 = ", dcl0)
+
+@impl
+def f2perr0_d2ecl(out, dcl0):
+    @impl[]
+    def g_print/out():
+        out
+    match dcl0.node():
+        case D2Cerrck(lvl, d2cl):
+            auxmain(out, d2cl)
+            if (lvl >= xatsv_ERRLVL):
+                ()
+            else:
+                let loc0 = dcl0.lctn()
+                printsln()
+                printsln("F2PERR0-ERROR:", loc0, ":", dcl0)
+        case _:
+            ()
+
+
+@impl
+def f2perr0_d2eclist(out, dcls):
+    list_f2perr0_fnp(out, dcls, f2perr0_d2ecl)
+
+@impl
+def f2perr0_teqd2exp(out, tdxp):
+    match tdxp:
+        case TEQD2EXPnone():
+            ()
+        case TEQD2EXPsome(teq1, d2e2):
+            f2perr0_d2exp(out, d2e2)
+
+@impl
+def f2perr0_d2valdcl(out, dval):
+    f2perr0_d2pat(out, dpat)
+    f2perr0_teqd2exp(out, tdxp)
+where:
+    let dpat = d2valdcl_get_dpat(dval)
+    let tdxp = d2valdcl_get_tdxp(dval)
+
+@impl
+def f2perr0_d2vardcl(out, dvar):
+    f2perr0_teqd2exp(out, dini)
+where:
+    let dini = d2vardcl_get_dini(dvar)
+
+@impl
+def f2perr0_d2fundcl(out, dfun):
+    f2perr0_f2arglst(out, fags)
+    f2perr0_teqd2exp(out, tdxp)
+where:
+    let fags = d2fundcl_get_farg(dfun)
+    let tdxp = d2fundcl_get_tdxp(dfun)
+
+@impl
+def f2perr0_d2valdclist(out, d2vs):
+    list_f2perr0_fnp(out, d2vs, f2perr0_d2valdcl)
+
+@impl
+def f2perr0_d2vardclist(out, d2vs):
+    list_f2perr0_fnp(out, d2vs, f2perr0_d2vardcl)
+
+@impl
+def f2perr0_d2fundclist(out, d2fs):
+    list_f2perr0_fnp(out, d2fs, f2perr0_d2fundcl)
+

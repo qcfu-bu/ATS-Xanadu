@@ -1,0 +1,929 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+import "srcgen2/DATS/xfixity.dats" as _
+
+import "srcgen2/DATS/trans01.dats" as _
+
+from "srcgen2/SATS/xlabel0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/xfixity" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/trans01" import *
+
+type I0dnt = I0dnt
+
+type G1efx = fxitm[g1exp]
+
+type G1efxlst = list[G1efx]
+
+type S1tfx = fxitm[sort1]
+
+type S1efx = fxitm[s1exp]
+
+type S1tfxlst = list[S1tfx]
+
+type S1efxlst = list[S1efx]
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload lctn = l0abl_get_lctn
+
+@overload node = l0abl_get_node
+
+@overload lctn = i0dnt_get_lctn
+
+@overload node = i0dnt_get_node
+
+@overload lctn = g0nam_get_lctn
+
+@overload node = g0nam_get_node
+
+@overload lctn = g0exp_get_lctn
+
+@overload node = g0exp_get_node
+
+@overload lctn = g0mag_get_lctn
+
+@overload node = g0mag_get_node
+
+@overload lctn = sort0_get_lctn
+
+@overload node = sort0_get_node
+
+@overload lctn = s0exp_get_lctn
+
+@overload node = s0exp_get_node
+
+@overload lctn = s0tcn_get_lctn
+
+@overload node = s0tcn_get_node
+
+@overload lctn = d0tst_get_lctn
+
+@overload node = d0tst_get_node
+
+@overload lctn = s0arg_get_lctn
+
+@overload node = s0arg_get_node
+
+@overload lctn = s0mag_get_lctn
+
+@overload node = s0mag_get_node
+
+@overload lctn = t0arg_get_lctn
+
+@overload node = t0arg_get_node
+
+@overload lctn = t0mag_get_lctn
+
+@overload node = t0mag_get_node
+
+@overload lctn = s0qua_get_lctn
+
+@overload node = s0qua_get_node
+
+@overload lctn = s0uni_get_lctn
+
+@overload node = s0uni_get_node
+
+@overload lctn = d0tcn_get_lctn
+
+@overload node = d0tcn_get_node
+
+@overload lctn = d0typ_get_lctn
+
+@overload node = d0typ_get_node
+
+@overload g1exp = g1exp_make_node
+
+@overload g1mag = g1mag_make_node
+
+@overload sort1 = sort1_make_node
+
+@overload s1exp = s1exp_make_node
+
+@overload s1mag = s1mag_make_node
+
+@overload t1mag = t1mag_make_node
+
+def fxitmlst_resolve_g1exp(loc0: loc_t, itms: G1efxlst) -> g1exp:
+    @impl[g1exp]
+    def fxitm_infix0(x0, f1, x2):
+        let loc0 = x0.lctn() + x2.lctn()
+        let g1en = match f1.node():
+            case G1Ea0pp():
+                G1Ea1pp(x0, x2)
+            case _:
+                G1Ea2pp(f1, x0, x2)
+        FXITMatm(g1exp(loc0, g1en))
+    @impl[g1exp]
+    def fxitm_prefix(f0, x1):
+        let loc0 = f0.lctn() + x1.lctn()
+        match f0.node():
+            case G1Eb0sh():
+                let g1e = g1exp_make_node(loc0, G1Eb1sh(x1))
+                FXITMopr(g1e, inftmp_fixty)
+            case _:
+                FXITMatm(g1exp(loc0, G1Ea1pp(f0, x1)))
+    @impl[g1exp]
+    def fxitm_pstfix(x0, f1):
+        let loc0 = x0.lctn() + f1.lctn()
+        FXITMatm(g1exp(loc0, G1Ea1pp(f1, x0)))
+    @impl[g1exp]
+    def fxatm_none(loc):
+        g1exp_none0(loc)
+    @impl[g1exp]
+    def fxopr_get_lctn(opr):
+        opr.lctn()
+    @impl[g1exp]
+    def fxitm_get_lctn(itm):
+        match itm:
+            case FXITMatm(x0):
+                x0.lctn()
+            case FXITMopr(x0, _):
+                x0.lctn()
+    @impl[g1exp]
+    def fxitmlst_resolve/appopr(itm):
+        let loc0 = @inst[g1exp] fxitm_get_lctn(itm)
+        let g1e1 = g1exp(loc0, G1Ea0pp)
+        FXITMopr(g1e1, app_fixty)
+    @inst[g1exp] fxitmlst_resolve(loc0, itms)
+
+def fxitmlst_resolve_sort1(loc0: loc_t, itms: S1tfxlst) -> sort1:
+    @impl[sort1]
+    def fxitm_infix0(x0, f1, x2):
+        let loc0 = x0.lctn() + x2.lctn()
+        let s1tn = match f1.node():
+            case S1Ta0pp():
+                S1Ta1pp(x0, x2)
+            case _:
+                S1Ta2pp(f1, x0, x2)
+        FXITMatm(sort1(loc0, s1tn))
+    @impl[sort1]
+    def fxitm_prefix(f0, x1):
+        let loc0 = f0.lctn() + x1.lctn()
+        FXITMatm(sort1(loc0, S1Ta1pp(f0, x1)))
+    @impl[sort1]
+    def fxitm_pstfix(x0, f1):
+        let loc0 = x0.lctn() + f1.lctn()
+        FXITMatm(sort1(loc0, S1Ta1pp(f1, x0)))
+    @impl[sort1]
+    def fxatm_none(loc):
+        sort1_none0(loc)
+    @impl[sort1]
+    def fxopr_get_lctn(opr):
+        opr.lctn()
+    @impl[sort1]
+    def fxitm_get_lctn(itm):
+        match itm:
+            case FXITMatm(x0):
+                x0.lctn()
+            case FXITMopr(x0, _):
+                x0.lctn()
+    @impl[sort1]
+    def fxitmlst_resolve/appopr(itm):
+        let loc0 = @inst[sort1] FIX.fxitm_get_lctn(itm)
+        let s1t1 = sort1(loc0, S1Ta0pp)
+        FIX.FXITMopr(s1t1, app_fixty)
+    @inst[sort1] fxitmlst_resolve(loc0, itms)
+
+def fxitmlst_resolve_s1exp(loc0: loc_t, itms: S1efxlst) -> s1exp:
+    @impl[s1exp]
+    def fxitm_infix0(x0, f1, x2):
+        let loc0 = x0.lctn() + x2.lctn()
+        let s1en = match f1.node():
+            case S1Ea0pp():
+                S1Ea1pp(x0, x2)
+            case _:
+                S1Ea2pp(f1, x0, x2)
+        FXITMatm(s1exp(loc0, s1en))
+    @impl[s1exp]
+    def fxitm_prefix(f0, x1):
+        let loc0 = f0.lctn() + x1.lctn()
+        match f0.node():
+            case S1Eb0sh():
+                let s1e = s1exp_make_node(loc0, S1Eb1sh(x1))
+                FXITMopr(s1e, inftmp_fixty)
+            case _:
+                FXITMatm(s1exp(loc0, S1Ea1pp(f0, x1)))
+    @impl[s1exp]
+    def fxitm_pstfix(x0, f1):
+        let loc0 = x0.lctn() + f1.lctn()
+        FXITMatm(s1exp(loc0, S1Ea1pp(f1, x0)))
+    @impl[s1exp]
+    def fxatm_none(loc):
+        s1exp_none0(loc)
+    @impl[s1exp]
+    def fxopr_get_lctn(opr):
+        opr.lctn()
+    @impl[s1exp]
+    def fxitm_get_lctn(itm):
+        match itm:
+            case FXITMatm(x0):
+                x0.lctn()
+            case FXITMopr(x0, _):
+                x0.lctn()
+    @impl[s1exp]
+    def fxitmlst_resolve/appopr(itm):
+        let loc0 = @inst[s1exp] FIX.fxitm_get_lctn(itm)
+        let s1e1 = s1exp(loc0, S1Ea0pp)
+        FIX.FXITMopr(s1e1, app_fixty)
+    @inst[s1exp] fxitmlst_resolve(loc0, itms)
+
+@overload fxis_resolve = fxitmlst_resolve_g1exp
+
+@overload fxis_resolve = fxitmlst_resolve_sort1
+
+@overload fxis_resolve = fxitmlst_resolve_s1exp
+
+@impl
+def trans01_i0dnt(tenv, id0):
+    match id0.node():
+        case I0DNTsome(tok):
+            tok
+        case I0DNTnone(tok):
+            token_none(tok.lctn())
+where:
+    def token_none(loc: loc_t) -> token:
+        token_make_node(loc, T0IDALP_NONE)
+
+@impl
+def trans01_t0int(tenv, int):
+    match int:
+        case T0INTsome(tok):
+            tok
+        case T0INTnone(tok):
+            token_none(tok.lctn())
+where:
+    def token_none(loc: loc_t) -> token:
+        token_make_node(loc, T_ERR())
+
+@impl
+def trans01_t0chr(tenv, chr):
+    match chr:
+        case T0CHRsome(tok):
+            tok
+        case T0CHRnone(tok):
+            token_none(tok.lctn())
+where:
+    def token_none(loc: loc_t) -> token:
+        token_make_node(loc, T_ERR())
+
+@impl
+def trans01_t0flt(tenv, flt):
+    match flt:
+        case T0FLTsome(tok):
+            tok
+        case T0FLTnone(tok):
+            token_none(tok.lctn())
+where:
+    def token_none(loc: loc_t) -> token:
+        token_make_node(loc, T_ERR())
+
+@impl
+def trans01_t0str(tenv, str):
+    match str:
+        case T0STRsome(tok):
+            tok
+        case T0STRnone(tok):
+            token_none(tok.lctn())
+where:
+    def token_none(loc: loc_t) -> token:
+        token_make_node(loc, T_ERR())
+
+@impl
+def trans01_g0nam(tenv, g0nm):
+    match g0nm.node():
+        case G0Nid0(id0):
+            f0_id0(tenv, g0nm)
+        case G0Nint(int):
+            G1Nint(token2sint(trans01_t0int(tenv, int)))
+        case G0Nchr(chr):
+            G1Nchr(token2schr(trans01_t0chr(tenv, chr)))
+        case G0Nflt(flt):
+            G1Nflt(token2sflt(trans01_t0flt(tenv, flt)))
+        case G0Nstr(str):
+            G1Nstr(token2sstr(trans01_t0str(tenv, str)))
+        case G0Nlist(tbeg, gnms, tend):
+            G1Nlist(trans01_g0namlst(tenv, gnms))
+        case G0Ntkerr(terr):
+            G1Nnone1(g0nm)
+where:
+    def f0_id0(tenv: !tr01env, g0nm: g0nam) -> g1nam:
+        let G0Nid0(id0) = g0nm.node()
+        G1Nid0(gnamid_sym(trans01_i0dnt(tenv, id0)))
+
+@impl
+def trans01_s0qid(tenv, sqid):
+    match sqid:
+        case S0QIDnone(id0):
+            S1QIDnone(trans01_i0dnt(tenv, id0))
+        case S0QIDsome(tok, id0):
+            S1QIDsome(tok, trans01_i0dnt(tenv, id0))
+
+@impl
+def trans01_d0qid(tenv, sqid):
+    match sqid:
+        case D0QIDnone(id0):
+            D1QIDnone(trans01_i0dnt(tenv, id0))
+        case D0QIDsome(tok, id0):
+            D1QIDsome(tok, trans01_i0dnt(tenv, id0))
+
+private:
+    @extern
+    def f0_main() -> (!tr01env, g0exp) -> G1efx
+    @impl
+    def f0_main(tenv, g0e0):
+        match g0e0.node():
+            case G0Eid0(_):
+                f0_gid(tenv, g0e0)
+            case G0Eint(_):
+                f0_int(tenv, g0e0)
+            case G0Echr(_):
+                f0_chr(tenv, g0e0)
+            case G0Eflt(_):
+                f0_flt(tenv, g0e0)
+            case G0Estr(_):
+                f0_str(tenv, g0e0)
+            case G0Eift0(_):
+                f0_ift0(tenv, g0e0)
+            case G0Eapps(_):
+                f0_apps(tenv, g0e0)
+            case G0Elpar(_):
+                f0_lpar(tenv, g0e0)
+            case _:
+                let loc0 = g0e0.lctn()
+                FXITMatm(g1exp(loc0, G1Enone1(g0e0)))
+    where:
+        def f0_gid(tenv: !tr01env, g0e0: g0exp) -> G1efx:
+            let loc0 = g0e0.lctn()
+            let G0Eid0(deid) = g0e0.node()
+            let tok0 = trans01_i0dnt(tenv, deid)
+            match tok0.node():
+                case T_IDALP(nam1):
+                    f0_id0_1(tenv, tok0, nam1)
+                case T_IDSYM(nam1):
+                    f0_id0_1(tenv, tok0, nam1)
+                case T_IDDLR(nam1):
+                    f0_id0_1(tenv, tok0, nam1)
+                case T_BSLSH():
+                    f0_id0_2(tenv, tok0)
+
+        def f0_id0_1(tenv: !tr01env, tok0: token, nam1: string) -> G1efx:
+            let loc0 = tok0.lctn()
+            let sym1 = symbl(nam1)
+            let g1e0 = g1exp(loc0, G1Eid0(sym1))
+            let fopt = tr01env_search/opt(tenv, sym1)
+            match fopt:
+                case ~optn_vt_nil():
+                    FXITMatm(g1e0)
+                case ~optn_vt_cons(fxty):
+                    match fxty:
+                        case FIXTYnon():
+                            FXITMatm(g1e0)
+                        case _:
+                            FXITMopr(g1e0, fxty)
+
+        def f0_id0_2(tenv: !tr01env, tok0: token) -> G1efx:
+            FXITMopr(g1e0, bslash_fixty)
+        where:
+            let loc0 = tok0.lctn()
+            let g1e0 = g1exp_make_node(loc0, G1Eb0sh())
+        def f0_int(tenv: !tr01env, g0e0: g0exp) -> G1efx:
+            let G0Eint(int) = g0e0.node()
+            match int:
+                case T0INTnone(tok):
+                    FXITMatm(g1exp_none1(g0e0))
+                case T0INTsome(tok):
+                    FXITMatm(g1exp(g0e0.lctn(), G1Eint(tok)))
+        def f0_chr(tenv: !tr01env, g0e0: g0exp) -> G1efx:
+            let G0Echr(chr) = g0e0.node()
+            match chr:
+                case T0CHRnone(tok):
+                    FXITMatm(g1exp_none1(g0e0))
+                case T0CHRsome(tok):
+                    FXITMatm(g1exp(g0e0.lctn(), G1Echr(tok)))
+        def f0_flt(tenv: !tr01env, g0e0: g0exp) -> G1efx:
+            let G0Eflt(flt) = g0e0.node()
+            match flt:
+                case T0FLTnone(tok):
+                    FXITMatm(g1exp_none1(g0e0))
+                case T0FLTsome(tok):
+                    FXITMatm(g1exp(g0e0.lctn(), G1Eflt(tok)))
+        def f0_str(tenv: !tr01env, g0e0: g0exp) -> G1efx:
+            let G0Estr(str) = g0e0.node()
+            match str:
+                case T0STRnone(tok):
+                    FXITMatm(g1exp_none1(g0e0))
+                case T0STRsome(tok):
+                    FXITMatm(g1exp(g0e0.lctn(), G1Estr(tok)))
+        def f0_g0es(tenv: !tr01env, g0es: g0explst) -> G1efxlst:
+            @inst[g0exp] @inst[G1efx] list_map/e1nv(g0es, tenv)
+        where:
+            @impl[g0exp, G1efx]
+            def map/e1nv/fopr(g0e1, tenv):
+                f0_main(tenv, g0e1)
+        def f0_ift0(tenv: !tr01env, g0e0: g0exp) -> G1efx:
+            let loc0 = g0e0.lctn()
+            let G0Eift0(tknd, g0e1, g0e2, g0e3, tend) = g0e0.node()
+            let g1e1 = trans01_g0exp(tenv, g0e1)
+            let g1e2 = match g0e2:
+                case g0exp_THEN(tok1, g0e2):
+                    trans01_g0exp(tenv, g0e2)
+            let g1e3 = match g0e3:
+                case g0exp_ELSE(tok1, g0e3):
+                    trans01_g0exp(tenv, g0e3)
+            FXITMatm(g1exp(loc0, G1Eift0(g1e1, g1e2, g1e3)))
+        def f0_apps(tenv: !tr01env, g0e0: g0exp) -> G1efx:
+            let loc0 = g0e0.lctn()
+            let G0Eapps(g0es) = g0e0.node()
+            let g1es = f0_g0es(tenv, g0es)
+            FXITMatm(fxis_resolve(loc0, g1es))
+        def f0_lpar(tenv: !tr01env, g0e0: g0exp) -> G1efx:
+            let G0Elpar(tbeg, g0es, tend) = g0e0.node()
+            let g1es = trans01_g0explst(tenv, g0es)
+            FXITMatm(g1exp(g0e0.lctn(), G1Elist(g1es)))
+
+@impl
+def trans01_g0exp(tenv, g0e0):
+    match f0_main(tenv, g0e0):
+        case FXITMatm(g1e0):
+            g1e0
+        case FXITMopr(g1e0, fxty):
+            g1e0
+
+
+@impl
+def trans01_g0arg(tenv, garg):
+    let tok1 = trans01_i0dnt(tenv, garg)
+    g1arg(tok1.lctn(), G1ARGnode(tok1))
+
+@impl
+def trans01_g0mag(tenv, g0ma):
+    match g0ma.node():
+        case G0MAGnone(tok):
+            let g1as = list_nil()
+            g1mag(g0ma.lctn(), G1MAGdarg(g1as))
+        case G0MAGsarg(tbeg, g0as, tend):
+            let g1as = trans01_g0arglst(tenv, g0as)
+            g1mag(g0ma.lctn(), G1MAGsarg(g1as))
+        case G0MAGdarg(tbeg, g0as, tend):
+            let g1as = trans01_g0arglst(tenv, g0as)
+            g1mag(g0ma.lctn(), G1MAGdarg(g1as))
+
+@impl
+def trans01_sort0(tenv, s0t0):
+    let sfx0 = f0_sort(tenv, s0t0)
+    match sfx0:
+        case FXITMatm(s1e0):
+            s1e0
+        case FXITMopr(s1e0, fxty):
+            s1e0
+where:
+    def f0_sort(tenv: !tr01env, s0t0: sort0) -> S1tfx:
+        match s0t0.node():
+            case S0Tid0(_):
+                f0_id0(tenv, s0t0)
+            case S0Tint(_):
+                f0_int(tenv, s0t0)
+            case S0Tapps(s0ts):
+                let loc0 = s0t0.lctn()
+                let s1ts = f0_s0ts(tenv, s0ts)
+                let s1t0 = fxis_resolve(loc0, s1ts)
+                FXITMatm(s1t0)
+            case S0Tlpar(tbeg, s0ts, tend):
+                let loc0 = s0t0.lctn()
+                let s1ts = trans01_sort0lst(tenv, s0ts)
+                let s1t0 = sort1_make_node(loc0, S1Tlist(s1ts))
+                FXITMatm(s1t0)
+            case _:
+                let s1t0 = sort1_none1(s0t0)
+                FXITMatm(s1t0)
+
+    def f0_id0(tenv: !tr01env, s0t0: sort0) -> S1tfx:
+        let loc0 = s0t0.lctn()
+        let S0Tid0(tid) = s0t0.node()
+        let tok0 = trans01_i0dnt(tenv, tid)
+        let sym0 = match tok0.node():
+            case T_IDALP(nam):
+                symbl(nam)
+            case T_IDSYM(nam):
+                symbl(nam)
+        let opt1 = if (sym0 == ADD_symbl):
+            optn_vt_cons(postplus_fixty)
+        else: match ():
+            case ():
+                if (sym0 == SUB_symbl):
+                    optn_vt_cons(postmnus_fixty)
+                else:
+                    tr01env_search/opt(tenv, sym0)
+        let s1t0 = sort1(loc0, S1Tid0(sym0))
+        match opt1:
+            case ~optn_vt_nil():
+                FXITMatm(s1t0)
+            case ~optn_vt_cons(fxty):
+                match fxty:
+                    case FIXTYnon():
+                        FXITMatm(s1t0)
+                    case _:
+                        FXITMopr(s1t0, fxty)
+
+    def f0_int(tenv: !tr01env, s0t0: sort0) -> S1tfx:
+        let loc0 = s0t0.lctn()
+        let S0Tint(int) = s0t0.node()
+        FXITMatm(sort1(loc0, S1Tint(trans01_t0int(tenv, int))))
+
+    def f0_s0ts(tenv: !tr01env, s0ts: sort0lst) -> S1tfxlst:
+        @inst[sort0] @inst[S1tfx] list_map/e1nv(s0ts, tenv)
+    where:
+        @impl[sort0, S1tfx]
+        def map/e1nv/fopr(s1t1, tenv):
+            f0_sort(tenv, s1t1)
+
+@impl
+def trans01_s0exp(tenv, s0e0):
+    let sfx0 = f0_sexp(tenv, s0e0)
+    match sfx0:
+        case FXITMatm(s1e0):
+            s1e0
+        case FXITMopr(s1e0, fxty):
+            s1e0
+where:
+    def f0_sexp(tenv: !tr01env, s0e0: s0exp) -> S1efx:
+        match s0e0.node():
+            case S0Eid0(_):
+                f0_id0(tenv, s0e0)
+            case S0Eint(_):
+                f0_int(tenv, s0e0)
+            case S0Echr(_):
+                f0_chr(tenv, s0e0)
+            case S0Eflt(_):
+                f0_flt(tenv, s0e0)
+            case S0Estr(_):
+                f0_str(tenv, s0e0)
+            case S0Eapps(s0es):
+                let loc0 = s0e0.lctn()
+                let s1es = f0_s0es(tenv, s0es)
+                let s1e0 = fxis_resolve(loc0, s1es)
+                FXITMatm(s1e0)
+            case S0Efimp(tbeg, s0es, tend):
+                let loc0 = s0e0.lctn()
+                let s1es = trans01_s0explst(tenv, s0es)
+                let s1e0 = s1exp(loc0, S1Earrw(s1es))
+                FXITMopr(s1e0, imp_fixty)
+            case S0Elpar(tbeg, ses1, tend):
+                let loc0 = s0e0.lctn()
+                match tend:
+                    case s0exp_RPAREN_cons0(tok):
+                        let ses1 = trans01_s0explst(tenv, ses1)
+                        FXITMatm(s1exp(loc0, S1El1st(ses1)))
+                    case s0exp_RPAREN_cons1(tbeg, ses2, tend):
+                        let ses1 = trans01_s0explst(tenv, ses1)
+                        let ses2 = trans01_s0explst(tenv, ses2)
+                        FXITMatm(s1exp(loc0, S1El2st(ses1, ses2)))
+            case S0Etup1(tknd, topt, ses1, tend):
+                let loc0 = s0e0.lctn()
+                match tend:
+                    case s0exp_RPAREN_cons0(tok):
+                        let ses1 = trans01_s0explst(tenv, ses1)
+                        FXITMatm(s1exp(loc0, S1Et1up(tknd, ses1)))
+                    case s0exp_RPAREN_cons1(tbeg, ses2, tend):
+                        let ses1 = trans01_s0explst(tenv, ses1)
+                        let ses2 = trans01_s0explst(tenv, ses2)
+                        FXITMatm(s1exp(loc0, S1Et2up(tknd, ses1, ses2)))
+            case S0Ercd2(tknd, topt, lss1, tend):
+                let loc0 = s0e0.lctn()
+                match tend:
+                    case l0s0e_RBRACE_cons0(tok):
+                        let lss1 = trans01_l0s0elst(tenv, lss1)
+                        FXITMatm(s1exp(loc0, S1Er1cd(tknd, lss1)))
+                    case l0s0e_RBRACE_cons1(tbeg, lss2, tend):
+                        let lss1 = trans01_l0s0elst(tenv, lss1)
+                        let lss2 = trans01_l0s0elst(tenv, lss2)
+                        FXITMatm(s1exp(loc0, S1Er2cd(tknd, lss1, lss2)))
+            case S0Euni0(tbeg, s0qs, tend):
+                let s1qs = trans01_s0qualst(tenv, s0qs)
+                let s1e0 = s1exp(s0e0.lctn(), S1Euni0(s1qs))
+                FXITMopr(s1e0, forall_fixty)
+            case S0Eexi0(tknd, s0qs, tend):
+                let s1qs = trans01_s0qualst(tenv, s0qs)
+                let s1e0 = s1exp(s0e0.lctn(), S1Eexi0(tknd, s1qs))
+                FXITMopr(s1e0, exists_fixty)
+            case S0Elams(tknd, smas, tres, teg1, s0e1, tend):
+                let loc0 = s0e0.lctn()
+                let smas = trans01_s0maglst(tenv, smas)
+                let tres = trans01_sort0opt(tenv, tres)
+                let s1e1 = trans01_s0exp(tenv, s0e1)
+                FXITMatm(s1exp_make_node(loc0, S1Elams(smas, tres, s1e1)))
+            case S0Eannot(s0e1, s0t2):
+                let loc0 = s0e0.lctn()
+                let s1e1 = trans01_s0exp(tenv, s0e1)
+                let s1t2 = trans01_sort0(tenv, s0t2)
+                FXITMatm(s1exp(loc0, S1Eannot(s1e1, s1t2)))
+            case S0Equal0(tok1, s0e2):
+                let loc0 = s0e0.lctn()
+                let s1e2 = trans01_s0exp(tenv, s0e2)
+                FXITMatm(s1exp(loc0, S1Equal0(tok1, s1e2)))
+            case _:
+                let s1e0 = s1exp_none1(s0e0)
+                FXITMatm(s1e0)
+
+    def f0_id0(tenv: !tr01env, s0e0: s0exp) -> S1efx:
+        let loc0 = s0e0.lctn()
+        let S0Eid0(sid0) = s0e0.node()
+        let tok0 = trans01_i0dnt(tenv, sid0)
+        match tok0.node():
+            case T_IDALP(nam1):
+                f0_id0_1(tenv, tok0, nam1)
+            case T_IDSYM(nam1):
+                f0_id0_1(tenv, tok0, nam1)
+            case T_IDDLR(nam1):
+                f0_id0_1(tenv, tok0, nam1)
+            case T_BSLSH():
+                f0_id0_2(tenv, tok0)
+
+    def f0_id0_1(tenv: !tr01env, tok0: token, nam1: string) -> S1efx:
+        let loc0 = tok0.lctn()
+        let sym1 = symbl(nam1)
+        let s1e0 = s1exp(loc0, S1Eid0(sym1))
+        let fopt = tr01env_search/opt(tenv, sym1)
+        match fopt:
+            case ~optn_vt_nil():
+                FXITMatm(s1e0)
+            case ~optn_vt_cons(fxty):
+                match fxty:
+                    case FIXTYnon():
+                        FXITMatm(s1e0)
+                    case _:
+                        FXITMopr(s1e0, fxty)
+
+    def f0_id0_2(tenv: !tr01env, tok0: token) -> S1efx:
+        FXITMopr(s1e0, bslash_fixty)
+    where:
+        let loc0 = tok0.lctn()
+        let s1e0 = s1exp_make_node(loc0, S1Eb0sh())
+
+    def f0_int(tenv: !tr01env, s0e0: s0exp) -> S1efx:
+        let loc0 = s0e0.lctn()
+        let S0Eint(int) = s0e0.node()
+        FXITMatm(s1exp(loc0, S1Eint(trans01_t0int(tenv, int))))
+
+    def f0_chr(tenv: !tr01env, s0e0: s0exp) -> S1efx:
+        let loc0 = s0e0.lctn()
+        let S0Echr(chr) = s0e0.node()
+        FXITMatm(s1exp(loc0, S1Echr(trans01_t0chr(tenv, chr))))
+
+    def f0_flt(tenv: !tr01env, s0e0: s0exp) -> S1efx:
+        let loc0 = s0e0.lctn()
+        let S0Eflt(flt) = s0e0.node()
+        FXITMatm(s1exp(loc0, S1Eflt(trans01_t0flt(tenv, flt))))
+
+    def f0_str(tenv: !tr01env, s0e0: s0exp) -> S1efx:
+        let loc0 = s0e0.lctn()
+        let S0Estr(str) = s0e0.node()
+        FXITMatm(s1exp(loc0, S1Estr(trans01_t0str(tenv, str))))
+
+    def f0_s0es(tenv: !tr01env, s0es: s0explst) -> S1efxlst:
+        list_trans01_fnp(tenv, s0es, f0_sexp)
+
+@impl
+def trans01_l0s0e(tenv, ls0e):
+    match ls0e:
+        case S0LAB(lab, teq, s0e):
+            let lab = match lab.node():
+                case L0ABLsome(lab):
+                    lab
+                case L0ABLnone(tok):
+                    label_none()
+            let s1e = trans01_s0exp(tenv, s0e)
+            S1LAB(lab, s1e)
+
+@impl
+def trans01_s0tcn(tenv, tcn0):
+    match tcn0.node():
+        case S0TCNnode(seid, tres):
+            let seid = trans01_i0dnt(tenv, seid)
+            let tres = trans01_sort0opt(tenv, tres)
+            s1tcn_make_node(tcn0.lctn(), S1TCNnode(seid, tres))
+
+@impl
+def trans01_d0tst(tenv, d0t0):
+    match d0t0.node():
+        case D0TSTnode(stid, teq1, tbar, tcns):
+            let stid = trans01_i0dnt(tenv, stid)
+            let tcns = trans01_s0tcnlst(tenv, tcns)
+            d1tst_make_node(d0t0.lctn(), D1TSTnode(stid, tcns))
+
+@impl
+def trans01_s0arg(tenv, s0a0):
+    match s0a0.node():
+        case S0ARGnone(tok1):
+            let loc0 = s0a0.lctn()
+            let loc1 = tok1.lctn()
+            let sid1 = token_make_node(loc1, T0IDALP_NONE)
+            let tres = optn_nil()
+            s1arg(loc0, S1ARGsome(sid1, tres))
+        case S0ARGsome(sid1, tres):
+            let loc0 = s0a0.lctn()
+            let sid1 = trans01_i0dnt(tenv, sid1)
+            let tres = trans01_sort0opt(tenv, tres)
+            s1arg(loc0, S1ARGsome(sid1, tres))
+
+@impl
+def trans01_s0mag(tenv, s0ma):
+    let loc0 = s0ma.lctn()
+    match s0ma.node():
+        case S0MAGnone(tok):
+            let sid = token_make_node(tok.lctn(), T0IDALP_NONE)
+            let s1a = s1arg_make_node(sid.lctn(), S1ARGsome(sid, optn_nil()))
+            s1mag_make_node(loc0, S1MAGlist(list_sing(s1a)))
+        case S0MAGsing(sid):
+            let sid = trans01_i0dnt(tenv, sid)
+            let s1a = s1arg_make_node(sid.lctn(), S1ARGsome(sid, optn_nil()))
+            s1mag_make_node(loc0, S1MAGlist(list_sing(s1a)))
+        case S0MAGlist(tbeg, s0as, tend):
+            let s1as = trans01_s0arglst(tenv, s0as)
+            s1mag_make_node(loc0, S1MAGlist(s1as))
+
+@impl
+def trans01_t0arg(tenv, t0a0):
+    match t0a0.node():
+        case T0ARGnone(tok1):
+            let loc0 = t0a0.lctn()
+            let s1t1 = sort1_none0(tok1.lctn())
+            t1arg(loc0, T1ARGsome(s1t1, optn_nil()))
+        case T0ARGsome(s0t1, topt):
+            let loc0 = t0a0.lctn()
+            let s1t1 = trans01_sort0(tenv, s0t1)
+            t1arg(loc0, T1ARGsome(s1t1, topt))
+
+@impl
+def trans01_t0mag(tenv, t0ma):
+    let loc0 = t0ma.lctn()
+    match t0ma.node():
+        case T0MAGnone(tok):
+            let loc = tok.lctn()
+            let s1t = sort1_none0(loc)
+            let t1a = t1arg_make_node(loc, T1ARGsome(s1t, optn_nil()))
+            t1mag_make_node(loc0, T1MAGlist(list_sing(t1a)))
+        case T0MAGlist(tbeg, t0as, tend):
+            let t1as = trans01_t0arglst(tenv, t0as)
+            t1mag_make_node(loc0, T1MAGlist(t1as))
+
+@impl
+def trans01_s0qua(tenv, s0q0):
+    let loc0 = s0q0.lctn()
+    match s0q0.node():
+        case S0QUAprop(s0e1):
+            s1qua(loc0, S1QUAprop(trans01_s0exp(tenv, s0e1)))
+        case S0QUAvars(sids, topt):
+            let sids = trans01_i0dntlst(tenv, sids)
+            let topt = trans01_sort0opt(tenv, topt)
+            s1qua(loc0, S1QUAvars(sids, topt))
+
+@impl
+def trans01_s0uni(tenv, s0u0):
+    let loc0 = s0u0.lctn()
+    match s0u0.node():
+        case S0UNInone(tok):
+            let s1qs = list_nil()
+            s1uni(loc0, S1UNIsome(s1qs))
+        case S0UNIsome(tbeg, s0qs, tend):
+            let s1qs = trans01_s0qualst(tenv, s0qs)
+            s1uni_make_node(loc0, S1UNIsome(s1qs))
+
+@impl
+def trans01_d0tcn(tenv, tcn0):
+    let loc0 = tcn0.lctn()
+    match tcn0.node():
+        case D0TCNnode(s0us, deid, s0es, sres):
+            let deid = trans01_i0dnt(tenv, deid)
+            let s1us = trans01_s0unilst(tenv, s0us)
+            let s1es = trans01_s0explst(tenv, s0es)
+            let sres = trans01_s0expopt(tenv, sres)
+            d1tcn_make_node(loc0, D1TCNnode(s1us, deid, s1es, sres))
+
+@impl
+def trans01_d0typ(tenv, d0t0):
+    let loc0 = d0t0.lctn()
+    match d0t0.node():
+        case D0TYPnode(deid, tmas, tres, teq1, tcns):
+            let deid = trans01_i0dnt(tenv, deid)
+            let tmas = trans01_t0maglst(tenv, tmas)
+            let tres = trans01_sort0opt(tenv, tres)
+            let tcns = trans01_d0tcnlst(tenv, tcns)
+            d1typ_make_node(loc0, D1TYPnode(deid, tmas, tres, tcns))
+
+@impl
+def trans01_i0dntlst(tenv, dnts):
+    @inst[I0dnt] @inst[i1dnt] list_map/e1nv(dnts, tenv)
+where:
+    @impl[I0dnt, i1dnt]
+    def map/e1nv/fopr(dnt0, tenv):
+        trans01_i0dnt(tenv, dnt0)
+
+@impl
+def trans01_i0dntopt(tenv, opt):
+    match opt:
+        case optn_nil():
+            optn_nil()
+        case optn_cons(dnt0):
+            let dnt1 = trans01_i0dnt(tenv, dnt0)
+            optn_cons(dnt1)
+
+@impl
+def trans01_g0namlst(tenv, g0ns):
+    list_trans01_fnp(tenv, g0ns, trans01_g0nam)
+
+@impl
+def trans01_g0explst(tenv, g0es):
+    list_trans01_fnp(tenv, g0es, trans01_g0exp)
+
+@impl
+def trans01_g0expopt(tenv, opt0):
+    optn_trans01_fnp(tenv, opt0, trans01_g0exp)
+
+@impl
+def trans01_g0arglst(tenv, g0as):
+    list_trans01_fnp(tenv, g0as, trans01_g0arg)
+
+@impl
+def trans01_g0maglst(tenv, gmas):
+    list_trans01_fnp(tenv, gmas, trans01_g0mag)
+
+@impl
+def trans01_sort0lst(tenv, s0ts):
+    list_trans01_fnp(tenv, s0ts, trans01_sort0)
+
+@impl
+def trans01_sort0opt(tenv, opt0):
+    optn_trans01_fnp(tenv, opt0, trans01_sort0)
+
+@impl
+def trans01_s0tcnlst(tenv, tcns):
+    list_trans01_fnp(tenv, tcns, trans01_s0tcn)
+
+@impl
+def trans01_d0tstlst(tenv, d0ts):
+    list_trans01_fnp(tenv, d0ts, trans01_d0tst)
+
+@impl
+def trans01_s0arglst(tenv, s0as):
+    list_trans01_fnp(tenv, s0as, trans01_s0arg)
+
+@impl
+def trans01_s0maglst(tenv, smas):
+    list_trans01_fnp(tenv, smas, trans01_s0mag)
+
+@impl
+def trans01_t0arglst(tenv, t0as):
+    list_trans01_fnp(tenv, t0as, trans01_t0arg)
+
+@impl
+def trans01_t0maglst(tenv, tmas):
+    list_trans01_fnp(tenv, tmas, trans01_t0mag)
+
+@impl
+def trans01_s0qualst(tenv, s0qs):
+    list_trans01_fnp(tenv, s0qs, trans01_s0qua)
+
+@impl
+def trans01_s0explst(tenv, s0es):
+    list_trans01_fnp(tenv, s0es, trans01_s0exp)
+
+@impl
+def trans01_s0expopt(tenv, opt0):
+    optn_trans01_fnp(tenv, opt0, trans01_s0exp)
+
+@impl
+def trans01_l0s0elst(tenv, lses):
+    list_trans01_fnp(tenv, lses, trans01_l0s0e)
+
+@impl
+def trans01_s0unilst(tenv, s0us):
+    list_trans01_fnp(tenv, s0us, trans01_s0uni)
+
+@impl
+def trans01_d0tcnlst(tenv, tcns):
+    list_trans01_fnp(tenv, tcns, trans01_d0tcn)
+
+@impl
+def trans01_d0typlst(tenv, d0ts):
+    list_trans01_fnp(tenv, d0ts, trans01_d0typ)
+

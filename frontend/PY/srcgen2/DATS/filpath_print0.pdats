@@ -1,0 +1,48 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/filpath" import *
+
+@impl
+def drpth_fprint(dpx, out):
+    prints("DRPTH(", dpx.name(), ")")
+where:
+    @impl[]
+    def g_print/out():
+        out
+
+@impl
+def fpath_fprint(fpx, out):
+    prints("FPATH(", fpx.fnm1(), ")")
+where:
+    @impl[]
+    def g_print/out():
+        out
+
+@impl
+def fname_fprint(fnm, out):
+    match fnm:
+        case FNMbase(name):
+            prints("FNMbase(", name, ")")
+where:
+    @impl[]
+    def g_print/out():
+        out
+
+@impl
+def the_drpth_fprint(out):
+    drpth_fprint(dir0, out)
+where:
+    let dir0 = the_drpth_get()
+
+@impl
+def the_drpthlst_fprint(out):
+    let dirs = the_drpthlst_get()
+    @impl[drpth]
+    def foritm/work(dir):
+        drpth_fprint(dir, out)
+    list_foritm(dirs)
+

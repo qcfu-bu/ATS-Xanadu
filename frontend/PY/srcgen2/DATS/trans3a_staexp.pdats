@@ -1,0 +1,155 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+import "srcgen2/DATS/trans3a.dats" as _
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/trans3a" import *
+
+@overload styp = x2t2p_get_styp
+
+@overload node = s2typ_get_node
+
+@overload sort = s2typ_get_sort
+
+@overload lctn = t2jag_get_lctn
+
+@overload t2ps = t2jag_get_t2ps
+
+@impl
+def trans3a_s2typ(env0, t2p0):
+    match t2p0.node():
+        case T2Pcst(_):
+            t2p0
+        case T2Pvar(_):
+            t2p0
+        case T2Pxtv(_):
+            f0_xtv(env0, t2p0)
+        case T2Plft(_):
+            f0_lft(env0, t2p0)
+        case T2Pf2cl(_):
+            t2p0
+        case T2Ptop0(_):
+            f0_top0(env0, t2p0)
+        case T2Ptop1(_):
+            f0_top1(env0, t2p0)
+        case T2Parg1(_):
+            f0_arg1(env0, t2p0)
+        case T2Patx2(_):
+            f0_atx2(env0, t2p0)
+        case T2Papps(_):
+            f0_apps(env0, t2p0)
+        case T2Pfun1(_):
+            f0_fun1(env0, t2p0)
+        case T2Pexi0(_):
+            f0_exi0(env0, t2p0)
+        case T2Puni0(_):
+            f0_uni0(env0, t2p0)
+        case T2Ptext(_):
+            f0_text(env0, t2p0)
+        case T2Ptrcd(_):
+            f0_trcd(env0, t2p0)
+        case T2Pnone0(_):
+            f0_none0(env0, t2p0)
+        case T2Pnone1(_):
+            f0_none1(env0, t2p0)
+        case T2Ps2exp(_):
+            f0_s2exp(env0, t2p0)
+        case _:
+            s2typ_none1(t2p0)
+where:
+    def f0_xtv(env0: !tr3aenv, t2p0: s2typ) -> s2typ:
+        let T2Pxtv(xtv1) = t2p0.node()
+        let t2p1 = xtv1.styp()
+        match t2p1.node():
+            case T2Pnone0():
+                s2typ_none1(t2p0)
+            case _:
+                trans3a_s2typ(env0, t2p1)
+    def f0_lft(env0: !tr3aenv, t2p0: s2typ) -> s2typ:
+        let T2Plft(t2p1) = t2p0.node()
+        let t2p1 = trans3a_s2typ(env0, t2p1)
+        s2typ(t2p0.sort(), T2Plft(t2p1))
+    def f0_top0(env0: !tr3aenv, t2p0: s2typ) -> s2typ:
+        let T2Ptop0(t2p1) = t2p0.node()
+        let t2p1 = trans3a_s2typ(env0, t2p1)
+        s2typ(t2p0.sort(), T2Ptop0(t2p1))
+    def f0_top1(env0: !tr3aenv, t2p0: s2typ) -> s2typ:
+        let T2Ptop1(t2p1) = t2p0.node()
+        let t2p1 = trans3a_s2typ(env0, t2p1)
+        s2typ(t2p0.sort(), T2Ptop1(t2p1))
+    def f0_arg1(env0: !tr3aenv, t2p0: s2typ) -> s2typ:
+        let T2Parg1(knd0, t2p1) = t2p0.node()
+        let t2p1 = trans3a_s2typ(env0, t2p1)
+        s2typ_make_node(t2p0.sort(), T2Parg1(knd0, t2p1))
+    def f0_atx2(env0: !tr3aenv, t2p0: s2typ) -> s2typ:
+        let T2Patx2(t2p1, t2p2) = t2p0.node()
+        let t2p1 = trans3a_s2typ(env0, t2p1)
+        let t2p2 = trans3a_s2typ(env0, t2p2)
+        s2typ_make_node(t2p0.sort(), T2Patx2(t2p1, t2p2))
+    def f0_apps(env0: !tr3aenv, t2p0: s2typ) -> s2typ:
+        let T2Papps(t2f0, t2ps) = t2p0.node()
+        let t2f0 = trans3a_s2typ(env0, t2f0)
+        let t2ps = trans3a_s2typlst(env0, t2ps)
+        s2typ(t2p0.sort(), T2Papps(t2f0, t2ps))
+    def f0_fun1(env0: !tr3aenv, t2p0: s2typ) -> s2typ:
+        let T2Pfun1(f2cl, npf1, t2ps, tres) = t2p0.node()
+        let f2cl = trans3a_s2typ(env0, f2cl)
+        let t2ps = trans3a_s2typlst(env0, t2ps)
+        let tres = trans3a_s2typ(env0, tres)
+        s2typ_make_node(t2p0.sort(), T2Pfun1(f2cl, npf1, t2ps, tres))
+    def f0_exi0(env0: !tr3aenv, t2p0: s2typ) -> s2typ:
+        let T2Pexi0(s2vs, t2p1) = t2p0.node()
+        let t2p1 = trans3a_s2typ(env0, t2p1)
+        s2typ(t2p0.sort(), T2Pexi0(s2vs, t2p1))
+    def f0_uni0(env0: !tr3aenv, t2p0: s2typ) -> s2typ:
+        let T2Puni0(s2vs, t2p1) = t2p0.node()
+        let t2p1 = trans3a_s2typ(env0, t2p1)
+        s2typ(t2p0.sort(), T2Puni0(s2vs, t2p1))
+    def f0_text(env0: !tr3aenv, t2p0: s2typ) -> s2typ:
+        let T2Ptext(name, t2ps) = t2p0.node()
+        let t2ps = trans3a_s2typlst(env0, t2ps)
+        s2typ(t2p0.sort(), T2Ptext(name, t2ps))
+    def f0_trcd(env0: !tr3aenv, t2p0: s2typ) -> s2typ:
+        let T2Ptrcd(tknd, npf1, ltps) = t2p0.node()
+        let ltps = trans3a_l2t2plst(env0, ltps)
+        s2typ_make_node(t2p0.sort(), T2Ptrcd(tknd, npf1, ltps))
+    def f0_none0(env0: !tr3aenv, t2p0: s2typ) -> s2typ:
+        t2p0
+    def f0_none1(env0: !tr3aenv, t2p0: s2typ) -> s2typ:
+        t2p0
+    def f0_s2exp(env0: !tr3aenv, t2p0: s2typ) -> s2typ:
+        t2p0
+
+@impl
+def trans3a_l2t2p(env0, lt2p):
+    S2LAB(l0, t2p0)
+where:
+    let S2LAB(l0, t2p0) = lt2p
+    let t2p0 = trans3a_s2typ(env0, t2p0)
+
+@impl
+def trans3a_t2jag(env0, tjag):
+    let loc0 = tjag.lctn()
+    t2jag_make_t2ps(loc0, trans3a_s2typlst(env0, tjag.t2ps()))
+
+@impl
+def trans3a_s2typlst(env0, t2ps):
+    list_trans3a_fnp(env0, t2ps, trans3a_s2typ)
+
+@impl
+def trans3a_l2t2plst(env0, ltps):
+    list_trans3a_fnp(env0, ltps, trans3a_l2t2p)
+
+@impl
+def trans3a_t2jaglst(env0, t2js):
+    list_trans3a_fnp(env0, t2js, trans3a_t2jag)
+

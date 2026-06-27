@@ -1,0 +1,120 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/xlabel0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+@overload node = s2exp_get_node
+
+@overload node = s2typ_get_node
+
+@overload sexp = d2con_get_sexp
+
+@overload tknd = d2cst_get_tknd
+
+@overload styp = d2var_get_styp
+
+@overload node = dimpl_get_node
+
+import "srcgen2/DATS/statyp2_tmplib.dats" as _
+
+@impl
+def d2con_linq(d2c0):
+    f0_linq(d2c0.sexp())
+where:
+    def f0_linq(s2e0: s2exp) -> Bool:
+        match s2e0.node():
+            case S2Euni0(s2vs, s2ps, s2e1):
+                f0_linq(s2e1)
+            case S2Efun1(f2cl, npf1, s2es, s2e1):
+                f0_linq(s2e1)
+            case _:
+                s2exp_linq(s2e0)
+
+@impl
+def d2var_linq(d2v0):
+    s2typ_linq(d2v0.styp())
+
+@impl
+def d2var_prfq(d2v0):
+    s2typ_prfq(d2v0.styp())
+
+@impl
+def d2var_mutq(d2v0):
+    let t2p0 = d2v0.styp()
+    match t2p0.node():
+        case T2Plft(t2p1):
+            true
+        case _:
+            false
+
+@impl
+def d2cst_castq(d2c0):
+    match d2c0.tknd():
+        case T_FUN(fnk1):
+            match fnk1:
+                case FNKfcast():
+                    true
+                case _:
+                    false
+        case _:
+            false
+
+@impl
+def d2cst_tempq(d2c0):
+    list_consq(d2cst_get_tqas(d2c0))
+
+@impl
+def d2cstlst_tempq(d2cs):
+    list_exists(d2cs)
+where:
+    type X0 = d2cst
+    @impl[X0]
+    def exists/test:
+        d2cst_tempq
+
+@impl
+def dimpl_tempq(dimp):
+    match dimp.node():
+        case DIMPLnon1(dqid):
+            false
+        case DIMPLone1(d2c1):
+            d2cst_tempq(d2c1)
+        case DIMPLone2(d2c1, svts):
+            d2cst_tempq(d2c1)
+
+@impl
+def s2vts_make_lctn_tqas(loc0, t2qs):
+    f0_make(loc0, t2qs, svts)
+where:
+    let svts = list_nil
+    def f0_make(loc0: loc_t, t2qs: t2qaglst, svts: s2vts) -> s2vts:
+        match t2qs:
+            case list_nil():
+                svts
+            case list_cons(t2q1, t2qs):
+                def f1_make(s2vs: s2varlst, svts: s2vts) -> s2vts:
+                    match s2vs:
+                        case list_nil():
+                            svts
+                        case list_cons(s2v1, s2vs):
+                            let xtv1 = s2typ_xtv(x2t2p_make_lctn(loc0))
+                            let svts = list_cons((s2v1, xtv1), svts)
+                            f1_make(s2vs, svts)
+                let svts = f1_make(t2q1.s2vs(), svts)
+                f0_make(loc0, t2qs, svts)
+

@@ -1,0 +1,320 @@
+import "srcgen1/prelude/SATS/unsafex" as UN
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/xlabel0" import *
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload lctn = s1exp_get_lctn
+
+@overload node = s1exp_get_node
+
+@overload sort = s2var_get_sort
+
+@overload sort = s2cst_get_sort
+
+@overload node = s2exp_get_node
+
+@overload sort = s2exp_get_sort
+
+@overload node = s2typ_get_node
+
+@overload sort = s2typ_get_sort
+
+@impl
+def s2typ_var(s2v):
+    s2typ_make_node(s2v.sort(), T2Pvar(s2v))
+
+@impl
+def s2typ_cst(s2c):
+    s2typ_make_node(s2c.sort(), T2Pcst(s2c))
+
+@impl
+def s2typ_xtv(xtp):
+    s2typ(s2t0, T2Pxtv(xtp))
+where:
+    let s2t0 = sort2_none0()
+
+@impl
+def s2typ_lft(t2p):
+    s2typ(s2t0, T2Plft(t2p))
+where:
+    let s2t0 = t2p.sort()
+
+@impl
+def s2typ_f2cl(f2cl):
+    s2typ_make_node(s2t0, T2Pf2cl(f2cl))
+where:
+    let s2t0 = sort2_none0()
+
+private:
+    def f0_trcdknd(linq: Bool, prfq: Bool, tknd: trcdknd) -> sort2:
+        if prfq:
+            if linq:
+                the_sort2_view
+            else:
+                the_sort2_prop
+        else:
+            if linq:
+                match tknd:
+                    case TRCDbox0():
+                        the_sort2_tbox
+                    case TRCDbox1():
+                        the_sort2_vtbx
+                    case _:
+                        the_sort2_vwtp
+            else:
+                match tknd:
+                    case TRCDbox0():
+                        the_sort2_tbox
+                    case TRCDbox1():
+                        the_sort2_vtbx
+                    case _:
+                        the_sort2_type
+    def f0_labelize(t2ps: s2typlst, i0: SInt) -> l2t2plst:
+        match t2ps:
+            case list_nil():
+                list_nil()
+            case list_cons(t2p1, t2ps):
+                let ltp1 = S2LAB(LABint(i0), t2p1)
+                list_cons(ltp1, f0_labelize(t2ps, i0 + 1))
+    def f0_orderize(ltps: l2t2plst) -> l2t2plst:
+        type X0 = l2t2p
+        def f1_test(ltps: list[X0]) -> Bool:
+            @inst[X0] list_sortedq(ltps)
+        def f1_sort(ltps: l2t2plst) -> l2t2plst:
+            @inst[X0] list_mergesort(ltps)
+        if f1_test(ltps):
+            ltps
+        else:
+            f1_sort(ltps)
+
+@impl
+def s2typ_tup0(npf1, t2ps):
+    let linq = s2typlst_linq(t2ps)
+    let prfq = s2typlst_prfq(t2ps)
+    let s2t0 = if prfq:
+        if linq:
+            the_sort2_view
+        else:
+            the_sort2_prop
+    else: match ():
+        case ():
+            if linq:
+                the_sort2_vwtp
+            else:
+                the_sort2_type
+    let trcd = TRCDflt0
+    let ltps = f0_labelize(t2ps, 0)
+    s2typ_make_node(s2t0, T2Ptrcd(trcd, npf1, ltps))
+
+@impl
+def s2typ_tup1(tknd, npf1, t2ps):
+    let linq = s2typlst_linq(t2ps)
+    let prfq = s2typlst_prfq(t2ps)
+    let s2t0 = f0_trcdknd(linq, prfq, tknd)
+    let ltps = f0_labelize(t2ps, 0)
+    s2typ_make_node(s2t0, T2Ptrcd(tknd, npf1, ltps))
+
+@impl
+def s2typ_rcd2(tknd, npf1, ltps):
+    let linq = l2t2plst_linq(ltps)
+    let prfq = l2t2plst_prfq(ltps)
+    let s2t0 = f0_trcdknd(linq, prfq, tknd)
+    let ltps = f0_orderize(ltps)
+    s2typ_make_node(s2t0, T2Ptrcd(tknd, npf1, ltps))
+
+
+@impl
+def s2typ_none0():
+    s2typ(s2t0, T2Pnone0())
+where:
+    let s2t0 = sort2_none0()
+
+@impl
+def s2typ_none1(t2p0):
+    let s2t0 = t2p0.sort()
+    s2typ(s2t0, T2Pnone1(t2p0))
+
+@impl
+def s2typ_s2exp(s2e0):
+    let s2t0 = s2e0.sort()
+    s2typ(s2t0, T2Ps2exp(s2e0))
+
+@impl
+def s2typ_unargx(t2p0):
+    unargx(t2p0)
+where:
+    def unargx(t2p0: S2typ) -> S2typ:
+        match t2p0.node():
+            case T2Parg1(knd0, t2p1):
+                unargx(t2p1)
+            case T2Patx2(t2p1, t2p2):
+                unargx(t2p1)
+            case _:
+                t2p0
+
+@impl
+def s2typ_untopx(t2p0):
+    untopx(t2p0)
+where:
+    def untopx(t2p0: S2typ) -> S2typ:
+        match t2p0.node():
+            case T2Ptop0(t2p1):
+                untopx(t2p1)
+            case T2Ptop1(t2p1):
+                untopx(t2p1)
+            case _:
+                t2p0
+
+private:
+    enum S2typ:
+        case S2TYP(sort2, s2typ_node)
+    @impl
+    type S2typ_tbox = S2typ
+
+@impl
+def s2typ_get_sort(t2p0):
+    let S2TYP(s2t0, node) = t2p0
+    s2t0
+
+@impl
+def s2typ_get_node(t2p0):
+    let S2TYP(s2t0, node) = t2p0
+    node
+
+@impl
+def s2typ_make_node(s2t0, node):
+    S2TYP(s2t0, node)
+
+
+@impl
+def l2t2p_get_sort(lx):
+    s2typ_get_sort(lx.itm())
+
+@impl
+def l2t2p_get_node(lx):
+    s2typ_get_node(lx.itm())
+
+private:
+    let stamper = stamper_new()
+
+def the_x2t2p_stamp_new() -> stamp:
+    stamper.getinc()
+
+
+private:
+    enum X2t2p:
+        case X2T2P(loc_t, S2typ, stamp)
+    @linear
+    enum X2t2p_vt:
+        case X2T2P_vt(loc_t, S2typ, stamp)
+    @impl
+    type X2t2p_tbox = X2t2p
+
+@impl
+def x2t2p_get_lctn(xt2p):
+    let X2T2P(loc0, t2p0, stmp) = xt2p
+    loc0
+
+@impl
+def x2t2p_get_stmp(xt2p):
+    let X2T2P(loc0, t2p0, stmp) = xt2p
+    stmp
+
+@impl
+def x2t2p_get_styp(xt2p):
+    let X2T2P(loc0, t2p0, stmp) = xt2p
+    t2p0
+
+@impl
+def x2t2p_make_lctn(loc0):
+    X2T2P(loc0, t2p0, stmp)
+where:
+    let t2p0 = s2typ_none0()
+    let stmp = the_x2t2p_stamp_new()
+
+@impl
+def x2t2p_set_styp(xt2p, t2p0):
+    let xt2p = @sapp[X2t2p_vt] UN.castlin10(xt2p)
+    let @(X2T2P_vt)(loc0, !styp, stmp) = xt2p
+    styp := t2p0
+
+
+@impl
+def intrep_s2typ_xint(tint):
+    match tint.node():
+        case T_INT01(_):
+            the_s2typ_sint()
+        case T_INT02(_):
+            the_s2typ_sint()
+        case T_INT03(bas, rep, sfx):
+            if sfx <= 0:
+                the_s2typ_sint()
+            else:
+                f0_rep(rep)
+where:
+    def f0_rep(rep: String) -> S2typ:
+        if (nu <= 0):
+            match nl:
+                case 0:
+                    the_s2typ_sint()
+                case 1:
+                    the_s2typ_slint()
+                case _:
+                    the_s2typ_sllint()
+        else:
+            match nl:
+                case 0:
+                    the_s2typ_uint()
+                case 1:
+                    the_s2typ_ulint()
+                case _:
+                    the_s2typ_ullint()
+    where:
+        type X0 = cgtz
+        type R0 = SInt
+        @impl[X0, R0]
+        def foldl/fopr(r0, x0):
+            if x0 == 'l':
+                r0 + 1
+            else:
+                if x0 == 'L':
+                    r0 + 1
+                else:
+                    r0
+        let nl = @inst[R0] strn_foldl(rep, 0)
+        @impl[X0, R0]
+        def foldl/fopr(r0, x0):
+            if x0 == 'u':
+                r0 + 1
+            else:
+                if x0 == 'U':
+                    r0 + 1
+                else:
+                    r0
+        let nu = @inst[R0] strn_foldl(rep, 0)
+

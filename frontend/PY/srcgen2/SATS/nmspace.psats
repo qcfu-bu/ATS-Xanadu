@@ -1,0 +1,26 @@
+@abstract
+type Nmitm_tbox
+
+type Nmitm = Nmitm_tbox
+
+@extern
+def the_nmspace_top0() -> Nmitm
+
+@extern
+def the_nmspace_pop0() -> Void
+
+@extern
+def the_nmspace_push() -> Void
+
+@extern
+def the_nmspace_locjoin() -> Void
+
+@extern
+def the_nmspace_filsave() -> Void
+
+@extern
+def the_nmspace_filrest() -> Void
+
+@extern
+def the_nmspace_find/f1un[A: Tbox](a: Nmitm -> Optn_vt[A]) -> Optn_vt[A]
+

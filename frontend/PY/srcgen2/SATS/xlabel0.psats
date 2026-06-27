@@ -1,0 +1,23 @@
+import "srcgen2/SATS/xsymbol" as SYM
+
+type Sym_t = SYM.sym_t
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+enum Label:
+    case LABint(SInt)
+    case LABsym(Sym_t)
+
+type Lab_t = Label
+
+@extern
+def label_none() -> Label
+
+@extern
+def label_cmp(a: Label, b: Label) -> SInt
+
+@extern
+def label_fprint(a: Label, b: FILR) -> Void
+

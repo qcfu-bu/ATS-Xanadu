@@ -1,0 +1,89 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/locinfo" import *
+
+@impl
+def postn_cmp(ps1, ps2):
+    g_cmp(ps1.ntot(), ps2.ntot())
+
+@impl
+def loctn_cmp(lc1, lc2):
+    g_cmp(lc1.pbeg(), lc2.pbeg())
+
+private:
+    enum Postn:
+        case POSTN(SInt, SInt, SInt)
+    @impl
+    type Postn_tbox = Postn
+
+@impl
+def postn_get_ntot(pos):
+    let POSTN(ntot, nrow, ncol) = pos
+    ntot
+
+@impl
+def postn_get_nrow(pos):
+    let POSTN(ntot, nrow, ncol) = pos
+    nrow
+
+@impl
+def postn_get_ncol(pos):
+    let POSTN(ntot, nrow, ncol) = pos
+    ncol
+
+@impl
+def postn_make_int3(ntot, nrow, ncol):
+    POSTN(ntot, nrow, ncol)
+
+
+private:
+    enum Loctn:
+        case LOCTN(lcsrc, Postn, Postn)
+    @impl
+    type Loctn_tbox = Loctn
+
+@impl
+def loctn_get_lsrc(loc):
+    let LOCTN(lsrc, pbeg, pend) = loc
+    lsrc
+
+@impl
+def loctn_get_pbeg(loc):
+    let LOCTN(lsrc, pbeg, pend) = loc
+    pbeg
+
+@impl
+def loctn_get_pend(loc):
+    let LOCTN(lsrc, pbeg, pend) = loc
+    pend
+
+@impl
+def loctn_make_arg3(src, ps1, ps2):
+    LOCTN(src, ps1, ps2)
+
+
+@impl
+def loctn_dummy():
+    loctn_make_arg3(src, ps0, ps0)
+where:
+    let src = LCSRCnone0()
+    let ps0 = postn_make_int3(-(1), -(1), -(1))
+
+@impl
+def loctn_make_fpath(fp0, ps1, ps2):
+    let src = LCSRCfpath(fp0)
+    loctn_make_arg3(src, ps1, ps2)
+
+@impl
+def add_loctn_loctn(lc1, lc2):
+    let lcs = lc1.lsrc()
+    let pb1 = lc1.pbeg()
+    let pb2 = lc2.pbeg()
+    let pe1 = lc1.pend()
+    let pe2 = lc2.pend()
+    loctn_make_arg3(lcs, g_min(pb1, pb2), g_max(pe1, pe2))
+

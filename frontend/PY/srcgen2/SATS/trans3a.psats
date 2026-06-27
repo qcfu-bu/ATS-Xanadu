@@ -1,0 +1,251 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+@abstract
+type Tr3aenv_vtbx
+
+type Tr3aenv = Tr3aenv_vtbx
+
+import "srcgen2/SATS/xbasics" as BAS
+
+type F2clknd = BAS.f2clknd
+
+import "srcgen2/SATS/xsymbol" as SYM
+
+import "srcgen2/SATS/staexp2" as S2E
+
+import "srcgen2/SATS/dynexp2" as D2E
+
+import "srcgen2/SATS/dynexp3" as D3E
+
+type Sym_t = SYM.sym_t
+
+type S2cst = S2E.s2cst
+
+type S2var = S2E.s2var
+
+type S2typ = S2E.s2typ
+
+type L2t2p = S2E.l2t2p
+
+type S2qag = D2E.s2qag
+
+type T2qag = D2E.t2qag
+
+type T2jag = D2E.t2jag
+
+type D2var = D2E.d2var
+
+type D2con = D2E.d2con
+
+type D2cst = D2E.d2cst
+
+type D3pat = D3E.d3pat
+
+type D3exp = D3E.d3exp
+
+type L3d3p = D3E.l3d3p
+
+type L3d3e = D3E.l3d3e
+
+type F3arg = D3E.f3arg
+
+type D3gua = D3E.d3gua
+
+type D3gpt = D3E.d3gpt
+
+type D3cls = D3E.d3cls
+
+type D3ecl = D3E.d3ecl
+
+type S2varlst = S2E.s2varlst
+
+type S2typlst = S2E.s2typlst
+
+type L2t2plst = S2E.l2t2plst
+
+type S2qaglst = D2E.s2qaglst
+
+type T2qaglst = D2E.t2qaglst
+
+type T2jaglst = D2E.t2jaglst
+
+type Teqd3exp = D3E.teqd3exp
+
+type D3patlst = D3E.d3patlst
+
+type D3explst = D3E.d3explst
+
+type D3expopt = D3E.d3expopt
+
+type L3d3plst = D3E.l3d3plst
+
+type L3d3elst = D3E.l3d3elst
+
+type F3arglst = D3E.f3arglst
+
+type D3gualst = D3E.d3gualst
+
+type D3clslst = D3E.d3clslst
+
+type D3eclist = D3E.d3eclist
+
+type D3valdcl = D3E.d3valdcl
+
+type D3vardcl = D3E.d3vardcl
+
+type D3fundcl = D3E.d3fundcl
+
+type D3parsed = D3E.d3parsed
+
+type D3topenv = D3E.d3topenv
+
+type D3valdclist = D3E.d3valdclist
+
+type D3vardclist = D3E.d3vardclist
+
+type D3fundclist = D3E.d3fundclist
+
+type D3explstopt = D3E.d3explstopt
+
+type D3eclistopt = D3E.d3eclistopt
+
+@extern
+def d3parsed_of_trans3a(a: D3parsed) -> D3parsed
+
+@extern
+def tr3aenv_make_nil() -> Tr3aenv
+
+@extern
+def tr3aenv_free_top(a: Tr3aenv) -> D3topenv
+
+@extern
+def tr3aenv_pshlet0(a: !Tr3aenv) -> Void
+
+@extern
+def tr3aenv_poplet0(a: !Tr3aenv) -> Void
+
+@extern
+def tr3aenv_pshloc1(a: !Tr3aenv) -> Void
+
+@extern
+def tr3aenv_pshloc2(a: !Tr3aenv) -> Void
+
+@extern
+def tr3aenv_locjoin(a: !Tr3aenv) -> Void
+
+@extern
+def tr3aenv_d2crch/opt(a: !Tr3aenv, b: D2cst) -> D3eclist
+
+@extern
+def tr3aenv_d2cins/any(a: !Tr3aenv, b: D2cst, c: D3ecl) -> Void
+
+@extern
+def tr3aenv_insert_d3ecl(a: !Tr3aenv, b: D3ecl) -> Void
+
+@extern
+def list_trans3a_fnp[X0: Type, Y0: Type](a: !Tr3aenv, b: List[X0], c: (!Tr3aenv, X0) -> Y0) -> List[Y0]
+
+@extern
+def optn_trans3a_fnp[X0: Type, Y0: Type](a: !Tr3aenv, b: Optn[X0], c: (!Tr3aenv, X0) -> Y0) -> Optn[Y0]
+
+@extern
+def trans3a_s2typ(a: !Tr3aenv, b: S2typ) -> S2typ
+
+@extern
+def trans3a_l2t2p(a: !Tr3aenv, b: L2t2p) -> L2t2p
+
+@extern
+def trans3a_t2jag(a: !Tr3aenv, b: T2jag) -> T2jag
+
+@extern
+def trans3a_d3pat(a: !Tr3aenv, b: D3pat) -> D3pat
+
+@extern
+def trans3a_d3exp(a: !Tr3aenv, b: D3exp) -> D3exp
+
+@extern
+def trans3a_l3d3p(a: !Tr3aenv, b: L3d3p) -> L3d3p
+
+@extern
+def trans3a_l3d3e(a: !Tr3aenv, b: L3d3e) -> L3d3e
+
+@extern
+def trans3a_f3arg(a: !Tr3aenv, b: F3arg) -> F3arg
+
+@extern
+def trans3a_d3gua(a: !Tr3aenv, b: D3gua) -> D3gua
+
+@extern
+def trans3a_d3gpt(a: !Tr3aenv, b: D3gpt) -> D3gpt
+
+@extern
+def trans3a_d3cls(a: !Tr3aenv, b: D3cls) -> D3cls
+
+@extern
+def trans3a_s2typlst(a: !Tr3aenv, b: S2typlst) -> S2typlst
+
+@extern
+def trans3a_l2t2plst(a: !Tr3aenv, b: L2t2plst) -> L2t2plst
+
+@extern
+def trans3a_t2jaglst(a: !Tr3aenv, b: T2jaglst) -> T2jaglst
+
+@extern
+def trans3a_d3patlst(a: !Tr3aenv, b: D3patlst) -> D3patlst
+
+@extern
+def trans3a_d3expopt(a: !Tr3aenv, b: D3expopt) -> D3expopt
+
+@extern
+def trans3a_d3explst(a: !Tr3aenv, b: D3explst) -> D3explst
+
+@extern
+def trans3a_l3d3plst(a: !Tr3aenv, b: L3d3plst) -> L3d3plst
+
+@extern
+def trans3a_l3d3elst(a: !Tr3aenv, b: L3d3elst) -> L3d3elst
+
+@extern
+def trans3a_f3arglst(a: !Tr3aenv, b: F3arglst) -> F3arglst
+
+@extern
+def trans3a_d3gualst(a: !Tr3aenv, b: D3gualst) -> D3gualst
+
+@extern
+def trans3a_d3clslst(a: !Tr3aenv, b: D3clslst) -> D3clslst
+
+@extern
+def trans3a_d3ecl(a: !Tr3aenv, b: D3ecl) -> D3ecl
+
+@extern
+def trans3a_tmplocal(a: !Tr3aenv, b: D3eclist, c: D3eclist) -> D3eclist
+
+@extern
+def trans3a_teqd3exp(a: !Tr3aenv, b: Teqd3exp) -> Teqd3exp
+
+@extern
+def trans3a_d3eclist(a: !Tr3aenv, b: D3eclist) -> D3eclist
+
+@extern
+def trans3a_d3valdcl(a: !Tr3aenv, b: D3valdcl) -> D3valdcl
+
+@extern
+def trans3a_d3vardcl(a: !Tr3aenv, b: D3vardcl) -> D3vardcl
+
+@extern
+def trans3a_d3fundcl(a: !Tr3aenv, b: D3fundcl) -> D3fundcl
+
+@extern
+def trans3a_d3valdclist(a: !Tr3aenv, b: D3valdclist) -> D3valdclist
+
+@extern
+def trans3a_d3vardclist(a: !Tr3aenv, b: D3vardclist) -> D3vardclist
+
+@extern
+def trans3a_d3fundclist(a: !Tr3aenv, b: D3fundclist) -> D3fundclist
+
+@extern
+def trans3a_d3eclistopt(a: !Tr3aenv, b: D3eclistopt) -> D3eclistopt
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+

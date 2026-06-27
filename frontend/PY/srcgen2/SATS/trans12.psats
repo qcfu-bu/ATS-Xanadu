@@ -1,0 +1,817 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+@abstract
+type Tr12env_vtbx
+
+type Tr12env = Tr12env_vtbx
+
+import "srcgen2/SATS/xsymbol" as SYM
+
+import "srcgen2/SATS/xsymmap" as MAP
+
+type Sym_t = SYM.sym_t
+
+import "srcgen2/SATS/xlabel0" as LAB
+
+import "srcgen2/SATS/locinfo" as LOC
+
+import "srcgen2/SATS/lexing0" as LEX
+
+type Lab_t = LAB.lab_t
+
+type Loc_t = LOC.loc_t
+
+type Token = LEX.token
+
+import "srcgen2/SATS/staexp1" as S1E
+
+import "srcgen2/SATS/dynexp1" as D1E
+
+import "srcgen2/SATS/gmacro1" as G1M
+
+import "srcgen2/SATS/staexp2" as S2E
+
+import "srcgen2/SATS/dynexp2" as D2E
+
+type G1exp = S1E.g1exp
+
+type Sort1 = S1E.sort1
+
+type S1arg = S1E.s1arg
+
+type S1mag = S1E.s1mag
+
+type T1arg = S1E.t1arg
+
+type T1mag = S1E.t1mag
+
+type S1exp = S1E.s1exp
+
+type L1s1e = S1E.l1s1e
+
+type D1tcn = S1E.d1tcn
+
+type D1typ = S1E.d1typ
+
+type G1mac = G1M.g1mac
+
+type Sort2 = S2E.sort2
+
+type S2cst = S2E.s2cst
+
+type S2var = S2E.s2var
+
+type S2exp = S2E.s2exp
+
+type L2s2e = S2E.l2s2e
+
+type S2itm = S2E.s2itm
+
+type S2tex = S2E.s2tex
+
+type F2env = S2E.f2env
+
+type Q1arg = D1E.q1arg
+
+type S1qag = D1E.s1qag
+
+type T1qag = D1E.t1qag
+
+type T1iag = D1E.t1iag
+
+type D1pid = D1E.d1pid
+
+type D1pat = D1E.d1pat
+
+type D1exp = D1E.d1exp
+
+type L1d1p = D1E.l1d1p
+
+type L1d1e = D1E.l1d1e
+
+type F1arg = D1E.f1arg
+
+type D1gua = D1E.d1gua
+
+type D1gpt = D1E.d1gpt
+
+type D1cls = D1E.d1cls
+
+type S1eff = D1E.s1eff
+
+type S1res = D1E.s1res
+
+type D1ecl = D1E.d1ecl
+
+type A1tdf = D1E.a1tdf
+
+type D1arg = D1E.d1arg
+
+type D2con = D2E.d2con
+
+type D2cst = D2E.d2cst
+
+type D2var = D2E.d2var
+
+type S2qag = D2E.s2qag
+
+type T2qag = D2E.t2qag
+
+type T2iag = D2E.t2iag
+
+type D2pat = D2E.d2pat
+
+type D2exp = D2E.d2exp
+
+type L2d2p = D2E.l2d2p
+
+type L2d2e = D2E.l2d2e
+
+type F2arg = D2E.f2arg
+
+type D2gua = D2E.d2gua
+
+type D2gpt = D2E.d2gpt
+
+type D2cls = D2E.d2cls
+
+type S2eff = D2E.s2eff
+
+type S2res = D2E.s2res
+
+type D2itm = D2E.d2itm
+
+type D2ecl = D2E.d2ecl
+
+type A2tdf = D2E.a2tdf
+
+type D2arg = D2E.d2arg
+
+type Wths1exp = D1E.wths1exp
+
+type Wths2exp = D2E.wths2exp
+
+type Teqd1exp = D1E.teqd1exp
+
+type Teqd2exp = D2E.teqd2exp
+
+type G1maclst = G1M.g1maclst
+
+type Sort1lst = S1E.sort1lst
+
+type Sort1opt = S1E.sort1opt
+
+type S1arglst = S1E.s1arglst
+
+type S1maglst = S1E.s1maglst
+
+type T1arglst = S1E.t1arglst
+
+type T1maglst = S1E.t1maglst
+
+type S1qualst = S1E.s1qualst
+
+type S1explst = S1E.s1explst
+
+type L1s1elst = S1E.l1s1elst
+
+type S1expopt = S1E.s1expopt
+
+type D1tcnlst = S1E.d1tcnlst
+
+type D1typlst = S1E.d1typlst
+
+type Sort2lst = S2E.sort2lst
+
+type Sort2opt = S2E.sort2opt
+
+type S2cstlst = S2E.s2cstlst
+
+type S2varlst = S2E.s2varlst
+
+type S2explst = S2E.s2explst
+
+type L2s2elst = S2E.l2s2elst
+
+type S2cstopt = S2E.s2cstopt
+
+type S2varopt = S2E.s2varopt
+
+type S2expopt = S2E.s2expopt
+
+type F2envlst = S2E.f2envlst
+
+type Q1arglst = D1E.q1arglst
+
+type S1qaglst = D1E.s1qaglst
+
+type T1qaglst = D1E.t1qaglst
+
+type T1iaglst = D1E.t1iaglst
+
+type D1pidopt = D1E.d1pidopt
+
+type D1patlst = D1E.d1patlst
+
+type L1d1plst = D1E.l1d1plst
+
+type D1patopt = D1E.d1patopt
+
+type D1explst = D1E.d1explst
+
+type L1d1elst = D1E.l1d1elst
+
+type D1expopt = D1E.d1expopt
+
+type D1gualst = D1E.d1gualst
+
+type D1clslst = D1E.d1clslst
+
+type D2conlst = D2E.d2conlst
+
+type D2cstlst = D2E.d2cstlst
+
+type D2varlst = D2E.d2varlst
+
+type D2conopt = D2E.d2conopt
+
+type D2cstopt = D2E.d2cstopt
+
+type D2varopt = D2E.d2varopt
+
+type S2qaglst = D2E.s2qaglst
+
+type T2qaglst = D2E.t2qaglst
+
+type T2iaglst = D2E.t2iaglst
+
+type D2patlst = D2E.d2patlst
+
+type D2explst = D2E.d2explst
+
+type L2d2plst = D2E.l2d2plst
+
+type L2d2elst = D2E.l2d2elst
+
+type D2patopt = D2E.d2patopt
+
+type D2expopt = D2E.d2expopt
+
+type F1arglst = D1E.f1arglst
+
+type F2arglst = D2E.f2arglst
+
+type D2gualst = D2E.d2gualst
+
+type D2clslst = D2E.d2clslst
+
+type D1eclist = D1E.d1eclist
+
+type D2eclist = D2E.d2eclist
+
+type D1arglst = D1E.d1arglst
+
+type D2arglst = D2E.d2arglst
+
+type D2topenv = D2E.d2topenv
+
+type D1parsed = D1E.d1parsed
+
+type D2parsed = D2E.d2parsed
+
+type D1valdcl = D1E.d1valdcl
+
+type D1vardcl = D1E.d1vardcl
+
+type D1fundcl = D1E.d1fundcl
+
+type D1cstdcl = D1E.d1cstdcl
+
+type D2valdcl = D2E.d2valdcl
+
+type D2vardcl = D2E.d2vardcl
+
+type D2fundcl = D2E.d2fundcl
+
+type D2cstdcl = D2E.d2cstdcl
+
+type D1valdclist = List[D1valdcl]
+
+type D1vardclist = List[D1vardcl]
+
+type D1fundclist = List[D1fundcl]
+
+type D1cstdclist = List[D1cstdcl]
+
+type D2valdclist = List[D2valdcl]
+
+type D2vardclist = List[D2vardcl]
+
+type D2fundclist = List[D2fundcl]
+
+type D2cstdclist = List[D2cstdcl]
+
+type D1explstopt = Optn[D1explst]
+
+type D2explstopt = Optn[D2explst]
+
+type D1eclistopt = Optn[D1eclist]
+
+type D2eclistopt = Optn[D2eclist]
+
+type S2varopt_vt = Optn_vt[S2var]
+
+type S2cstopt_vt = Optn_vt[S2cst]
+
+type Sort2lstlst = List[Sort2lst]
+
+type S2varlstlst = List[S2varlst]
+
+type G1macopt_vt = Optn_vt[G1mac]
+
+type S2texopt_vt = Optn_vt[S2tex]
+
+type S2itmopt_vt = Optn_vt[S2itm]
+
+type D2itmopt_vt = Optn_vt[D2itm]
+
+@extern
+def s1exp_get_s2cstlst(a: !Tr12env, b: S1exp) -> S2cstlst
+
+@extern
+def g1exp_nmspace(a: G1exp) -> Optn[Sym_t]
+
+@extern
+def s2cst_select/any(a: S2cstlst) -> S2cstopt_vt
+
+@extern
+def s2cst_select_bin(a: S2cstlst, b: Sort2, c: Sort2) -> S2cstopt_vt
+
+@extern
+def s2cst_select_list(a: S2cstlst, b: S2explst) -> S2cstopt_vt
+
+@extern
+def s2cst_selects_bin(a: S2cstlst, b: Sort2, c: Sort2) -> S2cstlst
+
+@extern
+def s2cst_selects_list(a: S2cstlst, b: S2explst) -> S2cstlst
+
+@extern
+def d2parsed_of_trans12(a: D1parsed) -> D2parsed
+
+@extern
+def d2parsed_of_trans2a(a: D2parsed) -> D2parsed
+
+@extern
+def d2parsed_by_trsym2b(a: D2parsed) -> Void
+
+@extern
+def tr12env_make_nil() -> Tr12env
+
+@extern
+def tr12env_free_top(a: Tr12env) -> D2topenv
+
+@extern
+def tr12env_add0_g1mac(a: !Tr12env, b: Sym_t, c: G1mac) -> Void
+
+@extern
+def tr12env_add0_s2tex(a: !Tr12env, b: Sym_t, c: S2tex) -> Void
+
+@extern
+def tr12env_add0_s2itm(a: !Tr12env, b: Sym_t, c: S2itm) -> Void
+
+@extern
+def tr12env_add0_d2itm(a: !Tr12env, b: Sym_t, c: D2itm) -> Void
+
+@extern
+def tr12env_add1_f2env(a: !Tr12env, b: Sym_t, c: F2env) -> Void
+
+@extern
+def f2envlst_find_g1mac(a: F2envlst, b: Sym_t) -> G1macopt_vt
+
+@extern
+def f2envlst_find_s2tex(a: F2envlst, b: Sym_t) -> S2texopt_vt
+
+@extern
+def f2envlst_find_s2itm(a: F2envlst, b: Sym_t) -> S2itmopt_vt
+
+@extern
+def f2envlst_find_d2itm(a: F2envlst, b: Sym_t) -> D2itmopt_vt
+
+@extern
+def tr12env_find_g1mac(a: !Tr12env, b: Sym_t) -> G1macopt_vt
+
+@extern
+def tr12env_find_s2tex(a: !Tr12env, b: Sym_t) -> S2texopt_vt
+
+@extern
+def tr12env_find_s2env(a: !Tr12env, b: Sym_t) -> S2itmopt_vt
+
+@extern
+def tr12env_find_s2qua(a: !Tr12env, b: Sym_t) -> S2itmopt_vt
+
+@extern
+def tr12env_find_s2itm(a: !Tr12env, b: Sym_t) -> S2itmopt_vt
+
+@extern
+def tr12env_find_d2itm(a: !Tr12env, b: Sym_t) -> D2itmopt_vt
+
+@extern
+def tr12env_ofind_g1mac(a: !Tr12env, b: Sym_t) -> G1macopt_vt
+
+@extern
+def tr12env_ofind_s2tex(a: !Tr12env, b: Sym_t) -> S2texopt_vt
+
+@extern
+def tr12env_ofind_s2itm(a: !Tr12env, b: Sym_t) -> S2itmopt_vt
+
+@extern
+def tr12env_ofind_d2itm(a: !Tr12env, b: Sym_t) -> D2itmopt_vt
+
+@extern
+def tr12env_qfind_s2tex(a: !Tr12env, b: Token, c: Sym_t) -> S2texopt_vt
+
+@extern
+def tr12env_qfind_s2itm(a: !Tr12env, b: Token, c: Sym_t) -> S2itmopt_vt
+
+@extern
+def tr12env_qfind_d2itm(a: !Tr12env, b: Token, c: Sym_t) -> D2itmopt_vt
+
+@extern
+def tr12env_pshlam0(a: !Tr12env) -> Void
+
+@extern
+def tr12env_poplam0(a: !Tr12env) -> Void
+
+@extern
+def tr12env_pshlet0(a: !Tr12env) -> Void
+
+@extern
+def tr12env_poplet0(a: !Tr12env) -> Void
+
+@extern
+def tr12env_pshloc1(a: !Tr12env) -> Void
+
+@extern
+def tr12env_pshloc2(a: !Tr12env) -> Void
+
+@extern
+def tr12env_locjoin(a: !Tr12env) -> Void
+
+@extern
+def tr12env_eval_ifexp(a: !Tr12env, b: G1exp) -> Bool
+
+@extern
+def tr12env_add1_s2cst(a: !Tr12env, b: S2cst) -> Void
+
+@extern
+def tr12env_add0_s2var(a: !Tr12env, b: S2var) -> Void
+
+@extern
+def tr12env_add0_s2qag(a: !Tr12env, b: S2qag) -> Void
+
+@extern
+def tr12env_add0_t2qag(a: !Tr12env, b: T2qag) -> Void
+
+@extern
+def tr12env_add1_d2con(a: !Tr12env, b: D2con) -> Void
+
+@extern
+def tr12env_add1_d2cst(a: !Tr12env, b: D2cst) -> Void
+
+@extern
+def tr12env_add0_d2var(a: !Tr12env, b: D2var) -> Void
+
+@extern
+def tr12env_add0_d2pat(a: !Tr12env, b: D2pat) -> Void
+
+@extern
+def tr12env_add0_f2arg(a: !Tr12env, b: F2arg) -> Void
+
+@extern
+def tr12env_add0_d2gpt(a: !Tr12env, b: D2gpt) -> Void
+
+@extern
+def tr12env_add0_s2varlst(a: !Tr12env, b: S2varlst) -> Void
+
+@extern
+def tr12env_add0_s2qaglst(a: !Tr12env, b: S2qaglst) -> Void
+
+@extern
+def tr12env_add0_t2qaglst(a: !Tr12env, b: T2qaglst) -> Void
+
+@extern
+def tr12env_add1_d2conlst(a: !Tr12env, b: D2conlst) -> Void
+
+@extern
+def tr12env_add1_d2cstlst(a: !Tr12env, b: D2cstlst) -> Void
+
+@extern
+def tr12env_add0_d2varlst(a: !Tr12env, b: D2varlst) -> Void
+
+@extern
+def tr12env_add0_d2varopt(a: !Tr12env, b: D2varopt) -> Void
+
+@extern
+def tr12env_add0_d2patlst(a: !Tr12env, b: D2patlst) -> Void
+
+@extern
+def tr12env_add0_l2d2plst(a: !Tr12env, b: L2d2plst) -> Void
+
+@extern
+def tr12env_add0_f2arglst(a: !Tr12env, b: F2arglst) -> Void
+
+@overload tr12env_add0_s2vs = tr12env_add0_s2varlst
+
+@overload tr12env_add0_sqas = tr12env_add0_s2qaglst
+
+@overload tr12env_add0_tqas = tr12env_add0_t2qaglst
+
+@overload tr12env_add1_d2cs = tr12env_add1_d2conlst
+
+@overload tr12env_add1_d2cs = tr12env_add1_d2cstlst
+
+@overload tr12env_add0_d2vs = tr12env_add0_d2varlst
+
+@overload tr12env_add0_d2ps = tr12env_add0_d2patlst
+
+@overload tr12env_add0_f2as = tr12env_add0_f2arglst
+
+@extern
+def list_trans12_fnp[X0: Type, Y0: Type](a: !Tr12env, b: List[X0], c: (!Tr12env, X0) -> Y0) -> List[Y0]
+
+@extern
+def optn_trans12_fnp[X0: Type, Y0: Type](a: !Tr12env, b: Optn[X0], c: (!Tr12env, X0) -> Y0) -> Optn[Y0]
+
+@extern
+def trans12_sort1(a: !Tr12env, b: Sort1) -> Sort2
+
+@extern
+def trans12_s1tex(a: !Tr12env, b: Sort1) -> S2tex
+
+@extern
+def trans12_s1arg(a: !Tr12env, b: S1arg) -> S2var
+
+@extern
+def trans12_s1mag(a: !Tr12env, b: S1mag) -> S2varlst
+
+@extern
+def trans12_t1arg(a: !Tr12env, b: T1arg) -> Sort2
+
+@extern
+def trans12_t1mag(a: !Tr12env, b: T1mag) -> Sort2lst
+
+@extern
+def trans12_s1exp(a: !Tr12env, b: S1exp) -> S2exp
+
+@extern
+def trans12_l1s1e(a: !Tr12env, b: L1s1e) -> L2s2e
+
+@extern
+def trans12_s1exp_impr(a: !Tr12env, b: S1exp) -> S2exp
+
+@extern
+def trans12_s1exp_prgm(a: !Tr12env, b: S1exp) -> S2exp
+
+@extern
+def trans12_l1s1e_impr(a: !Tr12env, b: L1s1e) -> L2s2e
+
+@extern
+def trans12_l1s1e_prgm(a: !Tr12env, b: L1s1e) -> L2s2e
+
+@extern
+def trans12_s1arg_tsub(a: !Tr12env, b: S1arg) -> (S2var, S2explst)
+
+@extern
+def trans12_s1exp_stck(a: !Tr12env, b: S1exp, c: Sort2) -> S2exp
+
+@extern
+def trans12_a1tdf_stck(a: !Tr12env, b: A1tdf, c: Sort2) -> A2tdf
+
+@extern
+def trans12_sort1lst(a: !Tr12env, b: Sort1lst) -> Sort2lst
+
+@extern
+def trans12_sort1opt(a: !Tr12env, b: Sort1opt) -> Sort2opt
+
+@extern
+def trans12_s1arglst(a: !Tr12env, b: S1arglst) -> S2varlst
+
+@extern
+def trans12_s1maglst(a: !Tr12env, b: S1maglst) -> S2varlstlst
+
+@extern
+def trans12_t1arglst(a: !Tr12env, b: T1arglst) -> Sort2lst
+
+@extern
+def trans12_t1maglst(a: !Tr12env, b: T1maglst) -> Sort2lstlst
+
+@extern
+def trans12_s1qualst(a: !Tr12env, b: S1qualst) -> (S2varlst, S2explst)
+
+@extern
+def trans12_s1explst(a: !Tr12env, b: S1explst) -> S2explst
+
+@extern
+def trans12_s1expopt(a: !Tr12env, b: S1expopt) -> S2expopt
+
+@extern
+def trans12_s1explst_impr(a: !Tr12env, b: S1explst) -> S2explst
+
+@extern
+def trans12_s1explst_prgm(a: !Tr12env, b: S1explst) -> S2explst
+
+@extern
+def trans12_l1s1elst_impr(a: !Tr12env, b: L1s1elst) -> L2s2elst
+
+@extern
+def trans12_l1s1elst_prgm(a: !Tr12env, b: L1s1elst) -> L2s2elst
+
+@extern
+def trans12_s1explst_stck1(a: !Tr12env, b: S1explst, c: Sort2) -> S2explst
+
+@extern
+def trans12_s1explst_stcks(a: !Tr12env, b: S1explst, c: Sort2lst) -> S2explst
+
+@extern
+def trans12_d1pid(a: !Tr12env, b: D1pid) -> D2var
+
+@extern
+def trans12_d1pat(a: !Tr12env, b: D1pat) -> D2pat
+
+@extern
+def trans12_l1d1p(a: !Tr12env, b: L1d1p) -> L2d2p
+
+@extern
+def trans12_f1arg(a: !Tr12env, b: F1arg) -> F2arg
+
+@extern
+def trans12_d1gua(a: !Tr12env, b: D1gua) -> D2gua
+
+@extern
+def trans12_d1gpt(a: !Tr12env, b: D1gpt) -> D2gpt
+
+@extern
+def trans12_d1cls(a: !Tr12env, b: D1cls) -> D2cls
+
+@extern
+def trans12_d1exp(a: !Tr12env, b: D1exp) -> D2exp
+
+@extern
+def trans12_l1d1e(a: !Tr12env, b: L1d1e) -> L2d2e
+
+@extern
+def trans12_q1arg(a: !Tr12env, b: Q1arg) -> S2var
+
+@extern
+def trans12_s1qag(a: !Tr12env, b: S1qag) -> S2qag
+
+@extern
+def trans12_t1qag(a: !Tr12env, b: T1qag) -> T2qag
+
+@extern
+def trans12_t1iag(a: !Tr12env, b: T1iag) -> T2iag
+
+@extern
+def trans12_s1eff(a: !Tr12env, b: S1eff) -> S2eff
+
+@extern
+def trans12_s1res(a: !Tr12env, b: S1res) -> S2res
+
+@extern
+def trans12_d1ecl(a: !Tr12env, b: D1ecl) -> D2ecl
+
+@extern
+def trans12_d1arg(a: !Tr12env, b: D1arg) -> D2arg
+
+@extern
+def trans12_teqd1exp(a: !Tr12env, b: Teqd1exp) -> Teqd2exp
+
+@extern
+def trans12_wths1exp(a: !Tr12env, b: Wths1exp) -> Wths2exp
+
+@extern
+def trans12_d1expseq(a: !Tr12env, b: Loc_t, c: D1explst) -> D2exp
+
+@extern
+def trans12_d1typ(a: !Tr12env, b: D1typ, c: Sort2) -> S2cst
+
+@extern
+def trans12_d1typlst(a: !Tr12env, b: D1typlst, c: Sort2) -> S2cstlst
+
+@extern
+def trans12_d1tsc(a: !Tr12env, b: D1typ, c: S2cst) -> Void
+
+@extern
+def trans12_d1tsclst(a: !Tr12env, b: D1typlst, c: S2cstlst) -> Void
+
+@extern
+def trans12_d1tcn(a: !Tr12env, b: D1tcn, c: S2cst, d: T2qaglst, e: S2varlstlst) -> D2con
+
+@extern
+def trans12_d1tcnlst(a: !Tr12env, b: D1tcnlst, c: S2cst, d: S2varlstlst) -> D2conlst
+
+@extern
+def trs2exp_g1mac(a: !Tr12env, b: Loc_t, c: G1mac) -> S2exp
+
+@extern
+def trd2pat_g1mac(a: !Tr12env, b: Loc_t, c: G1mac) -> D2pat
+
+@extern
+def trd2exp_g1mac(a: !Tr12env, b: Loc_t, c: G1mac) -> D2exp
+
+@extern
+def trs2exp_g1maclst(a: !Tr12env, b: Loc_t, c: G1maclst) -> S2explst
+
+@extern
+def trd2pat_g1maclst(a: !Tr12env, b: Loc_t, c: G1maclst) -> D2patlst
+
+@extern
+def trd2exp_g1maclst(a: !Tr12env, b: Loc_t, c: G1maclst) -> D2explst
+
+@extern
+def trans12_g1mac(a: !Tr12env, b: G1mac) -> G1mac
+
+@extern
+def trans12_g1mac_apps(a: !Tr12env, b: G1mac, c: G1maclst) -> G1mac
+
+@extern
+def trans12_d1pidopt(a: !Tr12env, b: D1pidopt) -> D2varopt
+
+@extern
+def trans12_d1patlst(a: !Tr12env, b: D1patlst) -> D2patlst
+
+@extern
+def trans12_l1d1plst(a: !Tr12env, b: L1d1plst) -> L2d2plst
+
+@extern
+def trans12_d1patopt(a: !Tr12env, b: D1patopt) -> D2patopt
+
+@extern
+def trans12_f1arglst(a: !Tr12env, b: F1arglst) -> F2arglst
+
+@extern
+def trans12_d1gualst(a: !Tr12env, b: D1gualst) -> D2gualst
+
+@extern
+def trans12_d1clslst(a: !Tr12env, b: D1clslst) -> D2clslst
+
+@extern
+def trans12_d1explst(a: !Tr12env, b: D1explst) -> D2explst
+
+@extern
+def trans12_l1d1elst(a: !Tr12env, b: L1d1elst) -> L2d2elst
+
+@extern
+def trans12_d1expopt(a: !Tr12env, b: D1expopt) -> D2expopt
+
+@extern
+def trans12_q1arglst(a: !Tr12env, b: Q1arglst) -> S2varlst
+
+@extern
+def trans12_s1qaglst(a: !Tr12env, b: S1qaglst) -> S2qaglst
+
+@extern
+def trans12_t1qaglst(a: !Tr12env, b: T1qaglst) -> T2qaglst
+
+@extern
+def trans12_t1iaglst(a: !Tr12env, b: T1iaglst) -> T2iaglst
+
+@extern
+def trans12_d1eclist(a: !Tr12env, b: D1eclist) -> D2eclist
+
+@extern
+def trans12_d1arglst(a: !Tr12env, b: D1arglst) -> D2arglst
+
+@extern
+def trans12_d1valdcl(a: !Tr12env, b: D2pat, c: D1valdcl) -> D2valdcl
+
+@extern
+def trans12_d1valdclist(a: !Tr12env, b: D2patlst, c: D1valdclist) -> D2valdclist
+
+@extern
+def trans12_d1vardcl(a: !Tr12env, b: D1vardcl) -> D2vardcl
+
+@extern
+def trans12_d1vardclist(a: !Tr12env, b: D1vardclist) -> D2vardclist
+
+@extern
+def trans12_d1fundcl(a: !Tr12env, b: D2var, c: D1fundcl) -> D2fundcl
+
+@extern
+def trans12_d1fundclist(a: !Tr12env, b: D2varlst, c: D1fundclist) -> D2fundclist
+
+@extern
+def trans12_d1cstdcl(a: !Tr12env, b: Token, c: D1cstdcl, d: T2qaglst) -> D2cstdcl
+
+@extern
+def trans12_d1cstdclist(a: !Tr12env, b: Token, c: D1cstdclist, d: T2qaglst) -> D2cstdclist
+
+@extern
+def trans12_d1eclistopt(a: !Tr12env, b: D1eclistopt) -> D2eclistopt
+
+@extern
+def trans02_from_fpath(a: SInt, b: String) -> D2parsed
+

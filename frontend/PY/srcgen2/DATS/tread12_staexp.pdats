@@ -1,0 +1,508 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/tread12" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload d2cs = s2cst_get_d2cs
+
+@overload d2cs = s2cst_set_d2cs
+
+@overload node = s2exp_get_node
+
+@overload sort = s2exp_get_sort
+
+def sort2_errck(lvl0: SInt, s2t0: sort2) -> sort2:
+    S2Terrck(lvl0, s2t0)
+
+def s2exp_errck(lvl0: SInt, s2e0: s2exp) -> s2exp:
+    let s2t0 = s2e0.sort()
+    s2exp_make_node(s2t0, S2Eerrck(lvl0, s2e0))
+
+def sort2_errvl_a1(s2t0: sort2) -> SInt:
+    match s2t0:
+        case S2Terrck(lvl0, _):
+            lvl0
+        case _:
+            0
+
+@overload sort2_errvl = sort2_errvl_a1
+
+@overload errvl = sort2_errvl_a1
+
+def sort2_errvl_a2(s2t1: sort2, s2t2: sort2) -> SInt:
+    maxs(errvl(s2t1), errvl(s2t2))
+
+@overload sort2_errvl = sort2_errvl_a2
+
+@overload errvl = sort2_errvl_a2
+
+def sort2_errvl_opt(opt0: sort2opt) -> SInt:
+    match opt0:
+        case optn_nil():
+            0
+        case optn_cons(s2t1):
+            errvl(s2t1)
+
+@overload sort2_errvl = sort2_errvl_opt
+
+@overload errvl = sort2_errvl_opt
+
+@extern
+def sort2_errvl_lst(s2ts: sort2lst) -> SInt
+
+@impl
+def sort2_errvl_lst(s2ts):
+    match s2ts:
+        case list_nil():
+            0
+        case list_cons(s2t1, s2ts):
+            maxs(errvl(s2t1), sort2_errvl_lst(s2ts))
+
+@overload sort2_errvl = sort2_errvl_lst
+
+@overload errvl = sort2_errvl_lst
+
+def sort2_fun1_errck(s2ts: sort2lst, s2t1: sort2) -> sort2:
+    let lvl0 = maxs(errvl(s2ts), errvl(s2t1))
+    sort2_errck(lvl0 + 1, S2Tfun1(s2ts, s2t1))
+
+@impl
+def tread12_sort2(s2t0, err):
+    match s2t0:
+        case S2Tbas(_):
+            s2t0
+        case S2Tfun1(s2ts, s2t1):
+            let e00 = err
+            let s2ts = tread12_sort2lst(s2ts, err)
+            let s2t1 = tread12_sort2(s2t1, err)
+            if (err == e00):
+                s2t0
+            else:
+                sort2_fun1_errck(s2ts, s2t1)
+        case _:
+            let lvl0 = 1
+            err := err + 1
+            sort2_errck(lvl0, s2t0)
+
+@impl
+def tread12_s2var(s2v0, err):
+    let s2t0 = tread12_sort2(s2v0.sort(), err)
+    s2v0
+
+@impl
+def tread12_s2cst(s2c0, err):
+    let s2t0 = tread12_sort2(s2c0.sort(), err)
+    let opt1 = s2c0.d2cs()
+    match opt1:
+        case ~optn_vt_nil():
+            s2c0
+        case ~optn_vt_cons(d2cs):
+            let d2cs = tread12_d2conlst(d2cs, err)
+            s2c0
+
+def s2exp_errvl_a1(s2e0: s2exp) -> SInt:
+    match s2e0.node():
+        case S2Eerrck(lvl0, _):
+            lvl0
+        case _:
+            0
+
+@overload s2exp_errvl = s2exp_errvl_a1
+
+@overload errvl = s2exp_errvl_a1
+
+def s2exp_errvl_a2(s2e1: s2exp, s2e2: s2exp) -> SInt:
+    maxs(errvl(s2e1), errvl(s2e2))
+
+@overload s2exp_errvl = s2exp_errvl_a2
+
+@overload errvl = s2exp_errvl_a2
+
+@extern
+def s2exp_errvl_lst(s2es: s2explst) -> SInt
+
+@impl
+def s2exp_errvl_lst(s2es):
+    match s2es:
+        case list_nil():
+            0
+        case list_cons(s2e1, s2es):
+            maxs(errvl(s2e1), s2exp_errvl_lst(s2es))
+
+@overload errvl = s2exp_errvl_lst
+
+@extern
+def l2s2e_errvl_lses(lses: l2s2elst) -> SInt
+
+@impl
+def l2s2e_errvl_lses(lses):
+    match lses:
+        case list_nil():
+            0
+        case list_cons(ls2e, lses):
+            let S2LAB(lab, s2e1) = ls2e
+            maxs(errvl(s2e1), l2s2e_errvl_lses(lses))
+
+@overload errvl = l2s2e_errvl_lses
+
+def s2exp_top0_errck(s2t0: sort2, s2e1: s2exp) -> s2exp:
+    let lvl0 = errvl(s2e1)
+    s2exp_errck(lvl0 + 1, s2exp(s2t0, S2Etop0(s2e1)))
+
+def s2exp_top1_errck(s2t0: sort2, s2e1: s2exp) -> s2exp:
+    let lvl0 = errvl(s2e1)
+    s2exp_errck(lvl0 + 1, s2exp(s2t0, S2Etop1(s2e1)))
+
+def s2exp_arg1_errck(s2t0: sort2, knd0: Int, s2e1: s2exp) -> s2exp:
+    let lvl0 = errvl(s2e1)
+    s2exp_errck(lvl0 + 1, s2exp(s2t0, S2Earg1(knd0, s2e1)))
+
+def s2exp_atx2_errck(s2t0: sort2, s2e1: s2exp, s2e2: s2exp) -> s2exp:
+    let lvl0 = errvl(s2e1)
+    s2exp_errck(lvl0 + 1, s2exp(s2t0, S2Eatx2(s2e1, s2e2)))
+
+def s2exp_apps_errck(s2t0: sort2, s2f0: s2exp, s2es: s2explst) -> s2exp:
+    let lvl0 = maxs(errvl(s2f0), errvl(s2es))
+    s2exp_errck(lvl0 + 1, s2exp(s2t0, S2Eapps(s2f0, s2es)))
+
+def s2exp_lam1_errck(s2t0: sort2, s2vs: s2varlst, s2e1: s2exp) -> s2exp:
+    let lvl0 = errvl(s2e1)
+    s2exp_errck(lvl0 + 1, s2exp(s2t0, S2Elam1(s2vs, s2e1)))
+
+def s2exp_fun1_errck(s2t0: sort2, f2cl: f2clknd, npf1: SInt, s2es: s2explst, sres: s2exp) -> s2exp:
+    let lvl0 = maxs(errvl(s2es), errvl(sres))
+    s2exp_errck(lvl0 + 1, s2exp(s2t0, S2Efun1(f2cl, npf1, s2es, sres)))
+
+def s2exp_met0_errck(s2t0: sort2, s2es: s2explst, s2e1: s2exp) -> s2exp:
+    let lvl0 = maxs(errvl(s2es), errvl(s2e1))
+    s2exp_errck(lvl0 + 1, s2exp(s2t0, S2Emet0(s2es, s2e1)))
+
+def s2exp_exi0_errck(s2t0: sort2, s2vs: s2varlst, s2ps: s2explst, s2e1: s2exp) -> s2exp:
+    let lvl0 = maxs(errvl(s2ps), errvl(s2e1))
+    s2exp_errck(lvl0 + 1, s2exp(s2t0, S2Eexi0(s2vs, s2ps, s2e1)))
+
+def s2exp_uni0_errck(s2t0: sort2, s2vs: s2varlst, s2ps: s2explst, s2e1: s2exp) -> s2exp:
+    let lvl0 = maxs(errvl(s2ps), errvl(s2e1))
+    s2exp_errck(lvl0 + 1, s2exp(s2t0, S2Euni0(s2vs, s2ps, s2e1)))
+
+def s2exp_text_errck(s2t0: sort2, name: String, s2es: s2explst) -> s2exp:
+    let lvl0 = errvl(s2es)
+    s2exp_errck(lvl0 + 1, s2exp(s2t0, S2Etext(name, s2es)))
+
+def s2exp_trcd_errck(s2t0: sort2, knd0: trcdknd, npf1: SInt, lses: l2s2elst) -> s2exp:
+    let lvl0 = errvl(lses)
+    s2exp_errck(lvl0 + 1, s2exp(s2t0, S2Etrcd(knd0, npf1, lses)))
+
+def s2exp_impr_errck(s2t0: sort2, loc1: loc_t, s2e1: s2exp) -> s2exp:
+    let lvl0 = errvl(s2e1)
+    s2exp_errck(lvl0 + 1, s2exp(s2t0, S2Eimpr(loc1, s2e1)))
+
+def s2exp_prgm_errck(s2t0: sort2, loc1: loc_t, s2e1: s2exp) -> s2exp:
+    let lvl0 = errvl(s2e1)
+    s2exp_errck(lvl0 + 1, s2exp(s2t0, S2Eprgm(loc1, s2e1)))
+
+def s2exp_cast_errck(s2t0: sort2, loc1: loc_t, s2e1: s2exp, s2t2: sort2) -> s2exp:
+    let lvl0 = errvl(s2e1)
+    s2exp_errck(lvl0 + 1, s2exp(s2t0, S2Ecast(loc1, s2e1, s2t2)))
+
+@impl
+def tread12_s2exp(s2e0, err):
+    match s2e0.node():
+        case S2Eint(_):
+            s2e0
+        case S2Ebtf(_):
+            s2e0
+        case S2Echr(_):
+            s2e0
+        case S2Estr(_):
+            s2e0
+        case S2Eany(_):
+            s2e0
+        case S2Ecst(_):
+            f0_cst(s2e0, err)
+        case S2Evar(_):
+            f0_var(s2e0, err)
+        case S2Etop0(_):
+            f0_top0(s2e0, err)
+        case S2Etop1(_):
+            f0_top1(s2e0, err)
+        case S2Ecsts(_):
+            f0_csts(s2e0, err)
+        case S2Earg1(_):
+            f0_arg1(s2e0, err)
+        case S2Eatx2(_):
+            f0_atx2(s2e0, err)
+        case S2Eapps(_):
+            f0_apps(s2e0, err)
+        case S2Elam1(_):
+            f0_lam1(s2e0, err)
+        case S2Efun1(_):
+            f0_fun1(s2e0, err)
+        case S2Emet0(_):
+            f0_met0(s2e0, err)
+        case S2Eexi0(_):
+            f0_exi0(s2e0, err)
+        case S2Euni0(_):
+            f0_uni0(s2e0, err)
+        case S2Etext(_):
+            f0_text(s2e0, err)
+        case S2Etrcd(_):
+            f0_trcd(s2e0, err)
+        case S2Eimpr(_):
+            f0_impr(s2e0, err)
+        case S2Eprgm(_):
+            f0_prgm(s2e0, err)
+        case S2Ecast(_):
+            f0_cast(s2e0, err)
+        case _:
+            let lvl0 = 1
+            err := err + 1
+            s2exp_errck(lvl0, s2e0)
+where:
+    def f0_cst(s2e: s2exp, err: &SInt >> _) -> s2exp:
+        let e00 = err
+        let S2Ecst(s2c) = s2e.node()
+        let s2t = s2c.sort()
+        let s2t = tread12_sort2(s2t, err)
+        if (e00 == err):
+            s2e
+        else:
+            let lvl = errvl(s2t)
+            s2exp(s2t, S2Eerrck(lvl, s2e))
+    def f0_var(s2e: s2exp, err: &SInt >> _) -> s2exp:
+        let e00 = err
+        let S2Evar(s2v) = s2e.node()
+        let s2t = s2v.sort()
+        let s2t = tread12_sort2(s2t, err)
+        if (e00 == err):
+            s2e
+        else:
+            let lvl = errvl(s2t)
+            s2exp(s2t, S2Eerrck(lvl, s2e))
+    def f0_top0(s2e: s2exp, err: &SInt >> _) -> s2exp:
+        let e00 = err
+        let S2Etop0(s2e1) = s2e.node()
+        let s2e1 = tread12_s2exp(s2e1, err)
+        if (e00 == err):
+            s2e
+        else:
+            let s2t = s2e.sort()
+            s2exp_top0_errck(s2t, s2e1)
+    def f0_top1(s2e: s2exp, err: &SInt >> _) -> s2exp:
+        let e00 = err
+        let S2Etop1(s2e1) = s2e.node()
+        let s2e1 = tread12_s2exp(s2e1, err)
+        if (e00 == err):
+            s2e
+        else:
+            let s2t = s2e.sort()
+            s2exp_top1_errck(s2t, s2e1)
+    def f0_csts(s2e: s2exp, err: &SInt >> _) -> s2exp:
+        let e00 = err
+        let S2Ecsts(s2cs) = s2e.node()
+        let s2t = match s2cs:
+            case list_nil():
+                s2e.sort()
+            case list_cons(s2c1, s2cs):
+                s2c1.sort()
+        let s2t = tread12_sort2(s2t, err)
+        if (e00 == err):
+            s2e
+        else:
+            let lvl = errvl(s2t)
+            s2exp(s2t, S2Eerrck(lvl, s2e))
+    def f0_arg1(s2e: s2exp, err: &SInt >> _) -> s2exp:
+        let e00 = err
+        let S2Earg1(knd0, s2e1) = s2e.node()
+        let s2e1 = tread12_s2exp(s2e1, err)
+        if (e00 == err):
+            s2e
+        else:
+            let s2t = s2e.sort()
+            s2exp_arg1_errck(s2t, knd0, s2e1)
+    def f0_atx2(s2e: s2exp, err: &SInt >> _) -> s2exp:
+        let e00 = err
+        let S2Eatx2(s2e1, s2e2) = s2e.node()
+        let s2e1 = tread12_s2exp(s2e1, err)
+        let s2e2 = tread12_s2exp(s2e2, err)
+        if (e00 == err):
+            s2e
+        else:
+            let s2t = s2e.sort()
+            s2exp_atx2_errck(s2t, s2e1, s2e2)
+    def f0_apps(s2e: s2exp, err: &SInt >> _) -> s2exp:
+        let e00 = err
+        let S2Eapps(s2f0, s2es) = s2e.node()
+        let s2f0 = tread12_s2exp(s2f0, err)
+        let s2es = tread12_s2explst(s2es, err)
+        if (e00 == err):
+            s2e
+        else:
+            let s2t = s2e.sort()
+            s2exp_apps_errck(s2t, s2f0, s2es)
+    def f0_lam1(s2e: s2exp, err: &SInt >> _) -> s2exp:
+        let e00 = err
+        let S2Elam1(s2vs, s2e1) = s2e.node()
+        let s2e1 = tread12_s2exp(s2e1, err)
+        if (e00 == err):
+            s2e
+        else:
+            let s2t = s2e.sort()
+            s2exp_lam1_errck(s2t, s2vs, s2e1)
+    def f0_fun1(s2e: s2exp, err: &SInt >> _) -> s2exp:
+        let e00 = err
+        let S2Efun1(f2cl, npf1, s2es, sres) = s2e.node()
+        let s2es = tread12_s2explst(s2es, err)
+        let sres = tread12_s2exp(sres, err)
+        if (e00 == err):
+            s2e
+        else:
+            let s2t = s2e.sort()
+            s2exp_fun1_errck(s2t, f2cl, npf1, s2es, sres)
+    def f0_met0(s2e: s2exp, err: &SInt >> _) -> s2exp:
+        let e00 = err
+        let S2Emet0(s2es, s2e1) = s2e.node()
+        let s2es = tread12_s2explst(s2es, err)
+        let s2e1 = tread12_s2exp(s2e1, err)
+        if (e00 == err):
+            s2e
+        else:
+            let s2t = s2e.sort()
+            s2exp_met0_errck(s2t, s2es, s2e1)
+    def f0_exi0(s2e: s2exp, err: &SInt >> _) -> s2exp:
+        let e00 = err
+        let S2Eexi0(s2vs, s2ps, s2e1) = s2e.node()
+        let s2ps = tread12_s2explst(s2ps, err)
+        let s2e1 = tread12_s2exp(s2e1, err)
+        if (e00 == err):
+            s2e
+        else:
+            let s2t = s2e.sort()
+            s2exp_exi0_errck(s2t, s2vs, s2ps, s2e1)
+    def f0_uni0(s2e: s2exp, err: &SInt >> _) -> s2exp:
+        let e00 = err
+        let S2Euni0(s2vs, s2ps, s2e1) = s2e.node()
+        let s2ps = tread12_s2explst(s2ps, err)
+        let s2e1 = tread12_s2exp(s2e1, err)
+        if (e00 == err):
+            s2e
+        else:
+            let s2t = s2e.sort()
+            s2exp_uni0_errck(s2t, s2vs, s2ps, s2e1)
+    def f0_text(s2e: s2exp, err: &SInt >> _) -> s2exp:
+        let e00 = err
+        let S2Etext(name, s2es) = s2e.node()
+        let s2es = tread12_s2explst(s2es, err)
+        if (e00 == err):
+            s2e
+        else:
+            let s2t = s2e.sort()
+            s2exp_text_errck(s2t, name, s2es)
+    def f0_trcd(s2e: s2exp, err: &SInt >> _) -> s2exp:
+        let e00 = err
+        let S2Etrcd(knd0, npf1, lses) = s2e.node()
+        let lses = tread12_l2s2elst(lses, err)
+        if (e00 == err):
+            s2e
+        else:
+            let s2t = s2e.sort()
+            s2exp_trcd_errck(s2t, knd0, npf1, lses)
+    def f0_impr(s2e: s2exp, err: &SInt >> _) -> s2exp:
+        let e00 = err
+        let S2Eimpr(loc1, s2e1) = s2e.node()
+        let s2e1 = tread12_s2exp(s2e1, err)
+        err := err + 1
+        let s2t = s2e.sort()
+        s2exp_impr_errck(s2t, loc1, s2e1)
+    def f0_prgm(s2e: s2exp, err: &SInt >> _) -> s2exp:
+        let e00 = err
+        let S2Eprgm(loc1, s2e1) = s2e.node()
+        let s2e1 = tread12_s2exp(s2e1, err)
+        err := err + 1
+        let s2t = s2e.sort()
+        s2exp_prgm_errck(s2t, loc1, s2e1)
+    def f0_cast(s2e: s2exp, err: &SInt >> _) -> s2exp:
+        let e00 = err
+        let S2Ecast(loc1, s2e1, s2t2) = s2e.node()
+        let s2e1 = tread12_s2exp(s2e1, err)
+        let s2t2 = tread12_sort2(s2t2, err)
+        err := err + 1
+        let s2t = s2e.sort()
+        s2exp_cast_errck(s2t, loc1, s2e1, s2t2)
+
+@impl
+def tread12_l2s2e(ls2e, err):
+    let e00 = err
+    let S2LAB(lab, s2e) = ls2e
+    let s2e = tread12_s2exp(s2e, err)
+    if (err == e00):
+        ls2e
+    else:
+        S2LAB(lab, s2e)
+
+@impl
+def tread12_s2tex(s2tx, err):
+    match s2tx:
+        case S2TEXsrt(s2t1):
+            let e00 = err
+            let s2t1 = tread12_sort2(s2t1, err)
+            if (e00 == err):
+                s2tx
+            else:
+                S2TEXsrt(s2t1)
+        case S2TEXsub(s2v1, s2es):
+            let e00 = err
+            let s2v1 = tread12_s2var(s2v1, err)
+            let s2es = tread12_s2explst(s2es, err)
+            if (e00 == err):
+                s2tx
+            else:
+                S2TEXsub(s2v1, s2es)
+
+@impl
+def tread12_sort2lst(s2ts, err):
+    list_tread12_fnp(s2ts, err, tread12_sort2)
+
+@impl
+def tread12_sort2opt(sopt, err):
+    optn_tread12_fnp(sopt, err, tread12_sort2)
+
+@impl
+def tread12_s2cstlst(s2cs, err):
+    list_tread12_fnp(s2cs, err, tread12_s2cst)
+
+@impl
+def tread12_s2varlst(s2vs, err):
+    list_tread12_fnp(s2vs, err, tread12_s2var)
+
+@impl
+def tread12_s2explst(s2es, err):
+    list_tread12_fnp(s2es, err, tread12_s2exp)
+
+@impl
+def tread12_s2expopt(sopt, err):
+    optn_tread12_fnp(sopt, err, tread12_s2exp)
+
+@impl
+def tread12_l2s2elst(lses, err):
+    list_tread12_fnp(lses, err, tread12_l2s2e)
+

@@ -1,0 +1,100 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+@overload node = token_get_node
+
+@overload node = s2typ_get_node
+
+@overload lctn = simpl_get_lctn
+
+@overload node = simpl_get_node
+
+@overload lctn = dimpl_get_lctn
+
+@overload node = dimpl_get_node
+
+@overload lctn = d3ecl_get_lctn
+
+@overload node = d3ecl_get_node
+
+@impl[]
+def d3pat_d2v/foldl[R0: Vt]:
+    @inst[xs] @inst[x0] @inst[R0] gseq_foldl
+where:
+    type X0 = d2var
+    type Xs = d3pat
+    @impl[Xs, X0]
+    def gseq_foritm:
+        @inst[] d3pat_d2v/foritm
+
+@impl[]
+def d3pat_d2v/foritm(d3p0):
+    f0_main(d3p0)
+where:
+    def f0_main(d3p0: d3pat) -> Void:
+        match d3p0.node():
+            case D3Pvar(d2v1):
+                foritm/work(d2v1)
+            case D3Pbang(d3p1):
+                f0_main(d3p1)
+            case D3Pflat(d3p1):
+                f0_main(d3p1)
+            case D3Pfree(d3p1):
+                f0_main(d3p1)
+            case D3Psapp(d3p1, s2vs):
+                f0_main(d3p1)
+            case D3Psapq(d3p1, s2as):
+                f0_main(d3p1)
+            case D3Ptapq(d3p1, tjas):
+                f0_main(d3p1)
+            case D3Pdapp(d3f1, npf1, d3ps):
+                f0_d3ps(d3ps)
+            case D3Prfpt(d3p1, tkas, d3p2):
+                f0_main(d3p1)
+                f0_main(d3p2)
+            case D3Ptup0(npf1, d3ps):
+                f0_d3ps(d3ps)
+            case D3Ptup1(tknd, npf1, d3ps):
+                f0_d3ps(d3ps)
+            case D3Prcd2(tknd, npf1, ldps):
+                f0_ldps(ldps)
+            case D3Pannot(d3p1, s1e1, s2e1):
+                f0_main(d3p1)
+            case _:
+                ()
+
+    def f0_d3ps(d3ps: d3patlst) -> Void:
+        match d3ps:
+            case list_nil():
+                ()
+            case list_cons(d3p1, d3ps):
+                f0_main(d3p1)
+                f0_d3ps(d3ps)
+
+    def f0_ldps(ldps: l3d3plst) -> Void:
+        match ldps:
+            case list_nil():
+                ()
+            case list_cons(ldp1, ldps):
+                f0_main(ldp1.itm())
+                f0_ldps(ldps)
+

@@ -1,0 +1,143 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/SATS/f2perr0" import *
+
+from "srcgen2/SATS/f3perr0" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload lctn = d3pat_get_lctn
+
+@overload node = d3pat_get_node
+
+@overload lctn = d3exp_get_lctn
+
+@overload node = d3exp_get_node
+
+@overload lctn = d3ecl_get_lctn
+
+@overload node = d3ecl_get_node
+
+private:
+    let xatsv_ERRLVL = 3
+    def auxmain(out: FILR, dcl0: d3ecl) -> Void:
+        @impl[]
+        def g_print/out():
+            out
+        match dcl0.node():
+            case D3Cstatic(tknd, dcl1):
+                f3perr0_d3ecl(out, dcl1)
+            case D3Cextern(tknd, dcl1):
+                f3perr0_d3ecl(out, dcl1)
+            case D3Ctmpsub(s2vts, dcl1):
+                f3perr0_d3ecl(out, dcl1)
+            case D3Cdclst0(dcls):
+                f3perr0_d3eclist(out, dcls)
+            case D3Clocal0(dcs1, dcs2):
+                f3perr0_d3eclist(out, dcs1)
+                f3perr0_d3eclist(out, dcs2)
+            case D3Cinclude(knd0, tknd, gsrc, fopt, dopt):
+                f3perr0_d3eclistopt(out, dopt)
+            case D3Cstaload(knd0, tknd, gsrc, fopt, dopt):
+            case D3Cvaldclst(tknd, d3vs):
+                f3perr0_d3valdclist(out, d3vs)
+            case D3Cvardclst(tknd, d3vs):
+                f3perr0_d3vardclist(out, d3vs)
+            case D3Cfundclst(tknd, tqas, d3cs, d3fs):
+                f3perr0_d3fundclist(out, d3fs)
+            case D3Cimplmnt0(tknd, stmp, sqas, tqas, dimp, tias, f3as, sres, dexp):
+                f3perr0_f3arglst(out, f3as)
+                f3perr0_d3exp(out, dexp)
+            case D3Cnone0(_):
+                ()
+            case D3Cnone1(d2cl):
+                f2perr0_d2ecl(out, d2cl)
+            case D3Cnone2(d3cl):
+                f3perr0_d3ecl(out, d3cl)
+            case D3Cerrck(lvl1, dcl1):
+                f3perr0_d3ecl(out, dcl0)
+            case _:
+                let loc0 = dcl0.lctn()
+                prerrsln("f3perr0_d3ecl:auxmain: loc0 = ", loc0)
+                prerrsln("f3perr0_d3ecl:auxmain: dcl0 = ", dcl0)
+
+@impl
+def f3perr0_d3ecl(out, dcl0):
+    @impl[]
+    def g_print/out():
+        out
+    match dcl0.node():
+        case D3Cerrck(lvl, d3cl):
+            auxmain(out, d3cl)
+            if (lvl >= xatsv_ERRLVL):
+                ()
+            else:
+                let loc0 = dcl0.lctn()
+                printsln()
+                printsln("F3PERR0-ERROR:", loc0, ":", dcl0)
+        case _:
+            ()
+
+
+@impl
+def f3perr0_d3eclist(out, dcls):
+    list_f3perr0_fnp(out, dcls, f3perr0_d3ecl)
+
+@impl
+def f3perr0_teqd3exp(out, tdxp):
+    match tdxp:
+        case TEQD3EXPnone():
+            ()
+        case TEQD3EXPsome(teq1, d3e2):
+            f3perr0_d3exp(out, d3e2)
+
+@impl
+def f3perr0_d3valdcl(out, dval):
+    f3perr0_d3pat(out, dpat)
+    f3perr0_teqd3exp(out, tdxp)
+where:
+    let dpat = d3valdcl_get_dpat(dval)
+    let tdxp = d3valdcl_get_tdxp(dval)
+
+@impl
+def f3perr0_d3vardcl(out, dvar):
+    f3perr0_teqd3exp(out, dini)
+where:
+    let dini = d3vardcl_get_dini(dvar)
+
+@impl
+def f3perr0_d3fundcl(out, dfun):
+    f3perr0_f3arglst(out, fags)
+    f3perr0_teqd3exp(out, tdxp)
+where:
+    let fags = d3fundcl_get_farg(dfun)
+    let tdxp = d3fundcl_get_tdxp(dfun)
+
+@impl
+def f3perr0_d3valdclist(out, d3vs):
+    list_f3perr0_fnp(out, d3vs, f3perr0_d3valdcl)
+
+@impl
+def f3perr0_d3vardclist(out, d3vs):
+    list_f3perr0_fnp(out, d3vs, f3perr0_d3vardcl)
+
+@impl
+def f3perr0_d3fundclist(out, d3fs):
+    list_f3perr0_fnp(out, d3fs, f3perr0_d3fundcl)
+

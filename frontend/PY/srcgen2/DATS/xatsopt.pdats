@@ -1,0 +1,19 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xatsopt" import *
+
+@impl
+def xatsopt_version():
+    "alpha.0.1"
+
+@impl
+def xatsopt_fprint_version(out):
+    @impl[]
+    def g_print/out():
+        out
+    g_print(xatsopt_version())
+

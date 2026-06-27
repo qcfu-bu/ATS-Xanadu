@@ -1,0 +1,69 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/xlabel0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+import "srcgen2/DATS/statyp2_tmplib.dats" as _
+
+@overload name = s2cst_get_name
+
+@overload sort = s2cst_get_sort
+
+@overload styp = s2cst_get_styp
+
+@overload name = s2var_get_name
+
+@overload sort = s2var_get_sort
+
+@impl
+def s2typ_hnfiz0(t2p0):
+    type E1nv = SInt
+    let env0 = 0
+    @impl[E1nv]
+    def s2typ_eval/s2cst(env0, s2c0):
+        s2c0.styp()
+    @impl[E1nv]
+    def s2typ_eval/s2var(env0, s2v0):
+        optn_vt_nil()
+    @inst[E1nv] s2typ_hnfiz0_e1nv(env0, t2p0)
+
+@impl
+def s2typlst_hnfiz0(t2ps):
+    list_map(t2ps)
+where:
+    type X0 = s2typ
+    type Y0 = s2typ
+    @impl[X0, Y0]
+    def map/fopr:
+        s2typ_hnfiz0
+
+@impl
+def s2typ_subst0(t2p0, svts):
+    type E1nv = SInt
+    let env0 = 0
+    @impl[E1nv]
+    def s2typ_eval/s2cst(env0, s2c0):
+        s2c0.styp()
+    @inst[E1nv] s2typ_subst0_e1nv(env0, t2p0, svts)
+
+@impl
+def s2typlst_subst0(t2ps, svts):
+    list_map(t2ps)
+where:
+    type X0 = s2typ
+    type Y0 = s2typ
+    @impl[X0, Y0]
+    def map/fopr(x0):
+        s2typ_subst0(x0, svts)
+

@@ -1,0 +1,1121 @@
+import "srcgen1/prelude/SATS/unsafex" as UN
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload lctn = d1pat_get_lctn
+
+@overload lctn = d1exp_get_lctn
+
+@overload lctn = d1ecl_get_lctn
+
+@overload node = s2exp_get_node
+
+@overload node = s2typ_get_node
+
+@overload lctn = d2var_get_lctn
+
+@overload name = d2var_get_name
+
+@overload styp = d2var_get_styp
+
+@overload sexp = d2var_get_sexp
+
+@overload lctn = d2pat_get_lctn
+
+@overload lctn = d2exp_get_lctn
+
+def s2typ_subst0(t2p0: s2typ, svts: s2vts) -> s2typ:
+    match svts:
+        case list_nil():
+            t2p0
+        case list_cons(_):
+            s2typ_subst0(t2p0, svts)
+
+@impl
+def d2pat_none0(loc0):
+    d2pat_make_node(loc0, D2Pnone0())
+
+@impl
+def d2pat_none1(dpat):
+    d2pat_make_node(dpat.lctn(), D2Pnone1(dpat))
+
+@impl
+def d2pat_none2(dpat):
+    d2pat_make_node(dpat.lctn(), D2Pnone2(dpat))
+
+@impl
+def d2pat_any(loc0, sym1):
+    d2pat(loc0, D2Pany())
+
+@impl
+def d2pat_var(loc0, dvar):
+    d2pat(loc0, D2Pvar(dvar))
+
+@impl
+def d2pat_btf(loc0, sym1):
+    d2pat(loc0, D2Pbtf(sym1))
+
+@impl
+def d2pat_con(loc0, dcon):
+    d2pat(loc0, D2Pcon(dcon))
+
+@impl
+def d2pat_cons(loc0, d2cs):
+    match d2cs:
+        case list_nil():
+            let drpt = d2rpt_new1(loc0)
+            d2pat_make_node(loc0, D2Pcons(drpt, d2cs))
+        case list_cons(d2c1, dcs2):
+            match dcs2:
+                case list_nil():
+                    d2pat(loc0, D2Pcon(d2c1))
+                case list_cons(_):
+                    let drpt = d2rpt_new1(loc0)
+                    d2pat_make_node(loc0, D2Pcons(drpt, d2cs))
+
+@impl
+def d2pat_sapp(loc0, d2f0, s2vs):
+    d2pat_make_node(loc0, D2Psapp(d2f0, s2vs))
+
+@impl
+def d2pat_a2pp(loc0, d2f0, d2a1, d2a2):
+    d2pat_dapp(loc0, d2f0, nprg, d2as)
+where:
+    let nprg = -(1)
+    let d2as = list_pair(d2a1, d2a2)
+
+@impl
+def d2pat_dapp(loc0, d2f0, nprg, d2as):
+    d2pat_make_node(loc0, D2Pdapp(d2f0, nprg, d2as))
+
+@impl
+def d2exp_none0(loc0):
+    d2exp_make_node(loc0, D2Enone0())
+
+@impl
+def d2exp_none1(dexp):
+    d2exp_make_node(dexp.lctn(), D2Enone1(dexp))
+
+@impl
+def d2exp_none2(dexp):
+    d2exp_make_node(dexp.lctn(), D2Enone2(dexp))
+
+@impl
+def d2exp_var(loc0, dvar):
+    d2exp(loc0, D2Evar(dvar))
+
+@impl
+def d2exp_btf(loc0, sym1):
+    d2exp(loc0, D2Ebtf(sym1))
+
+@impl
+def d2exp_top(loc0, sym1):
+    d2exp(loc0, D2Etop(sym1))
+
+@impl
+def d2exp_con(loc0, dcon):
+    d2exp(loc0, D2Econ(dcon))
+
+@impl
+def d2exp_cst(loc0, dcst):
+    d2exp(loc0, D2Ecst(dcst))
+
+@impl
+def d2exp_cons(loc0, d2cs):
+    match d2cs:
+        case list_nil():
+            d2exp(loc0, D2Econs(d2cs))
+        case list_cons(d2c1, dcs2):
+            match dcs2:
+                case list_nil():
+                    d2exp(loc0, D2Econ(d2c1))
+                case list_cons(_):
+                    d2exp(loc0, D2Econs(d2cs))
+
+@impl
+def d2exp_csts(loc0, d2cs):
+    match d2cs:
+        case list_nil():
+            d2exp(loc0, D2Ecsts(d2cs))
+        case list_cons(d2c1, dcs2):
+            match dcs2:
+                case list_nil():
+                    d2exp(loc0, D2Ecst(d2c1))
+                case list_cons(_):
+                    d2exp(loc0, D2Ecsts(d2cs))
+
+@impl
+def d2exp_sym0(loc0, drxp, d1e0, dpis):
+    d2exp_make_node(loc0, D2Esym0(drxp, d1e0, dpis))
+
+@impl
+def d2exp_sapp(loc0, d2f0, s2es):
+    d2exp_make_node(loc0, D2Esapp(d2f0, s2es))
+
+@impl
+def d2exp_tapp(loc0, d2f0, s2es):
+    d2exp_make_node(loc0, D2Etapp(d2f0, s2es))
+
+@impl
+def d2exp_a2pp(loc0, d2f0, d2a1, d2a2):
+    d2exp_dapp(loc0, d2f0, nprg, d2as)
+where:
+    let nprg = -(1)
+    let d2as = list_pair(d2a1, d2a2)
+
+@impl
+def d2exp_dapp(loc0, d2f0, nprg, d2as):
+    d2exp_make_node(loc0, D2Edapp(d2f0, nprg, d2as))
+
+@impl
+def d2exp_proj(loc0, tknd, drxp, dlab, dtup):
+    d2exp_make_node(loc0, D2Eproj(tknd, drxp, dlab, dtup))
+
+private:
+    enum F2env:
+        case F2ENV(lcsrc, MAP.topmap[g1mac], MAP.topmap[s2tex], MAP.topmap[s2itm], MAP.topmap[d2itm])
+    @impl
+    type F2env_tbox = F2env
+
+@impl
+def f2env_of_d2parsed(d2par):
+    F2ENV(lcsrc, g1mac, s2tex, s2itm, d2itm)
+where:
+    let lcsrc = d2par.source()
+    let d2env = d2par.t2penv()
+    let D2TOPENV(g1mac, s2tex, s2itm, d2itm) = d2env
+
+@impl
+def f2env_get_g1macenv(f2env):
+    let F2ENV(lcsrc, g1mac, s2tex, s2itm, d2itm) = f2env
+    g1mac
+
+@impl
+def f2env_get_sort2env(f2env):
+    let F2ENV(lcsrc, g1mac, s2tex, s2itm, d2itm) = f2env
+    s2tex
+
+@impl
+def f2env_get_s2expenv(f2env):
+    let F2ENV(lcsrc, g1mac, s2tex, s2itm, d2itm) = f2env
+    s2itm
+
+@impl
+def f2env_get_d2expenv(f2env):
+    let F2ENV(lcsrc, g1mac, s2tex, s2itm, d2itm) = f2env
+    d2itm
+
+
+private:
+    let stamper = stamper_new()
+    let _ = stamper.getinc()
+
+def the_d2con_stamp_new() -> stamp:
+    stamper.getinc()
+
+
+private:
+    let stamper = stamper_new()
+    let _ = stamper.getinc()
+
+def the_d2cst_stamp_new() -> stamp:
+    stamper.getinc()
+
+
+private:
+    let stamper = stamper_new()
+    let _ = stamper.getinc()
+
+def the_d2var_stamp_new() -> stamp:
+    stamper.getinc()
+
+
+private:
+    type Xatslocal0_tag_t = SInt
+    type Xatslocal1_t2qas = t2qaglst
+    def dconid_sym(tok0: token) -> sym_t:
+        match tok0.node():
+            case T_IDALP(nam1):
+                symbl_make_name(nam1)
+            case T_IDSYM(nam1):
+                symbl_make_name(nam1)
+    enum D2con:
+        case D2CON(loc_t, sym_t, Xatslocal0_tag_t, Xatslocal1_t2qas, s2exp, stamp, s2typ, s2typ)
+    @linear
+    enum D2con_vt:
+        case D2CON_vt(loc_t, sym_t, Xatslocal0_tag_t, Xatslocal1_t2qas, s2exp, stamp, s2typ, s2typ)
+    @impl
+    type D2con_tbox = D2con
+
+@impl
+def d2con_get_lctn(d2c0):
+    let D2CON(loc0, sym0, ctag, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    loc0
+
+@impl
+def d2con_get_name(d2c0):
+    let D2CON(loc0, sym0, ctag, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    sym0
+
+@impl
+def d2con_get_ctag(d2c0):
+    let D2CON(loc0, sym0, ctag, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    ctag
+
+@impl
+def d2con_get_tqas(d2c0):
+    let D2CON(loc0, sym0, ctag, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    tqas
+
+@impl
+def d2con_get_sexp(d2c0):
+    let D2CON(loc0, sym0, ctag, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    s2e0
+
+@impl
+def d2con_get_stmp(d2c0):
+    let D2CON(loc0, sym0, ctag, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    stmp
+
+@impl
+def d2con_get_styp(d2c0):
+    let D2CON(loc0, sym0, ctag, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    t2p0
+
+@impl
+def d2con_get_xtyp(d2c0):
+    let D2CON(loc0, sym0, ctag, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    xt2p
+
+@impl
+def d2con_get_narg(d2c0):
+    let D2CON(loc0, sym0, ctag, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    auxmain(s2e0)
+where:
+    def auxmain(s2e0: s2exp) -> SInt:
+        match s2e0.node():
+            case S2Euni0(s2vs, s2ps, s2e1):
+                auxmain(s2e1)
+            case S2Efun1(f2cl, nprg, s2es, s2e1):
+                list_length(s2es)
+
+@impl
+def d2con_get_nprg(d2c0):
+    let D2CON(loc0, sym0, ctag, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    auxmain(s2e0)
+where:
+    def auxmain(s2e0: s2exp) -> SInt:
+        match s2e0.node():
+            case S2Euni0(s2vs, s2ps, s2e1):
+                auxmain(s2e1)
+            case S2Efun1(f2cl, nprg, s2es, s2e1):
+                nprg
+
+@impl
+def d2con_set_ctag(d2c0, tag0):
+    let d2c0 = @sapp[D2con_vt] UN.castlin10(d2c0)
+    let @(D2CON_vt)(loc0, sym0, !ctag, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    ctag := tag0
+
+@impl
+def d2con_set_styp(d2c0, t2p0):
+    let d2c0 = @sapp[D2con_vt] UN.castlin10(d2c0)
+    let @(D2CON_vt)(loc0, sym0, ctag, tqas, s2e0, stmp, !styp, xt2p) = d2c0
+    styp := t2p0
+
+@impl
+def d2con_set_sexp(d2c0, s2e0):
+    let d2c0 = @sapp[D2con_vt] UN.castlin10(d2c0)
+    let @(D2CON_vt)(loc0, sym0, ctag, tqas, !sexp, stmp, t2p0, xt2p) = d2c0
+    sexp := s2e0
+
+@impl
+def d2con_make_idtp(tok0, tqas, sexp):
+    let ctag = -(1)
+    let loc0 = tok0.lctn()
+    let sym0 = dconid_sym(tok0)
+    let t2p0 = s2exp_stpize(sexp)
+    let stmp = the_d2con_stamp_new()
+    let svts = s2vts_make_lctn_tqas(loc0, tqas)
+    let xt2p = s2typ_subst0(t2p0, svts)
+    D2CON(loc0, sym0, ctag, tqas, sexp, stmp, t2p0, xt2p)
+
+
+private:
+    type Xatslocal2_t2qas = t2qaglst
+    def dcstid_sym(tok0: token) -> sym_t:
+        match tok0.node():
+            case T_IDALP(nam1):
+                symbl_make_name(nam1)
+            case T_IDSYM(nam1):
+                symbl_make_name(nam1)
+    enum D2cst:
+        case D2CST(loc_t, sym_t, tnode, Xatslocal2_t2qas, s2exp, stamp, s2typ, s2typ)
+    @linear
+    enum D2cst_vt:
+        case D2CST_vt(loc_t, sym_t, tnode, Xatslocal2_t2qas, s2exp, stamp, s2typ, s2typ)
+    @impl
+    type D2cst_tbox = D2cst
+
+@impl
+def d2cst_get_lctn(d2c0):
+    let D2CST(loc0, sym0, tknd, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    loc0
+
+@impl
+def d2cst_get_name(d2c0):
+    let D2CST(loc0, sym0, tknd, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    sym0
+
+@impl
+def d2cst_get_tknd(d2c0):
+    let D2CST(loc0, sym0, tknd, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    tknd
+
+@impl
+def d2cst_get_tqas(d2c0):
+    let D2CST(loc0, sym0, tknd, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    tqas
+
+@impl
+def d2cst_get_sexp(d2c0):
+    let D2CST(loc0, sym0, tknd, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    s2e0
+
+@impl
+def d2cst_get_stmp(d2c0):
+    let D2CST(loc0, sym0, tknd, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    stmp
+
+@impl
+def d2cst_get_styp(d2c0):
+    let D2CST(loc0, sym0, tknd, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    t2p0
+
+@impl
+def d2cst_get_xtyp(d2c0):
+    let D2CST(loc0, sym0, tknd, tqas, s2e0, stmp, t2p0, xt2p) = d2c0
+    xt2p
+
+@impl
+def d2cst_set_styp(d2c0, t2p0):
+    let d2v0 = @sapp[D2cst_vt] UN.castlin10(d2c0)
+    let @(D2CST_vt)(loc0, sym0, tknd, tqas, sexp, stmp, !styp, x2tp) = d2v0
+    styp := t2p0
+
+@impl
+def d2cst_set_xtyp(d2c0, xt2p):
+    let d2v0 = @sapp[D2cst_vt] UN.castlin10(d2c0)
+    let @(D2CST_vt)(loc0, sym0, tknd, tqas, sexp, stmp, t2p0, !xtyp) = d2v0
+    xtyp := xt2p
+
+@impl
+def d2cst_make_dvar(tok0, d2v0, tqas):
+    let loc0 = d2v0.lctn()
+    let tknd = tok0.node()
+    let sym0 = d2v0.name()
+    let t2p0 = d2v0.styp()
+    let sexp = d2v0.sexp()
+    let stmp = the_d2cst_stamp_new()
+    let xt2p = s2typ_none0()
+    D2CST(loc0, sym0, tknd, tqas, sexp, stmp, t2p0, xt2p)
+
+@impl
+def d2cst_make_idtp(tok0, dpid, tqas, sexp):
+    let loc0 = dpid.lctn()
+    let tknd = tok0.node()
+    let sym0 = dcstid_sym(dpid)
+    let t2p0 = s2exp_stpize(sexp)
+    let stmp = the_d2cst_stamp_new()
+    let svts = s2vts_make_lctn_tqas(loc0, tqas)
+    let xt2p = s2typ_subst0(t2p0, svts)
+    D2CST(loc0, sym0, tknd, tqas, sexp, stmp, t2p0, xt2p)
+
+
+private:
+    type Xatslocal3_t2qas = t2qaglst
+    enum D2var:
+        case D2VAR(loc_t, sym_t, Xatslocal3_t2qas, s2exp, s2typ, stamp, sym_t)
+    @linear
+    enum D2var_vt:
+        case D2VAR_vt(loc_t, sym_t, Xatslocal3_t2qas, s2exp, s2typ, stamp, sym_t)
+    @impl
+    type D2var_tbox = D2var
+
+@impl
+def d2var_get_lctn(d2v0):
+    let D2VAR(loc0, sym0, tqas, s2e0, t2p0, stmp, unam) = d2v0
+    loc0
+
+@impl
+def d2var_get_name(d2v0):
+    let D2VAR(loc0, sym0, tqas, s2e0, t2p0, stmp, unam) = d2v0
+    sym0
+
+@impl
+def d2var_get_sexp(d2v0):
+    let D2VAR(loc0, sym0, tqas, s2e0, t2p0, stmp, unam) = d2v0
+    s2e0
+
+@impl
+def d2var_get_styp(d2v0):
+    let D2VAR(loc0, sym0, tqas, s2e0, t2p0, stmp, unam) = d2v0
+    t2p0
+
+@impl
+def d2var_get_stmp(d2v0):
+    let D2VAR(loc0, sym0, tqas, s2e0, t2p0, stmp, unam) = d2v0
+    stmp
+
+@impl
+def d2var_get_unam(d2v0):
+    let D2VAR(loc0, sym0, tqas, s2e0, t2p0, stmp, unam) = d2v0
+    unam
+
+@impl
+def d2var_set_sexp(d2v0, s2e0):
+    let d2v0 = @sapp[D2var_vt] UN.castlin10(d2v0)
+    let @(D2VAR_vt)(loc0, sym0, tqas, !sexp, t2p0, stmp, unam) = d2v0
+    sexp := s2e0
+
+@impl
+def d2var_set_styp(d2v0, t2p0):
+    let d2v0 = @sapp[D2var_vt] UN.castlin10(d2v0)
+    let @(D2VAR_vt)(loc0, sym0, tqas, s2e0, !styp, stmp, unam) = d2v0
+    styp := t2p0
+
+@impl
+def d2var_new2_name(loc0, sym0):
+    let tqas = list_nil()
+    let s2e0 = s2exp_none0()
+    let t2p0 = s2typ_none0()
+    let stmp = the_d2var_stamp_new()
+    let unam = symbl_extend_stamp(sym0, stmp)
+    D2VAR(loc0, sym0, tqas, s2e0, t2p0, stmp, unam)
+
+
+private:
+    enum D2pat:
+        case D2PAT(loctn, s2typ, d2pat_node)
+    @linear
+    enum D2pat_vt:
+        case D2PAT_vt(loctn, s2typ, d2pat_node)
+    @impl
+    type D2pat_tbox = D2pat
+
+@impl
+def d2pat_make_node(loc, nod):
+    let t2p = s2typ_none0()
+    D2PAT(loc, t2p, nod)
+
+@impl
+def d2pat_get_lctn(d2p):
+    let D2PAT(loc, t2p, nod) = d2p
+    loc
+
+@impl
+def d2pat_get_node(d2p):
+    let D2PAT(loc, t2p, nod) = d2p
+    nod
+
+@impl
+def d2pat_get_styp(d2p):
+    let D2PAT(loc, t2p, nod) = d2p
+    t2p
+
+@impl
+def d2pat_set_styp(d2p0, t2p0):
+    let d2p0 = @sapp[D2pat_vt] UN.castlin10(d2p0)
+    let @(D2PAT_vt)(loc0, !styp, node) = d2p0
+    styp := t2p0
+
+
+private:
+    enum D2exp:
+        case D2EXP(loctn, s2typ, d2exp_node)
+    @linear
+    enum D2exp_vt:
+        case D2EXP_vt(loctn, s2typ, d2exp_node)
+    @impl
+    type D2exp_tbox = D2exp
+
+@impl
+def d2exp_make_node(loc, nod):
+    let t2p = s2typ_none0()
+    D2EXP(loc, t2p, nod)
+
+@impl
+def d2exp_get_lctn(d2e):
+    let D2EXP(loc, t2p, nod) = d2e
+    loc
+
+@impl
+def d2exp_get_styp(d2e):
+    let D2EXP(loc, t2p, nod) = d2e
+    t2p
+
+@impl
+def d2exp_get_node(d2e):
+    let D2EXP(loc, t2p, nod) = d2e
+    nod
+
+@impl
+def d2exp_set_styp(d2e0, t2p0):
+    let d2e0 = @sapp[D2exp_vt] UN.castlin10(d2e0)
+    let @(D2EXP_vt)(loc0, !styp, node) = d2e0
+    styp := t2p0
+
+
+private:
+    enum D2rpt:
+        case D2RPT(D2pat)
+    @linear
+    enum D2rpt_vt:
+        case D2RPT_vt(D2pat)
+    @impl
+    type D2rpt_tbox = D2rpt
+
+@impl
+def d2rpt_new1(loc0):
+    D2RPT(d2pat_none0(loc0))
+
+@impl
+def d2rpt_get_dpat(drpt):
+    let D2RPT(dpat) = drpt
+    dpat
+
+@impl
+def d2rpt_set_dpat(drpt, d2p0):
+    let drpt = @sapp[D2rpt_vt] UN.castlin10(drpt)
+    let @(D2RPT_vt)(!dpat) = drpt
+    dpat := d2p0
+
+
+private:
+    enum D2rxp:
+        case D2RXP(D2exp)
+    @linear
+    enum D2rxp_vt:
+        case D2RXP_vt(D2exp)
+    @impl
+    type D2rxp_tbox = D2rxp
+
+@impl
+def d2rxp_new1(loc0):
+    D2RXP(d2exp_none0(loc0))
+
+@impl
+def d2rxp_get_dexp(drxp):
+    let D2RXP(dexp) = drxp
+    dexp
+
+@impl
+def d2rxp_set_dexp(drxp, d2e0):
+    let drxp = @sapp[D2rxp_vt] UN.castlin10(drxp)
+    let @(D2RXP_vt)(!dexp) = drxp
+    dexp := d2e0
+
+
+private:
+    enum F2arg:
+        case F2ARG(loctn, f2arg_node)
+    @impl
+    type F2arg_tbox = F2arg
+
+@impl
+def f2arg_make_node(loc, nod):
+    F2ARG(loc, nod)
+
+@impl
+def f2arg_get_lctn(f2a):
+    let F2ARG(loc, nod) = f2a
+    loc
+
+@impl
+def f2arg_get_node(f2a):
+    let F2ARG(loc, nod) = f2a
+    nod
+
+
+private:
+    enum D2gua:
+        case D2GUA(loctn, d2gua_node)
+    @impl
+    type D2gua_tbox = D2gua
+
+@impl
+def d2gua_make_node(loc, nod):
+    D2GUA(loc, nod)
+
+@impl
+def d2gua_get_lctn(d2g):
+    let D2GUA(loc, nod) = d2g
+    loc
+
+@impl
+def d2gua_get_node(d2g):
+    let D2GUA(loc, nod) = d2g
+    nod
+
+
+private:
+    enum D2gpt:
+        case D2GPT(loctn, d2gpt_node)
+    @impl
+    type D2gpt_tbox = D2gpt
+
+@impl
+def d2gpt_make_node(loc, nod):
+    D2GPT(loc, nod)
+
+@impl
+def d2gpt_get_lctn(gpt):
+    let D2GPT(loc, nod) = gpt
+    loc
+
+@impl
+def d2gpt_get_node(gpt):
+    let D2GPT(loc, nod) = gpt
+    nod
+
+
+private:
+    enum D2cls:
+        case D2CLS(loctn, d2cls_node)
+    @impl
+    type D2cls_tbox = D2cls
+
+@impl
+def d2cls_make_node(loc, nod):
+    D2CLS(loc, nod)
+
+@impl
+def d2cls_get_lctn(cls):
+    let D2CLS(loc, nod) = cls
+    loc
+
+@impl
+def d2cls_get_node(cls):
+    let D2CLS(loc, nod) = cls
+    nod
+
+
+@impl
+def d2ecl_none0(loc0):
+    d2ecl_make_node(loc0, D2Cnone0())
+
+@impl
+def d2ecl_none1(d2cl):
+    d2ecl_make_node(d2cl.lctn(), D2Cnone1(d2cl))
+
+private:
+    enum D2ecl:
+        case D2ECL(loctn, d2ecl_node)
+    @impl
+    type D2ecl_tbox = D2ecl
+
+@impl
+def d2ecl_make_node(loc, nod):
+    D2ECL(loc, nod)
+
+@impl
+def d2ecl_get_lctn(dcl):
+    let D2ECL(loc, nod) = dcl
+    loc
+
+@impl
+def d2ecl_get_node(dcl):
+    let D2ECL(loc, nod) = dcl
+    nod
+
+
+private:
+    enum S2qag:
+        case S2QAG(loc_t, s2varlst)
+    @impl
+    type S2qag_tbox = S2qag
+
+@impl
+def s2qag_get_lctn(s2qa):
+    let S2QAG(loc0, s2vs) = s2qa
+    loc0
+
+@impl
+def s2qag_get_s2vs(s2qa):
+    let S2QAG(loc0, s2vs) = s2qa
+    s2vs
+
+@impl
+def s2qag_make_s2vs(loc0, s2vs):
+    S2QAG(loc0, s2vs)
+
+
+private:
+    enum T2qag:
+        case T2QAG(loc_t, s2varlst)
+    @impl
+    type T2qag_tbox = T2qag
+
+@impl
+def t2qag_get_lctn(t2qa):
+    let T2QAG(loc0, s2vs) = t2qa
+    loc0
+
+@impl
+def t2qag_get_s2vs(t2qa):
+    let T2QAG(loc0, s2vs) = t2qa
+    s2vs
+
+@impl
+def t2qag_make_s2vs(loc0, s2vs):
+    T2QAG(loc0, s2vs)
+
+
+private:
+    enum T2iag:
+        case T2IAG(loc_t, s2explst)
+    @impl
+    type T2iag_tbox = T2iag
+    enum T2iag_vt:
+        case T2IAG_vt(loc_t, s2explst)
+
+@impl
+def t2iag_get_lctn(t2ia):
+    let T2IAG(loc0, s2es) = t2ia
+    loc0
+
+@impl
+def t2iag_get_s2es(t2ia):
+    let T2IAG(loc0, s2es) = t2ia
+    s2es
+
+@impl
+def t2iag_make_s2es(loc0, s2es):
+    T2IAG(loc0, s2es)
+
+@impl
+def t2iag_set_s2es(t2ia, ses2):
+    let t2ia = @sapp[T2iag_vt] UN.castlin10(t2ia)
+    let @(T2IAG_vt)(loc0, !s2es) = t2ia
+    s2es := ses2
+
+
+private:
+    enum T2jag:
+        case T2JAG(loc_t, s2typlst)
+    @impl
+    type T2jag_tbox = T2jag
+    enum T2jag_vt:
+        case T2JAG_vt(loc_t, s2typlst)
+
+@impl
+def t2jag_get_lctn(tjag):
+    let T2JAG(loc0, t2ps) = tjag
+    loc0
+
+@impl
+def t2jag_get_t2ps(tjag):
+    let T2JAG(loc0, t2ps) = tjag
+    t2ps
+
+@impl
+def t2jag_make_t2ps(loc0, t2ps):
+    T2JAG(loc0, t2ps)
+
+@impl
+def t2jag_set_t2ps(tjag, ses2):
+    let tjag = @sapp[T2jag_vt] UN.castlin10(tjag)
+    let @(T2JAG_vt)(loc0, !t2ps) = tjag
+    t2ps := ses2
+
+
+private:
+    enum Simpl:
+        case SIMPL(loctn, simpl_node)
+    @impl
+    type Simpl_tbox = Simpl
+
+@impl
+def simpl_make_node(loc, nod):
+    SIMPL(loc, nod)
+
+@impl
+def simpl_get_lctn(s2i):
+    let SIMPL(loc, nod) = s2i
+    loc
+
+@impl
+def simpl_get_node(s2i):
+    let SIMPL(loc, nod) = s2i
+    nod
+
+
+private:
+    enum Dimpl:
+        case DIMPL(loctn, dimpl_node)
+    enum Dimpl_vt:
+        case DIMPL_vt(loctn, dimpl_node)
+    @impl
+    type Dimpl_tbox = Dimpl
+
+@impl
+def dimpl_make_node(loc, nod):
+    DIMPL(loc, nod)
+
+@impl
+def dimpl_get_lctn(d2i):
+    let DIMPL(loc, nod) = d2i
+    loc
+
+@impl
+def dimpl_get_node(d2i):
+    let DIMPL(loc, nod) = d2i
+    nod
+
+@impl
+def dimpl_set_node(dimp, ndx2):
+    let dimp = @sapp[Dimpl_vt] UN.castlin10(dimp)
+    let @(DIMPL_vt)(loc0, !node) = dimp
+    node := ndx2
+
+
+private:
+    enum D2arg:
+        case D2ARG(loctn, d2arg_node)
+    @impl
+    type D2arg_tbox = D2arg
+
+@impl
+def d2arg_make_node(loc, nod):
+    D2ARG(loc, nod)
+
+@impl
+def d2arg_get_lctn(d2a):
+    let D2ARG(loc, nod) = d2a
+    loc
+
+@impl
+def d2arg_get_node(d2a):
+    let D2ARG(loc, nod) = d2a
+    nod
+
+
+private:
+    enum D2valdcl:
+        case D2VALDCL(loc_t, D2pat, teqd2exp, wths2exp)
+    @impl
+    type D2valdcl_tbox = D2valdcl
+
+@impl
+def d2valdcl_get_lctn(dval):
+    let D2VALDCL(lctn, dpat, tdxp, wsxp) = dval
+    lctn
+
+@impl
+def d2valdcl_get_dpat(dval):
+    let D2VALDCL(lctn, dpat, tdxp, wsxp) = dval
+    dpat
+
+@impl
+def d2valdcl_get_tdxp(dval):
+    let D2VALDCL(lctn, dpat, tdxp, wsxp) = dval
+    tdxp
+
+@impl
+def d2valdcl_get_wsxp(dval):
+    let D2VALDCL(lctn, dpat, tdxp, wsxp) = dval
+    wsxp
+
+@impl
+def d2valdcl_make_args(lctn, dpat, tdxp, wsxp):
+    D2VALDCL(lctn, dpat, tdxp, wsxp)
+
+
+private:
+    enum D2vardcl:
+        case D2VARDCL(loc_t, D2var, d2varopt, s2expopt, teqd2exp)
+    @impl
+    type D2vardcl_tbox = D2vardcl
+
+@impl
+def d2vardcl_get_lctn(dvar):
+    let D2VARDCL(lctn, dpid, vpid, sres, dini) = dvar
+    lctn
+
+@impl
+def d2vardcl_get_dpid(dvar):
+    let D2VARDCL(lctn, dpid, vpid, sres, dini) = dvar
+    dpid
+
+@impl
+def d2vardcl_get_vpid(dvar):
+    let D2VARDCL(lctn, dpid, vpid, sres, dini) = dvar
+    vpid
+
+@impl
+def d2vardcl_get_sres(dvar):
+    let D2VARDCL(lctn, dpid, vpid, sres, dini) = dvar
+    sres
+
+@impl
+def d2vardcl_get_dini(dvar):
+    let D2VARDCL(lctn, dpid, vpid, sres, dini) = dvar
+    dini
+
+@impl
+def d2vardcl_make_args(lctn, dpid, vpid, sres, dini):
+    D2VARDCL(lctn, dpid, vpid, sres, dini)
+
+
+private:
+    enum D2fundcl:
+        case D2FUNDCL(loc_t, D2var, f2arglst, s2res, teqd2exp, wths2exp)
+    @impl
+    type D2fundcl_tbox = D2fundcl
+
+@impl
+def d2fundcl_get_lctn(dfun):
+    let D2FUNDCL(lctn, dpid, farg, sres, tdxp, wsxp) = dfun
+    lctn
+
+@impl
+def d2fundcl_get_dpid(dfun):
+    let D2FUNDCL(lctn, dpid, farg, sres, tdxp, wsxp) = dfun
+    dpid
+
+@impl
+def d2fundcl_get_farg(dfun):
+    let D2FUNDCL(lctn, dpid, farg, sres, tdxp, wsxp) = dfun
+    farg
+
+@impl
+def d2fundcl_get_sres(dfun):
+    let D2FUNDCL(lctn, dpid, farg, sres, tdxp, wsxp) = dfun
+    sres
+
+@impl
+def d2fundcl_get_tdxp(dfun):
+    let D2FUNDCL(lctn, dpid, farg, sres, tdxp, wsxp) = dfun
+    tdxp
+
+@impl
+def d2fundcl_get_wsxp(dfun):
+    let D2FUNDCL(lctn, dpid, farg, sres, tdxp, wsxp) = dfun
+    wsxp
+
+@impl
+def d2fundcl_make_args(lctn, dpid, farg, sres, tdxp, wsxp):
+    D2FUNDCL(lctn, dpid, farg, sres, tdxp, wsxp)
+
+
+private:
+    enum D2cstdcl:
+        case D2CSTDCL(loc_t, D2cst, d2arglst, s2res, d2res)
+    @impl
+    type D2cstdcl_tbox = D2cstdcl
+
+@impl
+def d2cstdcl_get_lctn(dcst):
+    let D2CSTDCL(lctn, dpid, darg, sres, dres) = dcst
+    lctn
+
+@impl
+def d2cstdcl_get_dpid(dcst):
+    let D2CSTDCL(lctn, dpid, darg, sres, dres) = dcst
+    dpid
+
+@impl
+def d2cstdcl_get_darg(dcst):
+    let D2CSTDCL(lctn, dpid, darg, sres, dres) = dcst
+    darg
+
+@impl
+def d2cstdcl_get_sres(dcst):
+    let D2CSTDCL(lctn, dpid, darg, sres, dres) = dcst
+    sres
+
+@impl
+def d2cstdcl_get_dres(dcst):
+    let D2CSTDCL(lctn, dpid, darg, sres, dres) = dcst
+    dres
+
+@impl
+def d2cstdcl_make_args(loc0, d2c1, d2as, sres, dres):
+    D2CSTDCL(loc0, d2c1, d2as, sres, dres)
+
+
+private:
+    enum D2parsed:
+        case D2PARSED(SInt, SInt, lcsrc, d1topenv, d2topenv, d2eclistopt)
+    @impl
+    type D2parsed_tbox = D2parsed
+
+@impl
+def d2parsed_get_stadyn(dpar):
+    stadyn
+where:
+    let D2PARSED(stadyn, nerror, source, t1penv, t2penv, parsed) = dpar
+
+@impl
+def d2parsed_get_nerror(dpar):
+    nerror
+where:
+    let D2PARSED(stadyn, nerror, source, t1penv, t2penv, parsed) = dpar
+
+@impl
+def d2parsed_get_source(dpar):
+    source
+where:
+    let D2PARSED(stadyn, nerror, source, t1penv, t2penv, parsed) = dpar
+
+@impl
+def d2parsed_get_t1penv(dpar):
+    t1penv
+where:
+    let D2PARSED(stadyn, nerror, source, t1penv, t2penv, parsed) = dpar
+
+@impl
+def d2parsed_get_t2penv(dpar):
+    t2penv
+where:
+    let D2PARSED(stadyn, nerror, source, t1penv, t2penv, parsed) = dpar
+
+@impl
+def d2parsed_get_parsed(dpar):
+    parsed
+where:
+    let D2PARSED(stadyn, nerror, source, t1penv, t2penv, parsed) = dpar
+
+@impl
+def d2parsed_make_args(stadyn, nerror, source, t1penv, t2penv, parsed):
+    D2PARSED(stadyn, nerror, source, t1penv, t2penv, parsed)
+
+

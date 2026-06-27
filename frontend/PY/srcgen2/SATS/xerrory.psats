@@ -1,0 +1,10 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+@extern
+def abort() -> Void
+
+@extern
+def abort_interr() -> Void
+

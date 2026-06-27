@@ -1,0 +1,146 @@
+import "srcgen2/SATS/xsymbol" as SYM
+
+type Sym_t = SYM.sym_t
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+@extern
+def theDirSep_get() -> Char
+
+@extern
+def theCurDir_get() -> String
+
+@extern
+def theParDir_get() -> String
+
+@extern
+def fpath_dpart(a: String) -> String
+
+@extern
+def fpath_normq(a: String) -> Bool
+
+@extern
+def fpath_normize(a: String) -> String
+
+@abstract
+type Drpth_tbox
+
+type Drpth = Drpth_tbox
+
+type Drpthlst = List[Drpth]
+
+type Drpthopt = Optn[Drpth]
+
+@abstract
+type Fpath_tbox
+
+type Fpath = Fpath_tbox
+
+type Fpathlst = List[Fpath]
+
+type Fpathopt = Optn[Fpath]
+
+@extern
+def drpth_get_name(a: Drpth) -> String
+
+@overload name = drpth_get_name
+
+@extern
+def drpth_make_name(a: String) -> Drpth
+
+@overload drpth = drpth_make_name
+
+@extern
+let the_drpth_nil: Drpth
+
+@extern
+def the_drpth_get() -> Drpth
+
+@extern
+def the_drpthlst_get() -> Drpthlst
+
+@extern
+def the_drpth_pop0() -> Void
+
+@extern
+def the_drpth_pop1() -> Drpth
+
+@extern
+def the_drpth_push(a: Drpth) -> Void
+
+@extern
+def the_drpth_fprint(a: FILR) -> Void
+
+@extern
+def the_drpthlst_fprint(a: FILR) -> Void
+
+@extern
+def fpath_get_gvn0(a: Fpath) -> String
+
+@overload gvn0 = fpath_get_gvn0
+
+@extern
+def fpath_get_fnm1(a: Fpath) -> String
+
+@overload fnm1 = fpath_get_fnm1
+
+@extern
+def fpath_get_fnm2(a: Fpath) -> Sym_t
+
+@overload fnm2 = fpath_get_fnm2
+
+@extern
+def fpath_make_absolute(a: String) -> Fpath
+
+@extern
+def fpath_make_relative(a: String, b: String) -> Fpath
+
+@overload fpath = fpath_make_absolute
+
+@overload fpath = fpath_make_relative
+
+@extern
+def drpth_fprint(a: Drpth, b: FILR) -> Void
+
+@extern
+def fpath_fprint(a: Fpath, b: FILR) -> Void
+
+enum Fname:
+    case FNMbase(String)
+
+type Fnameopt = Optn[Fname]
+
+type Fnameopt_vt = Optn_vt[Fname]
+
+@extern
+def fname_fprint(a: Fname, b: FILR) -> Void
+
+@extern
+def fsrch_absolute(a: String) -> Fpathopt
+
+@extern
+def fsrch_dcurrent(a: String) -> Fpathopt
+
+@extern
+def fsrch_includes(a: String) -> Fpathopt
+
+@extern
+def fsrch_combined(a: Fname) -> Fpathopt
+
+@extern
+def fname_stadyn(a: String) -> SInt
+
+@extern
+def fname_dbjoin(a: String, b: String) -> String
+
+@extern
+def fsrch_dnm1base(a: String, b: String) -> Optn[Fpath]
+
+@extern
+def fsrch_dnmsbase(a: List[String], b: String) -> Optn[Fpath]
+
+@extern
+def fsrch_dir1base(a: Drpth, b: String) -> Optn[Fpath]
+

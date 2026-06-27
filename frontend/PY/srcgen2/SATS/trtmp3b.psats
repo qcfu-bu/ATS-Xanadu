@@ -1,0 +1,231 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+@abstract
+type Tr3benv_vtbx
+
+type Tr3benv = Tr3benv_vtbx
+
+import "srcgen2/SATS/xstamp0" as TMP
+
+import "srcgen2/SATS/staexp2" as S2E
+
+import "srcgen2/SATS/dynexp2" as D2E
+
+import "srcgen2/SATS/dynexp3" as D3E
+
+type Stamp = TMP.stamp
+
+type S2typ = S2E.s2typ
+
+type L2t2p = S2E.l2t2p
+
+type D2cst = D2E.d2cst
+
+type D3pat = D3E.d3pat
+
+type D3exp = D3E.d3exp
+
+type L3d3p = D3E.l3d3p
+
+type L3d3e = D3E.l3d3e
+
+type D3gua = D3E.d3gua
+
+type D3gpt = D3E.d3gpt
+
+type D3cls = D3E.d3cls
+
+type D3ecl = D3E.d3ecl
+
+type Timpl = D3E.timpl
+
+type S2typlst = S2E.s2typlst
+
+type L2t2plst = S2E.l2t2plst
+
+type D2cstlst = D2E.d2cstlst
+
+type T2jaglst = D2E.t2jaglst
+
+type Teqd3exp = D3E.teqd3exp
+
+type D3patlst = D3E.d3patlst
+
+type D3explst = D3E.d3explst
+
+type D3expopt = D3E.d3expopt
+
+type L3d3plst = D3E.l3d3plst
+
+type L3d3elst = D3E.l3d3elst
+
+type D3gualst = D3E.d3gualst
+
+type D3clslst = D3E.d3clslst
+
+type D3eclist = D3E.d3eclist
+
+type D3valdcl = D3E.d3valdcl
+
+type D3vardcl = D3E.d3vardcl
+
+type D3fundcl = D3E.d3fundcl
+
+type D3parsed = D3E.d3parsed
+
+type D3topenv = D3E.d3topenv
+
+type D3valdclist = D3E.d3valdclist
+
+type D3vardclist = D3E.d3vardclist
+
+type D3fundclist = D3E.d3fundclist
+
+type D3eclist_vt = D3E.d3eclist_vt
+
+type D3explstopt = D3E.d3explstopt
+
+type D3eclistopt = D3E.d3eclistopt
+
+@abstract
+type Tmpstk_vtbx
+
+type Tmpstk = Tmpstk_vtbx
+
+@extern
+def tmpstk_nilq1(a: !Tmpstk) -> Bool
+
+@extern
+def tmpstk_poptop0(a: &Tmpstk >> _) -> SInt
+
+@extern
+def tmpstk_pshlet0(a: &Tmpstk >> _) -> Void
+
+@extern
+def tmpstk_poplet0(a: &Tmpstk >> _) -> SInt
+
+@extern
+def tmpstk_pshloc1(a: &Tmpstk >> _) -> Void
+
+@extern
+def tmpstk_pshloc2(a: &Tmpstk >> _) -> Void
+
+@extern
+def tmpstk_locjoin(a: &Tmpstk >> _) -> SInt
+
+@extern
+def tmpstk_getstmp(a: !Tmpstk >> _) -> Stamp
+
+@extern
+def tmpstk_insert_decl(a: &Tmpstk >> _, b: D3ecl) -> Void
+
+@extern
+def tmpstk_search_dcst(a: !Tmpstk, b: D2cst) -> D3eclist_vt
+
+@extern
+def d3parsed_of_trtmp3b(a: D3parsed) -> D3parsed
+
+@extern
+def tr3benv_make_nil() -> Tr3benv
+
+@extern
+def tr3benv_free_nil(a: Tr3benv) -> Void
+
+@extern
+def tr3benv_pshlet0(a: !Tr3benv) -> Void
+
+@extern
+def tr3benv_poplet0(a: !Tr3benv) -> Void
+
+@extern
+def tr3benv_pshloc1(a: !Tr3benv) -> Void
+
+@extern
+def tr3benv_pshloc2(a: !Tr3benv) -> Void
+
+@extern
+def tr3benv_locjoin(a: !Tr3benv) -> Void
+
+@extern
+def list_trtmp3b_fnp[X0: Type, Y0: Type](a: !Tr3benv, b: List[X0], c: (!Tr3benv, X0) -> Y0) -> List[Y0]
+
+@extern
+def optn_trtmp3b_fnp[X0: Type, Y0: Type](a: !Tr3benv, b: Optn[X0], c: (!Tr3benv, X0) -> Y0) -> Optn[Y0]
+
+@extern
+def trtmp3b_d3exp(a: !Tr3benv, b: D3exp) -> D3exp
+
+@extern
+def trtmp3b_l3d3e(a: !Tr3benv, b: L3d3e) -> L3d3e
+
+@extern
+def trtmp3b_d3gua(a: !Tr3benv, b: D3gua) -> D3gua
+
+@extern
+def trtmp3b_d3gpt(a: !Tr3benv, b: D3gpt) -> D3gpt
+
+@extern
+def trtmp3b_d3cls(a: !Tr3benv, b: D3cls) -> D3cls
+
+@extern
+def trtmp3b_d3ecl(a: !Tr3benv, b: D3ecl) -> D3ecl
+
+@extern
+def trtmp3b_teqd3exp(a: !Tr3benv, b: Teqd3exp) -> Teqd3exp
+
+@extern
+def trtmp3b_d3explst(a: !Tr3benv, b: D3explst) -> D3explst
+
+@extern
+def trtmp3b_d3expopt(a: !Tr3benv, b: D3expopt) -> D3expopt
+
+@extern
+def trtmp3b_l3d3elst(a: !Tr3benv, b: L3d3elst) -> L3d3elst
+
+@extern
+def trtmp3b_d3gualst(a: !Tr3benv, b: D3gualst) -> D3gualst
+
+@extern
+def trtmp3b_d3clslst(a: !Tr3benv, b: D3clslst) -> D3clslst
+
+@extern
+def trtmp3b_d3eclist(a: !Tr3benv, b: D3eclist) -> D3eclist
+
+@extern
+def trtmp3b_d3valdcl(a: !Tr3benv, b: D3valdcl) -> D3valdcl
+
+@extern
+def trtmp3b_d3vardcl(a: !Tr3benv, b: D3vardcl) -> D3vardcl
+
+@extern
+def trtmp3b_d3fundcl(a: !Tr3benv, b: D3fundcl) -> D3fundcl
+
+@extern
+def trtmp3b_d3valdclist(a: !Tr3benv, b: D3valdclist) -> D3valdclist
+
+@extern
+def trtmp3b_d3vardclist(a: !Tr3benv, b: D3vardclist) -> D3vardclist
+
+@extern
+def trtmp3b_d3fundclist(a: !Tr3benv, b: D3fundclist) -> D3fundclist
+
+@extern
+def trtmp3b_d3explstopt(a: !Tr3benv, b: D3explstopt) -> D3explstopt
+
+@extern
+def trtmp3b_d3eclistopt(a: !Tr3benv, b: D3eclistopt) -> D3eclistopt
+
+@extern
+def tr3benv_getstmp(a: !Tr3benv) -> Stamp
+
+@extern
+def tr3benv_insert_decl(a: !Tr3benv, b: D3ecl) -> Void
+
+@extern
+def tr3benv_search_dcst(a: !Tr3benv, b: D2cst) -> D3eclist_vt
+
+@extern
+def tr3benv_t3apq_resolve(a: !Tr3benv, b: D2cst, c: T2jaglst) -> Timpl
+

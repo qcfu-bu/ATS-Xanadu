@@ -1,0 +1,30 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xlabel0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+@impl
+def label_none():
+    LABsym(symbl("*NONE*"))
+
+@impl
+def label_cmp(lab1, lab2):
+    match lab1:
+        case LABint(i1):
+            match lab2:
+                case LABint(i2):
+                    @inst[SInt] g_cmp(i1, i2)
+                case LABsym(s2):
+                    -(1)
+        case LABsym(s1):
+            match lab2:
+                case LABint(i2):
+                    1
+                case LABsym(s2):
+                    symbl_cmp(s1, s2)
+

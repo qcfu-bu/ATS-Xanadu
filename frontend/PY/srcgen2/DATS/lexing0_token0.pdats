@@ -1,0 +1,60 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/lexing0" import *
+
+private:
+    enum Token:
+        case TOKEN(loc_t, tnode)
+    @impl
+    type Token_tbox = Token
+
+@impl
+def token_make_node(loc, tnd):
+    TOKEN(loc, tnd)
+
+@impl
+def token_get_lctn(tok):
+    let TOKEN(loc, tnd) = tok
+    loc
+
+@impl
+def token_get_node(tok):
+    let TOKEN(loc, tnd) = tok
+    tnd
+
+
+@impl
+def tnode_blankq(tnd):
+    match tnd:
+        case T_EOL(_):
+            true
+        case T_BLANK(_):
+            true
+        case _:
+            false
+
+@impl
+def tnode_iscmnt(tnd):
+    match tnd:
+        case T_CMNT1_line(_):
+            true
+        case T_CMNT2_rest(_):
+            true
+        case T_CMNT3_ccbl(_):
+            true
+        case T_CMNT4_mlbl(_):
+            true
+        case _:
+            false
+
+@impl
+def tnode_isskip(tnd):
+    if blankq(tnd):
+        true
+    else:
+        iscmnt(tnd)
+

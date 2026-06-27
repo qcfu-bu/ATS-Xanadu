@@ -1,0 +1,317 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/trans01" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/gmacro1" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload lctn = g1arg_get_lctn
+
+@overload node = g1arg_get_node
+
+@overload lctn = g1mag_get_lctn
+
+@overload node = g1mag_get_node
+
+@overload lctn = g1exp_get_lctn
+
+@overload node = g1exp_get_node
+
+@extern
+def trans11_g1mac_subs(env0: !tr11env, body: g1mac, genv: g1env) -> g1mac
+
+private:
+    @impl
+    type G1env_tbox = list[(g1id0, g1mac)]
+
+def g1env_decode(genv: g1env) -> list[(g1id0, g1mac)]:
+    genv
+
+def g1env_nil() -> g1env:
+    list_nil()
+
+def g1env_addlst(genv: g1env, gids: g1ids, g1ms: g1maclst) -> g1env:
+    match gids:
+        case list_nil():
+            genv
+        case list_cons(gid1, gids):
+            match g1ms:
+                case list_nil():
+                    genv
+                case list_cons(g1m1, g1ms):
+                    let genv = list_cons((gid1, g1m1), genv)
+                    g1env_addlst(genv, gids, g1ms)
+
+def g1env_search/opt(genv: g1env, gid0: g1id0) -> g1macopt_vt:
+    match genv:
+        case list_nil():
+            optn_vt_nil()
+        case list_cons((x1, v1), genv):
+            if (gid0 == x1):
+                optn_vt_cons(v1)
+            else:
+                g1env_search/opt(genv, gid0)
+
+
+@impl
+def g1env_fprint(genv, out):
+    let genv = g1env_decode(genv)
+    prints("G1ENV(", genv, ")")
+where:
+    @impl[]
+    def g_print/out():
+        out
+
+private:
+    def f0_garg(g1a0: g1arg) -> g1id0:
+        match g1a0.node():
+            case G1ARGnode(tok1):
+                match tok1.node():
+                    case T_IDALP(nam1):
+                        symbl(nam1)
+                    case T_IDSYM(nam1):
+                        symbl(nam1)
+    def f0_g1as(g1as: g1arglst) -> g1ids:
+        @inst[x0] @inst[y0] list_map(g1as)
+    where:
+        type X0 = g1arg
+        type Y0 = g1id0
+        @impl[X0, Y0]
+        def map/fopr(x0):
+            f0_garg(x0)
+    def f0_gexp(g1e0: g1exp) -> g1mac:
+        match g1e0.node():
+            case G1Eint(tok):
+                let int = token2sint(tok)
+                G1Mint(int)
+            case G1Echr(tok):
+                let chr = token2schr(tok)
+                G1Mchr(chr)
+            case G1Eflt(tok):
+                let flt = token2sflt(tok)
+                G1Mflt(flt)
+            case G1Estr(tok):
+                let str = token2sstr(tok)
+                G1Mstr(str)
+            case G1Eid0(gid):
+                G1Mid0(gid)
+            case G1Ea1pp(g1f0, g1e1):
+                let g1f0 = f0_gexp(g1f0)
+                let g1ms = match g1e1.node():
+                    case G1Elist(g1es):
+                        f0_g1es(g1es)
+                    case _:
+                        let g1m1 = f0_gexp(g1e1)
+                        list_sing(g1m1)
+                G1Mapps(g1f0, g1ms)
+            case G1Ea2pp(g1f0, g1e1, g1e2):
+                let g1f0 = f0_gexp(g1f0)
+                let g1e1 = f0_gexp(g1e1)
+                let g1e2 = f0_gexp(g1e2)
+                G1Mapps(g1f0, list_pair(g1e1, g1e2))
+            case G1Elist(g1es):
+                match g1es:
+                    case list_nil():
+                        G1Mnone0()
+                    case list_cons(g1e1, g1es):
+                        match g1es:
+                            case list_nil(_):
+                                f0_gexp(g1e1)
+                            case list_cons(_):
+                                let g1m1 = f0_gexp(g1e1)
+                                G1Mlist(list_cons(g1m1, f0_g1es(g1es)))
+
+    def f0_g1es(g1es: g1explst) -> g1maclst:
+        @inst[x0] @inst[y0] list_map(g1es)
+    where:
+        type X0 = g1exp
+        type Y0 = g1mac
+        @impl[X0, Y0]
+        def map/fopr(x0):
+            f0_gexp(x0)
+    def f0_gmag(g1ma: g1mag) -> g1ids:
+        match g1ma.node():
+            case G1MAGsarg(g1as):
+                f0_g1as(g1as)
+            case G1MAGdarg(g1as):
+                f0_g1as(g1as)
+    def f0_gmas(gmas: g1maglst, def1: g1mac) -> g1mac:
+        match gmas:
+            case list_nil():
+                def1
+            case list_cons(g1ma, gmas):
+                let gids = f0_gmag(g1ma)
+                G1Mlam0(gids, f0_gmas(gmas, def1))
+
+@impl
+def trans11_gmdef(gmas, def1):
+    f0_gmas(gmas, def1)
+where:
+    let def1 = match def1:
+        case optn_cons(g1e1):
+            f0_gexp(g1e1)
+        case optn_nil():
+            G1Mnone0()
+
+
+private:
+    def f0_apps(env0: !tr11env, g1m0: g1mac) -> g1mac:
+        f0_apps_els1(env0, g1f0, g1ms)
+    where:
+        let G1Mapps(g1f0, g1ms) = g1m0
+
+    def f0_apps_els1(env0: !tr11env, g1f0: g1mac, g1ms: g1maclst) -> g1mac:
+        match g1f0:
+            case _:
+                f0_apps_els2(env0, g1f0, g1ms)
+
+    def f0_apps_els2(env0: !tr11env, g1f0: g1mac, g1ms: g1maclst) -> g1mac:
+        match g1f0:
+            case G1Mlam0(gmas, body):
+                let genv = g1env_nil()
+                let genv = g1env_addlst(genv, gmas, g1ms)
+                trans11_g1mac_subs(env0, body, genv)
+            case G1Msubs(g1f1, genv):
+                match g1f1:
+                    case G1Mlam0(gmas, body):
+                        let genv = g1env_addlst(genv, gmas, g1ms)
+                        trans11_g1mac_subs(env0, body, genv)
+                    case _:
+                        G1Mapps(g1f0, g1ms)
+            case _:
+                G1Mapps(g1f0, g1ms)
+    def f0_gmac(env0: !tr11env, g1m0: g1mac) -> g1mac:
+        match g1m0:
+            case G1Mint(_):
+                g1m0
+            case G1Mbtf(_):
+                g1m0
+            case G1Mstr(_):
+                g1m0
+            case G1Msexp(_):
+                g1m0
+            case G1Mdpat(_):
+                g1m0
+            case G1Mdexp(_):
+                g1m0
+            case G1Mid0(_):
+                f0_gid0(env0, g1m0)
+            case G1Mapps(_):
+                f0_apps(env0, g1m0)
+            case _:
+                g1m0
+
+    def f0_gid0(env0: !tr11env, g1m0: g1mac) -> g1mac:
+        let G1Mid0(sym1) = g1m0
+        let opt1 = tr11env_search/opt(env0, sym1)
+        match opt1:
+            case ~optn_vt_nil():
+                g1m0
+            case ~optn_vt_cons(g1m0):
+                f0_gmac(env0, g1m0)
+
+@impl
+def trans11_g1mac(env0, g1m0):
+    f0_gmac(env0, g1m0)
+
+@impl
+def trans11_g1mac_apps(env0, g1f0, g1ms):
+    f0_apps_els1(env0, g1f0, g1ms)
+
+
+private:
+    def f0_g1m0(env0: !tr11env, g1m0: g1mac, genv: g1env) -> g1mac:
+        match g1m0:
+            case G1Mint(_):
+                g1m0
+            case G1Mbtf(_):
+                g1m0
+            case G1Mstr(_):
+                g1m0
+            case G1Mid0(_):
+                f0_gmid(env0, g1m0, genv)
+            case G1Mift0(_):
+                f0_cond(env0, g1m0, genv)
+            case G1Mapps(_):
+                f0_apps(env0, g1m0, genv)
+            case _:
+                G1Msubs(g1m0, genv)
+
+    def f0_g1ms(env0: !tr11env, g1ms: g1maclst, genv: g1env) -> g1maclst:
+        @inst[x0] @inst[y0] @inst[e1] list_map/e1nv(g1ms, env0)
+    where:
+        type X0 = g1mac
+        type Y0 = g1mac
+        type E1 = tr11env
+        @impl[X0, Y0, E1]
+        def map/e1nv/fopr(x0, e1):
+            f0_g1m0(e1, x0, genv)
+
+    def f0_gmid(env0: !tr11env, g1m0: g1mac, genv: g1env) -> g1mac:
+        let G1Mid0(sym1) = g1m0
+        let opt1 = g1env_search/opt(genv, sym1)
+        match opt1:
+            case ~optn_vt_cons(g1m1):
+                g1m1
+            case ~optn_vt_nil():
+                let opt1 = tr11env_search/opt(env0, sym1)
+                match opt1:
+                    case ~optn_vt_nil():
+                        g1m0
+                    case ~optn_vt_cons(g1m1):
+                        trans11_g1mac(env0, g1m1)
+
+    def f0_cond(env0: !tr11env, g1m0: g1mac, genv: g1env) -> g1mac:
+        let G1Mift0(g1m1, g1m2, g1m3) = g1m0
+        let g1m1 = f0_g1m0(env0, g1m1, genv)
+        match g1m1:
+            case G1Mbtf(btf):
+                if (btf):
+                    f0_g1m0(env0, g1m2, genv)
+                else:
+                    f0_g1m0(env0, g1m3, genv)
+            case G1Mint(int):
+                if (int != 0):
+                    f0_g1m0(env0, g1m2, genv)
+                else:
+                    f0_g1m0(env0, g1m3, genv)
+            case G1Mstr(str):
+                if (str != ""):
+                    f0_g1m0(env0, g1m2, genv)
+                else:
+                    f0_g1m0(env0, g1m3, genv)
+            case _:
+                let g1m2 = G1Msubs(g1m2, genv)
+                let g1m3 = G1Msubs(g1m3, genv)
+                G1Mift0(g1m1, g1m2, g1m3)
+
+    def f0_apps(env0: !tr11env, g1m0: g1mac, genv: g1env) -> g1mac:
+        let G1Mapps(g1f0, g1ms) = g1m0
+        let g1f0 = f0_g1m0(env0, g1f0, genv)
+        let g1ms = f0_g1ms(env0, g1ms, genv)
+        trans11_g1mac_apps(env0, g1f0, g1ms)
+
+@impl
+def trans11_g1mac_subs(env0, g1m0, genv):
+    f0_g1m0(env0, g1m0, genv)
+
+

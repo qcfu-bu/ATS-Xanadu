@@ -452,6 +452,10 @@ pcdecl =
 | PCCabstype of (loctn, strn, list(pcparam), pcmode, pytypopt(*<= REP*))
 | PCCassume  of (loctn, strn, list(pcparam), pytyp)
 | PCCextern  of (loctn, strn, list(pcparam), list(strn), list(pytypopt), pytypopt, pcextnam)
+//   PCCexternval : an `@extern let NAME: T` — a bodyless DYNAMIC constant (ATS-parity for a bodyless
+//                `val NAME: T` in a .sats interface). M3 lowers it to a D2Cdynconst (VAL kind) so the
+//                name resolves in DYNAMIC position (unlike `@static let` -> PCCstacst, a STATIC const).
+| PCCexternval of (loctn, strn(*name*), list(pcparam)(*tvs*), pytypopt(*typ*))
 //   PCCimplement : an `implement NAME(params) [-> Ret]: <body>` body for a pre-declared function
 //                  (ATS-parity). Carries the implemented fun NAME, whether a dynamic `(params)`
 //                  group was written, its param names + OPTIONAL types (parallel lists, M5a-style),

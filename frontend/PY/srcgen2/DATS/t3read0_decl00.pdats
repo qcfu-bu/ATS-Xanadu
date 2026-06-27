@@ -1,0 +1,266 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/SATS/t3read0" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload sexp = d2con_get_sexp
+
+@overload sexp = d2cst_get_sexp
+
+def d3ecl_errck(lvl0: SInt, d3cl: d3ecl) -> d3ecl:
+    let loc0 = d3cl.lctn()
+    d3ecl_make_node(loc0, D3Cerrck(lvl0, d3cl))
+
+def d3ecl_tmpsub_errck(loc0: loc_t, svts: s2vts, dcl1: d3ecl) -> d3ecl:
+    let lvl0 = 0
+    d3ecl_errck(lvl0 + 1, d3ecl(loc0, D3Ctmpsub(svts, dcl1)))
+
+def d3ecl_dclst0_errck(loc0: loc_t, dcls: d3eclist) -> d3ecl:
+    let lvl0 = 0
+    d3ecl_errck(lvl0 + 1, d3ecl(loc0, D3Cdclst0(dcls)))
+
+def d3ecl_local0_errck(loc0: loc_t, dcs1: d3eclist, dcs2: d3eclist) -> d3ecl:
+    let lvl0 = 0
+    d3ecl_errck(lvl0 + 1, d3ecl(loc0, D3Clocal0(dcs1, dcs2)))
+
+def d3ecl_include_errck(loc0: loc_t, knd0: SInt, tknd: token, g1e1: g1exp, fopt: fpathopt, dopt: d3eclistopt) -> d3ecl:
+    let lvl0 = 0
+    d3ecl_errck(lvl0 + 1, d3ecl_make_node(loc0, D3Cinclude(knd0, tknd, g1e1, fopt, dopt)))
+
+def d3ecl_valdclst_errck(loc0: loc_t, tknd: token, d3vs: d3valdclist) -> d3ecl:
+    let lvl0 = 0
+    d3ecl_errck(lvl0 + 1, d3ecl(loc0, D3Cvaldclst(tknd, d3vs)))
+
+def d3ecl_vardclst_errck(loc0: loc_t, tknd: token, d3vs: d3vardclist) -> d3ecl:
+    let lvl0 = 0
+    d3ecl_errck(lvl0 + 1, d3ecl(loc0, D3Cvardclst(tknd, d3vs)))
+
+def d3ecl_fundclst_errck(loc0: loc_t, tknd: token, tqas: t2qaglst, d2cs: d2cstlst, d3fs: d3fundclist) -> d3ecl:
+    let lvl0 = 0
+    d3ecl_errck(lvl0 + 1, d3ecl(loc0, D3Cfundclst(tknd, tqas, d2cs, d3fs)))
+
+def d3ecl_implmnt0_errck(loc0: loc_t, tknd: token, stmp: stamp, sqas: s2qaglst, tqas: t2qaglst, dqid: dimpl, tias: t2iaglst, fags: f3arglst, sres: s2res, dexp: d3exp) -> d3ecl:
+    let lvl0 = 0
+    d3ecl_errck(lvl0 + 1, d3ecl_make_node(loc0, D3Cimplmnt0(tknd, stmp, sqas, tqas, dqid, tias, fags, sres, dexp)))
+
+@impl
+def t3read0_d3ecl(evn0, d3cl, err0):
+    def f0_tmpsub(evn0: !t3r0evn, d3cl: d3ecl, err0: &SInt >> _) -> d3ecl:
+        let nerr = err0
+        let loc0 = d3cl.lctn()
+        let D3Ctmpsub(svts, dcl1) = d3cl.node()
+        let dcl1 = t3read0_d3ecl(evn0, dcl1, err0)
+        if (nerr == err0):
+            d3cl
+        else:
+            d3ecl_tmpsub_errck(loc0, svts, dcl1)
+    def f0_dclst0(evn0: !t3r0evn, d3cl: d3ecl, err0: &SInt >> _) -> d3ecl:
+        let nerr = err0
+        let loc0 = d3cl.lctn()
+        let D3Cdclst0(dcls) = d3cl.node()
+        let dcls = t3read0_d3eclist(evn0, dcls, err0)
+        if (nerr == err0):
+            d3cl
+        else:
+            d3ecl_dclst0_errck(loc0, dcls)
+    def f0_local0(evn0: !t3r0evn, d3cl: d3ecl, err0: &SInt >> _) -> d3ecl:
+        let nerr = err0
+        let loc0 = d3cl.lctn()
+        let D3Clocal0(dcs1, dcs2) = d3cl.node()
+        let dcs1 = t3read0_d3eclist(evn0, dcs1, err0)
+        let dcs2 = t3read0_d3eclist(evn0, dcs2, err0)
+        if (err0 == nerr):
+            d3cl
+        else:
+            d3ecl_local0_errck(loc0, dcs1, dcs2)
+    def f0_include(evn0: !t3r0evn, d3cl: d3ecl, err0: &SInt >> _) -> d3ecl:
+        let nerr = err0
+        let loc0 = d3cl.lctn()
+        let D3Cinclude(knd0, tknd, gsrc, fopt, dopt) = d3cl.node()
+        let dopt = match dopt:
+            case optn_nil():
+                optn_nil()
+            case optn_cons(dcls):
+                optn_cons(t3read0_d3eclist(evn0, dcls, err0))
+        if (err0 == nerr):
+            d3cl
+        else:
+            d3ecl_include_errck(loc0, knd0, tknd, gsrc, fopt, dopt)
+    def f0_staload(evn0: !t3r0evn, d3cl: d3ecl, err0: &SInt >> _) -> d3ecl:
+        let D3Cstaload(knd0, tknd, gsrc, fopt, dopt) = d3cl.node()
+        d3cl
+    def f0_dyninit(evn0: !t3r0evn, d3cl: d3ecl, err0: &SInt >> _) -> d3ecl:
+        let D3Cdyninit(tknd, gexp) = d3cl.node()
+        d3cl
+    def f0_extcode(evn0: !t3r0evn, d3cl: d3ecl, err0: &SInt >> _) -> d3ecl:
+        let D3Cextcode(tknd, gexp) = d3cl.node()
+        d3cl
+    def f0_valdclst(evn0: !t3r0evn, d3cl: d3ecl, err0: &SInt >> _) -> d3ecl:
+        let nerr = err0
+        let loc0 = d3cl.lctn()
+        let D3Cvaldclst(tknd, d3vs) = d3cl.node()
+        let d3vs = t3read0_d3valdclist(evn0, d3vs, err0)
+        if (err0 == nerr):
+            d3cl
+        else:
+            d3ecl_valdclst_errck(loc0, tknd, d3vs)
+    def f0_vardclst(evn0: !t3r0evn, d3cl: d3ecl, err0: &SInt >> _) -> d3ecl:
+        let nerr = err0
+        let loc0 = d3cl.lctn()
+        let D3Cvardclst(tknd, d3vs) = d3cl.node()
+        let d3vs = t3read0_d3vardclist(evn0, d3vs, err0)
+        if (err0 == nerr):
+            d3cl
+        else:
+            d3ecl_vardclst_errck(loc0, tknd, d3vs)
+    def f0_fundclst(evn0: !t3r0evn, d3cl: d3ecl, err0: &SInt >> _) -> d3ecl:
+        let nerr = err0
+        let D3Cfundclst(tknd, tqas, d2cs, d3fs) = d3cl.node()
+        let d3fs = t3read0_d3fundclist(evn0, d3fs, err0)
+        if (err0 == nerr):
+            d3cl
+        else:
+            d3ecl_fundclst_errck(d3cl.lctn(), tknd, tqas, d2cs, d3fs)
+    def f0_implmnt0(evn0: !t3r0evn, d3cl: d3ecl, err0: &SInt >> _) -> d3ecl:
+        let nerr = err0
+        let D3Cimplmnt0(tknd, stmp, sqas, tqas, dimp, tias, fags, sres, dexp) = d3cl.node()
+        let dexp = t3read0_d3exp(evn0, dexp, err0)
+        if (err0 == nerr):
+            d3cl
+        else:
+            d3ecl_implmnt0_errck(d3cl.lctn(), tknd, stmp, sqas, tqas, dimp, tias, fags, sres, dexp)
+    match d3cl.node():
+        case D3Cnone0(_):
+            d3cl
+        case D3Cnone1(_):
+            d3cl
+        case D3Cnone2(_):
+            d3cl
+        case D3Cd2ecl(_):
+            d3cl
+        case D3Cerrck(_):
+            d3cl
+        case D3Cstatic(_):
+            d3cl
+        case D3Cextern(_):
+            d3cl
+        case D3Ctmpsub(_):
+            f0_tmpsub(evn0, d3cl, err0)
+        case D3Cdclst0(_):
+            f0_dclst0(evn0, d3cl, err0)
+        case D3Clocal0(_):
+            f0_local0(evn0, d3cl, err0)
+        case D3Cabsopen(_):
+            d3cl
+        case D3Cabsimpl(_):
+            d3cl
+        case D3Cinclude(_):
+            f0_include(evn0, d3cl, err0)
+        case D3Cstaload(_):
+            f0_staload(evn0, d3cl, err0)
+        case D3Cdyninit(_):
+            f0_dyninit(evn0, d3cl, err0)
+        case D3Cextcode(_):
+            f0_extcode(evn0, d3cl, err0)
+        case D3Cvaldclst(_):
+            f0_valdclst(evn0, d3cl, err0)
+        case D3Cvardclst(_):
+            f0_vardclst(evn0, d3cl, err0)
+        case D3Cfundclst(_):
+            f0_fundclst(evn0, d3cl, err0)
+        case D3Cimplmnt0(_):
+            f0_implmnt0(evn0, d3cl, err0)
+        case _:
+            let lvl0 = 1
+            err0 := err0 + 1
+            d3ecl_errck(lvl0, d3cl)
+
+@impl
+def t3read0_teqd3exp(evn0, tdxp, err0):
+    match tdxp:
+        case TEQD3EXPnone():
+            tdxp
+        case TEQD3EXPsome(teq1, d3e2):
+            let nerr = err0
+            let d3e2 = t3read0_d3exp(evn0, d3e2, err0)
+            if (err0 == nerr):
+                tdxp
+            else:
+                TEQD3EXPsome(teq1, d3e2)
+
+@impl
+def t3read0_d3valdcl(evn0, dval, err0):
+    let nerr = err0
+    let loc0 = dval.lctn()
+    let dpat = d3valdcl_get_dpat(dval)
+    let tdxp = d3valdcl_get_tdxp(dval)
+    let wsxp = d3valdcl_get_wsxp(dval)
+    let tdxp = t3read0_teqd3exp(evn0, tdxp, err0)
+    if (err0 == nerr):
+        dval
+    else:
+        d3valdcl(loc0, dpat, tdxp, wsxp)
+
+@impl
+def t3read0_d3vardcl(evn0, dvar, err0):
+    let nerr = err0
+    let loc0 = dvar.lctn()
+    let dpid = d3vardcl_get_dpid(dvar)
+    let vpid = d3vardcl_get_vpid(dvar)
+    let sres = d3vardcl_get_sres(dvar)
+    let dini = d3vardcl_get_dini(dvar)
+    let dini = t3read0_teqd3exp(evn0, dini, err0)
+    if (err0 == nerr):
+        dvar
+    else:
+        d3vardcl(loc0, dpid, vpid, sres, dini)
+
+@impl
+def t3read0_d3fundcl(evn0, dfun, err0):
+    let nerr = err0
+    let loc0 = dfun.lctn()
+    let dpid = d3fundcl_get_dpid(dfun)
+    let d2vs = d3fundcl_get_d2vs(dfun)
+    let farg = d3fundcl_get_farg(dfun)
+    let sres = d3fundcl_get_sres(dfun)
+    let tdxp = d3fundcl_get_tdxp(dfun)
+    let wsxp = d3fundcl_get_wsxp(dfun)
+    let tdxp = t3read0_teqd3exp(evn0, tdxp, err0)
+    if (err0 == nerr):
+        dfun
+    else:
+        d3fundcl(loc0, dpid, d2vs, farg, sres, tdxp, wsxp)
+
+@impl
+def t3read0_d3valdclist(evn0, d3vs, err0):
+    list_t3read0_fnp(evn0, d3vs, err0, t3read0_d3valdcl)
+
+@impl
+def t3read0_d3vardclist(evn0, d3vs, err0):
+    list_t3read0_fnp(evn0, d3vs, err0, t3read0_d3vardcl)
+
+@impl
+def t3read0_d3fundclist(evn0, d3fs, err0):
+    list_t3read0_fnp(evn0, d3fs, err0, t3read0_d3fundcl)
+

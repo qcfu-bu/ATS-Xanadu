@@ -1,0 +1,150 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/SATS/trans3a" import *
+
+@overload name = d2cst_get_name
+
+@overload lctn = d3ecl_get_lctn
+
+@overload node = d3ecl_get_node
+
+@overload lctn = dimpl_get_lctn
+
+@overload node = dimpl_get_node
+
+import "srcgen2/DATS/xsymmap_topmap.dats" as _
+
+private:
+    @linear
+    enum Tr3aenv:
+        case TR3AENV(topmap[d3eclist], stkmap[d3eclist])
+    @impl
+    type Tr3aenv_vtbx = Tr3aenv
+
+@impl
+def tr3aenv_make_nil():
+    let map1 = @sapp[d3eclist] topmap_make_nil()
+    let map2 = @sapp[d3eclist] stkmap_make_nil()
+    TR3AENV(map1, map2)
+
+@impl
+def tr3aenv_free_top(env0):
+    match env0:
+        case ~TR3AENV(map1, map2):
+            var stkmap = map2
+            let nerr = stkmap_poptop0(stkmap)
+            stkmap_free_nil(stkmap)
+            D3TOPENVsome(map1)
+
+@impl
+def tr3aenv_poplet0(env0):
+    let @(TR3AENV)(topmap, !stkmap) = env0
+    let nerr = stkmap_poplet0(stkmap)
+    fold(env0)
+
+@impl
+def tr3aenv_pshlet0(env0):
+    let @(TR3AENV)(topmap, !stkmap) = env0
+    stkmap_pshlet0(stkmap)
+    fold(env0)
+
+@impl
+def tr3aenv_pshloc1(env0):
+    let @(TR3AENV)(topmap, !stkmap) = env0
+    let nerr = stkmap_pshloc1(stkmap)
+    fold(env0)
+
+@impl
+def tr3aenv_pshloc2(env0):
+    let @(TR3AENV)(topmap, !stkmap) = env0
+    let nerr = stkmap_pshloc2(stkmap)
+    fold(env0)
+
+@impl
+def tr3aenv_locjoin(env0):
+    let @(TR3AENV)(topmap, !stkmap) = env0
+    let (nerr, kxs) = stkmap_poploc0(stkmap)
+    stkmap_insert/kxs(stkmap, kxs)
+    fold(env0)
+
+@impl
+def tr3aenv_d2crch/opt(env0, d2c0):
+    let k0 = d2c0.name()
+    let @(TR3AENV)(topmap, stkmap) = env0
+    let opt0 = stkmap_search/opt(stkmap, k0)
+    let opt1 = match opt0:
+        case optn_vt_cons(_):
+            opt0
+        case ~optn_vt_nil():
+            topmap_search/opt(topmap, k0)
+    match opt1:
+        case ~optn_vt_nil():
+            list_nil
+        case ~optn_vt_cons(dcls):
+            dcls
+
+@impl
+def tr3aenv_d2cins/any(env0, d2c0, d3cl):
+    let dcls = tr3aenv_d2crch/opt(env0, d2c0)
+    let dcls = list_cons(d3cl, dcls)
+    let x0 = dcls
+    let k0 = d2c0.name()
+    let @(TR3AENV)(topmap, !stkmap) = env0
+    if stkmap_nilq(stkmap):
+        topmap_insert/any(topmap, k0, x0)
+    else:
+        stkmap_insert/any(stkmap, k0, x0)
+
+
+@impl
+def tr3aenv_insert_d3ecl(env0, d3cl):
+    match d3cl.node():
+        case D3Cfundclst(_):
+            f0_fundclst(env0, d3cl)
+        case D3Cimplmnt0(_):
+            f0_implmnt0(env0, d3cl)
+        case D3Ctmplocal(_):
+            f0_tmplocal(env0, d3cl)
+        case _:
+            ()
+where:
+    def f0_fundclst(env0: !Tr3aenv, d3cl: d3ecl) -> Void:
+        let D3Cfundclst(tknd, tqas, d2cs, d3fs) = d3cl.node()
+        match tqas:
+            case list_nil(_):
+                ()
+            case list_cons(_):
+                type X0 = d2cst
+                @impl[X0]
+                def foritm/work(x0):
+                    tr3aenv_d2cins/any(env0, x0, d3cl)
+                list_foritm(d2cs)
+    def f0_implmnt0(env0: !Tr3aenv, d3cl: d3ecl) -> Void:
+        let D3Cimplmnt0(tknd, stmp, sqas, tqas, dimp, tias, f3as, sres, dexp) = d3cl.node()
+        match dimp.node():
+            case DIMPLnon1(dqid):
+                ()
+            case DIMPLone1(d2c1):
+                tr3aenv_d2cins/any(env0, d2c1, d3cl)
+            case DIMPLone2(d2c1, svts):
+                tr3aenv_d2cins/any(env0, d2c1, d3cl)
+    def f0_tmplocal(env0: !Tr3aenv, d3cl: d3ecl) -> Void:
+        let D3Ctmplocal(dtmp, tmps) = d3cl.node()
+        tr3aenv_insert_d3ecl(env0, dtmp)
+

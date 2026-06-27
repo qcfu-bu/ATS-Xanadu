@@ -1,0 +1,59 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/SATS/f3perr0" import *
+
+@impl
+def list_f3perr0_fnp[Syn: Tx](out, lst, fpr):
+    @inst[Syn] list_foritm(lst)
+where:
+    @impl[Syn]
+    def foritm/work(syn):
+        fpr(out, syn)
+
+@impl
+def optn_f3perr0_fnp[Syn: Tx](out, opt, fpr):
+    @inst[Syn] optn_foritm(opt)
+where:
+    @impl[Syn]
+    def foritm/work(syn):
+        fpr(out, syn)
+
+@impl
+def f3perr0_d3parsed(out, dpar):
+    let nerror = d3parsed_get_nerror(dpar)
+    if (nerror > 0):
+        let parsed = d3parsed_get_parsed(dpar)
+        f3perr0_d3eclistopt(out, parsed)
+    else:
+        ()
+
+@impl
+def f3perr0_d3explstopt(out, dopt):
+    match dopt:
+        case optn_nil():
+            ()
+        case optn_cons(d3es):
+            f3perr0_d3explst(out, d3es)
+
+@impl
+def f3perr0_d3eclistopt(out, dopt):
+    match dopt:
+        case optn_nil():
+            ()
+        case optn_cons(d3cs):
+            f3perr0_d3eclist(out, d3cs)
+

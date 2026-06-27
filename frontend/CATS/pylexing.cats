@@ -621,6 +621,24 @@ function PYL_readfile(path) {
   }
 }
 //
+// MIRROR MODE (self-host): when env PYL_MIRROR_ROOT is set (e.g. ".../frontend/PY"),
+// rebase an XATSHOME-relative `.sats` import path to the corresponding pythonic `.psats`
+// under the mirror root. Returns "" when PYL_MIRROR_ROOT is unset OR the path is not a
+// `.sats` (so lower_import's `fpath_rexists("")` test fails -> it falls back to loading
+// the ATS `.sats`). This is how a PY/ mirror file imports its sibling pythonic interfaces
+// while non-mirrored deps (the prelude) still resolve to their ATS originals.
+//   path = "/srcgen2/SATS/x.sats"  ->  "<MIRROR_ROOT>/srcgen2/SATS/x.psats"
+function PYL_mirror_psats(path) {
+  var root = process.env.PYL_MIRROR_ROOT;
+  if (!root) return "";
+  var p = String(path), cand;
+  if (p.endsWith(".sats")) cand = String(root) + p.slice(0, -5) + ".psats";       // interface
+  else if (p.endsWith(".dats")) cand = String(root) + p.slice(0, -5) + ".pdats";  // impl (anon staload)
+  else return "";
+  // only redirect to the mirror if the file actually exists there (else "" -> ATS fallback).
+  try { require("fs").accessSync(cand); return cand; } catch (e) { return ""; }
+}
+//
 // The harness file path: process.argv[2] (the .py-surface snippet to lex). The
 // build script invokes the harness once per snippet with the path as argv[2].
 // Returns "" when absent (harness then prints nothing useful — see build-m1.sh).

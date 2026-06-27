@@ -1,0 +1,329 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+import "srcgen2/DATS/trans23.dats" as _
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/filpath" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/SATS/trans12" import *
+
+from "srcgen2/SATS/trans23" import *
+
+from "srcgen2/SATS/xglobal" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload lctn = simpl_get_lctn
+
+@overload node = simpl_get_node
+
+@overload lctn = dimpl_get_lctn
+
+@overload node = dimpl_get_node
+
+@overload lctn = d2ecl_get_lctn
+
+@overload node = d2ecl_get_node
+
+def s3taload_from_fpath(fpth: fpath, dpar: d2parsed) -> (SInt, d3parsed):
+    let fnm2 = fpath_get_fnm2(fpth)
+    let opt2 = the_d3parenv_pvsfind(fnm2)
+    match opt2:
+        case ~optn_vt_nil():
+            let dpar = d3parsed_of_trans23(dpar)
+            the_d3parenv_pvsadd0(fnm2, dpar)
+            (0, dpar)
+        case ~optn_vt_cons(dpar):
+            (1, dpar)
+
+@impl
+def trans23_d2ecl(env0, d2cl):
+    match d2cl.node():
+        case D2Cnone0(_):
+            let loc0 = d2cl.lctn()
+            d3ecl_none0(loc0)
+        case D2Cd1ecl(_):
+            let loc0 = d2cl.lctn()
+            d3ecl_make_node(loc0, D3Cd2ecl(d2cl))
+        case D2Cthen0(_):
+            f0_then0(env0, d2cl)
+        case D2Celse1(_):
+            f0_else1(env0, d2cl)
+        case D2Cstatic(_):
+            f0_static(env0, d2cl)
+        case D2Cextern(_):
+            f0_extern(env0, d2cl)
+        case D2Clocal0(_):
+            f0_local0(env0, d2cl)
+        case D2Cabssort(_):
+            d3ecl_make_node(d2cl.lctn(), D3Cd2ecl(d2cl))
+        case D2Cstacst0(_):
+            d3ecl_make_node(d2cl.lctn(), D3Cd2ecl(d2cl))
+        case D2Csortdef(_):
+            d3ecl_make_node(d2cl.lctn(), D3Cd2ecl(d2cl))
+        case D2Csexpdef(_):
+            d3ecl_make_node(d2cl.lctn(), D3Cd2ecl(d2cl))
+        case D2Cabstype(_):
+            d3ecl_make_node(d2cl.lctn(), D3Cd2ecl(d2cl))
+        case D2Csymload(_):
+            d3ecl_make_node(d2cl.lctn(), D3Cd2ecl(d2cl))
+        case D2Cabsopen(_):
+            f0_absopen(env0, d2cl)
+        case D2Cabsimpl(_):
+            f0_absimpl(env0, d2cl)
+        case D2Cinclude(_):
+            f0_include(env0, d2cl)
+        case D2Cstaload(_):
+            f0_staload(env0, d2cl)
+        case D2Cdyninit(_):
+            f0_dyninit(env0, d2cl)
+        case D2Cextcode(_):
+            f0_extcode(env0, d2cl)
+        case D2Cvaldclst(_):
+            f0_valdclst(env0, d2cl)
+        case D2Cvardclst(_):
+            f0_vardclst(env0, d2cl)
+        case D2Cfundclst(_):
+            f0_fundclst(env0, d2cl)
+        case D2Cimplmnt0(_):
+            f0_implmnt0(env0, d2cl)
+        case D2Cexcptcon(_):
+            f0_excptcon(env0, d2cl)
+        case D2Cdatatype(_):
+            f0_datatype(env0, d2cl)
+        case D2Cdynconst(_):
+            f0_dynconst(env0, d2cl)
+        case _:
+            let loc0 = d2cl.lctn()
+            d3ecl_make_node(loc0, D3Cnone1(d2cl))
+where:
+    @overload stadyn = d2parsed_get_stadyn
+    def f0_then0(env0: !tr23env, d2cl: d2ecl) -> d3ecl:
+        let loc0 = d2cl.lctn()
+        let D2Cthen0(dcls) = d2cl.node()
+        let dcls = trans23_d2eclist(env0, dcls)
+        d3ecl(loc0, D3Cdclst0(dcls))
+    def f0_else1(env0: !tr23env, d2cl: d2ecl) -> d3ecl:
+        let loc0 = d2cl.lctn()
+        let D2Celse1(dcls) = d2cl.node()
+        let dcls = trans23_d2eclist(env0, dcls)
+        d3ecl(loc0, D3Cdclst0(dcls))
+    def f0_static(env0: !tr23env, d2cl: d2ecl) -> d3ecl:
+        let loc0 = d2cl.lctn()
+        let D2Cstatic(tknd, dcl1) = d2cl.node()
+        let dcl1 = trans23_d2ecl(env0, dcl1)
+        d3ecl(loc0, D3Cstatic(tknd, dcl1))
+    def f0_extern(env0: !tr23env, d2cl: d2ecl) -> d3ecl:
+        let loc0 = d2cl.lctn()
+        let D2Cextern(tknd, dcl1) = d2cl.node()
+        let dcl1 = trans23_d2ecl(env0, dcl1)
+        d3ecl(loc0, D3Cextern(tknd, dcl1))
+    def f0_local0(env0: !tr23env, d2cl: d2ecl) -> d3ecl:
+        let loc0 = d2cl.lctn()
+        let D2Clocal0(head, body) = d2cl.node()
+        tr23env_pshloc1(env0)
+        let head = trans23_d2eclist(env0, head)
+        tr23env_pshloc2(env0)
+        let body = trans23_d2eclist(env0, body)
+        tr23env_locjoin(env0)
+        d3ecl(loc0, D3Clocal0(head, body))
+    def f0_absopen(env0: !tr23env, d2cl: d2ecl) -> d3ecl:
+        let loc0 = d2cl.lctn()
+        let D2Cabsopen(tknd, simp) = d2cl.node()
+        match simp.node():
+            case SIMPLone1(s2c1):
+                tr23env_insert/any(env0, s2c1)
+            case _:
+                ()
+        d3ecl(loc0, D3Cabsopen(tknd, simp))
+    def f0_absimpl(env0: !tr23env, d2cl: d2ecl) -> d3ecl:
+        let loc0 = d2cl.lctn()
+        let D2Cabsimpl(tknd, simp, sexp) = d2cl.node()
+        match simp.node():
+            case SIMPLone1(s2c1):
+                tr23env_insert/any(env0, s2c1)
+            case SIMPLopt2(sqid, scs1, scs2):
+                match scs2:
+                    case list_nil():
+                        ()
+                    case list_cons(s2c1, _):
+                        tr23env_insert/any(env0, s2c1)
+            case SIMPLall1(sqid, s2cs):
+                ()
+        d3ecl_make_node(loc0, D3Cabsimpl(tknd, simp, sexp))
+    def f0_include(env0: !tr23env, d2cl: d2ecl) -> d3ecl:
+        let loc0 = d2cl.lctn()
+        let D2Cinclude(knd0, tknd, gsrc, fopt, dopt) = d2cl.node()
+        let dopt = match dopt:
+            case optn_nil():
+                optn_nil
+            case optn_cons(dcls):
+                optn_cons(trans23_d2eclist(env0, dcls))
+        d3ecl_make_node(loc0, D3Cinclude(knd0, tknd, gsrc, fopt, dopt))
+    def f0_staload(env0: !tr23env, d2cl: d2ecl) -> d3ecl:
+        let loc0 = d2cl.lctn()
+        let D2Cstaload(knd0, tknd, gsrc, fopt, dopt) = d2cl.node()
+        let dopt = match dopt:
+            case S2TALOADnone():
+                S3TALOADnone(dopt)
+            case S2TALOADfenv(__fenv__):
+                S3TALOADnone(dopt)
+            case S2TALOADdpar(shrd, dpar):
+                let stadyn = dpar.stadyn()
+                if stadyn <= 0:
+                    S3TALOADnone(dopt)
+                else:
+                    match fopt:
+                        case optn_nil():
+                            S3TALOADnone(dopt)
+                        case optn_cons(fpth):
+                            let (shd2, dpar) = s3taload_from_fpath(fpth, dpar)
+                            S3TALOADdpar(shd2, dpar)
+        d3ecl_make_node(loc0, D3Cstaload(knd0, tknd, gsrc, fopt, dopt))
+    def f0_dyninit(env0: !tr23env, d2cl: d2ecl) -> d3ecl:
+        let D2Cdyninit(tknd, g1e1) = d2cl.node()
+        d3ecl(loc0, D3Cdyninit(tknd, g1e1))
+    where:
+        let loc0 = d2cl.lctn()
+    def f0_extcode(env0: !tr23env, d2cl: d2ecl) -> d3ecl:
+        let D2Cextcode(tknd, g1e1) = d2cl.node()
+        d3ecl(loc0, D3Cextcode(tknd, g1e1))
+    where:
+        let loc0 = d2cl.lctn()
+    def f0_valdclst(env0: !tr23env, d2cl: d2ecl) -> d3ecl:
+        let D2Cvaldclst(tknd, d2vs) = d2cl.node()
+        let d3vs = trans23_d2valdclist(env0, d2vs)
+        d3ecl(loc0, D3Cvaldclst(tknd, d3vs))
+    where:
+        let loc0 = d2cl.lctn()
+    def f0_vardclst(env0: !tr23env, d2cl: d2ecl) -> d3ecl:
+        let D2Cvardclst(tknd, d2vs) = d2cl.node()
+        let d3vs = trans23_d2vardclist(env0, d2vs)
+        d3ecl(loc0, D3Cvardclst(tknd, d3vs))
+    where:
+        let loc0 = d2cl.lctn()
+    def f0_fundclst(env0: !tr23env, d2cl: d2ecl) -> d3ecl:
+        let D2Cfundclst(tknd, tqas, d2cs, d2fs) = d2cl.node()
+        let d3fs = trans23_d2fundclist(env0, d2fs)
+        d3ecl_make_node(loc0, D3Cfundclst(tknd, tqas, d2cs, d3fs))
+    where:
+        let loc0 = d2cl.lctn()
+    def f0_implmnt0(env0: !tr23env, d2cl: d2ecl) -> d3ecl:
+        let D2Cimplmnt0(tknd, sqas, tqas, dimp, tias, f2as, sres, dexp) = d2cl.node()
+        let stmp = the_d3imp_stamp_new()
+        let f3as = trans23_f2arglst(env0, f2as)
+        let dexp = trans23_d2exp(env0, dexp)
+        d3ecl(loc0, D3Cimplmnt0(tknd, stmp, sqas, tqas, dimp, tias, f3as, sres, dexp))
+    where:
+        let loc0 = d2cl.lctn()
+    def f0_excptcon(env0: !tr23env, d2cl: d2ecl) -> d3ecl:
+        let D2Cexcptcon(d1cl, d2cs) = d2cl.node()
+        d3ecl_make_node(d2cl.lctn(), D3Cd2ecl(d2cl))
+    def f0_datatype(env0: !tr23env, d2cl: d2ecl) -> d3ecl:
+        let D2Cdatatype(d1cl, s2cs) = d2cl.node()
+        d3ecl_make_node(d2cl.lctn(), D3Cd2ecl(d2cl))
+    def f0_dynconst(env0: !tr23env, d2cl: d2ecl) -> d3ecl:
+        let loc0 = d2cl.lctn()
+        let D2Cdynconst(_) = d2cl.node()
+        d3ecl_make_node(d2cl.lctn(), D3Cd2ecl(d2cl))
+
+@impl
+def trans23_teqd2exp(env0, tdxp):
+    match tdxp:
+        case TEQD2EXPnone():
+            TEQD3EXPnone()
+        case TEQD2EXPsome(teq1, d2e2):
+            let d3e2 = trans23_d2exp(env0, d2e2)
+            TEQD3EXPsome(teq1, d3e2)
+
+@impl
+def trans23_d2valdcl(env0, dval):
+    let loc0 = d2valdcl_get_lctn(dval)
+    let dpat = d2valdcl_get_dpat(dval)
+    let tdxp = d2valdcl_get_tdxp(dval)
+    let wsxp = d2valdcl_get_wsxp(dval)
+    let dpat = trans23_d2pat(env0, dpat)
+    let tdxp = match tdxp:
+        case TEQD2EXPnone():
+            TEQD3EXPnone
+        case TEQD2EXPsome(teq1, dexp):
+            let tpat = dpat.styp()
+            let dexp = trans23_d2exp_tpck(env0, dexp, tpat)
+            TEQD3EXPsome(teq1, dexp)
+    d3valdcl_make_args(loc0, dpat, tdxp, wsxp)
+
+@impl
+def trans23_d2vardcl(env0, dvar):
+    let loc0 = d2vardcl_get_lctn(dvar)
+    let dpid = d2vardcl_get_dpid(dvar)
+    let vpid = d2vardcl_get_vpid(dvar)
+    let sres = d2vardcl_get_sres(dvar)
+    let dini = d2vardcl_get_dini(dvar)
+    let dini = trans23_teqd2exp(env0, dini)
+    d3vardcl_make_args(loc0, dpid, vpid, sres, dini)
+
+@impl
+def trans23_d2fundcl(env0, dfun, d2vs):
+    let loc0 = d2fundcl_get_lctn(dfun)
+    let dpid = d2fundcl_get_dpid(dfun)
+    let f2as = d2fundcl_get_farg(dfun)
+    let sres = d2fundcl_get_sres(dfun)
+    let tdxp = d2fundcl_get_tdxp(dfun)
+    let wsxp = d2fundcl_get_wsxp(dfun)
+    let f3as = trans23_f2arglst(env0, f2as)
+    let tdxp = trans23_teqd2exp(env0, tdxp)
+    d3fundcl(loc0, dpid, d2vs, f3as, sres, tdxp, wsxp)
+
+@impl
+def trans23_d2eclist(env0, dcls):
+    list_trans23_fnp(env0, dcls, trans23_d2ecl)
+
+@impl
+def trans23_d2valdclist(env0, d2vs):
+    list_trans23_fnp(env0, d2vs, trans23_d2valdcl)
+
+@impl
+def trans23_d2vardclist(env0, d2vs):
+    list_trans23_fnp(env0, d2vs, trans23_d2vardcl)
+
+@impl
+def trans23_d2fundclist(env0, d2fs):
+    type Y0 = d2var
+    type X0 = d2fundcl
+    @impl[X0, Y0]
+    def map/fopr(x0):
+        d2fundcl_get_dpid(x0)
+    let d2vs = list_map(d2fs)
+    type E1 = tr23env
+    type X0 = d2fundcl
+    type Y0 = d3fundcl
+    @impl[X0, Y0, E1]
+    def map/e1nv/fopr(x0, e1):
+        trans23_d2fundcl(e1, x0, d2vs)
+    @inst[X0] @inst[Y0] @inst[E1] list_map/e1nv(d2fs, env0)
+
+@impl
+def trans23_d2eclistopt(env0, dopt):
+    optn_trans23_fnp(env0, dopt, trans23_d2eclist)
+

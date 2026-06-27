@@ -1,0 +1,450 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+import "srcgen2/DATS/lexing0_print0.dats" as _
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+@overload lctn = d3pat_get_lctn
+
+@overload node = d3pat_get_node
+
+@overload styp = d3pat_get_styp
+
+@overload lctn = d3exp_get_lctn
+
+@overload node = d3exp_get_node
+
+@overload styp = d3exp_get_styp
+
+@overload lctn = f3arg_get_lctn
+
+@overload node = f3arg_get_node
+
+@overload lctn = d3gua_get_lctn
+
+@overload lctn = d3gpt_get_lctn
+
+@overload lctn = d3cls_get_lctn
+
+@overload node = d3gua_get_node
+
+@overload node = d3gpt_get_node
+
+@overload node = d3cls_get_node
+
+@overload lctn = d3ecl_get_lctn
+
+@overload node = d3ecl_get_node
+
+@overload stmp = timpl_get_stmp
+
+@overload node = timpl_get_node
+
+@impl
+def d3pat_fprint(d3p0, out0):
+    @impl[]
+    def g_print/out():
+        out0
+    match d3p0.node():
+        case D3Pany():
+            prints("D3Pany(", ")")
+        case D3Pvar(d2v):
+            prints("D3Pvar(", d2v, ")")
+        case D3Pint(tok):
+            prints("D3Pint(", tok, ")")
+        case D3Pbtf(sym):
+            prints("D3Pbtf(", sym, ")")
+        case D3Pchr(tok):
+            prints("D3Pchr(", tok, ")")
+        case D3Pflt(tok):
+            prints("D3Pflt(", tok, ")")
+        case D3Pstr(tok):
+            prints("D3Pstr(", tok, ")")
+        case D3Pcon(d2c):
+            prints("D3Pcon(", d2c, ")")
+        case D3Pbang(d3p1):
+            prints("D3Pbang(", d3p1, ")")
+        case D3Pflat(d3p1):
+            prints("D3Pflat(", d3p1, ")")
+        case D3Pfree(d3p1):
+            prints("D3Pfree(", d3p1, ")")
+        case D3Psapp(d3f0, s2vs):
+            prints("D3Psapp(", d3f0, ";", s2vs, ")")
+        case D3Psapq(d3f0, s2as):
+            prints("D3Psapq(", d3f0, ";", s2as, ")")
+        case D3Ptapq(d3p1, tjas):
+            prints("D3Ptapq(", d3p1, ";", tjas, ")")
+        case D3Pdap1(d3f0):
+            prints("D3Pdap1(", d3f0, ")")
+        case D3Pdapp(d3f0, npf1, d3ps):
+            print("D3Pdapp(")
+            prints(d3f0, ";", npf1, ";", d3ps, ")")
+        case D3Prfpt(d3p1, tkas, d3p2):
+            print("D3Prfpt(")
+            prints(d3p1, ";", tkas, ";", d3p2, ")")
+        case D3Ptup0(npf1, d3ps):
+            prints("D3Ptup0(", npf1, ";", d3ps, ")")
+        case D3Ptup1(tknd, npf1, d3ps):
+            print("D3Ptup1(")
+            prints(tknd, ";", npf1, ";", d3ps, ")")
+        case D3Prcd2(tknd, npf1, ldps):
+            print("D3Prcd2(")
+            prints(tknd, ";", npf1, ";", ldps, ")")
+        case D3Pargtp(d3p1, t2p2):
+            prints("D3Pargtp(", d3p1, ";", t2p2, ")")
+        case D3Pannot(d3p1, s1e2, s2e2):
+            prints("D3Pannot(", d3p1, ";", s1e2, ";", s2e2, ")")
+        case D3Pt2pck(d3p1, t2p2):
+            prints("D3Pt2pck(", d3p1, ";", t2p2, ")")
+        case D3Pnone0():
+            prints("D3Pnone0(", ")")
+        case D3Pnone1(d2p1):
+            prints("D3Pnone1(", d2p1, ")")
+        case D3Pnone2(d3p1):
+            prints("D3Pnone2(", d3p1, ")")
+        case D3Perrck(lvl1, d3p2):
+            if (lvl1 >= 2):
+                prints("D3Perrck(", lvl1, ";", d3p2, ")")
+            else:
+                let loc0 = d3p0.lctn()
+                prints("D3Perrck(", loc0, ";", lvl1, ";", d3p2, ")")
+
+@impl
+def d3exp_fprint(d3e0, out0):
+    @impl[]
+    def g_print/out():
+        out0
+    match d3e0.node():
+        case D3Eint(tok):
+            prints("D3Eint(", tok, ")")
+        case D3Ebtf(sym):
+            prints("D3Ebtf(", sym, ")")
+        case D3Echr(tok):
+            prints("D3Echr(", tok, ")")
+        case D3Eflt(tok):
+            prints("D3Eflt(", tok, ")")
+        case D3Estr(tok):
+            prints("D3Estr(", tok, ")")
+        case D3Ei00(int):
+            prints("D3Ei00(", int, ")")
+        case D3Eb00(btf):
+            prints("D3Eb00(", btf, ")")
+        case D3Ec00(chr):
+            prints("D3Ec00(", chr, ")")
+        case D3Ef00(flt):
+            prints("D3Ef00(", flt, ")")
+        case D3Es00(str):
+            prints("D3Es00(", str, ")")
+        case D3Etop(sym):
+            prints("D3Etop(", sym, ")")
+        case D3Evar(d2v):
+            prints("D3Evar(", d2v, ")")
+        case D3Econ(d2c):
+            prints("D3Econ(", d2c, ")")
+        case D3Ecst(d2c):
+            prints("D3Ecst(", d2c, ")")
+        case D3Etimp(d2e1, timp):
+            prints("D3Etimp(", d2e1, ";", timp, ")")
+        case D3Etimq(d2e1, timp, tmps):
+            print("D3Etimq(")
+            prints(d2e1, ";", timp, ";", tmps, ")")
+        case D3Esapp(d3e1, s2es):
+            prints("D3Esapp(", d3e1, ";", s2es, ")")
+        case D3Esapq(d3e1, t2ps):
+            prints("D3Esapq(", d3e1, ";", t2ps, ")")
+        case D3Etapp(d3e1, s2es):
+            prints("D3Etapp(", d3e1, ";", s2es, ")")
+        case D3Etapq(d3e1, tjas):
+            prints("D3Etapq(", d3e1, ";", tjas, ")")
+        case D3Edap0(d3f0):
+            prints("D3Edap0(", d3f0, ")")
+        case D3Edapp(d3f0, npf1, d3es):
+            print("D3Edapp(")
+            prints(d3f0, ";", npf1, ";", d3es, ")")
+        case D3Epcon(tknd, dlab, dtup):
+            print("D3Epcon(")
+            prints(tknd, ";", dlab, ";", dtup, ")")
+        case D3Eproj(tknd, dlab, dtup):
+            print("D3Eproj(")
+            prints(tknd, ";", dlab, ";", dtup, ")")
+        case D3Elet0(dcls, d3e1):
+            prints("D3Elet0(", dcls, ";", d3e1, ")")
+        case D3Eift0(d3e1, dthn, dels):
+            print("D3Eift0(")
+            prints(d3e1, ";", dthn, ";", dels, ")")
+        case D3Ecas0(tknd, d3e1, dcls):
+            print("D3Ecas0(")
+            prints(tknd, ";", d3e1, ";", dcls, ")")
+        case D3Eseqn(d3es, d3e1):
+            prints("D3Eseqn(", d3es, ";", d3e1, ")")
+        case D3Etup0(npf1, d3es):
+            prints("D3Etup0(", npf1, ";", d3es, ")")
+        case D3Etup1(tknd, npf1, d3es):
+            print("D3Etup1(")
+            prints(tknd, ";", npf1, ";", d3es, ")")
+        case D3Ercd2(tknd, npf1, ldes):
+            print("D3Ercd2(")
+            prints(tknd, ";", npf1, ";", ldes, ")")
+        case D3Elam0(tknd, f3as, sres, arrw, body):
+            prints("D3Elam0(", tknd, ";")
+            prints(f3as, ";", sres, ";", arrw, ";", body, ")")
+        case D3Efix0(tknd, dpid, f3as, sres, arrw, body):
+            prints("D3Efix0(", tknd, ";", dpid, ";")
+            prints(f3as, ";", sres, ";", arrw, ";", body, ")")
+        case D3Etry0(tknd, d3e1, dcls):
+            print("D3Etry0(")
+            prints(tknd, ";", d3e1, ";", dcls, ")")
+        case D3Eaddr(d3e1):
+            prints("D3Eaddr(", d3e1, ")")
+        case D3Eview(d3e1):
+            prints("D3Eview(", d3e1, ")")
+        case D3Elval(d3e1):
+            prints("D3Elval(", d3e1, ")")
+        case D3Eflat(d3e1):
+            prints("D3Eflat(", d3e1, ")")
+        case D3Eeval(d3e1):
+            prints("D3Eeval(", d3e1, ")")
+        case D3Efold(d3e1):
+            prints("D3Efold(", d3e1, ")")
+        case D3Efree(d3e1):
+            prints("D3Efree(", d3e1, ")")
+        case D3Edp2tr(d3e1):
+            prints("D3Edp2tr(", d3e1, ")")
+        case D3Edl0az(d3e1):
+            prints("D3Edl0az(", d3e1, ")")
+        case D3Edl1az(d3e1):
+            prints("D3Edl1az(", d3e1, ")")
+        case D3Edelaz(d3e1):
+            prints("D3Edelaz(", d3e1, ")")
+        case D3Ewhere(d3e1, dcls):
+            prints("D3Ewhere(", d3e1, ";", dcls, ")")
+        case D3Eassgn(d3el, d3er):
+            prints("D3Eassgn(", d3el, ";", d3er, ")")
+        case D3Exazgn(d3el, d3er):
+            prints("D3Exazgn(", d3el, ";", d3er, ")")
+        case D3Exchng(d3el, d3er):
+            prints("D3Exchng(", d3el, ";", d3er, ")")
+        case D3Eraise(tknd, d3e1):
+            prints("D3Eraise(", tknd, ";", d3e1, ")")
+        case D3El0azy(dsym, d3e1):
+            prints("D3El0azy(", dsym, ";", d3e1, ")")
+        case D3El1azy(dsym, d3e1, d3es):
+            print("D3El1azy(")
+            prints(dsym, ";", d3e1, ";", d3es, ")")
+        case D3Eelazy(dsym, d3e1, d3es):
+            print("D3Eelazy(")
+            prints(dsym, ";", d3e1, ";", d3es, ")")
+        case D3Eannot(d3e1, s1e2, s2e2):
+            print("D3Eannot(")
+            prints(d3e1, ";", s1e2, ";", s2e2, ")")
+        case D3Elabck(d3e1, lab2):
+            let t2p1 = d3e1.styp()
+            print("D3Elabck(")
+            prints(d3e1, "(", t2p1, ");", lab2, ")")
+        case D3Et2pck(d3e1, t2p2):
+            let t2p1 = d3e1.styp()
+            print("D3Et2pck(")
+            prints(d3e1, "(", t2p1, ");", t2p2, ")")
+        case D3Et2ped(d3e1, t2p2):
+            let t2p1 = d3e1.styp()
+            print("D3Et2ped(")
+            prints(d3e1, "(", t2p1, ");", t2p2, ")")
+        case D3Eexists(s2es, d3e1):
+            prints("D3Eexists(", s2es, ";", d3e1, ")")
+        case D3Eextnam(tknd, gnam):
+            prints("D3Eextnam(", tknd, ";", gnam, ")")
+        case D3Esynext(tknd, gexp):
+            prints("D3Esynext(", tknd, ";", gexp, ")")
+        case D3Enone0():
+            prints("D3Enone0(", ")")
+        case D3Enone1(d2e1):
+            prints("D3Enone1(", d2e1, ")")
+        case D3Enone2(d3e1):
+            prints("D3Enone2(", d3e1, ")")
+        case D3Eerrck(lvl1, d3e2):
+            if (lvl1 >= 2):
+                prints("D3Eerrck(", lvl1, ";", d3e2, ")")
+            else:
+                let loc0 = d3e0.lctn()
+                prints("D3Eerrck(", loc0, ";", lvl1, ";", d3e2, ")")
+
+@impl
+def f3arg_fprint(farg, out0):
+    @impl[]
+    def g_print/out():
+        out0
+    match farg.node():
+        case F3ARGdapp(npf1, d3ps):
+            prints("F3ARGdapp(", npf1, ";", d3ps, ")")
+        case F3ARGsapp(s2vs, s2ps):
+            prints("F3ARGsapp(", s2vs, ";", s2ps, ")")
+        case F3ARGmets(s2es):
+            prints("F3ARGmets(", s2es, ")")
+
+@impl
+def d3gua_fprint(dgua, out0):
+    @impl[]
+    def g_print/out():
+        out0
+    match dgua.node():
+        case D3GUAexp(d3e1):
+            prints("D3GUAexp(", d3e1, ")")
+        case D3GUAmat(d3e1, d3p2):
+            prints("D3GUAmat(", d3e1, ";", d3p2, ")")
+
+@impl
+def d3gpt_fprint(dgpt, out0):
+    @impl[]
+    def g_print/out():
+        out0
+    match dgpt.node():
+        case D3GPTpat(d3p1):
+            prints("D3GPTpat(", d3p1, ")")
+        case D3GPTgua(d3p1, d3gs):
+            prints("D3GPTgua(", d3p1, ";", d3gs, ")")
+
+@impl
+def d3cls_fprint(dcls, out0):
+    @impl[]
+    def g_print/out():
+        out0
+    match dcls.node():
+        case D3CLSgpt(dgpt):
+            prints("D3CLSgpt(", dgpt, ")")
+        case D3CLScls(d3g1, d3e2):
+            prints("D3CLScls(", d3g1, ";", d3e2, ")")
+
+@impl
+def timpl_fprint(timp, out0):
+    @impl
+    def g_print/out():
+        out0
+    match timp.node():
+        case TIMPLall1(d2c1, t2js, dcls):
+            prints("TIMPLall1(", d2c1, ";", t2js, ";", "...", ")")
+        case TIMPLallx(d2c1, t2js, dcls):
+            prints("TIMPLallx(", d2c1, ";", t2js, ";", "...", ")")
+
+@impl
+def d3ecl_fprint(dcl0, out0):
+    @impl[]
+    def g_print/out():
+        out0
+    match dcl0.node():
+        case D3Cd2ecl(d2cl):
+            prints("D3Cd2ecl(", d2cl, ")")
+        case D3Cstatic(tknd, dcl1):
+            prints("D3Cstatic(", tknd, ";", dcl1, ")")
+        case D3Cextern(tknd, dcl1):
+            prints("D3Cextern(", tknd, ";", dcl1, ")")
+        case D3Ctmpsub(svts, dcl1):
+            prints("D3Ctmpsub(", svts, ";", dcl1, ")")
+        case D3Cdclst0(dcls):
+            prints("D3Cdclst0(", dcls, ")")
+        case D3Clocal0(head, body):
+            prints("D3Clocal0(", head, ";", body, ")")
+        case D3Cabsopen(tknd, simp):
+            prints("D3Cabsopen(", tknd, ";", simp, ")")
+        case D3Cabsimpl(tknd, simp, sdef):
+            print("D3Cabsimpl(")
+            prints(tknd, ";", simp, ";", sdef, ")")
+        case D3Cinclude(knd0, tknd, gsrc, fopt, dopt):
+            print("D3Cinclude(")
+            prints(knd0, ";", tknd, ";", gsrc, ";", fopt, ";", "...", ")")
+        case D3Cstaload(knd0, tknd, gsrc, fopt, dopt):
+            print("D3Cstaload(")
+            prints(knd0, ";", tknd, ";", gsrc, ";", fopt, ";", "...", ")")
+        case D3Cdyninit(tknd, g1e1):
+            prints("D3Cdyninit(", tknd, ";", g1e1, ")")
+        case D3Cextcode(tknd, g1e1):
+            prints("D3Cextcode(", tknd, ";", g1e1, ")")
+        case D3Cvaldclst(tknd, d3vs):
+            prints("D3Cvaldclst(", tknd, ";", d3vs, ")")
+        case D3Cvardclst(tknd, d3vs):
+            prints("D3Cvardclst(", tknd, ";", d3vs, ")")
+        case D3Cfundclst(tknd, tqas, d2cs, d3fs):
+            print("D3Cfundclst(")
+            prints(tknd, ";", tqas, ";", d2cs, ";", d3fs, ")")
+        case D3Cimplmnt0(tknd, stmp, sqas, tqas, dqid, tias, farg, sres, body):
+            print("D3Cimplmnt0(")
+            prints(tknd, ";", stmp, ";")
+            prints(sqas, ";", tqas, ";")
+            prints(dqid, ";", tias, ";", farg, ";", sres, ";", body, ")")
+        case D3Ctmplocal(dtmp, dcls):
+            prints("D3Ctmplocal(", dtmp, ";", dcls, ")")
+        case D3Cimpltmpr(dcl1, t2js):
+            prints("D3Cimpltmpr(", dcl1, ";", t2js, ")")
+        case D3Cnone0():
+            prints("D3Cnone0(", ")")
+        case D3Cnone1(d2cl):
+            prints("D3Cnone1(", d2cl, ")")
+        case D3Cnone2(d3cl):
+            prints("D3Cnone2(", d3cl, ")")
+        case D3Cerrck(lvl1, d3cl):
+            if (lvl1 >= 2):
+                prints("D3Cerrck(", lvl1, ";", d3cl, ")")
+            else:
+                let loc0 = dcl0.lctn()
+                prints("D3Cerrck(", loc0, ";", lvl1, ";", d3cl, ")")
+
+@impl
+def d3valdcl_fprint(dval, out0):
+    let dpat = d3valdcl_get_dpat(dval)
+    let tdxp = d3valdcl_get_tdxp(dval)
+    let wsxp = d3valdcl_get_wsxp(dval)
+    @impl[]
+    def g_print/out():
+        out0
+    prints("D3VALDCL(", dpat, ";", tdxp, ";", wsxp, ")")
+
+@impl
+def d3vardcl_fprint(dvar, out0):
+    let dpid = d3vardcl_get_dpid(dvar)
+    let vpid = d3vardcl_get_vpid(dvar)
+    let sres = d3vardcl_get_sres(dvar)
+    let dini = d3vardcl_get_dini(dvar)
+    @impl[]
+    def g_print/out():
+        out0
+    print("D3VARDCL(")
+    prints(dpid, ";", vpid, ";", sres, ";", dini, ")")
+
+@impl
+def d3fundcl_fprint(dfun, out0):
+    let dpid = d3fundcl_get_dpid(dfun)
+    let farg = d3fundcl_get_farg(dfun)
+    let sres = d3fundcl_get_sres(dfun)
+    let tdxp = d3fundcl_get_tdxp(dfun)
+    let wsxp = d3fundcl_get_wsxp(dfun)
+    @impl[]
+    def g_print/out():
+        out0
+    prints("D3FUNDCL(", dpid, ";")
+    prints(farg, ";", sres, ";", tdxp, ";", wsxp, ")")
+
+@impl
+def d3parsed_fprint(dpar, out0):
+    let stadyn = d3parsed_get_stadyn(dpar)
+    let nerror = d3parsed_get_nerror(dpar)
+    let source = d3parsed_get_source(dpar)
+    let parsed = d3parsed_get_parsed(dpar)
+    @impl[]
+    def g_print/out():
+        out0
+    print("D3PARSED(")
+    prints(stadyn, ";", nerror, ";", source, ";", parsed, ")")
+

@@ -1,0 +1,72 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/dynexp0" import *
+
+from "srcgen2/SATS/pread00" import *
+
+@impl
+def optn_pread00_fnp[Syn: Tx](opt, err, fpr):
+    match opt:
+        case optn_nil():
+            opt
+        case optn_cons(tm1):
+            let e00 = err
+            let tm1 = fpr(tm1, err)
+            if (err == e00):
+                opt
+            else:
+                optn_cons(tm1)
+
+@impl
+def list_pread00_fnp[Syn: Tx](lst, err, fpr):
+    auxlst(lst, err)
+where:
+    def auxlst(lst: list[Syn], err: &SInt >> _) -> list[Syn]:
+        match lst:
+            case list_nil():
+                list_nil()
+            case list_cons(tm1, tms):
+                let e00 = err
+                let tm1 = fpr(tm1, err)
+                let tm2 = auxlst(tms, err)
+                if (err == e00):
+                    lst
+                else:
+                    list_cons(tm1, tm2)
+
+@impl
+def d0parsed_of_pread00(dpar):
+    var nerror: SInt = 0
+    let stadyn = d0parsed_get_stadyn(dpar)
+    let source = d0parsed_get_source(dpar)
+    let parsed = d0parsed_get_parsed(dpar)
+    let parsed = pread00_d0eclistopt(parsed, nerror)
+    d0parsed(stadyn, nerror, source, parsed)
+
+@impl
+def pread00_d0eclistopt(opt0, err):
+    optn_pread00_fnp(opt0, err, pread00_d0eclist)
+
+@impl
+def d0parsed_fpemsg(out, dpar):
+    let nerror = d0parsed_get_nerror(dpar)
+    if (nerror > 0):
+        let parsed = d0parsed_get_parsed(dpar)
+        d0eclistopt_fpemsg(out, parsed)
+    else:
+        ()
+
+@impl
+def d0eclistopt_fpemsg(out, dopt):
+    match dopt:
+        case optn_nil():
+            ()
+        case optn_cons(d0cs):
+            d0eclist_fpemsg(out, d0cs)
+

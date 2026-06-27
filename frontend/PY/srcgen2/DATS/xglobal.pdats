@@ -1,0 +1,632 @@
+import "srcgen1/prelude/SATS/unsafex" as UN
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+import "srcgen2/DATS/xglobal_ext000.dats" as XT0
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/dynexp0" import *
+
+from "srcgen2/SATS/parsing" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/trans01" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/trans12" import *
+
+from "srcgen2/SATS/tread12" import *
+
+from "srcgen2/SATS/xglobal" import *
+
+type Fxtyenv = topmap[fixty]
+
+type Gmacenv = topmap[g1mac]
+
+type Sortenv = topmap[s2tex]
+
+type Sexpenv = topmap[s2itm]
+
+type Dexpenv = topmap[d2itm]
+
+import "srcgen2/DATS/xsymmap_topmap.dats" as _
+
+@extern
+def the_fxtyenv/reset() -> Void
+
+@extern
+def the_tsdenv/reset() -> Void
+
+@extern
+def the_tr12env/reset() -> Void
+
+@extern
+def the_d2cstmap/reset() -> Void
+
+@extern
+def the_dxparenv/reset() -> Void
+
+@impl
+def the_XATSHOME():
+    @inst[] the_XATSHOME_get()
+where:
+    @impl[]
+    def the_XATSHOME_get():
+        XATSOPT_XATSHOME_get()
+    where:
+        @extern
+        def XATSOPT_XATSHOME_get() -> String = extnam()
+
+
+@impl
+def the_xatsopt_include():
+    list_nil()
+
+
+private:
+    @overload topenv = d1parsed_get_topenv
+    let the_ntime = a0ref_make_1val(0)
+    let the_fxtyenv = a0ref_make_1val(@sapp[Fxtyenv] UN.cast10(0))
+    let xatsv_XATSHOME = the_XATSHOME()
+    let the_fixity0 = strn_append(xatsv_XATSHOME, "/prelude/fixity0.sats")
+
+@impl
+def the_fxtyenv_pvsl01d():
+    the_fxtyenv_pvsload()
+
+@impl
+def the_fxtyenv_pvsload():
+    let n0 = the_ntime[]
+    the_ntime[] := n0 + 1
+    if (n0 > 0):
+        0
+    else:
+        f0_pvsload()
+where:
+    def f0_pvsload():
+        let dpar = d0parsed_from_fpath(0, the_fixity0)
+        let dpar = d1parsed_of_trans01(dpar)
+        let tenv = d1parsed_get_topenv(dpar)
+        match tenv:
+            case D1TOPENV(topmap):
+                the_fxtyenv[] := topmap
+                1
+
+@impl
+def the_fxtyenv_pvsfind(key):
+    if (the_ntime[] == 0):
+        optn_vt_nil
+    else:
+        let topmap = the_fxtyenv[]
+        topmap_search/opt(topmap, key)
+
+@impl
+def the_fxtyenv_pvsl00d():
+    @inst[] XT0.the_fxtyenv_pvsl00d()
+where:
+    @impl[]
+    def the_fxtyenv_pvsl00d/ntime():
+        the_ntime[]
+    @impl[]
+    def the_fxtyenv_pvsl00d/ntime/set(n0):
+        the_ntime[] := n0
+    @impl[]
+    def the_fxtyenv_pvsl00d/topmap/set(e0):
+        the_fxtyenv[] := e0
+
+@impl
+def the_fxtyenv/reset():
+    the_ntime[] := 0
+    the_fxtyenv[] := @sapp[Fxtyenv] UN.cast10(0)
+
+
+private:
+    let the_gmacenv = a0ref_make_1val(@sapp[g1mac] topmap_make_nil())
+    let the_sortenv = a0ref_make_1val(@sapp[s2tex] topmap_make_nil())
+    let the_sexpenv = a0ref_make_1val(@sapp[s2itm] topmap_make_nil())
+    let the_dexpenv = a0ref_make_1val(@sapp[d2itm] topmap_make_nil())
+
+@impl
+def the_gmacenv_pvstmap():
+    the_gmacenv[]
+
+@impl
+def the_sortenv_pvstmap():
+    the_sortenv[]
+
+@impl
+def the_sexpenv_pvstmap():
+    the_sexpenv[]
+
+@impl
+def the_dexpenv_pvstmap():
+    the_dexpenv[]
+
+@impl
+def the_tsdenv/reset():
+    the_gmacenv[] := @sapp[g1mac] topmap_make_nil()
+    the_sortenv[] := @sapp[s2tex] topmap_make_nil()
+    the_sexpenv[] := @sapp[s2itm] topmap_make_nil()
+    the_dexpenv[] := @sapp[d2itm] topmap_make_nil()
+
+
+@impl
+def the_gmacenv_pvsmrgw(map):
+    type Kxs_t = (SInt, list[g1mac])
+    let kxss = topmap_strmize(map)
+    let env0 = the_gmacenv_pvstmap()
+    def auxkxs1(env0: Gmacenv, kxs1: Kxs_t) -> Void:
+        let (k1, xs1) = kxs1
+        let list_cons(x1, xs1) = xs1
+        prerrsln("the_gmacenv_pvsmrgw: auxkxs1: k1 = ", k1)
+        prerrsln("the_gmacenv_pvsmrgw: auxkxs1: x1 = ", x1)
+        let opt = the_xsymbls_search(k1)
+        match opt:
+            case ~optn_vt_cons(k1):
+                topmap_insert/any(env0, k1, x1)
+    def auxloop(env0: Gmacenv, kxss: strm_vt[Kxs_t]) -> Void:
+        match !(kxss):
+            case ~strmcon_vt_nil():
+                ()
+            case ~strmcon_vt_cons(kxs1, kxss):
+                auxkxs1(env0, kxs1)
+                auxloop(env0, kxss)
+    auxloop(env0, kxss)
+
+@impl
+def the_sortenv_pvsmrgw(map):
+    type Kxs_t = (SInt, list[s2tex])
+    let kxss = topmap_strmize(map)
+    let env0 = the_sortenv_pvstmap()
+    def auxkxs1(env0: Sortenv, kxs1: Kxs_t) -> Void:
+        let (k1, xs1) = kxs1
+        let ~optn_vt_cons(k1) = the_xsymbls_search(k1)
+        let list_cons(x1, xs1) = xs1
+        topmap_insert/any(env0, k1, x1)
+    def auxloop(env0: Sortenv, kxss: strm_vt[Kxs_t]) -> Void:
+        match !(kxss):
+            case ~strmcon_vt_nil():
+                ()
+            case ~strmcon_vt_cons(kxs1, kxss):
+                auxkxs1(env0, kxs1)
+                auxloop(env0, kxss)
+    auxloop(env0, kxss)
+
+@impl
+def the_sexpenv_pvsmrgw(map):
+    type Kxs_t = (SInt, list[s2itm])
+    let kxss = topmap_strmize(map)
+    let env0 = the_sexpenv_pvstmap()
+    def auxkxs1(env0: Sexpenv, kxs1: Kxs_t) -> Void:
+        let (k1, xs1) = kxs1
+        let list_cons(x1, xs1) = xs1
+        match x1:
+            case _:
+                let ~optn_vt_cons(k1) = the_xsymbls_search(k1)
+                topmap_insert/any(env0, k1, x1)
+    def auxloop(env0: Sexpenv, kxss: strm_vt[Kxs_t]) -> Void:
+        match !(kxss):
+            case ~strmcon_vt_nil():
+                ()
+            case ~strmcon_vt_cons(kxs1, kxss):
+                auxkxs1(env0, kxs1)
+                auxloop(env0, kxss)
+    auxloop(env0, kxss)
+
+@impl
+def the_dexpenv_pvsmrgw(map):
+    type Kxs_t = (SInt, list[d2itm])
+    let kxss = topmap_strmize(map)
+    let env0 = the_dexpenv_pvstmap()
+    def auxkxs1(env0: Dexpenv, kxs1: Kxs_t) -> Void:
+        let (k1, xs1) = kxs1
+        let list_cons(x1, xs1) = xs1
+        let ~optn_vt_cons(k1) = the_xsymbls_search(k1)
+        match x1:
+            case _:
+                topmap_insert/any(env0, k1, x1)
+    def auxloop(env0: Dexpenv, kxss: strm_vt[Kxs_t]) -> Void:
+        match !(kxss):
+            case ~strmcon_vt_nil():
+                ()
+            case ~strmcon_vt_cons(kxs1, kxss):
+                auxkxs1(env0, kxs1)
+                auxloop(env0, kxss)
+    auxloop(env0, kxss)
+
+
+private:
+    @overload t2penv = d2parsed_get_t2penv
+    let the_ntime = a0ref_make_1val(0)
+    def f0_pvsinit() -> Void:
+        let xatsv_INT0 = INT0_symbl
+        let xatsv_BOOL = BOOL_symbl
+        let xatsv_ADDR = ADDR_symbl
+        let xatsv_CHAR = CHAR_symbl
+        let xatsv_STRN = STRN_symbl
+        let xatsv_PROP = PROP_symbl
+        let xatsv_VIEW = VIEW_symbl
+        let xatsv_TYPE = TYPE_symbl
+        let xatsv_TBOX = TBOX_symbl
+        let xatsv_VTBX = VTBX_symbl
+        let xatsv_VWTP = VWTP_symbl
+        private:
+            let env0 = the_sortenv_pvstmap()
+
+        topmap_insert/any(env0, xatsv_INT0, S2TEXsrt(the_sort2_int0))
+        topmap_insert/any(env0, xatsv_BOOL, S2TEXsrt(the_sort2_bool))
+        topmap_insert/any(env0, xatsv_ADDR, S2TEXsrt(the_sort2_addr))
+        topmap_insert/any(env0, xatsv_CHAR, S2TEXsrt(the_sort2_char))
+        topmap_insert/any(env0, xatsv_STRN, S2TEXsrt(the_sort2_strn))
+        topmap_insert/any(env0, xatsv_PROP, S2TEXsrt(the_sort2_prop))
+        topmap_insert/any(env0, xatsv_TYPE, S2TEXsrt(the_sort2_type))
+        topmap_insert/any(env0, xatsv_TBOX, S2TEXsrt(the_sort2_tbox))
+        topmap_insert/any(env0, xatsv_VIEW, S2TEXsrt(the_sort2_view))
+        topmap_insert/any(env0, xatsv_VWTP, S2TEXsrt(the_sort2_vwtp))
+        topmap_insert/any(env0, xatsv_VTBX, S2TEXsrt(the_sort2_vtbx))
+    def f0_pvsload(knd0: SInt, fnam: String) -> Void:
+        let xatsv_XATSHOME = the_XATSHOME()
+        let fpth = strn_append(xatsv_XATSHOME, fnam)
+        let dpar = d0parsed_from_fpath(knd0, fpth)
+        let dpar = d1parsed_of_trans01(dpar)
+        let dpar = d2parsed_of_trans12(dpar)
+        let D2TOPENV(tr11, tenv, senv, denv) = dpar.t2penv()
+        the_sortenv_pvsmrgw(tenv)
+        the_sexpenv_pvsmrgw(senv)
+        the_dexpenv_pvsmrgw(denv)
+    def f0_pvsfini() -> Bool:
+        let ans = f1_dexpenv()
+        ans
+
+    def f1_dexpenv() -> Bool:
+        type Kx0 = (SInt, list[d2itm])
+        type Kxs = strm_vt[(SInt, list[d2itm])]
+        def auxmain(kxs: Kxs, ans: Bool) -> Bool:
+            match !(kxs):
+                case ~strmcon_vt_nil():
+                    ans
+                case ~strmcon_vt_cons(kx1, kxs):
+                    def fopr(kx1: Kx0):
+                        let dis = kx1.1
+                        if list_length(dis) <= 1:
+                            ans
+                        else:
+                            match dis.head():
+                                case D2ITMvar(d2v):
+                                    true
+                                case _:
+                                    ans
+                    auxmain(kxs, fopr(kx1))
+        let kxs = topmap_strmize(the_dexpenv_pvstmap())
+        auxmain(kxs, false)
+
+@impl
+def filpath_pvsload(knd0, fpth):
+    f0_pvsload(knd0, fpth)
+
+@impl
+def the_gmacenv_pvsfind(key):
+    if (the_ntime[] == 0):
+        optn_vt_nil
+    else:
+        let topmap = the_gmacenv_pvstmap()
+        topmap_search/opt(topmap, key)
+
+@impl
+def the_sortenv_pvsfind(key):
+    if (the_ntime[] == 0):
+        optn_vt_nil
+    else:
+        let topmap = the_sortenv_pvstmap()
+        topmap_search/opt(topmap, key)
+
+@impl
+def the_sexpenv_pvsfind(key):
+    if (the_ntime[] == 0):
+        optn_vt_nil
+    else:
+        let topmap = the_sexpenv_pvstmap()
+        topmap_search/opt(topmap, key)
+
+@impl
+def the_dexpenv_pvsfind(key):
+    if (the_ntime[] == 0):
+        optn_vt_nil
+    else:
+        let topmap = the_dexpenv_pvstmap()
+        topmap_search/opt(topmap, key)
+
+@impl
+def the_gmacenv_pvsadd0(key, itm):
+    let topmap = the_gmacenv_pvstmap()
+    the_gmacenv_allist_add0(key, itm)
+    topmap_insert/any(topmap, key, itm)
+
+@impl
+def the_tr12env_pvsl00d():
+    let n0 = the_ntime[]
+    the_ntime[] := n0 + 1
+    if (n0 > 0):
+        0
+    else:
+        f0_pvsinit()
+        f0_pvsload(0, "/prelude/basics0.sats")
+        f0_pvsload(0, "/srcgen2/prelude/INIT/srcgen2_xsetup0.sats")
+        f0_pvsload(0, "/srcgen2/prelude/INIT/srcgen2_excptn0.sats")
+        f0_pvsload(0, "/srcgen2/prelude/INIT/prelude_sats.hats")
+        let ans = f0_pvsfini()
+        1
+
+@impl
+def the_tr12env_pvsl01d():
+    let n0 = the_ntime[]
+    the_ntime[] := n0 + 1
+    if (n0 > 0):
+        0
+    else:
+        f0_pvsinit()
+        f0_pvsload(0, "/prelude/basics0.sats")
+        f0_pvsload(0, "/prelude/INIT/srcgen2_xsetup0.sats")
+        f0_pvsload(0, "/prelude/INIT/srcgen2_excptn0.sats")
+        f0_pvsload(0, "/prelude/INIT/prelude_sats.hats")
+        let ans = f0_pvsfini()
+        1
+
+@impl
+def the_tr12env/reset():
+    the_ntime[] := 0
+
+
+private:
+    let the_d2cstmap = a0ref_make_1val(@sapp[x2nam] tmpmap_make_nil())
+
+@impl
+def the_d2cstmap_xnm():
+    the_d2cstmap[]
+
+@impl
+def the_d2cstmap_xnmfind(key):
+    tmpmap_search/opt(the_d2cstmap[], key)
+
+@impl
+def the_d2cstmap_xnmadd0(key, itm):
+    tmpmap_insert/any(the_d2cstmap[], key, itm)
+
+@impl
+def the_d2cstmap/reset():
+    the_d2cstmap[] := @sapp[x2nam] tmpmap_make_nil()
+
+
+private:
+    let the_d1parenv = a0ref_make_1val(@sapp[d1parsed] topmap_make_nil())
+    let the_d2parenv = a0ref_make_1val(@sapp[d2parsed] topmap_make_nil())
+    let the_d3parenv = a0ref_make_1val(@sapp[d3parsed] topmap_make_nil())
+    let the_d3tmpenv = a0ref_make_1val(@sapp[d3parsed] topmap_make_nil())
+
+@impl
+def the_d1parenv_pvstmap():
+    the_d1parenv[]
+
+@impl
+def the_d2parenv_pvstmap():
+    the_d2parenv[]
+
+@impl
+def the_d3parenv_pvstmap():
+    the_d3parenv[]
+
+@impl
+def the_d3tmpenv_pvstmap():
+    the_d3tmpenv[]
+
+@impl
+def the_d1parenv_pvsfind(key):
+    topmap_search/opt(the_d1parenv[], key)
+
+@impl
+def the_d2parenv_pvsfind(key):
+    topmap_search/opt(the_d2parenv[], key)
+
+@impl
+def the_d3parenv_pvsfind(key):
+    topmap_search/opt(the_d3parenv[], key)
+
+@impl
+def the_d3tmpenv_pvsfind(key):
+    topmap_search/opt(the_d3tmpenv[], key)
+
+@impl
+def the_d1parenv_pvsadd0(key, itm):
+    topmap_insert/any(the_d1parenv[], key, itm)
+
+@impl
+def the_d2parenv_pvsadd0(key, itm):
+    topmap_insert/any(the_d2parenv[], key, itm)
+
+@impl
+def the_d3parenv_pvsadd0(key, itm):
+    topmap_insert/any(the_d3parenv[], key, itm)
+
+@impl
+def the_d3tmpenv_pvsadd0(key, itm):
+    topmap_insert/any(the_d3tmpenv[], key, itm)
+
+@impl
+def the_dxparenv/reset():
+    the_d1parenv[] := @sapp[d1parsed] topmap_make_nil()
+    the_d2parenv[] := @sapp[d2parsed] topmap_make_nil()
+    the_d3parenv[] := @sapp[d3parsed] topmap_make_nil()
+    the_d3tmpenv[] := @sapp[d3parsed] topmap_make_nil()
+
+
+private:
+    let the_list = a0ref_make_1val(list_nil())
+
+@impl
+def the_gmacenv_allist():
+    a0ref_get(the_list)
+
+@impl
+def the_gmacenv_allist_add0(k0, x0):
+    let kxs = a0ref_get(the_list)
+    a0ref_set(the_list, list_cons((k0, x0), kxs))
+
+
+private:
+    let the_list = a0ref_make_1val(list_nil())
+
+@impl
+def the_sortenv_allist():
+    a0ref_get(the_list)
+
+@impl
+def the_sortenv_allist_add0(k0, x0):
+    let kxs = a0ref_get(the_list)
+    a0ref_set(the_list, list_cons((k0, x0), kxs))
+
+
+private:
+    let the_list = a0ref_make_1val(list_nil())
+
+@impl
+def the_sexpenv_allist():
+    a0ref_get(the_list)
+
+@impl
+def the_sexpenv_allist_add0(k0, x0):
+    let kxs = a0ref_get(the_list)
+    a0ref_set(the_list, list_cons((k0, x0), kxs))
+
+
+private:
+    let the_list = a0ref_make_1val(list_nil())
+
+@impl
+def the_dexpenv_allist():
+    a0ref_get(the_list)
+
+@impl
+def the_dexpenv_allist_add0(k0, x0):
+    let kxs = a0ref_get(the_list)
+    a0ref_set(the_list, list_cons((k0, x0), kxs))
+
+
+@impl
+def the_gmacenv_allist_print():
+    the_gmacenv_allist_fprint(g_stdout())
+
+@impl
+def the_sortenv_allist_print():
+    the_sortenv_allist_fprint(g_stdout())
+
+@impl
+def the_sexpenv_allist_print():
+    the_sexpenv_allist_fprint(g_stdout())
+
+@impl
+def the_dexpenv_allist_print():
+    the_dexpenv_allist_fprint(g_stdout())
+
+@impl
+def the_gmacenv_allist_prerr():
+    the_gmacenv_allist_fprint(g_stderr())
+
+@impl
+def the_sortenv_allist_prerr():
+    the_sortenv_allist_fprint(g_stderr())
+
+@impl
+def the_sexpenv_allist_prerr():
+    the_sexpenv_allist_fprint(g_stderr())
+
+@impl
+def the_dexpenv_allist_prerr():
+    the_dexpenv_allist_fprint(g_stderr())
+
+@impl
+def the_gmacenv_allist_fprint(out0):
+    @impl[]
+    def g_print/out():
+        out0
+    let kxs = the_gmacenv_allist()
+    def auxloop(kxs: list[(sym_t, g1mac)]) -> Void:
+        match kxs:
+            case list_nil():
+                ()
+            case list_cons(kx1, kxs):
+                printsln("the_gmacenv_allist:", "(", kx1.0, " -> ", kx1.1, ")")
+                auxloop(kxs)
+    auxloop(kxs)
+
+@impl
+def the_sortenv_allist_fprint(out0):
+    @impl[]
+    def g_print/out():
+        out0
+    let kxs = the_sortenv_allist()
+    def auxloop(kxs: list[(sym_t, s2tex)]) -> Void:
+        match kxs:
+            case list_nil():
+                ()
+            case list_cons(kx1, kxs):
+                printsln("the_sortenv_allist:", "(", kx1.0, " -> ", kx1.1, ")")
+                auxloop(kxs)
+    auxloop(kxs)
+
+@impl
+def the_sexpenv_allist_fprint(out0):
+    @impl[]
+    def g_print/out():
+        out0
+    let kxs = the_sexpenv_allist()
+    def auxloop(kxs: list[(sym_t, s2itm)]) -> Void:
+        match kxs:
+            case list_nil():
+                ()
+            case list_cons(kx1, kxs):
+                printsln("the_sexpenv_allist:", "(", kx1.0, " -> ", kx1.1, ")")
+                auxloop(kxs)
+    auxloop(kxs)
+
+@impl
+def the_dexpenv_allist_fprint(out0):
+    @impl[]
+    def g_print/out():
+        out0
+    let kxs = the_dexpenv_allist()
+    def auxloop(kxs: list[(sym_t, d2itm)]) -> Void:
+        match kxs:
+            case list_nil():
+                ()
+            case list_cons(kx1, kxs):
+                printsln("the_dexpenv_allist:", "(", kx1.0, " -> ", kx1.1, ")")
+                auxloop(kxs)
+    auxloop(kxs)
+
+@impl
+def xglobal_reset():
+    the_fxtyenv/reset()
+    the_tsdenv/reset()
+    the_tr12env/reset()
+    the_d2cstmap/reset()
+    the_dxparenv/reset()
+    staexp2_inits0_reset()
+    statyp2_inits0_reset()
+

@@ -1,0 +1,107 @@
+import "srcgen1/prelude/SATS/unsafex" as UN
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+from "srcgen2/SATS/xlibext" import *
+
+@impl[]
+def a0ref_get[A: Type](xatsv_A0):
+    @inst[A] a0ref_dtget(xatsv_A0)
+
+@impl[]
+def a0ref_exch[A: Vt](xatsv_A0, x0):
+    @sapp[A] UN.castlin10(x1)
+where:
+    let x1 = @inst[A] a0ref_dtget(xatsv_A0)
+    let x0 = @sapp[?[A]] UN.castlin10(x0)
+    let xatsv_A1 = @sapp[a0ref[?[A]]] UN.cast10(xatsv_A0)
+    @extern
+    def XATSOPT_a0ref_set[A: Type](xatsv_A0: a0ref[A], x0: A) -> Void = extnam()
+    @sapp[?[A]] XATSOPT_a0ref_set(xatsv_A1, x0)
+
+@impl[]
+def a0ref_make_1val[A: Vt](x0):
+    a0ptr2ref(@inst[A] a0ptr_make_1val(x0))
+
+@impl[]
+def strn_tabulate/f1un(n0, fopr):
+    strn_vt2t(@inst[] strn_vt_tabulate/f1un(n0, fopr))
+
+@impl[]
+def strn_vt_tabulate/f1un[N0: SInt](n0, fopr):
+    UN_strn_vt_cast(p0)
+where:
+    type Stmp = strtmp1_vt
+    def loop[I0: SInt](p0: Stmp[N0], i0: SInt[I0]) -> Void:
+        if (i0 < n0):
+            let c0 = fopr(i0)
+            @inst[] strtmp_vt_set/at(p0, i0, c0)
+            loop(p0, suc(i0))
+    let p0 = @inst[] strtmp_vt_alloc(n0)
+    let i0 = 0
+    loop(p0, i0)
+
+@impl[]
+def fpath_char/strmize(fpx):
+    XATSOPT_fpath_char/strmize(fpx)
+where:
+    @extern
+    def XATSOPT_fpath_char/strmize(fpx: fpath) -> strm_vt[Char] = extnam()
+
+@impl[]
+def mya1sz_strmize[X0: Type](asz):
+    XATSOPT_mya1sz_strmize(asz)
+where:
+    @extern
+    def XATSOPT_mya1sz_strmize[X0: Type](asz: mya1sz[X0]) -> strm_vt[X0] = extnam()
+
+@impl[]
+def mydict_make_nil[K0: Type, X0: Type]():
+    XATSOPT_mydict_make_nil()
+where:
+    @extern
+    def XATSOPT_mydict_make_nil[K0: Type, X0: Type]() -> mydict[K0, X0] = extnam()
+
+@impl[]
+def mydict_get_keys[K0: Type, X0: Type](map):
+    XATSOPT_mydict_get_keys(map)
+where:
+    @extern
+    def XATSOPT_mydict_get_keys[K0: Type, X0: Type](map: mydict[K0, X0]) -> mya1sz[K0] = extnam()
+
+@impl[]
+def mydict_search/opt[K0: Type, X0: Type](map, key):
+    XATSOPT_mydict_search/opt(map, key)
+where:
+    type Map = mydict[K0, X0]
+    @extern
+    def XATSOPT_mydict_search/opt[K0: Type, X0: Type](map: Map, key: K0) -> optn_vt[X0] = extnam()
+
+@impl[]
+def mydict_insert/any[K0: Type, X0: Type](map, key, itm):
+    XATSOPT_mydict_insert/any(map, key, itm)
+where:
+    type Map = mydict[K0, X0]
+    @extern
+    def XATSOPT_mydict_insert/any[K0: Type, X0: Type](map: Map, key: K0, itm: X0) -> Void = extnam()
+
+@impl[mydict[K0, X0], K0, X0]
+def gmap_strmize[K0: Type, X0: Type](kxs):
+    strm_vt_map0(@inst[mydict[K0, X0]] @inst[K0] @inst[X0] gmap_key/strmize(kxs))
+where:
+    @impl[K0, (K0, X0)]
+    def map/fopr0(k0):
+        let ~optn_vt_cons(x0) = @inst[K0] @inst[X0] mydict_search/opt(kxs, k0)
+        (k0, x0)
+
+@impl[mydict[K0, X0], K0, X0]
+def gmap_key/strmize[K0: Type, X0: Type](kxs):
+    @inst[K0] mya1sz_strmize(@inst[K0] @inst[X0] mydict_get_keys(kxs))
+
+@impl[]
+def strn_dflt/parse/exn:
+    XATSOPT_strn_dflt/parse/exn
+where:
+    @extern
+    def XATSOPT_strn_dflt/parse/exn(rep: String) -> Float = extnam()
+

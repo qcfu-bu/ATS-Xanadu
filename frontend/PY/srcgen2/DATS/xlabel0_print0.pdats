@@ -1,0 +1,24 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+import "srcgen2/DATS/xsymbol_print0.dats" as _
+
+from "srcgen2/SATS/xlabel0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+@impl
+def label_fprint(lab, out):
+    match lab:
+        case LABint(int):
+            prints("LABint(", int, ")")
+        case LABsym(sym):
+            prints("LABsym(", sym, ")")
+where:
+    @impl[]
+    def g_print/out():
+        out
+

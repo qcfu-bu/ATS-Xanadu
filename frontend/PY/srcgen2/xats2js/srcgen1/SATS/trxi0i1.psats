@@ -1,0 +1,184 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+from "srcgen2/xats2js/srcgen1/SATS/intrep0" import *
+
+from "srcgen2/xats2js/srcgen1/SATS/intrep1" import *
+
+@abstract
+type Iltstk_vtbx
+
+type Iltstk = Iltstk_vtbx
+
+@extern
+def iltstk_fprint1(a: !Iltstk, b: FILR) -> Void
+
+@extern
+def iltstk_pshblk0(a: &Iltstk >> _) -> Void
+
+@extern
+def iltstk_popblk0(a: &Iltstk >> _) -> I1letlst
+
+@extern
+def iltstk_pshlam0(a: &Iltstk >> _) -> Void
+
+@extern
+def iltstk_pshlet0(a: &Iltstk >> _) -> Void
+
+@extern
+def iltstk_poplam0(a: &Iltstk >> _) -> I1letlst
+
+@extern
+def iltstk_poplet0(a: &Iltstk >> _) -> I1letlst
+
+@extern
+def iltstk_ilet/insert(a: &Iltstk >> _, b: I1let) -> Void
+
+@abstract
+type Envi0i1_vtbx
+
+type Envi0i1 = Envi0i1_vtbx
+
+@extern
+def i1parsed_of_trxi0i1(a: I0parsed) -> I1parsed
+
+@extern
+def envi0i1_make_nil() -> Envi0i1
+
+@extern
+def envi0i1_free_nil(a: Envi0i1) -> Void
+
+@extern
+def envi0i1_pshblk0(a: !Envi0i1) -> Void
+
+@extern
+def envi0i1_popblk0(a: !Envi0i1) -> I1letlst
+
+@extern
+def envi0i1_pshlam0(a: !Envi0i1) -> Void
+
+@extern
+def envi0i1_pshlet0(a: !Envi0i1) -> Void
+
+@extern
+def envi0i1_poplam0(a: !Envi0i1) -> I1letlst
+
+@extern
+def envi0i1_poplet0(a: !Envi0i1) -> I1letlst
+
+@extern
+def envi0i1_pshloc1(a: !Envi0i1) -> Void
+
+@extern
+def envi0i1_pshloc2(a: !Envi0i1) -> Void
+
+@extern
+def envi0i1_locjoin(a: !Envi0i1) -> Void
+
+@extern
+def envi0i1_exnm/search(a: !Envi0i1, b: Loc_t) -> I1val
+
+@extern
+def envi0i1_exnm/insert(a: !Envi0i1, b: I1val) -> Void
+
+@extern
+def envi0i1_dvar/search(a: !Envi0i1, b: D2var) -> I1val
+
+@extern
+def envi0i1_dvar/insert(a: !Envi0i1, b: D2var, c: I1val) -> Void
+
+@extern
+def envi0i1_ilet/insert(a: !Envi0i1, b: I1let) -> Void
+
+@extern
+def envi0i1_dfix/insert(a: !Envi0i1, b: D2var) -> Void
+
+@extern
+def envi0i1_dfxs/insert(a: !Envi0i1, b: D2varlst) -> Void
+
+@extern
+def list_trxi0i1_fnp[X0: Type, Y0: Type](a: !Envi0i1, b: List[X0], c: (!Envi0i1, X0) -> Y0) -> List[Y0]
+
+@extern
+def optn_trxi0i1_fnp[X0: Type, Y0: Type](a: !Envi0i1, b: Optn[X0], c: (!Envi0i1, X0) -> Y0) -> Optn[Y0]
+
+@extern
+def trxi0i1_i0pat(a: !Envi0i1, b: I0pat) -> I1bnd
+
+@extern
+def trxi0i1_i0bnd(a: !Envi0i1, b: I0pat, c: I1val) -> D2sublst
+
+@extern
+def trxi0i1_i0exp(a: !Envi0i1, b: I0exp) -> I1val
+
+@extern
+def trxi0i1_i0lft(a: !Envi0i1, b: I0exp) -> I1val
+
+@extern
+def trxi0i1_i0blk(a: !Envi0i1, b: I0exp) -> I1cmp
+
+@extern
+def trxi0i1_fiarg(a: !Envi0i1, b: Fiarg) -> Fjarg
+
+@extern
+def trxi0i1_i0gua(a: !Envi0i1, b: I0gua) -> I1gua
+
+@extern
+def trxi0i1_i0gpt(a: !Envi0i1, b: I0gpt) -> I1gpt
+
+@extern
+def trxi0i1_i0cls(a: !Envi0i1, b: I0cls) -> I1cls
+
+@extern
+def trxi0i1_t0imp(a: !Envi0i1, b: T0imp) -> T1imp
+
+@extern
+def trxi0i1_i0dcl(a: !Envi0i1, b: I0dcl) -> I1dcl
+
+@extern
+def trxi0i1_i0patlst(a: !Envi0i1, b: I0patlst) -> I1bndlst
+
+@extern
+def trxi0i1_i0explst(a: !Envi0i1, b: I0explst) -> I1valist
+
+@extern
+def trxi0i1_i0blklst(a: !Envi0i1, b: I0explst) -> I1cmplst
+
+@extern
+def trxi0i1_l0i0elst(a: !Envi0i1, b: L0i0elst) -> L1i1vlst
+
+@extern
+def trxi0i1_fiarglst(a: !Envi0i1, b: Fiarglst) -> Fjarglst
+
+@extern
+def trxi0i1_i0gualst(a: !Envi0i1, b: I0gualst) -> I1gualst
+
+@extern
+def trxi0i1_i0clslst(a: !Envi0i1, b: I0clslst) -> I1clslst
+
+@extern
+def trxi0i1_i0dclist(a: !Envi0i1, b: I0dclist) -> I1dclist
+
+@extern
+def trxi0i1_teqi0exp(a: !Envi0i1, b: Teqi0exp) -> Teqi1cmp
+
+@extern
+def trxi0i1_i0valdcl(a: !Envi0i1, b: I0valdcl) -> I1valdcl
+
+@extern
+def trxi0i1_i0vardcl(a: !Envi0i1, b: I0vardcl) -> I1vardcl
+
+@extern
+def trxi0i1_i0fundcl(a: !Envi0i1, b: I0fundcl) -> I1fundcl
+
+@extern
+def trxi0i1_i0valdclist(a: !Envi0i1, b: I0valdclist) -> I1valdclist
+
+@extern
+def trxi0i1_i0vardclist(a: !Envi0i1, b: I0vardclist) -> I1vardclist
+
+@extern
+def trxi0i1_i0fundclist(a: !Envi0i1, b: I0fundclist) -> I1fundclist
+
+@extern
+def trxi0i1_i0dclistopt(a: !Envi0i1, b: I0dclistopt) -> I1dclistopt
+

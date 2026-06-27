@@ -1,0 +1,1149 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/xlabel0" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+from "srcgen2/SATS/filpath" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/dynexp0" import *
+
+from "srcgen2/SATS/xfixity" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/gmacro1" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+@overload stmp = s2cst_get_stmp
+
+@overload stmp = s2var_get_stmp
+
+@overload stmp = x2t2p_get_stmp
+
+@overload stmp = d2con_get_stmp
+
+@overload stmp = d2cst_get_stmp
+
+@overload stmp = d2var_get_stmp
+
+@impl[dctkind]
+def g_print(dck):
+    dctkind_fprint(dck, @inst[] g_print/out())
+
+@impl[valkind]
+def g_print(vlk):
+    valkind_fprint(vlk, @inst[] g_print/out())
+
+@impl[varkind]
+def g_print(vlk):
+    varkind_fprint(vlk, @inst[] g_print/out())
+
+@impl[funkind]
+def g_print(fnk):
+    funkind_fprint(fnk, @inst[] g_print/out())
+
+@impl[caskind]
+def g_print(csk):
+    caskind_fprint(csk, @inst[] g_print/out())
+
+@impl[implknd]
+def g_print(knd):
+    implknd_fprint(knd, @inst[] g_print/out())
+
+@impl[f2clknd]
+def g_equal(k1, k2):
+    f2clknd_equal(k1, k2)
+
+@impl[f2clknd]
+def g_print(knd):
+    f2clknd_fprint(knd, @inst[] g_print/out())
+
+@impl[trcdknd]
+def g_equal(k1, k2):
+    trcdknd_equal(k1, k2)
+
+@impl[trcdknd]
+def g_print(knd):
+    trcdknd_fprint(knd, @inst[] g_print/out())
+
+@impl[stamp]
+def g_0():
+    the_stamp_nil
+
+@impl[stamp]
+def g_cmp:
+    stamp_cmp
+
+@impl[stamp]
+def g_print(sym):
+    stamp_fprint(sym, @inst[] g_print/out())
+
+@impl[symbl]
+def g_0():
+    the_symbl_nil
+
+@impl[symbl]
+def g_cmp:
+    symbl_cmp
+
+@impl[symbl]
+def g_print(sym):
+    symbl_fprint(sym, @inst[] g_print/out())
+
+@impl[label]
+def g_cmp:
+    label_cmp
+
+@impl[label]
+def g_print(lab):
+    label_fprint(lab, @inst[] g_print/out())
+
+@impl[drpth]
+def g_print(dpx):
+    drpth_fprint(dpx, @inst[] g_print/out())
+
+@impl[fpath]
+def g_print(fpx):
+    fpath_fprint(fpx, @inst[] g_print/out())
+
+@impl[fname]
+def g_print(fnm):
+    fname_fprint(fnm, @inst[] g_print/out())
+
+@impl[postn]
+def g_cmp:
+    postn_cmp
+
+@impl[loctn]
+def g_cmp:
+    loctn_cmp
+
+@impl[lcsrc]
+def g_print(lcs):
+    lcsrc_fprint(lcs, @inst[] g_print/out())
+
+@impl[postn]
+def g_print(pos):
+    postn_fprint(pos, @inst[] g_print/out())
+
+@impl[loctn]
+def g_print(loc):
+    loctn_fprint(loc, @inst[] g_print/out())
+
+@impl[tnode]
+def g_print(tnd):
+    tnode_fprint(tnd, @inst[] g_print/out())
+
+@impl[token]
+def g_print(tok):
+    token_fprint(tok, @inst[] g_print/out())
+
+@impl[t0int]
+def g_print(tok):
+    t0int_fprint(tok, @inst[] g_print/out())
+
+@impl[t0chr]
+def g_print(tok):
+    t0chr_fprint(tok, @inst[] g_print/out())
+
+@impl[t0flt]
+def g_print(tok):
+    t0flt_fprint(tok, @inst[] g_print/out())
+
+@impl[t0str]
+def g_print(tok):
+    t0str_fprint(tok, @inst[] g_print/out())
+
+@impl[i0dnt]
+def g_print(id0):
+    i0dnt_fprint(id0, @inst[] g_print/out())
+
+@impl[l0abl]
+def g_print(lab):
+    l0abl_fprint(lab, @inst[] g_print/out())
+
+@impl[s0ymb]
+def g_print(sym):
+    s0ymb_fprint(sym, @inst[] g_print/out())
+
+@impl[topmap[X0]]
+def g_print[X0: Type](map):
+    @inst[X0] topmap_fprint(map, @inst[] g_print/out())
+
+@impl[stkmap[X0]]
+def g_print1[X0: Type](map):
+    @inst[X0] stkmap_fprint1(map, @inst[] g_print/out())
+
+@impl[]
+def s0lab_get_itm[X0](slab):
+    match slab:
+        case S0LAB(l0, tk, x0):
+            x0
+
+@impl[]
+def s0lab_fprint[X0](lab, out):
+    @impl[]
+    def g_print/out():
+        out
+    match lab:
+        case S0LAB(l01, t02, x03):
+            prints("S0LAB(", l01, ";", x03, ")")
+
+@impl[s0lab[X0]]
+def g_print[X0: Type](lab):
+    s0lab_fprint(lab, @inst[] g_print/out())
+
+@impl[]
+def d0lab_get_itm[X0](dlab):
+    match dlab:
+        case D0LAB(l0, tk, x0):
+            x0
+
+@impl[]
+def d0lab_fprint[X0](lab, out):
+    @impl[]
+    def g_print/out():
+        out
+    match lab:
+        case D0LAB(l01, t02, x03):
+            prints("D0LAB(", l01, ";", x03, ")")
+
+@impl[d0lab[X0]]
+def g_print[X0: Type](lab):
+    d0lab_fprint(lab, @inst[] g_print/out())
+
+@impl[s0qid]
+def g_print(qid):
+    s0qid_fprint(qid, @inst[] g_print/out())
+
+@impl[d0qid]
+def g_print(qid):
+    d0qid_fprint(qid, @inst[] g_print/out())
+
+@impl[g0nam]
+def g_print(gnm):
+    g0nam_fprint(gnm, @inst[] g_print/out())
+
+@impl[g0exp]
+def g_print(g0e):
+    g0exp_fprint(g0e, @inst[] g_print/out())
+
+@impl[g0mag]
+def g_print(gma):
+    g0mag_fprint(gma, @inst[] g_print/out())
+
+@impl[g0exp_THEN]
+def g_print(gthn):
+    g0exp_THEN_fprint(gthn, @inst[] g_print/out())
+
+@impl[g0exp_ELSE]
+def g_print(gels):
+    g0exp_ELSE_fprint(gels, @inst[] g_print/out())
+
+@impl[sort0]
+def g_print(s0t):
+    sort0_fprint(s0t, @inst[] g_print/out())
+
+@impl[s0tcn]
+def g_print(tcn):
+    s0tcn_fprint(tcn, @inst[] g_print/out())
+
+@impl[d0tst]
+def g_print(dst):
+    d0tst_fprint(dst, @inst[] g_print/out())
+
+@impl[s0tdf]
+def g_print(tdf):
+    s0tdf_fprint(tdf, @inst[] g_print/out())
+
+@impl[s0arg]
+def g_print(sag):
+    s0arg_fprint(sag, @inst[] g_print/out())
+
+@impl[s0mag]
+def g_print(smg):
+    s0mag_fprint(smg, @inst[] g_print/out())
+
+@impl[t0arg]
+def g_print(tag):
+    t0arg_fprint(tag, @inst[] g_print/out())
+
+@impl[t0mag]
+def g_print(tmg):
+    t0mag_fprint(tmg, @inst[] g_print/out())
+
+@impl[s0qua]
+def g_print(s0q):
+    s0qua_fprint(s0q, @inst[] g_print/out())
+
+@impl[s0uni]
+def g_print(s0u):
+    s0uni_fprint(s0u, @inst[] g_print/out())
+
+@impl[s0exp]
+def g_print(s0e):
+    s0exp_fprint(s0e, @inst[] g_print/out())
+
+@impl[s0exp_RPAREN]
+def g_print(srp0):
+    s0exp_RPAREN_fprint(srp0, @inst[] g_print/out())
+
+@impl[l0s0e_RBRACE]
+def g_print(lsrb):
+    l0s0e_RBRACE_fprint(lsrb, @inst[] g_print/out())
+
+@impl[d0tcn]
+def g_print(dtc):
+    d0tcn_fprint(dtc, @inst[] g_print/out())
+
+@impl[d0typ]
+def g_print(dtp):
+    d0typ_fprint(dtp, @inst[] g_print/out())
+
+@impl[d0pat]
+def g_print(d0p):
+    d0pat_fprint(d0p, @inst[] g_print/out())
+
+@impl[f0arg]
+def g_print(f0a):
+    f0arg_fprint(f0a, @inst[] g_print/out())
+
+@impl[d0gua]
+def g_print(d0g):
+    d0gua_fprint(d0g, @inst[] g_print/out())
+
+@impl[d0gpt]
+def g_print(dgt):
+    d0gpt_fprint(dgt, @inst[] g_print/out())
+
+@impl[d0cls]
+def g_print(d0c):
+    d0cls_fprint(d0c, @inst[] g_print/out())
+
+@impl[d0exp]
+def g_print(d0e):
+    d0exp_fprint(d0e, @inst[] g_print/out())
+
+@impl[d0ecl]
+def g_print(dcl):
+    d0ecl_fprint(dcl, @inst[] g_print/out())
+
+@impl[s0eff]
+def g_print(seff):
+    s0eff_fprint(seff, @inst[] g_print/out())
+
+@impl[s0res]
+def g_print(sres):
+    s0res_fprint(sres, @inst[] g_print/out())
+
+@impl[t0qua]
+def g_print(tqua):
+    t0qua_fprint(tqua, @inst[] g_print/out())
+
+@impl[t0inv]
+def g_print(tinv):
+    t0inv_fprint(tinv, @inst[] g_print/out())
+
+@impl[f0unarrw]
+def g_print(arrw):
+    f0unarrw_fprint(arrw, @inst[] g_print/out())
+
+@impl[q0arg]
+def g_print(qarg):
+    q0arg_fprint(qarg, @inst[] g_print/out())
+
+@impl[s0qag]
+def g_print(sqag):
+    s0qag_fprint(sqag, @inst[] g_print/out())
+
+@impl[t0qag]
+def g_print(tqag):
+    t0qag_fprint(tqag, @inst[] g_print/out())
+
+@impl[t0iag]
+def g_print(tiag):
+    t0iag_fprint(tiag, @inst[] g_print/out())
+
+@impl[a0typ]
+def g_print(a0tp):
+    a0typ_fprint(a0tp, @inst[] g_print/out())
+
+@impl[d0arg]
+def g_print(d0ag):
+    d0arg_fprint(d0ag, @inst[] g_print/out())
+
+@impl[g0edf]
+def g_print(gedf):
+    g0edf_fprint(gedf, @inst[] g_print/out())
+
+@impl[d0edf]
+def g_print(dedf):
+    d0edf_fprint(dedf, @inst[] g_print/out())
+
+@impl[a0tdf]
+def g_print(atdf):
+    a0tdf_fprint(atdf, @inst[] g_print/out())
+
+@impl[d0res]
+def g_print(dres):
+    d0res_fprint(dres, @inst[] g_print/out())
+
+@impl[precopt]
+def g_print(opt):
+    precopt_fprint(opt, @inst[] g_print/out())
+
+@impl[precmod]
+def g_print(pmd):
+    precmod_fprint(pmd, @inst[] g_print/out())
+
+@impl[precint]
+def g_print(int):
+    precint_fprint(int, @inst[] g_print/out())
+
+@impl[d0cstdcl]
+def g_print(dcst):
+    d0cstdcl_fprint(dcst, @inst[] g_print/out())
+
+@impl[d0valdcl]
+def g_print(dval):
+    d0valdcl_fprint(dval, @inst[] g_print/out())
+
+@impl[d0vardcl]
+def g_print(dvar):
+    d0vardcl_fprint(dvar, @inst[] g_print/out())
+
+@impl[d0fundcl]
+def g_print(dfun):
+    d0fundcl_fprint(dfun, @inst[] g_print/out())
+
+@impl[d0parsed]
+def g_print(dpar):
+    d0parsed_fprint(dpar, @inst[] g_print/out())
+
+@impl[wd0eclseq]
+def g_print(wdcls):
+    wd0eclseq_fprint(wdcls, @inst[] g_print/out())
+
+@impl[d0exp_THEN]
+def g_print(dthn):
+    d0exp_THEN_fprint(dthn, @inst[] g_print/out())
+
+@impl[d0exp_ELSE]
+def g_print(dels):
+    d0exp_ELSE_fprint(dels, @inst[] g_print/out())
+
+@impl[tkend_WHERE]
+def g_print(tend):
+    tkend_WHERE_fprint(tend, @inst[] g_print/out())
+
+@impl[d0pat_RPAREN]
+def g_print(drp0):
+    d0pat_RPAREN_fprint(drp0, @inst[] g_print/out())
+
+@impl[l0d0p_RBRACE]
+def g_print(ldrb):
+    l0d0p_RBRACE_fprint(ldrb, @inst[] g_print/out())
+
+@impl[d0exp_RPAREN]
+def g_print(drp0):
+    d0exp_RPAREN_fprint(drp0, @inst[] g_print/out())
+
+@impl[l0d0e_RBRACE]
+def g_print(ldrb):
+    l0d0e_RBRACE_fprint(ldrb, @inst[] g_print/out())
+
+@impl[d0eclseq_WHERE]
+def g_print(dcls):
+    d0eclseq_WHERE_fprint(dcls, @inst[] g_print/out())
+
+@impl[teqd0exp]
+def g_print(tdxp):
+    match tdxp:
+        case TEQD0EXPnone():
+            prints("TEQD0EXPnone(", ")")
+        case TEQD0EXPsome(tok, d0e):
+            prints("TEQD0EXPsome(", tok, ";", d0e, ")")
+
+@impl[wths0exp]
+def g_print(wsxp):
+    match wsxp:
+        case WTHS0EXPnone():
+            prints("WTHS0EXPnone(", ")")
+        case WTHS0EXPsome(tok, s0e):
+            prints("WTHS0EXPsome(", tok, ";", s0e, ")")
+
+@impl[]
+def s1lab_get_itm[X0](slab):
+    match slab:
+        case S1LAB(l0, x0):
+            x0
+
+@impl[]
+def s1lab_fprint[X0](lab, out):
+    @impl[]
+    def g_print/out():
+        out
+    match lab:
+        case S1LAB(l01, x02):
+            prints("S1LAB(", l01, ";", x02, ")")
+
+@impl[s1lab[X0]]
+def g_print[X0: Type](lab):
+    s1lab_fprint(lab, @inst[] g_print/out())
+
+@impl[]
+def d1lab_get_itm[X0](dlab):
+    match dlab:
+        case D1LAB(l0, x0):
+            x0
+
+@impl[]
+def d1lab_fprint[X0](lab, out):
+    @impl[]
+    def g_print/out():
+        out
+    match lab:
+        case D1LAB(l01, x02):
+            prints("D1LAB(", l01, ";", x02, ")")
+
+@impl[d1lab[X0]]
+def g_print[X0: Type](lab):
+    d1lab_fprint(lab, @inst[] g_print/out())
+
+@impl[assoc]
+def g_print(asc):
+    assoc_fprint(asc, @inst[] g_print/out())
+
+@impl[prcdv]
+def g_cmp:
+    cmp_prcdv_prcdv
+
+@impl[prcdv]
+def g_print(cdv):
+    prcdv_fprint(cdv, @inst[] g_print/out())
+
+@impl[fixty]
+def g_print(fxt):
+    fixty_fprint(fxt, @inst[] g_print/out())
+
+@impl[fxitm[A]]
+def g_print[A: Type](fxi):
+    @inst[A] fxitm_fprint(fxi, @inst[] g_print/out())
+
+@impl[s1qid]
+def g_print(sqid):
+    s1qid_fprint(sqid, @inst[] g_print/out())
+
+@impl[d1qid]
+def g_print(dqid):
+    d1qid_fprint(dqid, @inst[] g_print/out())
+
+@impl[g1nam]
+def g_print(gnm):
+    g1nam_fprint(gnm, @inst[] g_print/out())
+
+@impl[g1exp]
+def g_print(g1e):
+    g1exp_fprint(g1e, @inst[] g_print/out())
+
+@impl[g1arg]
+def g_print(g1a):
+    g1arg_fprint(g1a, @inst[] g_print/out())
+
+@impl[g1mag]
+def g_print(gma):
+    g1mag_fprint(gma, @inst[] g_print/out())
+
+@impl[sort1]
+def g_print(s1t):
+    sort1_fprint(s1t, @inst[] g_print/out())
+
+@impl[s1tcn]
+def g_print(tcn):
+    s1tcn_fprint(tcn, @inst[] g_print/out())
+
+@impl[d1tst]
+def g_print(dst):
+    d1tst_fprint(dst, @inst[] g_print/out())
+
+@impl[s1tdf]
+def g_print(tdf):
+    s1tdf_fprint(tdf, @inst[] g_print/out())
+
+@impl[s1arg]
+def g_print(s1a):
+    s1arg_fprint(s1a, @inst[] g_print/out())
+
+@impl[s1mag]
+def g_print(s1m):
+    s1mag_fprint(s1m, @inst[] g_print/out())
+
+@impl[t1arg]
+def g_print(t1a):
+    t1arg_fprint(t1a, @inst[] g_print/out())
+
+@impl[t1mag]
+def g_print(t1m):
+    t1mag_fprint(t1m, @inst[] g_print/out())
+
+@impl[s1qua]
+def g_print(s1q):
+    s1qua_fprint(s1q, @inst[] g_print/out())
+
+@impl[s1uni]
+def g_print(s1u):
+    s1uni_fprint(s1u, @inst[] g_print/out())
+
+@impl[d1tcn]
+def g_print(dtc):
+    d1tcn_fprint(dtc, @inst[] g_print/out())
+
+@impl[d1typ]
+def g_print(dtp):
+    d1typ_fprint(dtp, @inst[] g_print/out())
+
+@impl[s1exp]
+def g_print(s1e):
+    s1exp_fprint(s1e, @inst[] g_print/out())
+
+@impl[d1pat]
+def g_print(d1p):
+    d1pat_fprint(d1p, @inst[] g_print/out())
+
+@impl[d1gua]
+def g_print(d1g):
+    d1gua_fprint(d1g, @inst[] g_print/out())
+
+@impl[d1gpt]
+def g_print(d1g):
+    d1gpt_fprint(d1g, @inst[] g_print/out())
+
+@impl[d1cls]
+def g_print(dcl):
+    d1cls_fprint(dcl, @inst[] g_print/out())
+
+@impl[d1exp]
+def g_print(d1e):
+    d1exp_fprint(d1e, @inst[] g_print/out())
+
+@impl[d1ecl]
+def g_print(dcl):
+    d1ecl_fprint(dcl, @inst[] g_print/out())
+
+@impl[f1arg]
+def g_print(f1a):
+    f1arg_fprint(f1a, @inst[] g_print/out())
+
+@impl[d1gua]
+def g_print(d1g):
+    d1gua_fprint(d1g, @inst[] g_print/out())
+
+@impl[d1gpt]
+def g_print(dgt):
+    d1gpt_fprint(dgt, @inst[] g_print/out())
+
+@impl[d1cls]
+def g_print(d1c):
+    d1cls_fprint(d1c, @inst[] g_print/out())
+
+@impl[s1eff]
+def g_print(seff):
+    s1eff_fprint(seff, @inst[] g_print/out())
+
+@impl[s1res]
+def g_print(sres):
+    s1res_fprint(sres, @inst[] g_print/out())
+
+@impl[t1qua]
+def g_print(tqua):
+    t1qua_fprint(tqua, @inst[] g_print/out())
+
+@impl[t1inv]
+def g_print(tinv):
+    t1inv_fprint(tinv, @inst[] g_print/out())
+
+@impl[f1unarrw]
+def g_print(arrw):
+    f1unarrw_fprint(arrw, @inst[] g_print/out())
+
+@impl[q1arg]
+def g_print(qarg):
+    q1arg_fprint(qarg, @inst[] g_print/out())
+
+@impl[s1qag]
+def g_print(sqag):
+    s1qag_fprint(sqag, @inst[] g_print/out())
+
+@impl[t1qag]
+def g_print(tqag):
+    t1qag_fprint(tqag, @inst[] g_print/out())
+
+@impl[t1iag]
+def g_print(tiag):
+    t1iag_fprint(tiag, @inst[] g_print/out())
+
+@impl[a1typ]
+def g_print(a1tp):
+    a1typ_fprint(a1tp, @inst[] g_print/out())
+
+@impl[d1arg]
+def g_print(d1ag):
+    d1arg_fprint(d1ag, @inst[] g_print/out())
+
+@impl[a1tdf]
+def g_print(atdf):
+    a1tdf_fprint(atdf, @inst[] g_print/out())
+
+@impl[d1cstdcl]
+def g_print(dcst):
+    d1cstdcl_fprint(dcst, @inst[] g_print/out())
+
+@impl[d1valdcl]
+def g_print(dval):
+    d1valdcl_fprint(dval, @inst[] g_print/out())
+
+@impl[d1vardcl]
+def g_print(dvar):
+    d1vardcl_fprint(dvar, @inst[] g_print/out())
+
+@impl[d1fundcl]
+def g_print(dfun):
+    d1fundcl_fprint(dfun, @inst[] g_print/out())
+
+@impl[d1topenv]
+def g_print(tenv):
+    match tenv:
+        case D1TOPENV(tmap):
+            g_print(tmap)
+
+@impl[d1parsed]
+def g_print(dpar):
+    d1parsed_fprint(dpar, @inst[] g_print/out())
+
+@impl[wd1eclseq]
+def g_print(wdcs):
+    wd1eclseq_fprint(wdcs, @inst[] g_print/out())
+
+@impl[teqd1exp]
+def g_print(tdxp):
+    match tdxp:
+        case TEQD1EXPnone():
+            prints("TEQD1EXPnone(", ")")
+        case TEQD1EXPsome(tok1, d1e2):
+            prints("TEQD1EXPsome(", tok1, ";", d1e2, ")")
+
+@impl[wths1exp]
+def g_print(wsxp):
+    match wsxp:
+        case WTHS1EXPnone():
+            prints("WTHS1EXPnone(", ")")
+        case WTHS1EXPsome(tok1, s1e2):
+            prints("WTHS1EXPsome(", tok1, ";", s1e2, ")")
+
+@impl[g1mac]
+def g_print(g1m0):
+    let out = @inst[] g_print/out()
+    g1mac_fprint(g1m0, out)
+
+@impl[g1env]
+def g_print(genv):
+    let out = @inst[] g_print/out()
+    g1env_fprint(genv, out)
+
+@impl[s2cst]
+def g_cmp(s2c1, s2c2):
+    g_cmp(s2c1.stmp(), s2c2.stmp())
+
+@impl[s2var]
+def g_cmp(s2v1, s2v2):
+    g_cmp(s2v1.stmp(), s2v2.stmp())
+
+@impl[x2t2p]
+def g_cmp(xtp1, xtp2):
+    g_cmp(xtp1.stmp(), xtp2.stmp())
+
+@impl[d2con]
+def g_cmp(d2c1, d2c2):
+    g_cmp(d2c1.stmp(), d2c2.stmp())
+
+@impl[d2cst]
+def g_cmp(d2c1, d2c2):
+    g_cmp(d2c1.stmp(), d2c2.stmp())
+
+@impl[d2var]
+def g_cmp(d2v1, d2v2):
+    g_cmp(d2v1.stmp(), d2v2.stmp())
+
+@impl[s2lab[X0]]
+def g_cmp[X0: Type](slx1, slx2):
+    let S2LAB(l1, itm1) = slx1
+    let S2LAB(l2, itm2) = slx2
+    @inst[label] g_cmp(l1, l2)
+
+@impl[s2var]
+def g_equal(s2v1, s2v2):
+    s2v1 == s2v2
+
+@impl[s2cst]
+def g_equal(s2c1, s2c2):
+    s2c1 == s2c2
+
+@impl[d2con]
+def g_equal(d2c1, d2c2):
+    d2c1 == d2c2
+
+@impl[d2cst]
+def g_equal(d2c1, d2c2):
+    d2c1 == d2c2
+
+@impl[d2var]
+def g_equal(d2v1, d2v2):
+    d2v1 == d2v2
+
+@impl[]
+def s2lab_get_itm[X0](slab):
+    match slab:
+        case S2LAB(l0, x0):
+            x0
+
+@impl[]
+def s2lab_fprint[X0](lab, out):
+    @impl[]
+    def g_print/out():
+        out
+    match lab:
+        case S2LAB(l01, x02):
+            prints("S2LAB(", l01, ";", x02, ")")
+
+@impl[s2lab[X0]]
+def g_print[X0: Type](lab):
+    s2lab_fprint(lab, @inst[] g_print/out())
+
+@impl[]
+def d2lab_get_itm[X0](dlab):
+    match dlab:
+        case D2LAB(l0, x0):
+            x0
+
+@impl[]
+def d2lab_fprint[X0](lab, out):
+    @impl[]
+    def g_print/out():
+        out
+    match lab:
+        case D2LAB(l01, x02):
+            prints("D2LAB(", l01, ";", x02, ")")
+
+@impl[d2lab[X0]]
+def g_print[X0: Type](lab):
+    d2lab_fprint(lab, @inst[] g_print/out())
+
+@impl[t2abs]
+def g_print(t2a):
+    t2abs_fprint(t2a, @inst[] g_print/out())
+
+@impl[t2bas]
+def g_print(t2b):
+    t2bas_fprint(t2b, @inst[] g_print/out())
+
+@impl[t2dat]
+def g_print(t2d):
+    t2dat_fprint(t2d, @inst[] g_print/out())
+
+@impl[sort2]
+def g_print(s2t):
+    sort2_fprint(s2t, @inst[] g_print/out())
+
+@impl[s2cst]
+def g_print(s2c):
+    s2cst_fprint(s2c, @inst[] g_print/out())
+
+@impl[s2var]
+def g_print(s2v):
+    s2var_fprint(s2v, @inst[] g_print/out())
+
+@impl[s2arg]
+def g_print(s2a):
+    s2arg_fprint(s2a, @inst[] g_print/out())
+
+@impl[s2exp]
+def g_print(s2e):
+    s2exp_fprint(s2e, @inst[] g_print/out())
+
+@impl[s2typ]
+def g_print(stp):
+    s2typ_fprint(stp, @inst[] g_print/out())
+
+@impl[x2t2p]
+def g_print(xtp):
+    x2t2p_fprint(xtp, @inst[] g_print/out())
+
+@impl[s2tex]
+def g_print(stx):
+    s2tex_fprint(stx, @inst[] g_print/out())
+
+@impl[s2itm]
+def g_print(s2i):
+    s2itm_fprint(s2i, @inst[] g_print/out())
+
+@impl[d2con]
+def g_print(d2c):
+    d2con_fprint(d2c, @inst[] g_print/out())
+
+@impl[d2cst]
+def g_print(d2c):
+    d2cst_fprint(d2c, @inst[] g_print/out())
+
+@impl[d2var]
+def g_print(d2v):
+    d2var_fprint(d2v, @inst[] g_print/out())
+
+@impl[d2itm]
+def g_print(d2i):
+    d2itm_fprint(d2i, @inst[] g_print/out())
+
+@impl[d2ptm]
+def g_print(dpi):
+    d2ptm_fprint(dpi, @inst[] g_print/out())
+
+@impl[d2pat]
+def g_print(d2p):
+    d2pat_fprint(d2p, @inst[] g_print/out())
+
+@impl[d2rpt]
+def g_print(drf):
+    d2rpt_fprint(drf, @inst[] g_print/out())
+
+@impl[d2exp]
+def g_print(d2e):
+    d2exp_fprint(d2e, @inst[] g_print/out())
+
+@impl[d2rxp]
+def g_print(drf):
+    d2rxp_fprint(drf, @inst[] g_print/out())
+
+@impl[f2arg]
+def g_print(f2a):
+    f2arg_fprint(f2a, @inst[] g_print/out())
+
+@impl[d2gua]
+def g_print(d2g):
+    d2gua_fprint(d2g, @inst[] g_print/out())
+
+@impl[d2gpt]
+def g_print(d2g):
+    d2gpt_fprint(d2g, @inst[] g_print/out())
+
+@impl[d2cls]
+def g_print(dcl):
+    d2cls_fprint(dcl, @inst[] g_print/out())
+
+@impl[d2ecl]
+def g_print(dcl):
+    d2ecl_fprint(dcl, @inst[] g_print/out())
+
+@impl[s2eff]
+def g_print(seff):
+    s2eff_fprint(seff, @inst[] g_print/out())
+
+@impl[s2res]
+def g_print(sres):
+    s2res_fprint(sres, @inst[] g_print/out())
+
+@impl[s2qag]
+def g_print(sqag):
+    s2qag_fprint(sqag, @inst[] g_print/out())
+
+@impl[t2qag]
+def g_print(tqag):
+    t2qag_fprint(tqag, @inst[] g_print/out())
+
+@impl[t2iag]
+def g_print(tiag):
+    t2iag_fprint(tiag, @inst[] g_print/out())
+
+@impl[t2jag]
+def g_print(tjag):
+    t2jag_fprint(tjag, @inst[] g_print/out())
+
+@impl[a2tdf]
+def g_print(atdf):
+    a2tdf_fprint(atdf, @inst[] g_print/out())
+
+@impl[simpl]
+def g_print(simp):
+    simpl_fprint(simp, @inst[] g_print/out())
+
+@impl[dimpl]
+def g_print(dimp):
+    dimpl_fprint(dimp, @inst[] g_print/out())
+
+@impl[d2arg]
+def g_print(darg):
+    d2arg_fprint(darg, @inst[] g_print/out())
+
+@impl[d2valdcl]
+def g_print(dval):
+    d2valdcl_fprint(dval, @inst[] g_print/out())
+
+@impl[d2vardcl]
+def g_print(dvar):
+    d2vardcl_fprint(dvar, @inst[] g_print/out())
+
+@impl[d2fundcl]
+def g_print(dfun):
+    d2fundcl_fprint(dfun, @inst[] g_print/out())
+
+@impl[d2cstdcl]
+def g_print(dcst):
+    d2cstdcl_fprint(dcst, @inst[] g_print/out())
+
+@impl[d2parsed]
+def g_print(dpar):
+    d2parsed_fprint(dpar, @inst[] g_print/out())
+
+@impl[teqd2exp]
+def g_print(tdxp):
+    match tdxp:
+        case TEQD2EXPnone():
+            prints("TEQD2EXPnone(", ")")
+        case TEQD2EXPsome(tok0, d2e1):
+            prints("TEQD2EXPsome(", tok0, ";", d2e1, ")")
+
+@impl[wths2exp]
+def g_print(wsxp):
+    match wsxp:
+        case WTHS2EXPnone():
+            prints("WTHS2EXPnone(", ")")
+        case WTHS2EXPsome(tok0, s2e1):
+            prints("WTHS2EXPsome(", tok0, ";", s2e1, ")")
+
+@impl[f2env]
+def g_print(fenv):
+    print("<f2env>")
+
+@impl[s2taloadopt]
+def g_print(dopt):
+    match dopt:
+        case S2TALOADnone():
+            prints("S2TALOADnone(", ")")
+        case S2TALOADfenv(fenv):
+            prints("S2TALOADfenv(", fenv, ")")
+        case S2TALOADdpar(knd0, dpar):
+            prints("S2TALOADdpar(", knd0, ";", dpar, ")")
+
+@impl[]
+def d3lab_get_itm[X0](dlab):
+    match dlab:
+        case D3LAB(l0, x0):
+            x0
+
+@impl[]
+def d3lab_fprint[X0](lab, out):
+    @impl[]
+    def g_print/out():
+        out
+    match lab:
+        case D3LAB(l01, x02):
+            prints("D3LAB(", l01, ";", x02, ")")
+
+@impl[d3lab[X0]]
+def g_print[X0: Type](dlab):
+    d3lab_fprint(dlab, @inst[] g_print/out())
+
+@impl[d3pat]
+def g_print(dpat):
+    d3pat_fprint(dpat, @inst[] g_print/out())
+
+@impl[d3exp]
+def g_print(dexp):
+    d3exp_fprint(dexp, @inst[] g_print/out())
+
+@impl[f3arg]
+def g_print(farg):
+    f3arg_fprint(farg, @inst[] g_print/out())
+
+@impl[d3gua]
+def g_print(dgua):
+    d3gua_fprint(dgua, @inst[] g_print/out())
+
+@impl[d3gpt]
+def g_print(dgpt):
+    d3gpt_fprint(dgpt, @inst[] g_print/out())
+
+@impl[d3cls]
+def g_print(dcls):
+    d3cls_fprint(dcls, @inst[] g_print/out())
+
+@impl[timpl]
+def g_print(timp):
+    timpl_fprint(timp, @inst[] g_print/out())
+
+@impl[d3ecl]
+def g_print(d3cl):
+    d3ecl_fprint(d3cl, @inst[] g_print/out())
+
+@impl[d3valdcl]
+def g_print(dval):
+    d3valdcl_fprint(dval, @inst[] g_print/out())
+
+@impl[d3vardcl]
+def g_print(dvar):
+    d3vardcl_fprint(dvar, @inst[] g_print/out())
+
+@impl[d3fundcl]
+def g_print(dfun):
+    d3fundcl_fprint(dfun, @inst[] g_print/out())
+
+@impl[d3topenv]
+def g_print(tenv):
+    match tenv:
+        case D3TOPENVnone():
+            prints("D3TOPENVnone(", ")")
+        case D3TOPENVsome(tmap):
+            prints("D3TOPENVsome(", tmap, ")")
+
+@impl[d3parsed]
+def g_print(dpar):
+    d3parsed_fprint(dpar, @inst[] g_print/out())
+
+@impl[teqd3exp]
+def g_print(tdxp):
+    match tdxp:
+        case TEQD3EXPnone():
+            prints("TEQD3EXPnone(", ")")
+        case TEQD3EXPsome(tok0, d3e1):
+            prints("TEQD3EXPsome(", tok0, ";", d3e1, ")")
+
+@impl[s3taloadopt]
+def g_print(dopt):
+    match dopt:
+        case S3TALOADnone(dopt):
+            prints("S3TALOADnone(", dopt, ")")
+        case S3TALOADdpar(knd0, dpar):
+            prints("S3TALOADdpar(", knd0, ";", dpar, ")")
+

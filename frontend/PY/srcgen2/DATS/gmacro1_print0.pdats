@@ -1,0 +1,47 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/gmacro1" import *
+
+@impl
+def g1mac_fprint(g1m0, out):
+    @impl[]
+    def g_print/out():
+        out
+    match g1m0:
+        case G1Mint(i0):
+            prints("G1Mint(", i0, ")")
+        case G1Mbtf(b0):
+            prints("G1Mbtf(", b0, ")")
+        case G1Mchr(c0):
+            prints("G1Mchr(", c0, ")")
+        case G1Mflt(f0):
+            prints("G1Mflt(", f0, ")")
+        case G1Mstr(s0):
+            prints("G1Mstr(", s0, ")")
+        case G1Mid0(gid):
+            prints("G1Mid0(", gid, ")")
+        case G1Msexp(g1m):
+            prints("G1Msexp(", g1m, ")")
+        case G1Mdpat(g1m):
+            prints("G1Mdpat(", g1m, ")")
+        case G1Mdexp(g1m):
+            prints("G1Mdexp(", g1m, ")")
+        case G1Mift0(g1m1, g1m2, g1m3):
+            prints("G1Mift0(", g1m1, ";", g1m2, ";", g1m3, ")")
+        case G1Mlam0(gids, gmac):
+            prints("G1Mlam0(", gids, ";", gmac, ")")
+        case G1Mapps(g1f0, g1ms):
+            prints("G1Mapps(", g1f0, ";", g1ms, ")")
+        case G1Mlist(g1ms):
+            prints("G1Mlist(", g1ms, ")")
+        case G1Msubs(g1e1, genv):
+            prints("G1Msubs(", g1e1, ";", genv, ")")
+        case G1Mnone0():
+            prints("G1Mnone0(", ")")
+        case G1Mnone1(g1e1):
+            prints("G1Mnone1(", g1e1, ")")
+

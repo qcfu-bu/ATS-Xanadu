@@ -1,0 +1,136 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+from "srcgen2/SATS/xfixity" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/dynexp0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/trans01" import *
+
+from "srcgen2/SATS/xglobal" import *
+
+def mix_fixty_fixty(fx0: fixty, fx1: fixty) -> fixty:
+    match fx0:
+        case FIXTYpre(p0):
+            match fx1:
+                case FIXTYinf(p1, a1):
+                    FIXTYpreinf(p0, p1, a1)
+                case FIXTYpreinf(q0, p1, a1):
+                    FIXTYpreinf(p0, p1, a1)
+                case _:
+                    fx0
+        case FIXTYinf(p1, a1):
+            match fx1:
+                case FIXTYpre(p0):
+                    FIXTYpreinf(p0, p1, a1)
+                case FIXTYpreinf(p0, q1, b1):
+                    FIXTYpreinf(p0, p1, a1)
+                case _:
+                    fx0
+        case _:
+            fx0
+
+private:
+    type Xatslocal0_key = sym_t
+    @linear
+    enum Tr01env:
+        case TR01ENV(topmap[fixty], stkmap[fixty])
+    @impl
+    type Tr01env_vtbx = Tr01env
+
+@impl
+def tr01env_make_nil():
+    TR01ENV(topmap, stkmap)
+where:
+    let topmap = @sapp[fixty] topmap_make_nil()
+    let stkmap = @sapp[fixty] stkmap_make_nil()
+
+@impl
+def tr01env_free_top(tenv):
+    D1TOPENV(topmap)
+where:
+    let ~TR01ENV(topmap, stkmap) = tenv
+    stkmap_free_nil(stkmap)
+
+@impl
+def tr01env_poplet0(tenv):
+    let @(TR01ENV)(topmap, !stkmap) = tenv
+    let nerr = stkmap_poplet0(stkmap)
+    fold(tenv)
+
+@impl
+def tr01env_pshlet0(tenv):
+    let @(TR01ENV)(topmap, !stkmap) = tenv
+    stkmap_pshlet0(stkmap)
+    fold(tenv)
+
+@impl
+def tr01env_pshloc1(tenv):
+    let @(TR01ENV)(topmap, !stkmap) = tenv
+    let nerr = stkmap_pshloc1(stkmap)
+    fold(tenv)
+
+@impl
+def tr01env_pshloc2(tenv):
+    let @(TR01ENV)(topmap, !stkmap) = tenv
+    let nerr = stkmap_pshloc2(stkmap)
+    fold(tenv)
+
+@impl
+def tr01env_locjoin(tenv):
+    let @(TR01ENV)(topmap, !stkmap) = tenv
+    let (nerr, kxs) = stkmap_poploc0(stkmap)
+    if stkmap_nilq(stkmap):
+        topmap_insert/kxs(topmap, kxs)
+    else:
+        stkmap_insert/kxs(stkmap, kxs)
+    fold(tenv)
+
+@impl
+def tr01env_search/opt(tenv, k0):
+    let TR01ENV(topmap, stkmap) = tenv
+    let opt = stkmap_search/opt(stkmap, k0)
+    match opt:
+        case optn_vt_cons(fxty):
+            opt
+        case ~optn_vt_nil():
+            let opt = topmap_search/opt(topmap, k0)
+            match opt:
+                case optn_vt_cons(fxty):
+                    opt
+                case ~optn_vt_nil():
+                    the_fxtyenv_pvsfind(k0)
+
+@impl
+def tr01env_insert/any(tenv, k0, x0):
+    let @(TR01ENV)(topmap, !stkmap) = tenv
+    if stkmap_nilq(stkmap):
+        topmap_insert/any(topmap, k0, x0)
+    else:
+        stkmap_insert/any(stkmap, k0, x0)
+
+@impl
+def tr01env_insmix/any(tenv, k0, x0):
+    let @(TR01ENV)(topmap, !stkmap) = tenv
+    let mix = mix_fixty_fixty
+    if stkmap_nilq(stkmap):
+        topmap_insmix/any(topmap, k0, x0, mix)
+    else:
+        stkmap_insmix/any(stkmap, k0, x0, mix)
+
+

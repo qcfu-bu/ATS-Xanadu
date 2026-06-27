@@ -1,0 +1,1393 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/dynexp0" import *
+
+from "srcgen2/SATS/pread00" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload lctn = l0abl_get_lctn
+
+@overload node = l0abl_get_node
+
+@overload lctn = sort0_get_lctn
+
+@overload node = sort0_get_node
+
+@overload lctn = s0exp_get_lctn
+
+@overload node = s0exp_get_node
+
+@overload lctn = d0pat_get_lctn
+
+@overload node = d0pat_get_node
+
+@overload lctn = d0exp_get_lctn
+
+@overload node = d0exp_get_node
+
+@overload lctn = t0qua_get_lctn
+
+@overload lctn = f0arg_get_lctn
+
+@overload node = f0arg_get_node
+
+@overload lctn = d0gua_get_lctn
+
+@overload node = d0gua_get_node
+
+@overload lctn = d0gpt_get_lctn
+
+@overload node = d0gpt_get_node
+
+@overload lctn = d0cls_get_lctn
+
+@overload node = d0cls_get_node
+
+@overload lctn = d0ecl_get_lctn
+
+@overload node = d0ecl_get_node
+
+def d0pat_errck(lvl: SInt, d0p: d0pat) -> d0pat:
+    d0pat(d0p.lctn(), D0Perrck(lvl, d0p))
+
+def d0pat_errvl_a1(d0p: d0pat) -> SInt:
+    match d0p.node():
+        case D0Perrck(lvl, _):
+            lvl
+        case _:
+            0
+
+@overload d0pat_errvl = d0pat_errvl_a1
+
+@overload errvl = d0pat_errvl_a1
+
+def d0pat_errvl_a2(de1: d0pat, de2: d0pat) -> SInt:
+    maxs(errvl(de1), errvl(de2))
+
+@overload d0pat_errvl = d0pat_errvl_a2
+
+@overload errvl = d0pat_errvl_a2
+
+@extern
+def d0pat_errvl_d0ps(d0ps: d0patlst) -> SInt
+
+@overload d0pat_errvl = d0pat_errvl_d0ps
+
+@overload errvl = d0pat_errvl_d0ps
+
+@impl
+def d0pat_errvl_d0ps(d0ps):
+    match d0ps:
+        case list_nil():
+            0
+        case list_cons(d0p1, d0ps):
+            maxs(errvl(d0p1), errvl(d0ps))
+
+@extern
+def l0d0p_errvl(ld0p: l0d0p) -> SInt
+
+@extern
+def l0d0p_errvl_ldps(ldps: l0d0plst) -> SInt
+
+@overload errvl = l0d0p_errvl
+
+@overload errvl = l0d0p_errvl_ldps
+
+@impl
+def l0d0p_errvl(ld0p):
+    d0pat_errvl(d0p)
+where:
+    let D0LAB(lab, tok, d0p) = ld0p
+
+@impl
+def l0d0p_errvl_ldps(ldps):
+    match ldps:
+        case list_nil():
+            0
+        case list_cons(ldp1, ldps):
+            maxs(errvl(ldp1), errvl(ldps))
+
+@extern
+def d0pat_errvl_drp0(drp0: d0pat_RPAREN) -> SInt
+
+@overload errvl = d0pat_errvl_drp0
+
+@impl
+def d0pat_errvl_drp0(drp0):
+    match drp0:
+        case d0pat_RPAREN_cons0(tpar):
+            0
+        case d0pat_RPAREN_cons1(tbeg, d0ps, tend):
+            errvl(d0ps)
+
+@extern
+def d0pat_errvl_ldrb(ldrb: l0d0p_RBRACE) -> SInt
+
+@overload errvl = d0pat_errvl_ldrb
+
+@impl
+def d0pat_errvl_ldrb(ldrb):
+    match ldrb:
+        case l0d0p_RBRACE_cons0(tbra):
+            0
+        case l0d0p_RBRACE_cons1(tbeg, ldps, tend):
+            errvl(ldps)
+
+def d0pat_aspt_errck(loc: loc_t, tknd: token, d0p1: d0pat) -> d0pat:
+    let lvl = d0pat_errvl(d0p1)
+    d0pat_errck(lvl + 1, d0pat(loc, D0Paspt(tknd, d0p1)))
+
+def d0pat_apps_errck(loc: loc_t, d0ps: d0patlst) -> d0pat:
+    let lvl = d0pat_errvl(d0ps)
+    d0pat_errck(lvl + 1, d0pat(loc, D0Papps(d0ps)))
+
+def d0pat_sarg_errck(loc: loc_t, tkb: token, sas: s0arglst, tke: token) -> d0pat:
+    let lvl = 0
+    d0pat_errck(lvl + 1, d0pat(loc, D0Psarg(tkb, sas, tke)))
+
+def d0pat_lpar_errck(loc: loc_t, tbeg: token, d0ps: d0patlst, drp0: d0pat_RPAREN) -> d0pat:
+    let lvl = maxs(errvl(d0ps), errvl(drp0))
+    d0pat_errck(lvl + 1, d0pat(loc, D0Plpar(tbeg, d0ps, drp0)))
+
+def d0pat_tup1_errck(loc: loc_t, tbeg: token, topt: tokenopt, d0ps: d0patlst, tend: d0pat_RPAREN) -> d0pat:
+    let lvl = maxs(errvl(d0ps), errvl(tend))
+    d0pat_errck(lvl + 1, d0pat_make_node(loc, D0Ptup1(tbeg, topt, d0ps, tend)))
+
+def d0pat_rcd2_errck(loc: loc_t, tbeg: token, topt: tokenopt, ldps: l0d0plst, tend: l0d0p_RBRACE) -> d0pat:
+    let lvl = maxs(errvl(ldps), errvl(tend))
+    d0pat_errck(lvl + 1, d0pat_make_node(loc, D0Prcd2(tbeg, topt, ldps, tend)))
+
+def d0pat_annot_errck(loc: loc_t, d0p1: d0pat, s0e2: s0exp) -> d0pat:
+    let lvl = d0pat_errvl(d0p1)
+    d0pat_errck(lvl + 1, d0pat(loc, D0Pannot(d0p1, s0e2)))
+
+def d0exp_errck(lvl: SInt, d0e: d0exp) -> d0exp:
+    d0exp(d0e.lctn(), D0Eerrck(lvl, d0e))
+
+def d0exp_errvl_a1(d0e: d0exp) -> SInt:
+    match d0e.node():
+        case D0Eerrck(lvl, _):
+            lvl
+        case _:
+            0
+
+@overload d0exp_errvl = d0exp_errvl_a1
+
+@overload errvl = d0exp_errvl_a1
+
+def d0exp_errvl_a2(de1: d0exp, de2: d0exp) -> SInt:
+    maxs(errvl(de1), errvl(de2))
+
+@overload d0exp_errvl = d0exp_errvl_a2
+
+@overload errvl = d0exp_errvl_a2
+
+def d0exp_errvl_a3(de1: d0exp, de2: d0exp, de3: d0exp) -> SInt:
+    maxs(errvl(de1), errvl(de2), errvl(de3))
+
+@overload d0exp_errvl = d0exp_errvl_a3
+
+@overload errvl = d0exp_errvl_a3
+
+@extern
+def d0exp_errvl_d0es(d0es: d0explst) -> SInt
+
+@overload d0exp_errvl = d0exp_errvl_d0es
+
+@overload errvl = d0exp_errvl_d0es
+
+@impl
+def d0exp_errvl_d0es(d0es):
+    match d0es:
+        case list_nil():
+            0
+        case list_cons(d0e1, d0es):
+            maxs(errvl(d0e1), errvl(d0es))
+
+@extern
+def d0exp_errvl_optn(d0es: d0expopt) -> SInt
+
+@overload d0exp_errvl = d0exp_errvl_optn
+
+@overload errvl = d0exp_errvl_optn
+
+@impl
+def d0exp_errvl_optn(dopt):
+    match dopt:
+        case optn_nil():
+            0
+        case optn_cons(d0e1):
+            d0exp_errvl(d0e1)
+
+@extern
+def d0exp_errvl_then(drp: d0exp_THEN) -> SInt
+
+@overload errvl = d0exp_errvl_then
+
+@impl
+def d0exp_errvl_then(dthn):
+    match dthn:
+        case d0exp_THEN_none(tok):
+            0
+        case d0exp_THEN_some(tok, d0e):
+            errvl(d0e)
+
+@extern
+def d0exp_errvl_else(drp: d0exp_ELSE) -> SInt
+
+@overload errvl = d0exp_errvl_else
+
+@impl
+def d0exp_errvl_else(dels):
+    match dels:
+        case d0exp_ELSE_none(tok):
+            0
+        case d0exp_ELSE_some(tok, d0e):
+            errvl(d0e)
+
+@extern
+def d0exp_errvl_drp0(drp: d0exp_RPAREN) -> SInt
+
+@overload errvl = d0exp_errvl_drp0
+
+@impl
+def d0exp_errvl_drp0(drp0):
+    match drp0:
+        case d0exp_RPAREN_cons0(tok):
+            0
+        case d0exp_RPAREN_cons1(tkb, des, tke):
+            cons1_errvl(des)
+        case d0exp_RPAREN_cons2(tkb, des, tke):
+            cons2_errvl(des)
+where:
+    def cons1_errvl(d0es: d0explst) -> SInt:
+        d0exp_errvl(d0es)
+    def cons2_errvl(d0es: d0explst) -> SInt:
+        d0exp_errvl(d0es)
+
+@extern
+def l0d0e_errvl_a1(lde: l0d0e) -> SInt
+
+@extern
+def l0d0e_errvl_list(ldes: l0d0elst) -> SInt
+
+@overload errvl = l0d0e_errvl_a1
+
+@overload errvl = l0d0e_errvl_list
+
+@overload l0d0e_errvl = l0d0e_errvl_a1
+
+@overload l0d0e_errvl = l0d0e_errvl_list
+
+@impl
+def l0d0e_errvl_a1(ld0e):
+    d0exp_errvl(d0e)
+where:
+    let D0LAB(lab, tok, d0e) = ld0e
+
+@impl
+def l0d0e_errvl_list(ldes):
+    match ldes:
+        case list_nil():
+            0
+        case list_cons(lde1, ldes):
+            maxs(l0d0e_errvl(lde1), l0d0e_errvl(ldes))
+
+@extern
+def l0d0e_errvl_ldrb(ldrb: l0d0e_RBRACE) -> SInt
+
+@impl
+def l0d0e_errvl_ldrb(ldrb):
+    match ldrb:
+        case l0d0e_RBRACE_cons0(tok):
+            0
+        case l0d0e_RBRACE_cons1(tkb, ldes, tke):
+            errvl(ldes)
+
+@overload errvl = l0d0e_errvl_ldrb
+
+def d0cls_errvl_a1(dcl: d0cls) -> SInt:
+    match dcl.node():
+        case D0CLSgpt(dgpt):
+            0
+        case D0CLScls(dgpt, tkeg, d0e1):
+            errvl(d0e1)
+
+@overload errvl = d0cls_errvl_a1
+
+@extern
+def d0cls_errvl_lst(dcls: d0clslst) -> SInt
+
+@overload errvl = d0cls_errvl_lst
+
+@impl
+def d0cls_errvl_lst(dcls):
+    match dcls:
+        case list_nil():
+            0
+        case list_cons(dcl1, dcls):
+            maxs(errvl(dcl1), d0cls_errvl_lst(dcls))
+
+def d0ecl_errvl_a1(dcl: d0ecl) -> SInt:
+    match dcl.node():
+        case D0Cerrck(lvl, _):
+            lvl
+        case _:
+            0
+
+@overload d0ecl_errvl = d0ecl_errvl_a1
+
+@overload errvl = d0ecl_errvl_a1
+
+@extern
+def d0ecl_errvl_list(dcls: d0eclist) -> SInt
+
+@overload d0ecl_errvl = d0ecl_errvl_list
+
+@overload errvl = d0ecl_errvl_list
+
+@impl
+def d0ecl_errvl_list(dcls):
+    match dcls:
+        case list_nil():
+            0
+        case list_cons(dcl1, dcls):
+            maxs(d0ecl_errvl(dcl1), d0ecl_errvl(dcls))
+
+def d0exp_opid_errck(loc: loc_t, id0: d0eid) -> d0exp:
+    let lvl = 0
+    d0exp_errck(lvl + 1, d0exp(loc, D0Eopid(id0)))
+
+def d0exp_apps_errck(loc: loc_t, des: d0explst) -> d0exp:
+    let lvl = d0exp_errvl(des)
+    d0exp_errck(lvl + 1, d0exp(loc, D0Eapps(des)))
+
+def d0exp_sarg_errck(loc: loc_t, tkb: token, ses: s0explst, tke: token) -> d0exp:
+    let lvl = 0
+    d0exp_errck(lvl + 1, d0exp(loc, D0Esarg(tkb, ses, tke)))
+
+def d0exp_targ_errck(loc: loc_t, tkb: token, ses: s0explst, tke: token) -> d0exp:
+    let lvl = 0
+    d0exp_errck(lvl + 1, d0exp(loc, D0Etarg(tkb, ses, tke)))
+
+def d0exp_lpar_errck(loc: loc_t, tkb: token, des: d0explst, drp: d0exp_RPAREN) -> d0exp:
+    let lvl = maxs(errvl(des), errvl(drp))
+    d0exp_errck(lvl + 1, d0exp(loc, D0Elpar(tkb, des, drp)))
+
+def d0exp_ift0_errck(loc: loc_t, tift: token, d0e1: d0exp, dthn: d0exp_THEN, dels: d0exp_ELSE) -> d0exp:
+    let lvl = maxs(errvl(d0e1), errvl(dthn), errvl(dels))
+    d0exp_errck(lvl + 1, d0exp(loc, D0Eift0(tift, d0e1, dthn, dels)))
+
+def d0exp_ift1_errck(loc: loc_t, tift: token, d0e1: d0exp, dthn: d0exp_THEN, dels: d0exp_ELSE, tinv: t0inv) -> d0exp:
+    let lvl = maxs(errvl(d0e1), errvl(dthn), errvl(dels))
+    d0exp_errck(lvl + 1, d0exp(loc, D0Eift1(tift, d0e1, dthn, dels, tinv)))
+
+def d0exp_cas0_errck(loc: loc_t, tcas: token, d0e1: d0exp, tkof: token, tbar: tokenopt, dcls: d0clslst) -> d0exp:
+    let lvl = maxs(errvl(d0e1), errvl(dcls))
+    d0exp_errck(lvl + 1, d0exp(loc, D0Ecas0(tcas, d0e1, tkof, tbar, dcls)))
+
+def d0exp_cas1_errck(loc: loc_t, tcas: token, d0e1: d0exp, tkof: token, tbar: tokenopt, dcls: d0clslst, tinv: t0inv) -> d0exp:
+    let lvl = maxs(errvl(d0e1), errvl(dcls))
+    d0exp_errck(lvl + 1, d0exp(loc, D0Ecas1(tcas, d0e1, tkof, tbar, dcls, tinv)))
+
+def d0exp_tup1_errck(loc: loc_t, tbeg: token, topt: tokenopt, d0es: d0explst, tend: d0exp_RPAREN) -> d0exp:
+    let lvl = maxs(errvl(d0es), errvl(tend))
+    d0exp_errck(lvl + 1, d0exp_make_node(loc, D0Etup1(tbeg, topt, d0es, tend)))
+
+def d0exp_rcd2_errck(loc: loc_t, tbeg: token, topt: tokenopt, ldes: l0d0elst, tend: l0d0e_RBRACE) -> d0exp:
+    let lvl = maxs(errvl(ldes), errvl(tend))
+    d0exp_errck(lvl + 1, d0exp_make_node(loc, D0Ercd2(tbeg, topt, ldes, tend)))
+
+def d0exp_let0_errck(loc: loc_t, tknd: token, dcls: d0eclist, topt: tokenopt, d0es: d0explst, tend: token) -> d0exp:
+    let lvl = maxs(errvl(dcls), errvl(d0es))
+    d0exp_errck(lvl + 1, d0exp_make_node(loc, D0Elet0(tknd, dcls, topt, d0es, tend)))
+
+def d0exp_where_errck(loc: loc_t, d0e1: d0exp, dcls: d0eclseq_WHERE) -> d0exp:
+    let lvl = match dcls:
+        case d0eclseq_WHERE(tbeg, topt, d0cs, tend):
+            maxs(errvl(d0e1), errvl(d0cs))
+    d0exp_errck(lvl + 1, d0exp(loc, D0Ewhere(d0e1, dcls)))
+
+def d0exp_brckt_errck(loc: loc_t, tbeg: token, d0es: d0explst, tend: token) -> d0exp:
+    let lvl = d0exp_errvl(d0es)
+    d0exp_errck(lvl + 1, d0exp(loc, D0Ebrckt(tbeg, d0es, tend)))
+
+def d0exp_dtsel_errck(loc: loc_t, tknd: token, l0ab: l0abl, dopt: d0expopt) -> d0exp:
+    let lvl = d0exp_errvl(dopt)
+    d0exp_errck(lvl + 1, d0exp(loc, D0Edtsel(tknd, l0ab, dopt)))
+
+def d0exp_try0_errck(loc: loc_t, tknd: token, d0es: d0explst, twth: token, tbar: tokenopt, dcls: d0clslst, tend: tokenopt) -> d0exp:
+    let lvl = maxs(errvl(d0es), errvl(dcls))
+    d0exp_errck(lvl + 1, d0exp_make_node(loc, D0Etry0(tknd, d0es, twth, tbar, dcls, tend)))
+
+def d0exp_lam0_errck(loc: loc_t, tknd: token, fags: f0arglst, sres: s0res, arrw: f0unarrw, body: d0exp, tend: tokenopt) -> d0exp:
+    let lvl = d0exp_errvl(body)
+    d0exp_errck(lvl + 1, d0exp_make_node(loc, D0Elam0(tknd, fags, sres, arrw, body, tend)))
+
+def d0exp_fix0_errck(loc: loc_t, tknd: token, dpid: d0pid, fags: f0arglst, sres: s0res, arrw: f0unarrw, body: d0exp, tend: tokenopt) -> d0exp:
+    let lvl = d0exp_errvl(body)
+    d0exp_errck(lvl + 1, d0exp_make_node(loc, D0Efix0(tknd, dpid, fags, sres, arrw, body, tend)))
+
+def d0exp_raise_errck(loc: loc_t, tknd: token, d0e1: d0exp) -> d0exp:
+    let lvl = d0exp_errvl(d0e1)
+    d0exp_errck(lvl + 1, d0exp(loc, D0Eraise(tknd, d0e1)))
+
+def d0exp_annot_errck(loc: loc_t, d0e1: d0exp, s0e2: s0exp) -> d0exp:
+    let lvl = d0exp_errvl(d0e1)
+    d0exp_errck(lvl + 1, d0exp(loc, D0Eannot(d0e1, s0e2)))
+
+def d0exp_qual0_errck(loc: loc_t, tok1: token, d0e2: d0exp) -> d0exp:
+    let lvl = d0exp_errvl(d0e2)
+    d0exp_errck(lvl + 1, d0exp(loc, D0Equal0(tok1, d0e2)))
+
+def d0exp_extnam_errck(loc: loc_t, tknd: token, gnam: g0nam) -> d0exp:
+    let lvl = 0
+    d0exp_errck(lvl + 1, d0exp(loc, D0Eextnam(tknd, gnam)))
+
+def d0exp_exists_errck(loc: loc_t, tknd: token, d0es: d0explst, d0e1: d0exp) -> d0exp:
+    let lvl = 0
+    d0exp_errck(lvl + 1, d0exp(loc, D0Eexists(tknd, d0es, d0e1)))
+
+def d0exp_synext_errck(loc: loc_t, tknd: token, gexp: g0exp) -> d0exp:
+    let lvl = 0
+    d0exp_errck(lvl + 1, d0exp(loc, D0Esynext(tknd, gexp)))
+
+@extern
+def pread00_t0qua() -> fpread00[t0qua]
+
+@extern
+def pread00_t0qualst() -> fpread00[t0qualst]
+
+@extern
+def pread00_f0unarrw() -> fpread00[f0unarrw]
+
+@impl
+def pread00_d0pat(d0p, err):
+    match d0p.node():
+        case D0Pid0(_):
+            d0p
+        case D0Pint(_):
+            d0p
+        case D0Pchr(_):
+            d0p
+        case D0Pflt(_):
+            d0p
+        case D0Pstr(_):
+            d0p
+        case D0Paspt(_):
+            f0_aspt(d0p, err)
+        case D0Papps(_):
+            f0_apps(d0p, err)
+        case D0Psarg(_):
+            f0_sarg(d0p, err)
+        case D0Plpar(_):
+            f0_lpar(d0p, err)
+        case D0Ptup1(_):
+            f0_tup1(d0p, err)
+        case D0Prcd2(_):
+            f0_rcd2(d0p, err)
+        case D0Pannot(_):
+            f0_annot(d0p, err)
+        case D0Ptkerr(_):
+            err := err + 1
+            d0pat_errck(1, d0p)
+        case _:
+            err := err + 1
+            d0pat_errck(1, d0p)
+where:
+    def f0_aspt(d0p: d0pat, err: &SInt >> _) -> d0pat:
+        let e00 = err
+        let D0Paspt(tas, dp1) = d0p.node()
+        let dp1 = pread00_d0pat(dp1, err)
+        if (err == e00):
+            d0p
+        else:
+            let loc = d0p.lctn()
+            d0pat_aspt_errck(loc, tas, dp1)
+    def f0_apps(d0p: d0pat, err: &SInt >> _) -> d0pat:
+        let e00 = err
+        let D0Papps(dps) = d0p.node()
+        let dps = pread00_d0patlst(dps, err)
+        if (err == e00):
+            d0p
+        else:
+            d0pat_apps_errck(d0p.lctn(), dps)
+    def f0_sarg(d0p: d0pat, err: &SInt >> _) -> d0pat:
+        let e00 = err
+        let D0Psarg(tkb, sas, tke) = d0p.node()
+        let sas = pread00_s0arglst(sas, err)
+        match tke.node():
+            case T_RBRACE():
+                ()
+            case _:
+                err := err + 1
+        if (err == e00):
+            d0p
+        else:
+            d0pat_sarg_errck(d0p.lctn(), tkb, sas, tke)
+    def f0_lpar(d0p: d0pat, err: &SInt >> _) -> d0pat:
+        let e00 = err
+        let D0Plpar(tkb, dps, drp) = d0p.node()
+        let dps = pread00_d0patlst(dps, err)
+        let drp = pread00_d0pat_RPAREN(drp, err)
+        if (err == e00):
+            d0p
+        else:
+            d0pat_lpar_errck(d0p.lctn(), tkb, dps, drp)
+    def f0_tup1(d0p: d0pat, err: &SInt >> _) -> d0pat:
+        let e00 = err
+        let D0Ptup1(tbeg, topt, d0ps, tend) = d0p.node()
+        let d0p2 = pread00_d0patlst(d0ps, err)
+        let tend = pread00_d0pat_RPAREN(tend, err)
+        if (err == e00):
+            d0p
+        else:
+            d0pat_tup1_errck(d0p.lctn(), tbeg, topt, d0ps, tend)
+    def f0_rcd2(d0p: d0pat, err: &SInt >> _) -> d0pat:
+        let e00 = err
+        let D0Prcd2(tbeg, topt, ldps, tend) = d0p.node()
+        let ldps = pread00_l0d0plst(ldps, err)
+        let tend = pread00_l0d0p_RBRACE(tend, err)
+        if (err == e00):
+            d0p
+        else:
+            d0pat_rcd2_errck(d0p.lctn(), tbeg, topt, ldps, tend)
+    def f0_annot(d0p: d0pat, err: &SInt >> _) -> d0pat:
+        let e00 = err
+        let D0Pannot(d0p1, s0e2) = d0p.node()
+        let d0p1 = pread00_d0pat(d0p1, err)
+        let s0e2 = pread00_s0exp(s0e2, err)
+        if (err == e00):
+            d0p
+        else:
+            d0pat_annot_errck(d0p.lctn(), d0p1, s0e2)
+
+@impl
+def pread00_l0d0p(ldp, err):
+    let e00 = err
+    let D0LAB(lab, teq, d0p) = ldp
+    match lab.node():
+        case L0ABLsome(_):
+            ()
+        case L0ABLnone(_):
+            err := err + 1
+    match teq.node():
+        case T_EQ0():
+            ()
+        case _:
+            err := err + 1
+    let d0p = pread00_d0pat(d0p, err)
+    if (err == e00):
+        ldp
+    else:
+        D0LAB(lab, teq, d0p)
+
+@impl
+def pread00_d0exp(d0e, err):
+    match d0e.node():
+        case D0Eid0(_):
+            d0e
+        case D0Eint(_):
+            d0e
+        case D0Echr(_):
+            d0e
+        case D0Eflt(_):
+            d0e
+        case D0Estr(_):
+            d0e
+        case D0Eopid(_):
+            f0_opid(d0e, err)
+        case D0Eapps(_):
+            f0_apps(d0e, err)
+        case D0Esarg(_):
+            f0_sarg(d0e, err)
+        case D0Etarg(_):
+            f0_targ(d0e, err)
+        case D0Elpar(_):
+            f0_lpar(d0e, err)
+        case D0Eift0(_, _, _, _):
+            f0_ift0(d0e, err)
+        case D0Eift1(_, _, _, _, _):
+            f0_ift1(d0e, err)
+        case D0Ecas0(_):
+            f0_cas0(d0e, err)
+        case D0Ecas1(_):
+            f0_cas1(d0e, err)
+        case D0Etup1(_):
+            f0_tup1(d0e, err)
+        case D0Ercd2(_):
+            f0_rcd2(d0e, err)
+        case D0Elet0(_):
+            f0_let0(d0e, err)
+        case D0Ewhere(_):
+            f0_where(d0e, err)
+        case D0Ebrckt(_):
+            f0_brckt(d0e, err)
+        case D0Edtsel(_):
+            f0_dtsel(d0e, err)
+        case D0Etry0(_):
+            f0_try0(d0e, err)
+        case D0Elam0(_):
+            f0_lam0(d0e, err)
+        case D0Efix0(_):
+            f0_fix0(d0e, err)
+        case D0Eraise(_):
+            f0_raise(d0e, err)
+        case D0Eannot(_):
+            f0_annot(d0e, err)
+        case D0Equal0(_):
+            f0_qual0(d0e, err)
+        case D0Eextnam(_):
+            f0_extnam(d0e, err)
+        case D0Eexists(_):
+            f0_exists(d0e, err)
+        case D0Esynext(_):
+            f0_synext(d0e, err)
+        case D0Etkerr(tok):
+            err := err + 1
+            d0exp_errck(1, d0e)
+        case _:
+            err := err + 1
+            d0exp_errck(1, d0e)
+where:
+    def f0_opid(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let D0Eopid(id0) = d0e.node()
+        let id0 = pread00_i0dnt(id0, err)
+        if (err == e00):
+            d0e
+        else:
+            d0exp_opid_errck(d0e.lctn(), id0)
+    def f0_apps(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let D0Eapps(des) = d0e.node()
+        let des = pread00_d0explst(des, err)
+        if (err == e00):
+            d0e
+        else:
+            d0exp_apps_errck(d0e.lctn(), des)
+    def f0_sarg(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let D0Esarg(tkb, ses, tke) = d0e.node()
+        let ses = pread00_s0explst(ses, err)
+        match tke.node():
+            case T_RBRACE():
+                ()
+            case _:
+                err := err + 1
+        if (err == e00):
+            d0e
+        else:
+            d0exp_sarg_errck(d0e.lctn(), tkb, ses, tke)
+    def f0_targ(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let D0Etarg(tkb, ses, tke) = d0e.node()
+        let ses = pread00_s0explst(ses, err)
+        match tke.node():
+            case T_GT0():
+                ()
+            case T_LTGT():
+                ()
+            case _:
+                err := err + 1
+        if (err == e00):
+            d0e
+        else:
+            d0exp_targ_errck(d0e.lctn(), tkb, ses, tke)
+    def f0_lpar(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let D0Elpar(tkb, des, drp) = d0e.node()
+        let des = pread00_d0explst(des, err)
+        let drp = pread00_d0exp_RPAREN(drp, err)
+        if (err == e00):
+            d0e
+        else:
+            d0exp_lpar_errck(d0e.lctn(), tkb, des, drp)
+    def f0_ift0(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let loc = d0e.lctn()
+        let D0Eift0(tift, d0e1, dthn, dels) = d0e.node()
+        let d0e1 = pread00_d0exp(d0e1, err)
+        let dthn = pread00_d0exp_THEN(dthn, err)
+        let dels = pread00_d0exp_ELSE(dels, err)
+        if (err == e00):
+            d0e
+        else:
+            d0exp_ift0_errck(d0e.lctn(), tift, d0e1, dthn, dels)
+    def f0_ift1(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let D0Eift1(tift, d0e1, dthn, dels, tinv) = d0e.node()
+        let d0e1 = pread00_d0exp(d0e1, err)
+        let dthn = pread00_d0exp_THEN(dthn, err)
+        let dels = pread00_d0exp_ELSE(dels, err)
+        let tinv = pread00_t0inv(tinv, err)
+        if (err == e00):
+            d0e
+        else:
+            d0exp_ift1_errck(d0e.lctn(), tift, d0e1, dthn, dels, tinv)
+    def f0_cas0(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let D0Ecas0(tcas, d0e1, tkof, tbar, dcls) = d0e.node()
+        let d0e1 = pread00_d0exp(d0e1, err)
+        match tkof.node():
+            case T_OF0():
+                ()
+            case _:
+                err := err + 1
+        let dcls = pread00_d0clslst(dcls, err)
+        if (err == e00):
+            d0e
+        else:
+            d0exp_cas0_errck(d0e.lctn(), tcas, d0e1, tkof, tbar, dcls)
+    def f0_cas1(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let loc = d0e.lctn()
+        let D0Ecas1(tcas, d0e1, tkof, tbar, dcls, tinv) = d0e.node()
+        let d0e1 = pread00_d0exp(d0e1, err)
+        match tkof.node():
+            case T_OF0():
+                ()
+            case _:
+                err := err + 1
+        let dcls = pread00_d0clslst(dcls, err)
+        let tinv = pread00_t0inv(tinv, err)
+        if (err == e00):
+            d0e
+        else:
+            d0exp_cas1_errck(loc, tcas, d0e1, tkof, tbar, dcls, tinv)
+    def f0_tup1(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let D0Etup1(tbeg, topt, d0es, tend) = d0e.node()
+        let d0es = pread00_d0explst(d0es, err)
+        let tend = pread00_d0exp_RPAREN(tend, err)
+        if (err == e00):
+            d0e
+        else:
+            d0exp_tup1_errck(d0e.lctn(), tbeg, topt, d0es, tend)
+    def f0_rcd2(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let D0Ercd2(tbeg, topt, ldes, tend) = d0e.node()
+        let ldes = pread00_l0d0elst(ldes, err)
+        let tend = pread00_l0d0e_RBRACE(tend, err)
+        if (err == e00):
+            d0e
+        else:
+            d0exp_rcd2_errck(d0e.lctn(), tbeg, topt, ldes, tend)
+    def f0_let0(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let D0Elet0(tknd, dcls, topt, d0es, tend) = d0e.node()
+        let dcls = pread00_d0eclist(dcls, err)
+        let d0es = pread00_d0expseq(d0es, err)
+        match tend.node():
+            case T_END():
+                ()
+            case T_ENDLET():
+                ()
+            case _:
+                err := err + 1
+        if (err == e00):
+            d0e
+        else:
+            d0exp_let0_errck(d0e.lctn(), tknd, dcls, topt, d0es, tend)
+    def f0_where(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let D0Ewhere(d0e1, dcls) = d0e.node()
+        let d0e1 = pread00_d0exp(d0e1, err)
+        let dcls = pread00_d0eclseq_WHERE(dcls, err)
+        if (err == e00):
+            d0e
+        else:
+            d0exp_where_errck(d0e.lctn(), d0e1, dcls)
+    def f0_brckt(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let loc = d0e.lctn()
+        let D0Ebrckt(tbeg, d0es, tend) = d0e.node()
+        let d0es = pread00_d0explst(d0es, err)
+        match tend.node():
+            case T_RBRCKT():
+                ()
+            case _:
+                err := err + 1
+        if (err == e00):
+            d0e
+        else:
+            d0exp_brckt_errck(loc, tbeg, d0es, tend)
+    def f0_dtsel(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let loc = d0e.lctn()
+        let D0Edtsel(tknd, l0ab, dopt) = d0e.node()
+        let l0ab = pread00_l0abl(l0ab, err)
+        let dopt = pread00_d0expopt(dopt, err)
+        if (err == e00):
+            d0e
+        else:
+            d0exp_dtsel_errck(loc, tknd, l0ab, dopt)
+    def f0_try0(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let loc = d0e.lctn()
+        let D0Etry0(tknd, d0es, twth, tbar, dcls, tend) = d0e.node()
+        let d0es = pread00_d0expseq(d0es, err)
+        match twth.node():
+            case T_WITH():
+                ()
+            case _:
+                err := err + 1
+        let dcls = pread00_d0clslst(dcls, err)
+        if (err == e00):
+            d0e
+        else:
+            d0exp_try0_errck(loc, tknd, d0es, twth, tbar, dcls, tend)
+    def f0_lam0(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let loc = d0e.lctn()
+        let D0Elam0(tknd, fags, sres, arrw, body, tend) = d0e.node()
+        let fags = pread00_f0arglst(fags, err)
+        let sres = pread00_s0res(sres, err)
+        let arrw = pread00_f0unarrw(arrw, err)
+        let body = pread00_d0exp(body, err)
+        if (err == e00):
+            d0e
+        else:
+            d0exp_lam0_errck(loc, tknd, fags, sres, arrw, body, tend)
+    def f0_fix0(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let loc = d0e.lctn()
+        let D0Efix0(tknd, dpid, fags, sres, arrw, body, tend) = d0e.node()
+        let dpid = pread00_i0dnt(dpid, err)
+        let fags = pread00_f0arglst(fags, err)
+        let sres = pread00_s0res(sres, err)
+        let arrw = pread00_f0unarrw(arrw, err)
+        let body = pread00_d0exp(body, err)
+        if (err == e00):
+            d0e
+        else:
+            d0exp_fix0_errck(loc, tknd, dpid, fags, sres, arrw, body, tend)
+    def f0_raise(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let D0Eraise(tknd, d0e1) = d0e.node()
+        let d0e1 = pread00_d0exp(d0e1, err)
+        if (err == e00):
+            d0e
+        else:
+            d0exp_raise_errck(d0e.lctn(), tknd, d0e1)
+    def f0_annot(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let D0Eannot(d0e1, s0e2) = d0e.node()
+        let d0e1 = pread00_d0exp(d0e1, err)
+        let s0e2 = pread00_s0exp(s0e2, err)
+        if (err == e00):
+            d0e
+        else:
+            d0exp_annot_errck(d0e.lctn(), d0e1, s0e2)
+    def f0_qual0(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let D0Equal0(tok1, d0e2) = d0e.node()
+        let d0e2 = pread00_d0exp(d0e2, err)
+        if (err == e00):
+            d0e
+        else:
+            d0exp_qual0_errck(d0e.lctn(), tok1, d0e2)
+    def f0_extnam(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let D0Eextnam(tknd, gnam) = d0e.node()
+        if (err == e00):
+            d0e
+        else:
+            d0exp_extnam_errck(d0e.lctn(), tknd, gnam)
+    def f0_exists(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let D0Eexists(tknd, d0es, d0e1) = d0e.node()
+        if (err == e00):
+            d0e
+        else:
+            let loc = d0e.lctn()
+            d0exp_exists_errck(loc, tknd, d0es, d0e1)
+    def f0_none0(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        d0e
+    def f0_synext(d0e: d0exp, err: &SInt >> _) -> d0exp:
+        let e00 = err
+        let D0Esynext(tknd, gexp) = d0e.node()
+        if (err == e00):
+            d0e
+        else:
+            d0exp_synext_errck(d0e.lctn(), tknd, gexp)
+
+@impl
+def pread00_l0d0e(lde, err):
+    let e00 = err
+    let D0LAB(lab, teq, d0e) = lde
+    match lab.node():
+        case L0ABLsome(_):
+            ()
+        case L0ABLnone(_):
+            err := err + 1
+    match teq.node():
+        case T_EQ0():
+            ()
+        case _:
+            err := err + 1
+    let d0e = pread00_d0exp(d0e, err)
+    if (err == e00):
+        lde
+    else:
+        D0LAB(lab, teq, d0e)
+
+@impl
+def pread00_d0gua(dgua, err):
+    match dgua.node():
+        case D0GUAexp(d0e1):
+            let e00 = err
+            let d0e1 = pread00_d0exp(d0e1, err)
+            if (err == e00):
+                dgua
+            else:
+                d0gua(dgua.lctn(), D0GUAexp(d0e1))
+        case D0GUAmat(d0e1, tkas, d0p2):
+            let e00 = err
+            let d0e1 = pread00_d0exp(d0e1, err)
+            match tkas.node():
+                case T_AS0():
+                    ()
+                case _:
+                    err := err + 1
+            let d0p2 = pread00_d0pat(d0p2, err)
+            if (err == e00):
+                dgua
+            else:
+                d0gua(dgua.lctn(), D0GUAmat(d0e1, tkas, d0p2))
+
+@impl
+def pread00_d0gpt(dgpt, err):
+    match dgpt.node():
+        case D0GPTpat(d0p1):
+            let e00 = err
+            let d0p1 = pread00_d0pat(d0p1, err)
+            if (err == e00):
+                dgpt
+            else:
+                d0gpt(dgpt.lctn(), D0GPTpat(d0p1))
+        case D0GPTgua(d0p1, twhn, d0gs):
+            let e00 = err
+            let d0p1 = pread00_d0pat(d0p1, err)
+            match twhn.node():
+                case T_WHEN():
+                    ()
+                case _:
+                    err := err + 1
+            let d0gs = pread00_d0gualst(d0gs, err)
+            if (err == e00):
+                dgpt
+            else:
+                d0gpt(dgpt.lctn(), D0GPTgua(d0p1, twhn, d0gs))
+
+@impl
+def pread00_d0cls(dcls, err):
+    match dcls.node():
+        case D0CLSgpt(dgpt):
+            let e00 = err
+            let dgpt = pread00_d0gpt(dgpt, err)
+            if (err == e00):
+                dcls
+            else:
+                d0cls(dcls.lctn(), D0CLSgpt(dgpt))
+        case D0CLScls(dgpt, tkeg, d0e1):
+            let e00 = err
+            let dgpt = pread00_d0gpt(dgpt, err)
+            match tkeg.node():
+                case T_EQGT():
+                    ()
+                case _:
+                    err := err + 1
+            let d0e1 = pread00_d0exp(d0e1, err)
+            if (err == e00):
+                dcls
+            else:
+                d0cls(dcls.lctn(), D0CLScls(dgpt, tkeg, d0e1))
+
+@impl
+def pread00_f0arg(f0a, err):
+    match f0a.node():
+        case F0ARGnone(tok):
+            err := err + 1
+            f0a
+        case F0ARGdapp(dpat):
+            let e00 = err
+            let dpat = pread00_d0pat(dpat, err)
+            if (err == e00):
+                f0a
+            else:
+                f0arg(f0a.lctn(), F0ARGdapp(dpat))
+        case F0ARGsapp(tbeg, s0qs, tend):
+            let e00 = err
+            let s0qs = pread00_s0qualst(s0qs, err)
+            match tend.node():
+                case T_RBRACE():
+                    ()
+                case _:
+                    err := err + 1
+            if (err == e00):
+                f0a
+            else:
+                f0arg(f0a.lctn(), F0ARGsapp(tbeg, s0qs, tend))
+        case F0ARGmets(tbeg, s0es, tend):
+            let e00 = err
+            let s0es = pread00_s0explst(s0es, err)
+            match tend.node():
+                case T_GTDOT():
+                    ()
+                case _:
+                    err := err + 1
+            if (err == e00):
+                f0a
+            else:
+                f0arg(f0a.lctn(), F0ARGmets(tbeg, s0es, tend))
+
+@impl
+def pread00_s0res(sres, err):
+    match sres:
+        case S0RESnone():
+            sres
+        case S0RESsome(seff, s0e1):
+            let e00 = err
+            let s0e1 = pread00_s0exp(s0e1, err)
+            if (err == e00):
+                sres
+            else:
+                S0RESsome(seff, s0e1)
+
+@impl
+def pread00_d0res(dres, err):
+    match dres:
+        case D0RESnone():
+            dres
+        case D0RESsome(teq1, d0e2):
+            let e00 = err
+            match teq1.node():
+                case T_EQ0():
+                    ()
+                case _:
+                    err := err + 1
+            let d0e2 = pread00_d0exp(d0e2, err)
+            if (err == e00):
+                dres
+            else:
+                D0RESsome(teq1, d0e2)
+
+@impl
+def pread00_t0qua(t0q0, err):
+    match t0q0:
+        case T0QUAnone(tok):
+            t0q0
+        case T0QUAsome(tbeg, s0qs, tend):
+            let e00 = err
+            let s0qs = pread00_s0qualst(s0qs, err)
+            match tend.node():
+                case T_RBRACE():
+                    ()
+                case _:
+                    err := err + 1
+            if (err == e00):
+                t0q0
+            else:
+                T0QUAsome(tbeg, s0qs, tend)
+
+@impl
+def pread00_t0inv(tinv, err):
+    match tinv:
+        case T0INVnone(t0qs, tok1):
+            let e00 = err
+            let t0qs = pread00_t0qualst(t0qs, err)
+            if (err == e00):
+                tinv
+            else:
+                T0INVnone(t0qs, tok1)
+        case T0INVsome(t0qs, tbeg, d0ps, tend):
+            let e00 = err
+            let t0qs = pread00_t0qualst(t0qs, err)
+            let d0ps = pread00_d0patlst(d0ps, err)
+            match tend.node():
+                case T_RPAREN():
+                    ()
+                case _:
+                    err := err + 1
+            if (err == e00):
+                tinv
+            else:
+                T0INVsome(t0qs, tbeg, d0ps, tend)
+
+@impl
+def pread00_d0patopt(opt, err):
+    optn_pread00_fnp(opt, err, pread00_d0pat)
+
+@impl
+def pread00_d0patlst(lst, err):
+    list_pread00_fnp(lst, err, pread00_d0pat)
+
+@impl
+def pread00_d0expopt(opt, err):
+    optn_pread00_fnp(opt, err, pread00_d0exp)
+
+@impl
+def pread00_d0explst(lst, err):
+    list_pread00_fnp(lst, err, pread00_d0exp)
+
+@impl
+def pread00_d0expseq(lst, err):
+    auxlst(lst, err)
+where:
+    def auxlst(ds1: d0explst, err: &SInt >> _) -> d0explst:
+        match ds1:
+            case list_nil():
+                list_nil()
+            case list_cons(de1, ds2):
+                let e00 = err
+                let de1 = match ds2:
+                    case list_nil():
+                        match de1.node():
+                            case D0Etkerr(_):
+                                de1
+                            case _:
+                                pread00_d0exp(de1, err)
+                    case list_cons(_):
+                        pread00_d0exp(de1, err)
+                let ds2 = auxlst(ds2, err)
+                if (err == e00):
+                    ds1
+                else:
+                    list_cons(de1, ds2)
+
+@impl
+def pread00_l0d0plst(lst, err):
+    list_pread00_fnp(lst, err, pread00_l0d0p)
+
+@impl
+def pread00_l0d0elst(lst, err):
+    list_pread00_fnp(lst, err, pread00_l0d0e)
+
+@impl
+def pread00_f0arglst(lst, err):
+    list_pread00_fnp(lst, err, pread00_f0arg)
+
+@impl
+def pread00_d0gualst(lst, err):
+    list_pread00_fnp(lst, err, pread00_d0gua)
+
+@impl
+def pread00_d0clslst(lst, err):
+    list_pread00_fnp(lst, err, pread00_d0cls)
+
+@impl
+def pread00_t0qualst(lst, err):
+    list_pread00_fnp(lst, err, pread00_t0qua)
+
+@impl
+def pread00_d0pat_RPAREN(drp0, err):
+    match drp0:
+        case d0pat_RPAREN_cons0(tend):
+            match tend.node():
+                case T_RPAREN():
+                    drp0
+                case _:
+                    err := err + 1
+                    drp0
+        case d0pat_RPAREN_cons1(tbar, d0ps, tend):
+            let e00 = err
+            let d0ps = pread00_d0patlst(d0ps, err)
+            match tend.node():
+                case T_RPAREN():
+                    if (err == e00):
+                        drp0
+                    else:
+                        d0pat_RPAREN_cons1(tbar, d0ps, tend)
+                case _:
+                    err := err + 1
+                    d0pat_RPAREN_cons1(tbar, d0ps, tend)
+
+@impl
+def pread00_l0d0p_RBRACE(ldrb, err):
+    match ldrb:
+        case l0d0p_RBRACE_cons0(tend):
+            match tend.node():
+                case T_RBRACE():
+                    ldrb
+                case _:
+                    err := err + 1
+                    ldrb
+        case l0d0p_RBRACE_cons1(tbar, ldps, tend):
+            let e00 = err
+            let ldps = pread00_l0d0plst(ldps, err)
+            match tend.node():
+                case T_RBRACE():
+                    if (err == e00):
+                        ldrb
+                    else:
+                        l0d0p_RBRACE_cons1(tbar, ldps, tend)
+                case _:
+                    err := err + 1
+                    l0d0p_RBRACE_cons1(tbar, ldps, tend)
+
+@impl
+def pread00_f0unarrw(arrw, err):
+    match arrw:
+        case F0UNARRWnone(tok):
+            err := err + 1
+            arrw
+        case F0UNARRWdflt(tok):
+            arrw
+        case F0UNARRWlist(tbeg, s0es, tend):
+            let e00 = err
+            let s0es = pread00_s0explst(s0es, err)
+            match tend.node():
+                case T_GT0():
+                    ()
+                case _:
+                    err := err + 1
+            if (err == e00):
+                arrw
+            else:
+                F0UNARRWlist(tbeg, s0es, tend)
+
+@impl
+def pread00_d0exp_THEN(dthn, err):
+    match dthn:
+        case d0exp_THEN_none(tok1):
+            dthn
+        case d0exp_THEN_some(tok1, d0e2):
+            let e00 = err
+            let d0e2 = pread00_d0exp(d0e2, err)
+            if (err == e00):
+                dthn
+            else:
+                d0exp_THEN_some(tok1, d0e2)
+
+@impl
+def pread00_d0exp_ELSE(dels, err):
+    match dels:
+        case d0exp_ELSE_none(tok1):
+            dels
+        case d0exp_ELSE_some(tok1, d0e2):
+            let e00 = err
+            let d0e2 = pread00_d0exp(d0e2, err)
+            if (err == e00):
+                dels
+            else:
+                d0exp_ELSE_some(tok1, d0e2)
+
+@impl
+def pread00_d0exp_RPAREN(drp0, err):
+    match drp0:
+        case d0exp_RPAREN_cons0(tend):
+            match tend.node():
+                case T_RPAREN():
+                    drp0
+                case _:
+                    err := err + 1
+                    drp0
+        case d0exp_RPAREN_cons1(tsep, d0es, tend):
+            let e00 = err
+            let d0es = pread00_d0explst(d0es, err)
+            match tend.node():
+                case T_RPAREN():
+                    if (err == e00):
+                        drp0
+                    else:
+                        d0exp_RPAREN_cons1(tsep, d0es, tend)
+                case _:
+                    err := err + 1
+                    d0exp_RPAREN_cons1(tsep, d0es, tend)
+        case d0exp_RPAREN_cons2(tsep, d0es, tend):
+            let e00 = err
+            def cons2_d0explst(xs: d0explst, err: &SInt >> _) -> d0explst:
+                match xs:
+                    case list_nil():
+                        list_nil()
+                    case list_cons(x1, xs):
+                        cons2_d0explst_a2(x1, xs, err)
+
+            def cons2_d0explst_a2(x1: d0exp, xs: d0explst, err: &SInt >> _) -> d0explst:
+                match xs:
+                    case list_nil():
+                        match x1.node():
+                            case D0Etkerr(_):
+                                list_nil()
+                            case _:
+                                let d0e1 = pread00_d0exp(x1, err)
+                                list_cons(d0e1, list_nil())
+                    case list_cons(x2, xs):
+                        let d0e1 = pread00_d0exp(x1, err)
+                        list_cons(d0e1, cons2_d0explst_a2(x2, xs, err))
+            let d0es = cons2_d0explst(d0es, err)
+            match tend.node():
+                case T_RPAREN():
+                    if (err == e00):
+                        drp0
+                    else:
+                        d0exp_RPAREN_cons2(tsep, d0es, tend)
+                case _:
+                    err := err + 1
+                    d0exp_RPAREN_cons2(tsep, d0es, tend)
+
+@impl
+def pread00_l0d0e_RBRACE(ldrb, err):
+    match ldrb:
+        case l0d0e_RBRACE_cons0(tend):
+            match tend.node():
+                case T_RBRACE():
+                    ldrb
+                case _:
+                    err := err + 1
+                    ldrb
+        case l0d0e_RBRACE_cons1(tbar, ldes, tend):
+            let e00 = err
+            let ldes = pread00_l0d0elst(ldes, err)
+            match tend.node():
+                case T_RBRACE():
+                    if (err == e00):
+                        ldrb
+                    else:
+                        l0d0e_RBRACE_cons1(tbar, ldes, tend)
+                case _:
+                    err := err + 1
+                    l0d0e_RBRACE_cons1(tbar, ldes, tend)
+
+@impl
+def pread00_d0eclseq_WHERE(dcls, err):
+    match dcls:
+        case d0eclseq_WHERE(tbeg, topt, d0cs, tend):
+            let e00 = err
+            let d0cs = pread00_d0eclist(d0cs, err)
+            match tend:
+                case tkend_WHERE_cons1(tok1):
+                    match tok1.node():
+                        case T_ENDWHR():
+                            match topt:
+                                case optn_nil(_):
+                                    ()
+                                case optn_cons(_):
+                                    err := err + 1
+                        case T_RBRACE():
+                            match topt:
+                                case optn_nil(_):
+                                    err := err + 1
+                                case optn_cons(_):
+                                    ()
+                        case _:
+                            err := err + 1
+            if (err == e00):
+                dcls
+            else:
+                d0eclseq_WHERE(tbeg, topt, d0cs, tend)
+

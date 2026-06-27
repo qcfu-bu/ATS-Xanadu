@@ -1,0 +1,136 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+import "srcgen2/DATS/trsym2b.dats" as _
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/trans2a" import *
+
+from "srcgen2/SATS/trsym2b" import *
+
+@overload lctn = d2cst_get_lctn
+
+@overload styp = d2cst_get_styp
+
+@overload xtyp = d2cst_get_xtyp
+
+@overload xtyp = d2cst_set_xtyp
+
+@overload node = d2ecl_get_lctn
+
+@overload node = d2ecl_get_node
+
+def s2typ_subst0(t2p0: s2typ, svts: s2vts) -> s2typ:
+    match svts:
+        case list_nil():
+            t2p0
+        case list_cons(_):
+            s2typ_subst0(t2p0, svts)
+
+private:
+    def myd2c_fix_xtyp(d2c1: d2cst) -> Void:
+        d2cfn_fix_xtyp(d2c1)
+
+@impl
+def trsym2b_d2ecl(env0, dcl0):
+    match dcl0.node():
+        case D2Cthen0(dcls):
+            trsym2b_d2eclist(env0, dcls)
+        case D2Celse1(dcls):
+            trsym2b_d2eclist(env0, dcls)
+        case D2Cstatic(tknd, dcl1):
+            trsym2b_d2ecl(env0, dcl1)
+        case D2Cextern(tknd, dcl1):
+            trsym2b_d2ecl(env0, dcl1)
+        case D2Clocal0(dcs1, dcs2):
+            trsym2b_d2eclist(env0, dcs1)
+            trsym2b_d2eclist(env0, dcs2)
+        case D2Cinclude(knd0, tknd, gsrc, fopt, dopt):
+            trsym2b_d2eclistopt(env0, dopt)
+        case D2Cstaload(knd0, tknd, gsrc, fopt, dopt):
+            ()
+        case D2Cdyninit(tknd, gexp):
+            ()
+        case D2Cextcode(tknd, gexp):
+            ()
+        case D2Cvaldclst(tknd, d2vs):
+            trsym2b_d2valdclist(env0, d2vs)
+        case D2Cvardclst(tknd, d2vs):
+            trsym2b_d2vardclist(env0, d2vs)
+        case D2Cfundclst(tknd, tqas, d2cs, d2fs):
+            trsym2b_d2fundclist(env0, d2fs)
+            ()
+        case D2Cimplmnt0(_):
+            f0_implmnt0(env0, dcl0)
+        case _:
+            ()
+where:
+    def f0_implmnt0(env0: !tr2aenv, dcl0: d2ecl) -> Void:
+        let loc0 = dcl0.lctn()
+        let D2Cimplmnt0(tknd, sqas, tqas, dimp, tias, f2as, sres, dexp) = dcl0.node()
+        trsym2b_f2arglst(env0, f2as)
+        trsym2b_d2exp(env0, dexp)
+
+
+@impl
+def trsym2b_teqd2exp(env0, tdxp):
+    match tdxp:
+        case TEQD2EXPnone():
+            ()
+        case TEQD2EXPsome(teq1, d2e2):
+            trsym2b_d2exp(env0, d2e2)
+
+@impl
+def trsym2b_d2valdcl(env0, dval):
+    trsym2b_d2pat(env0, dpat)
+    trsym2b_teqd2exp(env0, tdxp)
+where:
+    let dpat = d2valdcl_get_dpat(dval)
+    let tdxp = d2valdcl_get_tdxp(dval)
+
+@impl
+def trsym2b_d2vardcl(env0, dvar):
+    trsym2b_teqd2exp(env0, dini)
+where:
+    let dini = d2vardcl_get_dini(dvar)
+
+@impl
+def trsym2b_d2fundcl(env0, dfun):
+    trsym2b_f2arglst(env0, fags)
+    trsym2b_teqd2exp(env0, tdxp)
+where:
+    let fags = d2fundcl_get_farg(dfun)
+    let tdxp = d2fundcl_get_tdxp(dfun)
+
+@impl
+def trsym2b_d2eclist(env0, d2cs):
+    list_trsym2b_fnp(env0, d2cs, trsym2b_d2ecl)
+
+@impl
+def trsym2b_d2valdclist(env0, d2vs):
+    list_trsym2b_fnp(env0, d2vs, trsym2b_d2valdcl)
+
+@impl
+def trsym2b_d2vardclist(env0, d2vs):
+    list_trsym2b_fnp(env0, d2vs, trsym2b_d2vardcl)
+
+@impl
+def trsym2b_d2fundclist(env0, d2fs):
+    list_trsym2b_fnp(env0, d2fs, trsym2b_d2fundcl)
+
+@impl
+def trsym2b_d2eclistopt(env0, dopt):
+    optn_trsym2b_fnp(env0, dopt, trsym2b_d2eclist)
+

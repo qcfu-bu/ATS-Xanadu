@@ -1,0 +1,12 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+include "srcgen2/xats2js/srcgen1/HATS/mytmplib00.hats"
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/xats2js/srcgen1/SATS/intrep0" import *
+

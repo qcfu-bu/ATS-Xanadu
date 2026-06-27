@@ -1,0 +1,743 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/SATS/t3read0" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload sexp = d2con_get_sexp
+
+@overload sexp = d2cst_get_sexp
+
+def d3exp_errck(lvl0: SInt, d3e0: d3exp) -> d3exp:
+    let loc0 = d3e0.lctn()
+    let t2p0 = d3e0.styp()
+    d3exp_make_tpnd(loc0, t2p0, D3Eerrck(lvl0, d3e0))
+
+def d3exp_errvl_a1(d3e0: d3exp) -> SInt:
+    match d3e0.node():
+        case D3Eerrck(lvl0, _):
+            lvl0
+        case _:
+            0
+
+@overload d3exp_errvl = d3exp_errvl_a1
+
+@overload errvl = d3exp_errvl_a1
+
+def d3exp_errvl_a2(d3e1: d3exp, d3e2: d3exp) -> SInt:
+    maxs(errvl(d3e1), errvl(d3e2))
+
+@overload d3exp_errvl = d3exp_errvl_a2
+
+@overload errvl = d3exp_errvl_a2
+
+@extern
+def d3exp_errvl_lst(d3es: d3explst) -> SInt
+
+@impl
+def d3exp_errvl_lst(d3es):
+    match d3es:
+        case list_nil():
+            0
+        case list_cons(d3e1, d3es):
+            maxs(errvl(d3e1), d3exp_errvl_lst(d3es))
+
+@overload d3exp_errvl = d3exp_errvl_lst
+
+@overload errvl = d3exp_errvl_lst
+
+@extern
+def d3exp_errvl_opt(dopt: d3expopt) -> SInt
+
+@impl
+def d3exp_errvl_opt(dopt):
+    match dopt:
+        case optn_nil():
+            0
+        case optn_cons(d3e1):
+            errvl(d3e1)
+
+@overload d3exp_errvl = d3exp_errvl_opt
+
+@overload errvl = d3exp_errvl_opt
+
+def d3cls_errvl_a1(dcl: d3cls) -> SInt:
+    match dcl.node():
+        case D3CLSgpt(dgpt):
+            0
+        case D3CLScls(dgpt, d3e1):
+            errvl(d3e1)
+
+@overload errvl = d3cls_errvl_a1
+
+@extern
+def d3cls_errvl_lst(dcls: d3clslst) -> SInt
+
+@impl
+def d3cls_errvl_lst(dcls):
+    match dcls:
+        case list_nil():
+            0
+        case list_cons(dcl1, dcls):
+            maxs(errvl(dcl1), d3cls_errvl_lst(dcls))
+
+@overload errvl = d3cls_errvl_lst
+
+def d3exp_tapp_errck(loc0: loc_t, t2p0: s2typ, d3f0: d3exp, s2es: s2explst) -> d3exp:
+    let lvl0 = d3exp_errvl(d3f0)
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Etapp(d3f0, s2es)))
+
+def d3exp_tapq_errck(loc0: loc_t, t2p0: s2typ, d3f0: d3exp, t2js: t2jaglst) -> d3exp:
+    let lvl0 = d3exp_errvl(d3f0)
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Etapq(d3f0, t2js)))
+
+def d3exp_dap0_errck(loc0: loc_t, t2p0: s2typ, d3f0: d3exp) -> d3exp:
+    let lvl0 = d3exp_errvl(d3f0)
+    d3exp_errck(lvl0 + 1, d3exp(loc0, t2p0, D3Edap0(d3f0)))
+
+def d3exp_dapp_errck(loc0: loc_t, t2p0: s2typ, d3f0: d3exp, npf1: SInt, d3es: d3explst) -> d3exp:
+    let lvl0 = maxs(errvl(d3f0), errvl(d3es))
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Edapp(d3f0, npf1, d3es)))
+
+def d3exp_pcon_errck(loc0: loc_t, t2p0: s2typ, tknd: token, dlab: label, dcon: d3exp) -> d3exp:
+    let lvl0 = d3exp_errvl(dcon)
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Epcon(tknd, dlab, dcon)))
+
+def d3exp_proj_errck(loc0: loc_t, t2p0: s2typ, tknd: token, dlab: label, dtup: d3exp) -> d3exp:
+    let lvl0 = d3exp_errvl(dtup)
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Eproj(tknd, dlab, dtup)))
+
+def d3exp_let0_errck(loc0: loc_t, t2p0: s2typ, dcls: d3eclist, d3e1: d3exp) -> d3exp:
+    let lvl0 = errvl(d3e1)
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Elet0(dcls, d3e1)))
+
+def d3exp_ift0_errck(loc0: loc_t, t2p0: s2typ, d3e1: d3exp, dthn: d3expopt, dels: d3expopt) -> d3exp:
+    let lvl0 = maxs(errvl(d3e1), errvl(dthn), errvl(dels))
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Eift0(d3e1, dthn, dels)))
+
+def d3exp_cas0_errck(loc0: loc_t, t2p0: s2typ, tknd: token, d3e1: d3exp, dcls: d3clslst) -> d3exp:
+    let lvl0 = maxs(errvl(d3e1), errvl(dcls))
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Ecas0(tknd, d3e1, dcls)))
+
+def d3exp_seqn_errck(loc0: loc_t, t2p0: s2typ, d3es: d3explst, d3e1: d3exp) -> d3exp:
+    let lvl0 = maxs(errvl(d3es), errvl(d3e1))
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Eseqn(d3es, d3e1)))
+
+def d3exp_tup0_errck(loc0: loc_t, t2p0: s2typ, npf1: SInt, d3es: d3explst) -> d3exp:
+    let lvl0 = d3exp_errvl(d3es)
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Etup0(npf1, d3es)))
+
+def d3exp_tup1_errck(loc0: loc_t, t2p0: s2typ, knd0: token, npf1: SInt, d3es: d3explst) -> d3exp:
+    let lvl0 = d3exp_errvl(d3es)
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Etup1(knd0, npf1, d3es)))
+
+def d3exp_lam0_errck(loc0: loc_t, t2p0: s2typ, tknd: token, f3as: f3arglst, sres: s2res, arrw: f1unarrw, dexp: d3exp) -> d3exp:
+    let lvl0 = d3exp_errvl(dexp)
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Elam0(tknd, f3as, sres, arrw, dexp)))
+
+def d3exp_fix0_errck(loc0: loc_t, t2p0: s2typ, tknd: token, dvar: d2var, f3as: f3arglst, sres: s2res, arrw: f1unarrw, dexp: d3exp) -> d3exp:
+    let lvl0 = d3exp_errvl(dexp)
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Efix0(tknd, dvar, f3as, sres, arrw, dexp)))
+
+def d3exp_try0_errck(loc0: loc_t, t2p0: s2typ, tknd: token, d3e1: d3exp, dcls: d3clslst) -> d3exp:
+    let lvl0 = maxs(errvl(d3e1), errvl(dcls))
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Etry0(tknd, d3e1, dcls)))
+
+def d3exp_addr_errck(loc0: loc_t, t2p0: s2typ, d3e1: d3exp) -> d3exp:
+    let lvl0 = errvl(d3e1)
+    d3exp_errck(lvl0 + 1, d3exp(loc0, t2p0, D3Eaddr(d3e1)))
+
+def d3exp_view_errck(loc0: loc_t, t2p0: s2typ, d3e1: d3exp) -> d3exp:
+    let lvl0 = errvl(d3e1)
+    d3exp_errck(lvl0 + 1, d3exp(loc0, t2p0, D3Eview(d3e1)))
+
+def d3exp_flat_errck(loc0: loc_t, t2p0: s2typ, d3e1: d3exp) -> d3exp:
+    let lvl0 = errvl(d3e1)
+    d3exp_errck(lvl0 + 1, d3exp(loc0, t2p0, D3Eflat(d3e1)))
+
+def d3exp_eval_errck(loc0: loc_t, t2p0: s2typ, d3e1: d3exp) -> d3exp:
+    let lvl0 = errvl(d3e1)
+    d3exp_errck(lvl0 + 1, d3exp(loc0, t2p0, D3Eeval(d3e1)))
+
+def d3exp_fold_errck(loc0: loc_t, t2p0: s2typ, d3e1: d3exp) -> d3exp:
+    let lvl0 = errvl(d3e1)
+    d3exp_errck(lvl0 + 1, d3exp(loc0, t2p0, D3Efold(d3e1)))
+
+def d3exp_free_errck(loc0: loc_t, t2p0: s2typ, d3e1: d3exp) -> d3exp:
+    let lvl0 = errvl(d3e1)
+    d3exp_errck(lvl0 + 1, d3exp(loc0, t2p0, D3Efree(d3e1)))
+
+def d3exp_dp2tr_errck(loc0: loc_t, t2p0: s2typ, d3e1: d3exp) -> d3exp:
+    let lvl0 = errvl(d3e1)
+    d3exp_errck(lvl0 + 1, d3exp(loc0, t2p0, D3Edp2tr(d3e1)))
+
+def d3exp_dl0az_errck(loc0: loc_t, t2p0: s2typ, d3e1: d3exp) -> d3exp:
+    let lvl0 = errvl(d3e1)
+    d3exp_errck(lvl0 + 1, d3exp(loc0, t2p0, D3Edl0az(d3e1)))
+
+def d3exp_dl1az_errck(loc0: loc_t, t2p0: s2typ, d3e1: d3exp) -> d3exp:
+    let lvl0 = errvl(d3e1)
+    d3exp_errck(lvl0 + 1, d3exp(loc0, t2p0, D3Edl1az(d3e1)))
+
+def d3exp_where_errck(loc0: loc_t, t2p0: s2typ, d3e1: d3exp, dcls: d3eclist) -> d3exp:
+    let lvl0 = errvl(d3e1)
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Ewhere(d3e1, dcls)))
+
+def d3exp_assgn_errck(loc0: loc_t, t2p0: s2typ, d3el: d3exp, d3er: d3exp) -> d3exp:
+    let lvl0 = maxs(errvl(d3el), errvl(d3er))
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Eassgn(d3el, d3er)))
+
+def d3exp_xazgn_errck(loc0: loc_t, t2p0: s2typ, d3el: d3exp, d3er: d3exp) -> d3exp:
+    let lvl0 = maxs(errvl(d3el), errvl(d3er))
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Exazgn(d3el, d3er)))
+
+def d3exp_xchng_errck(loc0: loc_t, t2p0: s2typ, d3el: d3exp, d3er: d3exp) -> d3exp:
+    let lvl0 = maxs(errvl(d3el), errvl(d3er))
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Exchng(d3el, d3er)))
+
+def d3exp_raise_errck(loc0: loc_t, t2p0: s2typ, tknd: token, dexn: d3exp) -> d3exp:
+    let lvl0 = d3exp_errvl(dexn)
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Eraise(tknd, dexn)))
+
+def d3exp_l0azy_errck(loc0: loc_t, t2p0: s2typ, dknd: d1exp, d3e1: d3exp) -> d3exp:
+    let lvl0 = d3exp_errvl(d3e1)
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3El0azy(dknd, d3e1)))
+
+def d3exp_l1azy_errck(loc0: loc_t, t2p0: s2typ, dknd: d1exp, d3e1: d3exp, d3es: d3explst) -> d3exp:
+    let lvl0 = maxs(errvl(d3e1), errvl(d3es))
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3El1azy(dknd, d3e1, d3es)))
+
+def d3exp_elazy_errck(loc0: loc_t, t2p0: s2typ, dknd: d1exp, d3e1: d3exp, d3es: d3explst) -> d3exp:
+    let lvl0 = maxs(errvl(d3e1), errvl(d3es))
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Eelazy(dknd, d3e1, d3es)))
+
+def d3exp_annot_errck(loc0: loc_t, t2p0: s2typ, d3e1: d3exp, s1e2: s1exp, s2e2: s2exp) -> d3exp:
+    let lvl0 = d3exp_errvl(d3e1)
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Eannot(d3e1, s1e2, s2e2)))
+
+def d3exp_t2ped_errck(loc0: loc_t, t2p0: s2typ, d3e1: d3exp, t2p2: s2typ) -> d3exp:
+    let lvl0 = d3exp_errvl(d3e1)
+    d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Et2ped(d3e1, t2p2)))
+
+@impl
+def t3read0_d3pat(evn0, d3p0, err0):
+    d3p0
+
+@impl
+def t3read0_d3exp(evn0, d3e0, err0):
+    match d3e0.node():
+        case D3Evar(_):
+            d3e0
+        case D3Eint(_):
+            d3e0
+        case D3Ebtf(_):
+            d3e0
+        case D3Echr(_):
+            d3e0
+        case D3Eflt(_):
+            d3e0
+        case D3Estr(_):
+            d3e0
+        case D3Ei00(_):
+            d3e0
+        case D3Eb00(_):
+            d3e0
+        case D3Ec00(_):
+            d3e0
+        case D3Ef00(_):
+            d3e0
+        case D3Es00(_):
+            d3e0
+        case D3Econ(_):
+            d3e0
+        case D3Ecst(_):
+            d3e0
+        case D3Etop(_):
+            d3e0
+        case D3Etimp(_):
+            f0_timp(evn0, d3e0, err0)
+        case D3Etapp(_):
+            f0_tapp(evn0, d3e0, err0)
+        case D3Etapq(_):
+            f0_tapq(evn0, d3e0, err0)
+        case D3Edap0(_):
+            f0_dap0(evn0, d3e0, err0)
+        case D3Edapp(_):
+            f0_dapp(evn0, d3e0, err0)
+        case D3Epcon(_):
+            f0_pcon(evn0, d3e0, err0)
+        case D3Eproj(_):
+            f0_proj(evn0, d3e0, err0)
+        case D3Elet0(_):
+            f0_let0(evn0, d3e0, err0)
+        case D3Eift0(_):
+            f0_ift0(evn0, d3e0, err0)
+        case D3Ecas0(_):
+            f0_cas0(evn0, d3e0, err0)
+        case D3Eseqn(_):
+            f0_seqn(evn0, d3e0, err0)
+        case D3Etup0(_):
+            f0_tup0(evn0, d3e0, err0)
+        case D3Etup1(_):
+            f0_tup1(evn0, d3e0, err0)
+        case D3Elam0(_):
+            f0_lam0(evn0, d3e0, err0)
+        case D3Efix0(_):
+            f0_fix0(evn0, d3e0, err0)
+        case D3Etry0(_):
+            f0_try0(evn0, d3e0, err0)
+        case D3Eaddr(_):
+            f0_addr(evn0, d3e0, err0)
+        case D3Eview(_):
+            f0_view(evn0, d3e0, err0)
+        case D3Eflat(_):
+            f0_flat(evn0, d3e0, err0)
+        case D3Eeval(_):
+            f0_eval(evn0, d3e0, err0)
+        case D3Efold(_):
+            f0_fold(evn0, d3e0, err0)
+        case D3Efree(_):
+            f0_free(evn0, d3e0, err0)
+        case D3Edp2tr(_):
+            f0_dp2tr(evn0, d3e0, err0)
+        case D3Edl0az(_):
+            f0_dl0az(evn0, d3e0, err0)
+        case D3Edl1az(_):
+            f0_dl1az(evn0, d3e0, err0)
+        case D3Ewhere(_):
+            f0_where(evn0, d3e0, err0)
+        case D3Eassgn(_):
+            f0_assgn(evn0, d3e0, err0)
+        case D3Exazgn(_):
+            f0_xazgn(evn0, d3e0, err0)
+        case D3Exchng(_):
+            f0_xchng(evn0, d3e0, err0)
+        case D3Eraise(_):
+            f0_raise(evn0, d3e0, err0)
+        case D3El0azy(_):
+            f0_l0azy(evn0, d3e0, err0)
+        case D3El1azy(_):
+            f0_l1azy(evn0, d3e0, err0)
+        case D3Eelazy(_):
+            f0_elazy(evn0, d3e0, err0)
+        case D3Eannot(_):
+            f0_annot(evn0, d3e0, err0)
+        case D3Et2ped(_):
+            f0_t2ped(evn0, d3e0, err0)
+        case _:
+            let dres = d3exp_none2(d3e0)
+            dres
+where:
+    def f0_timp(evn0: !t3r0evn, d3e0: d3exp, nerr: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Etimp(d3f0, timp) = d3e0.node()
+        t3r0evn_timp/psh(evn0, timp)
+        let timp = t3read0_timpl(evn0, timp, err0)
+        t3r0evn_timp/pop(evn0)
+        if (nerr == err0):
+            d3e0
+        else:
+            let lvl0 = 0
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            let tmps = t3r0evn_tmps/get(evn0)
+            d3exp_errck(lvl0 + 1, d3exp_make_tpnd(loc0, t2p0, D3Etimq(d3f0, timp, tmps)))
+    def f0_tapp(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Etapp(d3f0, s2es) = d3e0.node()
+        let d3f0 = t3read0_d3exp(evn0, d3f0, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let t2p0 = d3f0.styp()
+            d3exp_tapp_errck(d3e0.lctn(), t2p0, d3f0, s2es)
+    def f0_tapq(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Etapq(d3f0, t2js) = d3e0.node()
+        let d3f0 = t3read0_d3exp(evn0, d3f0, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_tapq_errck(d3e0.lctn(), t2p0, d3f0, t2js)
+    def f0_dap0(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Edap0(d3f0) = d3e0.node()
+        let d3f0 = t3read0_d3exp(evn0, d3f0, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_dap0_errck(loc0, t2p0, d3f0)
+    def f0_dapp(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Edapp(d3f0, npf1, d3es) = d3e0.node()
+        let d3f0 = t3read0_d3exp(evn0, d3f0, err0)
+        let d3es = t3read0_d3explst(evn0, d3es, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_dapp_errck(loc0, t2p0, d3f0, npf1, d3es)
+    def f0_pcon(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Epcon(tknd, dlab, dcon) = d3e0.node()
+        let dcon = t3read0_d3exp(evn0, dcon, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_pcon_errck(loc0, t2p0, tknd, dlab, dcon)
+    def f0_proj(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Eproj(tknd, dlab, dtup) = d3e0.node()
+        let dtup = t3read0_d3exp(evn0, dtup, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_proj_errck(loc0, t2p0, tknd, dlab, dtup)
+    def f0_let0(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Elet0(dcls, d3e1) = d3e0.node()
+        let dcls = t3read0_d3eclist(evn0, dcls, err0)
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_let0_errck(loc0, t2p0, dcls, d3e1)
+    def f0_ift0(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Eift0(d3e1, dthn, dels) = d3e0.node()
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        let dthn = t3read0_d3expopt(evn0, dthn, err0)
+        let dels = t3read0_d3expopt(evn0, dels, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_ift0_errck(loc0, t2p0, d3e1, dthn, dels)
+    def f0_cas0(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Ecas0(tknd, d3e1, dcls) = d3e0.node()
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        let dcls = t3read0_d3clslst(evn0, dcls, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_cas0_errck(loc0, t2p0, tknd, d3e1, dcls)
+    def f0_seqn(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Eseqn(d3es, d3e1) = d3e0.node()
+        let d3es = t3read0_d3explst(evn0, d3es, err0)
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let t2p0 = d3e0.styp()
+            d3exp_seqn_errck(d3e0.lctn(), t2p0, d3es, d3e1)
+    def f0_tup0(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Etup0(npf1, d3es) = d3e0.node()
+        let d3es = t3read0_d3explst(evn0, d3es, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let t2p0 = d3e0.styp()
+            d3exp_tup0_errck(d3e0.lctn(), t2p0, npf1, d3es)
+    def f0_tup1(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Etup1(knd0, npf1, d3es) = d3e0.node()
+        let d3es = t3read0_d3explst(evn0, d3es, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_tup1_errck(loc0, t2p0, knd0, npf1, d3es)
+    def f0_lam0(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Elam0(tknd, f3as, sres, arrw, dexp) = d3e0.node()
+        let dexp = t3read0_d3exp(evn0, dexp, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_lam0_errck(loc0, t2p0, tknd, f3as, sres, arrw, dexp)
+    def f0_fix0(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Efix0(tknd, dvar, f3as, sres, arrw, dexp) = d3e0.node()
+        let dexp = t3read0_d3exp(evn0, dexp, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_fix0_errck(loc0, t2p0, tknd, dvar, f3as, sres, arrw, dexp)
+    def f0_try0(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Etry0(tknd, d3e1, dcls) = d3e0.node()
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        let dcls = t3read0_d3clslst(evn0, dcls, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_try0_errck(loc0, t2p0, tknd, d3e1, dcls)
+    def f0_addr(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Eaddr(d3e1) = d3e0.node()
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_addr_errck(loc0, t2p0, d3e1)
+    def f0_view(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Eview(d3e1) = d3e0.node()
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_view_errck(loc0, t2p0, d3e1)
+    def f0_flat(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Eflat(d3e1) = d3e0.node()
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_flat_errck(loc0, t2p0, d3e1)
+    def f0_eval(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Eeval(d3e1) = d3e0.node()
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_eval_errck(loc0, t2p0, d3e1)
+    def f0_fold(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Efold(d3e1) = d3e0.node()
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_fold_errck(loc0, t2p0, d3e1)
+    def f0_free(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Efree(d3e1) = d3e0.node()
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_free_errck(loc0, t2p0, d3e1)
+    def f0_dp2tr(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Edp2tr(d3e1) = d3e0.node()
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_dp2tr_errck(loc0, t2p0, d3e1)
+    def f0_dl0az(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Edl0az(d3e1) = d3e0.node()
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_dl0az_errck(loc0, t2p0, d3e1)
+    def f0_dl1az(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Edl1az(d3e1) = d3e0.node()
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_dl1az_errck(loc0, t2p0, d3e1)
+    def f0_where(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Ewhere(d3e1, dcls) = d3e0.node()
+        let dcls = t3read0_d3eclist(evn0, dcls, err0)
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_where_errck(loc0, t2p0, d3e1, dcls)
+    def f0_assgn(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Eassgn(d3el, d3er) = d3e0.node()
+        let d3el = t3read0_d3exp(evn0, d3el, err0)
+        let d3er = t3read0_d3exp(evn0, d3er, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let t2p0 = d3e0.styp()
+            d3exp_assgn_errck(d3e0.lctn(), t2p0, d3el, d3er)
+    def f0_xazgn(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Exazgn(d3el, d3er) = d3e0.node()
+        let d3el = t3read0_d3exp(evn0, d3el, err0)
+        let d3er = t3read0_d3exp(evn0, d3er, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let t2p0 = d3e0.styp()
+            d3exp_xazgn_errck(d3e0.lctn(), t2p0, d3el, d3er)
+    def f0_xchng(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Exchng(d3el, d3er) = d3e0.node()
+        let d3el = t3read0_d3exp(evn0, d3el, err0)
+        let d3er = t3read0_d3exp(evn0, d3er, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let t2p0 = d3e0.styp()
+            d3exp_xchng_errck(d3e0.lctn(), t2p0, d3el, d3er)
+    def f0_raise(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Eraise(tknd, d3e1) = d3e0.node()
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let t2p0 = d3e0.styp()
+            d3exp_raise_errck(d3e0.lctn(), t2p0, tknd, d3e1)
+    def f0_l0azy(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3El0azy(dknd, d3e1) = d3e0.node()
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let t2p0 = d3e0.styp()
+            d3exp_l0azy_errck(d3e0.lctn(), t2p0, dknd, d3e1)
+    def f0_l1azy(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3El1azy(dknd, d3e1, d3es) = d3e0.node()
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        let d3es = t3read0_d3explst(evn0, d3es, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_l1azy_errck(loc0, t2p0, dknd, d3e1, d3es)
+    def f0_elazy(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Eelazy(dknd, d3e1, d3es) = d3e0.node()
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        let d3es = t3read0_d3explst(evn0, d3es, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_elazy_errck(loc0, t2p0, dknd, d3e1, d3es)
+    def f0_annot(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Eannot(d3e1, s1e2, s2e2) = d3e0.node()
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let loc0 = d3e0.lctn()
+            let t2p0 = d3e0.styp()
+            d3exp_annot_errck(loc0, t2p0, d3e1, s1e2, s2e2)
+    def f0_t2ped(evn0: !t3r0evn, d3e0: d3exp, err0: &SInt >> _) -> d3exp:
+        let nerr = err0
+        let D3Et2ped(d3e1, t2p2) = d3e0.node()
+        let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+        if (err0 == nerr):
+            d3e0
+        else:
+            let t2p0 = d3e0.styp()
+            d3exp_t2ped_errck(d3e0.lctn(), t2p0, d3e1, t2p2)
+
+@impl
+def t3read0_d3cls(evn0, dcls, err0):
+    match dcls.node():
+        case D3CLSgpt(dgpt):
+            dcls
+        case D3CLScls(dgpt, d3e1):
+            let nerr = err0
+            let d3e1 = t3read0_d3exp(evn0, d3e1, err0)
+            if (err0 == nerr):
+                dcls
+            else:
+                d3cls(dcls.lctn(), D3CLScls(dgpt, d3e1))
+
+@impl
+def t3read0_timpl(evn0, timp, err0):
+    match timp.node():
+        case TIMPLall1(dcst, t2js, d3cs):
+            err0 := err0 + 1
+            timp
+        case TIMPLallx(dcst, t2js, d3cs):
+            match d3cs:
+                case list_nil():
+                    err0 := err0 + 1
+                    timp
+                case list_cons(dcl1, d3cs):
+                    let nerr = err0
+                    let dcl1 = t3read0_d3ecl(evn0, dcl1, err0)
+                    if (err0 == nerr):
+                        timp
+                    else:
+                        let stmp = timp.stmp()
+                        let d3cs = list_cons(dcl1, d3cs)
+                        timpl_make_node(stmp, TIMPLallx(dcst, t2js, d3cs))
+

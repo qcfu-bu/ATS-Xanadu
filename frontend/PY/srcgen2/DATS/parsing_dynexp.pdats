@@ -1,0 +1,1291 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/dynexp0" import *
+
+from "srcgen2/SATS/parsing" import *
+
+@overload lctn = token_get_lctn
+
+@overload lctn = t0int_get_lctn
+
+@overload lctn = t0chr_get_lctn
+
+@overload lctn = t0flt_get_lctn
+
+@overload lctn = t0str_get_lctn
+
+@overload lctn = i0dnt_get_lctn
+
+@overload lctn = l0abl_get_lctn
+
+@overload lctn = g0nam_get_lctn
+
+@overload lctn = g0exp_get_lctn
+
+@overload lctn = sort0_get_lctn
+
+@overload lctn = s0exp_get_lctn
+
+@overload lctn = t0inv_get_lctn
+
+@overload lctn = d0pat_get_lctn
+
+@overload lctn = d0exp_get_lctn
+
+@overload lctn = f0arg_get_lctn
+
+@overload lctn = d0cls_get_lctn
+
+@overload lctn = d0gua_get_lctn
+
+@overload lctn = d0gpt_get_lctn
+
+@overload node = token_get_node
+
+@overload node = i0dnt_get_node
+
+@overload node = l0abl_get_node
+
+@overload node = s0exp_get_node
+
+@overload node = s0qua_get_node
+
+@overload node = f0arg_get_node
+
+@overload tnode = token_get_node
+
+@overload + = add_loctn_loctn
+
+@extern
+def p1_d0patseq_atm() -> p1_fun[d0patlst]
+
+@extern
+def p1_d0patseq_COMMA() -> p1_fun[d0patlst]
+
+@extern
+def p1_l0d0pseq_COMMA() -> p1_fun[l0d0plst]
+
+@extern
+def p1_d0pat_RPAREN() -> p1_fun[d0pat_RPAREN]
+
+@extern
+def p1_l0d0p_RBRACE() -> p1_fun[l0d0p_RBRACE]
+
+@extern
+def d0pat_RPAREN_lctn() -> d0pat_RPAREN -> loc_t
+
+@extern
+def l0d0p_RBRACE_lctn() -> l0d0p_RBRACE -> loc_t
+
+private:
+    @extern
+    def p1_napp(buf: !tkbf0, err: &SInt >> _) -> d0pat
+    @impl
+    def p1_napp(buf, err):
+        let e00 = err
+        let tok = buf.getk0()
+        let tnd = tok.tnode()
+        match tnd:
+            case _:
+                err := e00 + 1
+                d0pat(tok.lctn(), D0Ptkerr(tok))
+
+@impl
+def p1_d0pat(buf, err):
+    let d0ps = p1_d0patseq_atm(buf, err)
+    match d0ps:
+        case list_nil():
+            p1_napp(buf, err)
+        case list_cons(d0p1, dps1):
+            let opt1 = pq_s0exp_annp(buf, err)
+            match dps1:
+                case list_nil():
+                    d0pat_annotopt(d0p1, opt1)
+                case list_cons(_):
+                    let d0p2 = list_last(dps1)
+                    let lres = d0p1.lctn() + d0p2.lctn()
+                    d0pat_annotopt(d0pat(lres, D0Papps(d0ps)), opt1)
+
+
+@impl
+def p1_l0d0p(buf, err):
+    let e00 = err
+    let lab0 = p1_l0abl(buf, err)
+    let teq1 = p1_EQ0(buf, err)
+    let d0p2 = p1_d0pat(buf, err)
+    err := e00
+    D0LAB(lab0, teq1, d0p2)
+
+@impl
+def p1_d0pat_atm(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    let tnd = tok.tnode()
+    match tnd:
+        case _ if t0_d0pid(tnd):
+            let id0 = p1_d0pid(buf, err)
+            err := e00
+            d0pat(id0.lctn(), D0Pid0(id0))
+        case _ if t0_t0int(tnd):
+            let i00 = p1_t0int(buf, err)
+            err := e00
+            d0pat(i00.lctn(), D0Pint(i00))
+        case _ if t0_t0chr(tnd):
+            let c00 = p1_t0chr(buf, err)
+            err := e00
+            d0pat(c00.lctn(), D0Pchr(c00))
+        case _ if t0_t0flt(tnd):
+            let f00 = p1_t0flt(buf, err)
+            err := e00
+            d0pat(f00.lctn(), D0Pflt(f00))
+        case _ if t0_t0str(tnd):
+            let s00 = p1_t0str(buf, err)
+            err := e00
+            d0pat(s00.lctn(), D0Pstr(s00))
+        case T_LPAREN():
+            let tbeg = tok
+            buf.skip1()
+            let d0ps = p1_d0patseq_COMMA(buf, err)
+            let dend = p1_d0pat_RPAREN(buf, err)
+            let lres = tbeg.lctn() + d0pat_RPAREN_lctn(dend)
+            err := e00
+            d0pat(lres, D0Plpar(tbeg, d0ps, dend))
+        case T_LBRACE():
+            let tbeg = tok
+            buf.skip1()
+            let s0as = p1_s0argseq_COMMA(buf, err)
+            let tend = p1_RBRACE(buf, err)
+            let lres = tbeg.lctn() + tend.lctn()
+            err := e00
+            d0pat(lres, D0Psarg(tbeg, s0as, tend))
+        case T_TRCD10(k0):
+            let tbeg = tok
+            buf.skip1()
+            let topt = if (k0 <= 1):
+                optn_nil()
+            else: optn_cons(p1_LPAREN(buf, err))
+            let d0ps = p1_d0patseq_COMMA(buf, err)
+            let dend = p1_d0pat_RPAREN(buf, err)
+            let lres = tbeg.lctn() + d0pat_RPAREN_lctn(dend)
+            err := e00
+            d0pat_make_node(lres, D0Ptup1(tbeg, topt, d0ps, dend))
+        case T_AS0():
+            let ta0s = tok
+            buf.skip1()
+            let d0p1 = p1_d0pat(buf, err)
+            let lres = ta0s.lctn() + d0p1.lctn()
+            err := e00
+            d0pat(lres, D0Paspt(ta0s, d0p1))
+        case T_IDQUA(nam):
+            let tqua = tok
+            buf.skip1()
+            let d0p1 = p1_d0pat_atm(buf, err)
+            let lres = tqua.lctn() + d0p1.lctn()
+            err := e00
+            d0pat(lres, D0Pqual0(tqua, d0p1))
+        case _:
+            err := e00 + 1
+            d0pat(tok.lctn(), D0Ptkerr(tok))
+
+@impl
+def p1_d0pat_app(buf, err):
+    let d0p0 = p1_d0pat_atm(buf, err)
+    let d0ps = p1_d0patseq_atm(buf, err)
+    match d0ps:
+        case list_nil():
+            d0p0
+        case list_cons(_):
+            let d0p1 = list_last(d0ps)
+            let loc0 = d0p0.lctn() + d0p1.lctn()
+            d0pat_make_node(loc0, D0Papps(list_cons(d0p0, d0ps)))
+
+@impl
+def p1_d0patseq_atm(buf, err):
+    list_vt2t(@sapp[d0pat] ps_p1fun(buf, err, p1_d0pat_atm))
+
+@impl
+def p1_d0patseq_COMMA(buf, err):
+    list_vt2t(@sapp[d0pat] ps_COMMA_p1fun(buf, err, p1_d0pat))
+
+@impl
+def p1_l0d0pseq_COMMA(buf, err):
+    list_vt2t(@sapp[l0d0p] ps_COMMA_p1fun(buf, err, p1_l0d0p))
+
+@extern
+def p1_f0unarrw() -> p1_fun[f0unarrw]
+
+@impl
+def p1_f0arg(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    let tnd = tok.tnode()
+    match tnd:
+        case T_DOTLT(_):
+            let tbeg = tok
+            buf.skip1()
+            let s0es = p1_s0expseq_COMMA(buf, err)
+            let tend = p1_GTDOT(buf, err)
+            let lres = tbeg.lctn() + tend.lctn()
+            err := e00
+            f0arg_make_node(lres, F0ARGmets(tbeg, s0es, tend))
+        case T_LBRACE():
+            let tbeg = tok
+            buf.skip1()
+            let s0qs = p1_s0quaseq_BSCLN(buf, err)
+            let tend = p1_RBRACE(buf, err)
+            let lres = tbeg.lctn() + tend.lctn()
+            err := e00
+            f0arg_make_node(lres, F0ARGsapp(tbeg, s0qs, tend))
+        case _:
+            let d0p = p1_d0pat_atm(buf, err)
+            f0arg_make_node(d0p.lctn(), F0ARGdapp(d0p))
+
+@impl
+def p1_f0argseq(buf, err):
+    list_vt2t(@sapp[f0arg] ps_p1fun(buf, err, p1_f0arg))
+
+@impl
+def p1_f0unarrw(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    let tnd = tok.tnode()
+    match tnd:
+        case T_EQGT():
+            buf.skip1()
+            F0UNARRWdflt(tok)
+        case T_EQLT():
+            let tbeg = tok
+            buf.skip1()
+            let s0es = list_vt2t(@sapp[s0exp] ps_COMMA_p1fun(buf, err, p1_s0exp_app_NGT0))
+            let tend = p1_GT0(buf, err)
+            err := e00
+            F0UNARRWlist(tbeg, s0es, tend)
+        case _:
+            F0UNARRWnone(tok)
+
+@extern
+def p1_d0expseq_atm() -> p1_fun[d0explst]
+
+@extern
+def p1_d0exp_THEN() -> p1_fun[d0exp_THEN]
+
+@extern
+def p1_d0exp_ELSE() -> p1_fun[d0exp_ELSE]
+
+@extern
+def p1_d0exp_sarg() -> p1_fun[d0exp]
+
+@extern
+def p1_d0expseq_sarg() -> p1_fun[d0explst]
+
+@extern
+def p1_d0clsseq_BAR() -> p1_fun[d0clslst]
+
+@extern
+def p1_d0exp_app_NBAR() -> p1_fun[d0exp]
+
+@extern
+def p1_d0expseq_COMMA() -> p1_fun[d0explst]
+
+@extern
+def p1_l0d0eseq_COMMA() -> p1_fun[l0d0elst]
+
+@extern
+def p1_d0expseq_SMCLN() -> p1_fun[d0explst]
+
+@extern
+def p1_d0exp_RPAREN() -> p1_fun[d0exp_RPAREN]
+
+@extern
+def p1_l0d0e_RBRACE() -> p1_fun[l0d0e_RBRACE]
+
+@extern
+def d0exp_RPAREN_lctn() -> d0exp_RPAREN -> loc_t
+
+@extern
+def l0d0e_RBRACE_lctn() -> l0d0e_RBRACE -> loc_t
+
+enum T0endinv:
+    case T0ENDINVnone()
+    case T0ENDINVsome(token, t0inv)
+
+@extern
+def p1_t0qua() -> p1_fun[t0qua]
+
+@extern
+def p1_t0inv() -> p1_fun[t0inv]
+
+@extern
+def p1_t0quaseq() -> p1_fun[t0qualst]
+
+@extern
+def p1_t0endinv() -> p1_fun[T0endinv]
+
+@extern
+def p1_tkend_WHERE() -> p1_fun[tkend_WHERE]
+
+@extern
+def tkend_WHERE_lctn() -> tkend_WHERE -> loc_t
+
+@overload lctn = tkend_WHERE_lctn
+
+@extern
+def p1_d0eclseq_WHERE() -> p1_fun[list[d0eclseq_WHERE]]
+
+private:
+    @extern
+    def p1_napp() -> p1_fun[d0exp]
+    def f0_whrs(d0e0: d0exp, wdcs: list[d0eclseq_WHERE]) -> d0exp:
+        match wdcs:
+            case list_nil():
+                d0e0
+            case list_cons(wdc1, wdcs):
+                let loc1 = match wdc1:
+                    case d0eclseq_WHERE(_, _, _, tend):
+                        d0e0.lctn() + tend.lctn()
+                let d0e1 = d0exp(loc1, D0Ewhere(d0e0, wdc1))
+                f0_whrs(d0e1, wdcs)
+    @impl
+    def p1_napp(buf, err):
+        let e00 = err
+        let tok = buf.getk0()
+        let tnd = tok.tnode()
+        match tnd:
+            case T_IF0():
+                let tknd = tok
+                buf.skip1()
+                let d0e1 = p1_d0exp_app(buf, err)
+                let d0e2 = p1_d0exp_THEN(buf, err)
+                let d0e3 = p1_d0exp_ELSE(buf, err)
+                let tend = pq_ENDIF0(buf, err)
+                let tinv = p1_t0endinv(buf, err)
+                let lres = match tinv:
+                    case T0ENDINVnone():
+                        match d0e3:
+                            case d0exp_ELSE_none(tok):
+                                match d0e2:
+                                    case d0exp_THEN_some(_, d0e2):
+                                        tknd.lctn() + d0e2.lctn()
+                            case d0exp_ELSE_some(_, d0e3):
+                                tknd.lctn() + d0e3.lctn()
+                    case T0ENDINVsome(_, tinv):
+                        tknd.lctn() + tinv.lctn()
+                err := e00
+                match tinv:
+                    case T0ENDINVnone(_):
+                        d0exp_make_node(lres, D0Eift0(tknd, d0e1, d0e2, d0e3))
+                    case T0ENDINVsome(_, tinv):
+                        d0exp_make_node(lres, D0Eift1(tknd, d0e1, d0e2, d0e3, tinv))
+            case T_CASE(k0):
+                let tknd = tok
+                buf.skip1()
+                let d0e1 = p1_d0exp_app(buf, err)
+                let tof0 = p1_OF0(buf, err)
+                let tbar = pq_BAR(buf, err)
+                let dcls = p1_d0clsseq_BAR(buf, err)
+                let tend = pq_ENDCAS(buf, err)
+                let tinv = p1_t0endinv(buf, err)
+                let lknd = tknd.lctn()
+                let lres = match tinv:
+                    case T0ENDINVnone():
+                        match dcls:
+                            case list_nil():
+                                match tbar:
+                                    case optn_nil():
+                                        lknd + tof0.lctn()
+                                    case optn_cons(tbar):
+                                        lknd + tbar.lctn()
+                            case list_cons(_, _):
+                                let dcl1 = list_last(dcls)
+                                lknd + dcl1.lctn()
+                    case T0ENDINVsome(_, tinv):
+                        lknd + tinv.lctn()
+                err := e00
+                match tinv:
+                    case T0ENDINVnone(_):
+                        d0exp_make_node(lres, D0Ecas0(tknd, d0e1, tof0, tbar, dcls))
+                    case T0ENDINVsome(_, tinv):
+                        d0exp_make_node(lres, D0Ecas1(tknd, d0e1, tof0, tbar, dcls, tinv))
+            case T_LAM(k0):
+                let tknd = tok
+                buf.skip1()
+                let farg = p1_f0argseq(buf, err)
+                let sres = p1_s0res(buf, err)
+                let arrw = p1_f0unarrw(buf, err)
+                let body = p1_d0exp(buf, err)
+                let tend = pq_ENDLAM(buf, err)
+                let lres = match tend:
+                    case optn_nil():
+                        tknd.lctn() + body.lctn()
+                    case optn_cons(tok2):
+                        tknd.lctn() + tok2.lctn()
+                err := e00
+                d0exp_make_node(lres, D0Elam0(tknd, farg, sres, arrw, body, tend))
+            case T_FIX(k0):
+                let tknd = tok
+                buf.skip1()
+                let dpid = p1_d0pid(buf, err)
+                let farg = p1_f0argseq(buf, err)
+                let sres = p1_s0res(buf, err)
+                let arrw = p1_f0unarrw(buf, err)
+                let body = p1_d0exp(buf, err)
+                let tend = pq_ENDFIX(buf, err)
+                let lres = match tend:
+                    case optn_nil():
+                        tknd.lctn() + body.lctn()
+                    case optn_cons(tok2):
+                        tknd.lctn() + tok2.lctn()
+                err := e00
+                d0exp_make_node(lres, D0Efix0(tknd, dpid, farg, sres, arrw, body, tend))
+            case _:
+                err := e00 + 1
+                d0exp_make_node(tok.lctn(), D0Etkerr(tok))
+
+@impl
+def p1_d0exp(buf, err):
+    let e00 = err
+    let d0es = p1_d0expseq_atm(buf, err)
+    match d0es:
+        case list_nil():
+            p1_napp(buf, err)
+        case list_cons(d0e1, des2):
+            let d0e0 = match des2:
+                case list_nil():
+                    d0e1
+                case list_cons(_):
+                    let d0e2 = list_last(des2)
+                    let loc0 = d0e1.lctn() + d0e2.lctn()
+                    d0exp_make_node(loc0, D0Eapps(d0es))
+            let wdcs = p1_d0eclseq_WHERE(buf, err)
+            let d0e0 = f0_whrs(d0e0, wdcs)
+            let sopt = pq_s0exp_anno(buf, err)
+            d0exp_annotopt(d0e0, sopt)
+
+
+@impl
+def p1_l0d0e(buf, err):
+    let e00 = err
+    let lab0 = p1_l0abl(buf, err)
+    let teq1 = p1_EQ0(buf, err)
+    let d0e2 = p1_d0exp(buf, err)
+    err := e00
+    D0LAB(lab0, teq1, d0e2)
+
+@impl
+def p1_s0res(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_CLN():
+            let tcln = tok
+            buf.skip1()
+            let seff = S0EFFnone(tcln)
+            let s0e1 = p1_s0exp_app_NEQ0(buf, err)
+            err := e00
+            S0RESsome(seff, s0e1)
+        case T_CLNLT(_):
+            let tbeg = tok
+            buf.skip1()
+            let s0fs = list_vt2t(@sapp[s0exp] ps_COMMA_p1fun(buf, err, p1_s0exp_app_NGT0))
+            let tend = p1_GT0(buf, err)
+            let s0e1 = p1_s0exp_app_NEQ0(buf, err)
+            let lres = tbeg.lctn() + tend.lctn()
+            err := e00
+            S0RESsome(S0EFFsome(tbeg, s0fs, tend), s0e1)
+        case _:
+            S0RESnone()
+
+@impl
+def p1_t0qua(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_LBRACE():
+            let tbeg = tok
+            buf.skip1()
+            let s0qs = p1_s0quaseq_BSCLN(buf, err)
+            let tend = p1_RBRACE(buf, err)
+            err := e00
+            T0QUAsome(tbeg, s0qs, tend)
+        case _:
+            err := e00 + 1
+            T0QUAnone(tok)
+
+@impl
+def p1_t0inv(buf, err):
+    let t0qs = p1_t0quaseq(buf, err)
+    let tok0 = buf.getk0()
+    match tok0.node():
+        case T_LPAREN():
+            let tbeg = tok0
+            buf.skip1()
+            let d0ts = p1_d0patseq_COMMA(buf, err)
+            let tend = p1_RPAREN(buf, err)
+            let tann = pq_s0exp_anno(buf, err)
+            T0INVsome(t0qs, tbeg, d0ts, tend)
+        case _:
+            T0INVnone(t0qs, tok0)
+
+@impl
+def p1_t0quaseq(buf, err):
+    list_vt2t(@sapp[t0qua] ps_p1fun(buf, err, p1_t0qua))
+
+@impl
+def p1_t0endinv(buf, err):
+    let tok0 = buf.getk0()
+    match tok0.node():
+        case T_ENDST():
+            buf.skip1()
+            let tinv = p1_t0inv(buf, err)
+            T0ENDINVsome(_, tinv)
+        case _:
+            T0ENDINVnone
+
+@impl
+def p1_d0exp_atm(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    let tnd = tok.tnode()
+    match tnd:
+        case _ if t0_d0eid(tnd):
+            let id0 = p1_d0eid(buf, err)
+            err := e00
+            d0exp(id0.lctn(), D0Eid0(id0))
+        case _ if t0_t0int(tnd):
+            let i00 = p1_t0int(buf, err)
+            err := e00
+            d0exp(i00.lctn(), D0Eint(i00))
+        case _ if t0_t0chr(tnd):
+            let c00 = p1_t0chr(buf, err)
+            err := e00
+            d0exp(c00.lctn(), D0Echr(c00))
+        case _ if t0_t0flt(tnd):
+            let f00 = p1_t0flt(buf, err)
+            err := e00
+            d0exp(f00.lctn(), D0Eflt(f00))
+        case _ if t0_t0str(tnd):
+            let s00 = p1_t0str(buf, err)
+            err := e00
+            d0exp(s00.lctn(), D0Estr(s00))
+        case T_OP1():
+            let tok0 = tok
+            buf.skip1()
+            let deid = p1_d0eid(buf, err)
+            let loc0 = tok0.lctn() + deid.lctn()
+            err := e00
+            d0exp_make_node(loc0, D0Eopid(deid))
+        case T_OP2(_):
+            let tok0 = tok
+            buf.skip1()
+            let loc0 = tok0.lctn()
+            let opid = i0dnt_some(tok)
+            err := e00
+            d0exp_make_node(loc0, D0Eopid(opid))
+        case T_OP3(_):
+            let tbeg = tok
+            buf.skip1()
+            let deid = p1_d0eid(buf, err)
+            let tend = p1_RPAREN(buf, err)
+            let loc0 = tbeg.lctn() + tend.lctn()
+            err := e00
+            d0exp_make_node(loc0, D0Eopid(deid))
+        case T_LT0():
+            let tok1 = tok
+            buf.skip1()
+            let mark = tokbuf_mark_get(buf)
+            let s0es = list_vt2t(@sapp[s0exp] ps_COMMA_p1fun(buf, err, p1_s0exp_app_NGT0))
+            let tok2 = buf.getk0()
+            match tok2.node():
+                case T_GT0():
+                    let tbeg = tok1
+                    let tend = tok2
+                    buf.skip1()
+                    tokbuf_mark_clr(buf, mark)
+                    let lres = tbeg.lctn() + tend.lctn()
+                    err := e00
+                    d0exp(lres, D0Etarg(tbeg, s0es, tend))
+                case _:
+                    tokbuf_mark_set(buf, mark)
+                    let loc1 = tok1.lctn()
+                    let tnd2 = T0IDSYM_LT0
+                    let tok2 = token_make_node(loc1, tnd2)
+                    d0exp(loc1, D0Eid0(i0dnt_some(tok2)))
+        case T_GT0():
+            let tok1 = tok
+            buf.skip1()
+            let loc1 = tok1.lctn()
+            let tnd2 = T0IDSYM_GT0
+            let tok2 = token_make_node(loc1, tnd2)
+            d0exp(loc1, D0Eid0(i0dnt_some(tok2)))
+        case T_LTGT():
+            let tbeg = tok
+            let tend = tok
+            buf.skip1()
+            let s0es = list_nil()
+            let lres = tbeg.lctn()
+            err := e00
+            d0exp(lres, D0Etarg(tbeg, s0es, tend))
+        case T_LBRACE():
+            let tbeg = tok
+            buf.skip1()
+            let s0es = p1_s0expseq_COMMA(buf, err)
+            let tend = p1_RBRACE(buf, err)
+            let lres = tbeg.lctn() + tend.lctn()
+            err := e00
+            d0exp(lres, D0Esarg(tbeg, s0es, tend))
+        case T_LPAREN():
+            let tbeg = tok
+            buf.skip1()
+            let d0es = p1_d0expseq_COMMA(buf, err)
+            let dend = p1_d0exp_RPAREN(buf, err)
+            let lres = tbeg.lctn() + d0exp_RPAREN_lctn(dend)
+            err := e00
+            d0exp(lres, D0Elpar(tbeg, d0es, dend))
+        case T_TRCD10(k0):
+            let tbeg = tok
+            buf.skip1()
+            let topt = if (k0 <= 1):
+                optn_nil()
+            else: optn_cons(p1_LPAREN(buf, err))
+            let d0es = p1_d0expseq_COMMA(buf, err)
+            let dend = p1_d0exp_RPAREN(buf, err)
+            let lres = tbeg.lctn() + d0exp_RPAREN_lctn(dend)
+            err := e00
+            d0exp_make_node(lres, D0Etup1(tbeg, topt, d0es, dend))
+        case T_TRCD20(k0):
+            let tbeg = tok
+            buf.skip1()
+            let topt = if (k0 <= 1):
+                optn_nil()
+            else: optn_cons(p1_LBRACE(buf, err))
+            let ldes = p1_l0d0eseq_COMMA(buf, err)
+            let dend = p1_l0d0e_RBRACE(buf, err)
+            let lres = tbeg.lctn() + l0d0e_RBRACE_lctn(dend)
+            err := e00
+            d0exp_make_node(lres, D0Ercd2(tbeg, topt, ldes, dend))
+        case T_LET():
+            let tok1 = tok
+            buf.skip1()
+            let d0cs = p1_d0eclseq_dyn(buf, err)
+            let topt = pq_IN0(buf, err)
+            let d0es = p1_d0expseq_SMCLN(buf, err)
+            let tok2 = p1_ENDLET(buf, err)
+            let lres = tok1.lctn() + tok2.lctn()
+            err := e00
+            d0exp_make_node(lres, D0Elet0(tok1, d0cs, topt, d0es, tok2))
+        case T_TRY():
+            let tok1 = tok
+            buf.skip1()
+            let d0es = p1_d0expseq_SMCLN(buf, err)
+            let tok2 = p1_WITH(buf, err)
+            let tbar = pq_BAR(buf, err)
+            let dcls = p1_d0clsseq_BAR(buf, err)
+            let tend = pq_ENDTRY(buf, err)
+            let lknd = tok1.lctn()
+            let lres = match tend:
+                case optn_nil():
+                    match dcls:
+                        case list_nil():
+                            match tbar:
+                                case optn_nil():
+                                    lknd + tok2.lctn()
+                                case optn_cons(tbar):
+                                    lknd + tbar.lctn()
+                        case list_cons(_, _):
+                            let dcl1 = list_last(dcls)
+                            lknd + dcl1.lctn()
+                case optn_cons(tok3):
+                    lknd + tok3.lctn()
+            err := e00
+            d0exp_make_node(lres, D0Etry0(tok1, d0es, tok2, tbar, dcls, tend))
+        case _ if t0_dtsel(tnd):
+            let tok1 = tok
+            buf.skip1()
+            let lab1 = p1_l0abl(buf, err)
+            let tok2 = buf.getk0()
+            let arg2 = match tok2.node():
+                case T_LPAREN():
+                    let d0e2 = p1_d0exp_atm(buf, err)
+                    optn_cons(d0e2)
+                case _:
+                    optn_nil()
+            let loc1 = tok1.lctn()
+            let lres = match arg2:
+                case optn_nil():
+                    loc1 + lab1.lctn()
+                case optn_cons(d0e2):
+                    loc1 + d0e2.lctn()
+            err := e00
+            d0exp(lres, D0Edtsel(tok1, lab1, arg2))
+        case T_LBRCKT():
+            let tbeg = tok
+            buf.skip1()
+            let d0es = p1_d0expseq_COMMA(buf, err)
+            let tend = p1_RBRCKT(buf, err)
+            let lres = tbeg.lctn() + tend.lctn()
+            err := e00
+            d0exp_make_node(lres, D0Ebrckt(tbeg, d0es, tend))
+        case T_IDQUA(_):
+            let tok0 = tok
+            buf.skip1()
+            let d0e1 = p1_d0exp_atm(buf, err)
+            err := e00
+            let lres = tok0.lctn() + d0e1.lctn()
+            d0exp_make_node(lres, D0Equal0(tok0, d0e1))
+        case T_DLR_RAISE(_):
+            let tok0 = tok
+            buf.skip1()
+            let d0e1 = p1_d0exp_app(buf, err)
+            err := e00
+            let lres = tok0.lctn() + d0e1.lctn()
+            d0exp_make_node(lres, D0Eraise(tok0, d0e1))
+        case T_DLR_EXISTS(_):
+            let tok0 = tok
+            buf.skip1()
+            let sqas = p1_d0expseq_sarg(buf, err)
+            let d0e1 = p1_d0exp_atm(buf, err)
+            err := e00
+            let lres = tok0.lctn() + d0e1.lctn()
+            d0exp_make_node(lres, D0Eexists(tok0, sqas, d0e1))
+        case T_DLR_EXTNAM(_):
+            let tok0 = tok
+            buf.skip1()
+            let gnm1 = p1_g0nam(buf, err)
+            err := e00
+            let lres = tok0.lctn() + gnm1.lctn()
+            d0exp_make_node(lres, D0Eextnam(tok0, gnm1))
+        case T_DLR_SYNEXT(_):
+            let tok0 = tok
+            buf.skip1()
+            let gexp = p1_g0exp_atm(buf, err)
+            err := e00
+            let lres = tok0.lctn() + gexp.lctn()
+            d0exp_make_node(lres, D0Esynext(tok0, gexp))
+        case _:
+            err := e00 + 1
+            d0exp_make_node(tok.lctn(), D0Etkerr(tok))
+
+@impl
+def p1_d0exp_app(buf, err):
+    let d0e0 = p1_d0exp_atm(buf, err)
+    let d0es = p1_d0expseq_atm(buf, err)
+    match d0es:
+        case list_nil():
+            d0e0
+        case list_cons(_):
+            let d0e1 = list_last(d0es)
+            let loc0 = d0e0.lctn() + d0e1.lctn()
+            d0exp_make_node(loc0, D0Eapps(list_cons(d0e0, d0es)))
+
+@impl
+def p1_d0exp_THEN(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_THEN():
+            buf.skip1()
+            let d0e = p1_d0exp(buf, err)
+            err := e00
+            d0exp_THEN_some(tok, d0e)
+        case _:
+            d0exp_THEN_none(tok)
+
+@impl
+def p1_d0exp_ELSE(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_ELSE():
+            buf.skip1()
+            let d0e = p1_d0exp(buf, err)
+            err := e00
+            d0exp_ELSE_some(tok, d0e)
+        case _:
+            d0exp_ELSE_none(tok)
+
+@impl
+def p1_d0exp_sarg(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_LBRACE():
+            let tbeg = tok
+            buf.skip1()
+            let s0es = p1_s0expseq_COMMA(buf, err)
+            let tend = p1_RBRACE(buf, err)
+            err := e00
+            let lres = tbeg.lctn() + tend.lctn()
+            d0exp_make_node(lres, D0Esarg(tbeg, s0es, tend))
+        case _:
+            err := e00 + 1
+            d0exp_make_node(tok.lctn(), D0Etkerr(tok))
+
+@impl
+def p1_d0expseq_sarg(buf, err):
+    list_vt2t(@sapp[d0exp] ps_p1fun(buf, err, p1_d0exp_sarg))
+
+@impl
+def p1_d0expseq_atm(buf, err):
+    list_vt2t(@sapp[d0exp] ps_p1fun(buf, err, p1_d0exp_atm))
+
+@impl
+def p1_d0expseq_COMMA(buf, err):
+    list_vt2t(@sapp[d0exp] ps_COMMA_p1fun(buf, err, p1_d0exp))
+
+@impl
+def p1_l0d0eseq_COMMA(buf, err):
+    list_vt2t(@sapp[l0d0e] ps_COMMA_p1fun(buf, err, p1_l0d0e))
+
+@impl
+def p1_d0expseq_SMCLN(buf, err):
+    list_vt2t(@sapp[d0exp] ps_SMCLN_p1fun(buf, err, p1_d0exp))
+
+@impl
+def p1_d0pat_RPAREN(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    let tnd = tok.tnode()
+    match tnd:
+        case T_BAR():
+            let tok1 = tok
+            buf.skip1()
+            let d0ps = p1_d0patseq_COMMA(buf, err)
+            let tok2 = p1_RPAREN(buf, err)
+            err := e00
+            d0pat_RPAREN_cons1(tok1, d0ps, tok2)
+        case _:
+            match tnd:
+                case T_RPAREN():
+                    buf.skip1()
+                    err := e00
+                    d0pat_RPAREN_cons0(tok)
+                case _:
+                    err := e00 + 1
+                    d0pat_RPAREN_cons0(tok)
+
+@impl
+def p1_l0d0p_RBRACE(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    let tnd = tok.tnode()
+    match tnd:
+        case T_BAR():
+            let tok1 = tok
+            buf.skip1()
+            let ldps = p1_l0d0pseq_COMMA(buf, err)
+            let tok2 = p1_RBRACE(buf, err)
+            err := e00
+            l0d0p_RBRACE_cons1(tok1, ldps, tok2)
+        case _:
+            match tnd:
+                case T_RBRACE():
+                    buf.skip1()
+                    err := e00
+                    l0d0p_RBRACE_cons0(tok)
+                case _:
+                    err := e00 + 1
+                    l0d0p_RBRACE_cons0(tok)
+
+@impl
+def p1_d0exp_RPAREN(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    let tnd = tok.tnode()
+    match tnd:
+        case T_BAR():
+            let tok1 = tok
+            buf.skip1()
+            let d0es = p1_d0expseq_COMMA(buf, err)
+            let tok2 = p1_RPAREN(buf, err)
+            err := e00
+            d0exp_RPAREN_cons1(tok1, d0es, tok2)
+        case T_SMCLN():
+            let tok1 = tok
+            buf.skip1()
+            let d0es = p1_d0expseq_SMCLN(buf, err)
+            let tok2 = p1_RPAREN(buf, err)
+            err := e00
+            d0exp_RPAREN_cons2(tok1, d0es, tok2)
+        case _:
+            match tnd:
+                case T_RPAREN():
+                    buf.skip1()
+                    err := e00
+                    d0exp_RPAREN_cons0(tok)
+                case _:
+                    err := e00 + 1
+                    d0exp_RPAREN_cons0(tok)
+
+@impl
+def p1_l0d0e_RBRACE(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    let tnd = tok.tnode()
+    match tnd:
+        case T_BAR():
+            let tok1 = tok
+            buf.skip1()
+            let ldes = p1_l0d0eseq_COMMA(buf, err)
+            let tok2 = p1_RBRACE(buf, err)
+            err := e00
+            l0d0e_RBRACE_cons1(tok1, ldes, tok2)
+        case _:
+            match tnd:
+                case T_RBRACE():
+                    buf.skip1()
+                    err := e00
+                    l0d0e_RBRACE_cons0(tok)
+                case _:
+                    err := e00 + 1
+                    l0d0e_RBRACE_cons0(tok)
+
+@impl
+def t0qua_get_lctn(tqua):
+    match tqua:
+        case T0QUAnone(terr):
+            terr.lctn()
+        case T0QUAsome(tbeg, s0qs, tend):
+            tbeg.lctn() + tend.lctn()
+
+@impl
+def t0inv_get_lctn(tinv):
+    match tinv:
+        case T0INVnone(t0qs, terr):
+            match t0qs:
+                case list_nil():
+                    terr.lctn()
+                case list_cons(t0q1, _):
+                    t0q1.lctn() + terr.lctn()
+        case T0INVsome(t0qs, tbeg, d0ps, tend):
+            match t0qs:
+                case list_nil():
+                    tbeg.lctn() + tend.lctn()
+                case list_cons(t0q1, _):
+                    t0q1.lctn() + tend.lctn()
+
+@impl
+def d0pat_RPAREN_lctn(node):
+    match node:
+        case d0pat_RPAREN_cons0(tbar):
+            tbar.lctn()
+        case d0pat_RPAREN_cons1(tok1, d0ps, tok2):
+            tok1.lctn() + tok2.lctn()
+
+@impl
+def l0d0p_RBRACE_lctn(node):
+    match node:
+        case l0d0p_RBRACE_cons0(tbar):
+            tbar.lctn()
+        case l0d0p_RBRACE_cons1(tok1, lses, tok2):
+            tok1.lctn() + tok2.lctn()
+
+@impl
+def d0exp_RPAREN_lctn(node):
+    match node:
+        case d0exp_RPAREN_cons0(tbar):
+            tbar.lctn()
+        case d0exp_RPAREN_cons1(tok1, d0es, tok2):
+            tok1.lctn() + tok2.lctn()
+        case d0exp_RPAREN_cons2(tok1, d0es, tok2):
+            tok1.lctn() + tok2.lctn()
+
+@impl
+def l0d0e_RBRACE_lctn(node):
+    match node:
+        case l0d0e_RBRACE_cons0(tbar):
+            tbar.lctn()
+        case l0d0e_RBRACE_cons1(tok1, lses, tok2):
+            tok1.lctn() + tok2.lctn()
+
+@impl
+def tkend_WHERE_lctn(node):
+    match node:
+        case tkend_WHERE_cons1(terr):
+            terr.lctn()
+
+@impl
+def pq_s0exp_anno(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_CLN():
+            buf.skip1()
+            let s0e = p1_s0exp(buf, err)
+            err := e00
+            optn_cons(s0e)
+        case _:
+            optn_nil
+
+@impl
+def pq_s0exp_annp(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_CLN():
+            buf.skip1()
+            let s0e = p1_s0exp_app_NEQ0(buf, err)
+            err := e00
+            optn_cons(s0e)
+        case _:
+            optn_nil
+
+@extern
+def p1_d0guaseq_AND() -> p1_fun[d0gualst]
+
+private:
+    def p2_d0exp_app(buf: !tkbf0, err: &SInt >> _) -> d0exp:
+        def p2_d0exp_atm(buf: !tkbf0 >> _, err: &SInt >> _) -> d0exp:
+            let e00 = err
+            let tok = buf.getk0()
+            match tok.node():
+                case T_EQGT():
+                    err := e00 + 1
+                    d0exp(tok.lctn(), D0Etkerr(tok))
+                case _:
+                    p1_d0exp_atm(buf, err)
+        let d0e0 = p2_d0exp_atm(buf, err)
+        let d0es = list_vt2t(@sapp[d0exp] ps_p1fun(buf, err, p2_d0exp_atm))
+        match d0es:
+            case list_nil():
+                d0e0
+            case list_cons(_):
+                let d0e1 = list_last(d0es)
+                let loc0 = d0e0.lctn() + d0e1.lctn()
+                d0exp_make_node(loc0, D0Eapps(list_cons(d0e0, d0es)))
+
+@impl
+def p1_d0gua(buf, err):
+    let d0e1 = p2_d0exp_app(buf, err)
+    let tok1 = buf.getk0()
+    match tok1.node():
+        case T_AS0():
+            buf.skip1()
+            let d0p2 = p1_d0pat(buf, err)
+            let lres = d0e1.lctn() + d0p2.lctn()
+            d0gua_make_node(lres, D0GUAmat(d0e1, tok1, d0p2))
+        case _:
+            d0gua_make_node(d0e1.lctn(), D0GUAexp(d0e1))
+
+
+@impl
+def p1_d0guaseq_AND(buf, err):
+    list_vt2t(@sapp[d0gua] ps_AND_p1fun(buf, err, p1_d0gua))
+
+@impl
+def p1_d0gpt(buf, err):
+    let d0p1 = p1_d0pat(buf, err)
+    let tok1 = buf.getk0()
+    match tok1.node():
+        case T_WHEN():
+            buf.skip1()
+            let d0gs = p1_d0guaseq_AND(buf, err)
+            let lres = match d0gs:
+                case list_nil():
+                    d0p1.lctn() + tok1.lctn()
+                case list_cons(_):
+                    let d0g1 = list_last(d0gs)
+                    d0p1.lctn() + d0g1.lctn()
+            d0gpt_make_node(lres, D0GPTgua(d0p1, tok1, d0gs))
+        case _:
+            d0gpt_make_node(d0p1.lctn(), D0GPTpat(d0p1))
+
+@impl
+def p1_d0cls(buf, err):
+    let dgp1 = p1_d0gpt(buf, err)
+    let tok1 = buf.getk0()
+    match tok1.node():
+        case T_EQGT():
+            buf.skip1()
+            let d0e2 = p1_d0exp_app_NBAR(buf, err)
+            let lres = dgp1.lctn() + d0e2.lctn()
+            d0cls_make_node(lres, D0CLScls(dgp1, tok1, d0e2))
+        case _:
+            d0cls_make_node(dgp1.lctn(), D0CLSgpt(dgp1))
+
+@impl
+def p1_d0clsseq_BAR(buf, err):
+    list_vt2t(@sapp[d0cls] ps_BAR_p1fun(buf, err, p1_d0cls))
+
+private:
+    def p1_d0exp_app_ntk(buf: !tkbf0, err: &SInt >> _, ntk: tnode -> Bool) -> d0exp:
+        def p1_ntk(buf: !tkbf0, err: &SInt >> _) -> d0exp:
+            let e00 = err
+            let tok = buf.getk0()
+            let tnd = tok.tnode()
+            if ntk(tnd):
+                p1_d0exp_atm(buf, err)
+            else:
+                err := e00 + 1
+                d0exp(tok.lctn(), D0Etkerr(tok))
+        def p1_apps(buf: !tkbf0, err: &SInt >> _) -> d0exp:
+            let d0e1 = p1_ntk(buf, err)
+            let d0es = list_vt2t(@sapp[d0exp] ps_p1fun(buf, err, p1_ntk))
+            let d0e0 = match d0es:
+                case list_nil(_):
+                    d0e1
+                case list_cons(_):
+                    let d0e2 = list_last(d0es)
+                    let loc0 = d0e1.lctn() + d0e2.lctn()
+                    d0exp_make_node(loc0, D0Eapps(list_cons(d0e1, d0es)))
+            let wdcs = p1_d0eclseq_WHERE(buf, err)
+            let d0e0 = f0_whrs(d0e0, wdcs)
+            let sopt = pq_s0exp_anno(buf, err)
+            d0exp_annotopt(d0e0, sopt)
+
+        def f0_whrs(d0e0: d0exp, wdcs: list[d0eclseq_WHERE]) -> d0exp:
+            match wdcs:
+                case list_nil():
+                    d0e0
+                case list_cons(wdc1, wdcs):
+                    let loc1 = match wdc1:
+                        case d0eclseq_WHERE(_, _, _, tend):
+                            d0e0.lctn() + tend.lctn()
+                    let d0e1 = d0exp(loc1, D0Ewhere(d0e0, wdc1))
+                    f0_whrs(d0e1, wdcs)
+        def pk_if0(tok: token, buf: !tkbf0, err: &SInt >> _) -> d0exp:
+            let e00 = err
+            let tknd = tok
+            buf.skip1()
+            let d0e1 = p1_d0exp_app(buf, err)
+            let d0e2 = p1_then(buf, err)
+            let d0e3 = p1_else(buf, err)
+            let tend = pq_ENDIF0(buf, err)
+            let tinv = p1_t0endinv(buf, err)
+            let lres = match tinv:
+                case T0ENDINVnone():
+                    match d0e3:
+                        case d0exp_ELSE_none(tok):
+                            match d0e2:
+                                case d0exp_THEN_some(_, d0e2):
+                                    tknd.lctn() + d0e2.lctn()
+                        case d0exp_ELSE_some(_, d0e3):
+                            tknd.lctn() + d0e3.lctn()
+                case T0ENDINVsome(_, tinv):
+                    tknd.lctn() + tinv.lctn()
+            err := e00
+            match tinv:
+                case T0ENDINVnone(_):
+                    d0exp_make_node(lres, D0Eift0(tknd, d0e1, d0e2, d0e3))
+                case T0ENDINVsome(_, tinv):
+                    d0exp_make_node(lres, D0Eift1(tknd, d0e1, d0e2, d0e3, tinv))
+
+        def p1_then(buf: !tkbf0, err: &SInt >> _) -> d0exp_THEN:
+            let e00 = err
+            let tok = buf.getk0()
+            match tok.node():
+                case T_THEN():
+                    buf.skip1()
+                    let d0e = p1_apps(buf, err)
+                    err := e00
+                    d0exp_THEN_some(tok, d0e)
+                case _:
+                    err := e00 + 1
+                    d0exp_THEN_some(tok, p1_ntk(buf, err))
+
+        def p1_else(buf: !tkbf0, err: &SInt >> _) -> d0exp_ELSE:
+            let e00 = err
+            let tok = buf.getk0()
+            match tok.node():
+                case T_ELSE():
+                    buf.skip1()
+                    let d0e = p1_apps(buf, err)
+                    err := e00
+                    d0exp_ELSE_some(tok, d0e)
+                case _:
+                    d0exp_ELSE_none(tok)
+        def pk_lam0(tok: token, buf: !tkbf0, err: &SInt >> _) -> d0exp:
+            let e00 = err
+            let tknd = tok
+            buf.skip1()
+            let farg = p1_f0argseq(buf, err)
+            let sres = p1_s0res(buf, err)
+            let arrw = p1_f0unarrw(buf, err)
+            let body = p1_apps(buf, err)
+            let tend = pq_ENDLAM(buf, err)
+            let lres = match tend:
+                case optn_nil():
+                    tknd.lctn() + body.lctn()
+                case optn_cons(tok2):
+                    tknd.lctn() + tok2.lctn()
+            err := e00
+            d0exp_make_node(lres, D0Elam0(tknd, farg, sres, arrw, body, tend))
+        def pk_fix0(tok: token, buf: !tkbf0, err: &SInt >> _) -> d0exp:
+            let e00 = err
+            let tknd = tok
+            buf.skip1()
+            let dpid = p1_d0pid(buf, err)
+            let farg = p1_f0argseq(buf, err)
+            let sres = p1_s0res(buf, err)
+            let arrw = p1_f0unarrw(buf, err)
+            let body = p1_apps(buf, err)
+            let tend = pq_ENDFIX(buf, err)
+            let lres = match tend:
+                case optn_nil():
+                    tknd.lctn() + body.lctn()
+                case optn_cons(tok2):
+                    tknd.lctn() + tok2.lctn()
+            err := e00
+            d0exp_make_node(lres, D0Efix0(tknd, dpid, farg, sres, arrw, body, tend))
+        let tok = buf.getk0()
+        match tok.node():
+            case T_IF0():
+                pk_if0(tok, buf, err)
+            case T_LAM(k0):
+                pk_lam0(tok, buf, err)
+            case T_FIX(k0):
+                pk_fix0(tok, buf, err)
+            case _:
+                p1_apps(buf, err)
+
+@impl
+def p1_d0exp_app_NBAR(buf, err):
+    p1_d0exp_app_ntk(buf, err, ntk)
+where:
+    def ntk(tnd: tnode) -> Bool:
+        match tnd:
+            case T_BAR():
+                false
+            case _:
+                true
+
+
+@impl
+def p1_tkend_WHERE(buf, err):
+    let e00 = err
+    let tok = buf.getk0()
+    match tok.node():
+        case T_RBRACE():
+            buf.skip1()
+            tkend_WHERE_cons1(tok)
+        case T_ENDWHR():
+            buf.skip1()
+            tkend_WHERE_cons1(tok)
+        case _:
+            err := e00 + 1
+            tkend_WHERE_cons1(tok)
+
+@impl
+def p1_d0eclseq_WHERE(buf, err):
+    let tok = buf.getk0()
+    match tok.node():
+        case T_WHERE():
+            let twhr = tok
+            buf.skip1()
+            let topt = pq_LBRACE(buf, err)
+            let d0cs = p1_d0eclseq_dyn(buf, err)
+            let tend = p1_tkend_WHERE(buf, err)
+            let d0c0 = d0eclseq_WHERE(twhr, topt, d0cs, tend)
+            list_cons(d0c0, p1_d0eclseq_WHERE(buf, err))
+        case _:
+            list_nil()
+

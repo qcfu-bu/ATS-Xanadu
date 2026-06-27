@@ -1,0 +1,191 @@
+import "srcgen2/SATS/locinfo" as LOC
+
+import "srcgen2/SATS/lexing0" as LEX
+
+import "srcgen2/SATS/staexp2" as S2E
+
+import "srcgen2/SATS/statyp2" as T2P
+
+import "srcgen2/SATS/dynexp3" as D3E
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+type Loctn = LOC.loctn
+
+type Token = LEX.token
+
+type S2typ = S2E.s2typ
+
+type D3pat = D3E.d3pat
+
+type D3exp = D3E.d3exp
+
+type L3d3p = D3E.l3d3p
+
+type L3d3e = D3E.l3d3e
+
+type F3arg = D3E.f3arg
+
+type D3gua = D3E.d3gua
+
+type D3gpt = D3E.d3gpt
+
+type D3cls = D3E.d3cls
+
+type Timpl = D3E.timpl
+
+type D3ecl = D3E.d3ecl
+
+type S2typlst = S2E.s2typlst
+
+type D3patlst = D3E.d3patlst
+
+type D3patopt = D3E.d3patopt
+
+type D3explst = D3E.d3explst
+
+type D3expopt = D3E.d3expopt
+
+type L3d3plst = D3E.l3d3plst
+
+type L3d3elst = D3E.l3d3elst
+
+type F3arglst = D3E.f3arglst
+
+type D3gualst = D3E.d3gualst
+
+type D3clslst = D3E.d3clslst
+
+type Timplist = D3E.timplist
+
+type D3eclist = D3E.d3eclist
+
+type Teqd3exp = D3E.teqd3exp
+
+type D3valdcl = D3E.d3valdcl
+
+type D3vardcl = D3E.d3vardcl
+
+type D3fundcl = D3E.d3fundcl
+
+type D3parsed = D3E.d3parsed
+
+type D3valdclist = D3E.d3valdclist
+
+type D3vardclist = D3E.d3vardclist
+
+type D3fundclist = D3E.d3fundclist
+
+type D3explstopt = D3E.d3explstopt
+
+type D3eclistopt = D3E.d3eclistopt
+
+type F3perr0_t[Syn: Tbox] = (FILR, Syn) -> Void
+
+@extern
+def list_f3perr0_fnp[Syn: Tbox](a: FILR, b: List[Syn], c: F3perr0_t[Syn]) -> Void
+
+@extern
+def optn_f3perr0_fnp[Syn: Tbox](a: FILR, b: Optn[Syn], c: F3perr0_t[Syn]) -> Void
+
+@extern
+def f3perr0_s2typ(a: FILR, b: S2typ) -> Void
+
+@extern
+def f3perr0_d3pat(a: FILR, b: D3pat) -> Void
+
+@extern
+def f3perr0_d3exp(a: FILR, b: D3exp) -> Void
+
+@extern
+def f3perr0_l3d3p(a: FILR, b: L3d3p) -> Void
+
+@extern
+def f3perr0_l3d3e(a: FILR, b: L3d3e) -> Void
+
+@extern
+def f3perr0_f3arg(a: FILR, b: F3arg) -> Void
+
+@extern
+def f3perr0_d3gua(a: FILR, b: D3gua) -> Void
+
+@extern
+def f3perr0_d3gpt(a: FILR, b: D3gpt) -> Void
+
+@extern
+def f3perr0_d3cls(a: FILR, b: D3cls) -> Void
+
+@extern
+def f3perr0_timpl(a: FILR, b: Loctn, c: Timpl) -> Void
+
+@extern
+def f3perr0_tmpls(a: FILR, b: Loctn, c: Timplist) -> Void
+
+@extern
+def f3perr0_d3ecl(a: FILR, b: D3ecl) -> Void
+
+@extern
+def f3perr0_s2typlst(a: FILR, b: S2typlst) -> Void
+
+@extern
+def f3perr0_d3patlst(a: FILR, b: D3patlst) -> Void
+
+@extern
+def f3perr0_d3patopt(a: FILR, b: D3patopt) -> Void
+
+@extern
+def f3perr0_d3explst(a: FILR, b: D3explst) -> Void
+
+@extern
+def f3perr0_d3expopt(a: FILR, b: D3expopt) -> Void
+
+@extern
+def f3perr0_l3d3plst(a: FILR, b: L3d3plst) -> Void
+
+@extern
+def f3perr0_l3d3elst(a: FILR, b: L3d3elst) -> Void
+
+@extern
+def f3perr0_f3arglst(a: FILR, b: F3arglst) -> Void
+
+@extern
+def f3perr0_d3gualst(a: FILR, b: D3gualst) -> Void
+
+@extern
+def f3perr0_d3clslst(a: FILR, b: D3clslst) -> Void
+
+@extern
+def f3perr0_d3eclist(a: FILR, b: D3eclist) -> Void
+
+@extern
+def f3perr0_teqd3exp(a: FILR, b: Teqd3exp) -> Void
+
+@extern
+def f3perr0_d3valdcl(a: FILR, b: D3valdcl) -> Void
+
+@extern
+def f3perr0_d3vardcl(a: FILR, b: D3vardcl) -> Void
+
+@extern
+def f3perr0_d3fundcl(a: FILR, b: D3fundcl) -> Void
+
+@extern
+def f3perr0_d3valdclist(a: FILR, b: D3valdclist) -> Void
+
+@extern
+def f3perr0_d3vardclist(a: FILR, b: D3vardclist) -> Void
+
+@extern
+def f3perr0_d3fundclist(a: FILR, b: D3fundclist) -> Void
+
+@extern
+def f3perr0_d3parsed(a: FILR, b: D3parsed) -> Void
+
+@extern
+def f3perr0_d3explstopt(a: FILR, b: D3explstopt) -> Void
+
+@extern
+def f3perr0_d3eclistopt(a: FILR, b: D3eclistopt) -> Void
+

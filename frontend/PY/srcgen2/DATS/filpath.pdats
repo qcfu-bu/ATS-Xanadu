@@ -1,0 +1,131 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/filpath" import *
+
+private:
+    let theDirSep = '/'
+    let theCurDir = "."
+    let theParDir = ".."
+
+@impl
+def theDirSep_get():
+    theDirSep
+
+@impl
+def theCurDir_get():
+    theCurDir
+
+@impl
+def theParDir_get():
+    theParDir
+
+
+@impl
+def fpath_dpart(fpx):
+    let sep = theDirSep_get()
+    let len = strn_length(fpx)
+    def loop(i0: SInt, r0: SInt) -> SInt:
+        if i0 >= len:
+            r0
+        else:
+            if sep == fpx[i0]:
+                loop(i0 + 1, i0)
+            else:
+                loop(i0 + 1, r0)
+    let pos = loop(0, -(1))
+    if pos >= 0:
+        strn_tabulate/f1un(pos + 1, (i0) => fpx[i0])
+    else:
+        ""
+
+@impl
+def fpath_normq(fpx):
+    type Clst = list_vt[cgtz]
+    type Fnms = strm_vt[Clst]
+    let xatsv_DS = theDirSep_get()
+    let xatsv_CD = theCurDir_get()
+    let xatsv_PD = theParDir_get()
+    def ftest(nms: Fnms, npd: SInt) -> Bool:
+        match !(nms):
+            case ~strmcon_vt_nil():
+                true
+            case ~strmcon_vt_cons(nm1, nms):
+                if z2eq(nm1, xatsv_CD):
+                    free(nms)
+                    false
+                else:
+                    if z2eq(nm1, xatsv_PD):
+                        if (npd >= 1):
+                            free(nms)
+                            false
+                        else:
+                            ftest(nms, npd)
+                    else:
+                        ftest(nms, npd + 1)
+    where:
+        def z2eq(x1: Clst, x2: String) -> Bool:
+            @inst[Clst] @inst[cgtz] @inst[String] @inst[cgtz] gseq_z2cmp11(x1, x2) == 0
+    @impl[cgtz]
+    def group/test(ch):
+        ch != xatsv_DS
+    let nms = @inst[String] @inst[cgtz] gseq_group_lstrm_llist(fpx)
+    ftest(nms, 0)
+
+@impl
+def fpath_normize(fpx):
+    type Clst = list_vt[cgtz]
+    type Slst = list_vt[Clst]
+    type Fnms = strm_vt[Clst]
+    let xatsv_DS = theDirSep_get()
+    let xatsv_CD = theCurDir_get()
+    let xatsv_PD = theParDir_get()
+    def fcats(nms: Slst) -> Clst:
+        match nms:
+            case ~list_vt_nil():
+                list_vt_nil()
+            case ~list_vt_cons(nm1, nms):
+                f2cats(nms, nm1)
+
+    def f2cats(nms: Slst, acc: Clst) -> Clst:
+        match nms:
+            case ~list_vt_nil():
+                acc
+            case ~list_vt_cons(nm1, nms):
+                let acc = list_vt_cons(xatsv_DS, acc)
+                let acc = list_vt_append0(nm1, acc)
+                f2cats(nms, acc)
+    def fmain(nms: Fnms, npd: SInt, acc: Slst) -> Slst:
+        match !(nms):
+            case ~strmcon_vt_nil():
+                acc
+            case ~strmcon_vt_cons(nm1, nms):
+                if z2eq(nm1, xatsv_CD):
+                    free(nm1)
+                    fmain(nms, npd, acc)
+                else:
+                    if z2eq(nm1, xatsv_PD):
+                        if (npd > 0):
+                            let npd = npd - 1
+                            let ~list_vt_cons(ac1, acc) = acc
+                            free(nm1)
+                            fmain(nms, npd, acc)
+                        else:
+                            let acc = list_vt_cons(nm1, acc)
+                            fmain(nms, npd, acc)
+                    else:
+                        let npd = npd + 1
+                        let acc = list_vt_cons(nm1, acc)
+                        fmain(nms, npd, acc)
+    where:
+        def z2eq(x1: Clst, x2: String) -> Bool:
+            @inst[Clst] @inst[cgtz] @inst[String] @inst[cgtz] gseq_z2cmp11(x1, x2) == 0
+    @impl[cgtz]
+    def group/test(ch):
+        ch != xatsv_DS
+    let nms = @inst[String] @inst[cgtz] gseq_group_lstrm_llist(fpx)
+    strn_make_llist(fcats(fmain(nms, 0, list_vt_nil())))
+

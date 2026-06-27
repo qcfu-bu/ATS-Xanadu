@@ -1,0 +1,84 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+import "srcgen2/DATS/lexing0_print0.dats" as _
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+@overload node = s2typ_get_node
+
+@overload sort = s2typ_get_sort
+
+@impl
+def x2t2p_fprint(xt2p, out):
+    let t2p0 = xt2p.styp()
+    match t2p0.node():
+        case T2Pnone0():
+            prints("[", xt2p.stmp(), "]")
+        case _:
+            prints("[", xt2p.styp(), "]")
+where:
+    @impl[]
+    def g_print/out():
+        out
+
+@impl
+def s2typ_fprint(t2p0, out):
+    @impl[]
+    def g_print/out():
+        out
+    match t2p0.node():
+        case T2Pcst(s2c1):
+            prints("T2Pcst(", s2c1, ")")
+        case T2Pvar(s2v1):
+            prints("T2Pvar(", s2v1, ")")
+        case T2Plft(t2p1):
+            prints("T2Plft(", t2p1, ")")
+        case T2Pxtv(xtp1):
+            prints("T2Pxtv(", xtp1, ")")
+        case T2Ptop0(t2p1):
+            prints("T2Ptop0(", t2p1, ")")
+        case T2Ptop1(t2p1):
+            prints("T2Ptop1(", t2p1, ")")
+        case T2Parg1(knd0, t2p1):
+            prints("T2Parg1(", knd0, ";", t2p1, ")")
+        case T2Patx2(tbef, taft):
+            prints("T2Patx2(", tbef, ";", taft, ")")
+        case T2Papps(tfun, t2ps):
+            prints("T2Papps(", tfun, ";", t2ps, ")")
+        case T2Plam1(s2vs, tres):
+            prints("T2Plam1(", s2vs, ";", tres, ")")
+        case T2Pf2cl(f2cl):
+            prints("T2Pf2cl(", f2cl, ")")
+        case T2Pfun1(f2cl, npf1, t2ps, tres):
+            let s2t0 = t2p0.sort()
+            prints("T2Pfun1(", s2t0, ";", f2cl, ";")
+            prints(npf1, ";", t2ps, ";", tres, ")")
+        case T2Ptext(name, t2ps):
+            prints("T2Ptext(", name, ";", t2ps, ")")
+        case T2Pexi0(s2vs, t2p1):
+            prints("T2Pexi0(", s2vs, ";", t2p1, ")")
+        case T2Puni0(s2vs, t2p1):
+            prints("T2Puni0(", s2vs, ";", t2p1, ")")
+        case T2Ptrcd(knd0, npf1, lses):
+            prints("T2Ptrcd(", knd0, ";", npf1, ";", lses, ")")
+        case T2Pnone0():
+            prints("T2Pnone0(", ")")
+        case T2Pnone1(t2p1):
+            prints("T2Pnone1(", t2p1, ")")
+        case T2Ps2exp(s2e1):
+            prints("T2Ps2exp(", s2e1, ")")
+        case T2Perrck(lvl0, t2p1):
+            prints("T2Perrck(", lvl0, ";", t2p1, ")")
+

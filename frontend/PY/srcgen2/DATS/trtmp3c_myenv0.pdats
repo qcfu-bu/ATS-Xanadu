@@ -1,0 +1,474 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/SATS/trtmp3c" import *
+
+private:
+    let stamper = stamper_new()
+
+def the_tmqstk_stamp_new() -> stamp:
+    stamper.getinc()
+
+
+@linear
+enum Tmqstk:
+    case Tmqstk_nil()
+    case Tmqstk_svts(SInt, s2vts, Tmqstk)
+    case Tmqstk_timp(stamp, d3ecl, Tmqstk)
+    case Tmqstk_decl(stamp, d3ecl, Tmqstk)
+    case Tmqstk_let0(Tmqstk)
+    case Tmqstk_loc1(Tmqstk)
+    case Tmqstk_loc2(Tmqstk)
+
+@linear
+enum Tr3cenv:
+    case TR3CENV(topmap[d3eclist], Tmqstk)
+
+@impl
+type Tmqstk_vtbx = Tmqstk
+
+@impl
+type Tr3cenv_vtbx = Tr3cenv
+
+def tmqstk_free_nil(stk0: ~Tmqstk) -> Void:
+    match stk0:
+        case ~Tmqstk_nil():
+            ()
+
+@impl
+def tmqstk_nilq1(stk0):
+    match stk0:
+        case Tmqstk_nil():
+            true
+        case _:
+            false
+
+@impl
+def tmqstk_pshlet0(stk0):
+    stk0 := Tmqstk_let0(stk0)
+
+@impl
+def tmqstk_pshloc1(stk0):
+    stk0 := Tmqstk_loc1(stk0)
+
+@impl
+def tmqstk_pshloc2(stk0):
+    stk0 := Tmqstk_loc2(stk0)
+
+@impl
+def tmqstk_pshsvts(stk0, svts):
+    let nimp = tmqstk_getnimp(stk0)
+    stk0 := Tmqstk_svts(nimp + 1, svts, stk0)
+
+@impl
+def tmqstk_poptop0(stk0):
+    def loop(kxs: Tmqstk, err: &SInt >> _) -> Tmqstk:
+        match kxs:
+            case Tmqstk_nil():
+                kxs
+            case ~Tmqstk_decl(k1, x1, kxs):
+                loop(kxs, err)
+            case Tmqstk_svts(_):
+                err := 1
+                kxs
+            case Tmqstk_timp(_):
+                err := 1
+                kxs
+            case Tmqstk_let0(_):
+                err := 1
+                kxs
+            case Tmqstk_loc1(_):
+                err := 1
+                kxs
+            case Tmqstk_loc2(_):
+                err := 1
+                kxs
+    var err: SInt = 0
+    stk0 := loop(stk0, err)
+    err
+
+@impl
+def tmqstk_poplet0(stk0):
+    def loop(kxs: Tmqstk, err: &SInt >> _) -> Tmqstk:
+        match kxs:
+            case ~Tmqstk_let0(kxs):
+                kxs
+            case ~Tmqstk_decl(k1, x1, kxs):
+                loop(kxs, err)
+            case Tmqstk_nil():
+                err := 1
+                kxs
+            case Tmqstk_svts(_):
+                err := 1
+                kxs
+            case Tmqstk_timp(_):
+                err := 1
+                kxs
+            case Tmqstk_loc1(_):
+                err := 1
+                kxs
+            case Tmqstk_loc2(_):
+                err := 1
+                kxs
+    var err: SInt = 0
+    stk0 := loop(stk0, err)
+    err
+
+@impl
+def tmqstk_locjoin(stk0):
+    def poploc1(kxs: Tmqstk, kys: Tmqstk, err: &SInt >> _) -> Tmqstk:
+        match kxs:
+            case ~Tmqstk_loc1(kxs):
+                pshloc2(kxs, kys, err)
+            case ~Tmqstk_decl(k1, x1, kxs):
+                poploc1(kxs, kys, err)
+            case Tmqstk_nil():
+                prerrsln("tmqstk_locjoin: poploc1: tmqstk_nil")
+                err := 1
+                pshloc2(kxs, kys, err)
+            case Tmqstk_svts(_):
+                prerrsln("tmqstk_locjoin: poploc1: tmqstk_svts")
+                err := 1
+                pshloc2(kxs, kys, err)
+            case Tmqstk_timp(_):
+                prerrsln("tmqstk_locjoin: poploc1: tmqstk_timp")
+                err := 1
+                pshloc2(kxs, kys, err)
+            case Tmqstk_let0(_):
+                prerrsln("tmqstk_locjoin: poploc1: tmqstk_let0")
+                err := 1
+                pshloc2(kxs, kys, err)
+            case Tmqstk_loc2(_):
+                prerrsln("tmqstk_locjoin: poploc1: tmqstk_loc1")
+                err := 1
+                pshloc2(kxs, kys, err)
+
+    def poploc2(kxs: Tmqstk, kys: Tmqstk, err: &SInt >> _) -> Tmqstk:
+        match kxs:
+            case ~Tmqstk_loc2(kxs):
+                poploc1(kxs, kys, err)
+            case ~Tmqstk_decl(k1, x1, kxs):
+                let kys = Tmqstk_decl(k1, x1, kys)
+                poploc2(kxs, kys, err)
+            case Tmqstk_nil():
+                prerrsln("tmqstk_locjoin: poploc2: tmqstk_nil")
+                err := 1
+                poploc1(kxs, kys, err)
+            case Tmqstk_svts(_):
+                prerrsln("tmqstk_locjoin: poploc2: tmqstk_svts")
+                err := 1
+                poploc1(kxs, kys, err)
+            case Tmqstk_timp(_):
+                prerrsln("tmqstk_locjoin: poploc2: tmqstk_timp")
+                err := 1
+                poploc1(kxs, kys, err)
+            case Tmqstk_let0(_):
+                prerrsln("tmqstk_locjoin: poploc2: tmqstk_let0")
+                err := 1
+                poploc1(kxs, kys, err)
+            case Tmqstk_loc1(_):
+                prerrsln("tmqstk_locjoin: poploc2: tmqstk_loc1")
+                err := 1
+                poploc1(kxs, kys, err)
+
+    def pshloc2(kxs: Tmqstk, kys: Tmqstk, err: &SInt >> _) -> Tmqstk:
+        match kys:
+            case ~Tmqstk_nil():
+                kxs
+            case ~Tmqstk_decl(k1, x1, kys):
+                let kxs = Tmqstk_decl(k1, x1, kxs)
+                pshloc2(kxs, kys, err)
+    var err: SInt = 0
+    let kxs = stk0
+    let kys = Tmqstk_nil
+    stk0 := poploc2(kxs, kys, err)
+    err
+
+@impl
+def tmqstk_popsvts(stk0):
+    def loop(kxs: Tmqstk, err: &SInt >> _) -> Tmqstk:
+        match kxs:
+            case ~Tmqstk_svts(_, _, kxs):
+                kxs
+            case ~Tmqstk_timp(k1, x1, kxs):
+                loop(kxs, err)
+            case ~Tmqstk_decl(k1, x1, kxs):
+                loop(kxs, err)
+            case Tmqstk_nil():
+                err := 1
+                kxs
+            case Tmqstk_let0(_):
+                err := 1
+                kxs
+            case Tmqstk_loc1(_):
+                err := 1
+                kxs
+            case Tmqstk_loc2(_):
+                err := 1
+                kxs
+    var err: SInt = 0
+    stk0 := loop(stk0, err)
+    err
+
+@impl
+def tmqstk_getnimp(stk0):
+    match stk0:
+        case Tmqstk_nil():
+            0
+        case Tmqstk_svts(nimp, svts, stk1):
+            nimp
+        case Tmqstk_timp(_, _, stk1):
+            tmqstk_getnimp(stk1)
+        case Tmqstk_decl(_, _, stk1):
+            tmqstk_getnimp(stk1)
+        case Tmqstk_let0(stk1):
+            tmqstk_getnimp(stk1)
+        case Tmqstk_loc1(stk1):
+            tmqstk_getnimp(stk1)
+        case Tmqstk_loc2(stk1):
+            tmqstk_getnimp(stk1)
+
+@impl
+def tmqstk_getstmp(stk0):
+    match stk0:
+        case Tmqstk_nil():
+            the_stamp_nil
+        case Tmqstk_svts(_, _, stk1):
+            tmqstk_getstmp(stk1)
+        case Tmqstk_timp(_, _, stk1):
+            tmqstk_getstmp(stk1)
+        case Tmqstk_decl(stmp, _, _):
+            stmp
+        case Tmqstk_let0(stk1):
+            tmqstk_getstmp(stk1)
+        case Tmqstk_loc1(stk1):
+            tmqstk_getstmp(stk1)
+        case Tmqstk_loc2(stk1):
+            tmqstk_getstmp(stk1)
+
+@impl
+def tmqstk_getsvts(stk0):
+    match stk0:
+        case Tmqstk_nil():
+            list_nil
+        case Tmqstk_svts(nimp, svts, stk1):
+            svts
+        case Tmqstk_timp(_, _, stk1):
+            tmqstk_getsvts(stk1)
+        case Tmqstk_decl(_, _, stk1):
+            tmqstk_getsvts(stk1)
+        case Tmqstk_let0(stk1):
+            tmqstk_getsvts(stk1)
+        case Tmqstk_loc1(stk1):
+            tmqstk_getsvts(stk1)
+        case Tmqstk_loc2(stk1):
+            tmqstk_getsvts(stk1)
+
+@impl
+def tmqstk_insert_timp(stk0, stmp, d3cl):
+    stk0 := Tmqstk_timp(stmp, d3cl, stk0)
+
+@impl
+def tmqstk_insert_decl(stk0, d3cl):
+    let tsub = tmqstk_getsvts(stk0)
+    let d3cl = match tsub:
+        case list_nil():
+            d3cl
+        case list_cons(_):
+            d3ecl_impsub(1, tsub, d3cl)
+    let stmp = the_tmqstk_stamp_new()
+    stk0 := Tmqstk_decl(stmp, d3cl, stk0)
+
+@impl
+def tmqstk_search_dcst(stk0, dcst):
+    list_vt_reverse0(res)
+where:
+    def test(dcl: d3ecl, d2c: d2cst) -> Bool:
+        match dcl.node():
+            case D3Cfundclst(_):
+                d3imp_d2csteq(dcl, d2c)
+            case D3Cimplmnt0(_):
+                d3imp_d2csteq(dcl, d2c)
+            case D3Ctmpsub(tsub, dcl2):
+                test(dcl2, d2c)
+            case D3Ctmplocal(dcl1, dcls):
+                tests(dcls, d2c)
+            case _:
+                false
+
+    def tests(dcls: d3eclist, d2c: d2cst) -> Bool:
+        match dcls:
+            case list_nil():
+                false
+            case list_cons(dcl1, dcls):
+                if test(dcl1, d2c):
+                    true
+                else:
+                    tests(dcls, d2c)
+    def loop(kxs: !Tmqstk, d2c: d2cst, res: d3eclist_vt) -> d3eclist_vt:
+        match kxs:
+            case Tmqstk_nil():
+                res
+            case Tmqstk_decl(tmp, dcl, kxs):
+                let dcs = static_search_dcst(dcl, d2c)
+                let res = list_rappendx0_vt(dcs, res)
+                let res = if test(dcl, d2c):
+                    list_vt_cons(dcl, res)
+                else: res
+                loop(kxs, d2c, res)
+            case Tmqstk_svts(imp, vts, kxs):
+                loop(kxs, d2c, res)
+            case Tmqstk_timp(tmp, dcl, kxs):
+                loop(kxs, d2c, res)
+            case Tmqstk_let0(kxs):
+                loop(kxs, d2c, res)
+            case Tmqstk_loc1(kxs):
+                loop(kxs, d2c, res)
+            case Tmqstk_loc2(kxs):
+                loop(kxs, d2c, res)
+    let res = list_vt_nil
+    let res = loop(stk0, dcst, res)
+
+@impl
+def tr3cenv_make_nil():
+    TR3CENV(map1, Tmqstk_nil)
+where:
+    let map1 = @sapp[d3eclist] topmap_make_nil()
+
+@impl
+def tr3cenv_free_nil(env0):
+    match env0:
+        case ~TR3CENV(map1, map2):
+            var tmqstk = map2
+            let nerr = tmqstk_poptop0(tmqstk)
+            tmqstk_free_nil(tmqstk)
+
+@impl
+def tr3cenv_poplet0(env0):
+    let @(TR3CENV)(topmap, !tmqstk) = env0
+    let nerr = tmqstk_poplet0(tmqstk)
+    fold(env0)
+
+@impl
+def tr3cenv_pshlet0(env0):
+    let @(TR3CENV)(topmap, !tmqstk) = env0
+    tmqstk_pshlet0(tmqstk)
+    fold(env0)
+
+@impl
+def tr3cenv_pshloc1(env0):
+    let @(TR3CENV)(topmap, !tmqstk) = env0
+    tmqstk_pshloc1(tmqstk)
+    fold(env0)
+
+@impl
+def tr3cenv_pshloc2(env0):
+    let @(TR3CENV)(topmap, !tmqstk) = env0
+    tmqstk_pshloc2(tmqstk)
+    fold(env0)
+
+@impl
+def tr3cenv_locjoin(env0):
+    let @(TR3CENV)(topmap, !tmqstk) = env0
+    let err = tmqstk_locjoin(tmqstk)
+    fold(env0)
+
+@impl
+def tr3cenv_pshsvts(env0, svts):
+    let @(TR3CENV)(topmap, !tmqstk) = env0
+    tmqstk_pshsvts(tmqstk, svts)
+    fold(env0)
+
+@impl
+def tr3cenv_popsvts(env0):
+    let @(TR3CENV)(topmap, !tmqstk) = env0
+    let nerr = tmqstk_popsvts(tmqstk)
+    fold(env0)
+
+@impl
+def tr3cenv_getnimp(env0):
+    let @(TR3CENV)(topmap, !tmqstk) = env0
+    let nimp = tmqstk_getnimp(tmqstk)
+    fold(env0)
+    nimp
+
+@impl
+def tr3cenv_getstmp(env0):
+    let @(TR3CENV)(topmap, !tmqstk) = env0
+    let stmp = tmqstk_getstmp(tmqstk)
+    fold(env0)
+    stmp
+
+@impl
+def tr3cenv_getsvts(env0):
+    let @(TR3CENV)(topmap, !tmqstk) = env0
+    let svts = tmqstk_getsvts(tmqstk)
+    fold(env0)
+    svts
+
+@impl
+def tr3cenv_insert_timp(env0, stmp, d3cl):
+    let @(TR3CENV)(topmap, !tmqstk) = env0
+    tmqstk_insert_timp(tmqstk, stmp, d3cl)
+    fold(env0)
+
+@impl
+def tr3cenv_insert_decl(env0, d3cl):
+    let @(TR3CENV)(topmap, !tmqstk) = env0
+    tmqstk_insert_decl(tmqstk, d3cl)
+    fold(env0)
+
+@impl
+def tr3cenv_search_dcst(env0, d2c0):
+    let @(TR3CENV)(topmap, !tmqstk) = env0
+    let dcls = tmqstk_search_dcst(tmqstk, d2c0)
+    fold(env0)
+    dcls
+
+def tmqstk_impltmprecq(stk0: !Tmqstk, d3cl: stamp, t2js: t2jaglst) -> stamp:
+    match stk0:
+        case Tmqstk_nil():
+            the_stamp_nil
+        case Tmqstk_timp(stmp, dcl1, stk1):
+            if d3imp_stampeq(dcl1, d3cl):
+                let test = tmpequal_d3cl_t2js(dcl1, t2js)
+                if test:
+                    stmp
+                else:
+                    tmqstk_impltmprecq(stk1, d3cl, t2js)
+            else:
+                tmqstk_impltmprecq(stk1, d3cl, t2js)
+        case Tmqstk_svts(_, _, stk1):
+            tmqstk_impltmprecq(stk1, d3cl, t2js)
+        case Tmqstk_decl(stmp, dcl1, stk1):
+            tmqstk_impltmprecq(stk1, d3cl, t2js)
+        case Tmqstk_let0(stk1):
+            tmqstk_impltmprecq(stk1, d3cl, t2js)
+        case Tmqstk_loc1(stk1):
+            tmqstk_impltmprecq(stk1, d3cl, t2js)
+        case Tmqstk_loc2(stk1):
+            tmqstk_impltmprecq(stk1, d3cl, t2js)
+
+@impl
+def tr3cenv_impltmprecq(env0, d3cl, t2js):
+    let tmp0 = d3imp_get_stmp(d3cl)
+    let @(TR3CENV)(topmap, !tmqstk) = env0
+    let test = tmqstk_impltmprecq(tmqstk, tmp0, t2js)
+    fold(env0)
+    test
+

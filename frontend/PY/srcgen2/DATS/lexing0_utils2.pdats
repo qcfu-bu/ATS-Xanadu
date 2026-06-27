@@ -1,0 +1,395 @@
+import "srcgen1/prelude/SATS/unsafex" as UN
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/xerrory" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+def EOLq(ch: Char) -> Bool:
+    ch == '\n'
+
+private:
+    @linear
+    enum Pstn1:
+        case PSTN1(SInt, SInt, SInt)
+
+def pstn1_inc1_nc(pos: !Pstn1) -> Void:
+    let @(PSTN1)(!nt0, !nr1, !nc2) = pos
+    nt0 := nt0 + 1
+    nc2 := nc2 + 1
+    fold(pos)
+
+def pstn1_inc1_nr(pos: !Pstn1) -> Void:
+    let @(PSTN1)(!nt0, !nr1, !nc2) = pos
+    nc2 := 0
+    nt0 := nt0 + 1
+    nr1 := nr1 + 1
+    fold(pos)
+
+def pstn1_inc1_if(pos: !Pstn1, chr: Char) -> Void:
+    let @(PSTN1)(!nt0, !nr1, !nc2) = pos
+    if EOLq(chr):
+        pstn1_inc1_nr(pos)
+    else:
+        pstn1_inc1_nc(pos)
+
+def pstn1_incs_if(pos: !Pstn1, cs0: String) -> Void:
+    @inst[String] @inst[Char] gseq_foritm/e1nv(cs0, pos)
+where:
+    @impl[Char, Pstn1]
+    def foritm/e1nv/work(chr, pos):
+        pstn1_inc1_if(pos, chr)
+
+def pstn1_free(pos: !Pstn1) -> Void:
+    let ~PSTN1(_) = pos
+
+def postn_make_pstn1(pos: !Pstn1) -> pos_t:
+    postn(nt0, nr0, nc0)
+where:
+    let PSTN1(nt0, nr0, nc0) = pos
+
+def lexing_lctniz_tnode(pos: !Pstn1, tnd: tnode) -> Void:
+    match tnd:
+        case T_EOF():
+            ()
+        case T_ERR():
+            ()
+        case T_EOL():
+            pstn1_inc1_nr(pos)
+        case T_BLANK(bs):
+            pstn1_incs_if(pos, bs)
+        case T_CLNLT(cs):
+            pstn1_incs_if(pos, cs)
+        case T_DOTLT(cs):
+            pstn1_incs_if(pos, cs)
+        case T_SPCHR(c1):
+            pstn1_inc1_if(pos, char(c1))
+        case T_IDALP(rep):
+            pstn1_incs_if(pos, rep)
+        case T_IDSYM(rep):
+            pstn1_incs_if(pos, rep)
+        case T_IDDLR(rep):
+            pstn1_incs_if(pos, rep)
+        case T_IDSRP(rep):
+            pstn1_incs_if(pos, rep)
+        case T_IDQUA(rep):
+            pstn1_incs_if(pos, rep)
+        case T_INT01(rep):
+            pstn1_incs_if(pos, rep)
+        case T_INT02(_, rep):
+            pstn1_incs_if(pos, rep)
+        case T_INT03(_, rep, _):
+            pstn1_incs_if(pos, rep)
+        case T_FLT01(rep):
+            pstn1_incs_if(pos, rep)
+        case T_FLT02(_, rep):
+            pstn1_incs_if(pos, rep)
+        case T_FLT03(_, rep, _):
+            pstn1_incs_if(pos, rep)
+        case T_CHAR1_nil0(rep):
+            pstn1_incs_if(pos, rep)
+        case T_CHAR2_char(rep):
+            pstn1_incs_if(pos, rep)
+        case T_CHAR3_blsh(rep):
+            pstn1_incs_if(pos, rep)
+        case T_STRN1_clsd(rep, _):
+            pstn1_incs_if(pos, rep)
+        case T_STRN2_ncls(rep, _):
+            pstn1_incs_if(pos, rep)
+        case T_CMNT1_line(ini, txt):
+            pstn1_incs_if(pos, ini)
+            pstn1_incs_if(pos, txt)
+        case T_CMNT2_rest(ini, txt):
+            pstn1_incs_if(pos, ini)
+            pstn1_incs_if(pos, txt)
+        case T_CMNT3_ccbl(lvl, txt):
+            pstn1_incs_if(pos, txt)
+        case T_CMNT4_mlbl(lvl, txt):
+            pstn1_incs_if(pos, txt)
+        case _:
+            prerrsln("lexing_lctniz_tnode: tnd = ", tnd)
+            abort_interr()
+
+private:
+    def char2node(ch: SInt) -> tnode:
+        let ch = char_make_code(ch)
+        match 0:
+            case _ if (ch == ','):
+                T_COMMA()
+            case _ if (ch == ';'):
+                T_SMCLN()
+            case _ if (ch == '\\'):
+                T_BSLSH()
+            case _ if (ch == '\('):
+                T_LPAREN()
+            case _ if (ch == '\)'):
+                T_RPAREN()
+            case _ if (ch == '\['):
+                T_LBRCKT()
+            case _ if (ch == '\]'):
+                T_RBRCKT()
+            case _ if (ch == '\{'):
+                T_LBRACE()
+            case _ if (ch == '\}'):
+                T_RBRACE()
+            case _:
+                T_EOF
+    @overload tnode_search = lexing_tnode_search
+
+def lexing_tnode2tnode(tnd0: tnode) -> tnode:
+    match tnd0:
+        case T_SPCHR(ch):
+            let tnd1 = char2node(ch)
+            match tnd1:
+                case T_EOF():
+                    tnd0
+                case _:
+                    tnd1
+        case T_IDALP(id):
+            let tnd1 = tnode_search(id)
+            match tnd1:
+                case T_EOF():
+                    tnd0
+                case _:
+                    tnd1
+        case T_IDSYM(id):
+            let tnd1 = tnode_search(id)
+            match tnd1:
+                case T_EOF():
+                    tnd0
+                case _:
+                    tnd1
+        case T_IDDLR(id):
+            let tnd1 = tnode_search(id)
+            match tnd1:
+                case T_EOF():
+                    tnd0
+                case _:
+                    tnd1
+        case T_IDSRP(id):
+            let tnd1 = tnode_search(id)
+            match tnd1:
+                case T_EOF():
+                    tnd0
+                case _:
+                    tnd1
+        case _:
+            tnd0
+
+
+def lexing_tnode2token(pos: !Pstn1, lcs: lcsrc, tnd: tnode) -> token:
+    token(loc, tnd)
+where:
+    let ps0 = postn_make_pstn1(pos)
+    lexing_lctniz_tnode(pos, tnd)
+    let ps1 = postn_make_pstn1(pos)
+    let tnd = lexing_tnode2tnode(tnd)
+    let loc = loctn_make_arg3(lcs, ps0, ps1)
+
+@impl
+def lexing_lctnize_all(lcs, txs):
+    pstn1_free(pos)
+    tys
+where:
+    let pos = PSTN1(0, 0, 0)
+    let tys = list_vt_nil
+    def fmain(pos: !Pstn1, txs: list_vt[tnode], tys: list_vt[token]) -> list_vt[token]:
+        match txs:
+            case ~list_vt_nil():
+                reverse0(tys)
+            case ~list_vt_cons(tx1, txs):
+                let ty1 = lexing_tnode2token(pos, lcs, tx1)
+                let tys = list_vt_cons(ty1, tys)
+                fmain(pos, txs, tys)
+    let tys = fmain(pos, txs, tys)
+
+
+@impl
+def lexing_preping_all(tks):
+    type Tklst = list_vt[token]
+    type Tktrm = strm_vt[token]
+    type Tktcn = strmcon_vt[token]
+    def auxmain0(xs: Tklst) -> Tktrm:
+        llazy:
+            match xs:
+                case ~list_vt_nil():
+                    strmcon_vt_nil()
+                case ~list_vt_cons(x1, xs):
+                    auxloop1(x1, xs)
+
+    def auxmain1(x0: token, xs: Tklst) -> Tktrm:
+        llazy:
+            auxloop1(x0, xs)
+
+    def auxloop1(x0: token, xs: Tklst) -> Tktcn:
+        match xs:
+            case ~list_vt_nil():
+                strmcon_vt_sing(x0)
+            case ~list_vt_cons(x1, xs):
+                match x0.node():
+                    case T_EOL():
+                        auxloop1(x1, xs)
+                    case T_BLANK(_):
+                        auxloop1(x1, xs)
+                    case T_CMNT1_line(_):
+                        auxloop1(x1, xs)
+                    case T_CMNT2_rest(_):
+                        auxloop1(x1, xs)
+                    case T_CMNT3_ccbl(_):
+                        auxloop1(x1, xs)
+                    case T_CMNT4_mlbl(_):
+                        auxloop1(x1, xs)
+                    case _:
+                        auxloop2(x0, x1, xs)
+
+    def auxloop2(x0: token, x1: token, xs: Tklst) -> Tktcn:
+        match x0.node():
+            case T_AT0():
+                f0_AT0(x0, x1, xs)
+            case T_OP1():
+                f0_OP1(x0, x1, xs)
+            case T_DLR():
+                f0_DLR(x0, x1, xs)
+            case T_SRP():
+                f0_SRP(x0, x1, xs)
+            case T_VAL(_):
+                f0_VAL(x0, x1, xs)
+            case T_CASE(_):
+                f0_CASE(x0, x1, xs)
+            case T_GTLT():
+                let loc = x0.lctn()
+                let y1 = token_make_node(loc, T_GT0())
+                let y2 = token_make_node(loc, T_LT0())
+                strmcon_vt_cons(y1, llazy(strmcon_vt_cons(y2, llazy(auxloop1(x1, xs)))))
+            case T_IDALP(_):
+                f0_IDALP(x0, x1, xs)
+            case _:
+                strmcon_vt_cons(x0, auxmain1(x1, xs))
+    where:
+        def f0_AT0(x0: token, x1: token, xs: Tklst) -> Tktcn:
+            match x1.node():
+                case T_LPAREN():
+                    let loc = x0.lctn() + x1.lctn()
+                    let xx2 = token_make_node(loc, T_TRCD10(0))
+                    strmcon_vt_cons(xx2, auxmain0(xs))
+                case T_LBRACE():
+                    let loc = x0.lctn() + x1.lctn()
+                    let xx2 = token_make_node(loc, T_TRCD20(0))
+                    strmcon_vt_cons(xx2, auxmain0(xs))
+                case _:
+                    strmcon_vt_cons(x0, auxmain1(x1, xs))
+        def f0_OP1(x0: token, x1: token, xs: Tklst) -> Tktcn:
+            match x1.node():
+                case T_IDSYM(id):
+                    let loc = x0.lctn() + x1.lctn()
+                    let xx2 = token_make_node(loc, T_OP2(x1))
+                    strmcon_vt_cons(xx2, auxmain0(xs))
+                case T_LPAREN():
+                    let loc = x0.lctn() + x1.lctn()
+                    let xx2 = token_make_node(loc, T_OP3(x1))
+                    strmcon_vt_cons(xx2, auxmain0(xs))
+                case _:
+                    strmcon_vt_cons(x0, auxmain1(x1, xs))
+        def f0_DLR(x0: token, x1: token, xs: Tklst) -> Tktcn:
+            match x1.node():
+                case T_LBRCKT():
+                    let loc = x0.lctn() + x1.lctn()
+                    let xx2 = token_make_node(loc, T_EXISTS(1))
+                    strmcon_vt_cons(xx2, auxmain0(xs))
+                case _:
+                    strmcon_vt_cons(x0, auxmain1(x1, xs))
+        def f0_SRP(x0: token, x1: token, xs: Tklst) -> Tktcn:
+            match x1.node():
+                case T_LPAREN():
+                    let loc = x0.lctn() + x1.lctn()
+                    let xx2 = token_make_node(loc, T_TRCD10(1))
+                    strmcon_vt_cons(xx2, auxmain0(xs))
+                case T_LBRACE():
+                    let loc = x0.lctn() + x1.lctn()
+                    let xx2 = token_make_node(loc, T_TRCD20(1))
+                    strmcon_vt_cons(xx2, auxmain0(xs))
+                case _:
+                    strmcon_vt_cons(x0, auxmain1(x1, xs))
+        def f0_VAL(x0: token, x1: token, xs: Tklst) -> Tktcn:
+            let T_VAL(vlk) = x0.node()
+            def plusq(sym: String) -> Bool:
+                strn_head/opt(sym) == '+'
+            def mnusq(sym: String) -> Bool:
+                strn_head/opt(sym) == '-'
+            match vlk:
+                case VLKval():
+                    match x1.node():
+                        case T_IDSYM("+"):
+                            let loc = x0.lctn() + x1.lctn()
+                            let xx2 = token_make_node(loc, T_VAL(VLKvlp))
+                            strmcon_vt_cons(xx2, auxmain0(xs))
+                        case T_IDSYM("-"):
+                            let loc = x0.lctn() + x1.lctn()
+                            let xx2 = token_make_node(loc, T_VAL(VLKvln))
+                            strmcon_vt_cons(xx2, auxmain0(xs))
+                        case T_IDSYM(sym):
+                            match 0:
+                                case _ if plusq(sym):
+                                    let lc0 = x0.lctn()
+                                    let lc1 = x1.lctn()
+                                    let loc = lc0 + lc1
+                                    let sym = UN.strn_tail/raw(sym)
+                                    let tnd = lexing_tnode2tnode(T_IDSYM(sym))
+                                    let x1 = token_make_node(lc1, tnd)
+                                    let xx2 = token_make_node(loc, T_VAL(VLKvlp))
+                                    strmcon_vt_cons(xx2, auxmain1(x1, xs))
+                                case _ if mnusq(sym):
+                                    let lc0 = x0.lctn()
+                                    let lc1 = x1.lctn()
+                                    let loc = lc0 + lc1
+                                    let sym = UN.strn_tail/raw(sym)
+                                    let tnd = lexing_tnode2tnode(T_IDSYM(sym))
+                                    let x1 = token_make_node(lc1, tnd)
+                                    let xx2 = token_make_node(loc, T_VAL(VLKvln))
+                                    strmcon_vt_cons(xx2, auxmain1(x1, xs))
+                                case _:
+                                    strmcon_vt_cons(x0, auxmain1(x1, xs))
+                        case _:
+                            strmcon_vt_cons(x0, auxmain1(x1, xs))
+                case _:
+                    strmcon_vt_cons(x0, auxmain1(x1, xs))
+        def f0_CASE(x0: token, x1: token, xs: Tklst) -> Tktcn:
+            let T_CASE(csk) = x0.node()
+            match x1.node():
+                case T_IDSYM("+"):
+                    let loc = x0.lctn() + x1.lctn()
+                    let xx2 = token_make_node(loc, T_CASE(CSKcasp))
+                    strmcon_vt_cons(xx2, auxmain0(xs))
+                case T_IDSYM("-"):
+                    let loc = x0.lctn() + x1.lctn()
+                    let xx2 = token_make_node(loc, T_CASE(CSKcasn))
+                    strmcon_vt_cons(xx2, auxmain0(xs))
+                case _:
+                    strmcon_vt_cons(x0, auxmain1(x1, xs))
+        def f0_IDALP(x0: token, x1: token, xs: Tklst) -> Tktcn:
+            let T_IDALP(id0) = x0.node()
+            match x1.node():
+                case T_IDSYM(sym):
+                    if qbeg(sym):
+                        let loc = x0.lctn() + x1.lctn()
+                        let id1 = strn_append(id0, sym)
+                        let xx2 = token_make_node(loc, T_IDALP(id1))
+                        strmcon_vt_cons(xx2, auxmain0(xs))
+                    else:
+                        strmcon_vt_cons(x0, auxmain1(x1, xs))
+                case _:
+                    strmcon_vt_cons(x0, auxmain1(x1, xs))
+        where:
+            def qbeg(sym: String) -> Bool:
+                strn_head/opt(sym) == '?'
+    @inst[token] strm_vt_listize0(auxmain0(tks))
+

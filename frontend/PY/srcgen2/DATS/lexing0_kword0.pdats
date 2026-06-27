@@ -1,0 +1,328 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+let xatsv_T0CAS0 = T_CASE(CSKcas0)
+
+let xatsv_T0CAS1 = T_CASE(CSKcas1)
+
+let xatsv_T0CASP = T_CASE(CSKcasp)
+
+let xatsv_T0CASN = T_CASE(CSKcasn)
+
+let xatsv_T0FN0 = T_FUN(FNKfn0)
+
+let xatsv_T0FN1 = T_FUN(FNKfn1)
+
+let xatsv_T0FNX = T_FUN(FNKfnx)
+
+let xatsv_T0FUN = T_FUN(FNKfn1)
+
+let xatsv_T0VAL = T_VAL(VLKval)
+
+let xatsv_T0VLP = T_VAL(VLKvlp)
+
+let xatsv_T0VLN = T_VAL(VLKvln)
+
+let xatsv_T0VLR = T_VAL(VLKvlr)
+
+let xatsv_T0VAR = T_VAR(VRKvar)
+
+let xatsv_T0PRFN0 = T_FUN(FNKprfn0)
+
+let xatsv_T0PRFN1 = T_FUN(FNKprfn1)
+
+let xatsv_T0PRFUN = T_FUN(FNKprfn1)
+
+let xatsv_T0PRAXI = T_FUN(FNKpraxi)
+
+let xatsv_T0FCAST = T_FUN(FNKfcast)
+
+let xatsv_T0PRVAL = T_VAL(VLKprval)
+
+let xatsv_T0SEXPDEF = T_SEXPDEF(-(1))
+
+let xatsv_T0PROPDEF = T_SEXPDEF(PROPSORT)
+
+let xatsv_T0VIEWDEF = T_SEXPDEF(VIEWSORT)
+
+let xatsv_T0TYPEDEF = T_SEXPDEF(TYPESORT)
+
+let xatsv_T0TBOXDEF = T_SEXPDEF(TBOXSORT)
+
+let xatsv_T0TFLTDEF = T_SEXPDEF(TFLTSORT)
+
+let xatsv_T0VWTPDEF = T_SEXPDEF(VWTPSORT)
+
+let xatsv_T0VTBXDEF = T_SEXPDEF(VTBXSORT)
+
+let xatsv_T0VTFTDEF = T_SEXPDEF(VTFTSORT)
+
+let xatsv_T0ABSPROP = T_ABSTYPE(PROPSORT)
+
+let xatsv_T0ABSVIEW = T_ABSTYPE(VIEWSORT)
+
+let xatsv_T0ABSTYPE = T_ABSTYPE(TYPESORT)
+
+let xatsv_T0ABSTBOX = T_ABSTYPE(TBOXSORT)
+
+let xatsv_T0ABSTFLT = T_ABSTYPE(TFLTSORT)
+
+let xatsv_T0ABSVWTP = T_ABSTYPE(VWTPSORT)
+
+let xatsv_T0ABSVTBX = T_ABSTYPE(VTBXSORT)
+
+let xatsv_T0ABSVTFT = T_ABSTYPE(VTFTSORT)
+
+let xatsv_T0IMPLMNT = T_IMPLMNT(IMPLgen)
+
+let xatsv_T0IMPLPRF = T_IMPLMNT(IMPLprf)
+
+let xatsv_T0IMPLVAL = T_IMPLMNT(IMPLval)
+
+let xatsv_T0IMPLFUN = T_IMPLMNT(IMPLfun)
+
+let xatsv_T0IMPLTMP = T_IMPLMNT(IMPLtmp)
+
+let xatsv_T0IMPLTMPR = T_IMPLMNT(IMPLtmpr)
+
+let xatsv_T0DATAPROP = T_DATATYPE(PROPSORT)
+
+let xatsv_T0DATAVIEW = T_DATATYPE(VIEWSORT)
+
+let xatsv_T0DATATYPE = T_DATATYPE(TYPESORT)
+
+let xatsv_T0DATAVWTP = T_DATATYPE(VWTPSORT)
+
+let xatsv_T0WITHPROP = T_WITHTYPE(PROPSORT)
+
+let xatsv_T0WITHVIEW = T_WITHTYPE(VIEWSORT)
+
+let xatsv_T0WITHTYPE = T_WITHTYPE(TYPESORT)
+
+let xatsv_T0WITHVWTP = T_WITHTYPE(VWTPSORT)
+
+let xatsv_T0TRCD11 = T_TRCD10(1)
+let xatsv_T0TRCD12 = T_TRCD10(2)
+let xatsv_T0TRCD13 = T_TRCD10(3)
+let xatsv_T0TRCD14 = T_TRCD10(4)
+let xatsv_T0TRCD15 = T_TRCD10(5)
+
+let xatsv_T0TRCD21 = T_TRCD20(1)
+let xatsv_T0TRCD22 = T_TRCD20(2)
+let xatsv_T0TRCD23 = T_TRCD20(3)
+let xatsv_T0TRCD24 = T_TRCD20(4)
+let xatsv_T0TRCD25 = T_TRCD20(5)
+
+let xatsv_T0SRP_INFIX0 = T_SRP_FIXITY(KINFIX0)
+let xatsv_T0SRP_INFIXL = T_SRP_FIXITY(KINFIXL)
+let xatsv_T0SRP_INFIXR = T_SRP_FIXITY(KINFIXR)
+let xatsv_T0SRP_PREFIX = T_SRP_FIXITY(KPREFIX)
+let xatsv_T0SRP_PSTFIX = T_SRP_FIXITY(KPSTFIX)
+
+private:
+    def lexing_kword_init() -> Void:
+        kwdins("@", T_AT0)
+        kwdins("=", T_EQ0)
+        kwdins("<", T_LT0)
+        kwdins(">", T_GT0)
+        kwdins("|", T_BAR)
+        kwdins(":", T_CLN)
+        kwdins(".", T_DOT)
+        kwdins("$", T_DLR)
+        kwdins("#", T_SRP)
+        kwdins("=<", T_EQLT)
+        kwdins("=>", T_EQGT)
+        kwdins("<>", T_LTGT)
+        kwdins("><", T_GTLT)
+        kwdins("-<", T_MSLT)
+        kwdins("->", T_MSGT)
+        kwdins(">.", T_GTDOT)
+        kwdins("as", T_AS0)
+        kwdins("of", T_OF0)
+        kwdins("op", T_OP1)
+        kwdins("in", T_IN0)
+        kwdins("and", T_AND)
+        kwdins("end", T_END)
+        kwdins("if", T_IF0)
+        kwdins("sif", T_SIF)
+        kwdins("then", T_THEN)
+        kwdins("else", T_ELSE)
+        kwdins("when", T_WHEN)
+        kwdins("with", T_WITH)
+        kwdins("case", xatsv_T0CAS0)
+        kwdins("scas", T_SCAS)
+        kwdins("case0", xatsv_T0CAS0)
+        kwdins("case1", xatsv_T0CAS1)
+        kwdins("endst", T_ENDST)
+        kwdins("lam", T_LAM(0))
+        kwdins("fix", T_FIX(0))
+        kwdins("let", T_LET)
+        kwdins("try", T_TRY)
+        kwdins("where", T_WHERE)
+        kwdins("local", T_LOCAL)
+        kwdins("endif", T_ENDIF0)
+        kwdins("endcas", T_ENDCAS)
+        kwdins("endlam", T_ENDLAM)
+        kwdins("endlet", T_ENDLET)
+        kwdins("endtry", T_ENDTRY)
+        kwdins("endwhr", T_ENDWHR)
+        kwdins("endloc", T_ENDLOC)
+        kwdins("endwhere", T_ENDWHR)
+        kwdins("endlocal", T_ENDLOC)
+        kwdins("val", xatsv_T0VAL)
+        kwdins("vlr", xatsv_T0VLR)
+        kwdins("var", xatsv_T0VAR)
+        kwdins("fn0", xatsv_T0FN0)
+        kwdins("fn1", xatsv_T0FN1)
+        kwdins("fnx", xatsv_T0FNX)
+        kwdins("fun", xatsv_T0FUN)
+        kwdins("pax", xatsv_T0PRAXI)
+        kwdins("pfx", xatsv_T0PRFUN)
+        kwdins("pvx", xatsv_T0PRVAL)
+        kwdins("prfn0", xatsv_T0PRFN0)
+        kwdins("prfn1", xatsv_T0PRFN1)
+        kwdins("prfun", xatsv_T0PRFUN)
+        kwdins("praxi", xatsv_T0PRAXI)
+        kwdins("prval", xatsv_T0PRVAL)
+        kwdins("fcast", xatsv_T0FCAST)
+        kwdins("#stacst0", T_STACST0)
+        kwdins("#abssort", T_ABSSORT)
+        kwdins("#sortdef", T_SORTDEF)
+        kwdins("#sexpdef", xatsv_T0SEXPDEF)
+        kwdins("#propdef", xatsv_T0PROPDEF)
+        kwdins("#viewdef", xatsv_T0VIEWDEF)
+        kwdins("#tboxdef", xatsv_T0TBOXDEF)
+        kwdins("#typedef", xatsv_T0TYPEDEF)
+        kwdins("#vwtpdef", xatsv_T0VWTPDEF)
+        kwdins("#abstype", xatsv_T0ABSTYPE)
+        kwdins("#absprop", xatsv_T0ABSPROP)
+        kwdins("#absview", xatsv_T0ABSVIEW)
+        kwdins("#abstbox", xatsv_T0ABSTBOX)
+        kwdins("#abstflt", xatsv_T0ABSTFLT)
+        kwdins("#absvtbx", xatsv_T0ABSVTBX)
+        kwdins("#absvtft", xatsv_T0ABSVTFT)
+        kwdins("#absvwtp", xatsv_T0ABSVWTP)
+        kwdins("#absimpl", T_ABSIMPL)
+        kwdins("#absopen", T_ABSOPEN)
+        kwdins("#implmnt", xatsv_T0IMPLMNT)
+        kwdins("#implprf", xatsv_T0IMPLPRF)
+        kwdins("#implval", xatsv_T0IMPLVAL)
+        kwdins("#implfun", xatsv_T0IMPLFUN)
+        kwdins("#impltmp", xatsv_T0IMPLTMP)
+        kwdins("#impltmpr", xatsv_T0IMPLTMPR)
+        kwdins("excptcon", T_EXCPTCON)
+        kwdins("datasort", T_DATASORT)
+        kwdins("dataprop", xatsv_T0DATAPROP)
+        kwdins("dataview", xatsv_T0DATAVIEW)
+        kwdins("datatype", xatsv_T0DATATYPE)
+        kwdins("datavwtp", xatsv_T0DATAVWTP)
+        kwdins("withtype", xatsv_T0WITHTYPE)
+        kwdins("withprop", xatsv_T0WITHPROP)
+        kwdins("withview", xatsv_T0WITHVIEW)
+        kwdins("withvwtp", xatsv_T0WITHVWTP)
+        kwdins("$tup", xatsv_T0TRCD12)
+        kwdins("$tpl", xatsv_T0TRCD12)
+        kwdins("$rec", xatsv_T0TRCD22)
+        kwdins("$rcd", xatsv_T0TRCD22)
+        kwdins("$tuptx", xatsv_T0TRCD13)
+        kwdins("$tpltx", xatsv_T0TRCD13)
+        kwdins("$rectx", xatsv_T0TRCD23)
+        kwdins("$rcdtx", xatsv_T0TRCD23)
+        kwdins("$tupvx", xatsv_T0TRCD14)
+        kwdins("$tplvx", xatsv_T0TRCD14)
+        kwdins("$recvx", xatsv_T0TRCD24)
+        kwdins("$rcdvx", xatsv_T0TRCD24)
+        kwdins("$tuprf", xatsv_T0TRCD15)
+        kwdins("$tplrf", xatsv_T0TRCD15)
+        kwdins("$recrf", xatsv_T0TRCD25)
+        kwdins("$rcdrf", xatsv_T0TRCD25)
+        kwdins("$tup_t0", xatsv_T0TRCD13)
+        kwdins("$tup_vt", xatsv_T0TRCD14)
+        kwdins("$tup_rf", xatsv_T0TRCD15)
+        kwdins("$rec_t0", xatsv_T0TRCD23)
+        kwdins("$rec_vt", xatsv_T0TRCD24)
+        kwdins("$rec_rf", xatsv_T0TRCD25)
+        kwdins("$raise", T_DLR_RAISE)
+        kwdins("$extnam", T_DLR_EXTNAM)
+        kwdins("$exists", T_DLR_EXISTS)
+        kwdins("$synext", T_DLR_SYNEXT)
+        kwdins("#if", T_SRP_IFEXP)
+        kwdins("#ifdef", T_SRP_IFDEF)
+        kwdins("#ifexp", T_SRP_IFEXP)
+        kwdins("#then", T_SRP_THEN0)
+        kwdins("#then0", T_SRP_THEN0)
+        kwdins("#else", T_SRP_ELSE1)
+        kwdins("#else1", T_SRP_ELSE1)
+        kwdins("#elif", T_SRP_ELSIF)
+        kwdins("#elsif", T_SRP_ELSIF)
+        kwdins("#endif", T_SRP_ENDIF)
+        kwdins("#infix0", xatsv_T0SRP_INFIX0)
+        kwdins("#infixl", xatsv_T0SRP_INFIXL)
+        kwdins("#infixr", xatsv_T0SRP_INFIXR)
+        kwdins("#prefix", xatsv_T0SRP_PREFIX)
+        kwdins("#pstfix", xatsv_T0SRP_PSTFIX)
+        kwdins("#nonfix", T_SRP_NONFIX)
+        kwdins("#static", T_SRP_STATIC)
+        kwdins("#extern", T_SRP_EXTERN)
+        kwdins("#staval", T_SRP_STAVAL)
+        kwdins("#extval", T_SRP_EXTVAL)
+        kwdins("#define", T_SRP_DEFINE)
+        kwdins("#macdef", T_SRP_MACDEF)
+        kwdins("#include", T_SRP_INCLUDE)
+        kwdins("#staload", T_SRP_STALOAD)
+        kwdins("#symload", T_SRP_SYMLOAD)
+        kwdins("#dyninit", T_SRP_DYNINIT)
+        kwdins("#extcode", T_SRP_EXTCODE)
+    where:
+        @overload kwdins = lexing_tnode_insert
+
+lexing_kword_init()
+
+
+@impl
+def T0IDSYM_AT0:
+    T_IDSYM("@")
+
+@impl
+def T0IDSYM_BAR:
+    T_IDSYM("|")
+
+@impl
+def T0IDSYM_EQ0:
+    T_IDSYM("=")
+
+@impl
+def T0IDSYM_LT0:
+    T_IDSYM("<")
+
+@impl
+def T0IDSYM_GT0:
+    T_IDSYM(">")
+
+@impl
+def T0IDSYM_EQGT:
+    T_IDSYM("=>")
+
+@impl
+def T0IDSYM_LTGT:
+    T_IDSYM("<>")
+
+@impl
+def T0IDSYM_MSLT:
+    T_IDSYM("-<")
+
+@impl
+def T0IDSYM_MSGT:
+    T_IDSYM("->")
+
+@impl
+def T0IDALP_NONE:
+    T_IDALP("*NONE*")
+

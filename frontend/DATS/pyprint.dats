@@ -1373,7 +1373,10 @@ pp_dynconst_val(out: FILR, dcd: d0cstdcl): void = let
   val nm   = i0dnt_lexeme(d0cstdcl_get_dpid(dcd))
   val sres = d0cstdcl_get_sres(dcd)
 in
-  ps(out, "@static"); nl(out);
+  // A bodyless `val NAME: T` (D0Cdynconst, T_VAL) is a DYNAMIC constant -> `@extern let` (lowers to
+  // a D2Cdynconst VAL so consumers resolve it dynamically). NOT `@static let` (that's a STATIC
+  // constant / stacst, which leaves the name unbound in dynamic position).
+  ps(out, "@extern"); nl(out);
   ps(out, "let "); ps(out, fname(nm)); ps(out, ": ");
   (case+ sres of
    | S0RESsome(_, se) => pp_s0exp(out, se)

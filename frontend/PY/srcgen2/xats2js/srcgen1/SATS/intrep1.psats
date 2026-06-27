@@ -1,0 +1,548 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+from "srcgen2/xats2js/srcgen1/SATS/intrep0" import *
+
+type Stamp = Stamp
+
+type Sym_t = Sym_t
+
+type Loc_t = Loc_t
+
+type Loctn = Loctn
+
+type Lcsrc = Lcsrc
+
+type Fpath = Fpath
+
+type G1nam = G1nam
+
+type Fpathopt = Fpathopt
+
+enum I1lab[X0]:
+    case I1LAB(Label, X0)
+
+@extern
+def i1lab_fprint[X0: Type](a: I1lab[X0], b: FILR) -> Void
+
+@abstract
+type I1opr_tbox
+
+@abstract
+type I1tnm_tbox
+
+type I1opr = I1opr_tbox
+
+type I1tnm = I1tnm_tbox
+
+@abstract
+type I1val_tbox
+
+@abstract
+type Fjarg_tbox
+
+@abstract
+type I1gua_tbox
+
+@abstract
+type I1gpt_tbox
+
+@abstract
+type I1cls_tbox
+
+@abstract
+type I1dcl_tbox
+
+@abstract
+type T1imp_tbox
+
+type I1val = I1val_tbox
+
+type Fjarg = Fjarg_tbox
+
+type I1cls = I1cls_tbox
+
+type I1gua = I1gua_tbox
+
+type I1gpt = I1gpt_tbox
+
+type I1dcl = I1dcl_tbox
+
+type T1imp = T1imp_tbox
+
+@abstract
+type I1valdcl_tbox
+
+@abstract
+type I1vardcl_tbox
+
+@abstract
+type I1fundcl_tbox
+
+@abstract
+type I1parsed_tbox
+
+type L1i1v = I1lab[I1val]
+
+type D2sub = (D2var, I1val)
+
+type I1tnmlst = List[I1tnm]
+
+type I1valist = List[I1val]
+
+type I1valopt = Optn[I1val]
+
+type L1i1vlst = List[L1i1v]
+
+type Fjarglst = List[Fjarg]
+
+type I1gualst = List[I1gua]
+
+type I1clslst = List[I1cls]
+
+type I1dclist = List[I1dcl]
+
+type I1dclopt = Optn[I1dcl]
+
+type I1valdcl = I1valdcl_tbox
+
+type I1vardcl = I1vardcl_tbox
+
+type I1fundcl = I1fundcl_tbox
+
+type I1parsed = I1parsed_tbox
+
+type I1valdclist = List[I1valdcl]
+
+type I1vardclist = List[I1vardcl]
+
+type I1fundclist = List[I1fundcl]
+
+type I1dclistopt = Optn[I1dclist]
+
+@extern
+def i1tnm_stmp/get(a: I1tnm) -> Stamp
+
+@extern
+def i1opr_make(a: Sym_t) -> I1opr
+
+@extern
+def i1tnm_new0() -> I1tnm
+
+@extern
+def i1opr_fprint(a: I1opr, b: FILR) -> Void
+
+@extern
+def i1tnm_fprint(a: I1tnm, b: FILR) -> Void
+
+type D2sublst = List[D2sub]
+
+type I1bndlst = List[I1bnd]
+
+type I1cmplst = List[I1cmp]
+
+type I1cmpopt = Optn[I1cmp]
+
+type I1letlst = List[I1let]
+
+enum I1let:
+    case I1LETnew0(I1ins)
+    case I1LETnew1(I1tnm, I1ins)
+enum I1bnd:
+    case I1BNDcons(I1tnm, I0pat, D2sublst)
+enum I1cmp:
+    case I1CMPcons(I1letlst, I1val)
+enum I1ins:
+    case I1INSopr(I1opr, I1valist)
+    case I1INSdapp(I1val, I1valist)
+    case I1INStimp(I0exp, T1imp)
+    case I1INSpcon(Label, I1val)
+    case I1INSpflt(Label, I1val)
+    case I1INSproj(Label, I1val)
+    case I1INSlet0(I1dclist, I1cmp)
+    case I1INSift0(I1val, I1cmpopt, I1cmpopt)
+    case I1INScas0(Token, I1val, I1clslst)
+    case I1INStup0(I1valist)
+    case I1INStup1(Token, I1valist)
+    case I1INSrcd2(Token, L1i1vlst)
+    case I1INSlam0(Token, Fjarglst, I1cmp)
+    case I1INSfix0(Token, D2var, Fjarglst, I1cmp)
+    case I1INStry0(Token, I1cmp, I1val, I1clslst)
+    case I1INSflat(I1val)
+    case I1INSfold(I1val)
+    case I1INSfree(I1val)
+    case I1INSdl0az(I1val)
+    case I1INSdl1az(I1val)
+    case I1INSl0azy(D1exp, I1cmp)
+    case I1INSl1azy(D1exp, I1cmp, I1cmplst)
+    case I1INSdp2tr(I1val)
+    case I1INSraise(Token, I1val)
+    case I1INSassgn(I1val, I1val)
+enum I1val_node:
+    case I1Vnil()
+    case I1Vint(Token)
+    case I1Vbtf(Sym_t)
+    case I1Vchr(Token)
+    case I1Vflt(Token)
+    case I1Vstr(Token)
+    case I1Vi00(SInt)
+    case I1Vb00(Bool)
+    case I1Vc00(Char)
+    case I1Vf00(Float)
+    case I1Vs00(String)
+    case I1Vtop(Sym_t)
+    case I1Vtnm(I1tnm)
+    case I1Vcon(D2con)
+    case I1Vcst(D2cst)
+    case I1Vvar(D2var)
+    case I1Vaddr(I1val)
+    case I1Vaexp(I0exp)
+    case I1Vp0rj(I1val, SInt)
+    case I1Vp1cn(I0pat, I1val, SInt)
+    case I1Vp1rj(Token, I1val, SInt)
+    case I1Vp2rj(Token, I1val, Label)
+    case I1Vlpft(Label, I1val)
+    case I1Vlpbx(Label, I1val)
+    case I1Vlpcn(Label, I1val)
+    case I1Vextnam(Token, I1val, G1nam)
+    case I1Vnone0()
+    case I1Vnone1(I0exp)
+
+@extern
+def i1let_fprint(a: I1let, b: FILR) -> Void
+
+@extern
+def i1bnd_fprint(a: I1bnd, b: FILR) -> Void
+
+@extern
+def i1cmp_fprint(a: I1cmp, b: FILR) -> Void
+
+@extern
+def i1ins_fprint(a: I1ins, b: FILR) -> Void
+
+@extern
+def i1val_fprint(a: I1val, b: FILR) -> Void
+
+@extern
+def i1cmp_lctn/get(a: I1cmp) -> Loc_t
+
+@extern
+def i1cmp_ival/get(a: I1cmp) -> I1val
+
+@extern
+def i1cmp_ilts/get(a: I1cmp) -> I1letlst
+
+@overload lctn = i1cmp_lctn/get
+
+@overload ival = i1cmp_ival/get
+
+@overload ilts = i1cmp_ilts/get
+
+@extern
+def i1val_nil(a: Loc_t) -> I1val
+
+@extern
+def i1val_con(a: D2con) -> I1val
+
+@extern
+def i1val_cst(a: D2cst) -> I1val
+
+@extern
+def i1val_var(a: D2var) -> I1val
+
+@extern
+def i1val_conq(a: I1val) -> Bool
+
+@extern
+def i1val_cstq(a: I1val) -> Bool
+
+@extern
+def i1val_cfnq(a: I1val) -> Bool
+
+@extern
+def i1val_varq(a: I1val) -> Bool
+
+@extern
+def i1val_none0(a: Loc_t) -> I1val
+
+@extern
+def i1val_none1(a: I0exp) -> I1val
+
+@extern
+def i1val_lctn/get(a: I1val) -> Loc_t
+
+@extern
+def i1val_node/get(a: I1val) -> I1val_node
+
+@overload lctn = i1val_lctn/get
+
+@overload node = i1val_node/get
+
+@extern
+def i1val_make_node(a: Loc_t, b: I1val_node) -> I1val
+
+@overload i1val = i1val_make_node
+
+enum Fjarg_node:
+    case FJARGdarg(I1bndlst)
+
+type Fjarglst = List[Fjarg]
+
+type Fjarglstopt = Optn[Fjarglst]
+
+@extern
+def fjarg_fprint(a: Fjarg, b: FILR) -> Void
+
+@extern
+def fjarg_lctn/get(a: Fjarg) -> Loc_t
+
+@extern
+def fjarg_node/get(a: Fjarg) -> Fjarg_node
+
+@overload lctn = fjarg_lctn/get
+
+@overload node = fjarg_node/get
+
+@extern
+def fjarg_make_node(a: Loc_t, b: Fjarg_node) -> Fjarg
+
+@overload fjarg = fjarg_make_node
+
+enum I1gua_node:
+    case I1GUAexp(I1cmp)
+    case I1GUAmat(I1cmp, I1bnd)
+
+enum I1cls_node:
+    case I1CLSgpt(I1gpt)
+    case I1CLScls(I1gpt, I1cmp)
+enum I1gpt_node:
+    case I1GPTpat(I1bnd)
+    case I1GPTgua(I1bnd, I1gualst)
+
+@extern
+def i1gua_fprint(a: I1gua, b: FILR) -> Void
+
+@extern
+def i1gpt_fprint(a: I1gpt, b: FILR) -> Void
+
+@extern
+def i1cls_fprint(a: I1cls, b: FILR) -> Void
+
+@extern
+def i1gua_lctn/get(a: I1gua) -> Loc_t
+
+@extern
+def i1gua_node/get(a: I1gua) -> I1gua_node
+
+@extern
+def i1gpt_lctn/get(a: I1gpt) -> Loc_t
+
+@extern
+def i1gpt_node/get(a: I1gpt) -> I1gpt_node
+
+@extern
+def i1cls_lctn/get(a: I1cls) -> Loc_t
+
+@extern
+def i1cls_node/get(a: I1cls) -> I1cls_node
+
+@overload lctn = i1gua_lctn/get
+
+@overload lctn = i1gpt_lctn/get
+
+@overload lctn = i1cls_lctn/get
+
+@overload node = i1gua_node/get
+
+@overload node = i1gpt_node/get
+
+@overload node = i1cls_node/get
+
+@extern
+def i1gua_make_node(a: Loc_t, b: I1gua_node) -> I1gua
+
+@extern
+def i1gpt_make_node(a: Loc_t, b: I1gpt_node) -> I1gpt
+
+@extern
+def i1cls_make_node(a: Loc_t, b: I1cls_node) -> I1cls
+
+@overload i1gua = i1gua_make_node
+
+@overload i1gpt = i1gpt_make_node
+
+@overload i1cls = i1cls_make_node
+
+enum T1imp_node:
+    case T1IMPall1(D2cst, T2jaglst, I1dclopt)
+    case T1IMPallx(D2cst, T2jaglst, I1dclopt)
+
+@extern
+def t1imp_i1cmpq(a: T1imp) -> I1cmpopt
+
+@extern
+def t1imp_i1dclq(a: T1imp) -> I1dclopt
+
+@extern
+def t1imp_fprint(a: T1imp, b: FILR) -> Void
+
+@extern
+def t1imp_dcst/get(a: T1imp) -> D2cst
+
+@overload dcst = t1imp_dcst/get
+
+@extern
+def t1imp_stmp/get(a: T1imp) -> Stamp
+
+@extern
+def t1imp_node/get(a: T1imp) -> T1imp_node
+
+@overload stmp = t1imp_stmp/get
+
+@overload node = t1imp_node/get
+
+@extern
+def t1imp_make_node(a: Stamp, b: T1imp_node) -> T1imp
+
+@overload t1imp = t1imp_make_node
+
+enum Teqi1cmp:
+    case TEQI1CMPnone()
+    case TEQI1CMPsome(Token, I1cmp)
+
+type I1dclistopt = Optn[I1dclist]
+
+enum I1dcl_node:
+    case I1Di0dcl(I0dcl)
+    case I1Dextern(Token, I1dcl)
+    case I1Dstatic(Token, I1dcl)
+    case I1Ddclst0(I1dclist)
+    case I1Dlocal0(I1dclist, I1dclist)
+    case I1Dtmpsub(S2vts, I1dcl)
+    case I1Dinclude(SInt, Token, G1exp, Fpathopt, I1dclistopt)
+    case I1Dvaldclst(Token, I1valdclist)
+    case I1Dvardclst(Token, I1vardclist)
+    case I1Dfundclst(Token, T2qaglst, D2cstlst, I1fundclist)
+    case I1Dimplmnt0(Token, Stamp, Dimpl, Fjarglst, I1cmp)
+    case I1Dnone0()
+    case I1Dnone1(I0dcl)
+
+@extern
+def i1dcl_fprint(a: I1dcl, b: FILR) -> Void
+
+@extern
+def i1dcl_lctn/get(a: I1dcl) -> Loc_t
+
+@extern
+def i1dcl_node/get(a: I1dcl) -> I1dcl_node
+
+@overload lctn = i1dcl_lctn/get
+
+@overload node = i1dcl_node/get
+
+@extern
+def i1dcl_none0(a: Loc_t) -> I1dcl
+
+@extern
+def i1dcl_none1(a: I0dcl) -> I1dcl
+
+@extern
+def i1dcl_make_node(a: Loc_t, b: I1dcl_node) -> I1dcl
+
+@overload i1dcl = i1dcl_make_node
+
+@extern
+def i1valdcl_fprint(a: I1valdcl, b: FILR) -> Void
+
+@extern
+def i1vardcl_fprint(a: I1vardcl, b: FILR) -> Void
+
+@extern
+def i1fundcl_fprint(a: I1fundcl, b: FILR) -> Void
+
+@extern
+def i1valdcl_lctn/get(a: I1valdcl) -> Loc_t
+
+@extern
+def i1vardcl_lctn/get(a: I1vardcl) -> Loc_t
+
+@extern
+def i1fundcl_lctn/get(a: I1fundcl) -> Loc_t
+
+@extern
+def i1valdcl_dpat/get(a: I1valdcl) -> I1bnd
+
+@extern
+def i1valdcl_tdxp/get(a: I1valdcl) -> Teqi1cmp
+
+@overload dpat = i1valdcl_dpat/get
+
+@overload tdxp = i1valdcl_tdxp/get
+
+@extern
+def i1vardcl_dpid/get(a: I1vardcl) -> I1bnd
+
+@extern
+def i1vardcl_dini/get(a: I1vardcl) -> Teqi1cmp
+
+@overload dpid = i1vardcl_dpid/get
+
+@overload dini = i1vardcl_dini/get
+
+@extern
+def i1fundcl_dpid/get(a: I1fundcl) -> D2var
+
+@extern
+def i1fundcl_farg/get(a: I1fundcl) -> Fjarglst
+
+@extern
+def i1fundcl_tdxp/get(a: I1fundcl) -> Teqi1cmp
+
+@overload dpid = i1fundcl_dpid/get
+
+@overload farg = i1fundcl_farg/get
+
+@overload tdxp = i1fundcl_tdxp/get
+
+@extern
+def i1valdcl_make_args(a: Loc_t, b: I1bnd, c: Teqi1cmp) -> I1valdcl
+
+@extern
+def i1vardcl_make_args(a: Loc_t, b: I1bnd, c: Teqi1cmp) -> I1vardcl
+
+@extern
+def i1fundcl_make_args(a: Loc_t, b: D2var, c: Fjarglst, d: Teqi1cmp) -> I1fundcl
+
+@overload i1valdcl = i1valdcl_make_args
+
+@overload i1vardcl = i1vardcl_make_args
+
+@overload i1fundcl = i1fundcl_make_args
+
+@extern
+def i1parsed_fprint(a: I1parsed, b: FILR) -> Void
+
+@extern
+def i1parsed_stadyn/get(a: I1parsed) -> SInt
+
+@extern
+def i1parsed_nerror/get(a: I1parsed) -> SInt
+
+@extern
+def i1parsed_source/get(a: I1parsed) -> Lcsrc
+
+@extern
+def i1parsed_parsed/get(a: I1parsed) -> I1dclistopt
+
+@overload stadyn = i1parsed_stadyn/get
+
+@overload nerror = i1parsed_nerror/get
+
+@overload source = i1parsed_source/get
+
+@overload parsed = i1parsed_parsed/get
+
+@extern
+def i1parsed_make_args(a: SInt, b: SInt, c: Lcsrc, d: I1dclistopt) -> I1parsed
+
+@overload i1parsed = i1parsed_make_args
+

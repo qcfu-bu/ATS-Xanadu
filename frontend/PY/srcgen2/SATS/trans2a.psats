@@ -1,0 +1,412 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+@abstract
+type Tr2aenv_vtbx
+
+type Tr2aenv = Tr2aenv_vtbx
+
+import "srcgen2/SATS/xbasics" as BAS
+
+type F2clknd = BAS.f2clknd
+
+import "srcgen2/SATS/xlabel0" as LAB
+
+import "srcgen2/SATS/locinfo" as LOC
+
+import "srcgen2/SATS/xsymbol" as SYM
+
+import "srcgen2/SATS/lexing0" as LEX
+
+type Lab_t = LAB.lab_t
+
+type Loc_t = LOC.loc_t
+
+type Sym_t = SYM.sym_t
+
+type Token = LEX.token
+
+import "srcgen2/SATS/staexp2" as S2E
+
+import "srcgen2/SATS/statyp2" as T2P
+
+import "srcgen2/SATS/dynexp2" as D2E
+
+type S2cst = S2E.s2cst
+
+type S2exp = S2E.s2exp
+
+type S2typ = S2E.s2typ
+
+type L2s2e = S2E.l2s2e
+
+type L2t2p = S2E.l2t2p
+
+type X2t2p = T2P.x2t2p
+
+type S2vts = T2P.s2vts
+
+type D2var = D2E.d2var
+
+type D2con = D2E.d2con
+
+type D2cst = D2E.d2cst
+
+type D2itm = D2E.d2itm
+
+type D2ptm = D2E.d2ptm
+
+type D2pat = D2E.d2pat
+
+type D2exp = D2E.d2exp
+
+type L2d2p = D2E.l2d2p
+
+type L2d2e = D2E.l2d2e
+
+type F2arg = D2E.f2arg
+
+type D2gua = D2E.d2gua
+
+type D2gpt = D2E.d2gpt
+
+type D2cls = D2E.d2cls
+
+type D2ecl = D2E.d2ecl
+
+type S2qag = D2E.s2qag
+
+type T2qag = D2E.t2qag
+
+type T2iag = D2E.t2iag
+
+type T2qas = D2E.t2qas
+
+type T2ias = D2E.t2ias
+
+type D2arg = D2E.d2arg
+
+type Dimpl = D2E.dimpl
+
+type Teqd2exp = D2E.teqd2exp
+
+type S2cstlst = S2E.s2cstlst
+
+type S2explst = S2E.s2explst
+
+type S2typlst = S2E.s2typlst
+
+type L2s2elst = S2E.l2s2elst
+
+type L2t2plst = S2E.l2t2plst
+
+type D2varlst = D2E.d2varlst
+
+type D2conlst = D2E.d2conlst
+
+type D2cstlst = D2E.d2cstlst
+
+type D2itmopt = D2E.d2itmopt
+
+type D2itmlst = D2E.d2itmlst
+
+type D2ptmopt = D2E.d2ptmopt
+
+type D2ptmlst = D2E.d2ptmlst
+
+type D2patlst = D2E.d2patlst
+
+type D2explst = D2E.d2explst
+
+type D2expopt = D2E.d2expopt
+
+type L2d2plst = D2E.l2d2plst
+
+type L2d2elst = D2E.l2d2elst
+
+type F2arglst = D2E.f2arglst
+
+type D2gualst = D2E.d2gualst
+
+type D2clslst = D2E.d2clslst
+
+type D2eclist = D2E.d2eclist
+
+type S2qaglst = D2E.s2qaglst
+
+type T2qaglst = D2E.t2qaglst
+
+type T2iaglst = D2E.t2iaglst
+
+type D2arglst = D2E.d2arglst
+
+type D2valdcl = D2E.d2valdcl
+
+type D2vardcl = D2E.d2vardcl
+
+type D2fundcl = D2E.d2fundcl
+
+type D2cstdcl = D2E.d2cstdcl
+
+type D2parsed = D2E.d2parsed
+
+type S2cstopt_vt = Optn_vt[S2cst]
+
+type S2typopt_vt = Optn_vt[S2typ]
+
+type D2valdclist = D2E.d2valdclist
+
+type D2vardclist = D2E.d2vardclist
+
+type D2fundclist = D2E.d2fundclist
+
+type D2cstdclist = D2E.d2cstdclist
+
+type D2explstopt = D2E.d2explstopt
+
+type D2eclistopt = D2E.d2eclistopt
+
+@extern
+def x2t2p_make_dvar(a: D2var) -> X2t2p
+
+@overload x2t2p = x2t2p_make_dvar
+
+@extern
+def d2cfn_fix_xtyp(a: D2cst) -> Void
+
+@extern
+def d2exp_sym0_styp(a: Loc_t, b: Sym_t, c: D2ptmlst, d: S2typ) -> D2exp
+
+@extern
+def s2typ_fun1_f2arglst(a: F2arglst, b: F2clknd, c: S2typ) -> S2typ
+
+@extern
+def s2typlst_of_d2patlst(a: D2patlst) -> S2typlst
+
+@overload s2typlst = s2typlst_of_d2patlst
+
+@extern
+def s2typlst_of_d2explst(a: D2explst) -> S2typlst
+
+@overload s2typlst = s2typlst_of_d2explst
+
+@extern
+def l2t2plst_of_l2d2plst(a: L2d2plst) -> L2t2plst
+
+@overload l2t2plst = l2t2plst_of_l2d2plst
+
+@extern
+def l2t2plst_of_l2d2elst(a: L2d2elst) -> L2t2plst
+
+@overload l2t2plst = l2t2plst_of_l2d2elst
+
+@extern
+def tr2aenv_make_nil() -> Tr2aenv
+
+@extern
+def tr2aenv_free_nil(a: Tr2aenv) -> Void
+
+@extern
+def tr2aenv_pshlet0(a: !Tr2aenv) -> Void
+
+@extern
+def tr2aenv_poplet0(a: !Tr2aenv) -> Void
+
+@extern
+def tr2aenv_pshloc1(a: !Tr2aenv) -> Void
+
+@extern
+def tr2aenv_pshloc2(a: !Tr2aenv) -> Void
+
+@extern
+def tr2aenv_locjoin(a: !Tr2aenv) -> Void
+
+@extern
+def tr2aenv_s2crch/opt(a: !Tr2aenv, b: S2cst) -> S2cstlst
+
+@extern
+def tr2aenv_s2cins/any(a: !Tr2aenv, b: S2cst) -> Void
+
+@extern
+def tr2aenv_evstyp_cst(a: !Tr2aenv, b: S2cst) -> S2typopt_vt
+
+@extern
+def list_trans2a_fnp[X0: Type, Y0: Type](a: !Tr2aenv, b: List[X0], c: (!Tr2aenv, X0) -> Y0) -> List[Y0]
+
+@extern
+def optn_trans2a_fnp[X0: Type, Y0: Type](a: !Tr2aenv, b: Optn[X0], c: (!Tr2aenv, X0) -> Y0) -> Optn[Y0]
+
+@extern
+def tr2aenv_s2typ(a: !Tr2aenv, b: S2typ) -> S2typ
+
+@extern
+def d2con2a_s2typ(a: Loc_t, b: D2con) -> S2typ
+
+@extern
+def d2cst2a_s2typ(a: Loc_t, b: D2cst) -> S2typ
+
+@extern
+def trans2a_d2pat(a: !Tr2aenv, b: D2pat) -> D2pat
+
+@extern
+def trans2a_d2exp(a: !Tr2aenv, b: D2exp) -> D2exp
+
+@extern
+def trans2a_l2d2p(a: !Tr2aenv, b: L2d2p) -> L2d2p
+
+@extern
+def trans2a_l2d2e(a: !Tr2aenv, b: L2d2e) -> L2d2e
+
+@extern
+def trans2a_f2arg(a: !Tr2aenv, b: F2arg) -> F2arg
+
+@extern
+def trans2a_d2gua(a: !Tr2aenv, b: D2gua) -> D2gua
+
+@extern
+def trans2a_d2gpt_tpck(a: !Tr2aenv, b: D2gpt, c: S2typ) -> D2gpt
+
+@extern
+def trans2a_d2cls_tpck(a: !Tr2aenv, b: D2cls, c: S2typ, d: S2typ) -> D2cls
+
+@extern
+def trans2a_d2ecl(a: !Tr2aenv, b: D2ecl) -> D2ecl
+
+@extern
+def trans2a_s2qag(a: !Tr2aenv, b: S2qag) -> S2qag
+
+@extern
+def trans2a_t2qag(a: !Tr2aenv, b: T2qag) -> T2qag
+
+@extern
+def trans2a_t2iag(a: !Tr2aenv, b: T2iag) -> T2iag
+
+@extern
+def trans2a_d2arg(a: !Tr2aenv, b: D2arg) -> D2arg
+
+@extern
+def tr2aenv_s2typlst(a: !Tr2aenv, b: S2typlst) -> S2typlst
+
+@extern
+def tr2aenv_l2t2plst(a: !Tr2aenv, b: L2t2plst) -> L2t2plst
+
+@extern
+def trans2a_d2patlst(a: !Tr2aenv, b: D2patlst) -> D2patlst
+
+@extern
+def trans2a_d2expopt(a: !Tr2aenv, b: D2expopt) -> D2expopt
+
+@extern
+def trans2a_d2explst(a: !Tr2aenv, b: D2explst) -> D2explst
+
+@extern
+def trans2a_l2d2plst(a: !Tr2aenv, b: L2d2plst) -> L2d2plst
+
+@extern
+def trans2a_l2d2elst(a: !Tr2aenv, b: L2d2elst) -> L2d2elst
+
+@extern
+def trans2a_f2arglst(a: !Tr2aenv, b: F2arglst) -> F2arglst
+
+@extern
+def trans2a_d2gualst(a: !Tr2aenv, b: D2gualst) -> D2gualst
+
+@extern
+def trans2a_d2clslst_tpck1(a: !Tr2aenv, b: D2clslst, c: S2typ, d: S2typ) -> D2clslst
+
+@extern
+def trans2a_d2eclist(a: !Tr2aenv, b: D2eclist) -> D2eclist
+
+@extern
+def trans2a_s2qaglst(a: !Tr2aenv, b: S2qaglst) -> S2qaglst
+
+@extern
+def trans2a_t2qaglst(a: !Tr2aenv, b: T2qaglst) -> T2qaglst
+
+@extern
+def trans2a_t2iaglst(a: !Tr2aenv, b: T2iaglst) -> T2iaglst
+
+@extern
+def trans2a_d2arglst(a: !Tr2aenv, b: D2arglst) -> D2arglst
+
+@extern
+def trans2a_d2valdcl(a: !Tr2aenv, b: D2valdcl) -> D2valdcl
+
+@extern
+def trans2a_d2vardcl(a: !Tr2aenv, b: D2vardcl) -> D2vardcl
+
+@extern
+def trans2a_d2fundcl(a: !Tr2aenv, b: D2fundcl) -> D2fundcl
+
+@extern
+def trans2a_d2cstdcl(a: !Tr2aenv, b: D2cstdcl) -> D2cstdcl
+
+@extern
+def trans2a_d2valdclist(a: !Tr2aenv, b: D2valdclist) -> D2valdclist
+
+@extern
+def trans2a_d2vardclist(a: !Tr2aenv, b: D2vardclist) -> D2vardclist
+
+@extern
+def trans2a_d2fundclist(a: !Tr2aenv, b: D2fundclist) -> D2fundclist
+
+@extern
+def trans2a_d2cstdclist(a: !Tr2aenv, b: D2cstdclist) -> D2cstdclist
+
+@extern
+def trans2a_d2explstopt(a: !Tr2aenv, b: D2explstopt) -> D2explstopt
+
+@extern
+def trans2a_d2eclistopt(a: !Tr2aenv, b: D2eclistopt) -> D2eclistopt
+
+@extern
+def deuni2a_s2typ(a: !Tr2aenv, b: S2typ) -> S2typ
+
+@extern
+def unify2a_s2typ(a: !Tr2aenv, b: S2typ, c: S2typ) -> Bool
+
+@extern
+def match2a_s2typ(a: !Tr2aenv, b: S2typ, c: S2typ) -> Bool
+
+@extern
+def unify2a_s2typlst(a: !Tr2aenv, b: S2typlst, c: S2typ) -> Bool
+
+@extern
+def match2a_s2typlst(a: !Tr2aenv, b: S2typlst, c: S2typlst) -> Bool
+
+@overload unify2a = unify2a_s2typ
+
+@overload match2a = match2a_s2typ
+
+@overload unify2a = unify2a_s2typlst
+
+@overload match2a = match2a_s2typlst
+
+@extern
+def trans2a_d2pat_tpck(a: !Tr2aenv, b: D2pat, c: S2typ) -> D2pat
+
+@extern
+def trans2a_d2pat_tpkc(a: !Tr2aenv, b: D2pat, c: S2typ) -> D2pat
+
+@extern
+def trans2a_d2exp_tpck(a: !Tr2aenv, b: D2exp, c: S2typ) -> D2exp
+
+@extern
+def trans2a_d2explst_tpck1(a: !Tr2aenv, b: D2explst, c: S2typ) -> D2explst
+
+@extern
+def trans2a_d2patlst_tpcks(a: !Tr2aenv, b: D2patlst, c: S2typlst) -> D2patlst
+
+@extern
+def trans2a_d2patlst_tpkcs(a: !Tr2aenv, b: D2patlst, c: S2typlst) -> D2patlst
+
+@extern
+def trans2a_d2explst_tpcks(a: !Tr2aenv, b: D2explst, c: S2typlst) -> D2explst
+
+@extern
+def trans2a_d2cst_inst(a: !Tr2aenv, b: Loc_t, c: D2cst, d: T2qas, e: T2ias) -> (S2vts, S2typ)
+
+@extern
+def trans2a_f2arglst_elim(a: !Tr2aenv, b: Loc_t, c: F2arglst, d: S2typ) -> (F2arglst, S2typ)
+

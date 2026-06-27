@@ -1,0 +1,298 @@
+import "srcgen2/SATS/locinfo" as LOC
+
+import "srcgen2/SATS/lexbuf0" as BUF
+
+from "srcgen2/SATS/xbasics" import *
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+type Loc_t = LOC.loc_t
+
+type Lcsrc = LOC.lcsrc
+
+type Lxbf1 = BUF.lxbf1
+
+type Lxbf2 = BUF.lxbf2
+
+@abstract
+type Token_tbox
+
+type Token = Token_tbox
+
+enum Tnode:
+    case T_EOF()
+    case T_ERR()
+    case T_EOL()
+    case T_BLANK(String)
+    case T_CLNLT(String)
+    case T_DOTLT(String)
+    case T_SPCHR(SInt)
+    case T_IDENT(String)
+    case T_IDALP(String)
+    case T_IDSYM(String)
+    case T_IDDLR(String)
+    case T_IDSRP(String)
+    case T_IDQUA(String)
+    case T_INT01(String)
+    case T_INT02(SInt, String)
+    case T_INT03(SInt, String, SInt)
+    case T_FLT01(String)
+    case T_FLT02(SInt, String)
+    case T_FLT03(SInt, String, SInt)
+    case T_CHAR1_nil0(String)
+    case T_CHAR2_char(String)
+    case T_CHAR3_blsh(String)
+    case T_STRN1_clsd(String, SInt)
+    case T_STRN2_ncls(String, SInt)
+    case T_CMNT1_line(String, String)
+    case T_CMNT2_rest(String, String)
+    case T_CMNT3_ccbl(SInt, String)
+    case T_CMNT4_mlbl(SInt, String)
+    case T_AT0()
+    case T_BAR()
+    case T_CLN()
+    case T_DOT()
+    case T_EQ0()
+    case T_LT0()
+    case T_GT0()
+    case T_DLR()
+    case T_SRP()
+    case T_EQLT()
+    case T_EQGT()
+    case T_LTGT()
+    case T_GTLT()
+    case T_MSLT()
+    case T_MSGT()
+    case T_GTDOT()
+    case T_COMMA()
+    case T_SMCLN()
+    case T_BSLSH()
+    case T_LPAREN()
+    case T_RPAREN()
+    case T_LBRCKT()
+    case T_RBRCKT()
+    case T_LBRACE()
+    case T_RBRACE()
+    case T_EXISTS(Int)
+    case T_TRCD10(Int)
+    case T_TRCD20(Int)
+    case T_AS0()
+    case T_OF0()
+    case T_OP1()
+    case T_OP2(Token)
+    case T_OP3(Token)
+    case T_IN0()
+    case T_AND()
+    case T_END()
+    case T_IF0()
+    case T_SIF()
+    case T_THEN()
+    case T_ELSE()
+    case T_WHEN()
+    case T_WITH()
+    case T_SCAS()
+    case T_CASE(Caskind)
+    case T_ENDST()
+    case T_LAM(Int)
+    case T_FIX(Int)
+    case T_LET()
+    case T_TRY()
+    case T_WHERE()
+    case T_LOCAL()
+    case T_ENDIF0()
+    case T_ENDCAS()
+    case T_ENDLAM()
+    case T_ENDFIX()
+    case T_ENDLET()
+    case T_ENDTRY()
+    case T_ENDWHR()
+    case T_ENDLOC()
+    case T_FUN(Funkind)
+    case T_VAL(Valkind)
+    case T_VAR(Varkind)
+    case T_IMPLMNT(Implknd)
+    case T_STACST0()
+    case T_ABSSORT()
+    case T_SORTDEF()
+    case T_SEXPDEF(Int)
+    case T_ABSIMPL()
+    case T_ABSOPEN()
+    case T_ABSTYPE(Int)
+    case T_DATASORT()
+    case T_EXCPTCON()
+    case T_DATATYPE(Int)
+    case T_WITHTYPE(Int)
+    case T_DLR_RAISE()
+    case T_DLR_EXTNAM()
+    case T_DLR_EXISTS()
+    case T_DLR_SYNEXT()
+    case T_SRP_IFDEF()
+    case T_SRP_IFEXP()
+    case T_SRP_THEN0()
+    case T_SRP_ELSE1()
+    case T_SRP_ELSIF()
+    case T_SRP_ENDIF()
+    case T_SRP_NONFIX()
+    case T_SRP_FIXITY(Int)
+    case T_SRP_STATIC()
+    case T_SRP_EXTERN()
+    case T_SRP_STAVAL()
+    case T_SRP_EXTVAL()
+    case T_SRP_DEFINE()
+    case T_SRP_MACDEF()
+    case T_SRP_SYMLOAD()
+    case T_SRP_STALOAD()
+    case T_SRP_DYNINIT()
+    case T_SRP_INCLUDE()
+    case T_SRP_EXTCODE()
+
+type Tokenlst = List[Token]
+
+type Tokenopt = Optn[Token]
+
+@extern
+let T0IDSYM_AT0: Tnode
+
+@extern
+let T0IDSYM_BAR: Tnode
+
+@extern
+let T0IDSYM_EQ0: Tnode
+
+@extern
+let T0IDSYM_LT0: Tnode
+
+@extern
+let T0IDSYM_GT0: Tnode
+
+@extern
+let T0IDSYM_EQGT: Tnode
+
+@extern
+let T0IDSYM_LTGT: Tnode
+
+@extern
+let T0IDSYM_MSLT: Tnode
+
+@extern
+let T0IDSYM_MSGT: Tnode
+
+@extern
+let T0IDALP_NONE: Tnode
+
+@extern
+def tnode_fprint(a: Tnode, b: FILR) -> Void
+
+@extern
+def token_fprint(a: Token, b: FILR) -> Void
+
+@extern
+def token_get_lctn(a: Token) -> Loc_t
+
+@extern
+def token_get_node(a: Token) -> Tnode
+
+@extern
+def token_make_node(a: Loc_t, b: Tnode) -> Token
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload token = token_make_node
+
+@extern
+def tnode_ANDq(a: Tnode) -> Bool
+
+@extern
+def tnode_BARq(a: Tnode) -> Bool
+
+@extern
+def tnode_CLNq(a: Tnode) -> Bool
+
+@overload ANDq = tnode_ANDq
+
+@overload BARq = tnode_BARq
+
+@overload CLNq = tnode_CLNq
+
+@extern
+def tnode_COMMAq(a: Tnode) -> Bool
+
+@extern
+def tnode_SMCLNq(a: Tnode) -> Bool
+
+@extern
+def tnode_BSCLNq(a: Tnode) -> Bool
+
+@overload COMMAq = tnode_COMMAq
+
+@overload SMCLNq = tnode_SMCLNq
+
+@overload BSCLNq = tnode_BSCLNq
+
+@extern
+def tnode_blankq(a: Tnode) -> Bool
+
+@extern
+def tnode_iscmnt(a: Tnode) -> Bool
+
+@extern
+def tnode_isskip(a: Tnode) -> Bool
+
+@overload blankq = tnode_blankq
+
+@overload iscmnt = tnode_iscmnt
+
+@overload isskip = tnode_isskip
+
+@extern
+def gobj_lexing/getc1[Obj: Vt](a: !Obj) -> SInt
+
+@extern
+def gobj_lexing/unget[Obj: Vt](a: !Obj, b: SInt) -> SInt
+
+@extern
+def gobj_lexing/fcnil[Obj: Vt](a: !Obj) -> Void
+
+@extern
+def gobj_lexing/fcseg[Obj: Vt](a: !Obj) -> String
+
+@extern
+def gobj_lexing/fclst[Obj: Vt](a: !Obj) -> List_vt[Char]
+
+@extern
+def gobj_lexing_tnode[Obj: Vt](a: !Obj) -> Tnode
+
+@extern
+def gobj_lexing_token[Obj: Vt](a: !Obj) -> Token
+
+@extern
+def lxbf1_lexing_tnode(a: !Lxbf1) -> Tnode
+
+@extern
+def lxbf1_lexing_tnodelst(a: !Lxbf1) -> List_vt[Tnode]
+
+@extern
+def lxbf2_lexing_token(a: !Lxbf2) -> Token
+
+@extern
+def lexing_tnode_search(a: String) -> Tnode
+
+@extern
+def lexing_tnode_insert(a: String, b: Tnode) -> Void
+
+@extern
+def lexing_lctnize_all(a: Lcsrc, b: List_vt[Tnode]) -> List_vt[Token]
+
+@extern
+def lexing_preping_all(a: List_vt[Token]) -> List_vt[Token]
+
+@extern
+def atext_tokenize(a: String) -> List_vt[Token]
+
+@extern
+def fpath_tokenize(a: String) -> List_vt[Token]
+

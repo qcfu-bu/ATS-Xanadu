@@ -1,0 +1,745 @@
+import "srcgen2/SATS/xstamp0" as TMP
+
+import "srcgen2/SATS/xsymbol" as SYM
+
+import "srcgen2/SATS/xlabel0" as LAB
+
+import "srcgen2/SATS/locinfo" as LOC
+
+import "srcgen2/SATS/lexing0" as LEX
+
+from "srcgen2/SATS/xbasics" import *
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+type Stamp = TMP.stamp
+
+type Lab_t = LAB.lab_t
+
+type Label = LAB.label
+
+type Loc_t = LOC.loc_t
+
+type Loctn = LOC.loctn
+
+type Lcsrc = LOC.lcsrc
+
+type Sym_t = SYM.sym_t
+
+type Token = LEX.token
+
+enum S2lab[X0]:
+    case S2LAB(Label, X0)
+
+@extern
+def s2lab_get_itm[X0: Type](a: S2lab[X0]) -> X0
+
+@overload itm = s2lab_get_itm
+
+@abstract
+type T2abs_tbox
+
+@abstract
+type T2dat_tbox
+
+type T2abs = T2abs_tbox
+
+type T2dat = T2dat_tbox
+
+@abstract
+type S2cst_tbox
+
+@abstract
+type S2var_tbox
+
+type S2cst = S2cst_tbox
+
+type S2var = S2var_tbox
+
+@abstract
+type S2arg_tbox
+
+type S2arg = S2arg_tbox
+
+@abstract
+type S2exp_tbox
+
+@abstract
+type S2hnf_tbox
+
+@abstract
+type S2typ_tbox
+
+type S2exp = S2exp_tbox
+
+type S2hnf = S2hnf_tbox
+
+type S2typ = S2typ_tbox
+
+type L2s2e = S2lab[S2exp]
+
+type L2t2p = S2lab[S2typ]
+
+import "srcgen2/SATS/staexp0" as S0E
+
+import "srcgen2/SATS/staexp1" as S1E
+
+type S1lab[X0: Type] = S1E.s1lab[X0]
+
+type Sort1 = S1E.sort1
+
+type S1exp = S1E.s1exp
+
+type Sort1lst = List[Sort1]
+
+type S1explst = List[S1exp]
+
+type S2cstlst = List[S2cst]
+
+type S2cstopt = Optn[S2cst]
+
+type S2varlst = List[S2var]
+
+type S2varopt = Optn[S2var]
+
+type S2arglst = List[S2arg]
+
+type S2explst = List[S2exp]
+
+type S2expopt = Optn[S2exp]
+
+type L2s2elst = List[L2s2e]
+
+type L2t2plst = List[L2t2p]
+
+type S2typlst = List[S2typ]
+
+type S2typopt = Optn[S2typ]
+
+type S2varlstlst = List[S2varlst]
+
+type S2explstlst = List[S2explst]
+
+type S2cstlst_vt = List_vt[S2cst]
+
+type S2cstopt_vt = Optn_vt[S2cst]
+
+type S2varlst_vt = List_vt[S2var]
+
+type S2varopt_vt = Optn_vt[S2var]
+
+type S2explst_vt = List_vt[S2exp]
+
+type S2expopt_vt = Optn_vt[S2exp]
+
+type S2typlst_vt = List_vt[S2typ]
+
+type S2typopt_vt = Optn_vt[S2typ]
+
+type L2s2elst_vt = List_vt[L2s2e]
+
+@extern
+def s2lab_fprint[X0: Type](a: S2lab[X0], b: FILR) -> Void
+
+enum T2bas:
+    case T2Bpred(Sym_t)
+    case T2Btabs(T2abs)
+    case T2Btdat(T2dat)
+    case T2Bimpr(Int, Sym_t)
+
+type Sort2lst = List[Sort2]
+
+type Sort2opt = Optn[Sort2]
+
+type Sort2lstlst = List[Sort2lst]
+
+type Sort2lstopt = Optn[Sort2lst]
+
+enum Sort2:
+    case S2Tid0(Sym_t)
+    case S2Tint(Int)
+    case S2Tbas(T2bas)
+    case S2Ttup(Sort2lst)
+    case S2Tfun0()
+    case S2Tfun1(Sort2lst, Sort2)
+    case S2Tapps(Sort2, Sort2lst)
+    case S2Tnone0()
+    case S2Tnone1(Sort1)
+    case S2Terrck(Int, Sort2)
+
+@extern
+def t2abs_make_name(a: Sym_t) -> T2abs
+
+@extern
+def t2dat_make_name(a: Sym_t) -> T2dat
+
+@extern
+def t2abs_fprint(a: T2abs, b: FILR) -> Void
+
+@extern
+def t2bas_fprint(a: T2bas, b: FILR) -> Void
+
+@extern
+def t2dat_fprint(a: T2dat, b: FILR) -> Void
+
+@extern
+def sort2_fprint(a: Sort2, b: FILR) -> Void
+
+@extern
+def t2abs_get_name(a: T2abs) -> Sym_t
+
+@extern
+def t2abs_get_stmp(a: T2abs) -> Stamp
+
+@overload name = t2abs_get_name
+
+@overload stmp = t2abs_get_stmp
+
+@extern
+def t2dat_get_name(a: T2dat) -> Sym_t
+
+@extern
+def t2dat_get_stmp(a: T2dat) -> Stamp
+
+@overload name = t2dat_get_name
+
+@overload stmp = t2dat_get_stmp
+
+@extern
+def t2dat_get_s2cs(a: T2dat) -> S2cstlst
+
+@extern
+def t2dat_set_s2cs(a: T2dat, b: S2cstlst) -> Void
+
+@overload s2cs = t2dat_get_s2cs
+
+@overload s2cs = t2dat_set_s2cs
+
+@extern
+let the_sort2_int0: Sort2
+
+@extern
+let the_sort2_addr: Sort2
+
+@extern
+let the_sort2_bool: Sort2
+
+@extern
+let the_sort2_char: Sort2
+
+@extern
+let the_sort2_strn: Sort2
+
+@extern
+let the_sort2_prop: Sort2
+
+@extern
+let the_sort2_view: Sort2
+
+@extern
+let the_sort2_type: Sort2
+
+@extern
+let the_sort2_tbox: Sort2
+
+@extern
+let the_sort2_tflt: Sort2
+
+@extern
+let the_sort2_vwtp: Sort2
+
+@extern
+let the_sort2_vtbx: Sort2
+
+@extern
+let the_sort2_vtft: Sort2
+
+@extern
+def sort2_int(a: SInt) -> Sort2
+
+@extern
+def sort2_none0() -> Sort2
+
+@extern
+def sort2_none1(a: Sort1) -> Sort2
+
+@extern
+def s2cst_fprint(a: S2cst, b: FILR) -> Void
+
+@extern
+def s2var_fprint(a: S2var, b: FILR) -> Void
+
+@extern
+def s2cst_get_lctn(a: S2cst) -> Loc_t
+
+@extern
+def s2cst_get_name(a: S2cst) -> Sym_t
+
+@extern
+def s2cst_get_sort(a: S2cst) -> Sort2
+
+@extern
+def s2cst_get_stmp(a: S2cst) -> Stamp
+
+@overload name = s2cst_get_lctn
+
+@overload name = s2cst_get_name
+
+@overload sort = s2cst_get_sort
+
+@overload stmp = s2cst_get_stmp
+
+@extern
+def s2cst_get_sexp(a: S2cst) -> S2expopt_vt
+
+@extern
+def s2cst_get_styp(a: S2cst) -> S2typopt_vt
+
+@extern
+def s2cst_set_sexp(a: S2cst, b: S2exp) -> Void
+
+@extern
+def s2cst_set_styp(a: S2cst, b: S2typ) -> Void
+
+@overload sexp = s2cst_get_sexp
+
+@overload styp = s2cst_get_styp
+
+@overload sexp = s2cst_set_sexp
+
+@overload styp = s2cst_set_styp
+
+@extern
+def s2abs_get_sexp(a: S2cst) -> S2expopt_vt
+
+@extern
+def s2abs_get_styp(a: S2cst) -> S2typopt_vt
+
+@extern
+def s2abs_set_sexp(a: S2cst, b: S2exp) -> Void
+
+@extern
+def s2abs_set_styp(a: S2cst, b: S2typ) -> Void
+
+@extern
+def s2var_get_name(a: S2var) -> Sym_t
+
+@extern
+def s2var_get_sort(a: S2var) -> Sort2
+
+@extern
+def s2var_get_stmp(a: S2var) -> Stamp
+
+@overload name = s2var_get_name
+
+@overload sort = s2var_get_sort
+
+@overload stmp = s2var_get_stmp
+
+@extern
+def s2var_set_sort(a: S2var, b: Sort2) -> Void
+
+@overload sort = s2var_set_sort
+
+@extern
+def s2cst_make_idst(a: Loc_t, b: Sym_t, c: Sort2) -> S2cst
+
+@extern
+def s2var_make_name(a: Sym_t) -> S2var
+
+@extern
+def s2var_make_sort(a: Sort2) -> S2var
+
+@extern
+def s2var_make_idst(a: Sym_t, b: Sort2) -> S2var
+
+@overload s2cst = s2cst_make_idst
+
+@overload s2var = s2var_make_idst
+
+@extern
+def the_s2cst_p1tr0() -> S2cst
+
+@extern
+def the_s2cst_p2tr0() -> S2cst
+
+@extern
+def the_s2cst_p2at0() -> S2cst
+
+@extern
+def the_s2cst_l0azy0() -> S2cst
+
+@extern
+def the_s2cst_l1azy0() -> S2cst
+
+@extern
+def the_s2cst_elazy0() -> S2cst
+
+@extern
+def the_s2cst_excptn() -> S2cst
+
+@extern
+def staexp2_inits0_reset() -> Void
+
+enum S2arg_node:
+    case S2Avar(S2var)
+    case S2Atck(S2var, Sort2)
+
+@extern
+def s2arg_fprint(a: S2arg, b: FILR) -> Void
+
+@extern
+def s2arg_get_sort(a: S2arg) -> Sort2
+
+@extern
+def s2arg_get_node(a: S2arg) -> S2arg_node
+
+@overload sort = s2arg_get_sort
+
+@overload node = s2arg_get_node
+
+@extern
+def s2arg_make_node(a: Sort2, b: S2arg_node) -> S2arg
+
+@overload s2arg = s2arg_make_node
+
+enum S2tex:
+    case S2TEXsrt(Sort2)
+    case S2TEXsub(S2var, S2explst)
+
+@extern
+def s2tex_fprint(a: S2tex, b: FILR) -> Void
+
+enum S2exp_node:
+    case S2Eint(SInt)
+    case S2Ebtf(Bool)
+    case S2Echr(Char)
+    case S2Estr(String)
+    case S2Ecst(S2cst)
+    case S2Evar(S2var)
+    case S2Eany(Int)
+    case S2Etop0(S2exp)
+    case S2Etop1(S2exp)
+    case S2Ecsts(S2cstlst)
+    case S2Earg1(SInt, S2exp)
+    case S2Eatx2(S2exp, S2exp)
+    case S2Eapps(S2exp, S2explst)
+    case S2Elam1(S2varlst, S2exp)
+    case S2Efun1(F2clknd, SInt, S2explst, S2exp)
+    case S2Emet0(S2explst, S2exp)
+    case S2Eexi0(S2varlst, S2explst, S2exp)
+    case S2Euni0(S2varlst, S2explst, S2exp)
+    case S2Elist(S2explst)
+    case S2Etype(S2typ)
+    case S2Etext(String, S2explst)
+    case S2Etrcd(Trcdknd, Int, L2s2elst)
+    case S2Eimpr(Loc_t, S2exp)
+    case S2Eprgm(Loc_t, S2exp)
+    case S2Ecast(Loc_t, S2exp, Sort2)
+    case S2Enone0()
+    case S2Enone1(S1exp)
+    case S2Enone2(S2exp)
+    case S2Eerrck(Int, S2exp)
+
+@extern
+def s2exp_fprint(a: S2exp, b: FILR) -> Void
+
+@extern
+def s2exp_get_sort(a: S2exp) -> Sort2
+
+@extern
+def l2s2e_get_sort(a: L2s2e) -> Sort2
+
+@extern
+def s2exp_get_node(a: S2exp) -> S2exp_node
+
+@extern
+def l2s2e_get_node(a: L2s2e) -> S2exp_node
+
+@overload sort = s2exp_get_sort
+
+@overload sort = l2s2e_get_sort
+
+@overload node = s2exp_get_node
+
+@overload node = l2s2e_get_node
+
+@extern
+def s2exp_int(a: SInt) -> S2exp
+
+@extern
+def s2exp_btf(a: Bool) -> S2exp
+
+@extern
+def s2exp_chr(a: Char) -> S2exp
+
+@extern
+def s2exp_flt(a: Double) -> S2exp
+
+@extern
+def s2exp_str(a: String) -> S2exp
+
+@extern
+def s2exp_any1() -> S2exp
+
+@extern
+def s2exp_anys(a: SInt) -> S2exp
+
+@extern
+def s2exp_none0() -> S2exp
+
+@extern
+def s2exp_none1(a: S1exp) -> S2exp
+
+@extern
+def s2exp_none2(a: S2exp) -> S2exp
+
+@extern
+def s2exp_a2pp(a: Loc_t, b: S2exp, c: S2exp, d: S2exp) -> S2exp
+
+@extern
+def s2exp_apps(a: Loc_t, b: S2exp, c: S2explst) -> S2exp
+
+@extern
+def s2exp_apps_pq(a: Loc_t, b: S2exp, c: S2explst) -> S2exp
+
+@extern
+def s2exp_lam1(a: S2varlst, b: S2exp) -> S2exp
+
+@extern
+def s2exp_lams(a: S2varlstlst, b: S2exp) -> S2exp
+
+@extern
+def s2exp_fun1_nil0(a: SInt, b: S2explst, c: S2exp) -> S2exp
+
+@extern
+def s2exp_fun1_all1(a: SInt, b: S2explst, c: S2exp) -> S2exp
+
+@extern
+def s2exp_fun1_full(a: F2clknd, b: SInt, c: S2explst, d: S2exp) -> S2exp
+
+@extern
+def s2exp_make_node(a: Sort2, b: S2exp_node) -> S2exp
+
+@overload s2exp = s2exp_make_node
+
+@abstract
+type F2env_tbox <= P0tr
+
+type F2env = F2env_tbox
+
+type F2envlst = List[F2env]
+
+type F2envopt = Optn[F2env]
+
+enum S2itm:
+    case S2ITMvar(S2var)
+    case S2ITMcst(S2cstlst)
+    case S2ITMenv(F2envlst)
+
+@extern
+def s2itm_fprint(a: S2itm, b: FILR) -> Void
+
+@extern
+def sort2_intq(a: Sort2) -> Bool
+
+@extern
+def sort2_funq(a: Sort2) -> Bool
+
+@extern
+def sort2_boxq(a: Sort2) -> Bool
+
+@extern
+def sort2_linq(a: Sort2) -> Bool
+
+@extern
+def sort2_prfq(a: Sort2) -> Bool
+
+@extern
+def sort2_addrq(a: Sort2) -> Bool
+
+@extern
+def sort2_boolq(a: Sort2) -> Bool
+
+@extern
+def sort2_charq(a: Sort2) -> Bool
+
+@extern
+def sort2_predq(a: Sort2) -> Bool
+
+@extern
+def sort2_imprq(a: Sort2) -> Bool
+
+@extern
+def sort2_prgmq(a: Sort2) -> Bool
+
+@extern
+def sort2_polpos(a: Sort2) -> Sort2
+
+@extern
+def sort2_polneg(a: Sort2) -> Sort2
+
+@extern
+def t2abs_equal(a: T2abs, b: T2abs) -> Bool
+
+@extern
+def t2bas_equal(a: T2bas, b: T2bas) -> Bool
+
+@extern
+def t2dat_equal(a: T2dat, b: T2dat) -> Bool
+
+@extern
+def lte_t2bas_t2bas(a: T2bas, b: T2bas) -> Bool
+
+@extern
+def lte_sort2_sort2(a: Sort2, b: Sort2) -> Bool
+
+@extern
+def lte_sort2lst_sort2lst(a: Sort2lst, b: Sort2lst) -> Bool
+
+@extern
+def s2cst_linq(a: S2cst) -> Bool
+
+@extern
+def s2cst_prfq(a: S2cst) -> Bool
+
+@extern
+def s2cst_imprq(a: S2cst) -> Bool
+
+@extern
+def s2cst_prgmq(a: S2cst) -> Bool
+
+@extern
+def s2cst_abstq(a: S2cst) -> Bool
+
+@extern
+def s2cst_dataq(a: S2cst) -> Bool
+
+@extern
+def s2exp_linq(a: S2exp) -> Bool
+
+@extern
+def s2exp_prfq(a: S2exp) -> Bool
+
+@extern
+def s2exp_imprq(a: S2exp) -> Bool
+
+@extern
+def s2exp_prgmq(a: S2exp) -> Bool
+
+@extern
+def s2exp_cbrfq(a: S2exp) -> Bool
+
+@extern
+def s2exp_dataq(a: S2exp) -> Bool
+
+@extern
+def s2explst_linq(a: S2explst) -> Bool
+
+@extern
+def s2explst_prfq(a: S2explst) -> Bool
+
+@extern
+def s2explst_imprq(a: S2explst) -> Bool
+
+@extern
+def s2explst_prgmq(a: S2explst) -> Bool
+
+@extern
+def l2s2elst_linq(a: L2s2elst) -> Bool
+
+@extern
+def l2s2elst_prfq(a: L2s2elst) -> Bool
+
+@extern
+def l2s2elst_imprq(a: L2s2elst) -> Bool
+
+@extern
+def l2s2elst_prgmq(a: L2s2elst) -> Bool
+
+@extern
+def s2exp_var(a: S2var) -> S2exp
+
+@extern
+def s2exp_cst(a: S2cst) -> S2exp
+
+@extern
+def s2exp_uni0(a: S2varlst, b: S2explst, c: S2exp) -> S2exp
+
+@extern
+def s2exp_exi0(a: S2varlst, b: S2explst, c: S2exp) -> S2exp
+
+@extern
+def s2exp_csts(a: S2cstlst) -> S2exp
+
+@extern
+def s2exp_l1st(a: Loc_t, b: S2explst) -> S2exp
+
+@extern
+def s2exp_l2st(a: Loc_t, b: S2explst, c: S2explst) -> S2exp
+
+@extern
+def s2exp_t1up(a: Loc_t, b: Token, c: S2explst) -> S2exp
+
+@extern
+def s2exp_t2up(a: Loc_t, b: Token, c: S2explst, d: S2explst) -> S2exp
+
+@extern
+def s2exp_r1cd(a: Loc_t, b: Token, c: L2s2elst) -> S2exp
+
+@extern
+def s2exp_r2cd(a: Loc_t, b: Token, c: L2s2elst, d: L2s2elst) -> S2exp
+
+@extern
+def s2exp_impr(a: Loc_t, b: S2exp) -> S2exp
+
+@extern
+def s2exp_prgm(a: Loc_t, b: S2exp) -> S2exp
+
+@extern
+def s2exp_cast(a: Loc_t, b: S2exp, c: Sort2) -> S2exp
+
+@extern
+def s2exp_stck(a: Loc_t, b: S2exp, c: Sort2) -> S2exp
+
+@extern
+def l2s2e_stck(a: Loc_t, b: L2s2e, c: Sort2) -> L2s2e
+
+@extern
+def s2explst_stck(a: Loc_t, b: S2explst, c: Sort2) -> S2explst
+
+@extern
+def l2s2elst_stck(a: Loc_t, b: L2s2elst, c: Sort2) -> L2s2elst
+
+@extern
+def l2s2elst_make_l1st(a: S2explst) -> L2s2elst
+
+@extern
+def l2s2elst_make_l2st(a: S2explst, b: S2explst) -> L2s2elst
+
+@extern
+def s2exp_revar0(a: S2exp, b: S2var, c: S2var) -> S2exp
+
+@extern
+def l2s2e_revar0(a: L2s2e, b: S2var, c: S2var) -> L2s2e
+
+@extern
+def s2explst_revar0(a: S2explst, b: S2var, c: S2var) -> S2explst
+
+@extern
+def l2s2elst_revar0(a: L2s2elst, b: S2var, c: S2var) -> L2s2elst
+
+@extern
+def s2exp_revarx(a: S2exp, b: S2var, c: S2var, d: &SInt >> _) -> S2exp
+
+@extern
+def l2s2e_revarx(a: L2s2e, b: S2var, c: S2var, d: &SInt >> _) -> L2s2e
+
+@extern
+def s2explst_revarx(a: S2explst, b: S2var, c: S2var, d: &SInt >> _) -> S2explst
+
+@extern
+def l2s2elst_revarx(a: L2s2elst, b: S2var, c: S2var, d: &SInt >> _) -> L2s2elst
+

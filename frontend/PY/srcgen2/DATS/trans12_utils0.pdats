@@ -1,0 +1,301 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+import "srcgen2/SATS/xsymbol" as SYM
+
+import "srcgen2/SATS/xlabel0" as LAM
+
+import "srcgen2/SATS/xsymmap" as MAP
+
+from "srcgen2/SATS/filpath" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/gmacro1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/trans01" import *
+
+from "srcgen2/SATS/trans12" import *
+
+enum G1val:
+    case G1Vint(SInt)
+    case G1Vbtf(Bool)
+    case G1Vchr(Char)
+    case G1Vflt(Float)
+    case G1Vstr(String)
+    case G1Vid0(sym_t)
+    case G1Vnone()
+
+@extern
+def g1val_fprint(gval: G1val, out0: FILR) -> Void
+
+@impl
+def g1val_fprint(gval, out0):
+    match gval:
+        case G1Vint(int):
+            prints("G1Vint(", int, ")")
+        case G1Vbtf(btf):
+            prints("G1Vbtf(", btf, ")")
+        case G1Vchr(chr):
+            prints("G1Vchr(", chr, ")")
+        case G1Vflt(flt):
+            prints("G1Vflt(", flt, ")")
+        case G1Vstr(str):
+            prints("G1Vstr(", str, ")")
+        case G1Vid0(sym):
+            prints("G1Vid0(", sym, ")")
+        case G1Vnone():
+            prints("G1Vnone()")
+where:
+    @impl[]
+    def g_print/out():
+        out0
+
+@impl[G1val]
+def g_print(gval):
+    g1val_fprint(gval, @inst[] g_print/out())
+
+@extern
+def g1mac_eval(tenv: !tr12env, gmac: g1mac) -> G1val
+
+@extern
+def g1exp_eval(tenv: !tr12env, gexp: g1exp) -> G1val
+
+@impl
+def g1mac_eval(tenv, gmac):
+    match gmac:
+        case G1Mid0(sym):
+            f0_id0(tenv, gmac)
+        case G1Mint(int):
+            G1Vint(int)
+        case G1Mbtf(btf):
+            G1Vbtf(btf)
+        case G1Mchr(chr):
+            G1Vchr(chr)
+        case G1Mflt(flt):
+            G1Vflt(flt)
+        case G1Mstr(str):
+            G1Vstr(str)
+        case _:
+            G1Vnone
+where:
+    def f0_id0(tenv: !tr12env, gmac: g1mac) -> G1val:
+        let G1Mid0(sym0) = gmac
+        let opt0 = tr12env_find_g1mac(tenv, sym0)
+        match opt0:
+            case ~optn_vt_nil():
+                G1Vnone
+            case ~optn_vt_cons(gmac):
+                g1mac_eval(tenv, gmac)
+
+@impl
+def g1exp_eval(tenv, gexp):
+    match gexp.node():
+        case G1Eid0(sym0):
+            f0_id0(tenv, gexp)
+        case G1Eint(tint):
+            G1Vint(token2sint(tint))
+        case G1Echr(tchr):
+            G1Vchr(token2schr(tchr))
+        case G1Eflt(tflt):
+            G1Vflt(token2sflt(tflt))
+        case G1Estr(tstr):
+            G1Vstr(token2sstr(tstr))
+        case G1Ea1pp(gfun, g1e1):
+            if ISDEFQ(gfun):
+                g1exp_defq(tenv, g1e1)
+            else:
+                let g1v1 = g1exp_eval(tenv, g1e1)
+                g1val_a1pp(gfun, g1v1)
+        case G1Ea2pp(gfun, g1e1, g1e2):
+            let g1v1 = g1exp_eval(tenv, g1e1)
+            let g1v2 = g1exp_eval(tenv, g1e2)
+            g1val_a2pp(gfun, g1v1, g1v2)
+        case G1Elist(g1es):
+            match g1es:
+                case list_nil():
+                    G1Vnone
+                case list_cons(g1e1, ges2):
+                    match ges2:
+                        case list_nil():
+                            g1exp_eval(tenv, g1e1)
+                        case list_cons(_):
+                            G1Vnone
+        case _:
+            G1Vnone
+where:
+    @overload name = SYM.symbl_get_name
+    def ISDEFQ(gfun: g1exp) -> Bool:
+        match gfun.node():
+            case G1Eid0(sym0):
+                match sym0.name():
+                    case "defq":
+                        true
+                    case _:
+                        false
+            case _:
+                false
+    def g1exp_defq(tenv: !tr12env, gexp: g1exp) -> G1val:
+        match gexp.node():
+            case G1Eid0(sym0):
+                let opt0 = tr12env_find_g1mac(tenv, sym0)
+                match opt0:
+                    case ~optn_vt_nil(_):
+                        G1Vbtf(false)
+                    case ~optn_vt_cons(_):
+                        G1Vbtf(true)
+            case G1Elist(g1es):
+                match g1es:
+                    case list_nil():
+                        G1Vbtf(false)
+                    case list_cons(g1e1, g1es):
+                        if list_nilq(g1es):
+                            g1exp_defq(tenv, g1e1)
+                        else:
+                            G1Vbtf(false)
+            case _:
+                G1Vbtf(false)
+    def g1val_a1pp(gfun: g1exp, g1v1: G1val) -> G1val:
+        match gfun.node():
+            case G1Eid0(sym0):
+                let opnm = sym0.name()
+                match opnm:
+                    case "!":
+                        f0_not(g1v1)
+                    case "~":
+                        f0_not(g1v1)
+                    case "-":
+                        f0_neg(g1v1)
+                    case _:
+                        G1Vnone
+            case _:
+                G1Vnone
+    where:
+        def f0_not(g1v1: G1val) -> G1val:
+            match g1v1:
+                case G1Vbtf(btf1):
+                    G1Vbtf(not btf1)
+                case G1Vint(int1):
+                    G1Vbtf(int1 != 0)
+                case _:
+                    G1Vnone
+        def f0_neg(g1v1: G1val) -> G1val:
+            match g1v1:
+                case G1Vint(int1):
+                    G1Vint(-(int1))
+                case _:
+                    G1Vnone
+    def g1val_a2pp(gfun: g1exp, g1v1: G1val, g1v2: G1val) -> G1val:
+        match gfun.node():
+            case G1Eid0(sym0):
+                let opnm = sym0.name()
+                match opnm:
+                    case "==":
+                        f0_eq2(g1v1, g1v2)
+                    case "!=":
+                        f0_neq(g1v1, g1v2)
+                    case "&&":
+                        f0_conj(g1v1, g1v2)
+                    case "||":
+                        f0_disj(g1v1, g1v2)
+                    case _:
+                        G1Vnone
+            case _:
+                G1Vnone
+    where:
+        def f0_eq2(g1v1: G1val, g1v2: G1val) -> G1val:
+            match g1v1:
+                case G1Vint(int1):
+                    match g1v2:
+                        case G1Vint(int2):
+                            G1Vbtf(int1 == int2)
+                        case _:
+                            G1Vnone
+                case G1Vbtf(btf1):
+                    match g1v2:
+                        case G1Vbtf(btf2):
+                            G1Vbtf(btf1 == btf2)
+                        case _:
+                            G1Vnone
+                case G1Vchr(chr1):
+                    match g1v2:
+                        case G1Vchr(chr2):
+                            G1Vbtf(chr1 == chr2)
+                        case _:
+                            G1Vnone
+                case G1Vflt(flt1):
+                    match g1v2:
+                        case G1Vflt(flt2):
+                            G1Vbtf(flt1 == flt2)
+                        case _:
+                            G1Vnone
+                case G1Vstr(str1):
+                    match g1v2:
+                        case G1Vstr(str2):
+                            G1Vbtf(str1 == str2)
+                        case _:
+                            G1Vnone
+                case _:
+                    G1Vnone
+        def f0_neq(g1v1: G1val, g1v2: G1val) -> G1val:
+            let gres = f0_eq2(g1v1, g1v2)
+            match gres:
+                case G1Vbtf(btf0):
+                    G1Vbtf(not btf0)
+                case _:
+                    G1Vnone
+        def f0_conj(g1v1: G1val, g1v2: G1val) -> G1val:
+            match g1v1:
+                case G1Vbtf(btf1):
+                    if btf1:
+                        g1v2
+                    else:
+                        g1v1
+                case _:
+                    G1Vnone
+        def f0_disj(g1v1: G1val, g1v2: G1val) -> G1val:
+            match g1v1:
+                case G1Vbtf(btf1):
+                    if btf1:
+                        g1v1
+                    else:
+                        g1v2
+                case _:
+                    G1Vnone
+    def f0_id0(tenv: !tr12env, gexp: g1exp) -> G1val:
+        let G1Eid0(sym0) = gexp.node()
+        let opt0 = tr12env_find_g1mac(tenv, sym0)
+        match opt0:
+            case ~optn_vt_nil():
+                G1Vnone
+            case ~optn_vt_cons(gmac):
+                g1mac_eval(tenv, gmac)
+
+@impl
+def tr12env_eval_ifexp(tenv, gexp):
+    let gval = g1exp_eval(tenv, gexp)
+    match gval:
+        case G1Vbtf(btf):
+            btf
+        case G1Vint(int):
+            if int != 0:
+                true
+            else:
+                false
+        case G1Vstr(str):
+            if str != "":
+                true
+            else:
+                false
+        case _:
+            false
+

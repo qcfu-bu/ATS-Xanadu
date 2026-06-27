@@ -1,0 +1,85 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/xglobal" import *
+
+from "srcgen2/SATS/gmacro1" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/SATS/t3read0" import *
+
+@linear
+enum Trdstk:
+    case Trdstk_nil()
+    case Trdstk_cons(timpl, Trdstk)
+
+@linear
+enum T3r0evn:
+    case T3R0EVN(Trdstk)
+
+@impl
+type T3r0evn_vtbx = T3r0evn
+
+def trdstk_timp/pop(stk0: &Trdstk) -> SInt:
+    match stk0:
+        case Trdstk_nil():
+            1
+        case Trdstk_cons(timp, stk1):
+            stk0 := stk1
+            0
+
+def trdstk_timp/psh(stk0: &Trdstk, timp: timpl) -> Void:
+    stk0 := Trdstk_cons(timp, stk0)
+
+def trdstk_tmps/get(stk0: !Trdstk) -> list[timpl]:
+    list_vt2t(loop(stk0, list_vt_nil))
+where:
+    def loop(stk0: !Trdstk, tmps: list_vt[timpl]) -> list_vt[timpl]:
+        match stk0:
+            case Trdstk_nil():
+                tmps
+            case Trdstk_cons(tmp1, stk1):
+                loop(stk1, list_vt_cons(tmp1, tmps))
+
+@impl
+def t3r0evn_make_nil():
+    T3R0EVN(Trdstk_nil)
+
+@impl
+def t3r0evn_free_nil(evn0):
+    let T3R0EVN(stk0) = evn0
+    match stk0:
+        case ~Trdstk_nil():
+            ()
+
+@impl
+def t3r0evn_tmps/get(evn0):
+    let T3R0EVN(stk0) = evn0
+    trdstk_tmps/get(stk0)
+
+@impl
+def t3r0evn_timp/pop(evn0):
+    let @(T3R0EVN)(!stk0) = evn0
+    let nerr = trdstk_timp/pop(stk0)
+    fold(evn0)
+
+@impl
+def t3r0evn_timp/psh(evn0, timp):
+    let @(T3R0EVN)(!stk0) = evn0
+    let nerr = trdstk_timp/psh(stk0, timp)
+    fold(evn0)
+

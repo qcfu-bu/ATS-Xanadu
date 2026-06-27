@@ -1,0 +1,188 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+def POLPOS(x: Int) -> Int:
+    x + 8
+
+def POLNEG(x: Int) -> Int:
+    x + 64
+
+@impl
+def sortbox(knd):
+    g0u2s(land(g0s2u(knd), g0s2u(1)))
+
+@impl
+def sortlin(knd):
+    g0u2s(land(g0s2u(asrn(knd, 1)), g0s2u(1)))
+
+@impl
+def sortprf(knd):
+    g0u2s(land(g0s2u(asrn(knd, 2)), g0s2u(1)))
+
+@impl
+def sortpol(knd):
+    let knd = asrn(knd, 3)
+    if knd <= 1:
+        knd
+    else:
+        -(1)
+
+@impl
+def sortpolpos(knd):
+    POLPOS(g0u2s(land(g0s2u(knd), g0s2u(7))))
+
+@impl
+def sortpolneg(knd):
+    POLNEG(g0u2s(land(g0s2u(knd), g0s2u(7))))
+
+@impl
+def subsort_test(t1, t2):
+    if (sortbox(t1) < sortbox(t2)):
+        false
+    else:
+        if (sortlin(t1) > sortlin(t2)):
+            false
+        else:
+            sortprf(t1) <= sortprf(t2)
+
+@impl
+def valkind_recq(vlk):
+    match vlk:
+        case VLKval():
+            ff
+        case VLKvlp():
+            ff
+        case VLKvln():
+            ff
+        case VLKvlr():
+            tt
+        case _:
+            ff
+where:
+    let tt = true
+    let ff = false
+
+@impl
+def valkind_prvq(vlk):
+    match vlk:
+        case VLKprval():
+            tt
+        case _:
+            ff
+where:
+    let tt = true
+    let ff = false
+
+@impl
+def funkind_recq(fnk):
+    match fnk:
+        case FNKfn0():
+            ff
+        case FNKfn1():
+            tt
+        case FNKfn2():
+            tt
+        case FNKfnx():
+            tt
+        case FNKfun():
+            tt
+        case FNKprfn0():
+            ff
+        case FNKprfn1():
+            tt
+        case FNKprfun():
+            tt
+        case _:
+            ff
+where:
+    let tt = true
+    let ff = false
+
+@impl
+def funkind_prfq(fnk):
+    match fnk:
+        case FNKprfn0():
+            tt
+        case FNKprfn1():
+            tt
+        case FNKprfun():
+            tt
+        case _:
+            ff
+where:
+    let tt = true
+    let ff = false
+
+@impl
+def implknd_recq(knd):
+    match knd:
+        case IMPLtmpr():
+            true
+        case _:
+            false
+
+@impl
+def f2clknd_linq(f2cl):
+    match f2cl:
+        case F2CLfun():
+            false
+        case F2CLclo(knd0):
+            knd0 >= 0
+
+@impl
+def f2clknd_equal(fcl1, fcl2):
+    match fcl1:
+        case F2CLfun():
+            match fcl2:
+                case F2CLfun():
+                    true
+                case F2CLclo(knd2):
+                    false
+        case F2CLclo(knd1):
+            match fcl2:
+                case F2CLfun():
+                    false
+                case F2CLclo(knd2):
+                    knd1 == knd2
+
+@impl
+def trcdknd_fltq(knd0):
+    match knd0:
+        case TRCDflt0():
+            true
+        case _:
+            false
+
+@impl
+def trcdknd_equal(knd1, knd2):
+    match knd1:
+        case TRCDflt0():
+            match knd2:
+                case TRCDflt0():
+                    true
+                case _:
+                    false
+        case TRCDbox0():
+            match knd2:
+                case TRCDbox0():
+                    true
+                case _:
+                    false
+        case TRCDbox1():
+            match knd2:
+                case TRCDbox1():
+                    true
+                case _:
+                    false
+        case TRCDbox2():
+            match knd2:
+                case TRCDbox2():
+                    true
+                case _:
+                    false
+

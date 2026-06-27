@@ -1,0 +1,66 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xlabel0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/SATS/trtmp3b" import *
+
+@overload name = d2cst_get_name
+
+@overload node = s2typ_get_node
+
+@overload node = simpl_get_node
+
+@overload node = dimpl_get_node
+
+@overload s2vs = s2qag_get_s2vs
+
+@overload s2vs = t2qag_get_s2vs
+
+@overload t2ps = t2jag_get_t2ps
+
+import "srcgen2/DATS/xsymmap_topmap.dats" as _
+
+@impl
+def tr3benv_t3apq_resolve(env0, d2c0, t2js):
+    let stmp = tr3benv_getstmp(env0)
+    let dcls = list_vt2t(tr3benv_search_dcst(env0, d2c0))
+    let dcls = myfilter(dcls)
+    timpl_make_node(stmp, TIMPLall1(d2c0, t2js, dcls))
+where:
+    def myfilter(dcls: d3eclist) -> d3eclist:
+        match dcls:
+            case list_nil():
+                list_nil()
+            case list_cons(dcl1, dcls):
+                let opt1 = tmpmatch_d3cl_t2js(dcl1, t2js)
+                match opt1:
+                    case optn_nil():
+                        myfilter(dcls)
+                    case optn_cons(tsub):
+                        if not(s2vts_stleq(tsub)):
+                            myfilter(dcls)
+                        else:
+                            let dcl1 = d3ecl_tmpsub(tsub, dcl1)
+                            list_cons(dcl1, myfilter(dcls))
+
+

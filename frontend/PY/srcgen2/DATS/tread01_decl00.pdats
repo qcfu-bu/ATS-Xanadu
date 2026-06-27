@@ -1,0 +1,747 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/dynexp0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/tread01" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload lctn = d1ecl_get_lctn
+
+@overload node = d1ecl_get_node
+
+@overload lctn = q1arg_get_lctn
+
+@overload node = q1arg_get_node
+
+@overload lctn = s1qag_get_lctn
+
+@overload node = s1qag_get_node
+
+@overload lctn = t1qag_get_lctn
+
+@overload node = t1qag_get_node
+
+@overload lctn = t1iag_get_lctn
+
+@overload node = t1iag_get_node
+
+@overload lctn = d1valdcl_get_lctn
+
+@overload lctn = d1vardcl_get_lctn
+
+@overload lctn = d1fundcl_get_lctn
+
+@overload lctn = d1cstdcl_get_lctn
+
+def d1ecl_errck(lvl: SInt, dcl: d1ecl) -> d1ecl:
+    d1ecl(dcl.lctn(), D1Cerrck(lvl, dcl))
+
+def d1ecl_then0_errck(loc0: loc_t, dcls: d1eclist) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl(loc0, D1Cthen0(dcls)))
+
+def d1ecl_else1_errck(loc0: loc_t, dcls: d1eclist) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl(loc0, D1Celse1(dcls)))
+
+def d1ecl_ifexp_errck(loc0: loc_t, gexp: g1exp, dthn: d1eclopt, dels: d1eclopt, dend: d1eclopt) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl_make_node(loc0, D1Cifexp(gexp, dthn, dels, dend)))
+
+def d1ecl_elsif_errck(loc0: loc_t, gexp: g1exp, dthn: d1eclopt, dels: d1eclopt, dend: d1eclopt) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl_make_node(loc0, D1Celsif(gexp, dthn, dels, dend)))
+
+def d1ecl_static_errck(loc0: loc_t, tknd: token, dcl1: d1ecl) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl(loc0, D1Cstatic(tknd, dcl1)))
+
+def d1ecl_extern_errck(loc0: loc_t, tknd: token, dcl1: d1ecl) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl(loc0, D1Cextern(tknd, dcl1)))
+
+def d1ecl_define_errck(loc0: loc_t, tknd: token, geid: token, gmas: g1maglst, gopt: g1expopt) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl_make_node(loc0, D1Cdefine(tknd, geid, gmas, gopt)))
+
+def d1ecl_local0_errck(loc0: loc_t, dcs1: d1eclist, dcs2: d1eclist) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl(loc0, D1Clocal0(dcs1, dcs2)))
+
+def d1ecl_stacst0_errck(loc0: loc_t, tknd: token, sid0: token, tmas: t1maglst, s1t1: sort1) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl(loc0, D1Cstacst0(tknd, sid0, tmas, s1t1)))
+
+def d1ecl_sortdef_errck(loc0: loc_t, tknd: token, tid0: token, stdf: s1tdf) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl(loc0, D1Csortdef(tknd, tid0, stdf)))
+
+def d1ecl_sexpdef_errck(loc0: loc_t, tknd: token, seid: token, smas: s1maglst, tres: sort1opt, sdef: s1exp) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl_make_node(loc0, D1Csexpdef(tknd, seid, smas, tres, sdef)))
+
+def d1ecl_abstype_errck(loc0: loc_t, tknd: token, seid: token, tmas: t1maglst, tres: sort1opt, atdf: a1tdf) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl_make_node(loc0, D1Cabstype(tknd, seid, tmas, tres, atdf)))
+
+def d1ecl_absimpl_errck(loc0: loc_t, tknd: token, sqid: s1qid, smas: s1maglst, tres: sort1opt, sdef: s1exp) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl_make_node(loc0, D1Cabsimpl(tknd, sqid, smas, tres, sdef)))
+
+def d1ecl_symload_errck(loc0: loc_t, tknd: token, deid: sym_t, dqid: d1qid, gopt: g1expopt) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl_make_node(loc0, D1Csymload(tknd, deid, dqid, gopt)))
+
+def d1ecl_include_errck(loc0: loc_t, knd0: SInt, tknd: token, g1e1: g1exp, fopt: fpathopt, dopt: d1eclistopt) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl_make_node(loc0, D1Cinclude(knd0, tknd, g1e1, fopt, dopt)))
+
+def d1ecl_staload_errck(loc0: loc_t, knd0: SInt, tknd: token, g1e1: g1exp, fopt: fpathopt, dopt: optn[(SInt, d1parsed)]) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl_make_node(loc0, D1Cstaload(knd0, tknd, g1e1, fopt, dopt)))
+
+def d1ecl_dyninit_errck(loc0: loc_t, tknd: token, g1e1: g1exp) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl(loc0, D1Cdyninit(tknd, g1e1)))
+
+def d1ecl_extcode_errck(loc0: loc_t, tknd: token, g1e1: g1exp) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl(loc0, D1Cextcode(tknd, g1e1)))
+
+def d1ecl_datasort_errck(loc0: loc_t, tknd: token, d1ts: d1tstlst) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl(loc0, D1Cdatasort(tknd, d1ts)))
+
+def d1ecl_valdclst_errck(loc0: loc_t, tknd: token, d1vs: d1valdclist) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl(loc0, D1Cvaldclst(tknd, d1vs)))
+
+def d1ecl_vardclst_errck(loc0: loc_t, tknd: token, d1vs: d1vardclist) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl(loc0, D1Cvardclst(tknd, d1vs)))
+
+def d1ecl_fundclst_errck(loc0: loc_t, tknd: token, tqas: t1qaglst, d1fs: d1fundclist) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl(loc0, D1Cfundclst(tknd, tqas, d1fs)))
+
+def d1ecl_implmnt0_errck(loc0: loc_t, tknd: token, sqas: s1qaglst, tqas: t1qaglst, dqid: d1qid, tias: t1iaglst, fags: f1arglst, sres: s1res, d1e1: d1exp) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl_make_node(loc0, D1Cimplmnt0(tknd, sqas, tqas, dqid, tias, fags, sres, d1e1)))
+
+def d1ecl_excptcon_errck(loc0: loc_t, tknd: token, tcns: d1tcnlst) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl(loc0, D1Cexcptcon(tknd, tcns)))
+
+def d1ecl_datatype_errck(loc0: loc_t, tknd: token, d1ts: d1typlst, wdcs: wd1eclseq) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl(loc0, D1Cdatatype(tknd, d1ts, wdcs)))
+
+def d1ecl_dynconst_errck(loc0: loc_t, tknd: token, tqas: t1qaglst, d1cs: d1cstdclist) -> d1ecl:
+    let lvl = 0
+    d1ecl_errck(lvl + 1, d1ecl(loc0, D1Cdynconst(tknd, tqas, d1cs)))
+
+@impl
+def tread01_d1ecl(d1cl, err):
+    match d1cl.node():
+        case D1Cnone0(_):
+            d1cl
+        case D1Cd0ecl(_):
+            d1cl
+        case D1Cthen0(_):
+            f0_then0(d1cl, err)
+        case D1Celse1(_):
+            f0_else1(d1cl, err)
+        case D1Cifexp(_):
+            f0_ifexp(d1cl, err)
+        case D1Celsif(_):
+            f0_elsif(d1cl, err)
+        case D1Cstatic(_):
+            f0_static(d1cl, err)
+        case D1Cextern(_):
+            f0_extern(d1cl, err)
+        case D1Cdefine(_):
+            f0_define(d1cl, err)
+        case D1Clocal0(_):
+            f0_local0(d1cl, err)
+        case D1Cabssort(_):
+            d1cl
+        case D1Cstacst0(_):
+            f0_stacst0(d1cl, err)
+        case D1Csortdef(_):
+            f0_sortdef(d1cl, err)
+        case D1Csexpdef(_):
+            f0_sexpdef(d1cl, err)
+        case D1Cabstype(_):
+            f0_abstype(d1cl, err)
+        case D1Cabsopen(_):
+            d1cl
+        case D1Cabsimpl(_):
+            f0_absimpl(d1cl, err)
+        case D1Csymload(_):
+            f0_symload(d1cl, err)
+        case D1Cinclude(_):
+            f0_include(d1cl, err)
+        case D1Cstaload(_):
+            f0_staload(d1cl, err)
+        case D1Cdyninit(_):
+            f0_dyninit(d1cl, err)
+        case D1Cextcode(_):
+            f0_extcode(d1cl, err)
+        case D1Cdatasort(_):
+            f0_datasort(d1cl, err)
+        case D1Cvaldclst(_):
+            f0_valdclst(d1cl, err)
+        case D1Cvardclst(_):
+            f0_vardclst(d1cl, err)
+        case D1Cfundclst(_):
+            f0_fundclst(d1cl, err)
+        case D1Cimplmnt0(_):
+            f0_implmnt0(d1cl, err)
+        case D1Cexcptcon(_):
+            f0_excptcon(d1cl, err)
+        case D1Cdatatype(_):
+            f0_datatype(d1cl, err)
+        case D1Cdynconst(_):
+            f0_dynconst(d1cl, err)
+        case _:
+            let lvl0 = 1
+            err := err + 1
+            d1ecl_errck(lvl0, d1cl)
+where:
+    let loc0 = d1cl.lctn()
+    def f0_then0(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Cthen0(dcls) = dcl.node()
+        let dcls = tread01_d1eclist(dcls, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_then0_errck(dcl.lctn(), dcls)
+    def f0_else1(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Celse1(dcls) = dcl.node()
+        let dcls = tread01_d1eclist(dcls, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_else1_errck(dcl.lctn(), dcls)
+    def f0_ifexp(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Cifexp(tknd, dthn, dels, dend) = dcl.node()
+        let dthn = tread01_d1eclopt(dthn, err)
+        let dels = tread01_d1eclopt(dels, err)
+        match dend:
+            case optn_cons(_):
+                ()
+            case _:
+                err := err + 1
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_ifexp_errck(dcl.lctn(), tknd, dthn, dels, dend)
+    def f0_elsif(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Celsif(tknd, dthn, dels, dend) = dcl.node()
+        let dthn = tread01_d1eclopt(dthn, err)
+        let dels = tread01_d1eclopt(dels, err)
+        match dend:
+            case optn_nil():
+                ()
+            case optn_cons(_):
+                err := err + 1
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_elsif_errck(dcl.lctn(), tknd, dthn, dels, dend)
+    def f0_static(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Cstatic(tknd, dcl1) = dcl.node()
+        let dcl1 = tread01_d1ecl(dcl1, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_static_errck(dcl.lctn(), tknd, dcl1)
+    def f0_extern(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Cextern(tknd, dcl1) = dcl.node()
+        let dcl1 = tread01_d1ecl(dcl1, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_extern_errck(dcl.lctn(), tknd, dcl1)
+    def f0_define(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Cdefine(tknd, geid, gmas, gopt) = dcl.node()
+        let gopt = tread01_g1expopt(gopt, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_define_errck(dcl.lctn(), tknd, geid, gmas, gopt)
+    def f0_local0(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let loc = dcl.lctn()
+        let D1Clocal0(dcs1, dcs2) = dcl.node()
+        let dcs1 = tread01_d1eclist(dcs1, err)
+        let dcs2 = tread01_d1eclist(dcs2, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_local0_errck(loc, dcs1, dcs2)
+    def f0_stacst0(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Cstacst0(tknd, sid0, tmas, s1t1) = dcl.node()
+        let tmas = tread01_t1maglst(tmas, err)
+        let s1t1 = tread01_sort1(s1t1, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_stacst0_errck(dcl.lctn(), tknd, sid0, tmas, s1t1)
+    def f0_sortdef(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let loc = dcl.lctn()
+        let D1Csortdef(tknd, tid0, stdf) = dcl.node()
+        let stdf = tread01_s1tdf(stdf, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_sortdef_errck(loc, tknd, tid0, stdf)
+    def f0_sexpdef(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Csexpdef(tknd, seid, smas, tres, sdef) = dcl.node()
+        let smas = tread01_s1maglst(smas, err)
+        let tres = tread01_sort1opt(tres, err)
+        let sdef = tread01_s1exp(sdef, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_sexpdef_errck(dcl.lctn(), tknd, seid, smas, tres, sdef)
+    def f0_abstype(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Cabstype(tknd, seid, tmas, tres, atdf) = dcl.node()
+        let smas = tread01_t1maglst(tmas, err)
+        let tres = tread01_sort1opt(tres, err)
+        let atdf = tread01_a1tdf(atdf, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_abstype_errck(dcl.lctn(), tknd, seid, tmas, tres, atdf)
+    def f0_absimpl(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Cabsimpl(tknd, sqid, smas, tres, sdef) = dcl.node()
+        let smas = tread01_s1maglst(smas, err)
+        let tres = tread01_sort1opt(tres, err)
+        let sdef = tread01_s1exp(sdef, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_absimpl_errck(dcl.lctn(), tknd, sqid, smas, tres, sdef)
+    def f0_symload(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Csymload(tknd, deid, dqid, gopt) = dcl.node()
+        let gopt = tread01_g1expopt(gopt, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_symload_errck(dcl.lctn(), tknd, deid, dqid, gopt)
+    def f0_include(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Cinclude(knd0, tknd, g1e1, fopt, dopt) = dcl.node()
+        let g1e1 = tread01_g1exp(g1e1, err)
+        let dopt = match dopt:
+            case optn_nil():
+                err := err + 1
+                optn_nil()
+            case optn_cons(dcls):
+                optn_cons(tread01_d1eclist(dcls, err))
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_include_errck(dcl.lctn(), knd0, tknd, g1e1, fopt, dopt)
+    def f0_staload(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Cstaload(knd0, tknd, g1e1, fopt, dopt) = dcl.node()
+        let g1e1 = tread01_g1exp(g1e1, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_staload_errck(dcl.lctn(), knd0, tknd, g1e1, fopt, dopt)
+    def f0_dyninit(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Cdyninit(tknd, g1e1) = dcl.node()
+        let g1e1 = tread01_g1exp(g1e1, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_dyninit_errck(dcl.lctn(), tknd, g1e1)
+    def f0_extcode(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Cextcode(tknd, g1e1) = dcl.node()
+        let g1e1 = tread01_g1exp(g1e1, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_extcode_errck(dcl.lctn(), tknd, g1e1)
+    def f0_datasort(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Cdatasort(tknd, d1ts) = dcl.node()
+        let d1ts = tread01_d1tstlst(d1ts, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_datasort_errck(dcl.lctn(), tknd, d1ts)
+    def f0_valdclst(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Cvaldclst(tknd, d1vs) = dcl.node()
+        let d1vs = tread01_d1valdclist(d1vs, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_valdclst_errck(dcl.lctn(), tknd, d1vs)
+    def f0_vardclst(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Cvardclst(tknd, d1vs) = dcl.node()
+        let d1vs = tread01_d1vardclist(d1vs, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_vardclst_errck(dcl.lctn(), tknd, d1vs)
+    def f0_fundclst(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let loc = dcl.lctn()
+        let D1Cfundclst(tknd, tqas, d1fs) = dcl.node()
+        let tqas = tread01_t1qaglst(tqas, err)
+        let d1fs = tread01_d1fundclist(d1fs, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_fundclst_errck(loc, tknd, tqas, d1fs)
+    def f0_implmnt0(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Cimplmnt0(tknd, sqas, tqas, dqid, tias, fags, sres, body) = dcl.node()
+        let sqas = tread01_s1qaglst(sqas, err)
+        let tqas = tread01_t1qaglst(tqas, err)
+        let tias = tread01_t1iaglst(tias, err)
+        let fags = tread01_f1arglst(fags, err)
+        let sres = tread01_s1res(sres, err)
+        let body = tread01_d1exp(body, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_implmnt0_errck(dcl.lctn(), tknd, sqas, tqas, dqid, tias, fags, sres, body)
+    def f0_excptcon(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let D1Cexcptcon(tknd, tcns) = dcl.node()
+        let tcns = tread01_d1tcnlst(tcns, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_excptcon_errck(dcl.lctn(), tknd, tcns)
+    def f0_datatype(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let loc = dcl.lctn()
+        let D1Cdatatype(tknd, d1ts, wdcs) = dcl.node()
+        let d1ts = tread01_d1typlst(d1ts, err)
+        let wdcs = tread01_wd1eclseq(wdcs, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_datatype_errck(loc, tknd, d1ts, wdcs)
+    def f0_dynconst(dcl: d1ecl, err: &SInt >> _) -> d1ecl:
+        let e00 = err
+        let loc = dcl.lctn()
+        let D1Cdynconst(tknd, tqas, d1cs) = dcl.node()
+        let tqas = tread01_t1qaglst(tqas, err)
+        let d1cs = tread01_d1cstdclist(d1cs, err)
+        if (err == e00):
+            dcl
+        else:
+            d1ecl_dynconst_errck(loc, tknd, tqas, d1cs)
+
+@impl
+def tread01_s1tcn(syn, err):
+    match syn.node():
+        case S1TCNnode(sid0, tres):
+            let e00 = err
+            let tres = tread01_sort1opt(tres, err)
+            if (err == e00):
+                syn
+            else:
+                s1tcn(syn.lctn(), S1TCNnode(sid0, tres))
+
+@impl
+def tread01_d1tst(syn, err):
+    match syn.node():
+        case D1TSTnode(tid0, tcns):
+            let e00 = err
+            let tcns = tread01_s1tcnlst(tcns, err)
+            if (err == e00):
+                syn
+            else:
+                d1tst(syn.lctn(), D1TSTnode(tid0, tcns))
+
+@impl
+def tread01_d1tcn(syn, err):
+    match syn.node():
+        case D1TCNnode(s1us, deid, s1es, sopt):
+            let e00 = err
+            let s1us = tread01_s1unilst(s1us, err)
+            let s1es = tread01_s1explst(s1es, err)
+            let sopt = tread01_s1expopt(sopt, err)
+            if (err == e00):
+                syn
+            else:
+                d1tcn_make_node(syn.lctn(), D1TCNnode(s1us, deid, s1es, sopt))
+
+@impl
+def tread01_d1typ(dtyp, err):
+    let e00 = err
+    let loc = dtyp.lctn()
+    let D1TYPnode(deid, tmas, tres, tcns) = dtyp.node()
+    let tmas = tread01_t1maglst(tmas, err)
+    let tres = tread01_sort1opt(tres, err)
+    let tcns = tread01_d1tcnlst(tcns, err)
+    if (err == e00):
+        dtyp
+    else:
+        d1typ_make_node(loc, D1TYPnode(deid, tmas, tres, tcns))
+
+@impl
+def tread01_q1arg(q1a0, err):
+    match q1a0.node():
+        case Q1ARGsome(tok1, tres):
+            let e00 = err
+            let tres = tread01_sort1opt(tres, err)
+            if (err == e00):
+                q1a0
+            else:
+                q1arg(q1a0.lctn(), Q1ARGsome(tok1, tres))
+
+@impl
+def tread01_s1qag(s1q0, err):
+    match s1q0.node():
+        case S1QAGsome(q1as):
+            let e00 = err
+            let q1as = tread01_q1arglst(q1as, err)
+            if (err == e00):
+                s1q0
+            else:
+                s1qag(s1q0.lctn(), S1QAGsome(q1as))
+
+@impl
+def tread01_t1qag(t1q0, err):
+    match t1q0.node():
+        case T1QAGsome(q1as):
+            let e00 = err
+            let q1as = tread01_q1arglst(q1as, err)
+            if (err == e00):
+                t1q0
+            else:
+                t1qag(t1q0.lctn(), T1QAGsome(q1as))
+
+@impl
+def tread01_t1iag(t1i0, err):
+    match t1i0.node():
+        case T1IAGsome(s1es):
+            let e00 = err
+            let s1es = tread01_s1explst(s1es, err)
+            if (err == e00):
+                t1i0
+            else:
+                t1iag(t1i0.lctn(), T1IAGsome(s1es))
+
+@impl
+def tread01_a1tdf(atdf, err):
+    match atdf:
+        case A1TDFsome():
+            atdf
+        case A1TDFlteq(s1e1):
+            let e00 = err
+            let s1e1 = tread01_s1exp(s1e1, err)
+            if (err == e00):
+                atdf
+            else:
+                A1TDFlteq(s1e1)
+        case A1TDFeqeq(s1e1):
+            let e00 = err
+            let s1e1 = tread01_s1exp(s1e1, err)
+            if (err == e00):
+                atdf
+            else:
+                A1TDFeqeq(s1e1)
+
+@impl
+def tread01_teqd1exp(tdxp, err):
+    match tdxp:
+        case TEQD1EXPnone():
+            tdxp
+        case TEQD1EXPsome(teq1, d1e2):
+            let e00 = err
+            let d1e2 = tread01_d1exp(d1e2, err)
+            if (err == e00):
+                tdxp
+            else:
+                TEQD1EXPsome(teq1, d1e2)
+
+@impl
+def tread01_wths1exp(wsxp, err):
+    match wsxp:
+        case WTHS1EXPnone():
+            wsxp
+        case WTHS1EXPsome(twth, s1e1):
+            let e00 = err
+            let s1e1 = tread01_s1exp(s1e1, err)
+            if (err == e00):
+                wsxp
+            else:
+                WTHS1EXPsome(twth, s1e1)
+
+@impl
+def tread01_d1valdcl(dval, err):
+    let e00 = err
+    let loc = dval.lctn()
+    let dpat = d1valdcl_get_dpat(dval)
+    let tdxp = d1valdcl_get_tdxp(dval)
+    let wsxp = d1valdcl_get_wsxp(dval)
+    let dpat = tread01_d1pat(dpat, err)
+    let tdxp = tread01_teqd1exp(tdxp, err)
+    let wsxp = tread01_wths1exp(wsxp, err)
+    if (err == e00):
+        dval
+    else:
+        d1valdcl(loc, dpat, tdxp, wsxp)
+
+@impl
+def tread01_d1vardcl(dvar, err):
+    let e00 = err
+    let loc = dvar.lctn()
+    let dpid = d1vardcl_get_dpid(dvar)
+    let vpid = d1vardcl_get_vpid(dvar)
+    let sres = d1vardcl_get_sres(dvar)
+    let dini = d1vardcl_get_dini(dvar)
+    let sres = tread01_s1expopt(sres, err)
+    let dini = tread01_teqd1exp(dini, err)
+    if (err == e00):
+        dvar
+    else:
+        d1vardcl(loc, dpid, vpid, sres, dini)
+
+@impl
+def tread01_d1fundcl(dfun, err):
+    let e00 = err
+    let loc = dfun.lctn()
+    let dpid = d1fundcl_get_dpid(dfun)
+    let farg = d1fundcl_get_farg(dfun)
+    let sres = d1fundcl_get_sres(dfun)
+    let tdxp = d1fundcl_get_tdxp(dfun)
+    let wsxp = d1fundcl_get_wsxp(dfun)
+    let farg = tread01_f1arglst(farg, err)
+    let sres = tread01_s1res(sres, err)
+    let tdxp = tread01_teqd1exp(tdxp, err)
+    let wsxp = tread01_wths1exp(wsxp, err)
+    if (err == e00):
+        dfun
+    else:
+        d1fundcl(loc, dpid, farg, sres, tdxp, wsxp)
+
+@impl
+def tread01_d1cstdcl(dcst, err):
+    let e00 = err
+    let loc = dcst.lctn()
+    let dpid = d1cstdcl_get_dpid(dcst)
+    let darg = d1cstdcl_get_darg(dcst)
+    let sres = d1cstdcl_get_sres(dcst)
+    let dres = d1cstdcl_get_dres(dcst)
+    let darg = tread01_d1arglst(darg, err)
+    let sres = tread01_s1res(sres, err)
+    let dres = tread01_teqd1exp(dres, err)
+    if (err == e00):
+        dcst
+    else:
+        d1cstdcl(loc, dpid, darg, sres, dres)
+
+@impl
+def tread01_d1eclist(dcls, err):
+    list_tread01_fnp(dcls, err, tread01_d1ecl)
+
+@impl
+def tread01_d1eclopt(dcls, err):
+    optn_tread01_fnp(dcls, err, tread01_d1ecl)
+
+@impl
+def tread01_s1tcnlst(tcns, err):
+    list_tread01_fnp(tcns, err, tread01_s1tcn)
+
+@impl
+def tread01_d1tstlst(d1ts, err):
+    list_tread01_fnp(d1ts, err, tread01_d1tst)
+
+@impl
+def tread01_d1tcnlst(tcns, err):
+    list_tread01_fnp(tcns, err, tread01_d1tcn)
+
+@impl
+def tread01_d1typlst(d1ts, err):
+    list_tread01_fnp(d1ts, err, tread01_d1typ)
+
+@impl
+def tread01_q1arglst(q1as, err):
+    list_tread01_fnp(q1as, err, tread01_q1arg)
+
+@impl
+def tread01_s1qaglst(sqas, err):
+    list_tread01_fnp(sqas, err, tread01_s1qag)
+
+@impl
+def tread01_t1qaglst(tqas, err):
+    list_tread01_fnp(tqas, err, tread01_t1qag)
+
+@impl
+def tread01_t1iaglst(tias, err):
+    list_tread01_fnp(tias, err, tread01_t1iag)
+
+@impl
+def tread01_wd1eclseq(wdcs, err):
+    match wdcs:
+        case WD1CSnone():
+            wdcs
+        case WD1CSsome(d1cs):
+            let e00 = err
+            let d1cs = tread01_d1eclist(d1cs, err)
+            if (err == e00):
+                wdcs
+            else:
+                WD1CSsome(d1cs)
+
+@impl
+def tread01_d1valdclist(d1vs, err):
+    list_tread01_fnp(d1vs, err, tread01_d1valdcl)
+
+@impl
+def tread01_d1vardclist(d1vs, err):
+    list_tread01_fnp(d1vs, err, tread01_d1vardcl)
+
+@impl
+def tread01_d1fundclist(d1fs, err):
+    list_tread01_fnp(d1fs, err, tread01_d1fundcl)
+
+@impl
+def tread01_d1cstdclist(d1cs, err):
+    list_tread01_fnp(d1cs, err, tread01_d1cstdcl)
+

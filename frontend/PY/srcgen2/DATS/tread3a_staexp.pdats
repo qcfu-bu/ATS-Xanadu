@@ -1,0 +1,257 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/tread3a" import *
+
+@overload styp = x2t2p_get_styp
+
+@overload node = s2typ_get_node
+
+@overload sort = s2typ_get_sort
+
+@overload lctn = t2jag_get_lctn
+
+@overload t2ps = t2jag_get_t2ps
+
+def s2typ_errck(lvl0: SInt, t2p0: s2typ) -> s2typ:
+    let s2t0 = t2p0.sort()
+    s2typ_make_node(s2t0, T2Perrck(lvl0, t2p0))
+
+def s2typ_lft_errck(s2t0: sort2, t2p1: s2typ) -> s2typ:
+    let lvl0 = 1
+    s2typ_errck(lvl0, s2typ(s2t0, T2Plft(t2p1)))
+
+def s2typ_top0_errck(s2t0: sort2, t2p1: s2typ) -> s2typ:
+    let lvl0 = 1
+    s2typ_errck(lvl0, s2typ(s2t0, T2Ptop0(t2p1)))
+
+def s2typ_top1_errck(s2t0: sort2, t2p1: s2typ) -> s2typ:
+    let lvl0 = 1
+    s2typ_errck(lvl0, s2typ(s2t0, T2Ptop1(t2p1)))
+
+def s2typ_arg1_errck(s2t0: sort2, knd0: Int, t2p1: s2typ) -> s2typ:
+    let lvl0 = 1
+    s2typ_errck(lvl0, s2typ(s2t0, T2Parg1(knd0, t2p1)))
+
+def s2typ_atx2_errck(s2t0: sort2, t2p1: s2typ, t2p2: s2typ) -> s2typ:
+    let lvl0 = 1
+    s2typ_errck(lvl0, s2typ(s2t0, T2Patx2(t2p1, t2p2)))
+
+def s2typ_apps_errck(s2t0: sort2, t2f0: s2typ, t2ps: s2typlst) -> s2typ:
+    let lvl0 = 1
+    s2typ_errck(lvl0, s2typ(s2t0, T2Papps(t2f0, t2ps)))
+
+def s2typ_fun1_errck(s2t0: sort2, f2cl: s2typ, npf1: SInt, t2ps: s2typlst, tres: s2typ) -> s2typ:
+    let lvl0 = 1
+    s2typ_errck(lvl0, s2typ_make_node(s2t0, T2Pfun1(f2cl, npf1, t2ps, tres)))
+
+def s2typ_exi0_errck(s2t0: sort2, s2vs: s2varlst, t2p1: s2typ) -> s2typ:
+    let lvl0 = 1
+    s2typ_errck(lvl0, s2typ(s2t0, T2Pexi0(s2vs, t2p1)))
+
+def s2typ_uni0_errck(s2t0: sort2, s2vs: s2varlst, t2p1: s2typ) -> s2typ:
+    let lvl0 = 1
+    s2typ_errck(lvl0, s2typ(s2t0, T2Puni0(s2vs, t2p1)))
+
+def s2typ_text_errck(s2t0: sort2, name: String, t2ps: s2typlst) -> s2typ:
+    let lvl0 = 1
+    s2typ_errck(lvl0, s2typ(s2t0, T2Ptext(name, t2ps)))
+
+def s2typ_trcd_errck(s2t0: sort2, tknd: trcdknd, npf1: Int, ltps: l2t2plst) -> s2typ:
+    let lvl0 = 1
+    s2typ_errck(lvl0, s2typ(s2t0, T2Ptrcd(tknd, npf1, ltps)))
+
+@impl
+def tread3a_s2typ(t2p0, err):
+    match t2p0.node():
+        case T2Pcst(_):
+            t2p0
+        case T2Pvar(_):
+            t2p0
+        case T2Plft(_):
+            f0_lft(t2p0, err)
+        case T2Pxtv(_):
+            f0_xtv(t2p0, err)
+        case T2Pf2cl(_):
+            t2p0
+        case T2Ptop0(_):
+            f0_top0(t2p0, err)
+        case T2Ptop1(_):
+            f0_top1(t2p0, err)
+        case T2Parg1(_):
+            f0_arg1(t2p0, err)
+        case T2Patx2(_):
+            f0_atx2(t2p0, err)
+        case T2Papps(_):
+            f0_apps(t2p0, err)
+        case T2Pfun1(_):
+            f0_fun1(t2p0, err)
+        case T2Pexi0(_):
+            f0_exi0(t2p0, err)
+        case T2Puni0(_):
+            f0_uni0(t2p0, err)
+        case T2Ptext(_):
+            f0_text(t2p0, err)
+        case T2Ptrcd(_):
+            f0_trcd(t2p0, err)
+        case T2Pnone0(_):
+            f0_none0(t2p0, err)
+        case T2Pnone1(_):
+            f0_none1(t2p0, err)
+        case T2Ps2exp(_):
+            f0_s2exp(t2p0, err)
+where:
+    def f0_lft(t2p: s2typ, err: &SInt >> _) -> s2typ:
+        let e00 = err
+        let T2Plft(t2p1) = t2p.node()
+        let t2p1 = tread3a_s2typ(t2p1, err)
+        if (err == e00):
+            t2p
+        else:
+            s2typ_lft_errck(t2p.sort(), t2p1)
+    def f0_xtv(t2p: s2typ, err: &SInt >> _) -> s2typ:
+        let T2Pxtv(xtv1) = t2p.node()
+        tread3a_s2typ(xtv1.styp(), err)
+    def f0_top0(t2p: s2typ, err: &SInt >> _) -> s2typ:
+        let e00 = err
+        let T2Ptop0(t2p1) = t2p.node()
+        let t2p1 = tread3a_s2typ(t2p1, err)
+        if (err == e00):
+            t2p
+        else:
+            s2typ_top0_errck(t2p.sort(), t2p1)
+    def f0_top1(t2p: s2typ, err: &SInt >> _) -> s2typ:
+        let e00 = err
+        let T2Ptop1(t2p1) = t2p.node()
+        let t2p1 = tread3a_s2typ(t2p1, err)
+        if (err == e00):
+            t2p
+        else:
+            s2typ_top1_errck(t2p.sort(), t2p1)
+    def f0_arg1(t2p: s2typ, err: &SInt >> _) -> s2typ:
+        let e00 = err
+        let T2Parg1(knd0, t2p1) = t2p.node()
+        let t2p1 = tread3a_s2typ(t2p1, err)
+        if (err == e00):
+            t2p
+        else:
+            s2typ_arg1_errck(t2p.sort(), knd0, t2p1)
+    def f0_atx2(t2p: s2typ, err: &SInt >> _) -> s2typ:
+        let e00 = err
+        let T2Patx2(t2p1, t2p2) = t2p.node()
+        let t2p1 = tread3a_s2typ(t2p1, err)
+        let t2p2 = tread3a_s2typ(t2p2, err)
+        if (err == e00):
+            t2p
+        else:
+            s2typ_atx2_errck(t2p.sort(), t2p1, t2p2)
+    def f0_apps(t2p: s2typ, err: &SInt >> _) -> s2typ:
+        let e00 = err
+        let T2Papps(t2f0, t2ps) = t2p.node()
+        let t2f0 = tread3a_s2typ(t2f0, err)
+        let t2ps = tread3a_s2typlst(t2ps, err)
+        if (err == e00):
+            t2p
+        else:
+            s2typ_apps_errck(t2p.sort(), t2f0, t2ps)
+    def f0_fun1(t2p: s2typ, err: &SInt >> _) -> s2typ:
+        let e00 = err
+        let T2Pfun1(f2cl, npf1, t2ps, tres) = t2p.node()
+        let f2cl = tread3a_s2typ(f2cl, err)
+        let t2ps = tread3a_s2typlst(t2ps, err)
+        let tres = tread3a_s2typ(tres, err)
+        if (err == e00):
+            t2p
+        else:
+            s2typ_fun1_errck(t2p.sort(), f2cl, npf1, t2ps, tres)
+    def f0_exi0(t2p: s2typ, err: &SInt >> _) -> s2typ:
+        let e00 = err
+        let T2Pexi0(s2vs, t2p1) = t2p.node()
+        let t2p1 = tread3a_s2typ(t2p1, err)
+        if (err == e00):
+            t2p
+        else:
+            let s2t = t2p.sort()
+            s2typ_exi0_errck(s2t, s2vs, t2p1)
+    def f0_uni0(t2p: s2typ, err: &SInt >> _) -> s2typ:
+        let e00 = err
+        let T2Puni0(s2vs, t2p1) = t2p.node()
+        let t2p1 = tread3a_s2typ(t2p1, err)
+        if (err == e00):
+            t2p
+        else:
+            let s2t = t2p.sort()
+            s2typ_uni0_errck(s2t, s2vs, t2p1)
+    def f0_text(t2p: s2typ, err: &SInt >> _) -> s2typ:
+        let e00 = err
+        let T2Ptext(name, t2ps) = t2p.node()
+        let t2ps = tread3a_s2typlst(t2ps, err)
+        if (err == e00):
+            t2p
+        else:
+            s2typ_text_errck(t2p.sort(), name, t2ps)
+    def f0_trcd(t2p: s2typ, err: &SInt >> _) -> s2typ:
+        let e00 = err
+        let T2Ptrcd(tknd, npf1, ltps) = t2p.node()
+        let ltps = tread3a_l2t2plst(ltps, err)
+        if (err == e00):
+            t2p
+        else:
+            let s2t = t2p.sort()
+            s2typ_trcd_errck(s2t, tknd, npf1, ltps)
+    def f0_none0(t2p: s2typ, err: &SInt >> _) -> s2typ:
+        t2p
+    def f0_none1(t2p: s2typ, err: &SInt >> _) -> s2typ:
+        let lvl0 = 1
+        err := err + 1
+        s2typ_errck(lvl0, t2p0)
+    def f0_s2exp(t2p: s2typ, err: &SInt >> _) -> s2typ:
+        t2p
+
+@impl
+def tread3a_l2t2p(lt2p, err):
+    let e00 = err
+    let S2LAB(lab, t2p) = lt2p
+    let t2p = tread3a_s2typ(t2p, err)
+    if (err == e00):
+        lt2p
+    else:
+        S2LAB(lab, t2p)
+
+@impl
+def tread3a_t2jag(tjag, err):
+    let e00 = err
+    let t2ps = t2jag_get_t2ps(tjag)
+    let t2ps = tread3a_s2typlst(t2ps, err)
+    if (err == e00):
+        tjag
+    else:
+        t2jag_make_t2ps(tjag.lctn(), t2ps)
+
+@impl
+def tread3a_s2typlst(t2ps, err):
+    list_tread3a_fnp(t2ps, err, tread3a_s2typ)
+
+@impl
+def tread3a_l2t2plst(ltps, err):
+    list_tread3a_fnp(ltps, err, tread3a_l2t2p)
+
+@impl
+def tread3a_t2jaglst(t2js, err):
+    list_tread3a_fnp(t2js, err, tread3a_t2jag)
+

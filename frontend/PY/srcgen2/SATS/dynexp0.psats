@@ -1,0 +1,954 @@
+import "srcgen2/SATS/xsymbol" as SYM
+
+import "srcgen2/SATS/xlabel0" as LAB
+
+import "srcgen2/SATS/locinfo" as LOC
+
+import "srcgen2/SATS/lexing0" as LEX
+
+import "srcgen2/SATS/staexp0" as S0E
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+type Sym_t = SYM.sym_t
+
+type Lab_t = LAB.lab_t
+
+type Label = LAB.label
+
+type Loc_t = LOC.loc_t
+
+type Loctn = LOC.loctn
+
+type Lcsrc = LOC.lcsrc
+
+type Token = LEX.token
+
+type L0abl = S0E.l0abl
+
+type S0ymb = S0E.s0ymb
+
+type I0dnt = S0E.i0dnt
+
+type T0int = S0E.t0int
+
+type T0chr = S0E.t0chr
+
+type T0flt = S0E.t0flt
+
+type T0str = S0E.t0str
+
+type G0eid = S0E.g0eid
+
+type S0tid = S0E.s0tid
+
+type S0aid = S0E.s0aid
+
+type S0eid = S0E.s0eid
+
+type S0qid = S0E.s0qid
+
+type D0pid = S0E.d0pid
+
+type D0eid = S0E.d0eid
+
+type D0qid = S0E.d0qid
+
+type G0nam = S0E.g0nam
+
+type G0exp = S0E.g0exp
+
+type G0mag = S0E.g0mag
+
+type Sort0 = S0E.sort0
+
+type S0exp = S0E.s0exp
+
+type D0tst = S0E.d0tst
+
+type S0tdf = S0E.s0tdf
+
+type D0tcn = S0E.d0tcn
+
+type D0typ = S0E.d0typ
+
+type S0arg = S0E.s0arg
+
+type S0mag = S0E.s0mag
+
+type T0arg = S0E.t0arg
+
+type T0mag = S0E.t0mag
+
+type S0qua = S0E.s0qua
+
+type Tokenlst = List[Token]
+
+type Tokenopt = Optn[Token]
+
+type I0dntlst = List[I0dnt]
+
+type G0explst = List[G0exp]
+
+type G0expopt = Optn[G0exp]
+
+type G0maglst = List[G0mag]
+
+type Sort0lst = List[Sort0]
+
+type Sort0opt = Optn[Sort0]
+
+type S0explst = List[S0exp]
+
+type S0expopt = Optn[S0exp]
+
+type D0tstlst = List[D0tst]
+
+type S0arglst = List[S0arg]
+
+type S0maglst = List[S0mag]
+
+type T0arglst = List[T0arg]
+
+type T0maglst = List[T0mag]
+
+type S0qualst = List[S0qua]
+
+type D0tcnlst = List[D0tcn]
+
+type D0typlst = List[D0typ]
+
+@abstract
+type Q0arg_tbox
+
+@abstract
+type S0qag_tbox
+
+@abstract
+type T0qag_tbox
+
+@abstract
+type T0iag_tbox
+
+@abstract
+type A0typ_tbox
+
+@abstract
+type D0arg_tbox
+
+@abstract
+type D0pat_tbox
+
+@abstract
+type D0exp_tbox
+
+@abstract
+type D0ecl_tbox
+
+@abstract
+type F0arg_tbox
+
+@abstract
+type D0cls_tbox
+
+@abstract
+type D0gua_tbox
+
+@abstract
+type D0gpt_tbox
+
+@abstract
+type D0cstdcl_tbox
+
+@abstract
+type D0fundcl_tbox
+
+@abstract
+type D0valdcl_tbox
+
+@abstract
+type D0vardcl_tbox
+
+@abstract
+type I0mpldcl_tbox
+
+type Q0arg = Q0arg_tbox
+
+type S0qag = S0qag_tbox
+
+type T0qag = T0qag_tbox
+
+type T0iag = T0iag_tbox
+
+type A0typ = A0typ_tbox
+
+type D0arg = D0arg_tbox
+
+type D0pat = D0pat_tbox
+
+type D0exp = D0exp_tbox
+
+type D0ecl = D0ecl_tbox
+
+type F0arg = F0arg_tbox
+
+type D0cls = D0cls_tbox
+
+type D0gua = D0gua_tbox
+
+type D0gpt = D0gpt_tbox
+
+type Q0arglst = List[Q0arg]
+
+type S0qaglst = List[S0qag]
+
+type T0qaglst = List[T0qag]
+
+type T0iaglst = List[T0iag]
+
+type A0typlst = List[A0typ]
+
+type D0arglst = List[D0arg]
+
+type D0pidopt = Optn[D0pid]
+
+type D0patlst = List[D0pat]
+
+type D0explst = List[D0exp]
+
+type D0eclist = List[D0ecl]
+
+type D0patopt = Optn[D0pat]
+
+type D0expopt = Optn[D0exp]
+
+type F0arglst = List[F0arg]
+
+type D0clslst = List[D0cls]
+
+type D0gualst = List[D0gua]
+
+type D0gptlst = List[D0gpt]
+
+type D0cstdcl = D0cstdcl_tbox
+
+type D0fundcl = D0fundcl_tbox
+
+type D0valdcl = D0valdcl_tbox
+
+type D0vardcl = D0vardcl_tbox
+
+type I0mpldcl = I0mpldcl_tbox
+
+enum D0lab[X0]:
+    case D0LAB(L0abl, Token, X0)
+
+@extern
+def d0lab_get_itm[X0: Type](a: D0lab[X0]) -> X0
+
+@overload itm = d0lab_get_itm
+
+@extern
+def d0lab_fprint[X0: Type](a: D0lab[X0], b: FILR) -> Void
+
+type L0d0p = D0lab[D0pat]
+
+type L0d0plst = List[D0lab[D0pat]]
+
+enum D0pat_node:
+    case D0Pid0(D0pid)
+    case D0Pint(T0int)
+    case D0Pchr(T0chr)
+    case D0Pflt(T0flt)
+    case D0Pstr(T0str)
+    case D0Paspt(Token, D0pat)
+    case D0Papps(D0patlst)
+    case D0Psarg(Token, S0arglst, Token)
+    case D0Plpar(Token, D0patlst, D0pat_RPAREN)
+    case D0Ptup1(Token, Tokenopt, D0patlst, D0pat_RPAREN)
+    case D0Prcd2(Token, Tokenopt, L0d0plst, L0d0p_RBRACE)
+    case D0Pannot(D0pat, S0exp)
+    case D0Pqual0(Token, D0pat)
+    case D0Ptkerr(Token)
+    case D0Perrck(Int, D0pat)
+enum D0pat_RPAREN:
+    case D0pat_RPAREN_cons0(Token)
+    case D0pat_RPAREN_cons1(Token, D0patlst, Token)
+enum L0d0p_RBRACE:
+    case L0d0p_RBRACE_cons0(Token)
+    case L0d0p_RBRACE_cons1(Token, L0d0plst, Token)
+
+enum F0arg_node:
+    case F0ARGnone(Token)
+    case F0ARGdapp(D0pat)
+    case F0ARGsapp(Token, S0qualst, Token)
+    case F0ARGmets(Token, S0explst, Token)
+
+@extern
+def d0pat_fprint(a: D0pat, b: FILR) -> Void
+
+@extern
+def f0arg_fprint(a: F0arg, b: FILR) -> Void
+
+@extern
+def d0pat_RPAREN_fprint(a: D0pat_RPAREN, b: FILR) -> Void
+
+@extern
+def l0d0p_RBRACE_fprint(a: L0d0p_RBRACE, b: FILR) -> Void
+
+@extern
+def d0pat_get_lctn(a: D0pat) -> Loc_t
+
+@extern
+def f0arg_get_lctn(a: F0arg) -> Loc_t
+
+@extern
+def d0pat_get_node(a: D0pat) -> D0pat_node
+
+@extern
+def f0arg_get_node(a: F0arg) -> F0arg_node
+
+@overload lctn = d0pat_get_lctn
+
+@overload lctn = f0arg_get_lctn
+
+@overload node = d0pat_get_node
+
+@overload node = f0arg_get_node
+
+@extern
+def d0pat_annotopt(a: D0pat, b: S0expopt) -> D0pat
+
+@extern
+def d0pat_make_node(a: Loc_t, b: D0pat_node) -> D0pat
+
+@overload d0pat = d0pat_make_node
+
+@extern
+def f0arg_make_node(a: Loc_t, b: F0arg_node) -> F0arg
+
+@overload f0arg = f0arg_make_node
+
+type L0d0e = D0lab[D0exp]
+
+type L0d0elst = List[D0lab[D0exp]]
+
+type T0qualst = List[T0qua]
+
+enum D0exp_node:
+    case D0Eid0(I0dnt)
+    case D0Eint(T0int)
+    case D0Echr(T0chr)
+    case D0Eflt(T0flt)
+    case D0Estr(T0str)
+    case D0Eopid(D0eid)
+    case D0Eapps(D0explst)
+    case D0Esarg(Token, S0explst, Token)
+    case D0Etarg(Token, S0explst, Token)
+    case D0Elpar(Token, D0explst, D0exp_RPAREN)
+    case D0Eift0(Token, D0exp, D0exp_THEN, D0exp_ELSE)
+    case D0Eift1(Token, D0exp, D0exp_THEN, D0exp_ELSE, T0inv)
+    case D0Ecas0(Token, D0exp, Token, Tokenopt, D0clslst)
+    case D0Ecas1(Token, D0exp, Token, Tokenopt, D0clslst, T0inv)
+    case D0Etup1(Token, Tokenopt, D0explst, D0exp_RPAREN)
+    case D0Ercd2(Token, Tokenopt, L0d0elst, L0d0e_RBRACE)
+    case D0Elet0(Token, D0eclist, Tokenopt, D0explst, Token)
+    case D0Ewhere(D0exp, D0eclseq_WHERE)
+    case D0Ebrckt(Token, D0explst, Token)
+    case D0Edtsel(Token, L0abl, D0expopt)
+    case D0Etry0(Token, D0explst, Token, Tokenopt, D0clslst, Tokenopt)
+    case D0Elam0(Token, F0arglst, S0res, F0unarrw, D0exp, Tokenopt)
+    case D0Efix0(Token, D0pid, F0arglst, S0res, F0unarrw, D0exp, Tokenopt)
+    case D0Eraise(Token, D0exp)
+    case D0Eannot(D0exp, S0exp)
+    case D0Equal0(Token, D0exp)
+    case D0Eexists(Token, D0explst, D0exp)
+    case D0Eextnam(Token, G0nam)
+    case D0Esynext(Token, G0exp)
+    case D0Etkerr(Token)
+    case D0Eerrck(Int, D0exp)
+enum S0eff:
+    case S0EFFnone(Token)
+    case S0EFFsome(Token, S0explst, Token)
+enum S0res:
+    case S0RESnone()
+    case S0RESsome(S0eff, S0exp)
+enum T0qua:
+    case T0QUAnone(Token)
+    case T0QUAsome(Token, S0qualst, Token)
+enum T0inv:
+    case T0INVnone(T0qualst, Token)
+    case T0INVsome(T0qualst, Token, D0patlst, Token)
+enum F0unarrw:
+    case F0UNARRWnone(Token)
+    case F0UNARRWdflt(Token)
+    case F0UNARRWlist(Token, S0explst, Token)
+enum D0exp_THEN:
+    case D0exp_THEN_none(Token)
+    case D0exp_THEN_some(Token, D0exp)
+enum D0exp_ELSE:
+    case D0exp_ELSE_none(Token)
+    case D0exp_ELSE_some(Token, D0exp)
+enum Tkend_WHERE:
+    case Tkend_WHERE_cons1(Token)
+enum D0eclseq_WHERE:
+    case D0eclseq_WHERE(Token, Tokenopt, D0eclist, Tkend_WHERE)
+enum D0exp_RPAREN:
+    case D0exp_RPAREN_cons0(Token)
+    case D0exp_RPAREN_cons1(Token, D0explst, Token)
+    case D0exp_RPAREN_cons2(Token, D0explst, Token)
+enum L0d0e_RBRACE:
+    case L0d0e_RBRACE_cons0(Token)
+    case L0d0e_RBRACE_cons1(Token, L0d0elst, Token)
+
+enum D0gua_node:
+    case D0GUAexp(D0exp)
+    case D0GUAmat(D0exp, Token, D0pat)
+
+enum D0cls_node:
+    case D0CLSgpt(D0gpt)
+    case D0CLScls(D0gpt, Token, D0exp)
+enum D0gpt_node:
+    case D0GPTpat(D0pat)
+    case D0GPTgua(D0pat, Token, D0gualst)
+
+@extern
+def d0exp_fprint(a: D0exp, b: FILR) -> Void
+
+@extern
+def d0cls_fprint(a: D0cls, b: FILR) -> Void
+
+@extern
+def d0gua_fprint(a: D0gua, b: FILR) -> Void
+
+@extern
+def d0gpt_fprint(a: D0gpt, b: FILR) -> Void
+
+@extern
+def s0eff_fprint(a: S0eff, b: FILR) -> Void
+
+@extern
+def s0res_fprint(a: S0res, b: FILR) -> Void
+
+@extern
+def t0qua_fprint(a: T0qua, b: FILR) -> Void
+
+@extern
+def t0inv_fprint(a: T0inv, b: FILR) -> Void
+
+@extern
+def f0unarrw_fprint(a: F0unarrw, b: FILR) -> Void
+
+@extern
+def d0exp_THEN_fprint(a: D0exp_THEN, b: FILR) -> Void
+
+@extern
+def d0exp_ELSE_fprint(a: D0exp_ELSE, b: FILR) -> Void
+
+@extern
+def tkend_WHERE_fprint(a: Tkend_WHERE, b: FILR) -> Void
+
+@extern
+def d0exp_RPAREN_fprint(a: D0exp_RPAREN, b: FILR) -> Void
+
+@extern
+def l0d0e_RBRACE_fprint(a: L0d0e_RBRACE, b: FILR) -> Void
+
+@extern
+def d0eclseq_WHERE_fprint(a: D0eclseq_WHERE, b: FILR) -> Void
+
+@extern
+def d0exp_get_lctn(a: D0exp) -> Loc_t
+
+@extern
+def d0cls_get_lctn(a: D0cls) -> Loc_t
+
+@extern
+def d0gua_get_lctn(a: D0gua) -> Loc_t
+
+@extern
+def d0gpt_get_lctn(a: D0gpt) -> Loc_t
+
+@extern
+def d0exp_get_node(a: D0exp) -> D0exp_node
+
+@extern
+def d0cls_get_node(a: D0cls) -> D0cls_node
+
+@extern
+def d0gua_get_node(a: D0gua) -> D0gua_node
+
+@extern
+def d0gpt_get_node(a: D0gpt) -> D0gpt_node
+
+@overload lctn = d0exp_get_lctn
+
+@overload lctn = d0cls_get_lctn
+
+@overload node = d0exp_get_node
+
+@overload node = d0cls_get_node
+
+@overload node = d0gua_get_node
+
+@overload node = d0gpt_get_node
+
+@extern
+def t0qua_get_lctn(a: T0qua) -> Loc_t
+
+@extern
+def t0inv_get_lctn(a: T0inv) -> Loc_t
+
+@overload lctn = t0qua_get_lctn
+
+@overload lctn = t0inv_get_lctn
+
+@extern
+def d0exp_annotopt(a: D0exp, b: S0expopt) -> D0exp
+
+@extern
+def d0exp_make_node(a: Loc_t, b: D0exp_node) -> D0exp
+
+@overload d0exp = d0exp_make_node
+
+@extern
+def d0cls_make_node(a: Loc_t, b: D0cls_node) -> D0cls
+
+@extern
+def d0gua_make_node(a: Loc_t, b: D0gua_node) -> D0gua
+
+@extern
+def d0gpt_make_node(a: Loc_t, b: D0gpt_node) -> D0gpt
+
+@overload d0cls = d0cls_make_node
+
+@overload d0gua = d0gua_make_node
+
+@overload d0gpt = d0gpt_make_node
+
+enum Q0arg_node:
+    case Q0ARGsome(I0dnt, Sort0opt)
+
+@extern
+def q0arg_fprint(a: Q0arg, b: FILR) -> Void
+
+@extern
+def q0arg_get_lctn(a: Q0arg) -> Loc_t
+
+@extern
+def q0arg_get_node(a: Q0arg) -> Q0arg_node
+
+@overload lctn = q0arg_get_lctn
+
+@overload node = q0arg_get_node
+
+@extern
+def q0arg_make_node(a: Loc_t, b: Q0arg_node) -> Q0arg
+
+@overload q0arg = q0arg_make_node
+
+enum S0qag_node:
+    case S0QAGnone(Token)
+    case S0QAGsome(Token, Q0arglst, Token)
+
+enum T0qag_node:
+    case T0QAGnone(Token)
+    case T0QAGsome(Token, Q0arglst, Token)
+
+@extern
+def s0qag_fprint(a: S0qag, b: FILR) -> Void
+
+@extern
+def t0qag_fprint(a: T0qag, b: FILR) -> Void
+
+@extern
+def s0qag_get_lctn(a: S0qag) -> Loc_t
+
+@extern
+def s0qag_get_node(a: S0qag) -> S0qag_node
+
+@overload lctn = s0qag_get_lctn
+
+@overload node = s0qag_get_node
+
+@extern
+def t0qag_get_lctn(a: T0qag) -> Loc_t
+
+@extern
+def t0qag_get_node(a: T0qag) -> T0qag_node
+
+@overload lctn = t0qag_get_lctn
+
+@overload node = t0qag_get_node
+
+@extern
+def s0qag_make_node(a: Loc_t, b: S0qag_node) -> S0qag
+
+@overload s0qag = s0qag_make_node
+
+@extern
+def t0qag_make_node(a: Loc_t, b: T0qag_node) -> T0qag
+
+@overload t0qag = t0qag_make_node
+
+enum T0iag_node:
+    case T0IAGnone(Token)
+    case T0IAGsome(Token, S0explst, Token)
+
+@extern
+def t0iag_fprint(a: T0iag, b: FILR) -> Void
+
+@extern
+def t0iag_get_lctn(a: T0iag) -> Loc_t
+
+@extern
+def t0iag_get_node(a: T0iag) -> T0iag_node
+
+@overload lctn = t0iag_get_lctn
+
+@overload node = t0iag_get_node
+
+@extern
+def t0iag_make_node(a: Loc_t, b: T0iag_node) -> T0iag
+
+@overload t0iag = t0iag_make_node
+
+type D0fundclist = List[D0fundcl]
+
+type D0valdclist = List[D0valdcl]
+
+type D0vardclist = List[D0vardcl]
+
+type D0cstdclist = List[D0cstdcl]
+
+enum D0ecl_node:
+    case D0Cnonfix(Token, I0dntlst)
+    case D0Cfixity(Token, I0dntlst, Precopt)
+    case D0Cstatic(Token, D0ecl)
+    case D0Cextern(Token, D0ecl)
+    case D0Cdefine(Token, G0eid, G0maglst, G0edf)
+    case D0Cmacdef(Token, G0eid, G0maglst, D0edf)
+    case D0Clocal0(Token, D0eclist, Tokenopt, D0eclist, Token)
+    case D0Cabssort(Token, S0tid)
+    case D0Cstacst0(Token, S0eid, T0maglst, Token, Sort0)
+    case D0Csortdef(Token, S0tid, Token, S0tdf)
+    case D0Csexpdef(Token, S0eid, S0maglst, Sort0opt, Token, S0exp)
+    case D0Cabstype(Token, S0eid, T0maglst, Sort0opt, A0tdf)
+    case D0Cabsopen(Token, S0qid)
+    case D0Cabsimpl(Token, S0qid, S0maglst, Sort0opt, Token, S0exp)
+    case D0Csymload(Token, S0ymb, Token, D0qid, G0expopt)
+    case D0Cinclude(SInt, Token, G0exp)
+    case D0Cstaload(SInt, Token, G0exp)
+    case D0Cdyninit(Token, G0exp)
+    case D0Cextcode(Token, G0exp)
+    case D0Cdatasort(Token, D0tstlst)
+    case D0Cvaldclst(Token, D0valdclist)
+    case D0Cvardclst(Token, D0vardclist)
+    case D0Cfundclst(Token, T0qaglst, D0fundclist)
+    case D0Cimplmnt0(Token, S0qaglst, T0qaglst, D0qid, T0iaglst, F0arglst, S0res, Token, D0exp)
+    case D0Cexcptcon(Token, Tokenopt, D0tcnlst)
+    case D0Cdatatype(Token, D0typlst, Wd0eclseq)
+    case D0Cdynconst(Token, T0qaglst, D0cstdclist)
+    case D0Ctkerr(Token)
+    case D0Ctkskp(Token)
+    case D0Cerrck(SInt, D0ecl)
+    case D0Cifdef(Token, G0exp)
+    case D0Cifexp(Token, G0exp)
+    case D0Celsif(Token, G0exp)
+    case D0Cthen0(Token)
+    case D0Celse1(Token)
+    case D0Cendif(Token)
+enum Precopt:
+    case PRECnil0()
+    case PRECint1(Token)
+    case PRECopr2(I0dnt, Precmod)
+enum Precmod:
+    case PMODnone()
+    case PMODsome(Token, Precint, Token)
+enum Precint:
+    case PINTint1(Token)
+    case PINTopr2(Token, Token)
+enum G0edf:
+    case G0EDFnone()
+    case G0EDFsome(Tokenopt, G0exp)
+enum D0edf:
+    case D0EDFnone()
+    case D0EDFsome(Tokenopt, D0exp)
+enum A0tdf:
+    case A0TDFsome()
+    case A0TDFlteq(Token, S0exp)
+    case A0TDFeqeq(Token, S0exp)
+enum Wd0eclseq:
+    case WD0CSnone()
+    case WD0CSsome(Token, Tokenopt, D0eclist, Token)
+
+@extern
+def d0ecl_fprint(a: D0ecl, b: FILR) -> Void
+
+@extern
+def g0edf_fprint(a: G0edf, b: FILR) -> Void
+
+@extern
+def d0edf_fprint(a: D0edf, b: FILR) -> Void
+
+@extern
+def a0tdf_fprint(a: A0tdf, b: FILR) -> Void
+
+@extern
+def precopt_fprint(a: Precopt, b: FILR) -> Void
+
+@extern
+def precmod_fprint(a: Precmod, b: FILR) -> Void
+
+@extern
+def precint_fprint(a: Precint, b: FILR) -> Void
+
+@extern
+def wd0eclseq_fprint(a: Wd0eclseq, b: FILR) -> Void
+
+@extern
+def d0ecl_get_lctn(a: D0ecl) -> Loc_t
+
+@extern
+def d0ecl_get_node(a: D0ecl) -> D0ecl_node
+
+@overload lctn = d0ecl_get_lctn
+
+@overload node = d0ecl_get_node
+
+@extern
+def d0ecl_make_node(a: Loc_t, b: D0ecl_node) -> D0ecl
+
+@overload d0ecl = d0ecl_make_node
+
+enum A0typ_node:
+    case A0TYPsome(S0exp, Tokenopt)
+
+type A0typlstopt = Optn[A0typlst]
+
+enum D0arg_node:
+    case D0ARGnone(Token)
+    case D0ARGsta0(Token, S0qualst, Token)
+    case D0ARGdyn1(D0pid)
+    case D0ARGdyn2(Token, A0typlst, A0typlstopt, Token)
+
+@extern
+def a0typ_fprint(a: A0typ, b: FILR) -> Void
+
+@extern
+def d0arg_fprint(a: D0arg, b: FILR) -> Void
+
+@extern
+def a0typ_get_lctn(a: A0typ) -> Loc_t
+
+@extern
+def d0arg_get_lctn(a: D0arg) -> Loc_t
+
+@extern
+def a0typ_get_node(a: A0typ) -> A0typ_node
+
+@extern
+def d0arg_get_node(a: D0arg) -> D0arg_node
+
+@overload lctn = a0typ_get_lctn
+
+@overload lctn = d0arg_get_lctn
+
+@overload node = a0typ_get_node
+
+@overload node = d0arg_get_node
+
+@extern
+def a0typ_make_node(a: Loc_t, b: A0typ_node) -> A0typ
+
+@extern
+def d0arg_make_node(a: Loc_t, b: D0arg_node) -> D0arg
+
+@overload a0typ = a0typ_make_node
+
+@overload d0arg = d0arg_make_node
+
+enum D0res:
+    case D0RESnone()
+    case D0RESsome(Token, D0exp)
+
+@extern
+def d0res_fprint(a: D0res, b: FILR) -> Void
+
+enum Teqd0exp:
+    case TEQD0EXPnone()
+    case TEQD0EXPsome(Token, D0exp)
+
+enum Wths0exp:
+    case WTHS0EXPnone()
+    case WTHS0EXPsome(Token, S0exp)
+
+@extern
+def d0valdcl_fprint(a: D0valdcl, b: FILR) -> Void
+
+@extern
+def d0vardcl_fprint(a: D0vardcl, b: FILR) -> Void
+
+@extern
+def d0fundcl_fprint(a: D0fundcl, b: FILR) -> Void
+
+@extern
+def d0valdcl_get_lctn(a: D0valdcl) -> Loc_t
+
+@extern
+def d0vardcl_get_lctn(a: D0vardcl) -> Loc_t
+
+@extern
+def d0fundcl_get_lctn(a: D0fundcl) -> Loc_t
+
+@overload lctn = d0valdcl_get_lctn
+
+@overload lctn = d0vardcl_get_lctn
+
+@overload lctn = d0fundcl_get_lctn
+
+@extern
+def d0valdcl_get_dpat(a: D0valdcl) -> D0pat
+
+@extern
+def d0valdcl_get_tdxp(a: D0valdcl) -> Teqd0exp
+
+@extern
+def d0valdcl_get_wsxp(a: D0valdcl) -> Wths0exp
+
+@overload dpat = d0valdcl_get_dpat
+
+@overload tdxp = d0valdcl_get_tdxp
+
+@overload wsxp = d0valdcl_get_wsxp
+
+@extern
+def d0vardcl_get_dpid(a: D0vardcl) -> D0pid
+
+@extern
+def d0vardcl_get_vpid(a: D0vardcl) -> D0pidopt
+
+@extern
+def d0vardcl_get_sres(a: D0vardcl) -> S0expopt
+
+@extern
+def d0vardcl_get_dini(a: D0vardcl) -> Teqd0exp
+
+@overload dpid = d0vardcl_get_dpid
+
+@overload vpid = d0vardcl_get_vpid
+
+@overload sres = d0vardcl_get_sres
+
+@overload dini = d0vardcl_get_dini
+
+@extern
+def d0fundcl_get_dpid(a: D0fundcl) -> D0pid
+
+@extern
+def d0fundcl_get_farg(a: D0fundcl) -> F0arglst
+
+@extern
+def d0fundcl_get_sres(a: D0fundcl) -> S0res
+
+@extern
+def d0fundcl_get_tdxp(a: D0fundcl) -> Teqd0exp
+
+@extern
+def d0fundcl_get_wsxp(a: D0fundcl) -> Wths0exp
+
+@overload dpid = d0fundcl_get_dpid
+
+@overload farg = d0fundcl_get_farg
+
+@overload sres = d0fundcl_get_sres
+
+@overload tdxp = d0fundcl_get_tdxp
+
+@overload wsxp = d0fundcl_get_wsxp
+
+@extern
+def d0valdcl_make_args(a: Loc_t, b: D0pat, c: Teqd0exp, d: Wths0exp) -> D0valdcl
+
+@extern
+def d0vardcl_make_args(a: Loc_t, b: D0pid, c: D0pidopt, d: S0expopt, e: Teqd0exp) -> D0vardcl
+
+@extern
+def d0fundcl_make_args(a: Loc_t, b: D0pid, c: F0arglst, d: S0res, e: Teqd0exp, x5: Wths0exp) -> D0fundcl
+
+@overload d0valdcl = d0valdcl_make_args
+
+@overload d0vardcl = d0vardcl_make_args
+
+@overload d0fundcl = d0fundcl_make_args
+
+@extern
+def d0cstdcl_fprint(a: D0cstdcl, b: FILR) -> Void
+
+@extern
+def d0cstdcl_get_lctn(a: D0cstdcl) -> Loc_t
+
+@extern
+def d0cstdcl_get_dpid(a: D0cstdcl) -> D0pid
+
+@extern
+def d0cstdcl_get_darg(a: D0cstdcl) -> D0arglst
+
+@extern
+def d0cstdcl_get_sres(a: D0cstdcl) -> S0res
+
+@extern
+def d0cstdcl_get_dres(a: D0cstdcl) -> D0res
+
+@overload lctn = d0cstdcl_get_lctn
+
+@overload dpid = d0cstdcl_get_dpid
+
+@overload darg = d0cstdcl_get_darg
+
+@overload sres = d0cstdcl_get_sres
+
+@overload dres = d0cstdcl_get_dres
+
+@extern
+def d0cstdcl_make_args(a: Loc_t, b: D0pid, c: D0arglst, d: S0res, e: D0res) -> D0cstdcl
+
+@overload d0cstdcl = d0cstdcl_make_args
+
+@abstract
+type D0parsed_tbox
+
+type D0parsed = D0parsed_tbox
+
+type D0eclistopt = Optn[D0eclist]
+
+@extern
+def d0parsed_fprint(a: D0parsed, b: FILR) -> Void
+
+@extern
+def d0parsed_get_stadyn(a: D0parsed) -> SInt
+
+@extern
+def d0parsed_get_nerror(a: D0parsed) -> SInt
+
+@extern
+def d0parsed_get_source(a: D0parsed) -> Lcsrc
+
+@extern
+def d0parsed_get_parsed(a: D0parsed) -> D0eclistopt
+
+@overload stadyn = d0parsed_get_stadyn
+
+@overload nerror = d0parsed_get_nerror
+
+@overload source = d0parsed_get_source
+
+@overload parsed = d0parsed_get_parsed
+
+@extern
+def d0parsed_make_args(a: SInt, b: SInt, c: Lcsrc, d: D0eclistopt) -> D0parsed
+
+@overload d0parsed = d0parsed_make_args
+

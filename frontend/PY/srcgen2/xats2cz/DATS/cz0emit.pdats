@@ -1,0 +1,1454 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+include "srcgen2/xats2cz/HATS/libxatsopt.hats"
+
+from "srcgen2/xats2js/srcgen1/SATS/intrep0" import *
+
+from "srcgen2/xats2cz/SATS/cz0emit" import *
+
+@overload node = token_get_node
+
+def cz_str(filr: FILR, s0: String) -> Void:
+    prints(s0)
+where:
+    @impl[]
+    def g_print/out():
+        filr
+
+def cz_int(filr: FILR, i0: SInt) -> Void:
+    prints(i0)
+where:
+    @impl[]
+    def g_print/out():
+        filr
+
+def cz_uint(filr: FILR, u0: UInt) -> Void:
+    prints(u0)
+where:
+    @impl[]
+    def g_print/out():
+        filr
+
+def cz_name(filr: FILR, xsym: sym_t) -> Void:
+    cz_str(filr, symbl_get_name(xsym))
+
+def cz_dvar(filr: FILR, dvar: d2var) -> Void:
+    cz_name(filr, d2var_get_name(dvar))
+    cz_str(filr, "_")
+    cz_uint(filr, stamp_get_uint(d2var_get_stmp(dvar)))
+    cz_str(filr, "_")
+    fprint_loctn_as_stamp(filr, d2var_get_lctn(dvar))
+
+def cz_dcst_loc(filr: FILR, dcst: d2cst) -> Void:
+    cz_name(filr, d2cst_get_name(dcst))
+    cz_str(filr, "_")
+    fprint_loctn_as_stamp(filr, dcst.lctn())
+
+def cz_dcst(filr: FILR, dcst: d2cst) -> Void:
+    if d2cst_castq(dcst):
+        cz_str(filr, "(lambda (czcastx) czcastx)")
+    else:
+        let xopt = the_d2cstmap_xnmfind(d2cst_get_stmp(dcst))
+        match xopt:
+            case ~optn_vt_nil():
+                cz_dcst_loc(filr, dcst)
+            case ~optn_vt_cons(xnam):
+                match xnam:
+                    case X2NAMnone():
+                        cz_dcst_loc(filr, dcst)
+                    case X2NAMsome(_):
+                        cz_name(filr, d2cst_get_name(dcst))
+
+def cz_dimpl_name(filr: FILR, dimp: dimpl) -> Void:
+    match dimp.node():
+        case DIMPLone1(dcst):
+            cz_dcst_loc(filr, dcst)
+        case DIMPLone2(dcst, _):
+            cz_dcst_loc(filr, dcst)
+        case DIMPLnon1(_):
+            cz_str(filr, "XATS_undef_dimplnon1")
+            prerrsln("[cz0emit] DIMPLnon1 (unresolved impl name) — TODO")
+
+def cz_implvalq(tknd: token) -> Bool:
+    match tknd.node():
+        case T_IMPLMNT(iknd):
+            match iknd:
+                case IMPLval():
+                    true
+                case _:
+                    false
+        case _:
+            false
+
+def cz_int_token(filr: FILR, tok: token) -> Void:
+    match tok.node():
+        case T_INT01(rep):
+            cz_str(filr, rep)
+        case T_INT02(_, rep):
+            cz_str(filr, rep)
+        case _:
+            cz_str(filr, "0")
+
+def cz_str_token(filr: FILR, tok: token) -> Void:
+    match tok.node():
+        case T_STRN1_clsd(rep, _):
+            cz_str(filr, rep)
+        case T_STRN2_ncls(rep, _):
+            cz_str(filr, rep)
+
+def cz_flt_token(filr: FILR, tok: token) -> Void:
+    match tok.node():
+        case T_FLT01(rep):
+            cz_str(filr, rep)
+        case T_FLT02(_, rep):
+            cz_str(filr, rep)
+        case _:
+            cz_str(filr, "0.0")
+
+def cz_raw_char(filr: FILR, c0: Char) -> Void:
+    prints(c0)
+where:
+    @impl[]
+    def g_print/out():
+        filr
+
+def cz_chr_body(filr: FILR, rep: String) -> Void:
+    let n0 = strn_length(rep)
+    def loop(i0: SInt) -> Void:
+        if (i0 >= n0 - 1):
+            ()
+        else:
+            let c0 = strn_get/at(rep, i0)
+            if (c0 == '\"'):
+                cz_str(filr, "\\\"")
+            else:
+                cz_raw_char(filr, c0)
+            loop(i0 + 1)
+    cz_str(filr, "(XATSCHR0 \"")
+    loop(1)
+    cz_str(filr, "\")")
+
+def cz_chr_blsh(filr: FILR, rep: String) -> Void:
+    let n0 = strn_length(rep)
+    let c2 = strn_get/at(rep, 2)
+    if (c2 >= '0') * (c2 <= '9'):
+        def loop(i0: SInt) -> Void:
+            if (i0 >= n0 - 1):
+                ()
+            else:
+                cz_raw_char(filr, strn_get/at(rep, i0))
+                loop(i0 + 1)
+        loop(2)
+    else:
+        match c2:
+            case 'n':
+                cz_str(filr, "10")
+            case 't':
+                cz_str(filr, "9")
+            case 'r':
+                cz_str(filr, "13")
+            case 'b':
+                cz_str(filr, "8")
+            case 'f':
+                cz_str(filr, "12")
+            case 'v':
+                cz_str(filr, "11")
+            case 'a':
+                cz_str(filr, "7")
+            case '\\':
+                cz_str(filr, "92")
+            case '\'':
+                cz_str(filr, "39")
+            case '\"':
+                cz_str(filr, "34")
+            case _:
+                cz_str(filr, "(XATSCHR0 \"")
+                if (c2 == '\"'):
+                    cz_str(filr, "\\\"")
+                else:
+                    cz_raw_char(filr, c2)
+                cz_str(filr, "\")")
+
+def cz_chrtok(filr: FILR, tchr: token) -> Void:
+    match tchr.node():
+        case T_CHAR1_nil0(_):
+            cz_str(filr, "0")
+        case T_CHAR2_char(rep):
+            cz_chr_body(filr, rep)
+        case T_CHAR3_blsh(rep):
+            cz_chr_blsh(filr, rep)
+
+def cz_ctag(filr: FILR, dcon: d2con) -> Void:
+    let ct = d2con_get_ctag(dcon)
+    if (ct < 0):
+        @impl[]
+        def g_print/out():
+            filr
+        prints(stamp_get_uint(d2con_get_stmp(dcon)))
+    else:
+        @impl[]
+        def g_print/out():
+            filr
+        prints(ct)
+
+def cz_lab_idx(filr: FILR, lab: label) -> Void:
+    match lab:
+        case LABint(i0):
+            @impl[]
+            def g_print/out():
+                filr
+            prints(i0)
+        case LABsym(_):
+            cz_str(filr, "0")
+            prerrsln("[cz0emit] UNHANDLED record (symbol) label -> 0")
+
+def cz_lab_sym(filr: FILR, lab: label) -> Void:
+    match lab:
+        case LABsym(s):
+            cz_str(filr, "'")
+            cz_str(filr, symbl_get_name(s))
+        case LABint(i0):
+            cz_str(filr, "'f")
+            cz_int(filr, i0)
+
+def cz_unwrap_con(iexp: i0exp) -> optn[d2con]:
+    match iexp.node():
+        case I0Econ(dcon):
+            optn_cons(dcon)
+        case I0Etapp(f0):
+            cz_unwrap_con(f0)
+        case I0Etapq(f0, _):
+            cz_unwrap_con(f0)
+        case I0Efold(f0):
+            cz_unwrap_con(f0)
+        case _:
+            optn_nil()
+
+def cz_funpat_ctag(filr: FILR, fpat: i0pat) -> Void:
+    match fpat.node():
+        case I0Pcon(dcon):
+            cz_ctag(filr, dcon)
+        case I0Pdap1(p0):
+            cz_funpat_ctag(filr, p0)
+        case _:
+            cz_str(filr, "0")
+            prerrsln("[cz0emit] funpat ctag unresolved -> 0")
+
+def cz_emit_acc(filr: FILR, path: list[(Bool, SInt)]) -> Void:
+    match path:
+        case list_nil():
+            cz_str(filr, "czscrut")
+        case list_cons((iscon, idx), rest):
+            cz_str(filr, if iscon: "(XATSPCON " else: "(vector-ref ")
+            cz_emit_acc(filr, rest)
+            cz_str(filr, " ")
+            cz_int(filr, idx)
+            cz_str(filr, ")")
+
+def cz_emit_addr(filr: FILR, path: list[(Bool, SInt)]) -> Void:
+    match path:
+        case list_nil():
+            cz_str(filr, "czscrut")
+        case list_cons((iscon, idx), rest):
+            cz_str(filr, "(vector ")
+            cz_emit_acc(filr, rest)
+            cz_str(filr, " ")
+            if iscon:
+                cz_str(filr, "(+ ")
+                cz_int(filr, idx)
+                cz_str(filr, " 1)")
+            else:
+                cz_int(filr, idx)
+            cz_str(filr, ")")
+
+def cz_pat_trivial(p0: i0pat) -> Bool:
+    match p0.node():
+        case I0Pany():
+            true
+        case I0Pvar(_):
+            true
+        case I0Pfree(q0):
+            cz_pat_trivial(q0)
+        case I0Pbang(q0):
+            cz_pat_trivial(q0)
+        case I0Pflat(q0):
+            cz_pat_trivial(q0)
+        case _:
+            false
+
+def cz_field_acc_at(filr: FILR, iscon: Bool, idx: SInt, tmp: String) -> Void:
+    if iscon:
+        cz_str(filr, "(XATSPCON ")
+        cz_str(filr, tmp)
+        cz_str(filr, " ")
+        cz_int(filr, idx)
+        cz_str(filr, ")")
+    else:
+        cz_str(filr, "(vector-ref ")
+        cz_str(filr, tmp)
+        cz_str(filr, " ")
+        cz_int(filr, idx)
+        cz_str(filr, ")")
+
+def cz_field_addr_at(filr: FILR, iscon: Bool, idx: SInt, tmp: String) -> Void:
+    if iscon:
+        cz_str(filr, "(vector ")
+        cz_str(filr, tmp)
+        cz_str(filr, " (+ ")
+        cz_int(filr, idx)
+        cz_str(filr, " 1))")
+    else:
+        cz_str(filr, "(vector ")
+        cz_str(filr, tmp)
+        cz_str(filr, " ")
+        cz_int(filr, idx)
+        cz_str(filr, ")")
+
+def cz_pv_leafvar(p0: i0pat) -> optn[d2var]:
+    match p0.node():
+        case I0Pvar(dvar):
+            optn_cons(dvar)
+        case I0Pbang(q0):
+            cz_pv_leafvar(q0)
+        case I0Pfree(q0):
+            cz_pv_leafvar(q0)
+        case I0Pflat(q0):
+            cz_pv_leafvar(q0)
+        case _:
+            optn_nil()
+
+def cz_pv_isbang(p0: i0pat) -> Bool:
+    match p0.node():
+        case I0Pbang(_):
+            true
+        case I0Pfree(q0):
+            cz_pv_isbang(q0)
+        case I0Pflat(q0):
+            cz_pv_isbang(q0)
+        case _:
+            false
+
+def cz_pv_nobind(p0: i0pat) -> Bool:
+    match p0.node():
+        case I0Pany():
+            true
+        case I0Pcon(_):
+            true
+        case I0Pint(_):
+            true
+        case I0Pchr(_):
+            true
+        case I0Pstr(_):
+            true
+        case I0Pbtf(_):
+            true
+        case I0Pfree(q0):
+            cz_pv_nobind(q0)
+        case I0Pflat(q0):
+            cz_pv_nobind(q0)
+        case _:
+            false
+
+def cz_pat_hasvar(pat: i0pat) -> Bool:
+    match pat.node():
+        case I0Pvar(_):
+            true
+        case I0Pfree(q0):
+            cz_pat_hasvar(q0)
+        case I0Pbang(q0):
+            cz_pat_hasvar(q0)
+        case I0Pflat(q0):
+            cz_pat_hasvar(q0)
+        case I0Pdapp(_, ps):
+            cz_patlst_hasvar(ps)
+        case I0Ptup0(ps):
+            cz_patlst_hasvar(ps)
+        case I0Ptup1(_, ps):
+            cz_patlst_hasvar(ps)
+        case _:
+            false
+
+def cz_patlst_hasvar(ps: i0patlst) -> Bool:
+    match ps:
+        case list_nil():
+            false
+        case list_cons(p0, r):
+            match cz_pv_leafvar(p0):
+                case optn_cons(_):
+                    true
+                case optn_nil():
+                    cz_patlst_hasvar(r)
+
+def cz_pv_vars(filr: FILR, pat: i0pat) -> Void:
+    match pat.node():
+        case I0Pfree(q0):
+            cz_pv_vars(filr, q0)
+        case I0Pbang(q0):
+            cz_pv_vars(filr, q0)
+        case I0Pflat(q0):
+            cz_pv_vars(filr, q0)
+        case I0Pdapp(_, ps):
+            cz_pv_vars_lst(filr, ps)
+        case I0Ptup0(ps):
+            cz_pv_vars_lst(filr, ps)
+        case I0Ptup1(_, ps):
+            cz_pv_vars_lst(filr, ps)
+        case _:
+            ()
+
+def cz_pv_vars_lst(filr: FILR, ps: i0patlst) -> Void:
+    match ps:
+        case list_nil():
+            ()
+        case list_cons(p0, r):
+            match cz_pv_leafvar(p0):
+                case optn_cons(dv):
+                    cz_str(filr, " ")
+                    cz_dvar(filr, dv)
+                case optn_nil():
+                    if cz_pv_nobind(p0):
+                        ()
+                    else:
+                        prerrsln("[cz0emit] UNHANDLED nested pattern-val sub-pattern; one-level only")
+            cz_pv_vars_lst(filr, r)
+
+def cz_pv_accs(filr: FILR, pat: i0pat) -> Void:
+    match pat.node():
+        case I0Pfree(q0):
+            cz_pv_accs(filr, q0)
+        case I0Pbang(q0):
+            cz_pv_accs(filr, q0)
+        case I0Pflat(q0):
+            cz_pv_accs(filr, q0)
+        case I0Pdapp(_, ps):
+            cz_pv_accs_lst(filr, true, 0, ps)
+        case I0Ptup0(ps):
+            cz_pv_accs_lst(filr, false, 0, ps)
+        case I0Ptup1(_, ps):
+            cz_pv_accs_lst(filr, false, 0, ps)
+        case _:
+            ()
+
+def cz_pv_accs_lst(filr: FILR, iscon: Bool, idx: SInt, ps: i0patlst) -> Void:
+    match ps:
+        case list_nil():
+            ()
+        case list_cons(p0, r):
+            match cz_pv_leafvar(p0):
+                case optn_cons(_):
+                    cz_str(filr, " ")
+                    if cz_pv_isbang(p0):
+                        cz_field_addr_at(filr, iscon, idx, "czpv")
+                    else:
+                        cz_field_acc_at(filr, iscon, idx, "czpv")
+                case optn_nil():
+                    ()
+            cz_pv_accs_lst(filr, iscon, idx + 1, r)
+
+def cz_pat_test_p(filr: FILR, path: list[(Bool, SInt)], pat: i0pat) -> Void:
+    match pat.node():
+        case I0Pany():
+            cz_str(filr, "#t")
+        case I0Pvar(_):
+            cz_str(filr, "#t")
+        case I0Pint(t0):
+            cz_str(filr, "(= ")
+            cz_emit_acc(filr, path)
+            cz_str(filr, " ")
+            cz_int_token(filr, t0)
+            cz_str(filr, ")")
+        case I0Pchr(t0):
+            cz_str(filr, "(= ")
+            cz_emit_acc(filr, path)
+            cz_str(filr, " ")
+            cz_chrtok(filr, t0)
+            cz_str(filr, ")")
+        case I0Pstr(t0):
+            cz_str(filr, "(string=? ")
+            cz_emit_acc(filr, path)
+            cz_str(filr, " ")
+            cz_str_token(filr, t0)
+            cz_str(filr, ")")
+        case I0Pbtf(s0):
+            cz_str(filr, "(eq? ")
+            cz_emit_acc(filr, path)
+            cz_str(filr, if strn_eq(symbl_get_name(s0), "true"): " #t)" else: " #f)")
+        case I0Pcon(dcon):
+            cz_str(filr, "(XATS000_ctgeq ")
+            cz_emit_acc(filr, path)
+            cz_str(filr, " ")
+            cz_ctag(filr, dcon)
+            cz_str(filr, ")")
+        case I0Pdap1(p0):
+            cz_str(filr, "(XATS000_ctgeq ")
+            cz_emit_acc(filr, path)
+            cz_str(filr, " ")
+            cz_funpat_ctag(filr, p0)
+            cz_str(filr, ")")
+        case I0Pdapp(fpat, argpats):
+            cz_str(filr, "(and (XATS000_ctgeq ")
+            cz_emit_acc(filr, path)
+            cz_str(filr, " ")
+            cz_funpat_ctag(filr, fpat)
+            cz_str(filr, ")")
+            cz_subtests_p(filr, path, true, 0, argpats)
+            cz_str(filr, ")")
+        case I0Ptup0(pats):
+            cz_str(filr, "(and #t")
+            cz_subtests_p(filr, path, false, 0, pats)
+            cz_str(filr, ")")
+        case I0Ptup1(_, pats):
+            cz_str(filr, "(and #t")
+            cz_subtests_p(filr, path, false, 0, pats)
+            cz_str(filr, ")")
+        case I0Pfree(p0):
+            cz_pat_test_p(filr, path, p0)
+        case I0Pbang(p0):
+            cz_pat_test_p(filr, path, p0)
+        case I0Pflat(p0):
+            cz_pat_test_p(filr, path, p0)
+        case _:
+            cz_str(filr, "#f")
+            prerrsln("[cz0emit] UNHANDLED-pat-test-NODE:")
+            i0pat_fprint(pat, g_stderr())
+            prerrsln("")
+
+def cz_subtests_p(filr: FILR, path: list[(Bool, SInt)], iscon: Bool, idx: SInt, pats: i0patlst) -> Void:
+    match pats:
+        case list_nil():
+            ()
+        case list_cons(p0, ps):
+            if cz_pat_trivial(p0):
+                ()
+            else:
+                cz_str(filr, " ")
+                cz_pat_test_p(filr, list_cons((iscon, idx), path), p0)
+            cz_subtests_p(filr, path, iscon, idx + 1, ps)
+
+def cz_pat_binds_p(filr: FILR, path: list[(Bool, SInt)], pat: i0pat) -> Void:
+    match pat.node():
+        case I0Pvar(dvar):
+            cz_str(filr, "(")
+            cz_dvar(filr, dvar)
+            cz_str(filr, " ")
+            cz_emit_acc(filr, path)
+            cz_str(filr, ")")
+        case I0Pbang(q0):
+            cz_pat_binds_addr_p(filr, path, q0)
+        case I0Pfree(p0):
+            cz_pat_binds_p(filr, path, p0)
+        case I0Pflat(p0):
+            cz_pat_binds_p(filr, path, p0)
+        case I0Pdapp(_, argpats):
+            cz_subbinds_p(filr, path, true, 0, argpats)
+        case I0Ptup0(pats):
+            cz_subbinds_p(filr, path, false, 0, pats)
+        case I0Ptup1(_, pats):
+            cz_subbinds_p(filr, path, false, 0, pats)
+        case _:
+            ()
+
+def cz_subbinds_p(filr: FILR, path: list[(Bool, SInt)], iscon: Bool, idx: SInt, pats: i0patlst) -> Void:
+    match pats:
+        case list_nil():
+            ()
+        case list_cons(p0, ps):
+            cz_pat_binds_p(filr, list_cons((iscon, idx), path), p0)
+            cz_subbinds_p(filr, path, iscon, idx + 1, ps)
+
+def cz_pat_binds_addr_p(filr: FILR, path: list[(Bool, SInt)], p0: i0pat) -> Void:
+    match p0.node():
+        case I0Pvar(dvar):
+            cz_str(filr, "(")
+            cz_dvar(filr, dvar)
+            cz_str(filr, " ")
+            cz_emit_addr(filr, path)
+            cz_str(filr, ")")
+        case I0Pbang(q0):
+            cz_pat_binds_addr_p(filr, path, q0)
+        case I0Pfree(q0):
+            cz_pat_binds_addr_p(filr, path, q0)
+        case I0Pflat(q0):
+            cz_pat_binds_addr_p(filr, path, q0)
+        case _:
+            ()
+
+def cz_pat_test(filr: FILR, pat: i0pat) -> Void:
+    cz_pat_test_p(filr, list_nil(), pat)
+
+def cz_pat_binds(filr: FILR, pat: i0pat) -> Void:
+    cz_pat_binds_p(filr, list_nil(), pat)
+
+def cz_param_isvar(p0: i0pat) -> Bool:
+    match p0.node():
+        case I0Pvar(_):
+            true
+        case I0Pfree(q0):
+            cz_param_isvar(q0)
+        case I0Pbang(q0):
+            cz_param_isvar(q0)
+        case I0Pflat(q0):
+            cz_param_isvar(q0)
+        case _:
+            false
+
+def cz_param_var(filr: FILR, p0: i0pat) -> Void:
+    match p0.node():
+        case I0Pvar(dvar):
+            cz_dvar(filr, dvar)
+        case I0Pfree(q0):
+            cz_param_var(filr, q0)
+        case I0Pbang(q0):
+            cz_param_var(filr, q0)
+        case I0Pflat(q0):
+            cz_param_var(filr, q0)
+        case _:
+            cz_str(filr, "_p")
+
+def cz_param_compound(p0: i0pat) -> Bool:
+    match p0.node():
+        case I0Ptup0(_):
+            true
+        case I0Ptup1(_, _):
+            true
+        case I0Pdapp(_, _):
+            true
+        case I0Pfree(q0):
+            cz_param_compound(q0)
+        case I0Pbang(q0):
+            cz_param_compound(q0)
+        case I0Pflat(q0):
+            cz_param_compound(q0)
+        case _:
+            false
+
+def i0exp_cz0(filr: FILR, i0e0: i0exp) -> Void:
+    match i0e0.node():
+        case I0Ei00(i0):
+            cz_int(filr, i0)
+        case I0Eint(tok):
+            cz_int_token(filr, tok)
+        case I0Es00(s0):
+            cz_str(filr, "\"")
+            cz_str(filr, s0)
+            cz_str(filr, "\"")
+        case I0Estr(tok):
+            cz_str_token(filr, tok)
+        case I0Eb00(b0):
+            cz_str(filr, if b0: "#t" else: "#f")
+        case I0Ebtf(sym):
+            cz_str(filr, if strn_eq(symbl_get_name(sym), "true"): "#t" else: "#f")
+        case I0Eflt(tok):
+            cz_flt_token(filr, tok)
+        case I0Echr(tok):
+            cz_chrtok(filr, tok)
+        case I0Eift0(test, thopt, elopt):
+            cz_str(filr, "(if ")
+            i0exp_cz0(filr, test)
+            cz_str(filr, " ")
+            cz_branchopt(filr, thopt)
+            cz_str(filr, " ")
+            cz_branchopt(filr, elopt)
+            cz_str(filr, ")")
+        case I0Elam0(_, fargs, body):
+            cz_str(filr, "(lambda (")
+            cz_params(filr, fargs)
+            cz_str(filr, ") ")
+            cz_fnbody(filr, fargs, body)
+            cz_str(filr, ")")
+        case I0Efix0(_, fid, fargs, body):
+            cz_str(filr, "(letrec ((")
+            cz_dvar(filr, fid)
+            cz_str(filr, " (lambda (")
+            cz_params(filr, fargs)
+            cz_str(filr, ") ")
+            cz_fnbody(filr, fargs, body)
+            cz_str(filr, "))) ")
+            cz_dvar(filr, fid)
+            cz_str(filr, ")")
+        case I0Ecas0(_, scrut, clss):
+            cz_str(filr, "(call/1cc (lambda (czret) (let ((czscrut ")
+            i0exp_cz0(filr, scrut)
+            cz_str(filr, ")) ")
+            cz_clslst(filr, clss)
+            cz_str(filr, " (XATS000_cfail))))")
+        case I0Evar(dvar):
+            cz_dvar(filr, dvar)
+        case I0Ecst(dcst):
+            cz_dcst(filr, dcst)
+        case I0Etop(_):
+            cz_str(filr, "XATSTOP0")
+        case I0Econ(dcon):
+            cz_str(filr, "(vector ")
+            cz_ctag(filr, dcon)
+            cz_str(filr, ")")
+        case I0Etimp(_tapp, timp):
+            cz_timp_inline(filr, timp)
+        case I0Etapp(i0f):
+            i0exp_cz0(filr, i0f)
+        case I0Etapq(i0f, _):
+            i0exp_cz0(filr, i0f)
+        case I0Efold(e0):
+            i0exp_cz0(filr, e0)
+        case I0Edapp(i0f, args):
+            match cz_unwrap_con(i0f):
+                case optn_cons(dcon):
+                    cz_str(filr, "(vector ")
+                    cz_ctag(filr, dcon)
+                    cz_args(filr, args)
+                    cz_str(filr, ")")
+                case optn_nil():
+                    cz_str(filr, "(")
+                    i0exp_cz0(filr, i0f)
+                    cz_args(filr, args)
+                    cz_str(filr, ")")
+        case I0Edap0(i0f):
+            match cz_unwrap_con(i0f):
+                case optn_cons(dcon):
+                    cz_str(filr, "(vector ")
+                    cz_ctag(filr, dcon)
+                    cz_str(filr, ")")
+                case optn_nil():
+                    cz_str(filr, "(")
+                    i0exp_cz0(filr, i0f)
+                    cz_str(filr, ")")
+        case I0Etup0(es):
+            cz_str(filr, "(vector")
+            cz_args(filr, es)
+            cz_str(filr, ")")
+        case I0Etup1(_, es):
+            cz_str(filr, "(vector")
+            cz_args(filr, es)
+            cz_str(filr, ")")
+        case I0Ercd2(_, lies):
+            cz_str(filr, "(XATS_rcd2")
+            cz_l0i0e_rcd(filr, lies)
+            cz_str(filr, ")")
+        case I0Epcon(lab, con):
+            cz_str(filr, "(XATSPCON ")
+            i0exp_cz0(filr, con)
+            cz_str(filr, " ")
+            cz_lab_idx(filr, lab)
+            cz_str(filr, ")")
+        case I0Eproj(lab, tup):
+            cz_proj_read(filr, lab, tup)
+        case I0Epflt(lab, tup):
+            cz_proj_read(filr, lab, tup)
+        case I0Enone0():
+            cz_str(filr, "_xunit")
+        case I0Eflat(e0):
+            cz_str(filr, "(XATS_lvget ")
+            i0exp_cz0(filr, e0)
+            cz_str(filr, ")")
+        case I0Efree(e0):
+            i0exp_cz0(filr, e0)
+        case I0Edp2tr(e0):
+            cz_str(filr, "(XATS_lvget ")
+            i0exp_cz0(filr, e0)
+            cz_str(filr, ")")
+        case I0Eaddr(e0):
+            match e0.node():
+                case I0Eflat(inner):
+                    i0exp_cz0(filr, inner)
+                case I0Eproj(lab, base):
+                    cz_addr_field(filr, lab, base)
+                case I0Epflt(lab, base):
+                    cz_addr_field(filr, lab, base)
+                case I0Epcon(lab, con):
+                    cz_str(filr, "(vector ")
+                    i0exp_cz0(filr, con)
+                    cz_str(filr, " (+ ")
+                    cz_lab_idx(filr, lab)
+                    cz_str(filr, " 1))")
+                case _:
+                    i0exp_cz0(filr, e0)
+        case I0Eassgn(lval, rval):
+            i0exp_cz0_assgn(filr, lval, rval)
+        case I0Eraise(_, e0):
+            cz_str(filr, "(raise ")
+            i0exp_cz0(filr, e0)
+            cz_str(filr, ")")
+        case I0Etry0(_, body, handlers):
+            cz_str(filr, "(guard (czscrut ")
+            cz_try_clslst(filr, handlers)
+            cz_str(filr, " (else (raise czscrut))) ")
+            i0exp_cz0(filr, body)
+            cz_str(filr, ")")
+        case I0El0azy(_, e0):
+            cz_str(filr, "(XATS000_l0azy (lambda () ")
+            i0exp_cz0(filr, e0)
+            cz_str(filr, "))")
+        case I0El1azy(_, e0, _):
+            cz_str(filr, "(XATS000_l1azy (lambda (czlz) ")
+            i0exp_cz0(filr, e0)
+            cz_str(filr, "))")
+        case I0Edl0az(e0):
+            cz_str(filr, "(XATS000_dl0az ")
+            i0exp_cz0(filr, e0)
+            cz_str(filr, ")")
+        case I0Edl1az(e0):
+            cz_str(filr, "(XATS000_dl1az ")
+            i0exp_cz0(filr, e0)
+            cz_str(filr, ")")
+        case I0Eseqn(inits, last):
+            cz_str(filr, "(begin ")
+            cz_seq(filr, inits)
+            i0exp_cz0(filr, last)
+            cz_str(filr, ")")
+        case I0Elet0(decls, scope):
+            cz_dcl_body(filr, decls, scope)
+        case I0Ewhere(scope, decls):
+            cz_dcl_body(filr, decls, scope)
+        case I0Ec00(c0):
+            cz_int(filr, @sapp[SInt] UN.cast10(c0))
+        case I0Ef00(_):
+            cz_str(filr, "0.0")
+            prerrsln("[cz0emit] I0Ef00 (float const) -> 0.0, TODO")
+        case I0Eeval(e0):
+            i0exp_cz0(filr, e0)
+        case I0Eextnam(_, nam):
+            g1nam_fprint(nam, filr)
+        case I0Esynext(_):
+            cz_str(filr, "(XATS_undef)")
+            prerrsln("[cz0emit] I0Esynext -> undef, TODO")
+        case I0Enone1(_):
+            cz_str(filr, "_xunit")
+        case _:
+            cz_str(filr, "(UNHANDLED-i0exp)")
+            prerrsln("[cz0emit] UNHANDLED-i0exp-NODE:")
+            i0exp_fprint(i0e0, g_stderr())
+            prerrsln("")
+
+def cz_args(filr: FILR, args: i0explst) -> Void:
+    match args:
+        case list_nil():
+            ()
+        case list_cons(a0, rest):
+            cz_str(filr, " ")
+            i0exp_cz0(filr, a0)
+            cz_args(filr, rest)
+
+def cz_seq(filr: FILR, es: i0explst) -> Void:
+    match es:
+        case list_nil():
+            ()
+        case list_cons(e0, rest):
+            i0exp_cz0(filr, e0)
+            cz_str(filr, " ")
+            cz_seq(filr, rest)
+
+def cz_l0i0e_rcd(filr: FILR, lies: l0i0elst) -> Void:
+    match lies:
+        case list_nil():
+            ()
+        case list_cons(lie, rest):
+            cz_str(filr, " ")
+            match lie:
+                case I0LAB(lab, e0):
+                    cz_lab_sym(filr, lab)
+                    cz_str(filr, " ")
+                    i0exp_cz0(filr, e0)
+            cz_l0i0e_rcd(filr, rest)
+
+def cz_proj_read(filr: FILR, lab: label, tup: i0exp) -> Void:
+    match lab:
+        case LABint(i):
+            cz_str(filr, "(vector-ref ")
+            i0exp_cz0(filr, tup)
+            cz_str(filr, " ")
+            cz_int(filr, i)
+            cz_str(filr, ")")
+        case LABsym(_):
+            cz_str(filr, "(XATS_rsel ")
+            i0exp_cz0(filr, tup)
+            cz_str(filr, " ")
+            cz_lab_sym(filr, lab)
+            cz_str(filr, ")")
+
+def cz_proj_write(filr: FILR, lab: label, base: i0exp, rval: i0exp) -> Void:
+    match lab:
+        case LABint(i):
+            cz_str(filr, "(vector-set! ")
+            i0exp_cz0(filr, base)
+            cz_str(filr, " ")
+            cz_int(filr, i)
+            cz_str(filr, " ")
+            i0exp_cz0(filr, rval)
+            cz_str(filr, ")")
+        case LABsym(_):
+            cz_str(filr, "(XATS_rset ")
+            i0exp_cz0(filr, base)
+            cz_str(filr, " ")
+            cz_lab_sym(filr, lab)
+            cz_str(filr, " ")
+            i0exp_cz0(filr, rval)
+            cz_str(filr, ")")
+
+def cz_addr_field(filr: FILR, lab: label, base: i0exp) -> Void:
+    cz_str(filr, "(vector ")
+    i0exp_cz0(filr, base)
+    cz_str(filr, " ")
+    match lab:
+        case LABint(i):
+            cz_int(filr, i)
+        case LABsym(_):
+            cz_lab_sym(filr, lab)
+    cz_str(filr, ")")
+
+def cz_branchopt(filr: FILR, opt: i0expopt) -> Void:
+    match opt:
+        case optn_nil():
+            cz_str(filr, "_xunit")
+        case optn_cons(e0):
+            i0exp_cz0(filr, e0)
+
+def cz_clslst(filr: FILR, clss: i0clslst) -> Void:
+    match clss:
+        case list_nil():
+            ()
+        case list_cons(cls, rest):
+            cz_cls(filr, cls)
+            cz_str(filr, " ")
+            cz_clslst(filr, rest)
+
+def cz_cls(filr: FILR, cls: i0cls) -> Void:
+    match cls.node():
+        case I0CLSgpt(_):
+            ()
+        case I0CLScls(gpt, body):
+            match gpt.node():
+                case I0GPTpat(pat):
+                    cz_str(filr, "(when ")
+                    cz_pat_test(filr, pat)
+                    cz_str(filr, " (let (")
+                    cz_pat_binds(filr, pat)
+                    cz_str(filr, ") (czret ")
+                    i0exp_cz0(filr, body)
+                    cz_str(filr, ")))")
+                case I0GPTgua(pat, guas):
+                    cz_str(filr, "(when ")
+                    cz_pat_test(filr, pat)
+                    cz_str(filr, " (let (")
+                    cz_pat_binds(filr, pat)
+                    cz_str(filr, ") (when ")
+                    cz_gualst(filr, guas)
+                    cz_str(filr, " (czret ")
+                    i0exp_cz0(filr, body)
+                    cz_str(filr, "))))")
+
+def cz_gualst(filr: FILR, guas: i0gualst) -> Void:
+    cz_str(filr, "(and")
+    cz_gualst_loop(filr, guas)
+    cz_str(filr, ")")
+
+def cz_gualst_loop(filr: FILR, guas: i0gualst) -> Void:
+    match guas:
+        case list_nil():
+            ()
+        case list_cons(gua, rest):
+            cz_str(filr, " ")
+            match gua.node():
+                case I0GUAexp(e0):
+                    i0exp_cz0(filr, e0)
+                case I0GUAmat(e0, _):
+                    i0exp_cz0(filr, e0)
+            cz_gualst_loop(filr, rest)
+
+def i0exp_cz0_assgn(filr: FILR, lval: i0exp, rval: i0exp) -> Void:
+    match lval.node():
+        case I0Eflat(inner):
+            cz_str(filr, "(XATS_lvset ")
+            i0exp_cz0(filr, inner)
+            cz_str(filr, " ")
+            i0exp_cz0(filr, rval)
+            cz_str(filr, ")")
+        case I0Edp2tr(inner):
+            cz_str(filr, "(XATS_lvset ")
+            i0exp_cz0(filr, inner)
+            cz_str(filr, " ")
+            i0exp_cz0(filr, rval)
+            cz_str(filr, ")")
+        case I0Eproj(lab, base):
+            cz_proj_write(filr, lab, base, rval)
+        case I0Epflt(lab, base):
+            cz_proj_write(filr, lab, base, rval)
+        case I0Epcon(lab, con):
+            cz_str(filr, "(vector-set! ")
+            i0exp_cz0(filr, con)
+            cz_str(filr, " (+ ")
+            cz_lab_idx(filr, lab)
+            cz_str(filr, " 1) ")
+            i0exp_cz0(filr, rval)
+            cz_str(filr, ")")
+        case _:
+            cz_str(filr, "(XATS_lvset ")
+            i0exp_cz0(filr, lval)
+            cz_str(filr, " ")
+            i0exp_cz0(filr, rval)
+            cz_str(filr, ")")
+
+def cz_try_cls(filr: FILR, cls: i0cls) -> Void:
+    match cls.node():
+        case I0CLSgpt(_):
+            ()
+        case I0CLScls(gpt, body):
+            match gpt.node():
+                case I0GPTpat(pat):
+                    cz_str(filr, "(")
+                    cz_pat_test(filr, pat)
+                    cz_str(filr, " (let (")
+                    cz_pat_binds(filr, pat)
+                    cz_str(filr, ") ")
+                    i0exp_cz0(filr, body)
+                    cz_str(filr, "))")
+                case I0GPTgua(pat, guas):
+                    cz_str(filr, "((and ")
+                    cz_pat_test(filr, pat)
+                    cz_str(filr, " ")
+                    cz_gualst(filr, guas)
+                    cz_str(filr, ") (let (")
+                    cz_pat_binds(filr, pat)
+                    cz_str(filr, ") ")
+                    i0exp_cz0(filr, body)
+                    cz_str(filr, "))")
+
+def cz_try_clslst(filr: FILR, clss: i0clslst) -> Void:
+    match clss:
+        case list_nil():
+            ()
+        case list_cons(c0, rest):
+            cz_try_cls(filr, c0)
+            cz_str(filr, " ")
+            cz_try_clslst(filr, rest)
+
+def i0vardcl_cz0(filr: FILR, ivd0: i0vardcl) -> Void:
+    let dpid = ivd0.dpid()
+    let dini = ivd0.dini()
+    cz_str(filr, "(define ")
+    cz_dvar(filr, dpid)
+    cz_str(filr, " (box ")
+    match dini:
+        case TEQI0EXPnone():
+            cz_str(filr, "_xunit")
+        case TEQI0EXPsome(_, e0):
+            i0exp_cz0(filr, e0)
+    cz_str(filr, "))\n")
+
+def i0vardclist_cz0(filr: FILR, ivs0: i0vardclist) -> Void:
+    match ivs0:
+        case list_nil():
+            ()
+        case list_cons(ivd0, rest):
+            i0vardcl_cz0(filr, ivd0)
+            i0vardclist_cz0(filr, rest)
+
+def cz_timp_inline(filr: FILR, timp: t0imp) -> Void:
+    match timp.node():
+        case T0IMPall1(_, _, dopt):
+            cz_timp_body(filr, dopt)
+        case T0IMPallx(_, _, dopt):
+            cz_timp_body(filr, dopt)
+
+def cz_timp_body(filr: FILR, dopt: i0dclopt) -> Void:
+    match dopt:
+        case optn_nil():
+            cz_str(filr, "(XATS_undef)")
+            prerrsln("[cz0emit] BODILESS template instance (upstream resolution failure!)")
+        case optn_cons(idcl):
+            cz_timp_dcl(filr, idcl)
+
+def cz_timp_dcl(filr: FILR, idcl: i0dcl) -> Void:
+    match idcl.node():
+        case I0Dtmpsub(_, inner):
+            cz_timp_dcl(filr, inner)
+        case I0Dstatic(_, inner):
+            cz_timp_dcl(filr, inner)
+        case I0Ddclst0(ds):
+            cz_timp_dcl_lst(filr, ds)
+        case I0Dimplmnt0(_, _, _, fargs, body):
+            match fargs:
+                case list_nil():
+                    cz_str(filr, "(lambda czfwd (apply ")
+                    i0exp_cz0(filr, body)
+                    cz_str(filr, " czfwd))")
+                case _:
+                    cz_str(filr, "(lambda (")
+                    cz_params(filr, fargs)
+                    cz_str(filr, ") ")
+                    cz_fnbody(filr, fargs, body)
+                    cz_str(filr, ")")
+        case _:
+            cz_str(filr, "(UNHANDLED-timp-dcl)")
+            prerrsln("[cz0emit] UNHANDLED template-instance body decl:")
+            i0dcl_fprint(idcl, g_stderr())
+            prerrsln("")
+
+def cz_timp_dcl_lst(filr: FILR, ds: i0dclist) -> Void:
+    match ds:
+        case list_nil():
+            cz_str(filr, "(XATS_undef)")
+        case list_cons(d0, _):
+            cz_timp_dcl(filr, d0)
+
+def cz_params(filr: FILR, fargs: fiarglst) -> Void:
+    def loop_pats(pats: i0patlst, i: SInt) -> SInt:
+        match pats:
+            case list_nil():
+                i
+            case list_cons(p0, rest):
+                cz_str(filr, " ")
+                if cz_param_isvar(p0):
+                    cz_param_var(filr, p0)
+                else:
+                    cz_str(filr, "czarg")
+                    cz_int(filr, i)
+                loop_pats(rest, i + 1)
+    def loop_fa(fas: fiarglst, i: SInt) -> SInt:
+        match fas:
+            case list_nil():
+                i
+            case list_cons(fa, rest):
+                match fa.node():
+                    case FIARGdarg(pats):
+                        loop_fa(rest, loop_pats(pats, i))
+    let _ = loop_fa(fargs, 0)
+    ()
+
+def cz_fnbody(filr: FILR, fargs: fiarglst, body: i0exp) -> Void:
+    def open_pats(pats: i0patlst, i: SInt) -> SInt:
+        match pats:
+            case list_nil():
+                i
+            case list_cons(p0, rest):
+                if cz_param_compound(p0):
+                    cz_str(filr, "(let ((czscrut czarg")
+                    cz_int(filr, i)
+                    cz_str(filr, ")) (let (")
+                    cz_pat_binds(filr, p0)
+                    cz_str(filr, ") ")
+                open_pats(rest, i + 1)
+    def open_fa(fas: fiarglst, i: SInt) -> SInt:
+        match fas:
+            case list_nil():
+                i
+            case list_cons(fa, rest):
+                match fa.node():
+                    case FIARGdarg(pats):
+                        open_fa(rest, open_pats(pats, i))
+    def close_pats(pats: i0patlst) -> Void:
+        match pats:
+            case list_nil():
+                ()
+            case list_cons(p0, rest):
+                if cz_param_compound(p0):
+                    cz_str(filr, "))")
+                close_pats(rest)
+    def close_fa(fas: fiarglst) -> Void:
+        match fas:
+            case list_nil():
+                ()
+            case list_cons(fa, rest):
+                match fa.node():
+                    case FIARGdarg(pats):
+                        close_pats(pats)
+                close_fa(rest)
+    let _ = open_fa(fargs, 0)
+    i0exp_cz0(filr, body)
+    close_fa(fargs)
+
+def cz_dcl_body(filr: FILR, decls: i0dclist, body: i0exp) -> Void:
+    match decls:
+        case list_nil():
+            i0exp_cz0(filr, body)
+        case list_cons(d0, rest):
+            match d0.node():
+                case I0Dvaldclst(_, ivs):
+                    cz_val_body(filr, ivs, rest, body)
+                case I0Dvardclst(_, ivs):
+                    cz_var_body(filr, ivs, rest, body)
+                case I0Dfundclst(_, _, _, ifs):
+                    cz_str(filr, "(letrec (")
+                    cz_fundcl_binds(filr, ifs)
+                    cz_str(filr, ") ")
+                    cz_dcl_body(filr, rest, body)
+                    cz_str(filr, ")")
+                case I0Dimplmnt0(tknd, _, dimp, fargs, ibody):
+                    if dimpl_tempq(dimp):
+                        cz_dcl_body(filr, rest, body)
+                    else:
+                        if cz_implvalq(tknd):
+                            cz_str(filr, "(let ((")
+                            cz_dimpl_name(filr, dimp)
+                            cz_str(filr, " ")
+                            i0exp_cz0(filr, ibody)
+                            cz_str(filr, ")) ")
+                            cz_dcl_body(filr, rest, body)
+                            cz_str(filr, ")")
+                        else:
+                            cz_str(filr, "(letrec ((")
+                            cz_dimpl_name(filr, dimp)
+                            match fargs:
+                                case list_nil():
+                                    cz_str(filr, " (lambda czfwd (apply ")
+                                    i0exp_cz0(filr, ibody)
+                                    cz_str(filr, " czfwd))")
+                                case _:
+                                    cz_str(filr, " (lambda (")
+                                    cz_params(filr, fargs)
+                                    cz_str(filr, ") ")
+                                    cz_fnbody(filr, fargs, ibody)
+                                    cz_str(filr, ")")
+                            cz_str(filr, ")) ")
+                            cz_dcl_body(filr, rest, body)
+                            cz_str(filr, ")")
+                case I0Dlocal0(h, b):
+                    cz_dcl_body(filr, list_append(h, list_append(b, rest)), body)
+                case I0Ddclst0(ds):
+                    cz_dcl_body(filr, list_append(ds, rest), body)
+                case I0Dstatic(_, d1):
+                    cz_dcl_body(filr, list_cons(d1, rest), body)
+                case I0Dtmpsub(_, d1):
+                    cz_dcl_body(filr, list_cons(d1, rest), body)
+                case I0Dextern(_, _):
+                    cz_dcl_body(filr, rest, body)
+                case I0Dd3ecl(_):
+                    cz_dcl_body(filr, rest, body)
+                case I0Dinclude(_, _, _, _, _):
+                    cz_dcl_body(filr, rest, body)
+                case I0Dnone0():
+                    cz_dcl_body(filr, rest, body)
+                case I0Dnone1(_):
+                    cz_dcl_body(filr, rest, body)
+                case _:
+                    cz_str(filr, ";;UNHANDLED-i0dcl-in-body ")
+                    prerrsln("[cz0emit] UNHANDLED-i0dcl in let/where body")
+                    i0dcl_fprint(d0, g_stderr())
+                    prerrsln("")
+                    cz_dcl_body(filr, rest, body)
+
+def cz_val_body(filr: FILR, ivs: i0valdclist, rest: i0dclist, body: i0exp) -> Void:
+    match ivs:
+        case list_nil():
+            cz_dcl_body(filr, rest, body)
+        case list_cons(iv, ivs_rest):
+            let ipat = iv.ipat()
+            let tdxp = iv.tdxp()
+            match tdxp:
+                case TEQI0EXPnone():
+                    cz_val_body(filr, ivs_rest, rest, body)
+                case TEQI0EXPsome(_, rhs):
+                    match ipat.node():
+                        case I0Pvar(dvar):
+                            cz_str(filr, "(let ((")
+                            cz_dvar(filr, dvar)
+                            cz_str(filr, " ")
+                            i0exp_cz0(filr, rhs)
+                            cz_str(filr, ")) ")
+                            cz_val_body(filr, ivs_rest, rest, body)
+                            cz_str(filr, ")")
+                        case _:
+                            cz_str(filr, "(let ((czscrut ")
+                            i0exp_cz0(filr, rhs)
+                            cz_str(filr, ")) (let (")
+                            cz_pat_binds(filr, ipat)
+                            cz_str(filr, ") ")
+                            cz_val_body(filr, ivs_rest, rest, body)
+                            cz_str(filr, "))")
+
+def cz_var_body(filr: FILR, ivs: i0vardclist, rest: i0dclist, body: i0exp) -> Void:
+    match ivs:
+        case list_nil():
+            cz_dcl_body(filr, rest, body)
+        case list_cons(ivd0, ivs_rest):
+            let dpid = ivd0.dpid()
+            let dini = ivd0.dini()
+            cz_str(filr, "(let ((")
+            cz_dvar(filr, dpid)
+            cz_str(filr, " (box ")
+            match dini:
+                case TEQI0EXPnone():
+                    cz_str(filr, "_xunit")
+                case TEQI0EXPsome(_, e0):
+                    i0exp_cz0(filr, e0)
+            cz_str(filr, "))) ")
+            cz_var_body(filr, ivs_rest, rest, body)
+            cz_str(filr, ")")
+
+def cz_fundcl_binds(filr: FILR, ifs: i0fundclist) -> Void:
+    match ifs:
+        case list_nil():
+            ()
+        case list_cons(ifun, rest):
+            let dpid = ifun.dpid()
+            let farg = ifun.farg()
+            let tdxp = ifun.tdxp()
+            match tdxp:
+                case TEQI0EXPnone():
+                    ()
+                case TEQI0EXPsome(_, fbody):
+                    match farg:
+                        case list_nil():
+                            cz_str(filr, "(")
+                            cz_dvar(filr, dpid)
+                            cz_str(filr, " (lambda czfwd (apply ")
+                            i0exp_cz0(filr, fbody)
+                            cz_str(filr, " czfwd))) ")
+                        case _:
+                            cz_str(filr, "(")
+                            cz_dvar(filr, dpid)
+                            cz_str(filr, " (lambda (")
+                            cz_params(filr, farg)
+                            cz_str(filr, ") ")
+                            cz_fnbody(filr, farg, fbody)
+                            cz_str(filr, ")) ")
+            cz_fundcl_binds(filr, rest)
+
+def i0dcl_cz0(filr: FILR, idcl: i0dcl) -> Void:
+    match idcl.node():
+        case I0Dvaldclst(_, ivs):
+            i0valdclist_cz0(filr, ivs)
+        case I0Ddclst0(ds):
+            i0dclist_cz0(filr, ds)
+        case I0Dlocal0(h, b):
+            i0dclist_cz0(filr, h)
+            i0dclist_cz0(filr, b)
+        case I0Dstatic(_, d0):
+            i0dcl_cz0(filr, d0)
+        case I0Dtmpsub(_, d0):
+            i0dcl_cz0(filr, d0)
+        case I0Dimplmnt0(tknd, _, dimp, fargs, body):
+            if dimpl_tempq(dimp):
+                ()
+            else:
+                if cz_implvalq(tknd):
+                    cz_str(filr, "(define ")
+                    cz_dimpl_name(filr, dimp)
+                    cz_str(filr, " ")
+                    i0exp_cz0(filr, body)
+                    cz_str(filr, ")\n")
+                else:
+                    match fargs:
+                        case list_nil():
+                            cz_str(filr, "(define ")
+                            cz_dimpl_name(filr, dimp)
+                            cz_str(filr, " (lambda czfwd (apply ")
+                            i0exp_cz0(filr, body)
+                            cz_str(filr, " czfwd)))\n")
+                        case _:
+                            cz_str(filr, "(define (")
+                            cz_dimpl_name(filr, dimp)
+                            cz_params(filr, fargs)
+                            cz_str(filr, ") ")
+                            cz_fnbody(filr, fargs, body)
+                            cz_str(filr, ")\n")
+        case I0Dextern(_, _):
+            ()
+        case I0Dd3ecl(_):
+            ()
+        case I0Dinclude(_, _, _, _, dopt):
+            match dopt:
+                case optn_nil():
+                    ()
+                case optn_cons(ds):
+                    i0dclist_cz0(filr, ds)
+        case I0Dnone0():
+            ()
+        case I0Dnone1(_):
+            ()
+        case I0Dfundclst(_, _, _, ifs):
+            i0fundclist_cz0(filr, ifs)
+        case I0Dvardclst(_, ivs):
+            i0vardclist_cz0(filr, ivs)
+        case _:
+            cz_str(filr, ";; UNHANDLED-i0dcl\n")
+            prerrsln("[cz0emit] UNHANDLED-i0dcl-NODE:")
+            i0dcl_fprint(idcl, g_stderr())
+            prerrsln("")
+
+def i0dclist_cz0(filr: FILR, ds: i0dclist) -> Void:
+    match ds:
+        case list_nil():
+            ()
+        case list_cons(d0, rest):
+            i0dcl_cz0(filr, d0)
+            i0dclist_cz0(filr, rest)
+
+def i0valdclist_cz0(filr: FILR, ivs: i0valdclist) -> Void:
+    match ivs:
+        case list_nil():
+            ()
+        case list_cons(iv, rest):
+            i0valdcl_cz0(filr, iv)
+            i0valdclist_cz0(filr, rest)
+
+def i0valdcl_cz0(filr: FILR, iv: i0valdcl) -> Void:
+    let ipat = iv.ipat()
+    let tdxp = iv.tdxp()
+    match tdxp:
+        case TEQI0EXPnone():
+            ()
+        case TEQI0EXPsome(_, rhs):
+            match ipat.node():
+                case I0Pvar(dvar):
+                    cz_str(filr, "(define ")
+                    cz_dvar(filr, dvar)
+                    cz_str(filr, " ")
+                    i0exp_cz0(filr, rhs)
+                    cz_str(filr, ")\n")
+                case _:
+                    if cz_pat_hasvar(ipat):
+                        cz_str(filr, "(define-values (")
+                        cz_pv_vars(filr, ipat)
+                        cz_str(filr, ") (let ((czpv ")
+                        i0exp_cz0(filr, rhs)
+                        cz_str(filr, ")) (values")
+                        cz_pv_accs(filr, ipat)
+                        cz_str(filr, ")))\n")
+                    else:
+                        i0exp_cz0(filr, rhs)
+                        cz_str(filr, "\n")
+
+def i0fundcl_cz0(filr: FILR, ifun: i0fundcl) -> Void:
+    let dpid = ifun.dpid()
+    let farg = ifun.farg()
+    let tdxp = ifun.tdxp()
+    match tdxp:
+        case TEQI0EXPnone():
+            ()
+        case TEQI0EXPsome(_, body):
+            match farg:
+                case list_nil():
+                    cz_str(filr, "(define ")
+                    cz_dvar(filr, dpid)
+                    cz_str(filr, " (lambda czfwd (apply ")
+                    i0exp_cz0(filr, body)
+                    cz_str(filr, " czfwd)))\n")
+                case _:
+                    cz_str(filr, "(define (")
+                    cz_dvar(filr, dpid)
+                    cz_params(filr, farg)
+                    cz_str(filr, ") ")
+                    cz_fnbody(filr, farg, body)
+                    cz_str(filr, ")\n")
+
+def i0fundclist_cz0(filr: FILR, ifs: i0fundclist) -> Void:
+    match ifs:
+        case list_nil():
+            ()
+        case list_cons(if0, rest):
+            i0fundcl_cz0(filr, if0)
+            i0fundclist_cz0(filr, rest)
+
+@impl
+def i0parsed_cz0emit(ipar, filr):
+    let dopt = ipar.parsed()
+    cz_str(filr, ";;==XATS2CZ-BEGIN==\n")
+    match dopt:
+        case optn_nil():
+            ()
+        case optn_cons(idcls):
+            i0dclist_cz0(filr, idcls)
+    cz_str(filr, ";;==XATS2CZ-END==\n")
+

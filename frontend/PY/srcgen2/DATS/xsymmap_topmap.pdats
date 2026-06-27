@@ -1,0 +1,118 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xlibext" import *
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+from "srcgen2/SATS/xglobal" import *
+
+import "srcgen1/prelude/DATS/CATS/JS/basics3.dats" as _
+
+private:
+    type Xatslocal0_key = SInt
+    @impl
+    type Topmap_tbox[Itm: Type] = mydict[Xatslocal0_key, list[Itm]]
+
+@impl
+def topmap_make_nil[Itm: Tbox]():
+    type Itms = list[Itm]
+    @inst[Xatslocal0_key] @inst[Itms] mydict_make_nil()
+
+@impl
+def topmap_strmize[Itm: Tbox](map):
+    @inst[gmap] @inst[Xatslocal0_key] @inst[itms] gmap_strmize(map)
+where:
+    type Itms = list[Itm]
+    type Gmap = mydict[Xatslocal0_key, Itms]
+
+@impl
+def topmap_search/opt[Itm: Tbox](map, key):
+    type Itms = list[Itm]
+    let key = g0u2s(uint(key.stmp()))
+    let opt = @inst[Xatslocal0_key] @inst[Itms] mydict_search/opt(map, key)
+    match opt:
+        case ~optn_vt_nil():
+            optn_vt_nil()
+        case ~optn_vt_cons(itms):
+            let list_cons(itm, _) = itms
+            optn_vt_cons(itm)
+
+@impl
+def topmap_insert/any[Itm: Tbox](map, key, itm):
+    type Itms = list[Itm]
+    let key = g0u2s(uint(key.stmp()))
+    let opt = @inst[Xatslocal0_key] @inst[Itms] mydict_search/opt(map, key)
+    match opt:
+        case ~optn_vt_nil():
+            let itms = list_sing(itm)
+            @inst[Xatslocal0_key] @inst[Itms] mydict_insert/any(map, key, itms)
+        case ~optn_vt_cons(itms):
+            let itms = list_cons(itm, itms)
+            @inst[Xatslocal0_key] @inst[Itms] mydict_insert/any(map, key, itms)
+
+
+@impl
+def topmap_insert/kxs[Itm: Tbox](map, kxs):
+    loop(map, kxs)
+where:
+    def loop(map: topmap[Itm], kxs: list_vt[(Key, Itm)]) -> Void:
+        match kxs:
+            case ~list_vt_nil():
+                ()
+            case ~list_vt_cons(kx1, kxs):
+                topmap_insert/any(map, kx1.0, kx1.1)
+                loop(map, kxs)
+
+@impl
+def topmap_insmix/any[Itm: Tbox](map, k0, x0, mix):
+    let opt = topmap_search/opt(map, k0)
+    match opt:
+        case ~optn_vt_nil():
+            topmap_insert/any(map, k0, x0)
+        case ~optn_vt_cons(x1):
+            topmap_insert/any(map, k0, mix(x0, x1))
+
+@impl
+def topmap_insmix/kxs[Itm: Tbox](map, kxs, mix):
+    loop(map, kxs)
+where:
+    type Topmap = Topmap[Itm]
+    def loop(map: Topmap, kxs: list_vt[(Key, Itm)]) -> Void:
+        match kxs:
+            case ~list_vt_nil():
+                ()
+            case ~list_vt_cons(kx1, kxs):
+                topmap_insmix/any(map, kx1.0, kx1.1, mix)
+                loop(map, kxs)
+
+@impl[]
+def topmap_fprint[Itm: Type](tmap, out):
+    @impl[]
+    def g_print/out():
+        out
+    type Kx = (Int, list[Itm])
+    def auxkey(k0: Int):
+        let opt = the_xsymbls_search(k0)
+        match opt:
+            case ~optn_vt_nil():
+                print("(nil)")
+            case ~optn_vt_cons(sym):
+                print(sym)
+    def auxloop(kxs: strm_vt[Kx]) -> Void:
+        match !(kxs):
+            case ~strmcon_vt_nil():
+                ()
+            case ~strmcon_vt_cons(kx1, kxs):
+                auxkey(kx1.0)
+                printsln(" -> ", list_head(kx1.1))
+                auxloop(kxs)
+    auxloop(topmap_strmize(tmap))
+

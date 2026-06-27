@@ -1,0 +1,379 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/xglobal" import *
+
+@overload name = s2cst_get_name
+
+@overload sort = s2cst_get_sort
+
+@overload stmp = s2cst_get_stmp
+
+@extern
+def the_s2typs/reset() -> Void
+
+@extern
+def the_s2typ_p1tr0/reset() -> Void
+
+@extern
+def the_s2typ_p2at0/reset() -> Void
+
+@extern
+def the_s2typ_l0azy0/reset() -> Void
+
+@extern
+def the_s2typ_l1azy0/reset() -> Void
+
+@extern
+def the_s2typ_elazy0/reset() -> Void
+
+@extern
+def the_s2typ_excptn/reset() -> Void
+
+private:
+    let void_name = symbl("the_s2exp_void")
+    let sint_name = symbl("the_s2exp_sint0")
+    let uint_name = symbl("the_s2exp_uint0")
+    let bool_name = symbl("the_s2exp_bool0")
+    let char_name = symbl("the_s2exp_char0")
+    let dflt_name = symbl("the_s2exp_dflt0")
+    let strn_name = symbl("the_s2exp_strn0")
+    let slint_name = symbl("the_s2exp_slint0")
+    let ulint_name = symbl("the_s2exp_ulint0")
+    let sllint_name = symbl("the_s2exp_sllint0")
+    let ullint_name = symbl("the_s2exp_ullint0")
+    private:
+        let t2p0 = s2typ_none0()
+
+    let void_t2pr = @inst[s2typ] a0ref_make_1val(t2p0)
+    let sint_t2pr = @inst[s2typ] a0ref_make_1val(t2p0)
+    let uint_t2pr = @inst[s2typ] a0ref_make_1val(t2p0)
+    let bool_t2pr = @inst[s2typ] a0ref_make_1val(t2p0)
+    let char_t2pr = @inst[s2typ] a0ref_make_1val(t2p0)
+    let dflt_t2pr = @inst[s2typ] a0ref_make_1val(t2p0)
+    let strn_t2pr = @inst[s2typ] a0ref_make_1val(t2p0)
+    let slint_t2pr = @inst[s2typ] a0ref_make_1val(t2p0)
+    let ulint_t2pr = @inst[s2typ] a0ref_make_1val(t2p0)
+    let sllint_t2pr = @inst[s2typ] a0ref_make_1val(t2p0)
+    let ullint_t2pr = @inst[s2typ] a0ref_make_1val(t2p0)
+    def s2typ_name_t2pr(name: sym_t, t2pr: a0ref[s2typ]) -> s2typ:
+        let t2p0 = t2pr[]
+        match t2p0.node():
+            case T2Pnone0():
+                let opt1 = the_sexpenv_pvsfind(name)
+                match opt1:
+                    case ~optn_vt_nil():
+                        t2p0
+                    case ~optn_vt_cons(s2i1):
+                        match s2i1:
+                            case S2ITMcst(s2cs):
+                                let list_cons(s2c1, _) = s2cs
+                                let t2p1 = s2typ_cst(s2c1)
+                                t2pr[] := t2p1
+                                t2p1
+                            case _:
+                                t2p0
+            case _:
+                t2p0
+
+@impl
+def the_s2typ_void():
+    s2typ_name_t2pr(void_name, void_t2pr)
+
+@impl
+def the_s2typ_sint():
+    s2typ_name_t2pr(sint_name, sint_t2pr)
+
+@impl
+def the_s2typ_uint():
+    s2typ_name_t2pr(uint_name, uint_t2pr)
+
+@impl
+def the_s2typ_bool():
+    s2typ_name_t2pr(bool_name, bool_t2pr)
+
+@impl
+def the_s2typ_char():
+    s2typ_name_t2pr(char_name, char_t2pr)
+
+@impl
+def the_s2typ_dflt():
+    s2typ_name_t2pr(dflt_name, dflt_t2pr)
+
+@impl
+def the_s2typ_strn():
+    s2typ_name_t2pr(strn_name, strn_t2pr)
+
+@impl
+def the_s2typ_slint():
+    s2typ_name_t2pr(slint_name, slint_t2pr)
+
+@impl
+def the_s2typ_ulint():
+    s2typ_name_t2pr(ulint_name, ulint_t2pr)
+
+@impl
+def the_s2typ_sllint():
+    s2typ_name_t2pr(sllint_name, sllint_t2pr)
+
+@impl
+def the_s2typ_ullint():
+    s2typ_name_t2pr(ullint_name, ullint_t2pr)
+
+@impl
+def the_s2typs/reset():
+    let t2p0 = s2typ_none0()
+    void_t2pr[] := t2p0
+    sint_t2pr[] := t2p0
+    uint_t2pr[] := t2p0
+    bool_t2pr[] := t2p0
+    char_t2pr[] := t2p0
+    dflt_t2pr[] := t2p0
+    strn_t2pr[] := t2p0
+    slint_t2pr[] := t2p0
+    ulint_t2pr[] := t2p0
+    sllint_t2pr[] := t2p0
+    ullint_t2pr[] := t2p0
+
+
+private:
+    @overload name = s2cst_get_name
+    let mymap = @sapp[s2typ] tmpmap_make_nil()
+
+@impl
+def s2cst_get_styp(s2c0):
+    tmpmap_search/opt(mymap, s2c0.stmp())
+
+@impl
+def s2cst_set_styp(s2c0, styp):
+    tmpmap_insert/any(mymap, s2c0.stmp(), styp)
+
+
+private:
+    @overload name = s2cst_get_name
+    let mymap = @sapp[s2typ] tmpmap_make_nil()
+
+@impl
+def s2abs_get_styp(s2c0):
+    tmpmap_search/opt(mymap, s2c0.stmp())
+
+@impl
+def s2abs_set_styp(s2c0, styp):
+    tmpmap_insert/any(mymap, s2c0.stmp(), styp)
+
+
+private:
+    let t2p0 = s2typ_none0()
+    let p1tr0_t2pr = @inst[s2typ] a0ref_make_1val(t2p0)
+
+@impl
+def the_s2typ_p1tr0():
+    let t2p0 = p1tr0_t2pr[]
+    match t2p0.node():
+        case T2Pnone0():
+            let s2c1 = the_s2cst_p1tr0()
+            let t2p1 = s2typ_cst(s2c1)
+            p1tr0_t2pr[] := t2p1
+            t2p1
+        case _:
+            t2p0
+
+@impl
+def the_s2typ_p1tr0/reset():
+    p1tr0_t2pr[] := s2typ_none0()
+
+
+private:
+    let t2p0 = s2typ_none0()
+    let p2tr0_t2pr = @inst[s2typ] a0ref_make_1val(t2p0)
+    let p2at0_t2pr = @inst[s2typ] a0ref_make_1val(t2p0)
+
+@impl
+def the_s2typ_p2tr0():
+    let t2p0 = p2tr0_t2pr[]
+    match t2p0.node():
+        case T2Pnone0():
+            let s2c1 = the_s2cst_p2tr0()
+            let t2p1 = s2typ_cst(s2c1)
+            p2tr0_t2pr[] := t2p1
+            t2p1
+        case _:
+            t2p0
+
+@impl
+def the_s2typ_p2at0():
+    let t2p0 = p2at0_t2pr[]
+    match t2p0.node():
+        case T2Pnone0():
+            let s2c1 = the_s2cst_p2at0()
+            let t2p1 = s2typ_cst(s2c1)
+            p2at0_t2pr[] := t2p1
+            t2p1
+        case _:
+            t2p0
+
+@impl
+def the_s2typ_p2at0/reset():
+    let t2p0 = s2typ_none0()
+    p2tr0_t2pr[] := t2p0
+    p2at0_t2pr[] := t2p0
+
+
+@impl
+def the_s2typ_p2tr1(telt):
+    let s2t0 = the_sort2_tbox
+    let tcon = the_s2typ_p2tr0()
+    s2typ(s2t0, T2Papps(tcon, list_sing(telt)))
+
+@impl
+def the_s2typ_p2at1(telt):
+    let s2t0 = the_sort2_tbox
+    let tcon = the_s2typ_p2at0()
+    s2typ(s2t0, T2Papps(tcon, list_sing(telt)))
+
+
+private:
+    let t2p0 = s2typ_none0()
+    let l0azy0_t2pr = @inst[s2typ] a0ref_make_1val(t2p0)
+
+@impl
+def the_s2typ_l0azy0():
+    let t2p0 = l0azy0_t2pr[]
+    match t2p0.node():
+        case T2Pnone0():
+            let s2c1 = the_s2cst_l0azy0()
+            let t2p1 = s2typ_cst(s2c1)
+            l0azy0_t2pr[] := t2p1
+            t2p1
+        case _:
+            t2p0
+
+@impl
+def the_s2typ_l0azy0/reset():
+    l0azy0_t2pr[] := s2typ_none0()
+
+
+@impl
+def the_s2typ_l0azy1(telt):
+    let s2t0 = the_sort2_tbox
+    let tcon = the_s2typ_l0azy0()
+    s2typ(s2t0, T2Papps(tcon, list_sing(telt)))
+
+
+private:
+    let t2p0 = s2typ_none0()
+    let l1azy0_t2pr = @inst[s2typ] a0ref_make_1val(t2p0)
+
+@impl
+def the_s2typ_l1azy0():
+    let t2p0 = l1azy0_t2pr[]
+    match t2p0.node():
+        case T2Pnone0():
+            let s2c1 = the_s2cst_l1azy0()
+            let t2p1 = s2typ_cst(s2c1)
+            l1azy0_t2pr[] := t2p1
+            t2p1
+        case _:
+            t2p0
+
+@impl
+def the_s2typ_l1azy0/reset():
+    l1azy0_t2pr[] := s2typ_none0()
+
+
+@impl
+def the_s2typ_l1azy1(telt):
+    let s2t0 = the_sort2_tbox
+    let tcon = the_s2typ_l1azy0()
+    s2typ(s2t0, T2Papps(tcon, list_sing(telt)))
+
+
+private:
+    let t2p0 = s2typ_none0()
+    let elazy0_t2pr = @inst[s2typ] a0ref_make_1val(t2p0)
+
+@impl
+def the_s2typ_elazy0():
+    let t2p0 = elazy0_t2pr[]
+    match t2p0.node():
+        case T2Pnone0():
+            let s2c1 = the_s2cst_elazy0()
+            let t2p1 = s2typ_cst(s2c1)
+            elazy0_t2pr[] := t2p1
+            t2p1
+        case _:
+            t2p0
+
+@impl
+def the_s2typ_elazy0/reset():
+    elazy0_t2pr[] := s2typ_none0()
+
+
+@impl
+def the_s2typ_elazy1(tlam):
+    let s2t0 = the_sort2_tbox
+    let tcon = the_s2typ_elazy0()
+    let tenv = match tlam.node():
+        case T2Pfun1(f2cl, npf1, t2ps, tres):
+            if (list_singq(t2ps)):
+                list_head(t2ps)
+            else:
+                s2typ_none0()
+        case _:
+            s2typ_none0()
+    let telt = match tlam.node():
+        case T2Pfun1(f2cl, npf1, t2ps, tres):
+            tres
+        case _:
+            s2typ_none0()
+    s2typ(s2t0, T2Papps(tcon, list_pair(telt, tenv)))
+
+
+private:
+    let t2p0 = s2typ_none0()
+    let excptn_t2pr = @inst[s2typ] a0ref_make_1val(t2p0)
+
+@impl
+def the_s2typ_excptn():
+    let t2p0 = excptn_t2pr[]
+    match t2p0.node():
+        case T2Pnone0():
+            let s2c0 = the_s2cst_excptn()
+            let t2p0 = s2typ_cst(s2c0)
+            excptn_t2pr[] := t2p0
+            t2p0
+        case _:
+            t2p0
+
+@impl
+def the_s2typ_excptn/reset():
+    excptn_t2pr[] := s2typ_none0()
+
+
+@impl
+def statyp2_inits0_reset():
+    the_s2typs/reset()
+    the_s2typ_p1tr0/reset()
+    the_s2typ_p2at0/reset()
+    the_s2typ_l0azy0/reset()
+    the_s2typ_l1azy0/reset()
+    the_s2typ_elazy0/reset()
+    the_s2typ_excptn/reset()
+

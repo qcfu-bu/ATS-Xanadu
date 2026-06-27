@@ -1,0 +1,921 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/xglobal" import *
+
+from "srcgen2/SATS/gmacro1" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/trans12" import *
+
+@overload node = token_get_node
+
+@overload name = symbl_get_name
+
+@overload name = s2cst_get_name
+
+@overload name = s2var_get_name
+
+@overload name = d2var_get_name
+
+@overload name = d2con_get_name
+
+@overload name = d2cst_get_name
+
+@overload node = d2pat_get_node
+
+@overload node = f2arg_get_node
+
+@overload node = d2gpt_get_node
+
+type Sortmap = topmap[s2tex]
+
+type Sexpmap = topmap[s2itm]
+
+type Dexpmap = topmap[d2itm]
+
+import "srcgen2/DATS/xsymmap_stkmap.dats" as _
+
+import "srcgen2/DATS/staexp2_print0.dats" as _
+
+private:
+    type Xatslocal0_key = sym_t
+    type Xatslocal1_itm = s2tex
+
+@linear
+enum Sortenv:
+    case SORTENV(topmap[Xatslocal1_itm], stkmap[Xatslocal1_itm])
+
+def sortenv_make_nil() -> Sortenv:
+    SORTENV(topmap, stkmap)
+where:
+    let topmap = @sapp[Xatslocal1_itm] topmap_make_nil()
+    let stkmap = @sapp[Xatslocal1_itm] stkmap_make_nil()
+
+def sortenv_free_top(tenv: Sortenv) -> Sortmap:
+    stkmap_free_nil(stkmap)
+    topmap
+where:
+    let ~SORTENV(topmap, stkmap) = tenv
+
+def sortenv_pshlam0(tenv: !Sortenv):
+    let @(SORTENV)(topmap, !stkmap) = tenv
+    let nerr = stkmap_pshlam0(stkmap)
+    fold(tenv)
+
+def sortenv_poplam0(tenv: !Sortenv):
+    let @(SORTENV)(topmap, !stkmap) = tenv
+    let nerr = stkmap_poplam0(stkmap)
+    fold(tenv)
+
+def sortenv_pshlet0(tenv: !Sortenv):
+    let @(SORTENV)(topmap, !stkmap) = tenv
+    let nerr = stkmap_pshlet0(stkmap)
+    fold(tenv)
+
+def sortenv_poplet0(tenv: !Sortenv):
+    let @(SORTENV)(topmap, !stkmap) = tenv
+    let nerr = stkmap_poplet0(stkmap)
+    fold(tenv)
+
+def sortenv_pshloc1(tenv: !Sortenv):
+    let @(SORTENV)(topmap, !stkmap) = tenv
+    let nerr = stkmap_pshloc1(stkmap)
+    fold(tenv)
+
+def sortenv_pshloc2(tenv: !Sortenv):
+    let @(SORTENV)(topmap, !stkmap) = tenv
+    let nerr = stkmap_pshloc2(stkmap)
+    fold(tenv)
+
+def sortenv_locjoin(tenv: !Sortenv):
+    let @(SORTENV)(topmap, !stkmap) = tenv
+    let (nerr, kxs) = stkmap_poploc0(stkmap)
+    if stkmap_nilq(stkmap):
+        topmap_insert/kxs(topmap, kxs)
+    else:
+        stkmap_insert/kxs(stkmap, kxs)
+    fold(tenv)
+
+def sortenv_search/opt(tenv: Sortenv, k0: Xatslocal0_key):
+    let SORTENV(topmap, stkmap) = tenv
+    let opt = stkmap_search/opt(stkmap, k0)
+    match opt:
+        case optn_vt_cons(_):
+            opt
+        case ~optn_vt_nil():
+            let opt = topmap_search/opt(topmap, k0)
+            match opt:
+                case optn_vt_cons(_):
+                    opt
+                case ~optn_vt_nil():
+                    the_sortenv_pvsfind(k0)
+
+def sortenv_insert/any(tenv: Sortenv, k0: Xatslocal0_key, x0: Xatslocal1_itm):
+    let @(SORTENV)(topmap, !stkmap) = tenv
+    if stkmap_nilq(stkmap):
+        topmap_insert/any(topmap, k0, x0)
+    else:
+        stkmap_insert/any(stkmap, k0, x0)
+
+
+private:
+    type Xatslocal2_key = sym_t
+    type Xatslocal3_itm = s2itm
+
+@linear
+enum Sexpenv:
+    case SEXPENV(topmap[Xatslocal3_itm], stkmap[Xatslocal3_itm])
+
+def sexpenv_make_nil() -> Sexpenv:
+    SEXPENV(topmap, stkmap)
+where:
+    let topmap = @sapp[Xatslocal3_itm] topmap_make_nil()
+    let stkmap = @sapp[Xatslocal3_itm] stkmap_make_nil()
+
+def sexpenv_free_top(senv: Sexpenv) -> Sexpmap:
+    stkmap_free_nil(stkmap)
+    topmap
+where:
+    let ~SEXPENV(topmap, stkmap) = senv
+
+def sexpenv_pshlam0(senv: !Sexpenv):
+    let @(SEXPENV)(topmap, !stkmap) = senv
+    let nerr = stkmap_pshlam0(stkmap)
+    fold(senv)
+
+def sexpenv_poplam0(senv: !Sexpenv):
+    let @(SEXPENV)(topmap, !stkmap) = senv
+    let nerr = stkmap_poplam0(stkmap)
+    fold(senv)
+
+def sexpenv_pshlet0(senv: !Sexpenv):
+    let @(SEXPENV)(topmap, !stkmap) = senv
+    let nerr = stkmap_pshlet0(stkmap)
+    fold(senv)
+
+def sexpenv_poplet0(senv: !Sexpenv):
+    let @(SEXPENV)(topmap, !stkmap) = senv
+    let nerr = stkmap_poplet0(stkmap)
+    fold(senv)
+
+def sexpenv_pshloc1(senv: !Sexpenv):
+    let @(SEXPENV)(topmap, !stkmap) = senv
+    let nerr = stkmap_pshloc1(stkmap)
+    fold(senv)
+
+def sexpenv_pshloc2(senv: !Sexpenv):
+    let @(SEXPENV)(topmap, !stkmap) = senv
+    let nerr = stkmap_pshloc2(stkmap)
+    fold(senv)
+
+def sexpenv_locjoin(senv: !Sexpenv):
+    let @(SEXPENV)(topmap, !stkmap) = senv
+    let (nerr, kxs) = stkmap_poploc0(stkmap)
+    if stkmap_nilq(stkmap):
+        topmap_insert/kxs(topmap, kxs)
+    else:
+        stkmap_insert/kxs(stkmap, kxs)
+    fold(senv)
+
+def sexpenv_search/opt(senv: Sexpenv, k0: Xatslocal2_key):
+    let SEXPENV(topmap, stkmap) = senv
+    let opt = stkmap_search/opt(stkmap, k0)
+    match opt:
+        case optn_vt_cons(_):
+            opt
+        case ~optn_vt_nil():
+            let opt = topmap_search/opt(topmap, k0)
+            match opt:
+                case optn_vt_cons(_):
+                    opt
+                case ~optn_vt_nil():
+                    the_sexpenv_pvsfind(k0)
+
+def sexpenv_insert/any(senv: Sexpenv, k0: Xatslocal2_key, x0: Xatslocal3_itm):
+    let @(SEXPENV)(topmap, !stkmap) = senv
+    if stkmap_nilq(stkmap):
+        topmap_insert/any(topmap, k0, x0)
+    else:
+        stkmap_insert/any(stkmap, k0, x0)
+
+
+private:
+    type Xatslocal4_key = sym_t
+    type Xatslocal5_itm = d2itm
+
+@linear
+enum Dexpenv:
+    case DEXPENV(topmap[Xatslocal5_itm], stkmap[Xatslocal5_itm])
+
+def dexpenv_make_nil() -> Dexpenv:
+    DEXPENV(topmap, stkmap)
+where:
+    let topmap = @sapp[Xatslocal5_itm] topmap_make_nil()
+    let stkmap = @sapp[Xatslocal5_itm] stkmap_make_nil()
+
+def dexpenv_free_top(denv: Dexpenv) -> Dexpmap:
+    stkmap_free_nil(stkmap)
+    topmap
+where:
+    let ~DEXPENV(topmap, stkmap) = denv
+
+def dexpenv_pshlam0(denv: !Dexpenv):
+    let @(DEXPENV)(topmap, !stkmap) = denv
+    let nerr = stkmap_pshlam0(stkmap)
+    fold(denv)
+
+def dexpenv_poplam0(denv: !Dexpenv):
+    let @(DEXPENV)(topmap, !stkmap) = denv
+    let nerr = stkmap_poplam0(stkmap)
+    fold(denv)
+
+def dexpenv_pshlet0(denv: !Dexpenv):
+    let @(DEXPENV)(topmap, !stkmap) = denv
+    let nerr = stkmap_pshlet0(stkmap)
+    fold(denv)
+
+def dexpenv_poplet0(denv: !Dexpenv):
+    let @(DEXPENV)(topmap, !stkmap) = denv
+    let nerr = stkmap_poplet0(stkmap)
+    fold(denv)
+
+def dexpenv_pshloc1(denv: !Dexpenv):
+    let @(DEXPENV)(topmap, !stkmap) = denv
+    let nerr = stkmap_pshloc1(stkmap)
+    fold(denv)
+
+def dexpenv_pshloc2(denv: !Dexpenv):
+    let @(DEXPENV)(topmap, !stkmap) = denv
+    let nerr = stkmap_pshloc2(stkmap)
+    fold(denv)
+
+def dexpenv_locjoin(denv: !Dexpenv):
+    let @(DEXPENV)(topmap, !stkmap) = denv
+    let (nerr, kxs) = stkmap_poploc0(stkmap)
+    if stkmap_nilq(stkmap):
+        topmap_insert/kxs(topmap, kxs)
+    else:
+        stkmap_insert/kxs(stkmap, kxs)
+    fold(denv)
+
+def dexpenv_search/opt(denv: Dexpenv, k0: Xatslocal4_key):
+    let DEXPENV(topmap, stkmap) = denv
+    let opt = stkmap_search/opt(stkmap, k0)
+    match opt:
+        case optn_vt_cons(_):
+            opt
+        case ~optn_vt_nil():
+            topmap_search/opt(topmap, k0)
+
+def dexpenv_insert/any(denv: Dexpenv, k0: Xatslocal4_key, x0: Xatslocal5_itm):
+    let @(DEXPENV)(topmap, !stkmap) = denv
+    if stkmap_nilq(stkmap):
+        topmap_insert/any(topmap, k0, x0)
+    else:
+        stkmap_insert/any(stkmap, k0, x0)
+
+
+private:
+    @linear
+    enum Tr12env:
+        case TR12ENV(tr11env, Sortenv, Sexpenv, Dexpenv)
+    @impl
+    type Tr12env_vtbx = Tr12env
+
+@impl
+def trans12_g1mac(env0, g1m0):
+    trans11_g1mac(tr11, g1m0)
+where:
+    let TR12ENV(tr11, tenv, senv, denv) = env0
+
+@impl
+def trans12_g1mac_apps(env0, g1f0, g1ms):
+    let TR12ENV(tr11, tenv, senv, denv) = env0
+    trans11_g1mac_apps(tr11, g1f0, g1ms)
+
+@impl
+def tr12env_make_nil():
+    TR12ENV(tr11, tenv, senv, denv)
+where:
+    let tr11 = tr11env_make_nil()
+    let tenv = sortenv_make_nil()
+    let senv = sexpenv_make_nil()
+    let denv = dexpenv_make_nil()
+
+@impl
+def tr12env_free_top(env0):
+    let tr11 = tr11env_free_top(tr11)
+    let tmap = sortenv_free_top(tenv)
+    let smap = sexpenv_free_top(senv)
+    let dmap = dexpenv_free_top(denv)
+    D2TOPENV(tr11, tmap, smap, dmap)
+where:
+    let ~TR12ENV(tr11, tenv, senv, denv) = env0
+
+@impl
+def tr12env_pshlam0(env0):
+    let TR12ENV(tr11, tenv, senv, denv) = env0
+    tr11env_pshlam0(tr11)
+    sortenv_pshlam0(tenv)
+    sexpenv_pshlam0(senv)
+    dexpenv_pshlam0(denv)
+
+@impl
+def tr12env_poplam0(env0):
+    let TR12ENV(tr11, tenv, senv, denv) = env0
+    tr11env_poplam0(tr11)
+    sortenv_poplam0(tenv)
+    sexpenv_poplam0(senv)
+    dexpenv_poplam0(denv)
+
+@impl
+def tr12env_pshlet0(env0):
+    let TR12ENV(tr11, tenv, senv, denv) = env0
+    tr11env_pshlet0(tr11)
+    sortenv_pshlet0(tenv)
+    sexpenv_pshlet0(senv)
+    dexpenv_pshlet0(denv)
+
+@impl
+def tr12env_poplet0(env0):
+    let TR12ENV(tr11, tenv, senv, denv) = env0
+    tr11env_poplet0(tr11)
+    sortenv_poplet0(tenv)
+    sexpenv_poplet0(senv)
+    dexpenv_poplet0(denv)
+
+@impl
+def tr12env_pshloc1(env0):
+    let TR12ENV(tr11, tenv, senv, denv) = env0
+    tr11env_pshloc1(tr11)
+    sortenv_pshloc1(tenv)
+    sexpenv_pshloc1(senv)
+    dexpenv_pshloc1(denv)
+
+@impl
+def tr12env_pshloc2(env0):
+    let TR12ENV(tr11, tenv, senv, denv) = env0
+    tr11env_pshloc2(tr11)
+    sortenv_pshloc2(tenv)
+    sexpenv_pshloc2(senv)
+    dexpenv_pshloc2(denv)
+
+@impl
+def tr12env_locjoin(env0):
+    let TR12ENV(tr11, tenv, senv, denv) = env0
+    tr11env_locjoin(tr11)
+    sortenv_locjoin(tenv)
+    sexpenv_locjoin(senv)
+    dexpenv_locjoin(denv)
+
+@impl
+def tr12env_add0_g1mac(env0, k0, x0):
+    let TR12ENV(tr11, tenv, senv, denv) = env0
+    tr11env_insert/any(tr11, k0, x0)
+    the_gmacenv_allist_add0(k0, x0)
+
+@impl
+def tr12env_add0_s2tex(env0, k0, x0):
+    let TR12ENV(tr11, tenv, senv, denv) = env0
+    sortenv_insert/any(tenv, k0, x0)
+
+@impl
+def tr12env_add0_s2itm(env0, k0, x0):
+    let TR12ENV(tr11, tenv, senv, denv) = env0
+    sexpenv_insert/any(senv, k0, x0)
+
+@impl
+def tr12env_add0_d2itm(env0, k0, x0):
+    let TR12ENV(tr11, tenv, senv, denv) = env0
+    dexpenv_insert/any(denv, k0, x0)
+
+@impl
+def tr12env_add1_f2env(env0, k0, x0):
+    let gsym = k0
+    let fenv = x0
+    let sopt = tr12env_find_s2itm(env0, gsym)
+    match sopt:
+        case ~optn_vt_nil():
+            let sitm = S2ITMenv(list_sing(fenv))
+            tr12env_add0_s2itm(env0, gsym, sitm)
+        case ~optn_vt_cons(sitm):
+            match sitm:
+                case S2ITMenv(envs):
+                    let sitm = S2ITMenv(list_cons(fenv, envs))
+                    tr12env_add0_s2itm(env0, gsym, sitm)
+                case _:
+                    let sitm = S2ITMenv(list_sing(fenv))
+                    tr12env_add0_s2itm(env0, gsym, sitm)
+
+@impl
+def f2envlst_find_g1mac(envs, k0):
+    match envs:
+        case list_nil():
+            optn_vt_nil()
+        case list_cons(fenv, envs):
+            let topt = topmap_search/opt(fenv.g1macenv(), k0)
+            match topt:
+                case ~optn_vt_nil():
+                    f2envlst_find_g1mac(envs, k0)
+                case optn_vt_cons(_):
+                    topt
+
+@impl
+def tr12env_find_g1mac(env0, k0):
+    let opt = tr11env_search/opt(tr11, k0)
+    match opt:
+        case optn_vt_cons(_):
+            opt
+        case ~optn_vt_nil():
+            let opt = tr12env_ofind_g1mac(env0, k0)
+            match opt:
+                case optn_vt_cons(_):
+                    opt
+                case ~optn_vt_nil():
+                    the_gmacenv_pvsfind(k0)
+where:
+    let TR12ENV(tr11, tenv, senv, denv) = env0
+
+@impl
+def f2envlst_find_s2tex(envs, k0):
+    match envs:
+        case list_nil():
+            optn_vt_nil()
+        case list_cons(fenv, envs):
+            let topt = topmap_search/opt(fenv.sort2env(), k0)
+            match topt:
+                case ~optn_vt_nil():
+                    f2envlst_find_s2tex(envs, k0)
+                case optn_vt_cons(_):
+                    topt
+
+@impl
+def f2envlst_find_s2itm(envs, k0):
+    match envs:
+        case list_nil():
+            optn_vt_nil()
+        case list_cons(fenv, envs):
+            let sopt = topmap_search/opt(fenv.s2expenv(), k0)
+            match sopt:
+                case ~optn_vt_nil():
+                    f2envlst_find_s2itm(envs, k0)
+                case optn_vt_cons(_):
+                    sopt
+
+@impl
+def f2envlst_find_d2itm(envs, k0):
+    match envs:
+        case list_nil():
+            optn_vt_nil()
+        case list_cons(fenv, envs):
+            let dopt = topmap_search/opt(fenv.d2expenv(), k0)
+            match dopt:
+                case ~optn_vt_nil():
+                    f2envlst_find_d2itm(envs, k0)
+                case optn_vt_cons(_):
+                    dopt
+
+@impl
+def tr12env_find_s2tex(env0, k0):
+    let opt = sortenv_search/opt(tenv, k0)
+    match opt:
+        case optn_vt_cons(_):
+            opt
+        case ~optn_vt_nil():
+            let opt = tr12env_ofind_s2tex(env0, k0)
+            match opt:
+                case optn_vt_cons(_):
+                    opt
+                case ~optn_vt_nil():
+                    the_sortenv_pvsfind(k0)
+where:
+    let TR12ENV(tr11, tenv, senv, denv) = env0
+
+@impl
+def tr12env_find_s2env(env0, k0):
+    sexpenv_search/opt(senv, k0)
+where:
+    let TR12ENV(tr11, tenv, senv, denv) = env0
+
+@impl
+def tr12env_find_s2qua(env0, k0):
+    let opt0 = tr12env_find_s2itm(env0, k0)
+    match opt0:
+        case ~optn_vt_nil():
+            f0_main(env0, k0.name())
+        case _:
+            opt0
+where:
+    def f0_main(env0: !Tr12env, name: String) -> s2itmopt_vt:
+        let n0 = strn_length(name)
+        def f1_next(i1: SInt) -> SInt:
+            if i1 >= n0:
+                i1
+            else:
+                if name[i1] == '$':
+                    i1
+                else:
+                    f1_next(i1 + 1)
+        def f1_sub0(i0: SInt, i1: SInt) -> String:
+            let df = i1 - i0
+            strn_tabulate/f1un(df, (j) => name[i0 + j])
+        def f1_sub1(i0: SInt, i1: SInt) -> String:
+            let df = i1 - i0
+            strn_tabulate/f1un(df + 1, (j) => if j < df: name[i0 + j] else: '.')
+        def f1_envs(envs: f2envlst, i0: SInt) -> s2itmopt_vt:
+            let i1 = f1_next(i0 + 1)
+            let k1 = if i1 >= n0:
+                symbl(f1_sub0(i0, i1))
+            else: symbl(f1_sub1(i0, i1))
+            let opt1 = f2envlst_find_s2itm(envs, k1)
+            match opt1:
+                case ~optn_vt_nil():
+                    optn_vt_nil()
+                case ~optn_vt_cons(s2i1):
+                    match s2i1:
+                        case S2ITMenv(envs):
+                            if i1 < n0:
+                                f1_envs(envs, i1)
+                            else:
+                                optn_vt_cons(s2i1)
+                        case _:
+                            optn_vt_nil
+        let i0 = 0
+        let i1 = f1_next(i0 + 1)
+        if i1 >= n0:
+            optn_vt_nil()
+        else:
+            let k1 = symbl(f1_sub1(i0, i1))
+            let opt1 = tr12env_find_s2itm(env0, k1)
+            match opt1:
+                case ~optn_vt_nil():
+                    optn_vt_nil()
+                case ~optn_vt_cons(s2i1):
+                    match s2i1:
+                        case S2ITMenv(envs):
+                            f1_envs(envs, i1)
+                        case _:
+                            optn_vt_nil()
+
+@impl
+def tr12env_find_s2itm(env0, k0):
+    let opt = sexpenv_search/opt(senv, k0)
+    match opt:
+        case optn_vt_cons(_):
+            opt
+        case ~optn_vt_nil():
+            let opt = tr12env_ofind_s2itm(env0, k0)
+            match opt:
+                case optn_vt_cons(_):
+                    opt
+                case ~optn_vt_nil():
+                    the_sexpenv_pvsfind(k0)
+where:
+    let TR12ENV(tr11, tenv, senv, denv) = env0
+
+@impl
+def tr12env_find_d2itm(env0, k0):
+    let opt = dexpenv_search/opt(denv, k0)
+    match opt:
+        case optn_vt_cons(_):
+            opt
+        case ~optn_vt_nil():
+            let opt = tr12env_ofind_d2itm(env0, k0)
+            match opt:
+                case optn_vt_cons(_):
+                    opt
+                case ~optn_vt_nil():
+                    the_dexpenv_pvsfind(k0)
+where:
+    let TR12ENV(tr11, tenv, senv, denv) = env0
+
+
+@impl
+def tr12env_add1_s2cst(env0, s2c0):
+    let sym0 = s2c0.name()
+    let sopt = tr12env_find_s2itm(env0, sym0)
+    match sopt:
+        case ~optn_vt_nil():
+            let sitm = S2ITMcst(list_sing(s2c0))
+            tr12env_add0_s2itm(env0, sym0, sitm)
+        case ~optn_vt_cons(sitm):
+            match sitm:
+                case S2ITMcst(s2cs):
+                    let sitm = S2ITMcst(list_cons(s2c0, s2cs))
+                    tr12env_add0_s2itm(env0, sym0, sitm)
+                case _:
+                    let sitm = S2ITMcst(list_sing(s2c0))
+                    tr12env_add0_s2itm(env0, sym0, sitm)
+
+@impl
+def tr12env_add0_s2var(env0, s2v0):
+    let sym0 = s2var_get_name(s2v0)
+    let sitm = S2ITMvar(s2v0)
+    tr12env_add0_s2itm(env0, sym0, sitm)
+
+@impl
+def tr12env_add0_s2varlst(env0, s2vs):
+    match s2vs:
+        case list_nil():
+            ()
+        case list_cons(s2v1, s2vs):
+            tr12env_add0_s2var(env0, s2v1)
+            tr12env_add0_s2varlst(env0, s2vs)
+
+@impl
+def tr12env_add0_s2qag(env0, sqa0):
+    let s2vs = sqa0.s2vs()
+    tr12env_add0_s2varlst(env0, s2vs)
+
+@impl
+def tr12env_add0_t2qag(env0, tqa0):
+    let s2vs = tqa0.s2vs()
+    tr12env_add0_s2varlst(env0, s2vs)
+
+@impl
+def tr12env_add0_s2qaglst(env0, sqas):
+    match sqas:
+        case list_nil():
+            ()
+        case list_cons(sqa1, sqas):
+            tr12env_add0_s2qag(env0, sqa1)
+            tr12env_add0_s2qaglst(env0, sqas)
+
+@impl
+def tr12env_add0_t2qaglst(env0, tqas):
+    match tqas:
+        case list_nil():
+            ()
+        case list_cons(tqa1, tqas):
+            tr12env_add0_t2qag(env0, tqa1)
+            tr12env_add0_t2qaglst(env0, tqas)
+
+@impl
+def tr12env_add1_d2con(env0, d2c0):
+    let sym0 = d2c0.name()
+    let dopt = tr12env_find_d2itm(env0, sym0)
+    match dopt:
+        case ~optn_vt_nil():
+            let ditm = D2ITMcon(list_sing(d2c0))
+            tr12env_add0_d2itm(env0, sym0, ditm)
+        case ~optn_vt_cons(ditm):
+            match ditm:
+                case D2ITMcon(d2cs):
+                    let ditm = D2ITMcon(list_cons(d2c0, d2cs))
+                    tr12env_add0_d2itm(env0, sym0, ditm)
+                case _:
+                    let ditm = D2ITMcon(list_sing(d2c0))
+                    tr12env_add0_d2itm(env0, sym0, ditm)
+
+@impl
+def tr12env_add1_d2cst(env0, d2c0):
+    let sym0 = d2c0.name()
+    let dopt = tr12env_find_d2itm(env0, sym0)
+    match dopt:
+        case ~optn_vt_nil():
+            let ditm = D2ITMcst(list_sing(d2c0))
+            tr12env_add0_d2itm(env0, sym0, ditm)
+        case ~optn_vt_cons(ditm):
+            match ditm:
+                case D2ITMcst(d2cs):
+                    let ditm = D2ITMcst(list_cons(d2c0, d2cs))
+                    tr12env_add0_d2itm(env0, sym0, ditm)
+                case _:
+                    let ditm = D2ITMcst(list_sing(d2c0))
+                    tr12env_add0_d2itm(env0, sym0, ditm)
+
+@impl
+def tr12env_add0_d2var(env0, d2v0):
+    let sym0 = d2var_get_name(d2v0)
+    let ditm = D2ITMvar(d2v0)
+    tr12env_add0_d2itm(env0, sym0, ditm)
+
+@impl
+def tr12env_add0_d2pat(env0, d2p0):
+    match d2p0.node():
+        case D2Pnil():
+            ()
+        case D2Pany():
+            ()
+        case D2Parg():
+            ()
+        case D2Pvar(d2v1):
+            tr12env_add0_d2var(env0, d2v1)
+        case D2Pint(_):
+            ()
+        case D2Pbtf(_):
+            ()
+        case D2Pchr(_):
+            ()
+        case D2Pflt(_):
+            ()
+        case D2Pstr(_):
+            ()
+        case D2Pbang(d2p1):
+            tr12env_add0_d2pat(env0, d2p1)
+        case D2Pflat(d2p1):
+            tr12env_add0_d2pat(env0, d2p1)
+        case D2Pfree(d2p1):
+            tr12env_add0_d2pat(env0, d2p1)
+        case D2Psapp(d2p1, s2vs):
+            tr12env_add0_d2pat(env0, d2p1)
+        case D2Pdap0(d2p1):
+            tr12env_add0_d2pat(env0, d2p1)
+        case D2Pdap1(d2p1):
+            tr12env_add0_d2pat(env0, d2p1)
+        case D2Pdapp(d2f0, npf1, d2ps):
+            tr12env_add0_d2pat(env0, d2f0)
+            tr12env_add0_d2patlst(env0, d2ps)
+        case D2Prfpt(d2p1, tkas, d2p2):
+            tr12env_add0_d2pat(env0, d2p2)
+            tr12env_add0_d2pat(env0, d2p1)
+        case D2Ptup0(npf1, d2ps):
+            tr12env_add0_d2patlst(env0, d2ps)
+        case D2Ptup1(tknd, npf1, d2ps):
+            tr12env_add0_d2patlst(env0, d2ps)
+        case D2Prcd2(tknd, npf1, ldps):
+            tr12env_add0_l2d2plst(env0, ldps)
+        case D2Pannot(d2p1, s1e2, s2e2):
+            tr12env_add0_d2pat(env0, d2p1)
+        case _:
+            ()
+
+@impl
+def tr12env_add0_f2arg(env0, f2a0):
+    match f2a0.node():
+        case F2ARGdapp(npf1, d2ps):
+            tr12env_add0_d2patlst(env0, d2ps)
+        case F2ARGsapp(_):
+            ()
+        case F2ARGmets(_):
+            ()
+
+@impl
+def tr12env_add0_d2gpt(env0, dgpt):
+    match dgpt.node():
+        case D2GPTpat(d2p1):
+            tr12env_add0_d2pat(env0, d2p1)
+        case D2GPTgua(d2p1, d2gs):
+            tr12env_add0_d2pat(env0, d2p1)
+
+@impl
+def tr12env_add1_d2conlst(env0, d2cs):
+    @inst[x0] @inst[e1] list_foritm/e1nv(d2cs, env0)
+where:
+    type X0 = d2con
+    type E1 = Tr12env
+    @impl[X0, E1]
+    def foritm/e1nv/work(x0, e1):
+        tr12env_add1_d2con(e1, x0)
+
+@impl
+def tr12env_add1_d2cstlst(env0, d2cs):
+    @inst[x0] @inst[e1] list_foritm/e1nv(d2cs, env0)
+where:
+    type X0 = d2cst
+    type E1 = Tr12env
+    @impl[X0, E1]
+    def foritm/e1nv/work(x0, e1):
+        tr12env_add1_d2cst(e1, x0)
+
+@impl
+def tr12env_add0_d2varlst(env0, d2vs):
+    @inst[x0] @inst[e1] list_foritm/e1nv(d2vs, env0)
+where:
+    type X0 = d2var
+    type E1 = Tr12env
+    @impl[X0, E1]
+    def foritm/e1nv/work(x0, e1):
+        tr12env_add0_d2var(e1, x0)
+
+@impl
+def tr12env_add0_d2varopt(env0, dopt):
+    match dopt:
+        case optn_nil():
+            ()
+        case optn_cons(d2v):
+            tr12env_add0_d2var(env0, d2v)
+
+@impl
+def tr12env_add0_d2patlst(env0, d2ps):
+    @inst[x0] @inst[e1] list_foritm/e1nv(d2ps, env0)
+where:
+    type X0 = d2pat
+    type E1 = Tr12env
+    @impl[X0, E1]
+    def foritm/e1nv/work(x0, e1):
+        tr12env_add0_d2pat(e1, x0)
+
+@impl
+def tr12env_add0_f2arglst(env0, f2as):
+    @inst[x0] @inst[e1] list_foritm/e1nv(f2as, env0)
+where:
+    type X0 = f2arg
+    type E1 = Tr12env
+    @impl[X0, E1]
+    def foritm/e1nv/work(x0, e1):
+        tr12env_add0_f2arg(e1, x0)
+
+@impl
+def tr12env_ofind_g1mac(env0, key0):
+    let sopt = tr12env_find_s2env(env0, SYM.DLRDT_symbl)
+    match sopt:
+        case ~optn_vt_nil():
+            optn_vt_nil()
+        case ~optn_vt_cons(sitm):
+            match sitm:
+                case S2ITMenv(envs):
+                    f2envlst_find_g1mac(envs, key0)
+                case _:
+                    optn_vt_nil()
+
+@impl
+def tr12env_ofind_s2tex(env0, key0):
+    let sopt = tr12env_find_s2env(env0, SYM.DLRDT_symbl)
+    match sopt:
+        case ~optn_vt_nil():
+            optn_vt_nil()
+        case ~optn_vt_cons(sitm):
+            match sitm:
+                case S2ITMenv(envs):
+                    f2envlst_find_s2tex(envs, key0)
+                case _:
+                    optn_vt_nil()
+
+@impl
+def tr12env_ofind_s2itm(env0, key0):
+    let sopt = tr12env_find_s2env(env0, SYM.DLRDT_symbl)
+    match sopt:
+        case ~optn_vt_nil():
+            optn_vt_nil()
+        case ~optn_vt_cons(sitm):
+            match sitm:
+                case S2ITMenv(envs):
+                    f2envlst_find_s2itm(envs, key0)
+                case _:
+                    optn_vt_nil()
+
+@impl
+def tr12env_ofind_d2itm(env0, key0):
+    let sopt = tr12env_find_s2env(env0, SYM.DLRDT_symbl)
+    match sopt:
+        case ~optn_vt_nil():
+            optn_vt_nil()
+        case ~optn_vt_cons(sitm):
+            match sitm:
+                case S2ITMenv(envs):
+                    f2envlst_find_d2itm(envs, key0)
+                case _:
+                    optn_vt_nil()
+
+@impl
+def tr12env_qfind_s2itm(env0, qua1, key2):
+    let sopt = match qua1.node():
+        case T_IDQUA(name):
+            let sym1 = symbl_make_name(name)
+            tr12env_find_s2env(env0, sym1)
+        case _:
+            optn_vt_nil()
+    match sopt:
+        case ~optn_vt_nil():
+            optn_vt_nil()
+        case ~optn_vt_cons(sitm):
+            match sitm:
+                case S2ITMenv(envs):
+                    f2envlst_find_s2itm(envs, key2)
+                case _:
+                    optn_vt_nil()
+
+@impl
+def tr12env_qfind_d2itm(env0, qua1, key2):
+    let sopt = match qua1.node():
+        case T_IDQUA(name):
+            let sym1 = symbl_make_name(name)
+            tr12env_find_s2env(env0, sym1)
+        case _:
+            optn_vt_nil()
+    match sopt:
+        case ~optn_vt_nil():
+            optn_vt_nil()
+        case ~optn_vt_cons(sitm):
+            match sitm:
+                case S2ITMenv(envs):
+                    f2envlst_find_d2itm(envs, key2)
+                case _:
+                    optn_vt_nil()
+

@@ -1,0 +1,120 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/gmacro1" import *
+
+from "srcgen2/SATS/trans01" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload lctn = s1exp_get_lctn
+
+@overload node = s1exp_get_node
+
+@overload lctn = d1pat_get_lctn
+
+@overload node = d1pat_get_node
+
+@overload lctn = d1exp_get_lctn
+
+@overload node = d1exp_get_node
+
+def fint_rep_bas(rep: String, bas: SInt) -> SInt:
+    @inst[String] @inst[cgtz] @inst[SInt] gseq_foldl(rep, 0)
+where:
+    @overload[1001] - = sub_char_char
+    @impl[cgtz, SInt]
+    def foldl/fopr(r0, c0):
+        r0 * bas + (c0 - '0')
+
+@impl
+def trg1mac_d1pat(d1p0):
+    match d1p0.node():
+        case D1Pid0(_):
+            f0_id0(d1p0)
+        case D1Pint(_):
+            f0_int(d1p0)
+        case _:
+            G1Mdpat(d1p0)
+where:
+    def f0_id0(d1p0: d1pat) -> g1mac:
+        G1Mid0(sym)
+    where:
+        let D1Pid0(sym) = d1p0.node()
+    def f0_int(d1p0: d1pat) -> g1mac:
+        let D1Pint(tok1) = d1p0.node()
+        let int1 = match tok1.node():
+            case T_INT01(rep):
+                let bas = 10
+                fint_rep_bas(rep, bas)
+            case T_INT02(bas, rep):
+                fint_rep_bas(rep, bas)
+        G1Mint(int1)
+
+@impl
+def trg1mac_d1exp(d1e0):
+    match d1e0.node():
+        case D1Eid0(_):
+            f0_id0(d1e0)
+        case D1Eint(_):
+            f0_int(d1e0)
+        case _:
+            G1Mdexp(d1e0)
+where:
+    def f0_id0(d1e0: d1exp) -> g1mac:
+        G1Mid0(sym)
+    where:
+        let D1Eid0(sym) = d1e0.node()
+    def f0_int(d1e0: d1exp) -> g1mac:
+        let D1Eint(tok1) = d1e0.node()
+        let int1 = match tok1.node():
+            case T_INT01(rep):
+                let bas = 10
+                fint_rep_bas(rep, bas)
+            case T_INT02(bas, rep):
+                fint_rep_bas(rep, bas)
+        G1Mint(int1)
+
+@impl
+def trg1mac_s1explst(s1es):
+    @inst[x0] @inst[y0] list_map(s1es)
+where:
+    type X0 = s1exp
+    type Y0 = g1mac
+    @impl[X0, Y0]
+    def map/fopr:
+        trg1mac_s1exp
+
+@impl
+def trg1mac_d1patlst(d1ps):
+    @inst[x0] @inst[y0] list_map(d1ps)
+where:
+    type X0 = d1pat
+    type Y0 = g1mac
+    @impl[X0, Y0]
+    def map/fopr:
+        trg1mac_d1pat
+
+@impl
+def trg1mac_d1explst(d1es):
+    @inst[x0] @inst[y0] list_map(d1es)
+where:
+    type X0 = d1exp
+    type Y0 = g1mac
+    @impl[X0, Y0]
+    def map/fopr:
+        trg1mac_d1exp
+

@@ -1,0 +1,36 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xlibext" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+import "srcgen1/prelude/DATS/CATS/JS/basics3.dats" as _
+
+@abstract
+type Mymap_tbox
+
+type Mymap = mymap_tbox
+
+private:
+    type Xatslocal0_key = String
+    type Xatslocal1_itm = symbl
+    @impl
+    type Mymap_tbox = mydict[Xatslocal0_key, Xatslocal1_itm]
+    let _MYMAP_ = @inst[Xatslocal0_key] @inst[Xatslocal1_itm] mydict_make_nil()
+
+@impl
+def symbl_search/opt(key):
+    let map = _MYMAP_
+    @inst[Xatslocal0_key] @inst[Xatslocal1_itm] mydict_search/opt(map, key)
+
+@impl
+def symbl_insert/any(sym):
+    let map = _MYMAP_
+    let key = sym.name()
+    @inst[Xatslocal0_key] @inst[Xatslocal1_itm] mydict_insert/any(map, key, sym)
+
+

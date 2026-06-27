@@ -1,0 +1,132 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/SATS/trtmp3c" import *
+
+@overload stmp = timpl_get_stmp
+
+@overload node = timpl_get_node
+
+@impl
+def tr3cenv_timpl_process(env0, timp):
+    match timp.node():
+        case TIMPLallx(_):
+            timp
+        case TIMPLall1(_):
+            let xatsv_NIMP = 99
+            let nimp = tr3cenv_getnimp(env0)
+            if nimp >= xatsv_NIMP:
+                timp
+            else:
+                f0_all1(env0, timp)
+where:
+    def f0_all1(env0: !tr3cenv, timp: timpl) -> timpl:
+        let stmp = timp.stmp()
+        let TIMPLall1(d2c0, t2js, dcls) = timp.node()
+        match dcls:
+            case list_nil():
+                timp
+            case list_cons(dcl1, dcls):
+                let D3Ctmpsub(svts, dcl2) = dcl1.node()
+                tr3cenv_pshsvts(env0, svts)
+                let dcl3 = d3ecl_impsub(0, svts, dcl2)
+                tr3cenv_insert_timp(env0, stmp, dcl3)
+                let dcl2 = trtmp3c_tmpd3ecl(env0, dcl2)
+                tr3cenv_popsvts(env0)
+                let dcl1 = d3ecl_tmpsub(svts, dcl2)
+                let dcls = list_cons(dcl1, dcls)
+                timpl(stmp, TIMPLallx(d2c0, t2js, dcls))
+
+private:
+    def s2typlst_subst0(t2ps: s2typlst, svts: s2vts) -> s2typlst:
+        match svts:
+            case list_nil():
+                t2ps
+            case list_cons(_):
+                s2typlst_subst0(t2ps, svts)
+    def t2jaglst_subst0(t2js: t2jaglst, svts: s2vts) -> t2jaglst:
+        match svts:
+            case list_nil():
+                t2js
+            case list_cons(_):
+                type X0 = t2jag
+                type Y0 = t2jag
+                @impl[X0, Y0]
+                def map/fopr(x0):
+                    t2jag_make_t2ps(loc0, t2ps)
+                where:
+                    let loc0 = t2jag_get_lctn(x0)
+                    let t2ps = t2jag_get_t2ps(x0)
+                    let t2ps = s2typlst_subst0(t2ps, svts)
+                list_map(t2js)
+
+@impl
+def tr3cenv_t3apq_resolve(env0, d2c0, t2js):
+    let dcls = implfilter(dcls)
+    let dcls = impltmprec(env0, dcls)
+    let dcls = list_vt2t(dcls)
+    let node = match dcls:
+        case list_nil():
+            TIMPLall1(d2c0, t2js, dcls)
+        case list_cons(dcl1, _):
+            match dcl1.node():
+                case D3Cimpltmpr(_):
+                    TIMPLallx(d2c0, t2js, dcls)
+                case _:
+                    TIMPLall1(d2c0, t2js, dcls)
+    timpl_make_node(stmp, node)
+where:
+    let stmp = tr3cenv_getstmp(env0)
+    let svts = tr3cenv_getsvts(env0)
+    let t2js = t2jaglst_subst0(t2js, svts)
+    let dcls = tr3cenv_search_dcst(env0, d2c0)
+    def implfilter(dcls: d3eclist_vt) -> d3eclist_vt:
+        match dcls:
+            case ~list_vt_nil():
+                list_vt_nil()
+            case ~list_vt_cons(dcl1, dcls):
+                let opt1 = tmpmatch_d3cl_t2js(dcl1, t2js)
+                match opt1:
+                    case optn_nil():
+                        implfilter(dcls)
+                    case optn_cons(tsub):
+                        if not(s2vts_stleq(tsub)):
+                            implfilter(dcls)
+                        else:
+                            let dcl1 = match dcl1.node():
+                                case D3Ctmpsub(_, dcl1):
+                                    d3ecl_tmpsub(tsub, dcl1)
+                                case _:
+                                    d3ecl_tmpsub(tsub, dcl1)
+                            list_vt_cons(dcl1, implfilter(dcls))
+    def impltmprec(env0: !tr3cenv, dcls: d3eclist_vt) -> d3eclist_vt:
+        match dcls:
+            case ~list_vt_nil():
+                list_vt_nil()
+            case ~list_vt_cons(dcl1, dcls):
+                let test = tr3cenv_impltmprecq(env0, dcl1, t2js)
+                if stamp_nilq(test):
+                    list_vt_cons(dcl1, dcls)
+                else:
+                    if (d3ecl_impltmprq(dcl1)):
+                        let dcl1 = d3ecl_impltmpr(test, dcl1)
+                        list_vt_cons(dcl1, dcls)
+                    else:
+                        impltmprec(env0, dcls)
+
+

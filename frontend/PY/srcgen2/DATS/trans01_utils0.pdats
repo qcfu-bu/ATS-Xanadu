@@ -1,0 +1,217 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+import "srcgen2/SATS/xsymbol" as SYM
+
+import "srcgen2/SATS/xlabel0" as LAM
+
+from "srcgen2/SATS/xlibext" import *
+
+from "srcgen2/SATS/filpath" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/dynexp0" import *
+
+from "srcgen2/SATS/parsing" import *
+
+from "srcgen2/SATS/pread00" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/trans01" import *
+
+@overload TRUE = SYM.TRUE_symbl
+
+@overload FALSE = SYM.FALSE_symbl
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@impl
+def symbl2sbtf(sym):
+    if sym == TRUE:
+        true
+    else:
+        false
+
+@impl
+def symbl2dbtf(sym):
+    if sym == TRUE:
+        true
+    else:
+        false
+
+private:
+    def fint(rep: String, bas: SInt) -> SInt:
+        @inst[String] @inst[cgtz] @inst[SInt] gseq_foldl(rep, 0)
+    where:
+        @overload[1001] - = sub_char_char
+        @impl[cgtz, SInt]
+        def foldl/fopr(r0, c0):
+            r0 * bas + (c0 - '0')
+
+@impl
+def token2sint(tok):
+    match tok.node():
+        case T_INT01(rep):
+            fint(rep, 10)
+        case T_INT02(bas, rep):
+            fint(rep, bas)
+
+@impl
+def token2dint(tok):
+    match tok.node():
+        case T_INT01(rep):
+            fint(rep, 10)
+        case T_INT02(bas, rep):
+            fint(rep, bas)
+
+
+private:
+    def fchr(rep: String) -> Char:
+        char_make_sint(@inst[String] @inst[cgtz] @inst[SInt] gseq_foldl(rep, 0))
+    where:
+        @overload[1001] - = sub_char_char
+        @impl[cgtz, SInt]
+        def foldl/fopr(r0, c0):
+            if isdigit(c0):
+                r0 * 8 + (c0 - '0')
+            else:
+                r0
+
+@impl
+def token2schr(tok):
+    match tok.node():
+        case T_CHAR1_nil0(_):
+            '\0'
+        case T_CHAR2_char(rep):
+            let opt = @inst[String] @inst[cgtz] gseq_get/at/opt(rep, 1)
+            match opt:
+                case ~optn_vt_cons(chr):
+                    chr
+        case T_CHAR3_blsh(rep):
+            fchr(rep)
+
+@impl
+def token2dchr(tok):
+    token2schr(tok)
+
+
+private:
+    @impl
+    def token2sflt(tok):
+        match tok.node():
+            case T_FLT01(rep):
+                strn_dflt/parse/exn(rep)
+
+@impl
+def token2dflt(tok):
+    token2sflt(tok)
+
+
+@impl
+def token2sstr(tok):
+    match tok.node():
+        case T_STRN1_clsd(rep, len):
+            strn_tabulate/f1un(len - 2, (i) => strn_get/at(rep, i + 1))
+        case T_STRN2_ncls(rep, len):
+            strn_tabulate/f1un(len - 1, (i) => strn_get/at(rep, i + 1))
+
+@impl
+def token2dstr(tok):
+    token2sstr(tok)
+
+
+@impl
+def gnamid_sym(tok):
+    match tok.node():
+        case T_IDALP(nam):
+            SYM.symbl_make_name(nam)
+        case T_IDSYM(nam):
+            SYM.symbl_make_name(nam)
+
+@impl
+def gexpid_sym(tok):
+    match tok.node():
+        case T_IDALP(nam):
+            SYM.symbl_make_name(nam)
+        case T_IDSYM(nam):
+            SYM.symbl_make_name(nam)
+
+@impl
+def sortid_sym(tok):
+    match tok.node():
+        case T_IDALP(nam):
+            SYM.symbl_make_name(nam)
+        case T_IDSYM(nam):
+            SYM.symbl_make_name(nam)
+
+@impl
+def sargid_sym(tok):
+    match tok.node():
+        case T_IDALP(nam):
+            SYM.symbl_make_name(nam)
+
+@impl
+def sexpid_sym(tok):
+    match tok.node():
+        case T_OP2(tok):
+            match tok.node():
+                case T_IDALP(nam):
+                    SYM.symbl_make_name(nam)
+                case T_IDSYM(nam):
+                    SYM.symbl_make_name(nam)
+        case T_IDENT(nam):
+            SYM.symbl_make_name(nam)
+        case T_IDALP(nam):
+            SYM.symbl_make_name(nam)
+        case T_IDSYM(nam):
+            SYM.symbl_make_name(nam)
+
+@impl
+def dpatid_sym(tok):
+    match tok.node():
+        case T_OP2(tok):
+            match tok.node():
+                case T_IDALP(nam):
+                    SYM.symbl_make_name(nam)
+                case T_IDSYM(nam):
+                    SYM.symbl_make_name(nam)
+        case T_IDENT(nam):
+            SYM.symbl_make_name(nam)
+        case T_IDALP(nam):
+            SYM.symbl_make_name(nam)
+        case T_IDSYM(nam):
+            SYM.symbl_make_name(nam)
+
+@impl
+def dexpid_sym(tok):
+    match tok.node():
+        case T_OP2(tok):
+            match tok.node():
+                case T_IDALP(nam):
+                    SYM.symbl_make_name(nam)
+                case T_IDSYM(nam):
+                    SYM.symbl_make_name(nam)
+        case T_IDENT(nam):
+            SYM.symbl_make_name(nam)
+        case T_IDALP(nam):
+            SYM.symbl_make_name(nam)
+        case T_IDSYM(nam):
+            SYM.symbl_make_name(nam)
+        case T_IDDLR(nam):
+            SYM.symbl_make_name(nam)
+        case T_IDSRP(nam):
+            SYM.symbl_make_name(nam)
+

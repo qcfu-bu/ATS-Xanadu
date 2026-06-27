@@ -1,0 +1,404 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+import "srcgen2/SATS/xerrory" as ERR
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/xfixity" import *
+
+@impl
+def app_assoc:
+    ASSOClft()
+
+@impl
+def imp_assoc:
+    ASSOCrgt()
+
+@impl
+def assoc_fprint(asc, out):
+    @impl[]
+    def g_print/out():
+        out
+    match asc:
+        case ASSOCnon():
+            print("ASSOCnon")
+        case ASSOClft():
+            print("ASSOClft")
+        case ASSOCrgt():
+            print("ASSOCrgt")
+
+private:
+    @impl
+    type Prcdv_tflt = SInt
+    let xatsv_PRCDV_MIN = -(1000000000)
+    let xatsv_PRCDV_MAX = 1000000000
+
+@impl
+def a0s_prcdv:
+    69
+
+@impl
+def app_prcdv:
+    70
+
+@impl
+def imp_prcdv:
+    10
+
+@impl
+def prcdv_decode(cdv):
+    cdv
+
+@impl
+def prcdv_encode(cdv):
+    if (cdv <= xatsv_PRCDV_MIN):
+        xatsv_PRCDV_MIN
+    else:
+        if (cdv >= xatsv_PRCDV_MAX):
+            xatsv_PRCDV_MAX
+        else:
+            cdv
+
+@impl
+def the_prcdv_neginf:
+    xatsv_PRCDV_MIN
+
+@impl
+def the_prcdv_posinf:
+    xatsv_PRCDV_MAX
+
+
+@impl
+def add_prcdv_int(cdv, int):
+    prcdv(cdv.decd() + int)
+
+@impl
+def sub_prcdv_int(cdv, int):
+    prcdv(cdv.decd() - int)
+
+@impl
+def brckt_prcdv:
+    sub_prcdv_int(app_prcdv, 1)
+
+@impl
+def dtsel_prcdv:
+    sub_prcdv_int(app_prcdv, 1)
+
+@impl
+def forall_prcdv:
+    prcdv(0)
+
+@impl
+def exists_prcdv:
+    prcdv(0)
+
+@impl
+def bslash_prcdv:
+    prcdv(app_prcdv.decd() + 1)
+
+@impl
+def inftmp_prcdv:
+    prcdv(0)
+
+@impl
+def cmp_prcdv_prcdv(cdv1, cdv2):
+    g_cmp(cdv1.decd(), cdv2.decd())
+
+@impl
+def prcdv_fprint(cdv, out):
+    print(cdv.decd())
+where:
+    @impl
+    def g_print/out():
+        out
+
+@impl
+def a0s_fixty:
+    FIXTYpst(a0s_prcdv)
+
+@impl
+def app_fixty:
+    FIXTYinf(app_prcdv, app_assoc)
+
+@impl
+def imp_fixty:
+    FIXTYinf(imp_prcdv, imp_assoc)
+
+@impl
+def brckt_fixty:
+    FIXTYpst(brckt_prcdv)
+
+@impl
+def dtsel_fixty:
+    FIXTYpst(dtsel_prcdv)
+
+@impl
+def forall_fixty:
+    FIXTYpre(forall_prcdv)
+
+@impl
+def exists_fixty:
+    FIXTYpre(exists_prcdv)
+
+@impl
+def postplus_fixty:
+    FIXTYpst(prcdv(0))
+
+@impl
+def postmnus_fixty:
+    FIXTYpst(prcdv(0))
+
+@impl
+def bslash_fixty:
+    FIXTYpre(bslash_prcdv)
+
+@impl
+def inftmp_fixty:
+    FIXTYinf(inftmp_prcdv, ASSOCnon)
+
+@impl
+def fixty_prcdv(fxt):
+    match fxt:
+        case FIXTYpre(p1):
+            p1
+        case FIXTYpst(p1):
+            p1
+        case FIXTYinf(p1, a2):
+            p1
+        case FIXTYpreinf(p0, p1, a2):
+            p1
+
+@impl
+def fixty_assoc(fxt):
+    match fxt:
+        case FIXTYpre(p1):
+            ASSOCnon()
+        case FIXTYpst(p1):
+            ASSOCnon()
+        case FIXTYinf(p1, a2):
+            a2
+        case FIXTYpreinf(p0, p1, a2):
+            a2
+
+@impl[]
+def fxopr_prcdv[A: Type](itm):
+    let FXITMopr(_, fxty) = itm
+    fixty_prcdv(fxty)
+
+@impl[]
+def fxopr_assoc[A: Type](itm):
+    let FXITMopr(_, fxty) = itm
+    fixty_assoc(fxty)
+
+@impl[]
+def fxitm_fprint[A](fxi, out):
+    @impl[]
+    def g_print/out():
+        out
+    match fxi:
+        case FXITMatm(itm):
+            prints("FXITMatm(", itm, ")")
+        case FXITMopr(itm, fxt):
+            prints("FXITMopr(", itm, ";", fxt, ")")
+
+@impl
+def fixty_fprint(fxt, out):
+    @impl[]
+    def g_print/out():
+        out
+    match fxt:
+        case FIXTYnon():
+            prints("FIXTYnon(", ")")
+        case FIXTYpre(p1):
+            prints("FIXTYpre(", p1, ")")
+        case FIXTYpst(p1):
+            prints("FIXTYpst(", p1, ")")
+        case FIXTYinf(p1, a2):
+            prints("FIXTYinf(", p1, ";", a2, ")")
+        case FIXTYpreinf(p1, p2, a3):
+            prints("FIXTYpreinf(", p1, ";", p2, ";", a3, ")")
+
+@impl[]
+def fxitmlst_resolve[A](loc0, itms):
+    process(itms, list_nil())
+where:
+    # define :: = list_cons
+    type Itm = fxitm[A]
+    type Itmlst = fxitmlst[A]
+    def process(xs0: Itmlst, ys0: Itmlst) -> A:
+        match xs0:
+            case list_nil():
+                yreduce(nil(), ys0)
+            case list_cons(x0, xs1):
+                resolve(x0, xs1, ys0)
+
+    def yreduce(xs0: Itmlst, ys0: Itmlst) -> A:
+        match ys0:
+            case list_nil():
+                @inst[A] fxitmlst_resolve/rederr(loc0, ys0)
+            case list_cons(y0, ys1):
+                match y0:
+                    case FXITMopr(f0, fx):
+                        match fx:
+                            case FIXTYpst(_):
+                                match ys1:
+                                    case list_cons(FXITMatm(t1), ys2):
+                                        let f0_t1 = @inst[A] fxitm_pstfix(t1, f0)
+                                        resolve(f0_t1, xs0, ys2)
+                                    case _:
+                                        let t1 = @inst[A] fxatm_none(@inst[A] fxopr_get_lctn(f0))
+                                        let f0_t1 = @inst[A] fxitm_pstfix(t1, f0)
+                                        resolve(f0_t1, xs0, ys1)
+                            case _:
+                                let l0 = @inst[A] fxopr_get_lctn(f0)
+                                let t1 = @inst[A] fxatm_none(l0)
+                                yreduce(xs0, cons(FXITMatm(t1), ys0))
+                    case FXITMatm(t0):
+                        match ys1:
+                            case list_nil():
+                                t0
+                            case list_cons(FXITMopr(f1, FIXTYpre(_)), ys2):
+                                let f1_t0 = @inst[A] fxitm_prefix(f1, t0)
+                                resolve(f1_t0, xs0, ys2)
+                            case list_cons(FXITMopr(f1, FIXTYinf(_, _)), ys2):
+                                match ys2:
+                                    case list_cons(FXITMatm(t2), ys3):
+                                        let t2_f1_t0 = @inst[A] fxitm_infix0(t2, f1, t0)
+                                        resolve(t2_f1_t0, xs0, ys3)
+                                    case _:
+                                        let l1 = @inst[A] fxopr_get_lctn(f1)
+                                        let t2 = @inst[A] fxatm_none(l1)
+                                        let t2_f1_t0 = @inst[A] fxitm_infix0(t2, f1, t0)
+                                        resolve(t2_f1_t0, xs0, ys2)
+                            case _:
+                                @inst[A] fxitmlst_resolve/rederr(loc0, ys0)
+
+    def resolve(y0: Itm, xs0: Itmlst, ys0: Itmlst) -> A:
+        match y0:
+            case FXITMatm(_):
+                match ys0:
+                    case list_cons(FXITMatm(_), _):
+                        resolve_app(y0, xs0, ys0)
+                    case _:
+                        process(xs0, cons(y0, ys0))
+            case FXITMopr(_, fx):
+                resolve_opr(fx, y0, xs0, ys0)
+
+    def resolve_app(y0: Itm, xs0: Itmlst, ys0: Itmlst) -> A:
+        match ys0:
+            case list_cons(y1, list_nil()):
+                let app = @inst[A] fxitmlst_resolve/appopr(y1)
+                process(xs0, list_cons(y0, list_cons(app, ys0)))
+            case list_cons(y1, list_cons(FXITMopr(_, fx1), ys2)):
+                let p1 = fixty_prcdv(fx1)
+                let sgn = g_cmp(app_prcdv, p1)
+                if (sgn < 0):
+                    yreduce(list_cons(y0, xs0), ys0)
+                else:
+                    if (sgn > 0):
+                        let app = @inst[A] fxitmlst_resolve/appopr(y1)
+                        process(xs0, list_cons(y0, list_cons(app, ys0)))
+                    else:
+                        let asc = fixty_assoc(fx1)
+                        match asc:
+                            case ASSOClft():
+                                yreduce(list_cons(y0, xs0), ys0)
+                            case ASSOCnon():
+                                yreduce(list_cons(y0, xs0), ys0)
+                            case ASSOCrgt():
+                                let app = @inst[A] fxitmlst_resolve/appopr(y1)
+                                process(xs0, list_cons(y0, list_cons(app, ys0)))
+            case _:
+                @inst[A] fxitmlst_resolve/apperr(y0)
+
+    def resolve_opr(fx: fixty, y0: Itm, xs0: Itmlst, ys0: Itmlst) -> A:
+        match fx:
+            case FIXTYpre(_):
+                process(xs0, list_cons(y0, ys0))
+            case FIXTYpst(_):
+                match ys0:
+                    case list_cons(_, list_nil()):
+                        yreduce(xs0, list_cons(y0, ys0))
+                    case list_cons(_, list_cons(FXITMopr(_, fy), _)):
+                        let sgn = g_cmp(fixty_prcdv(fx), fixty_prcdv(fy))
+                        if (sgn < 0):
+                            yreduce(list_cons(y0, xs0), ys0)
+                        else:
+                            if (sgn > 0):
+                                yreduce(xs0, list_cons(y0, ys0))
+                            else:
+                                yreduce(list_cons(y0, xs0), ys0)
+                    case _:
+                        yreduce(list_cons(y0, xs0), ys0)
+            case FIXTYinf(_):
+                match ys0:
+                    case list_nil():
+                        let l0 = @inst[A] fxitm_get_lctn(y0)
+                        let t0 = @inst[A] fxatm_none(l0)
+                        let ys0 = list_cons(FXITMatm(t0), ys0)
+                        process(xs0, list_cons(y0, ys0))
+                    case list_cons(_, list_nil()):
+                        process(xs0, list_cons(y0, ys0))
+                    case list_cons(_, list_cons(FXITMopr(_, fy), ys2)):
+                        let sgn = g_cmp(fixty_prcdv(fx), fixty_prcdv(fy))
+                        if (sgn < 0):
+                            yreduce(list_cons(y0, xs0), ys0)
+                        else:
+                            if (sgn > 0):
+                                process(xs0, list_cons(y0, ys0))
+                            else:
+                                let asc = fixty_assoc(fy)
+                                match asc:
+                                    case ASSOClft():
+                                        yreduce(list_cons(y0, xs0), ys0)
+                                    case ASSOCnon():
+                                        yreduce(list_cons(y0, xs0), ys0)
+                                    case ASSOCrgt():
+                                        process(xs0, list_cons(y0, ys0))
+                    case _:
+                        let t0 = @inst[A] fxatm_none(@inst[A] fxitm_get_lctn(y0))
+                        resolve_opr(fx, y0, xs0, list_cons(FXITMatm(t0), ys0))
+            case FIXTYpreinf(p1, p2, a3):
+                match ys0:
+                    case list_nil():
+                        let fx = FIXTYpre(p1)
+                        let FXITMopr(i0, _) = y0
+                        resolve_opr(fx, FXITMopr(i0, fx), xs0, ys0)
+                    case list_cons(FXITMopr(_), _):
+                        let fx = FIXTYpre(p1)
+                        let FXITMopr(i0, _) = y0
+                        resolve_opr(fx, FXITMopr(i0, fx), xs0, ys0)
+                    case _:
+                        let fx = FIXTYinf(p2, a3)
+                        let FXITMopr(i0, _) = y0
+                        resolve_opr(fx, FXITMopr(i0, fx), xs0, ys0)
+            case FIXTYnon():
+                @inst[A] fxitmlst_resolve/oprerr(y0)
+
+@impl[]
+def fxitmlst_resolve/apperr[A](itm):
+    let loc0 = @inst[A] fxitm_get_lctn(itm)
+    prerrs(loc0, ": error(1)")
+    prerrsln(": app-fixity cannot be resolved: ", itm)
+    exception XATSOPT_fxitmlst_resolve/apperr_exn
+    raise (XATSOPT_fxitmlst_resolve/apperr_exn)
+
+@impl[]
+def fxitmlst_resolve/oprerr[A](itm):
+    let loc0 = @inst[A] fxitm_get_lctn(itm)
+    prerrs("FIXITY-ERROR(", loc0, "):")
+    prerrsln("opr-fixity cannot be resolved: ", itm)
+    exception XATSOPT_fxitmlst_resolve/oprerr_exn
+    raise (XATSOPT_fxitmlst_resolve/oprerr_exn)
+
+@impl[]
+def fxitmlst_resolve/rederr[A](loc0, itms):
+    prerrs("FIXITY-ERROR(", loc0, "):")
+    prerrsln("opr-fixity cannot be resolved: ", itms)
+    exception XATSOPT_fxitmlst_resolve/rederr_exn
+    raise (XATSOPT_fxitmlst_resolve/rederr_exn)
+

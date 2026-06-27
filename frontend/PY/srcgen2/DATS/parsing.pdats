@@ -1,0 +1,52 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/filpath" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/dynexp0" import *
+
+from "srcgen2/SATS/parsing" import *
+
+@impl
+def trans00_from_atext(stadyn, source):
+    let knd = stadyn
+    let txt = source
+    let tks = atext_tokenize(txt)
+    let buf = tokbuf_make_llist(tks)
+    var err: SInt = 0
+    let res = optn_cons(fp_d0eclsq1(knd, buf, err))
+    tokbuf_free(buf)
+    d0parsed(knd, (-(1)), LCSRCnone0(), res)
+
+@impl
+def trans00_from_fpath(stadyn, source):
+    let knd = stadyn
+    let fpx = source
+    let tks = fpath_tokenize(fpx)
+    let buf = tokbuf_make_llist(tks)
+    var err: SInt = 0
+    let res = optn_cons(fp_d0eclsq1(knd, buf, err))
+    tokbuf_free(buf)
+    d0parsed(knd, (-(1)), LCSRCsome1(fpx), res)
+
+@impl
+def d0parsed_from_atext(stadyn, source):
+    trans00_from_atext(stadyn, source)
+
+@impl
+def d0parsed_from_fpath(stadyn, source):
+    trans00_from_fpath(stadyn, source)
+where:
+    let drpth0 = the_drpth_get()
+    prerrsln("d0parsed_from_fpath: MYCDIR = ", drpth0)
+    prerrsln("d0parsed_from_fpath: source = ", source)
+

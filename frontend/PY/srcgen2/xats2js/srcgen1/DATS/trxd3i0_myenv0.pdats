@@ -1,0 +1,22 @@
+from "srcgen2/xats2js/srcgen1/SATS/intrep0" import *
+
+from "srcgen2/xats2js/srcgen1/SATS/trxd3i0" import *
+
+private:
+    @linear
+    enum Envd3i0:
+        case ENVD3I0()
+    @impl
+    type Envd3i0_vtbx = Envd3i0
+
+@impl
+def envd3i0_make_nil():
+    ENVD3I0
+
+@impl
+def envd3i0_free_nil(env0):
+    match env0:
+        case ~ENVD3I0():
+            ()
+
+

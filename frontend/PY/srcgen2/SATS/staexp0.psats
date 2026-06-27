@@ -1,0 +1,765 @@
+import "srcgen2/SATS/xlabel0" as LAB
+
+import "srcgen2/SATS/locinfo" as LOC
+
+import "srcgen2/SATS/xsymbol" as SYM
+
+import "srcgen2/SATS/lexing0" as LEX
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+type Lab_t = LAB.lab_t
+
+type Label = LAB.label
+
+type Loc_t = LOC.loc_t
+
+type Loctn = LOC.loctn
+
+type Sym_t = SYM.sym_t
+
+type Token = LEX.token
+
+@abstract
+type I0dnt_tbox
+
+@abstract
+type L0abl_tbox
+
+@abstract
+type S0ymb_tbox
+
+@abstract
+type G0nam_tbox
+
+@abstract
+type G0exp_tbox
+
+@abstract
+type G0mag_tbox
+
+@abstract
+type Sort0_tbox
+
+@abstract
+type S0tcn_tbox
+
+@abstract
+type D0tst_tbox
+
+@abstract
+type S0tdf_tbox
+
+@abstract
+type S0exp_tbox
+
+@abstract
+type S0arg_tbox
+
+@abstract
+type S0mag_tbox
+
+@abstract
+type T0arg_tbox
+
+@abstract
+type T0mag_tbox
+
+@abstract
+type S0qua_tbox
+
+@abstract
+type S0uni_tbox
+
+@abstract
+type D0tcn_tbox
+
+@abstract
+type D0typ_tbox
+
+enum T0int:
+    case T0INTnone(Token)
+    case T0INTsome(Token)
+
+enum T0chr:
+    case T0CHRnone(Token)
+    case T0CHRsome(Token)
+
+enum T0flt:
+    case T0FLTnone(Token)
+    case T0FLTsome(Token)
+
+enum T0str:
+    case T0STRnone(Token)
+    case T0STRsome(Token)
+
+@extern
+def t0int_fprint(a: T0int, b: FILR) -> Void
+
+@extern
+def t0chr_fprint(a: T0chr, b: FILR) -> Void
+
+@extern
+def t0flt_fprint(a: T0flt, b: FILR) -> Void
+
+@extern
+def t0str_fprint(a: T0str, b: FILR) -> Void
+
+@extern
+def t0int_get_lctn(a: T0int) -> Loc_t
+
+@extern
+def t0chr_get_lctn(a: T0chr) -> Loc_t
+
+@extern
+def t0flt_get_lctn(a: T0flt) -> Loc_t
+
+@extern
+def t0str_get_lctn(a: T0str) -> Loc_t
+
+@overload lctn = t0int_get_lctn
+
+@overload lctn = t0chr_get_lctn
+
+@overload lctn = t0flt_get_lctn
+
+@overload lctn = t0str_get_lctn
+
+type I0dnt = I0dnt_tbox
+
+type L0abl = L0abl_tbox
+
+type S0ymb = S0ymb_tbox
+
+type G0nid = I0dnt_tbox
+
+type G0eid = I0dnt_tbox
+
+type G0arg = I0dnt_tbox
+
+type S0tid = I0dnt_tbox
+
+type S0aid = I0dnt_tbox
+
+type S0eid = I0dnt_tbox
+
+type D0pid = I0dnt_tbox
+
+type D0eid = I0dnt_tbox
+
+type G0nam = G0nam_tbox
+
+type G0exp = G0exp_tbox
+
+type G0mag = G0mag_tbox
+
+type G0namlst = List[G0nam]
+
+type G0explst = List[G0exp]
+
+type G0expopt = Optn[G0exp]
+
+type G0arglst = List[G0arg]
+
+type G0maglst = List[G0mag]
+
+type Sort0 = Sort0_tbox
+
+type Sort0lst = List[Sort0]
+
+type Sort0opt = Optn[Sort0]
+
+type S0tcn = S0tcn_tbox
+
+type S0tcnlst = List[S0tcn]
+
+type D0tst = D0tst_tbox
+
+type D0tstlst = List[D0tst]
+
+type S0tdf = S0tdf_tbox
+
+type S0tdflst = List[S0tdf]
+
+type S0exp = S0exp_tbox
+
+type S0explst = List[S0exp]
+
+type S0expopt = Optn[S0exp]
+
+type S0arg = S0arg_tbox
+
+type S0mag = S0mag_tbox
+
+type S0arglst = List[S0arg]
+
+type S0maglst = List[S0mag]
+
+type T0arg = T0arg_tbox
+
+type T0mag = T0mag_tbox
+
+type T0arglst = List[T0arg]
+
+type T0maglst = List[T0mag]
+
+type S0qua = S0qua_tbox
+
+type S0uni = S0uni_tbox
+
+type S0qualst = List[S0qua]
+
+type S0unilst = List[S0uni]
+
+type Tokenopt = Optn[Token]
+
+type D0tcn = D0tcn_tbox
+
+type D0typ = D0typ_tbox
+
+type D0tcnlst = List[D0tcn]
+
+type D0typlst = List[D0typ]
+
+@extern
+def i0dnt_fprint(a: I0dnt, b: FILR) -> Void
+
+@extern
+def l0abl_fprint(a: L0abl, b: FILR) -> Void
+
+@extern
+def s0ymb_fprint(a: S0ymb, b: FILR) -> Void
+
+enum I0dnt_node:
+    case I0DNTsome(Token)
+    case I0DNTnone(Token)
+
+@extern
+def i0dnt_none(a: Token) -> I0dnt
+
+@extern
+def i0dnt_some(a: Token) -> I0dnt
+
+@extern
+def i0dnt_get_lctn(a: I0dnt) -> Loc_t
+
+@extern
+def i0dnt_get_node(a: I0dnt) -> I0dnt_node
+
+@overload lctn = i0dnt_get_lctn
+
+@overload node = i0dnt_get_node
+
+enum L0abl_node:
+    case L0ABLsome(Label)
+    case L0ABLnone(Token)
+
+@extern
+def l0abl_get_lctn(a: L0abl) -> Loc_t
+
+@extern
+def l0abl_get_node(a: L0abl) -> L0abl_node
+
+@overload lctn = l0abl_get_lctn
+
+@overload node = l0abl_get_node
+
+@extern
+def l0abl_make_int1(a: Token) -> L0abl
+
+@extern
+def l0abl_make_name(a: Token) -> L0abl
+
+@extern
+def l0abl_make_none(a: Token) -> L0abl
+
+@extern
+def l0abl_make_node(a: Loc_t, b: L0abl_node) -> L0abl
+
+@overload l0abl = l0abl_make_node
+
+enum S0ymb_node:
+    case S0YMBi0dnt(I0dnt)
+    case S0YMBbrckt(Token, Token)
+
+@extern
+def s0ymb_get_lctn(a: S0ymb) -> Loc_t
+
+@extern
+def s0ymb_get_node(a: S0ymb) -> S0ymb_node
+
+@overload lctn = s0ymb_get_lctn
+
+@overload node = s0ymb_get_node
+
+@extern
+def s0ymb_make_node(a: Loc_t, b: S0ymb_node) -> S0ymb
+
+@overload s0ymb = s0ymb_make_node
+
+enum S0lab[X0]:
+    case S0LAB(L0abl, Token, X0)
+
+@extern
+def s0lab_get_itm[X0: Type](a: S0lab[X0]) -> X0
+
+@overload itm = s0lab_get_itm
+
+@extern
+def s0lab_fprint[X0: Type](a: S0lab[X0], b: FILR) -> Void
+
+enum G0nam_node:
+    case G0Nid0(G0nid)
+    case G0Nint(T0int)
+    case G0Nchr(T0chr)
+    case G0Nflt(T0flt)
+    case G0Nstr(T0str)
+    case G0Nlist(Token, G0namlst, Token)
+    case G0Ntkerr(Token)
+
+enum G0exp_node:
+    case G0Eid0(G0eid)
+    case G0Eint(T0int)
+    case G0Echr(T0chr)
+    case G0Eflt(T0flt)
+    case G0Estr(T0str)
+    case G0Eapps(G0explst)
+    case G0Elpar(Token, G0explst, Token)
+    case G0Eift0(Token, G0exp, G0exp_THEN, G0exp_ELSE, Tokenopt)
+    case G0Etkerr(Token)
+    case G0Eerrck(Int, G0exp)
+enum G0exp_THEN:
+    case G0exp_THEN(Token, G0exp)
+enum G0exp_ELSE:
+    case G0exp_ELSE(Token, G0exp)
+
+enum G0mag_node:
+    case G0MAGnone(Token)
+    case G0MAGsarg(Token, G0arglst, Token)
+    case G0MAGdarg(Token, G0arglst, Token)
+
+@extern
+def g0nam_fprint(a: G0nam, b: FILR) -> Void
+
+@extern
+def g0exp_fprint(a: G0exp, b: FILR) -> Void
+
+@extern
+def g0mag_fprint(a: G0mag, b: FILR) -> Void
+
+@extern
+def g0exp_THEN_fprint(a: G0exp_THEN, b: FILR) -> Void
+
+@extern
+def g0exp_ELSE_fprint(a: G0exp_ELSE, b: FILR) -> Void
+
+@extern
+def g0nam_get_lctn(a: G0nam) -> Loc_t
+
+@extern
+def g0nam_get_node(a: G0nam) -> G0nam_node
+
+@overload lctn = g0nam_get_lctn
+
+@overload node = g0nam_get_node
+
+@extern
+def g0nam_make_node(a: Loc_t, b: G0nam_node) -> G0nam
+
+@overload g0nam = g0nam_make_node
+
+@extern
+def g0exp_get_lctn(a: G0exp) -> Loc_t
+
+@extern
+def g0exp_get_node(a: G0exp) -> G0exp_node
+
+@overload lctn = g0exp_get_lctn
+
+@overload node = g0exp_get_node
+
+@extern
+def g0exp_make_node(a: Loc_t, b: G0exp_node) -> G0exp
+
+@overload g0exp = g0exp_make_node
+
+@extern
+def g0mag_get_lctn(a: G0mag) -> Loc_t
+
+@extern
+def g0mag_get_node(a: G0mag) -> G0mag_node
+
+@overload lctn = g0mag_get_lctn
+
+@overload node = g0mag_get_node
+
+@extern
+def g0mag_make_node(a: Loc_t, b: G0mag_node) -> G0mag
+
+@overload g0mag = g0mag_make_node
+
+enum S0qid:
+    case S0QIDnone(I0dnt)
+    case S0QIDsome(Token, I0dnt)
+
+enum D0qid:
+    case D0QIDnone(I0dnt)
+    case D0QIDsome(Token, I0dnt)
+
+@extern
+def s0qid_get_lctn(a: S0qid) -> Loc_t
+
+@extern
+def d0qid_get_lctn(a: D0qid) -> Loc_t
+
+@overload lctn = s0qid_get_lctn
+
+@overload lctn = d0qid_get_lctn
+
+@extern
+def s0qid_fprint(a: S0qid, b: FILR) -> Void
+
+@extern
+def d0qid_fprint(a: D0qid, b: FILR) -> Void
+
+enum Sort0_node:
+    case S0Tid0(S0tid)
+    case S0Tint(T0int)
+    case S0Tqid(Token, Sort0)
+    case S0Tapps(Sort0lst)
+    case S0Tlpar(Token, Sort0lst, Token)
+    case S0Ttkerr(Token)
+    case S0Terrck(Int, Sort0)
+
+@extern
+def sort0_fprint(a: Sort0, b: FILR) -> Void
+
+@extern
+def sort0_get_lctn(a: Sort0) -> Loc_t
+
+@extern
+def sort0_get_node(a: Sort0) -> Sort0_node
+
+@overload lctn = sort0_get_lctn
+
+@overload node = sort0_get_node
+
+@extern
+def sort0_make_node(a: Loc_t, b: Sort0_node) -> Sort0
+
+@overload sort0 = sort0_make_node
+
+enum S0tcn_node:
+    case S0TCNnode(S0eid, Sort0opt)
+
+@extern
+def s0tcn_fprint(a: S0tcn, b: FILR) -> Void
+
+@extern
+def s0tcn_get_lctn(a: S0tcn) -> Loc_t
+
+@extern
+def s0tcn_get_node(a: S0tcn) -> S0tcn_node
+
+@overload lctn = s0tcn_get_lctn
+
+@overload node = s0tcn_get_node
+
+@extern
+def s0tcn_make_node(a: Loc_t, b: S0tcn_node) -> S0tcn
+
+@overload s0tcn = s0tcn_make_node
+
+enum D0tst_node:
+    case D0TSTnode(S0tid, Token, Tokenopt, S0tcnlst)
+
+@extern
+def d0tst_fprint(a: D0tst, b: FILR) -> Void
+
+@extern
+def d0tst_get_lctn(a: D0tst) -> Loc_t
+
+@extern
+def d0tst_get_node(a: D0tst) -> D0tst_node
+
+@overload lctn = d0tst_get_lctn
+
+@overload node = d0tst_get_node
+
+@extern
+def d0tst_make_node(a: Loc_t, b: D0tst_node) -> D0tst
+
+@overload d0tst = d0tst_make_node
+
+enum S0tdf_node:
+    case S0TDFsort(Sort0)
+    case S0TDFtsub(Token, S0arg, Token, S0explst, Token)
+
+@extern
+def s0tdf_fprint(a: S0tdf, b: FILR) -> Void
+
+@extern
+def s0tdf_get_lctn(a: S0tdf) -> Loc_t
+
+@extern
+def s0tdf_get_node(a: S0tdf) -> S0tdf_node
+
+@overload lctn = s0tdf_get_lctn
+
+@overload node = s0tdf_get_node
+
+@extern
+def s0tdf_make_node(a: Loc_t, b: S0tdf_node) -> S0tdf
+
+@overload s0tdf = s0tdf_make_node
+
+enum S0arg_node:
+    case S0ARGnone(Token)
+    case S0ARGsome(S0eid, Sort0opt)
+
+enum S0mag_node:
+    case S0MAGnone(Token)
+    case S0MAGsing(S0aid)
+    case S0MAGlist(Token, S0arglst, Token)
+
+@extern
+def s0arg_fprint(a: S0arg, b: FILR) -> Void
+
+@extern
+def s0mag_fprint(a: S0mag, b: FILR) -> Void
+
+@extern
+def s0arg_get_lctn(a: S0arg) -> Loc_t
+
+@extern
+def s0arg_get_node(a: S0arg) -> S0arg_node
+
+@overload lctn = s0arg_get_lctn
+
+@overload node = s0arg_get_node
+
+@extern
+def s0arg_make_node(a: Loc_t, b: S0arg_node) -> S0arg
+
+@overload s0arg = s0arg_make_node
+
+@extern
+def s0mag_get_lctn(a: S0mag) -> Loc_t
+
+@extern
+def s0mag_get_node(a: S0mag) -> S0mag_node
+
+@overload lctn = s0mag_get_lctn
+
+@overload node = s0mag_get_node
+
+@extern
+def s0mag_make_node(a: Loc_t, b: S0mag_node) -> S0mag
+
+@overload s0mag = s0mag_make_node
+
+enum T0arg_node:
+    case T0ARGnone(Token)
+    case T0ARGsome(Sort0, Tokenopt)
+
+enum T0mag_node:
+    case T0MAGnone(Token)
+    case T0MAGlist(Token, T0arglst, Token)
+
+@extern
+def t0arg_fprint(a: T0arg, b: FILR) -> Void
+
+@extern
+def t0mag_fprint(a: T0mag, b: FILR) -> Void
+
+@extern
+def t0arg_get_lctn(a: T0arg) -> Loc_t
+
+@extern
+def t0arg_get_node(a: T0arg) -> T0arg_node
+
+@overload lctn = t0arg_get_lctn
+
+@overload node = t0arg_get_node
+
+@extern
+def t0arg_make_node(a: Loc_t, b: T0arg_node) -> T0arg
+
+@overload t0arg = t0arg_make_node
+
+@extern
+def t0mag_get_lctn(a: T0mag) -> Loc_t
+
+@extern
+def t0mag_get_node(a: T0mag) -> T0mag_node
+
+@overload lctn = t0mag_get_lctn
+
+@overload node = t0mag_get_node
+
+@extern
+def t0mag_make_node(a: Loc_t, b: T0mag_node) -> T0mag
+
+@overload t0mag = t0mag_make_node
+
+type I0dntlst = List[I0dnt]
+
+type I0dntopt = Optn[I0dnt]
+
+enum S0qua_node:
+    case S0QUAprop(S0exp)
+    case S0QUAvars(I0dntlst, Sort0opt)
+
+enum S0uni_node:
+    case S0UNInone(Token)
+    case S0UNIsome(Token, S0qualst, Token)
+
+@extern
+def s0qua_fprint(a: S0qua, b: FILR) -> Void
+
+@extern
+def s0uni_fprint(a: S0uni, b: FILR) -> Void
+
+@extern
+def s0qua_get_lctn(a: S0qua) -> Loc_t
+
+@extern
+def s0qua_get_node(a: S0qua) -> S0qua_node
+
+@overload lctn = s0qua_get_lctn
+
+@overload node = s0qua_get_node
+
+@extern
+def s0uni_get_lctn(a: S0uni) -> Loc_t
+
+@extern
+def s0uni_get_node(a: S0uni) -> S0uni_node
+
+@overload lctn = s0uni_get_lctn
+
+@overload node = s0uni_get_node
+
+@extern
+def s0qua_make_node(a: Loc_t, b: S0qua_node) -> S0qua
+
+@overload s0qua = s0qua_make_node
+
+@extern
+def s0uni_make_node(a: Loc_t, b: S0uni_node) -> S0uni
+
+@overload s0uni = s0uni_make_node
+
+type L0s0e = S0lab[S0exp]
+
+type L0s0elst = List[S0lab[S0exp]]
+
+enum S0exp_node:
+    case S0Eid0(S0eid)
+    case S0Eint(T0int)
+    case S0Echr(T0chr)
+    case S0Eflt(T0flt)
+    case S0Estr(T0str)
+    case S0Eop1(Token)
+    case S0Eop2(Token)
+    case S0Eop3(Token, S0eid, Token)
+    case S0Eapps(S0explst)
+    case S0Efimp(Token, S0explst, Token)
+    case S0Elpar(Token, S0explst, S0exp_RPAREN)
+    case S0Etup1(Token, Tokenopt, S0explst, S0exp_RPAREN)
+    case S0Ercd2(Token, Tokenopt, L0s0elst, L0s0e_RBRACE)
+    case S0Elams(Token, S0maglst, Sort0opt, Token, S0exp, Tokenopt)
+    case S0Euni0(Token, S0qualst, Token)
+    case S0Eexi0(Token, S0qualst, Token)
+    case S0Eannot(S0exp, Sort0)
+    case S0Equal0(Token, S0exp)
+    case S0Etkerr(Token)
+    case S0Eerrck(Int, S0exp)
+enum S0exp_RPAREN:
+    case S0exp_RPAREN_cons0(Token)
+    case S0exp_RPAREN_cons1(Token, S0explst, Token)
+enum L0s0e_RBRACE:
+    case L0s0e_RBRACE_cons0(Token)
+    case L0s0e_RBRACE_cons1(Token, L0s0elst, Token)
+
+@extern
+def s0exp_fprint(a: S0exp, b: FILR) -> Void
+
+@extern
+def s0exp_RPAREN_fprint(a: S0exp_RPAREN, b: FILR) -> Void
+
+@extern
+def l0s0e_RBRACE_fprint(a: L0s0e_RBRACE, b: FILR) -> Void
+
+@extern
+def s0exp_get_lctn(a: S0exp) -> Loc_t
+
+@extern
+def l0s0e_get_lctn(a: L0s0e) -> Loc_t
+
+@extern
+def s0exp_get_node(a: S0exp) -> S0exp_node
+
+@extern
+def l0s0e_get_node(a: L0s0e) -> S0exp_node
+
+@overload lctn = s0exp_get_lctn
+
+@overload lctn = l0s0e_get_lctn
+
+@overload node = s0exp_get_node
+
+@overload node = l0s0e_get_node
+
+@extern
+def s0exp_annotopt(a: S0exp, b: Sort0opt) -> S0exp
+
+@extern
+def s0exp_make_node(a: Loc_t, b: S0exp_node) -> S0exp
+
+@overload s0exp = s0exp_make_node
+
+enum D0tcn_node:
+    case D0TCNnode(S0unilst, D0eid, S0explst, S0expopt)
+
+enum D0typ_node:
+    case D0TYPnode(D0eid, T0maglst, Sort0opt, Token, D0tcnlst)
+
+@extern
+def d0tcn_fprint(a: D0tcn, b: FILR) -> Void
+
+@extern
+def d0typ_fprint(a: D0typ, b: FILR) -> Void
+
+@extern
+def d0tcn_get_lctn(a: D0tcn) -> Loc_t
+
+@extern
+def d0tcn_get_node(a: D0tcn) -> D0tcn_node
+
+@overload lctn = d0tcn_get_lctn
+
+@overload node = d0tcn_get_node
+
+@extern
+def d0tcn_make_node(a: Loc_t, b: D0tcn_node) -> D0tcn
+
+@overload d0tcn = d0tcn_make_node
+
+@extern
+def d0typ_get_lctn(a: D0typ) -> Loc_t
+
+@extern
+def d0typ_get_node(a: D0typ) -> D0typ_node
+
+@overload lctn = d0typ_get_lctn
+
+@overload node = d0typ_get_node
+
+@extern
+def d0typ_make_node(a: Loc_t, b: D0typ_node) -> D0typ
+
+@overload d0typ = d0typ_make_node
+

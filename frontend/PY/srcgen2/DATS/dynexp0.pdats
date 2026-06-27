@@ -1,0 +1,504 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/xlabel0" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/dynexp0" import *
+
+@overload lctn = s0exp_get_lctn
+
+@overload lctn = d0pat_get_lctn
+
+@overload lctn = f0arg_get_lctn
+
+@overload lctn = d0exp_get_lctn
+
+private:
+    @overload + = add_loctn_loctn
+
+@impl
+def d0pat_annotopt(d0p1, opt2):
+    match opt2:
+        case optn_nil():
+            d0p1
+        case optn_cons(s0e2):
+            let loc0 = d0p1.lctn() + s0e2.lctn()
+            d0pat(loc0, D0Pannot(d0p1, s0e2))
+
+
+private:
+    enum D0pat_:
+        case D0PAT(loctn, d0pat_node)
+    @impl
+    type D0pat_tbox = D0pat_
+
+@impl
+def d0pat_make_node(loc, nod):
+    D0PAT(loc, nod)
+
+@impl
+def d0pat_get_lctn(d0p):
+    let D0PAT(loc, nod) = d0p
+    loc
+
+@impl
+def d0pat_get_node(d0p):
+    let D0PAT(loc, nod) = d0p
+    nod
+
+
+private:
+    enum F0arg_:
+        case F0ARG(loctn, f0arg_node)
+    @impl
+    type F0arg_tbox = F0arg_
+
+@impl
+def f0arg_make_node(loc, nod):
+    F0ARG(loc, nod)
+
+@impl
+def f0arg_get_lctn(f0a0):
+    let F0ARG(loc0, node) = f0a0
+    loc0
+
+@impl
+def f0arg_get_node(f0a0):
+    let F0ARG(loc0, node) = f0a0
+    node
+
+
+private:
+    @overload + = add_loctn_loctn
+
+@impl
+def d0exp_annotopt(d0e1, opt2):
+    match opt2:
+        case optn_nil():
+            d0e1
+        case optn_cons(s0e2):
+            let loc0 = d0e1.lctn() + s0e2.lctn()
+            d0exp(loc0, D0Eannot(d0e1, s0e2))
+
+
+private:
+    enum D0exp_:
+        case D0EXP(loctn, d0exp_node)
+    @impl
+    type D0exp_tbox = D0exp_
+
+@impl
+def d0exp_make_node(loc, nod):
+    D0EXP(loc, nod)
+
+@impl
+def d0exp_get_lctn(d0e):
+    let D0EXP(loc, nod) = d0e
+    loc
+
+@impl
+def d0exp_get_node(d0e):
+    let D0EXP(loc, nod) = d0e
+    nod
+
+
+private:
+    enum D0gua_:
+        case D0GUA(loctn, d0gua_node)
+    @impl
+    type D0gua_tbox = D0gua_
+
+@impl
+def d0gua_make_node(loc, nod):
+    D0GUA(loc, nod)
+
+@impl
+def d0gua_get_lctn(d0g):
+    let D0GUA(loc, nod) = d0g
+    loc
+
+@impl
+def d0gua_get_node(d0g):
+    let D0GUA(loc, nod) = d0g
+    nod
+
+
+private:
+    enum D0cls_:
+        case D0CLS(loctn, d0cls_node)
+    @impl
+    type D0cls_tbox = D0cls_
+
+@impl
+def d0cls_make_node(loc, nod):
+    D0CLS(loc, nod)
+
+@impl
+def d0cls_get_lctn(dcl):
+    let D0CLS(loc, nod) = dcl
+    loc
+
+@impl
+def d0cls_get_node(dcl):
+    let D0CLS(loc, nod) = dcl
+    nod
+
+
+private:
+    enum D0gpt_:
+        case D0GPT(loctn, d0gpt_node)
+    @impl
+    type D0gpt_tbox = D0gpt_
+
+@impl
+def d0gpt_make_node(loc, nod):
+    D0GPT(loc, nod)
+
+@impl
+def d0gpt_get_lctn(d0g):
+    let D0GPT(loc, nod) = d0g
+    loc
+
+@impl
+def d0gpt_get_node(d0g):
+    let D0GPT(loc, nod) = d0g
+    nod
+
+
+private:
+    enum Q0arg_:
+        case Q0ARG(loctn, q0arg_node)
+    @impl
+    type Q0arg_tbox = Q0arg_
+
+@impl
+def q0arg_make_node(loc, nod):
+    Q0ARG(loc, nod)
+
+@impl
+def q0arg_get_lctn(q0a):
+    let Q0ARG(loc, nod) = q0a
+    loc
+
+@impl
+def q0arg_get_node(q0a):
+    let Q0ARG(loc, nod) = q0a
+    nod
+
+
+private:
+    enum S0qag_:
+        case S0QAG(loctn, s0qag_node)
+    @impl
+    type S0qag_tbox = S0qag_
+
+@impl
+def s0qag_make_node(loc, nod):
+    S0QAG(loc, nod)
+
+@impl
+def s0qag_get_lctn(sqa):
+    let S0QAG(loc, nod) = sqa
+    loc
+
+@impl
+def s0qag_get_node(sqa):
+    let S0QAG(loc, nod) = sqa
+    nod
+
+
+private:
+    enum T0qag_:
+        case T0QAG(loctn, t0qag_node)
+    @impl
+    type T0qag_tbox = T0qag_
+
+@impl
+def t0qag_make_node(loc, nod):
+    T0QAG(loc, nod)
+
+@impl
+def t0qag_get_lctn(tqa):
+    let T0QAG(loc, nod) = tqa
+    loc
+
+@impl
+def t0qag_get_node(tqa):
+    let T0QAG(loc, nod) = tqa
+    nod
+
+
+private:
+    enum T0iag_:
+        case T0IAG(loctn, t0iag_node)
+    @impl
+    type T0iag_tbox = T0iag_
+
+@impl
+def t0iag_make_node(loc, nod):
+    T0IAG(loc, nod)
+
+@impl
+def t0iag_get_lctn(tia):
+    let T0IAG(loc, nod) = tia
+    loc
+
+@impl
+def t0iag_get_node(tia):
+    let T0IAG(loc, nod) = tia
+    nod
+
+
+private:
+    enum A0typ_:
+        case A0TYP(loctn, a0typ_node)
+    @impl
+    type A0typ_tbox = A0typ_
+
+@impl
+def a0typ_make_node(loc, nod):
+    A0TYP(loc, nod)
+
+@impl
+def a0typ_get_lctn(a0t):
+    let A0TYP(loc, nod) = a0t
+    loc
+
+@impl
+def a0typ_get_node(a0t):
+    let A0TYP(loc, nod) = a0t
+    nod
+
+
+private:
+    enum D0arg_:
+        case D0ARG(loctn, d0arg_node)
+    @impl
+    type D0arg_tbox = D0arg_
+
+@impl
+def d0arg_make_node(loc, nod):
+    D0ARG(loc, nod)
+
+@impl
+def d0arg_get_lctn(d0a):
+    let D0ARG(loc, nod) = d0a
+    loc
+
+@impl
+def d0arg_get_node(d0a):
+    let D0ARG(loc, nod) = d0a
+    nod
+
+
+private:
+    enum D0ecl_:
+        case D0ECL(loctn, d0ecl_node)
+    @impl
+    type D0ecl_tbox = D0ecl_
+
+@impl
+def d0ecl_make_node(loc, nod):
+    D0ECL(loc, nod)
+
+@impl
+def d0ecl_get_lctn(dcl):
+    let D0ECL(loc, nod) = dcl
+    loc
+
+@impl
+def d0ecl_get_node(dcl):
+    let D0ECL(loc, nod) = dcl
+    nod
+
+
+private:
+    enum D0cstdcl_:
+        case D0CSTDCL(loc_t, d0pid, d0arglst, s0res, d0res)
+    @impl
+    type D0cstdcl_tbox = D0cstdcl_
+
+@impl
+def d0cstdcl_get_lctn(dcst):
+    let D0CSTDCL(lctn, dpid, darg, sres, dres) = dcst
+    lctn
+
+@impl
+def d0cstdcl_get_darg(dcst):
+    let D0CSTDCL(lctn, dpid, darg, sres, dres) = dcst
+    darg
+
+@impl
+def d0cstdcl_get_dpid(dcst):
+    let D0CSTDCL(lctn, dpid, darg, sres, dres) = dcst
+    dpid
+
+@impl
+def d0cstdcl_get_sres(dcst):
+    let D0CSTDCL(lctn, dpid, darg, sres, dres) = dcst
+    sres
+
+@impl
+def d0cstdcl_get_dres(dcst):
+    let D0CSTDCL(lctn, dpid, darg, sres, dres) = dcst
+    dres
+
+@impl
+def d0cstdcl_make_args(lctn, dpid, darg, sred, dres):
+    D0CSTDCL(lctn, dpid, darg, sred, dres)
+
+
+private:
+    enum D0valdcl_:
+        case D0VALDCL(loc_t, d0pat, teqd0exp, wths0exp)
+    @impl
+    type D0valdcl_tbox = D0valdcl_
+
+@impl
+def d0valdcl_get_lctn(dval):
+    let D0VALDCL(lctn, dpat, tdxp, wsxp) = dval
+    lctn
+
+@impl
+def d0valdcl_get_dpat(dval):
+    let D0VALDCL(lctn, dpat, tdxp, wsxp) = dval
+    dpat
+
+@impl
+def d0valdcl_get_tdxp(dval):
+    let D0VALDCL(lctn, dpat, tdxp, wsxp) = dval
+    tdxp
+
+@impl
+def d0valdcl_get_wsxp(dval):
+    let D0VALDCL(lctn, dpat, tdxp, wsxp) = dval
+    wsxp
+
+@impl
+def d0valdcl_make_args(lctn, dpat, tdxp, wsxp):
+    D0VALDCL(lctn, dpat, tdxp, wsxp)
+
+
+private:
+    enum D0vardcl_:
+        case D0VARDCL(loc_t, d0pid, d0pidopt, s0expopt, teqd0exp)
+    @impl
+    type D0vardcl_tbox = D0vardcl_
+
+@impl
+def d0vardcl_get_lctn(dvar):
+    let D0VARDCL(lctn, dpid, vpid, sres, dini) = dvar
+    lctn
+
+@impl
+def d0vardcl_get_dpid(dvar):
+    let D0VARDCL(lctn, dpid, vpid, sres, dini) = dvar
+    dpid
+
+@impl
+def d0vardcl_get_vpid(dvar):
+    let D0VARDCL(lctn, dpid, vpid, sres, dini) = dvar
+    vpid
+
+@impl
+def d0vardcl_get_sres(dvar):
+    let D0VARDCL(lctn, dpid, vpid, sres, dini) = dvar
+    sres
+
+@impl
+def d0vardcl_get_dini(dvar):
+    let D0VARDCL(lctn, dpid, vpid, sres, dini) = dvar
+    dini
+
+@impl
+def d0vardcl_make_args(lctn, dpid, vpid, sres, dini):
+    D0VARDCL(lctn, dpid, vpid, sres, dini)
+
+
+private:
+    enum D0fundcl_:
+        case D0FUNDCL(loc_t, d0pid, f0arglst, s0res, teqd0exp, wths0exp)
+    @impl
+    type D0fundcl_tbox = D0fundcl_
+
+@impl
+def d0fundcl_get_lctn(dfun):
+    let D0FUNDCL(lctn, dpid, farg, sres, tdxp, wsxp) = dfun
+    lctn
+
+@impl
+def d0fundcl_get_dpid(dfun):
+    let D0FUNDCL(lctn, dpid, farg, sres, tdxp, wsxp) = dfun
+    dpid
+
+@impl
+def d0fundcl_get_farg(dfun):
+    let D0FUNDCL(lctn, dpid, farg, sres, tdxp, wsxp) = dfun
+    farg
+
+@impl
+def d0fundcl_get_sres(dfun):
+    let D0FUNDCL(lctn, dpid, farg, sres, tdxp, wsxp) = dfun
+    sres
+
+@impl
+def d0fundcl_get_tdxp(dfun):
+    let D0FUNDCL(lctn, dpid, farg, sres, tdxp, wsxp) = dfun
+    tdxp
+
+@impl
+def d0fundcl_get_wsxp(dfun):
+    let D0FUNDCL(lctn, dpid, farg, sres, tdxp, wsxp) = dfun
+    wsxp
+
+@impl
+def d0fundcl_make_args(lctn, dpid, farg, sres, tdxp, wsxp):
+    D0FUNDCL(lctn, dpid, farg, sres, tdxp, wsxp)
+
+
+private:
+    enum D0parsed_:
+        case D0PARSED(SInt, SInt, lcsrc, d0eclistopt)
+    @impl
+    type D0parsed_tbox = D0parsed_
+
+@impl
+def d0parsed_get_stadyn(dpar):
+    stadyn
+where:
+    let D0PARSED(stadyn, nerror, source, parsed) = dpar
+
+@impl
+def d0parsed_get_nerror(dpar):
+    nerror
+where:
+    let D0PARSED(stadyn, nerror, source, parsed) = dpar
+
+@impl
+def d0parsed_get_source(dpar):
+    source
+where:
+    let D0PARSED(stadyn, nerror, source, parsed) = dpar
+
+@impl
+def d0parsed_get_parsed(dpar):
+    parsed
+where:
+    let D0PARSED(stadyn, nerror, source, parsed) = dpar
+
+@impl
+def d0parsed_make_args(stadyn, nerror, source, parsed):
+    D0PARSED(stadyn, nerror, source, parsed)
+
+

@@ -1,0 +1,711 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+@overload node = token_get_node
+
+@overload node = s2typ_get_node
+
+@overload lctn = simpl_get_lctn
+
+@overload node = simpl_get_node
+
+@overload lctn = dimpl_get_lctn
+
+@overload node = dimpl_get_node
+
+@overload lctn = d3ecl_get_lctn
+
+@overload node = d3ecl_get_node
+
+import "srcgen2/DATS/xsymmap_topmap.dats" as _
+
+import "srcgen2/DATS/dynexp3_tmplib.dats" as _
+
+def s2typ_subst0(t2p0: s2typ, svts: s2vts) -> s2typ:
+    match svts:
+        case list_nil():
+            t2p0
+        case list_cons(_):
+            s2typ_subst0(t2p0, svts)
+
+@impl
+def d3exp_trcdfltq(d3e0):
+    let t2p0 = d3e0.styp()
+    match t2p0.node():
+        case T2Ptrcd(knd0, npf1, ltps):
+            trcdknd_fltq(knd0)
+        case _:
+            false
+
+@impl
+def d3ecl_impsub(knd0, tsub, d3cl):
+    match d3cl.node():
+        case D3Cimplmnt0(_):
+            f0_implmnt0(d3cl)
+        case _:
+            d3ecl_tmpsub(tsub, d3cl)
+where:
+    def f0_implmnt0(d3cl: d3ecl) -> d3ecl:
+        let loc0 = d3cl.lctn()
+        let D3Cimplmnt0(tknd, stmp, sqas, tqas, dimp, tias, f3as, sres, dexp) = d3cl.node()
+        let dimp = match dimp.node():
+            case DIMPLone2(d2c0, svts):
+                let loc1 = dimp.lctn()
+                type Vt = (s2var, s2typ)
+                @impl[Vt, Vt]
+                def map/fopr(vt):
+                    (vt.0, s2typ_subst0(vt.1, tsub))
+                let svts = list_map(svts)
+                dimpl_make_node(loc1, DIMPLone2(d2c0, svts))
+            case _:
+                dimp
+        let stmp = if knd0 <= 0:
+            stmp
+        else: the_d3imp_stamp_new()
+        let d3cl = d3ecl_make_node(loc0, D3Cimplmnt0(tknd, stmp, sqas, tqas, dimp, tias, f3as, sres, dexp))
+        d3ecl_tmpsub(tsub, d3cl)
+
+@impl
+def d3ecl_tmpsub(tsub, d3cl):
+    let loc0 = d3cl.lctn()
+    d3ecl(loc0, D3Ctmpsub(tsub, d3cl))
+
+@impl
+def d3imp_d2csteq(d3cl, d2c0):
+    match d3cl.node():
+        case D3Cfundclst(_):
+            f0_fundclst(d3cl)
+        case D3Cimplmnt0(_):
+            f0_implmnt0(d3cl)
+        case _:
+            false
+where:
+    def f0_fundclst(d3cl: d3ecl) -> Bool:
+        let D3Cfundclst(tknd, tqas, d2cs, d3fs) = d3cl.node()
+        @impl[d2cst]
+        def exists/test(d2c1):
+            d2c0 == d2c1
+        list_exists(d2cs)
+    def f0_implmnt0(d3cl: d3ecl) -> Bool:
+        let D3Cimplmnt0(tknd, stmp, sqas, tqas, dimp, tias, f3as, sres, dexp) = d3cl.node()
+        match dimp.node():
+            case DIMPLone1(d2c1):
+                d2c0 == d2c1
+            case DIMPLone2(d2c1, svts):
+                d2c0 == d2c1
+            case _:
+                false
+
+@impl
+def d3imp_stampeq(d3cl, tmp0):
+    match d3cl.node():
+        case D3Ctmpsub(svts, dcl1):
+            d3imp_stampeq(dcl1, tmp0)
+        case D3Cimplmnt0(_):
+            f0_implmnt0(d3cl)
+        case _:
+            false
+where:
+    def f0_implmnt0(d3cl: d3ecl) -> Bool:
+        let D3Cimplmnt0(tknd, tmp1, sqas, tqas, dimp, tias, f3as, sres, dexp) = d3cl.node()
+        if tmp0 == tmp1:
+            true
+        else:
+            false
+
+@impl
+def d3imp_get_stmp(d3cl):
+    match d3cl.node():
+        case D3Cimplmnt0(tknd, stmp, sqas, tqas, dimp, tias, f3as, sres, dexp):
+            stmp
+        case D3Ctmpsub(svts, d3cl):
+            d3imp_get_stmp(d3cl)
+        case D3Ctmplocal(d3cl, dcls):
+            d3imp_get_stmp(d3cl)
+        case _:
+            the_stamp_nil
+
+@impl
+def d3ecl_impltmpq(d3cl):
+    match d3cl.node():
+        case D3Ctmplocal(_):
+            true
+        case D3Cfundclst(tknd, tqas, d2cs, d3fs):
+            list_consq(tqas)
+        case D3Cimplmnt0(tknd, stmp, sqas, tqas, dimp, tias, f3as, sres, dexp):
+            dimpl_tempq(dimp)
+        case _:
+            false
+
+@impl
+def d3ecl_impltmpr(stmp, d3cl):
+    let loc0 = d3cl.lctn()
+    d3ecl(loc0, D3Cimpltmpr(stmp, d3cl))
+
+@impl
+def d3ecl_impltmprq(d3cl):
+    match d3cl.node():
+        case D3Ctmpsub(svts, dcl1):
+            d3ecl_impltmprq(dcl1)
+        case D3Ctmplocal(dcl1, dcls):
+            d3ecl_impltmprq(dcl1)
+        case D3Cimplmnt0(tknd, stmp, sqas, tqas, dimp, tias, f3as, sres, dexp):
+            let T_IMPLMNT(knd0) = tknd.node()
+            implknd_recq(knd0)
+        case _:
+            false
+
+@impl
+def static_search_dcst(d3cl, d2c0):
+    match d3cl.node():
+        case D3Cstaload(_):
+            f0_staload(d3cl, d2c0)
+        case _:
+            list_nil()
+where:
+    def f0_staload(d3cl: d3ecl, d2c0: d2cst) -> d3eclist:
+        let D3Cstaload(knd0, tknd, gsrc, fopt, dopt) = d3cl.node()
+        match dopt:
+            case S3TALOADnone(s2ta):
+                list_nil
+            case S3TALOADdpar(shrd, dpar):
+                let tenv = d3parsed_get_t3penv(dpar)
+                match tenv:
+                    case D3TOPENVnone():
+                        list_nil()
+                    case D3TOPENVsome(tmap):
+                        let opt0 = topmap_search/opt(tmap, d2c0.name())
+                        match opt0:
+                            case ~optn_vt_nil():
+                                list_nil
+                            case ~optn_vt_cons(dcls):
+                                dcls
+
+private:
+    def f0_targequ(svts: s2vts, t2js: t2jaglst) -> Bool:
+        f1_svts_t2js(svts, t2js)
+    where:
+        type S2vt1 = (s2var, s2typ)
+        def f2_svt1_tjp1(svt1: S2vt1, tjp1: s2typ) -> Bool:
+            let (_, tip1) = svt1
+            f2_tip1_tjp1(tip1, tjp1)
+
+        def f2_tip1_tjp1(tip1: s2typ, tjp1: s2typ) -> Bool:
+            let tip1 = s2typ_hnfiz0(tip1)
+            let tjp1 = s2typ_hnfiz0(tjp1)
+            match tip1.node():
+                case T2Pvar(_):
+                    g2_svar_tjp1(tip1, tjp1)
+                case T2Pcst(_):
+                    g2_scst_tjp1(tip1, tjp1)
+                case T2Papps(_):
+                    g2_apps_tjp1(tip1, tjp1)
+                case T2Pfun1(_):
+                    g2_fun1_tjp1(tip1, tjp1)
+                case T2Ptext(_):
+                    g2_text_tjp1(tip1, tjp1)
+                case T2Ptrcd(_):
+                    g2_trcd_tjp1(tip1, tjp1)
+                case T2Pnone0():
+                    true
+                case T2Pnone1(s2typ):
+                    true
+                case T2Ps2exp(s2exp):
+                    true
+                case _:
+                    false
+        where:
+            def g2_svar_tjp1(tip1: s2typ, tjp1: s2typ) -> Bool:
+                let T2Pvar(s2vi) = tip1.node()
+                match tjp1.node():
+                    case T2Pvar(s2vj):
+                        s2vi == s2vj
+                    case _:
+                        false
+            def g2_scst_tjp1(tip1: s2typ, tjp1: s2typ) -> Bool:
+                let T2Pcst(s2ci) = tip1.node()
+                match tjp1.node():
+                    case T2Pcst(s2cj):
+                        s2ci == s2cj
+                    case _:
+                        false
+            def g2_apps_tjp1(tip1: s2typ, tjp1: s2typ) -> Bool:
+                let T2Papps(t2fi, tips) = tip1.node()
+                match tjp1.node():
+                    case T2Papps(t2fj, tjps):
+                        let res1 = f2_tip1_tjp1(t2fi, t2fj)
+                        if res1:
+                            f2_tips_tjps(tips, tjps)
+                        else:
+                            false
+                    case _:
+                        false
+            def g2_fun1_tjp1(tip1: s2typ, tjp1: s2typ) -> Bool:
+                let T2Pfun1(kndi, npfi, tips, tir0) = tip1.node()
+                match tjp1.node():
+                    case T2Pfun1(kndj, npfj, tjps, tjr0):
+                        let res1 = true
+                        let res1 = if res1:
+                            npfi == npfj
+                        else: false
+                        let res1 = if res1:
+                            f2_tips_tjps(tips, tjps)
+                        else: false
+                        if res1:
+                            f2_tip1_tjp1(tir0, tjr0)
+                        else:
+                            false
+                    case _:
+                        false
+            def g2_text_tjp1(tip1: s2typ, tjp1: s2typ) -> Bool:
+                let T2Ptext(tnmi, tips) = tip1.node()
+                match tjp1.node():
+                    case T2Ptext(tnmj, tjps):
+                        let res1 = tnmi == tnmj
+                        if res1:
+                            f2_tips_tjps(tips, tjps)
+                        else:
+                            false
+                    case _:
+                        false
+            def g2_trcd_tjp1(tip1: s2typ, tjp1: s2typ) -> Bool:
+                let T2Ptrcd(kndi, npfi, ltis) = tip1.node()
+                match tjp1.node():
+                    case T2Ptrcd(kndj, npfj, ltjs):
+                        let res1 = trcdknd_equal(kndi, kndj)
+                        let res1 = if res1:
+                            npfi == npfj
+                        else: false
+                        if res1:
+                            f2_ltis_ltjs(ltis, ltjs)
+                        else:
+                            false
+                    case _:
+                        false
+
+        def f2_tips_tjps(tips: s2typlst, tjps: s2typlst) -> Bool:
+            match tips:
+                case list_nil():
+                    match tjps:
+                        case list_nil():
+                            true
+                        case list_cons(_):
+                            false
+                case list_cons(tip1, tips):
+                    match tjps:
+                        case list_nil():
+                            false
+                        case list_cons(tjp1, tjps):
+                            let res1 = f2_tip1_tjp1(tip1, tjp1)
+                            if res1:
+                                f2_tips_tjps(tips, tjps)
+                            else:
+                                false
+
+        def f2_ltis_ltjs(ltis: l2t2plst, ltjs: l2t2plst) -> Bool:
+            match ltis:
+                case list_nil():
+                    match ltjs:
+                        case list_nil():
+                            true
+                        case list_cons(_):
+                            false
+                case list_cons(lti1, ltis):
+                    match ltjs:
+                        case list_nil():
+                            false
+                        case list_cons(ltj1, ltjs):
+                            let S2LAB(li, tip1) = lti1
+                            let S2LAB(lj, tjp1) = ltj1
+                            let res1 = f2_tip1_tjp1(tip1, tjp1)
+                            if res1:
+                                f2_ltis_ltjs(ltis, ltjs)
+                            else:
+                                false
+        def f1_svts_t2js(svts: s2vts, t2js: t2jaglst) -> Bool:
+            match svts:
+                case list_nil():
+                    true
+                case list_cons(svt1, svts):
+                    f1_svt1_svts_t2js(svt1, svts, t2js)
+
+        def f1_svt1_svts_t2js(svt1: S2vt1, svts: s2vts, t2js: t2jaglst) -> Bool:
+            match t2js:
+                case list_nil():
+                    true
+                case list_cons(t2j1, t2js):
+                    let tjps = t2j1.t2ps()
+                    f1_svt1_svts_tjps_t2js(svt1, svts, tjps, t2js)
+
+        def f1_svt1_svts_tjps_t2js(svt1: S2vt1, svts: s2vts, tjps: s2typlst, t2js: t2jaglst) -> Bool:
+            match tjps:
+                case list_nil():
+                    f1_svt1_svts_t2js(svt1, svts, t2js)
+                case list_cons(tjp1, tjps):
+                    let ans1 = f2_svt1_tjp1(svt1, tjp1)
+                    match ans1:
+                        case false:
+                            false
+                        case true:
+                            match svts:
+                                case list_nil():
+                                    true
+                                case list_cons(svt1, svts):
+                                    f1_svt1_svts_tjps_t2js(svt1, svts, tjps, t2js)
+
+@impl
+def tmpequal_d3cl_t2js(d3cl, t2js):
+    f0_main(d3cl, t2js)
+where:
+    def f0_main(d3cl: d3ecl, t2js: t2jaglst) -> Bool:
+        match d3cl.node():
+            case D3Cimplmnt0(tok0, stmp, sqas, tqas, dimp, t2is, f3as, sres, body):
+                match dimp.node():
+                    case DIMPLone2(_, svts):
+                        f0_targequ(svts, t2js)
+                    case _:
+                        false
+            case D3Ctmpsub(tsub, dcl1):
+                f0_main(dcl1, t2js)
+            case _:
+                false
+
+
+private:
+    def f1_s2extq(s2v0: s2var, s2vs: s2varlst) -> Bool:
+        match s2vs:
+            case list_nil():
+                false
+            case list_cons(s2v1, s2vs):
+                if s2v0 == s2v1:
+                    true
+                else:
+                    f1_s2extq(s2v0, s2vs)
+    def f2_s2extq(s2v0: s2var, t2qs: t2qaglst) -> Bool:
+        match t2qs:
+            case list_nil():
+                false
+            case list_cons(t2q1, t2qs):
+                if f1_s2extq(s2v0, t2q1.s2vs()):
+                    true
+                else:
+                    f2_s2extq(s2v0, t2qs)
+    def f3_s2extq(s2v0: s2var, s2qs: s2qaglst, t2qs: t2qaglst) -> Bool:
+        match s2qs:
+            case list_nil():
+                f2_s2extq(s2v0, t2qs)
+            case list_cons(s2q1, s2qs):
+                if f1_s2extq(s2v0, s2q1.s2vs()):
+                    true
+                else:
+                    f3_s2extq(s2v0, s2qs, t2qs)
+    def f0_tqagmat(tqas: t2qaglst, t2js: t2jaglst) -> optn[s2vts]:
+        let tsub = list_vt_nil
+        let opt0 = f1_tqas_t2js(tqas, t2js, tsub)
+        match opt0:
+            case ~optn_vt_nil():
+                optn_nil
+            case ~optn_vt_cons(tsub):
+                optn_cons(list_vt2t(reverse0(tsub)))
+    where:
+        def f1_tqas_t2js(tqas: t2qaglst, t2js: t2jaglst, tsub: s2vts_vt) -> optn_vt[s2vts_vt]:
+            match tqas:
+                case list_nil():
+                    optn_vt_cons(tsub)
+                case list_cons(tqa1, tqas):
+                    let s2vs = tqa1.s2vs()
+                    f1_s2vs_tqas_t2js(s2vs, tqas, t2js, tsub)
+
+        def f1_s2vs_tqas_t2js(s2vs: s2varlst, tqas: t2qaglst, t2js: t2jaglst, tsub: s2vts_vt) -> optn_vt[s2vts_vt]:
+            match t2js:
+                case list_nil():
+                    optn_vt_cons(tsub)
+                case list_cons(t2j1, t2js):
+                    let tjps = t2j1.t2ps()
+                    f1_s2vs_tqas_tjps_t2js(s2vs, tqas, tjps, t2js, tsub)
+
+        def f1_s2vs_tqas_tjps_t2js(s2vs: s2varlst, tqas: t2qaglst, tjps: s2typlst, t2js: t2jaglst, tsub: s2vts_vt) -> optn_vt[s2vts_vt]:
+            match s2vs:
+                case list_nil():
+                    f1_tqas_t2js(tqas, t2js, tsub)
+                case list_cons(_):
+                    match tjps:
+                        case list_nil():
+                            f1_tqas_t2js(tqas, t2js, tsub)
+                        case list_cons(tjp1, tjps):
+                            let list_cons(s2v1, s2vs) = s2vs
+                            let tsub = list_vt_cons((s2v1, tjp1), tsub)
+                            f1_s2vs_tqas_tjps_t2js(s2vs, tqas, tjps, t2js, tsub)
+    def f0_targmat(svts: s2vts, t2js: t2jaglst, s2qs: s2qaglst, t2qs: t2qaglst) -> optn[s2vts]:
+        let tsub = list_vt_nil
+        let opt0 = f1_svts_t2js(svts, t2js, tsub)
+        match opt0:
+            case ~optn_vt_nil():
+                optn_nil
+            case ~optn_vt_cons(tsub):
+                optn_cons(list_vt2t(reverse0(tsub)))
+    where:
+        type S2vt1 = (s2var, s2typ)
+        type S2vts_vt = list_vt[(s2var, s2typ)]
+        def f2_svt1_tjp1(svt1: S2vt1, tjp1: s2typ, tsub: S2vts_vt) -> optn_vt[S2vts_vt]:
+            let (_, tip1) = svt1
+            match tip1.node():
+                case T2Pvar(s2vi):
+                    if f3_s2extq(s2vi, s2qs, t2qs):
+                        optn_vt_cons(list_vt_cons((s2vi, tjp1), tsub))
+                    else:
+                        match tjp1.node():
+                            case T2Pvar(s2vj):
+                                if (s2vi == s2vj):
+                                    optn_vt_cons(tsub)
+                                else:
+                                    free(tsub)
+                                    optn_vt_nil()
+                            case _:
+                                free(tsub)
+                                optn_vt_nil()
+                case _:
+                    var tsub = tsub
+                    let res0 = f2_tip1_tjp1(tip1, tjp1, tsub)
+                    if res0:
+                        optn_vt_cons(tsub)
+                    else:
+                        free(tsub)
+                        optn_vt_nil()
+
+        def f2_tip1_tjp1(tip1: s2typ, tjp1: s2typ, tsub: &S2vts_vt >> _) -> Bool:
+            let tip1 = s2typ_hnfiz0(tip1)
+            let tjp1 = s2typ_hnfiz0(tjp1)
+            match tip1.node():
+                case T2Pvar(_):
+                    g2_svar_tjp1(tip1, tjp1, tsub)
+                case T2Pcst(_):
+                    g2_scst_tjp1(tip1, tjp1, tsub)
+                case T2Papps(_):
+                    g2_apps_tjp1(tip1, tjp1, tsub)
+                case T2Pfun1(_):
+                    g2_fun1_tjp1(tip1, tjp1, tsub)
+                case T2Ptext(_):
+                    g2_text_tjp1(tip1, tjp1, tsub)
+                case T2Ptrcd(_):
+                    g2_trcd_tjp1(tip1, tjp1, tsub)
+                case T2Pnone0():
+                    true
+                case _:
+                    false
+        where:
+            def g2_svar_tjp1(tip1: s2typ, tjp1: s2typ, tsub: &S2vts_vt >> _) -> Bool:
+                let T2Pvar(s2vi) = tip1.node()
+                def h2_search(svts: !S2vts_vt) -> s2typopt_vt:
+                    match svts:
+                        case list_vt_nil():
+                            optn_vt_nil
+                        case list_vt_cons(svt1, svts):
+                            if (s2vi != svt1.0):
+                                h2_search(svts)
+                            else:
+                                optn_vt_cons(svt1.1)
+                if f3_s2extq(s2vi, s2qs, t2qs):
+                    match h2_search(tsub):
+                        case ~optn_vt_nil():
+                            tsub := list_vt_cons((s2vi, tjp1), tsub)
+                            true
+                        case ~optn_vt_cons(tip1):
+                            f2_tip1_tjp1(tip1, tjp1, tsub)
+                else:
+                    match tjp1.node():
+                        case T2Pvar(s2vj):
+                            if (s2vi == s2vj):
+                                true
+                            else:
+                                false
+                        case _:
+                            false
+            def g2_scst_tjp1(tip1: s2typ, tjp1: s2typ, tsub: &S2vts_vt >> _) -> Bool:
+                let T2Pcst(s2ci) = tip1.node()
+                match tjp1.node():
+                    case T2Pcst(s2cj):
+                        if (s2ci == s2cj):
+                            true
+                        else:
+                            false
+                    case _:
+                        false
+            def g2_apps_tjp1(tip1: s2typ, tjp1: s2typ, tsub: &S2vts_vt >> _) -> Bool:
+                let T2Papps(t2fi, tips) = tip1.node()
+                match tjp1.node():
+                    case T2Papps(t2fj, tjps):
+                        let res1 = f2_tip1_tjp1(t2fi, t2fj, tsub)
+                        if res1:
+                            f2_tips_tjps(tips, tjps, tsub)
+                        else:
+                            false
+                    case _:
+                        false
+            def g2_fun1_tjp1(tip1: s2typ, tjp1: s2typ, tsub: &S2vts_vt >> _) -> Bool:
+                let T2Pfun1(kndi, npfi, tips, tir0) = tip1.node()
+                match tjp1.node():
+                    case T2Pfun1(kndj, npfj, tjps, tjr0):
+                        let res1 = true
+                        let res1 = if res1:
+                            f2_tips_tjps(tips, tjps, tsub)
+                        else: false
+                        if res1:
+                            f2_tip1_tjp1(tir0, tjr0, tsub)
+                        else:
+                            false
+                    case _:
+                        false
+            def g2_text_tjp1(tip1: s2typ, tjp1: s2typ, tsub: &S2vts_vt >> _) -> Bool:
+                let T2Ptext(tnmi, tips) = tip1.node()
+                match tjp1.node():
+                    case T2Ptext(tnmj, tjps):
+                        let res1 = tnmi == tnmj
+                        if res1:
+                            f2_tips_tjps(tips, tjps, tsub)
+                        else:
+                            false
+                    case _:
+                        false
+            def g2_trcd_tjp1(tip1: s2typ, tjp1: s2typ, tsub: &S2vts_vt >> _) -> Bool:
+                let T2Ptrcd(kndi, npfi, ltis) = tip1.node()
+                match tjp1.node():
+                    case T2Ptrcd(kndj, npfj, ltjs):
+                        let res1 = trcdknd_equal(kndi, kndj)
+                        let res1 = if res1:
+                            npfi == npfj
+                        else: false
+                        if res1:
+                            f2_ltis_ltjs(ltis, ltjs, tsub)
+                        else:
+                            false
+                    case _:
+                        false
+
+        def f2_tips_tjps(tips: s2typlst, tjps: s2typlst, tsub: &S2vts_vt >> _) -> Bool:
+            match tips:
+                case list_nil():
+                    match tjps:
+                        case list_nil():
+                            true
+                        case list_cons(_):
+                            false
+                case list_cons(tip1, tips):
+                    match tjps:
+                        case list_nil():
+                            false
+                        case list_cons(tjp1, tjps):
+                            let res1 = f2_tip1_tjp1(tip1, tjp1, tsub)
+                            if res1:
+                                f2_tips_tjps(tips, tjps, tsub)
+                            else:
+                                false
+
+        def f2_ltis_ltjs(ltis: l2t2plst, ltjs: l2t2plst, tsub: &S2vts_vt >> _) -> Bool:
+            match ltis:
+                case list_nil():
+                    match ltjs:
+                        case list_nil():
+                            true
+                        case list_cons(_):
+                            false
+                case list_cons(lti1, ltis):
+                    match ltjs:
+                        case list_nil():
+                            false
+                        case list_cons(ltj1, ltjs):
+                            let S2LAB(li, tip1) = lti1
+                            let S2LAB(lj, tjp1) = ltj1
+                            let res1 = f2_tip1_tjp1(tip1, tjp1, tsub)
+                            if res1:
+                                f2_ltis_ltjs(ltis, ltjs, tsub)
+                            else:
+                                false
+        def f1_svts_t2js(svts: s2vts, t2js: t2jaglst, tsub: S2vts_vt) -> optn_vt[S2vts_vt]:
+            match svts:
+                case list_nil():
+                    optn_vt_cons(tsub)
+                case list_cons(svt1, svts):
+                    f1_svt1_svts_t2js(svt1, svts, t2js, tsub)
+
+        def f1_svt1_svts_t2js(svt1: S2vt1, svts: s2vts, t2js: t2jaglst, tsub: S2vts_vt) -> optn_vt[S2vts_vt]:
+            match t2js:
+                case list_nil():
+                    optn_vt_cons(tsub)
+                case list_cons(t2j1, t2js):
+                    let tjps = t2j1.t2ps()
+                    f1_svt1_svts_tjps_t2js(svt1, svts, tjps, t2js, tsub)
+
+        def f1_svt1_svts_tjps_t2js(svt1: S2vt1, svts: s2vts, tjps: s2typlst, t2js: t2jaglst, tsub: S2vts_vt) -> optn_vt[S2vts_vt]:
+            match tjps:
+                case list_nil():
+                    f1_svt1_svts_t2js(svt1, svts, t2js, tsub)
+                case list_cons(tjp1, tjps):
+                    let opt1 = f2_svt1_tjp1(svt1, tjp1, tsub)
+                    match opt1:
+                        case ~optn_vt_nil():
+                            optn_vt_nil()
+                        case ~optn_vt_cons(tsub):
+                            match svts:
+                                case list_nil():
+                                    optn_vt_cons(tsub)
+                                case list_cons(svt1, svts):
+                                    f1_svt1_svts_tjps_t2js(svt1, svts, tjps, t2js, tsub)
+
+@impl
+def tmpmatch_d3cl_t2js(d3cl, t2js):
+    f0_main(d3cl, t2js)
+where:
+    def f0_main(d3cl: d3ecl, t2js: t2jaglst) -> optn[s2vts]:
+        match d3cl.node():
+            case D3Cfundclst(tknd, tqas, d2cs, d3fs):
+                f0_tqagmat(tqas, t2js)
+            case D3Cimplmnt0(tok0, stmp, sqas, tqas, dimp, t2is, f3as, sres, body):
+                match dimp.node():
+                    case DIMPLone2(_, svts):
+                        f0_targmat(svts, t2js, sqas, tqas)
+                    case _:
+                        optn_nil()
+            case D3Ctmpsub(tsub, dcl1):
+                let topt = f0_main(dcl1, t2js)
+                match topt:
+                    case optn_nil():
+                        optn_nil()
+                    case optn_cons(svts):
+                        optn_cons(list_append(svts, tsub))
+            case _:
+                optn_nil()
+
+
+@impl
+def d3pat_get_d2vs(d3p0):
+    @inst[r0] d3pat_d2v/foldl(xs, r0)
+where:
+    type X0 = d2var
+    type Xs = d3pat
+    type R0 = list_vt[X0]
+    let xs = d3p0
+    let r0 = list_vt_nil()
+    @impl[X0, R0]
+    def foldl/fopr(r0, x0):
+        list_vt_cons(x0, r0)
+

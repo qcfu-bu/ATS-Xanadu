@@ -1,0 +1,47 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/filpath" import *
+
+private:
+    enum Fpath:
+        case FPATH(String, String, symbl)
+    @impl
+    type Fpath_tbox = Fpath
+
+@impl
+def fpath_get_gvn0(fpx):
+    let FPATH(gvn0, fnm1, fnm2) = fpx
+    gvn0
+
+@impl
+def fpath_get_fnm1(fpx):
+    let FPATH(gvn0, fnm1, fnm2) = fpx
+    fnm1
+
+@impl
+def fpath_get_fnm2(fpx):
+    let FPATH(gvn0, fnm1, fnm2) = fpx
+    fnm2
+
+@impl
+def fpath_make_absolute(fnm1):
+    FPATH(gvn0, fnm1, fnm2)
+where:
+    let gvn0 = fnm1
+    let fnm1 = fpath_normize(fnm1)
+    let fnm2 = symbl_make_name(fnm1)
+
+@impl
+def fpath_make_relative(gvn0, fnm1):
+    FPATH(gvn0, fnm1, fnm2)
+where:
+    let fnm1 = fpath_normize(fnm1)
+    let fnm2 = symbl_make_name(fnm1)
+
+

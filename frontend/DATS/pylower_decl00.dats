@@ -69,6 +69,11 @@ fun ats_sym(name: strn): sym_t = symbl_make_name(ats_name(name))
 // faithful #include: strip the leading '/' to the XATSHOME-RELATIVE form (`srcgen2/HATS/x.hats`).
 // The emitted D2Cinclude FPATH carries this RELATIVE fnm1 (matching stock fsrch_dcurrent), not abs.
 #extern fun PYL_strip_leading_slash(s: strn): strn = $extnam()
+// MIRROR MODE: rebase an XATSHOME-relative `.sats` import to the pythonic `.psats` under
+// PYL_MIRROR_ROOT, or "" when mirror mode is off / path is not a `.sats` (pylexing.cats).
+#extern fun PYL_mirror_psats(s: strn): strn = $extnam()
+// read a file's UTF-8 text (pylexing.cats) — the mirror loader reads a `.psats` source.
+#extern fun PYL_readfile(s: strn): strn = $extnam()
 // qualified-name helpers (shared with pylower_staexp): `M.x` -> head `$M.`, tail `x`, has-dot test.
 #extern fun PYL_is_qualified_name(s: strn): bool = $extnam()
 #extern fun PYL_qual_head_key(s: strn): strn = $extnam()  // "M.x" -> "$M."
@@ -702,6 +707,36 @@ in
   d2ecl_make_node(loc, D2Cextern(tok_ext, dyncst))
 end
 //
+// `@extern let NAME: T` -> a bodyless DYNAMIC constant (D2Cdynconst, VAL kind). The d2cst is typed
+// at T directly (with optional {tvs} universal quantifiers), registered so a USE resolves. A bodyless
+// `val NAME: T` in a .sats lowers to a PLAIN D2Cdynconst (no D2Cextern wrapper).
+and
+build_extern_val
+( env: !tr12env, loc: loctn, name: strn, tvs: list(pcparam), typ: pytypopt): d2ecl = let
+  val s2vs = mk_param_s2vars(tvs)
+  val () = tr12env_pshlam0(env)
+  val () = bind_param_s2vars(env, s2vs)
+  val vtyp =
+    ( case+ typ of
+      | PyTypSome(t) => pylower_typ(env, t)
+      | PyTypNone()  => resolve_typ_name(env, "void") ): s2exp
+  val () = tr12env_poplam0(env)
+  val sval     = (if list_nilq(tvs) then vtyp else s2exp_uni0(s2vs, list_nil(), vtyp)): s2exp
+  val tqas     = (if list_nilq(tvs) then list_nil() else list_sing(t2qag_make_s2vs(loc, s2vs))): t2qaglst
+  val tok_id   = token_make_node(loc, T_IDALP(ats_name(name)))
+  val tok_val  = token_make_node(loc, T_VAL(VLKval))
+  val d2c      = d2cst_make_idtp(tok_val, tok_id, tqas, sval)
+  val () = tr12env_add1_d2cst(env, d2c)
+  val dcdcl    = d2cstdcl_make_args(loc, d2c, list_nil()(*darg*), S2RESnone(), TEQD2EXPnone())
+  val dyncst   = d2ecl_make_node(loc, D2Cdynconst(tok_val, tqas, list_sing(dcdcl)))
+  // Wrap in D2Cextern (like build_extern): the extern wrapper is what trans2a/trsym2b promote into
+  // the EXPORTED interface env, so a consumer importing this .psats resolves NAME. A bare
+  // D2Cdynconst registers the d2cst locally but is NOT promoted across the module boundary.
+  val tok_ext  = token_make_node(loc, T_SRP_EXTERN())
+in
+  d2ecl_make_node(loc, D2Cextern(tok_ext, dyncst))
+end
+//
 // A-TEMPLATE: collapse the 1-or-2 template decls (extern [+ implement]) into the ONE d2ecl the
 // module driver expects per pcdecl. A single decl passes through; two are wrapped in a TRANSPARENT
 // `D2Clocal0([], decls)` (empty local-head, both decls in the local-body) — trans23 processes the
@@ -1041,12 +1076,16 @@ end
 // `the_XATSHOME()` exactly as `f0_pvsload` does (xglobal.dats:741-748). `knd0`=0 (static `.sats`).
 fun
 lower_import(env: !tr12env, loc: loctn, path: strn, knd0: sint, is_python: bool, aopt: optn(strn)): d2ecl =
-  if is_python then
-    // DEFERRED: a Python-surface `.psats`/`.pdats` module needs recursing OUR frontend (lex/parse/
-    // elab/lower) — the stock `d0parsed_from_fpath` only parses ATS surface, so we CANNOT load it
-    // here. Emit a benign no-op (NOT a crash). The using-decls that referenced its exports will
-    // errck as unresolved names — a graceful, characterized failure. (Python-module import is a
-    // clean follow-up: thread OUR pipeline as the loader.)
+  // MIRROR MODE (self-host): if a pythonic `.psats` for this import exists under PYL_MIRROR_ROOT,
+  // load it via OUR pipeline (cz_load_pysats) instead of the stock ATS `.sats` loader. PYL_mirror_psats
+  // returns "" when mirror mode is off OR the import isn't a `.sats`, and `fpath_rexists("")` is false,
+  // so this ALSO gives automatic fallback: a non-mirrored dep (e.g. a prelude `.sats`) misses here and
+  // drops through to the ATS-loader branch below. (This finally lands the once-DEFERRED is_python load.)
+  if fpath_rexists(PYL_mirror_psats(path)) then
+    lower_import_pysats(env, loc, path, PYL_mirror_psats(path), aopt)
+  else if is_python then
+    // DEFERRED (only when NO mirror .psats exists): a Python-surface `.psats`/`.pdats` we can't locate.
+    // Emit a benign no-op (NOT a crash); the using-decls errck as unresolved — a graceful failure.
     d2ecl_make_node(loc, D2Cnone0())
   else if PYL_has_hats_ext(path) then
     // `.hats` files are ATS header includes, not sealed modules. Lower them through the D1 include
@@ -1168,6 +1207,64 @@ import_parse_kind(knd0: sint, path: strn): sint = let
   val knd1 = fname_stadyn(path)
 in
   if knd1 < 0 then knd0 else knd1
+end
+//
+// MIRROR MODE: load a pythonic `.psats` interface through OUR OWN pipeline (the analog of
+// cached_d2parsed_from_fpath, which uses the stock ATS pipeline). Read the file, run
+// pyparse_module -> pyelab_module -> pylower_decls into a FRESH tr12env, then trans2a + trsym2b
+// (matching cached_d2parsed_from_fpath's `.sats` post-passes). Cached in the SAME the_d2parenv
+// (keyed by the `.psats` fnm2 — disjoint from `.sats` keys), so a module is loaded once per
+// compilation and importers share its d2csts. Recursion (a `.psats` importing another) is handled
+// by pylower_decls -> lower_import -> here; the interface graph is a DAG (no cycles), like stock.
+and
+cz_load_pysats(abspath: strn): @(sint, d2parsed) = let
+  val fpth = fpath_make_absolute(abspath)
+  val fnm2 = fpath_get_fnm2(fpth)
+  val opt2 = the_d2parenv_pvsfind(fnm2)
+in
+  case+ opt2 of
+  | ~optn_vt_cons(dpar2) => @(1, dpar2)
+  | ~optn_vt_nil() => let
+      val text = PYL_readfile(abspath)
+      val src  = LCSRCsome1(abspath)
+      val ast  = pyparse_module(src, text)
+      val core = pyelab_module(ast)
+      val+ PCModule(decls, _diags) = core
+      val env2 = tr12env_make_nil()
+      val d2cs = pylower_decls(env2, decls)
+      val t2penv = tr12env_free_top(env2)
+      val t1penv = tr01env_free_top(tr01env_make_nil())
+      val dpar2 = d2parsed_make_args(0(*static*), 0(*nerror*), src, t1penv, t2penv, optn_cons(d2cs))
+      val dpar2 = d2parsed_of_trans2a(dpar2)
+      val ( ) = d2parsed_by_trsym2b(dpar2)
+      val ( ) = the_d2parenv_pvsadd0(fnm2, dpar2)
+    in
+      @(0, dpar2)
+    end
+end
+//
+// MIRROR MODE: the pythonic-`.psats` analog of lower_import's ATS-`.sats` branch — build the
+// module's f2env, scoped-merge it under gsym (bare `$.` or `$ALIAS.`), promote bare-import symloads,
+// emit a real D2Cstaload. IDENTICAL to the ATS branch except the loader (cz_load_pysats).
+and
+lower_import_pysats(env: !tr12env, loc: loctn, path: strn, mpsats: strn, aopt: optn(strn)): d2ecl = let
+  val gsym =
+    ( case+ aopt of
+      | optn_cons(alias) => symbl_make_name(strn_append(strn_append("$", alias), "."))
+      | optn_nil()       => DLRDT_symbl ) : sym_t
+  val is_named =
+    ( case+ aopt of optn_cons(_) => true | optn_nil() => false ) : bool
+  val @(shrd, dpar2) = cz_load_pysats(mpsats)
+  val fenv = f2env_of_d2parsed(dpar2)
+  val () = tr12env_add1_f2env(env, gsym, fenv)
+  val () = if is_named then () else promote_import_symloads(env, dpar2)
+  val fpth = fpath_make_absolute(mpsats)
+  val tok  = token_make_node(loc, T_VAL(VLKval))
+  val gsrc = g1exp_make_node(loc, G1Eid0(symbl_make_name(path)))
+  val fopt = optn_cons(fpth) : fpathopt
+  val dres = S2TALOADdpar(shrd, dpar2) : s2taloadopt
+in
+  d2ecl_make_node(loc, D2Cstaload(0(*static*), tok, gsrc, fopt, dres))
 end
 //
 and
@@ -1521,6 +1618,10 @@ case+ d of
 // to a D2Cdynconst/d2cstdcl shape that DIVERGED from stock for every `#extern fun` — both with and
 // without an extnam body.) PCXnone => a plain bodyless extern (still the stock D2Cfundclst shape).
 | PCCextern(loc, name, tvs, pnames, ptypes, ret, xnm) => lower_extern_fundcl(env, loc, name, tvs, pnames, ptypes, ret, xnm)
+// `@extern let NAME: T` -> a DYNAMIC constant (D2Cdynconst VAL). Mirrors build_extern but with the
+// VAL kind + the value's type directly (not a function type), and NO D2Cextern wrapper (a bodyless
+// `val NAME: T` in a .sats is a plain D2Cdynconst). Registers the d2cst so consumers resolve NAME.
+| PCCexternval(loc, name, tvs, typ) => build_extern_val(env, loc, name, tvs, typ)
 //
 // ATS-parity: an `implement NAME(params) -> Ret: body` -> a D2Cimplmnt0. lower_implement (in
 // pylower_dynexp, where pl_exp/pl_params_typed are in scope) RESOLVES the pre-declared d2cst by

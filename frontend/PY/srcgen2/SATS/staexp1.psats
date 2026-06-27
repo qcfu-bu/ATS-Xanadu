@@ -1,0 +1,654 @@
+import "srcgen2/SATS/xsymbol" as SYM
+
+import "srcgen2/SATS/xlabel0" as LAB
+
+import "srcgen2/SATS/locinfo" as LOC
+
+import "srcgen2/SATS/lexing0" as LEX
+
+import "srcgen2/SATS/staexp0" as S0E
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+type Sym_t = SYM.sym_t
+
+type Lab_t = LAB.lab_t
+
+type Label = LAB.label
+
+type Loc_t = LOC.loc_t
+
+type Loctn = LOC.loctn
+
+type Token = LEX.token
+
+enum S1lab[X0]:
+    case S1LAB(Label, X0)
+
+@extern
+def s1lab_get_itm[X0: Type](a: S1lab[X0]) -> X0
+
+@overload itm = s1lab_get_itm
+
+type S0lab[X0: Type] = S0E.s0lab[X0]
+
+@extern
+def s1lab_fprint[X0: Type](a: S1lab[X0], b: FILR) -> Void
+
+type G0nam = S0E.g0nam
+
+type G1namlst = List[G1nam]
+
+type G1namopt = Optn[G1nam]
+
+enum G1nam:
+    case G1Nnil()
+    case G1Nid0(Sym_t)
+    case G1Nint(SInt)
+    case G1Nchr(Char)
+    case G1Nflt(Double)
+    case G1Nstr(String)
+    case G1Nlist(G1namlst)
+    case G1Nnone1(G0nam)
+
+@abstract
+type G1exp_tbox
+
+@abstract
+type G1arg_tbox
+
+@abstract
+type G1mag_tbox
+
+type I1dnt = Token
+
+type T1int = Token
+
+type T1chr = Token
+
+type T1flt = Token
+
+type T1str = Token
+
+type I0dnt = S0E.i0dnt
+
+type T0int = S0E.t0int
+
+type T0chr = S0E.t0chr
+
+type T0flt = S0E.t0flt
+
+type T0str = S0E.t0str
+
+type I1dntlst = List[Token]
+
+type I1dntopt = Optn[Token]
+
+type I0dntlst = S0E.i0dntlst
+
+type I0dntopt = S0E.i0dntopt
+
+type G0exp = S0E.g0exp
+
+type G1exp = G1exp_tbox
+
+type G1arg = G1arg_tbox
+
+type G1mag = G1mag_tbox
+
+type G1explst = List[G1exp]
+
+type G1expopt = Optn[G1exp]
+
+type G1arglst = List[G1arg]
+
+type G1maglst = List[G1mag]
+
+enum G1exp_node:
+    case G1Eint(Token)
+    case G1Echr(Token)
+    case G1Eflt(Token)
+    case G1Estr(Token)
+    case G1Eid0(Sym_t)
+    case G1Eb0sh()
+    case G1Eb1sh(G1exp)
+    case G1Ea0pp()
+    case G1Ea1pp(G1exp, G1exp)
+    case G1Ea2pp(G1exp, G1exp, G1exp)
+    case G1Elist(G1explst)
+    case G1Eift0(G1exp, G1exp, G1exp)
+    case G1Enone0()
+    case G1Enone1(G0exp)
+    case G1Eerrck(Int, G1exp)
+
+@extern
+def g1nam_fprint(a: G1nam, b: FILR) -> Void
+
+@extern
+def g1exp_fprint(a: G1exp, b: FILR) -> Void
+
+@extern
+def g1exp_get_lctn(a: G1exp) -> Loc_t
+
+@extern
+def g1exp_get_node(a: G1exp) -> G1exp_node
+
+@overload lctn = g1exp_get_lctn
+
+@overload node = g1exp_get_node
+
+@extern
+def g1exp_none0(a: Loc_t) -> G1exp
+
+@extern
+def g1exp_none1(a: G0exp) -> G1exp
+
+@extern
+def g1exp_make_node(a: Loc_t, b: G1exp_node) -> G1exp
+
+@overload g1exp = g1exp_make_node
+
+enum G1arg_node:
+    case G1ARGnode(Token)
+
+enum G1mag_node:
+    case G1MAGsarg(G1arglst)
+    case G1MAGdarg(G1arglst)
+
+@extern
+def g1arg_fprint(a: G1arg, b: FILR) -> Void
+
+@extern
+def g1mag_fprint(a: G1mag, b: FILR) -> Void
+
+@extern
+def g1arg_get_lctn(a: G1arg) -> Loc_t
+
+@extern
+def g1mag_get_lctn(a: G1mag) -> Loc_t
+
+@extern
+def g1arg_get_node(a: G1arg) -> G1arg_node
+
+@extern
+def g1mag_get_node(a: G1mag) -> G1mag_node
+
+@overload lctn = g1arg_get_lctn
+
+@overload lctn = g1mag_get_lctn
+
+@overload node = g1arg_get_node
+
+@overload node = g1mag_get_node
+
+@extern
+def g1arg_make_node(a: Loc_t, b: G1arg_node) -> G1arg
+
+@extern
+def g1mag_make_node(a: Loc_t, b: G1mag_node) -> G1mag
+
+@overload g1arg = g1arg_make_node
+
+@overload g1mag = g1mag_make_node
+
+@abstract
+type Sort1_tbox
+
+@abstract
+type S1exp_tbox
+
+@abstract
+type S1tdf_tbox
+
+@abstract
+type S1tcn_tbox
+
+@abstract
+type D1tst_tbox
+
+@abstract
+type S1arg_tbox
+
+@abstract
+type S1mag_tbox
+
+@abstract
+type T1arg_tbox
+
+@abstract
+type T1mag_tbox
+
+@abstract
+type S1qua_tbox
+
+@abstract
+type S1uni_tbox
+
+@abstract
+type D1tcn_tbox
+
+@abstract
+type D1typ_tbox
+
+type Sort0 = S0E.sort0
+
+type S0exp = S0E.s0exp
+
+type Sort1 = Sort1_tbox
+
+type Sort1lst = List[Sort1]
+
+type Sort1opt = Optn[Sort1]
+
+type S1exp = S1exp_tbox
+
+type S1explst = List[S1exp]
+
+type S1expopt = Optn[S1exp]
+
+type L1s1e = S1lab[S1exp]
+
+type L1s1elst = List[L1s1e]
+
+type S1tdf = S1tdf_tbox
+
+type S1tcn = S1tcn_tbox
+
+type D1tst = D1tst_tbox
+
+type S1tcnlst = List[S1tcn]
+
+type D1tstlst = List[D1tst]
+
+type S1arg = S1arg_tbox
+
+type S1mag = S1mag_tbox
+
+type S1arglst = List[S1arg]
+
+type S1maglst = List[S1mag]
+
+type T1arg = T1arg_tbox
+
+type T1mag = T1mag_tbox
+
+type T1arglst = List[T1arg]
+
+type T1maglst = List[T1mag]
+
+type S1qua = S1qua_tbox
+
+type S1qualst = List[S1qua]
+
+type S1uni = S1uni_tbox
+
+type D1tcn = D1tcn_tbox
+
+type D1typ = D1typ_tbox
+
+type S1unilst = List[S1uni]
+
+type D1tcnlst = List[D1tcn]
+
+type D1typlst = List[D1typ]
+
+enum S1qid:
+    case S1QIDnone(I1dnt)
+    case S1QIDsome(Token, I1dnt)
+
+enum D1qid:
+    case D1QIDnone(I1dnt)
+    case D1QIDsome(Token, I1dnt)
+
+@extern
+def s1qid_get_lctn(a: S1qid) -> Loc_t
+
+@extern
+def d1qid_get_lctn(a: D1qid) -> Loc_t
+
+@overload lctn = s1qid_get_lctn
+
+@overload lctn = d1qid_get_lctn
+
+@extern
+def s1qid_fprint(a: S1qid, b: FILR) -> Void
+
+@extern
+def d1qid_fprint(a: D1qid, b: FILR) -> Void
+
+enum Sort1_node:
+    case S1Tid0(Sym_t)
+    case S1Tint(Token)
+    case S1Ta0pp()
+    case S1Ta1pp(Sort1, Sort1)
+    case S1Ta2pp(Sort1, Sort1, Sort1)
+    case S1Tlist(Sort1lst)
+    case S1Tqual0(Token, Sort1)
+    case S1Tnone0()
+    case S1Tnone1(Sort0)
+    case S1Terrck(Int, Sort1)
+
+@extern
+def sort1_fprint(a: Sort1, b: FILR) -> Void
+
+@extern
+def sort1_get_lctn(a: Sort1) -> Loc_t
+
+@extern
+def sort1_get_node(a: Sort1) -> Sort1_node
+
+@overload lctn = sort1_get_lctn
+
+@overload node = sort1_get_node
+
+@extern
+def sort1_none0(a: Loc_t) -> Sort1
+
+@extern
+def sort1_none1(a: Sort0) -> Sort1
+
+@extern
+def sort1_make_node(a: Loc_t, b: Sort1_node) -> Sort1
+
+@overload sort1 = sort1_make_node
+
+enum S1exp_node:
+    case S1Eid0(Sym_t)
+    case S1Eint(Token)
+    case S1Echr(Token)
+    case S1Eflt(Token)
+    case S1Estr(Token)
+    case S1Eb0sh()
+    case S1Eb1sh(S1exp)
+    case S1Earrw(S1explst)
+    case S1Ea0pp()
+    case S1Ea1pp(S1exp, S1exp)
+    case S1Ea2pp(S1exp, S1exp, S1exp)
+    case S1El1st(S1explst)
+    case S1El2st(S1explst, S1explst)
+    case S1Et1up(Token, S1explst)
+    case S1Et2up(Token, S1explst, S1explst)
+    case S1Er1cd(Token, L1s1elst)
+    case S1Er2cd(Token, L1s1elst, L1s1elst)
+    case S1Euni0(S1qualst)
+    case S1Eexi0(Token, S1qualst)
+    case S1Elams(S1maglst, Sort1opt, S1exp)
+    case S1Eannot(S1exp, Sort1)
+    case S1Equal0(Token, S1exp)
+    case S1Enone0()
+    case S1Enone1(S0exp)
+    case S1Eerrck(Int, S1exp)
+
+@extern
+def s1exp_fprint(a: S1exp, b: FILR) -> Void
+
+@extern
+def s1exp_get_lctn(a: S1exp) -> Loc_t
+
+@extern
+def l1s1e_get_lctn(a: L1s1e) -> Loc_t
+
+@extern
+def s1exp_get_node(a: S1exp) -> S1exp_node
+
+@extern
+def l1s1e_get_node(a: L1s1e) -> S1exp_node
+
+@overload lctn = s1exp_get_lctn
+
+@overload lctn = l1s1e_get_lctn
+
+@overload node = s1exp_get_node
+
+@overload node = l1s1e_get_node
+
+@extern
+def s1exp_none0(a: Loc_t) -> S1exp
+
+@extern
+def s1exp_none1(a: S0exp) -> S1exp
+
+@extern
+def s1exp_make_node(a: Loc_t, b: S1exp_node) -> S1exp
+
+@overload s1exp = s1exp_make_node
+
+enum S1tcn_node:
+    case S1TCNnode(Token, Sort1opt)
+
+@extern
+def s1tcn_fprint(a: S1tcn, b: FILR) -> Void
+
+@extern
+def s1tcn_get_lctn(a: S1tcn) -> Loc_t
+
+@extern
+def s1tcn_get_node(a: S1tcn) -> S1tcn_node
+
+@overload lctn = s1tcn_get_lctn
+
+@overload node = s1tcn_get_node
+
+@extern
+def s1tcn_make_node(a: Loc_t, b: S1tcn_node) -> S1tcn
+
+@overload s1tcn = s1tcn_make_node
+
+enum D1tst_node:
+    case D1TSTnode(Token, S1tcnlst)
+
+@extern
+def d1tst_fprint(a: D1tst, b: FILR) -> Void
+
+@extern
+def d1tst_get_lctn(a: D1tst) -> Loc_t
+
+@extern
+def d1tst_get_node(a: D1tst) -> D1tst_node
+
+@overload lctn = d1tst_get_lctn
+
+@overload node = d1tst_get_node
+
+@extern
+def d1tst_make_node(a: Loc_t, b: D1tst_node) -> D1tst
+
+@overload d1tst = d1tst_make_node
+
+enum S1tdf_node:
+    case S1TDFsort(Sort1)
+    case S1TDFtsub(S1arg, S1explst)
+
+@extern
+def s1tdf_fprint(a: S1tdf, b: FILR) -> Void
+
+@extern
+def s1tdf_get_lctn(a: S1tdf) -> Loc_t
+
+@extern
+def s1tdf_get_node(a: S1tdf) -> S1tdf_node
+
+@overload lctn = s1tdf_get_lctn
+
+@overload node = s1tdf_get_node
+
+@extern
+def s1tdf_make_node(a: Loc_t, b: S1tdf_node) -> S1tdf
+
+@overload s1tdf = s1tdf_make_node
+
+enum S1arg_node:
+    case S1ARGsome(Token, Sort1opt)
+
+@extern
+def s1arg_fprint(a: S1arg, b: FILR) -> Void
+
+@extern
+def s1arg_get_lctn(a: S1arg) -> Loc_t
+
+@extern
+def s1arg_get_node(a: S1arg) -> S1arg_node
+
+@overload lctn = s1arg_get_lctn
+
+@overload node = s1arg_get_node
+
+@extern
+def s1arg_make_node(a: Loc_t, b: S1arg_node) -> S1arg
+
+@overload s1arg = s1arg_make_node
+
+enum S1mag_node:
+    case S1MAGlist(S1arglst)
+
+@extern
+def s1mag_fprint(a: S1mag, b: FILR) -> Void
+
+@extern
+def s1mag_get_lctn(a: S1mag) -> Loc_t
+
+@extern
+def s1mag_get_node(a: S1mag) -> S1mag_node
+
+@overload lctn = s1mag_get_lctn
+
+@overload node = s1mag_get_node
+
+@extern
+def s1mag_make_node(a: Loc_t, b: S1mag_node) -> S1mag
+
+@overload s1mag = s1mag_make_node
+
+type Tokenopt = LEX.tokenopt
+
+enum T1arg_node:
+    case T1ARGsome(Sort1, Tokenopt)
+
+@extern
+def t1arg_fprint(a: T1arg, b: FILR) -> Void
+
+@extern
+def t1arg_get_lctn(a: T1arg) -> Loc_t
+
+@extern
+def t1arg_get_node(a: T1arg) -> T1arg_node
+
+@overload lctn = t1arg_get_lctn
+
+@overload node = t1arg_get_node
+
+@extern
+def t1arg_make_node(a: Loc_t, b: T1arg_node) -> T1arg
+
+@overload t1arg = t1arg_make_node
+
+enum T1mag_node:
+    case T1MAGlist(T1arglst)
+
+@extern
+def t1mag_fprint(a: T1mag, b: FILR) -> Void
+
+@extern
+def t1mag_get_lctn(a: T1mag) -> Loc_t
+
+@extern
+def t1mag_get_node(a: T1mag) -> T1mag_node
+
+@overload lctn = t1mag_get_lctn
+
+@overload node = t1mag_get_node
+
+@extern
+def t1mag_make_node(a: Loc_t, b: T1mag_node) -> T1mag
+
+@overload t1mag = t1mag_make_node
+
+type Tokenlst = LEX.tokenlst
+
+enum S1qua_node:
+    case S1QUAprop(S1exp)
+    case S1QUAvars(Tokenlst, Sort1opt)
+
+@extern
+def s1qua_fprint(a: S1qua, b: FILR) -> Void
+
+@extern
+def s1qua_get_lctn(a: S1qua) -> Loc_t
+
+@extern
+def s1qua_get_node(a: S1qua) -> S1qua_node
+
+@overload lctn = s1qua_get_lctn
+
+@overload node = s1qua_get_node
+
+@extern
+def s1qua_make_node(a: Loc_t, b: S1qua_node) -> S1qua
+
+@overload s1qua = s1qua_make_node
+
+enum S1uni_node:
+    case S1UNIsome(S1qualst)
+
+@extern
+def s1uni_fprint(a: S1uni, b: FILR) -> Void
+
+@extern
+def s1uni_get_lctn(a: S1uni) -> Loc_t
+
+@extern
+def s1uni_get_node(a: S1uni) -> S1uni_node
+
+@overload lctn = s1uni_get_lctn
+
+@overload node = s1uni_get_node
+
+@extern
+def s1uni_make_node(a: Loc_t, b: S1uni_node) -> S1uni
+
+@overload s1uni = s1uni_make_node
+
+enum D1tcn_node:
+    case D1TCNnode(S1unilst, Token, S1explst, S1expopt)
+
+@extern
+def d1tcn_fprint(a: D1tcn, b: FILR) -> Void
+
+@extern
+def d1tcn_get_lctn(a: D1tcn) -> Loc_t
+
+@extern
+def d1tcn_get_node(a: D1tcn) -> D1tcn_node
+
+@overload lctn = d1tcn_get_lctn
+
+@overload node = d1tcn_get_node
+
+@extern
+def d1tcn_make_node(a: Loc_t, b: D1tcn_node) -> D1tcn
+
+@overload d1tcn = d1tcn_make_node
+
+enum D1typ_node:
+    case D1TYPnode(Token, T1maglst, Sort1opt, D1tcnlst)
+
+@extern
+def d1typ_fprint(a: D1typ, b: FILR) -> Void
+
+@extern
+def d1typ_get_lctn(a: D1typ) -> Loc_t
+
+@extern
+def d1typ_get_node(a: D1typ) -> D1typ_node
+
+@overload lctn = d1typ_get_lctn
+
+@overload node = d1typ_get_node
+
+@extern
+def d1typ_make_node(a: Loc_t, b: D1typ_node) -> D1typ
+
+@overload d1typ = d1typ_make_node
+

@@ -1,0 +1,124 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/f2perr0" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload sort = s2exp_get_sort
+
+@overload node = s2exp_get_node
+
+private:
+    let xatsv_ERRLVL = 3
+    def auxmain(out: FILR, s2e0: s2exp, loc0: loc_t) -> Void:
+        @impl[]
+        def g_print/out():
+            out
+        match s2e0.node():
+            case S2Eint(_):
+                ()
+            case S2Ebtf(_):
+                ()
+            case S2Echr(_):
+                ()
+            case S2Estr(_):
+                ()
+            case S2Ecst(s2c):
+                ()
+            case S2Evar(s2v):
+                ()
+            case S2Eany(knd):
+                ()
+            case S2Etop0(s2e1):
+                f2perr0_s2exp(out, s2e1, loc0)
+            case S2Etop1(s2e1):
+                f2perr0_s2exp(out, s2e1, loc0)
+            case S2Earg1(tknd, s2e1):
+                f2perr0_s2exp(out, s2e1, loc0)
+            case S2Eatx2(sbef, saft):
+                f2perr0_s2exp(out, sbef, loc0)
+                f2perr0_s2exp(out, saft, loc0)
+            case S2Eapps(s2f0, s2es):
+                f2perr0_s2exp(out, s2f0, loc0)
+                f2perr0_s2explst(out, s2es, loc0)
+            case S2Elam1(s2vs, s2e1):
+                f2perr0_s2exp(out, s2e1, loc0)
+            case S2Efun1(f2cl, npf1, s2es, s2e1):
+                f2perr0_s2explst(out, s2es, loc0)
+                f2perr0_s2exp(out, s2e1, loc0)
+            case S2Eexi0(s2vs, s2es, s2e1):
+                f2perr0_s2explst(out, s2es, loc0)
+                f2perr0_s2exp(out, s2e1, loc0)
+            case S2Euni0(s2vs, s2es, s2e1):
+                f2perr0_s2explst(out, s2es, loc0)
+                f2perr0_s2exp(out, s2e1, loc0)
+            case S2Emet0(s2es, s2e1):
+                f2perr0_s2explst(out, s2es, loc0)
+                f2perr0_s2exp(out, s2e1, loc0)
+            case S2Etext(name, s2es):
+                f2perr0_s2explst(out, s2es, loc0)
+            case S2Eimpr(loc1, s2e1):
+                f2perr0_s2exp(out, s2e1, loc0)
+                printsln()
+                printsln("F2PERR0-ERROR:", loc0, ":", s2e0)
+            case S2Eprgm(loc1, s2e1):
+                f2perr0_s2exp(out, s2e1, loc0)
+                printsln()
+                printsln("F2PERR0-ERROR:", loc0, ":", s2e0)
+            case S2Ecast(loc1, s2e1, s2t2):
+                f2perr0_s2exp(out, s2e1, loc0)
+                printsln()
+                printsln("F2PERR0-ERROR:", loc0, ":", s2e0)
+            case S2Enone0():
+                ()
+            case S2Enone1(s1e1):
+                printsln()
+                printsln("F2PERR0-ERROR:", loc0, ":", s2e0)
+            case S2Enone2(s2e1):
+                f2perr0_s2exp(out, s2e1, loc0)
+                printsln()
+                printsln("F2PERR0-ERROR:", loc0, ":", s2e0)
+            case S2Eerrck(_, _):
+                f2perr0_s2exp(out, s2e0, loc0)
+            case _:
+                prerrsln("f2perr0_s2exp:auxmain: loc0 = ", loc0)
+                prerrsln("f2perr0_s2exp:auxmain: s2e0 = ", s2e0)
+
+@impl
+def f2perr0_s2exp(out, s2e0, loc0):
+    @impl[]
+    def g_print/out():
+        out
+    match s2e0.node():
+        case S2Eerrck(lvl, s2e1):
+            auxmain(out, s2e1, loc0)
+            if (lvl >= xatsv_ERRLVL):
+                ()
+            else:
+                printsln()
+                printsln("F2PERR0-ERROR:", loc0, ":", s2e0)
+        case _:
+            ()
+
+
+@impl
+def f2perr0_s2explst(out, s2es, loc0):
+    match s2es:
+        case list_nil():
+            ()
+        case list_cons(s2e1, s2es):
+            f2perr0_s2exp(out, s2e1, loc0)
+            f2perr0_s2explst(out, s2es, loc0)
+

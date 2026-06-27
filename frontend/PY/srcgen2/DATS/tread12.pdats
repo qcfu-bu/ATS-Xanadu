@@ -1,0 +1,109 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/trans12" import *
+
+from "srcgen2/SATS/tread12" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@impl
+def d2parsed_of_tread12(dpar):
+    var nerror: SInt = 0
+    let stadyn = d2parsed_get_stadyn(dpar)
+    let source = d2parsed_get_source(dpar)
+    let t1penv = d2parsed_get_t1penv(dpar)
+    let t2penv = d2parsed_get_t2penv(dpar)
+    let parsed = d2parsed_get_parsed(dpar)
+    let parsed = tread12_d2eclistopt(parsed, nerror)
+    if (nerror == 0):
+        dpar
+    else:
+        d2parsed(stadyn, nerror, source, t1penv, t2penv, parsed)
+
+@impl
+def tread02_from_fpath(stadyn, source):
+    d2parsed_of_tread12(d2par)
+where:
+    let d2par = trans02_from_fpath(stadyn, source)
+
+@impl
+def tread12_d2explstopt(dopt, err0):
+    optn_tread12_fnp(dopt, err0, tread12_d2explst)
+
+@impl
+def tread12_d2eclistopt(dopt, err0):
+    optn_tread12_fnp(dopt, err0, tread12_d2eclist)
+
+@impl
+def d2parsed_fpemsg(out, dpar):
+    let nerror = d2parsed_get_nerror(dpar)
+    if (nerror > 0):
+        let parsed = d2parsed_get_parsed(dpar)
+        d2eclistopt_fpemsg(out, parsed)
+    else:
+        ()
+
+@impl
+def d2explstopt_fpemsg(out, dopt):
+    match dopt:
+        case optn_nil():
+            ()
+        case optn_cons(d2es):
+            d2explst_fpemsg(out, d2es)
+
+@impl
+def d2eclistopt_fpemsg(out, dopt):
+    match dopt:
+        case optn_nil():
+            ()
+        case optn_cons(d2cs):
+            d2eclist_fpemsg(out, d2cs)
+
+@impl
+def list_tread12_fnp[Syn: Tx](lst, err, fpr):
+    auxlst(lst, err)
+where:
+    def auxlst(lst: list[Syn], err: &SInt >> _) -> list[Syn]:
+        match lst:
+            case list_nil():
+                list_nil()
+            case list_cons(tm1, tms):
+                let e00 = err
+                let tm1 = fpr(tm1, err)
+                let tms = auxlst(tms, err)
+                if (err == e00):
+                    lst
+                else:
+                    list_cons(tm1, tms)
+
+@impl
+def optn_tread12_fnp[Syn: Tx](opt, err, fpr):
+    match opt:
+        case optn_nil():
+            opt
+        case optn_cons(syn):
+            let e00 = err
+            let syn = fpr(syn, err)
+            if (err == e00):
+                opt
+            else:
+                optn_cons(syn)
+

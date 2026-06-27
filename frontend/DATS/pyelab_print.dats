@@ -504,6 +504,8 @@ case+ d of
            | optn_nil() => ps(out, " (extnam)")
            | optn_cons(c) => (ps(out, " (extnam "); ps(out, c); ps(out, ")"))) );
     ps(out, ")") )
+| PCCexternval(loc, nm, _tvs, _typ) =>
+  ( ps(out, "(externval "); ps(out, nm); print_span(out, loc); ps(out, ")") )
 | PCCimplement(loc, nm, tvs, has_darg, pnames, _ptypes, ret, body, tias) =>
   ( ps(out, "(implement "); ps(out, nm); print_span(out, loc);
     ( case+ tvs of list_nil() => () | _ => (ps(out, " (tvs"); pp_pcparams(out, tvs); ps(out, ")")) );

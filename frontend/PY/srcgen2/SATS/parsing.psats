@@ -1,0 +1,612 @@
+import "srcgen2/SATS/lexing0" as LEX
+
+import "srcgen2/SATS/staexp0" as S0E
+
+import "srcgen2/SATS/dynexp0" as D0E
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+type Tnode = LEX.tnode
+
+type Token = LEX.token
+
+type T0int = S0E.t0int
+
+type T0chr = S0E.t0chr
+
+type T0flt = S0E.t0flt
+
+type T0str = S0E.t0str
+
+type L0abl = S0E.l0abl
+
+type S0ymb = S0E.s0ymb
+
+type G0nid = S0E.g0nid
+
+type G0eid = S0E.g0eid
+
+type I0dnt = S0E.i0dnt
+
+type S0tid = S0E.s0tid
+
+type S0aid = S0E.s0aid
+
+type S0eid = S0E.s0eid
+
+type S0qid = S0E.s0qid
+
+type D0pid = S0E.d0pid
+
+type D0eid = S0E.d0eid
+
+type D0qid = S0E.d0qid
+
+type G0nam = S0E.g0nam
+
+type G0exp = S0E.g0exp
+
+type G0mag = S0E.g0mag
+
+type Sort0 = S0E.sort0
+
+type S0exp = S0E.s0exp
+
+type S0tcn = S0E.s0tcn
+
+type D0tst = S0E.d0tst
+
+type S0tdf = S0E.s0tdf
+
+type S0arg = S0E.s0arg
+
+type S0mag = S0E.s0mag
+
+type T0arg = S0E.t0arg
+
+type T0mag = S0E.t0mag
+
+type S0qua = S0E.s0qua
+
+type S0uni = S0E.s0uni
+
+type D0tcn = S0E.d0tcn
+
+type D0typ = S0E.d0typ
+
+type A0typ = D0E.a0typ
+
+type D0arg = D0E.d0arg
+
+type F0arg = D0E.f0arg
+
+type S0eff = D0E.s0eff
+
+type S0res = D0E.s0res
+
+type T0qua = D0E.t0qua
+
+type T0inv = D0E.t0inv
+
+type D0res = D0E.d0res
+
+type D0pat = D0E.d0pat
+
+type D0exp = D0E.d0exp
+
+type D0ecl = D0E.d0ecl
+
+type L0d0p = D0E.l0d0p
+
+type L0d0e = D0E.l0d0e
+
+type D0cls = D0E.d0cls
+
+type D0gua = D0E.d0gua
+
+type D0gpt = D0E.d0gpt
+
+type G0edf = D0E.g0edf
+
+type D0edf = D0E.d0edf
+
+type A0tdf = D0E.a0tdf
+
+type S0explst = S0E.s0explst
+
+type D0parsed = D0E.d0parsed
+
+@abstract
+type Tkbf0_vtbx
+
+type Tkbf0 = Tkbf0_vtbx
+
+type P1_fun[R0: Type] = (!Tkbf0, &SInt >> _) -> R0
+
+type Pq_fun[R0: Type] = (!Tkbf0, &SInt >> _) -> Optn[R0]
+
+@extern
+def tokbuf_free(a: ~Tkbf0) -> Void
+
+@overload free = tokbuf_free
+
+@extern
+def tokbuf_getk0(a: !Tkbf0) -> Token
+
+@extern
+def tokbuf_getk1(a: !Tkbf0) -> Token
+
+@extern
+def tokbuf_skip1(a: !Tkbf0) -> Void
+
+@overload getk0 = tokbuf_getk0
+
+@overload getk1 = tokbuf_getk1
+
+@overload skip1 = tokbuf_skip1
+
+@abstract
+type Tmark_type <= SInt
+
+type Tmark = Tmark_type
+
+@extern
+def tokbuf_mark_get(a: !Tkbf0) -> Tmark
+
+@extern
+def tokbuf_mark_clr(a: !Tkbf0, b: Tmark) -> Void
+
+@extern
+def tokbuf_mark_set(a: !Tkbf0, b: Tmark) -> Void
+
+@extern
+def tokbuf_make_llist(a: List_vt[Token]) -> Tkbf0
+
+@overload tokbuf = tokbuf_make_llist
+
+@extern
+def p1_EQ0() -> P1_fun[Token]
+
+@extern
+def pq_EQ0() -> Pq_fun[Token]
+
+@extern
+def p1_GT0() -> P1_fun[Token]
+
+@extern
+def p1_BAR() -> P1_fun[Token]
+
+@extern
+def pq_BAR() -> Pq_fun[Token]
+
+@extern
+def p1_CLN() -> P1_fun[Token]
+
+@extern
+def p1_EQGT() -> P1_fun[Token]
+
+@extern
+def p1_GTDOT() -> P1_fun[Token]
+
+@extern
+def pq_SMCLN() -> Pq_fun[Token]
+
+@extern
+def p1_LPAREN() -> P1_fun[Token]
+
+@extern
+def p1_RPAREN() -> P1_fun[Token]
+
+@extern
+def p1_LBRCKT() -> P1_fun[Token]
+
+@extern
+def p1_RBRCKT() -> P1_fun[Token]
+
+@extern
+def p1_LBRACE() -> P1_fun[Token]
+
+@extern
+def pq_LBRACE() -> Pq_fun[Token]
+
+@extern
+def p1_RBRACE() -> P1_fun[Token]
+
+@extern
+def p1_OF0() -> P1_fun[Token]
+
+@extern
+def p1_IN0() -> P1_fun[Token]
+
+@extern
+def pq_IN0() -> Pq_fun[Token]
+
+@extern
+def p1_WITH() -> P1_fun[Token]
+
+@extern
+def p1_END() -> P1_fun[Token]
+
+@extern
+def pq_ENDIF0() -> Pq_fun[Token]
+
+@extern
+def pq_ENDCAS() -> Pq_fun[Token]
+
+@extern
+def pq_ENDLAM() -> Pq_fun[Token]
+
+@extern
+def pq_ENDFIX() -> Pq_fun[Token]
+
+@extern
+def p1_ENDLET() -> P1_fun[Token]
+
+@extern
+def p1_ENDLOC() -> P1_fun[Token]
+
+@extern
+def pq_ENDTRY() -> Pq_fun[Token]
+
+@extern
+def t0_t0int(a: Tnode) -> Bool
+
+@extern
+def t0_t0chr(a: Tnode) -> Bool
+
+@extern
+def t0_t0flt(a: Tnode) -> Bool
+
+@extern
+def t0_t0str(a: Tnode) -> Bool
+
+@extern
+def t0_dtsel(a: Tnode) -> Bool
+
+@extern
+def t0_g0nid(a: Tnode) -> Bool
+
+@extern
+def t0_g0eid(a: Tnode) -> Bool
+
+@extern
+def t0_s0tid(a: Tnode) -> Bool
+
+@extern
+def t0_s0aid(a: Tnode) -> Bool
+
+@extern
+def t0_s0eid(a: Tnode) -> Bool
+
+@extern
+def t0_d0pid(a: Tnode) -> Bool
+
+@extern
+def t0_d0eid(a: Tnode) -> Bool
+
+@extern
+def t0_dctkind(a: Tnode) -> Bool
+
+@extern
+def p1_t0int() -> P1_fun[T0int]
+
+@extern
+def p1_t0chr() -> P1_fun[T0chr]
+
+@extern
+def p1_t0flt() -> P1_fun[T0flt]
+
+@extern
+def p1_t0str() -> P1_fun[T0str]
+
+@extern
+def p1_i0dnt() -> P1_fun[I0dnt]
+
+@extern
+def p1_s0tid() -> P1_fun[S0tid]
+
+@extern
+def p1_s0aid() -> P1_fun[S0aid]
+
+@extern
+def p1_s0eid() -> P1_fun[S0eid]
+
+@extern
+def p1_s0qid() -> P1_fun[S0qid]
+
+@extern
+def p1_d0pid() -> P1_fun[D0pid]
+
+@extern
+def p1_d0eid() -> P1_fun[D0eid]
+
+@extern
+def p1_d0qid() -> P1_fun[D0qid]
+
+@extern
+def p1_g0nid() -> P1_fun[G0nid]
+
+@extern
+def p1_g0eid() -> P1_fun[G0eid]
+
+@extern
+def p1_l0abl() -> P1_fun[L0abl]
+
+@extern
+def p1_s0ymb() -> P1_fun[S0ymb]
+
+@extern
+def p1_g0nam() -> P1_fun[G0nam]
+
+@extern
+def p1_g0exp() -> P1_fun[G0exp]
+
+@extern
+def p1_g0mag() -> P1_fun[G0mag]
+
+@extern
+def p1_sort0() -> P1_fun[Sort0]
+
+@extern
+def p1_s0tcn() -> P1_fun[S0tcn]
+
+@extern
+def p1_d0tst() -> P1_fun[D0tst]
+
+@extern
+def p1_s0exp() -> P1_fun[S0exp]
+
+@extern
+def p1_d0pat() -> P1_fun[D0pat]
+
+@extern
+def p1_l0d0p() -> P1_fun[L0d0p]
+
+@extern
+def p1_d0exp() -> P1_fun[D0exp]
+
+@extern
+def p1_l0d0e() -> P1_fun[L0d0e]
+
+@extern
+def p1_d0cls() -> P1_fun[D0cls]
+
+@extern
+def p1_d0gua() -> P1_fun[D0gua]
+
+@extern
+def p1_d0gpt() -> P1_fun[D0gpt]
+
+@extern
+def p1_s0tdf() -> P1_fun[S0tdf]
+
+@extern
+def pq_sort0_anno() -> Pq_fun[Sort0]
+
+@extern
+def pq_ids0t_anno() -> Pq_fun[Sort0]
+
+type S0tcnlst = List[S0tcn]
+
+type D0tstlst = List[D0tst]
+
+type S0arglst = List[S0arg]
+
+type S0maglst = List[S0mag]
+
+type T0arglst = List[T0arg]
+
+type T0maglst = List[T0mag]
+
+type S0qualst = List[S0qua]
+
+type S0unilst = List[S0uni]
+
+type D0tcnlst = List[D0tcn]
+
+type D0typlst = List[D0typ]
+
+type A0typlst = List[A0typ]
+
+type D0arglst = List[D0arg]
+
+type F0arglst = List[F0arg]
+
+type D0patlst = List[D0pat]
+
+type D0explst = List[D0exp]
+
+type D0clslst = List[D0cls]
+
+type D0eclist = List[D0ecl]
+
+@extern
+def p1_s0magseq() -> P1_fun[S0maglst]
+
+@extern
+def p1_t0magseq() -> P1_fun[T0maglst]
+
+@extern
+def p1_sort0_app_NGT0() -> P1_fun[Sort0]
+
+@extern
+def p1_s0exp_app_NEQ0() -> P1_fun[S0exp]
+
+@extern
+def p1_s0exp_app_NGT0() -> P1_fun[S0exp]
+
+@extern
+def p1_s0tcnseq_BAR() -> P1_fun[S0tcnlst]
+
+@extern
+def p1_d0tstseq_AND() -> P1_fun[D0tstlst]
+
+@extern
+def p1_s0argseq_COMMA() -> P1_fun[S0arglst]
+
+@extern
+def p1_t0argseq_COMMA() -> P1_fun[T0arglst]
+
+@extern
+def p1_s0quaseq_BSCLN() -> P1_fun[S0qualst]
+
+@extern
+def p1_s0expseq_COMMA() -> P1_fun[S0explst]
+
+@extern
+def p1_s0expseq_SMCLN() -> P1_fun[S0explst]
+
+@extern
+def p1_s0uni() -> P1_fun[S0uni]
+
+@extern
+def p1_d0tcn() -> P1_fun[D0tcn]
+
+@extern
+def p1_d0typ() -> P1_fun[D0typ]
+
+@extern
+def p1_a0typ() -> P1_fun[A0typ]
+
+@extern
+def p1_d0arg() -> P1_fun[D0arg]
+
+@extern
+def p1_f0arg() -> P1_fun[F0arg]
+
+@extern
+def p1_s0res() -> P1_fun[S0res]
+
+@extern
+def p1_d0res() -> P1_fun[D0res]
+
+@extern
+def pq_s0exp_anno() -> Pq_fun[S0exp]
+
+@extern
+def pq_s0exp_annp() -> Pq_fun[S0exp]
+
+@extern
+def p1_s0uniseq() -> P1_fun[S0unilst]
+
+@extern
+def p1_d0tcnseq_BAR() -> P1_fun[D0tcnlst]
+
+@extern
+def p1_d0typseq_AND() -> P1_fun[D0typlst]
+
+@extern
+def p1_WHERE_sexpdefseq() -> P1_fun[D0eclist]
+
+type Fp_fun[Syn: Type] = (SInt, !Tkbf0, &SInt >> _) -> Syn
+
+type D0eclist = List[D0ecl]
+
+@extern
+def fp_d0ecl() -> Fp_fun[D0ecl]
+
+@extern
+def p1_g0edf() -> P1_fun[G0edf]
+
+@extern
+def p1_d0edf() -> P1_fun[D0edf]
+
+@extern
+def p1_a0tdf() -> P1_fun[A0tdf]
+
+@extern
+def p1_f0argseq() -> P1_fun[F0arglst]
+
+@extern
+def p1_f0argsq1() -> P1_fun[F0arglst]
+
+@extern
+def fp_d0eclseq() -> Fp_fun[D0eclist]
+
+@extern
+def fp_d0eclsq1() -> Fp_fun[D0eclist]
+
+@extern
+def p1_d0eclseq_sta() -> P1_fun[D0eclist]
+
+@extern
+def p1_d0eclseq_dyn() -> P1_fun[D0eclist]
+
+@extern
+def p1_d0eclsq1_sta() -> P1_fun[D0eclist]
+
+@extern
+def p1_d0eclsq1_dyn() -> P1_fun[D0eclist]
+
+@extern
+def ps_p1fun[A: Tx](a: !Tkbf0, b: &Int >> Int, c: P1_fun[A]) -> List_vt[A]
+
+@extern
+def ps_AND_p1fun[A: Tx](a: !Tkbf0, b: &Int >> Int, c: P1_fun[A]) -> List_vt[A]
+
+@extern
+def ps_BAR_p1fun[A: Tx](a: !Tkbf0, b: &Int >> Int, c: P1_fun[A]) -> List_vt[A]
+
+@extern
+def ps_COMMA_p1fun[A: Tx](a: !Tkbf0, b: &Int >> Int, c: P1_fun[A]) -> List_vt[A]
+
+@extern
+def ps_SMCLN_p1fun[A: Tx](a: !Tkbf0, b: &Int >> Int, c: P1_fun[A]) -> List_vt[A]
+
+@extern
+def ps_BSCLN_p1fun[A: Tx](a: !Tkbf0, b: &Int >> Int, c: P1_fun[A]) -> List_vt[A]
+
+@extern
+def ps_sep_p1fun[A: Tx](a: !Tkbf0, b: &Int >> Int, c: Tnode -> Bool, d: P1_fun[A]) -> List_vt[A]
+
+@extern
+def p1_fun_test_atext[R0: Type](a: String, b: P1_fun[R0]) -> Optn[R0]
+
+@extern
+def pq_fun_test_atext[R0: Type](a: String, b: Pq_fun[R0]) -> Optn[R0]
+
+@extern
+def p1_fun_test_fpath[R0: Type](a: String, b: P1_fun[R0]) -> Optn[R0]
+
+@extern
+def pq_fun_test_fpath[R0: Type](a: String, b: Pq_fun[R0]) -> Optn[R0]
+
+@extern
+def trans00_from_atext(a: SInt, b: String) -> D0parsed
+
+@extern
+def d0parsed_from_atext(a: SInt, b: String) -> D0parsed
+
+@extern
+def trans00_from_fpath(a: SInt, b: String) -> D0parsed
+
+@extern
+def d0parsed_from_fpath(a: SInt, b: String) -> D0parsed
+
+@extern
+def p1_g0nam_atm() -> P1_fun[G0nam]
+
+@extern
+def p1_g0exp_atm() -> P1_fun[G0exp]
+
+@extern
+def p1_g0exp_app() -> P1_fun[G0exp]
+
+@extern
+def p1_sort0_atm() -> P1_fun[Sort0]
+
+@extern
+def p1_s0exp_atm() -> P1_fun[S0exp]
+
+@extern
+def p1_d0pat_atm() -> P1_fun[D0pat]
+
+@extern
+def p1_d0pat_app() -> P1_fun[D0pat]
+
+@extern
+def p1_d0exp_atm() -> P1_fun[D0exp]
+
+@extern
+def p1_d0exp_app() -> P1_fun[D0exp]
+

@@ -1,0 +1,397 @@
+import "srcgen2/SATS/xstamp0" as TMP
+
+import "srcgen2/SATS/xsymbol" as SYM
+
+import "srcgen2/SATS/xlabel0" as LAB
+
+import "srcgen2/SATS/locinfo" as LOC
+
+import "srcgen2/SATS/lexing0" as LEX
+
+import "srcgen2/SATS/staexp2" as S2E
+
+from "srcgen2/SATS/xbasics" import *
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+type Stamp = TMP.stamp
+
+type Lab_t = LAB.lab_t
+
+type Label = LAB.label
+
+type Loc_t = LOC.loc_t
+
+type Loctn = LOC.loctn
+
+type Lcsrc = LOC.lcsrc
+
+type Sym_t = SYM.sym_t
+
+type Token = LEX.token
+
+type Sort2 = S2E.sort2
+
+type S2cst = S2E.s2cst
+
+type S2var = S2E.s2var
+
+type S2exp = S2E.s2exp
+
+type L2s2e = S2E.l2s2e
+
+type S2typ = S2E.s2typ
+
+type L2t2p = S2E.l2t2p
+
+@abstract
+type X2t2p_tbox
+
+type X2t2p = X2t2p_tbox
+
+type S2cstlst = List[S2cst]
+
+type S2varlst = List[S2var]
+
+type S2explst = List[S2exp]
+
+type L2s2elst = List[L2s2e]
+
+type S2typlst = List[S2typ]
+
+type L2t2plst = List[L2t2p]
+
+type S2typopt_vt = Optn_vt[S2typ]
+
+type S2vtp = (S2var, S2typ)
+
+type S2vtplst = List[S2vtp]
+
+type S2vtplst_vt = List_vt[S2vtp]
+
+type S2vts = S2vtplst
+
+type S2vts_vt = S2vtplst_vt
+
+@extern
+def x2t2p_get_lctn(a: X2t2p) -> Loc_t
+
+@extern
+def x2t2p_get_stmp(a: X2t2p) -> Stamp
+
+@extern
+def x2t2p_get_styp(a: X2t2p) -> S2typ
+
+@extern
+def x2t2p_set_styp(a: X2t2p, b: S2typ) -> Void
+
+@overload lctn = x2t2p_get_lctn
+
+@overload stmp = x2t2p_get_stmp
+
+@overload styp = x2t2p_get_styp
+
+@overload styp = x2t2p_set_styp
+
+@extern
+def x2t2p_make_lctn(a: Loc_t) -> X2t2p
+
+@overload x2t2p = x2t2p_make_lctn
+
+@extern
+def x2t2p_fprint(a: X2t2p, b: FILR) -> Void
+
+@extern
+def the_s2typ_void() -> S2typ
+
+@extern
+def the_s2typ_sint() -> S2typ
+
+@extern
+def the_s2typ_uint() -> S2typ
+
+@extern
+def intrep_s2typ_xint(a: Token) -> S2typ
+
+@extern
+def the_s2typ_bool() -> S2typ
+
+@extern
+def the_s2typ_char() -> S2typ
+
+@extern
+def the_s2typ_dflt() -> S2typ
+
+@extern
+def the_s2typ_strn() -> S2typ
+
+@extern
+def the_s2typ_p1tr0() -> S2typ
+
+@extern
+def the_s2typ_p2tr0() -> S2typ
+
+@extern
+def the_s2typ_p2at0() -> S2typ
+
+@extern
+def the_s2typ_p2tr1(a: S2typ) -> S2typ
+
+@extern
+def the_s2typ_p2at1(a: S2typ) -> S2typ
+
+@extern
+def the_s2typ_slint() -> S2typ
+
+@extern
+def the_s2typ_ulint() -> S2typ
+
+@extern
+def the_s2typ_sllint() -> S2typ
+
+@extern
+def the_s2typ_ullint() -> S2typ
+
+@extern
+def the_s2typ_l0azy0() -> S2typ
+
+@extern
+def the_s2typ_l0azy1(a: S2typ) -> S2typ
+
+@extern
+def the_s2typ_l1azy0() -> S2typ
+
+@extern
+def the_s2typ_l1azy1(a: S2typ) -> S2typ
+
+@extern
+def the_s2typ_elazy0() -> S2typ
+
+@extern
+def the_s2typ_elazy1(a: S2typ) -> S2typ
+
+@extern
+def the_s2typ_excptn() -> S2typ
+
+enum S2typ_node:
+    case T2Pcst(S2cst)
+    case T2Pvar(S2var)
+    case T2Plft(S2typ)
+    case T2Pxtv(X2t2p)
+    case T2Ptop0(S2typ)
+    case T2Ptop1(S2typ)
+    case T2Parg1(SInt, S2typ)
+    case T2Patx2(S2typ, S2typ)
+    case T2Papps(S2typ, S2typlst)
+    case T2Plam1(S2varlst, S2typ)
+    case T2Pf2cl(F2clknd)
+    case T2Pfun1(S2typ, SInt, S2typlst, S2typ)
+    case T2Ptext(String, S2typlst)
+    case T2Pexi0(S2varlst, S2typ)
+    case T2Puni0(S2varlst, S2typ)
+    case T2Ptrcd(Trcdknd, SInt, L2t2plst)
+    case T2Pnone0()
+    case T2Pnone1(S2typ)
+    case T2Ps2exp(S2exp)
+    case T2Perrck(Int, S2typ)
+
+@extern
+def s2typ_linq(a: S2typ) -> Bool
+
+@extern
+def s2typ_prfq(a: S2typ) -> Bool
+
+@extern
+def s2typ_cbrfq(a: S2typ) -> Bool
+
+@extern
+def s2typ_dataq(a: S2typ) -> Bool
+
+@extern
+def s2typlst_linq(a: S2typlst) -> Bool
+
+@extern
+def s2typlst_prfq(a: S2typlst) -> Bool
+
+@extern
+def l2t2plst_linq(a: L2t2plst) -> Bool
+
+@extern
+def l2t2plst_prfq(a: L2t2plst) -> Bool
+
+@extern
+def s2typ_fprint(a: S2typ, b: FILR) -> Void
+
+@extern
+def s2typ_get_sort(a: S2typ) -> Sort2
+
+@extern
+def l2t2p_get_sort(a: L2t2p) -> Sort2
+
+@extern
+def s2typ_get_node(a: S2typ) -> S2typ_node
+
+@extern
+def l2t2p_get_node(a: L2t2p) -> S2typ_node
+
+@overload sort = s2typ_get_sort
+
+@overload sort = l2t2p_get_sort
+
+@overload node = s2typ_get_node
+
+@overload node = l2t2p_get_node
+
+@extern
+def s2typ_var(a: S2var) -> S2typ
+
+@extern
+def s2typ_cst(a: S2cst) -> S2typ
+
+@extern
+def s2typ_xtv(a: X2t2p) -> S2typ
+
+@extern
+def s2typ_lft(a: S2typ) -> S2typ
+
+@extern
+def s2typ_f2cl(a: F2clknd) -> S2typ
+
+@extern
+def s2typ_none0() -> S2typ
+
+@extern
+def statyp2_inits0_reset() -> Void
+
+@extern
+def s2typ_none1(a: S2typ) -> S2typ
+
+@extern
+def s2typ_s2exp(a: S2exp) -> S2typ
+
+@extern
+def s2typ_tup0(a: SInt, b: S2typlst) -> S2typ
+
+@extern
+def s2typ_tup1(a: Trcdknd, b: SInt, c: S2typlst) -> S2typ
+
+@extern
+def s2typ_rcd2(a: Trcdknd, b: SInt, c: L2t2plst) -> S2typ
+
+@extern
+def s2typ_unargx(a: S2typ) -> S2typ
+
+@extern
+def s2typ_untopx(a: S2typ) -> S2typ
+
+@extern
+def s2typ_make_node(a: Sort2, b: S2typ_node) -> S2typ
+
+@overload s2typ = s2typ_make_node
+
+@extern
+def s2vts_stleq(a: S2vts) -> Bool
+
+@extern
+def s2vts_search/opt(a: S2vts, b: S2var) -> S2typopt_vt
+
+@extern
+def s2vts_make_s2vs_t2ps(a: S2varlst, b: S2typlst) -> S2vts
+
+@overload s2vts = s2vts_make_s2vs_t2ps
+
+@extern
+def s2typ_prjout/opt(a: S2typ, b: Label) -> S2typopt_vt
+
+@extern
+def s2typ_p1tr0q(a: S2typ) -> Bool
+
+@extern
+def s2typ_p2tr0q(a: S2typ) -> Bool
+
+@extern
+def s2typ_p2tr1q(a: S2typ) -> Bool
+
+@extern
+def s2typ_l0azy0q(a: S2typ) -> Bool
+
+@extern
+def s2typ_l0azy1q(a: S2typ) -> Bool
+
+@extern
+def s2typ_l1azy0q(a: S2typ) -> Bool
+
+@extern
+def s2typ_l1azy1q(a: S2typ) -> Bool
+
+@extern
+def s2typ_xtpck0(a: S2typ, b: X2t2p) -> Bool
+
+@extern
+def s2typlst_xtpck0(a: S2typlst, b: X2t2p) -> Bool
+
+@extern
+def l2t2plst_xtpck0(a: L2t2plst, b: X2t2p) -> Bool
+
+@extern
+def s2varlst_imprq(a: S2varlst) -> S2varlst
+
+@extern
+def s2exp_stpize(a: S2exp) -> S2typ
+
+@extern
+def s2explst_stpize(a: S2explst) -> S2typlst
+
+@extern
+def l2s2elst_stpize(a: L2s2elst) -> L2t2plst
+
+@overload stpize = s2exp_stpize
+
+@overload stpize = s2explst_stpize
+
+@overload stpize = l2s2elst_stpize
+
+@extern
+def s2typ_hnfiz0(a: S2typ) -> S2typ
+
+@extern
+def s2typlst_hnfiz0(a: S2typlst) -> S2typlst
+
+@extern
+def s2typ_subst0(a: S2typ, b: S2vts) -> S2typ
+
+@extern
+def s2typlst_subst0(a: S2typlst, b: S2vts) -> S2typlst
+
+@extern
+def s2typ_eval/s2cst[E1nv: Vwtp](a: !E1nv, b: S2cst) -> S2typopt_vt
+
+@extern
+def s2typ_eval/s2var[E1nv: Vwtp](a: !E1nv, b: S2var) -> S2typopt_vt
+
+@extern
+def s2typ_hnfiz0_e1nv[E1nv: Vwtp](a: !E1nv, b: S2typ) -> S2typ
+
+@extern
+def s2typ_subst0_e1nv[E1nv: Vwtp](a: !E1nv, b: S2typ, c: S2vts) -> S2typ
+
+@extern
+def unify00_s2typ/xset(a: X2t2p, b: S2typ) -> Void
+
+@extern
+def unify00_s2typ/hnfz[E1nv: Vwtp](a: !E1nv, b: S2typ) -> S2typ
+
+@extern
+def unify00_s2typ_e1nv[E1nv: Vwtp](a: !E1nv, b: S2typ, c: S2typ) -> Bool
+
+@extern
+def match00_s2typ_e1nv[E1nv: Vwtp](a: !E1nv, b: S2typ, c: S2typ) -> Bool
+
+@extern
+def s2typ_hnfizx_e1nv[E1nv: Vwtp](a: !E1nv, b: S2typ, c: &SInt >> _) -> S2typ
+
+@extern
+def s2typ_substx_e1nv[E1nv: Vwtp](a: !E1nv, b: S2typ, c: S2vts, d: &SInt >> _) -> S2typ
+

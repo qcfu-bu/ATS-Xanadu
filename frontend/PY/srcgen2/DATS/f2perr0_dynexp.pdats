@@ -1,0 +1,450 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/f2perr0" import *
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload lctn = d2pat_get_lctn
+
+@overload node = d2pat_get_node
+
+@overload lctn = d2exp_get_lctn
+
+@overload node = d2exp_get_node
+
+@overload lctn = f2arg_get_lctn
+
+@overload node = f2arg_get_node
+
+@overload lctn = d2gua_get_lctn
+
+@overload node = d2gua_get_node
+
+@overload lctn = d2gpt_get_lctn
+
+@overload node = d2gpt_get_node
+
+@overload lctn = d2cls_get_lctn
+
+@overload node = d2cls_get_node
+
+private:
+    let xatsv_ERRLVL = 3
+    def auxmain(out: FILR, d2p: d2pat) -> Void:
+        @impl[]
+        def g_print/out():
+            out
+        match d2p.node():
+            case D2Psapp(d2f0, s2vs):
+                f2perr0_d2pat(out, d2f0)
+            case D2Pdapp(d2f0, npf1, d2ps):
+                f2perr0_d2pat(out, d2f0)
+                f2perr0_d2patlst(out, d2ps)
+            case D2Prfpt(d2p1, tkas, d2p2):
+                f2perr0_d2pat(out, d2p1)
+                f2perr0_d2pat(out, d2p2)
+            case D2Ptup0(npf1, d2ps):
+                f2perr0_d2patlst(out, d2ps)
+            case D2Ptup1(tknd, npf1, d2ps):
+                f2perr0_d2patlst(out, d2ps)
+            case D2Prcd2(tknd, npf1, ldps):
+                f2perr0_l2d2plst(out, ldps)
+            case D2Pannot(d2p1, s1e2, s2e2):
+                f2perr0_d2pat(out, d2p1)
+                let loc0 = d2p.lctn()
+                f2perr0_s2exp(out, s2e2, loc0)
+            case D2Pt2pck(d2p1, t2p2):
+                f2perr0_d2pat(out, d2p1)
+            case D2Pnone0(_):
+                ()
+            case D2Pnone1(_):
+                ()
+            case D2Pnone2(_):
+                ()
+            case D2Perrck(_, _):
+                f2perr0_d2pat(out, d2p)
+            case _:
+                let loc = d2p.lctn()
+                prerrsln("f2perr0_d2pat:auxmain: loc = ", loc)
+                prerrsln("f2perr0_d2pat:auxmain: d2p = ", d2p)
+
+@impl
+def f2perr0_d2pat(out, d2p0):
+    @impl[]
+    def g_print/out():
+        out
+    match d2p0.node():
+        case D2Perrck(lvl, d2p1):
+            auxmain(out, d2p1)
+            if (lvl >= xatsv_ERRLVL):
+                ()
+            else:
+                let loc0 = d2p0.lctn()
+                printsln()
+                printsln("F2PERR0-ERROR:", loc0, ":", d2p0)
+        case _:
+            ()
+
+
+@impl
+def f2perr0_l2d2p(out, ld2p):
+    match ld2p:
+        case D2LAB(lab, d2p1):
+            f2perr0_d2pat(out, d2p1)
+
+private:
+    let xatsv_ERRLVL = 4
+    def auxdexp(out: FILR, d2e: d2exp) -> Void:
+        @impl[]
+        def g_print/out():
+            out
+        match d2e.node():
+            case D2Eint(_):
+                print(d2e)
+            case D2Ebtf(_):
+                print(d2e)
+            case D2Echr(_):
+                print(d2e)
+            case D2Eflt(_):
+                print(d2e)
+            case D2Estr(_):
+                print(d2e)
+            case D2Ei00(_):
+                print(d2e)
+            case D2Eb00(_):
+                print(d2e)
+            case D2Ec00(_):
+                print(d2e)
+            case D2Ef00(_):
+                print(d2e)
+            case D2Es00(_):
+                print(d2e)
+            case D2Etop(_):
+                print(d2e)
+            case D2Evar(_):
+                print(d2e)
+            case D2Econ(_):
+                print(d2e)
+            case D2Ecst(_):
+                print(d2e)
+            case D2Econs(_):
+                print(d2e)
+            case D2Ecsts(_):
+                print(d2e)
+            case D2Esym0(_):
+                prints("D2Esym0(", "...", ")")
+            case D2Esapp(_):
+                prints("D2Esapp(", "...", ")")
+            case D2Etapp(_):
+                prints("D2Etapp(", "...", ")")
+            case D2Edap0(_):
+                prints("D2Edap0(", "...", ")")
+            case D2Edapp(_):
+                prints("D2Edapp(", "...", ")")
+            case D2Eproj(_):
+                prints("D2Eproj(", "...", ")")
+            case D2Elet0(_):
+                prints("D2Elet0(", "...", ")")
+            case D2Eift0(_):
+                prints("D2Eift0(", "...", ")")
+            case D2Ecas0(_):
+                prints("D2Ecas0(", "...", ")")
+            case D2Eseqn(_):
+                prints("D2Eseqn(", "...", ")")
+            case D2Etup0(_):
+                prints("D2Etup0(", "...", ")")
+            case D2Etup1(_):
+                prints("D2Etup1(", "...", ")")
+            case D2Ercd2(_):
+                prints("D2Ercd2(", "...", ")")
+            case D2Elam0(_):
+                prints("D2Elam0(", "...", ")")
+            case D2Efix0(_):
+                prints("D2Efix0(", "...", ")")
+            case D2Etry0(_):
+                prints("D2Etry0(", "...", ")")
+            case D2Eaddr(_):
+                prints("D2Eaddr(", "...", ")")
+            case D2Eview(_):
+                prints("D2Eview(", "...", ")")
+            case D2Eeval(_):
+                prints("D2Eeval(", "...", ")")
+            case D2Efold(_):
+                prints("D2Efold(", "...", ")")
+            case D2Efree(_):
+                prints("D2Efree(", "...", ")")
+            case D2Ewhere(_):
+                prints("D2Ewhere(", "...", ")")
+            case D2Eassgn(_):
+                prints("D2Eassgn(", "...", ")")
+            case D2Exazgn(_):
+                prints("D2Exazgn(", "...", ")")
+            case D2Exchng(_):
+                prints("D2Exchng(", "...", ")")
+            case D2Ebrget(_):
+                prints("D2Ebrget(", "...", ")")
+            case D2Ebrset(_):
+                prints("D2Ebrset(", "...", ")")
+            case D2Edtsel(_):
+                prints("D2Edtsel(", "...", ")")
+            case D2El0azy(_):
+                prints("D2El0azy(", "...", ")")
+            case D2El1azy(_):
+                prints("D2El1azy(", "...", ")")
+            case D2Eelazy(_):
+                prints("D2Eelazy(", "...", ")")
+            case D2Eannot(_):
+                prints("D2Eannot(", "...", ")")
+            case D2Eg1mac(_):
+                prints("D2Eg1mac(", "...", ")")
+            case D2Elabck(d2e1, lab2):
+                print("D2Elabck(")
+                auxdexp(out, d2e1)
+                print(";")
+                prints(lab2, ")")
+            case D2Et2pck(d2e1, t2p2):
+                print("D2Et2pck(")
+                auxdexp(out, d2e1)
+                print(";")
+                prints(t2p2, ")")
+            case D2Et2ped(d2e1, t2p2):
+                print("D2Et2ped(")
+                auxdexp(out, d2e1)
+                print(";")
+                prints(t2p2, ")")
+            case D2Enone0():
+                prints("D2Enone0(", ")")
+            case D2Enone1(d1e1):
+                prints("D2Enone1(", d1e1, ")")
+            case D2Enone2(d2e1):
+                prints("D2Enone2(", d2e1, ")")
+            case D2Eerrck(lvl0, d2e1):
+                print("D2Eerrck(")
+                print(lvl0)
+                print(";")
+                auxdexp(out, d2e1)
+                print(")")
+            case _:
+                let loc = d2e.lctn()
+                prerrsln("f2perr0_d2exp:auxdexp: loc = ", loc)
+                prerrsln("f2perr0_d2exp:auxdexp: d2e = ", d2e)
+    def auxmain(out: FILR, d2e: d2exp) -> Void:
+        @impl[]
+        def g_print/out():
+            out
+        match d2e.node():
+            case D2Esym0(drxp, d1e1, dpis):
+                f2perr0_d2exp(out, drxp.dexp())
+            case D2Esapp(d2f0, s2es):
+                f2perr0_d2exp(out, d2f0)
+                let loc0 = d2e.lctn()
+                f2perr0_s2explst(out, s2es, loc0)
+            case D2Etapp(d2f0, s2es):
+                f2perr0_d2exp(out, d2f0)
+                let loc0 = d2e.lctn()
+                f2perr0_s2explst(out, s2es, loc0)
+            case D2Edapp(d2f0, npf1, d2es):
+                f2perr0_d2exp(out, d2f0)
+                f2perr0_d2explst(out, d2es)
+            case D2Eproj(tknd, drxp, dlab, dtup):
+                f2perr0_d2exp(out, dtup)
+            case D2Elet0(dcls, d2e1):
+                f2perr0_d2eclist(out, dcls)
+                f2perr0_d2exp(out, d2e1)
+            case D2Ewhere(d2e1, dcls):
+                f2perr0_d2eclist(out, dcls)
+                f2perr0_d2exp(out, d2e1)
+            case D2Eift0(d2e1, dthn, dels):
+                f2perr0_d2exp(out, d2e1)
+                f2perr0_d2expopt(out, dthn)
+                f2perr0_d2expopt(out, dels)
+            case D2Ecas0(tknd, d2e1, dcls):
+                f2perr0_d2exp(out, d2e1)
+                f2perr0_d2clslst(out, dcls)
+            case D2Eseqn(d2es, d2e1):
+                f2perr0_d2explst(out, d2es)
+                f2perr0_d2exp(out, d2e1)
+            case D2Etup0(npf1, d2es):
+                f2perr0_d2explst(out, d2es)
+            case D2Etup1(tknd, npf1, d2es):
+                f2perr0_d2explst(out, d2es)
+            case D2Ercd2(tknd, npf1, ldes):
+                f2perr0_l2d2elst(out, ldes)
+            case D2Elam0(tknd, f2as, sres, arrw, dexp):
+                f2perr0_f2arglst(out, f2as)
+                f2perr0_d2exp(out, dexp)
+            case D2Efix0(tknd, dpid, f2as, sres, arrw, dexp):
+                f2perr0_f2arglst(out, f2as)
+                f2perr0_d2exp(out, dexp)
+            case D2Etry0(tknd, d2e1, dcls):
+                f2perr0_d2exp(out, d2e1)
+                f2perr0_d2clslst(out, dcls)
+            case D2Eaddr(d2e1):
+                f2perr0_d2exp(out, d2e1)
+            case D2Eview(d2e1):
+                f2perr0_d2exp(out, d2e1)
+            case D2Eeval(d2e1):
+                f2perr0_d2exp(out, d2e1)
+            case D2Efree(d2e1):
+                f2perr0_d2exp(out, d2e1)
+            case D2Eassgn(d2el, d2er):
+                f2perr0_d2exp(out, d2el)
+                f2perr0_d2exp(out, d2er)
+            case D2Exazgn(d2el, d2er):
+                f2perr0_d2exp(out, d2el)
+                f2perr0_d2exp(out, d2er)
+            case D2Exchng(d2el, d2er):
+                f2perr0_d2exp(out, d2el)
+                f2perr0_d2exp(out, d2er)
+            case D2Ebrget(dpis, d2es):
+                f2perr0_d2explst(out, d2es)
+            case D2Ebrset(dpis, d2es):
+                f2perr0_d2explst(out, d2es)
+            case D2Eraise(tknd, d2e1):
+                f2perr0_d2exp(out, d2e1)
+            case D2El0azy(dknd, d2e1):
+                f2perr0_d2exp(out, d2e1)
+            case D2El1azy(dknd, d2e1, d2es):
+                f2perr0_d2exp(out, d2e1)
+                f2perr0_d2explst(out, d2es)
+            case D2Eelazy(dknd, d2e1, d2es):
+                f2perr0_d2exp(out, d2e1)
+                f2perr0_d2explst(out, d2es)
+            case D2Eannot(d2e1, s1e2, s2e2):
+                f2perr0_d2exp(out, d2e1)
+                let loc0 = d2e.lctn()
+                f2perr0_s2exp(out, s2e2, loc0)
+            case D2Elabck(d2e1, lab2):
+                f2perr0_d2exp(out, d2e1)
+            case D2Et2pck(d2e1, t2p2):
+                f2perr0_d2exp(out, d2e1)
+            case D2Et2ped(d2e1, t2p2):
+                f2perr0_d2exp(out, d2e1)
+            case D2Enone0(_):
+                ()
+            case D2Enone1(_):
+                ()
+            case D2Enone2(_):
+                ()
+            case D2Eerrck(_, _):
+                f2perr0_d2exp(out, d2e)
+            case _:
+                let loc = d2e.lctn()
+                prerrsln("f2perr0_d2exp:auxmain: loc = ", loc)
+                prerrsln("f2perr0_d2exp:auxmain: d2e = ", d2e)
+
+@impl
+def f2perr0_d2exp(out, d2e0):
+    @impl[]
+    def g_print/out():
+        out
+    let loc0 = d2e0.lctn()
+    match d2e0.node():
+        case D2Eerrck(lvl, d2e1):
+            auxmain(out, d2e1)
+            if (lvl >= xatsv_ERRLVL):
+                ()
+            else:
+                let loc0 = d2e0.lctn()
+                @impl[d2exp]
+                def g_print(d2e):
+                    auxdexp(out, d2e)
+                printsln()
+                printsln("F2PERR0-ERROR:", loc0, ":", d2e0)
+        case _:
+            ()
+
+
+@impl
+def f2perr0_l2d2e(out, ld2e):
+    match ld2e:
+        case D2LAB(lab, d2e1):
+            f2perr0_d2exp(out, d2e1)
+
+@impl
+def f2perr0_f2arg(out, farg):
+    match farg.node():
+        case F2ARGdapp(npf1, d2ps):
+            f2perr0_d2patlst(out, d2ps)
+        case F2ARGsapp(s2vs, s2es):
+            ()
+        case F2ARGmets(s2es):
+            ()
+
+@impl
+def f2perr0_d2gua(out, dgua):
+    match dgua.node():
+        case D2GUAexp(d2e1):
+            f2perr0_d2exp(out, d2e1)
+        case D2GUAmat(d2e1, d2p2):
+            f2perr0_d2exp(out, d2e1)
+            f2perr0_d2pat(out, d2p2)
+
+@impl
+def f2perr0_d2gpt(out, dgpt):
+    match dgpt.node():
+        case D2GPTpat(d2p1):
+            f2perr0_d2pat(out, d2p1)
+        case D2GPTgua(d2p1, d2gs):
+            f2perr0_d2pat(out, d2p1)
+            f2perr0_d2gualst(out, d2gs)
+
+@impl
+def f2perr0_d2cls(out, dcls):
+    match dcls.node():
+        case D2CLSgpt(dgpt):
+            f2perr0_d2gpt(out, dgpt)
+        case D2CLScls(dgpt, d2e2):
+            f2perr0_d2gpt(out, dgpt)
+            f2perr0_d2exp(out, d2e2)
+
+@impl
+def f2perr0_d2patlst(out, d2ps):
+    list_f2perr0_fnp(out, d2ps, f2perr0_d2pat)
+
+@impl
+def f2perr0_d2patopt(out, dopt):
+    optn_f2perr0_fnp(out, dopt, f2perr0_d2pat)
+
+@impl
+def f2perr0_l2d2plst(out, ldps):
+    list_f2perr0_fnp(out, ldps, f2perr0_l2d2p)
+
+@impl
+def f2perr0_d2explst(out, d2es):
+    list_f2perr0_fnp(out, d2es, f2perr0_d2exp)
+
+@impl
+def f2perr0_d2expopt(out, dopt):
+    optn_f2perr0_fnp(out, dopt, f2perr0_d2exp)
+
+@impl
+def f2perr0_l2d2elst(out, ldes):
+    list_f2perr0_fnp(out, ldes, f2perr0_l2d2e)
+
+@impl
+def f2perr0_f2arglst(out, f2as):
+    list_f2perr0_fnp(out, f2as, f2perr0_f2arg)
+
+@impl
+def f2perr0_d2gualst(out, d2gs):
+    list_f2perr0_fnp(out, d2gs, f2perr0_d2gua)
+
+@impl
+def f2perr0_d2clslst(out, d2cs):
+    list_f2perr0_fnp(out, d2cs, f2perr0_d2cls)
+

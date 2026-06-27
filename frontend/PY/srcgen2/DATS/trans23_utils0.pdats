@@ -1,0 +1,284 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/SATS/trans23" import *
+
+import "srcgen2/DATS/statyp2_tmplib.dats" as _
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload sort = s2cst_get_sort
+
+@overload sort = s2var_get_sort
+
+@overload sort = s2typ_get_sort
+
+@overload node = s2typ_get_node
+
+@overload lctn = d3pat_get_lctn
+
+@overload node = d3pat_get_node
+
+@overload styp = d3pat_get_styp
+
+@overload styp = d3pat_set_styp
+
+@overload lctn = d3exp_get_lctn
+
+@overload node = d3exp_get_node
+
+@overload styp = d3exp_get_styp
+
+@overload styp = d3exp_set_styp
+
+def s2typ_subst0(t2p0: s2typ, svts: s2vts) -> s2typ:
+    match svts:
+        case list_nil():
+            t2p0
+        case list_cons(_):
+            s2typ_subst0(t2p0, svts)
+
+@impl
+def s2typ_fun1_f3arglst(f3as, tfun, tres):
+    auxmain(f3as, tfun)
+where:
+    def f1_imprq(s2vs: s2varlst) -> Bool:
+        match s2vs:
+            case list_nil():
+                false
+            case list_cons(s2v1, s2vs):
+                if sort2_imprq(s2v1.sort()):
+                    true
+                else:
+                    f1_imprq(s2vs)
+    def auxmain(f3as: f3arglst, tfun: s2typ) -> s2typ:
+        match f3as:
+            case list_nil():
+                tres
+            case list_cons(f3a1, f3as):
+                match f3a1.node():
+                    case F3ARGmets(_):
+                        auxmain(f3as, tfun)
+                    case F3ARGsapp(s2vs, s2ps):
+                        if not(f1_imprq(s2vs)):
+                            auxmain(f3as, tfun)
+                        else:
+                            let T2Puni0(s2vs, tfun) = tfun.node()
+                            let s2t0 = tfun.sort()
+                            let tres = auxmain(f3as, tfun)
+                            s2typ_make_node(s2t0, T2Puni0(s2vs, tres))
+                    case F3ARGdapp(npf1, d3ps):
+                        let s2t0 = tfun.sort()
+                        let T2Pfun1(f2cl, npf1, targ, tfun) = tfun.node()
+                        let tres = auxmain(f3as, tfun)
+                        let t2ps = s2typlst_of_d3patlst(d3ps)
+                        s2typ_make_node(s2t0, T2Pfun1(f2cl, npf1, t2ps, tres))
+
+@impl
+def s2typlst_of_d3patlst(d3ps):
+    @inst[x0] @inst[y0] list_map(d3ps)
+where:
+    type X0 = d3pat
+    type Y0 = s2typ
+    @impl[X0, Y0]
+    def map/fopr(d3p):
+        d3p.styp()
+
+@impl
+def s2typlst_of_d3explst(d3es):
+    @inst[x0] @inst[y0] list_map(d3es)
+where:
+    type X0 = d3exp
+    type Y0 = s2typ
+    @impl[X0, Y0]
+    def map/fopr(d3e):
+        d3e.styp()
+
+@impl
+def l2t2plst_of_l3d3plst(ldps):
+    @inst[x0] @inst[y0] list_map(ldps)
+where:
+    type X0 = l3d3p
+    type Y0 = l2t2p
+    @impl[X0, Y0]
+    def map/fopr(ldp):
+        S2LAB(l0, d3p.styp())
+    where:
+        let D3LAB(l0, d3p) = ldp
+
+@impl
+def l2t2plst_of_l3d3elst(ldes):
+    @inst[x0] @inst[y0] list_map(ldes)
+where:
+    type X0 = l3d3e
+    type Y0 = l2t2p
+    @impl[X0, Y0]
+    def map/fopr(lde):
+        S2LAB(l0, d3e.styp())
+    where:
+        let D3LAB(l0, d3e) = lde
+
+private:
+    def f0_tqag_tjag(loc0: loc_t, tqag: t2qag) -> t2jag:
+        type X0 = s2var
+        type Y0 = s2typ
+        @impl[X0, Y0]
+        def map/fopr(s2v):
+            let s2t = s2v.sort()
+            s2typ_xtv(x2t2p_make_lctn(loc0))
+        let s2vs = tqag.s2vs()
+        t2jag_make_t2ps(loc0, @inst[X0] @inst[Y0] list_map(s2vs))
+    def f0_make_svts(t2qs: t2qaglst, t2js: t2jaglst, svts: s2vts) -> s2vts:
+        match t2qs:
+            case list_nil():
+                svts
+            case list_cons(t2q1, t2qs):
+                def f1_make_svts(s2vs: s2varlst, t2ps: s2typlst, svts: s2vts) -> s2vts:
+                    match s2vs:
+                        case list_nil():
+                            svts
+                        case list_cons(s2v1, s2vs):
+                            match t2ps:
+                                case list_nil():
+                                    svts
+                                case list_cons(t2p1, t2ps):
+                                    let svts = list_cons((s2v1, t2p1), svts)
+                                    f1_make_svts(s2vs, t2ps, svts)
+                match t2js:
+                    case list_nil():
+                        svts
+                    case list_cons(t2j1, t2js):
+                        let svts = f1_make_svts(t2q1.s2vs(), t2j1.t2ps(), svts)
+                        f0_make_svts(t2qs, t2js, svts)
+
+@impl
+def d2con23_tjagize(loc0, dcon):
+    (t2js, t2p0)
+where:
+    let t2qs = d2con_get_tqas(dcon)
+    @impl[t2qag, t2jag]
+    def map/fopr(tqag):
+        f0_tqag_tjag(loc0, tqag)
+    let t2js = @inst[t2qag] @inst[t2jag] list_map(t2qs)
+    let svts = list_nil()
+    let t2p0 = d2con_get_styp(dcon)
+    let svts = f0_make_svts(t2qs, t2js, svts)
+    let t2p0 = s2typ_subst0(t2p0, svts)
+
+@impl
+def d2con23_tapqize(loc0, dcon):
+    let (t2js, t2p0) = d2con23_tjagize(loc0, dcon)
+    let d3e0 = d3exp_make_node(loc0, D3Econ(dcon))
+    match t2js:
+        case list_nil(_):
+            d3e0.styp(t2p0)
+            d3e0
+        case list_cons(_):
+            d3exp_make_tpnd(loc0, t2p0, D3Etapq(d3e0, t2js))
+
+@impl
+def d2cst23_tapqize(loc0, dcst):
+    let t2qs = d2cst_get_tqas(dcst)
+    @impl[t2qag, t2jag]
+    def map/fopr(tqag):
+        f0_tqag_tjag(loc0, tqag)
+    let t2js = @inst[t2qag] @inst[t2jag] list_map(t2qs)
+    let svts = list_nil()
+    let t2p0 = d2cst_get_styp(dcst)
+    let svts = f0_make_svts(t2qs, t2js, svts)
+    let t2p0 = s2typ_subst0(t2p0, svts)
+    let d3e0 = d3exp_make_node(loc0, D3Ecst(dcst))
+    match t2js:
+        case list_nil(_):
+            d3e0.styp(t2p0)
+            d3e0
+        case list_cons(_):
+            d3exp_make_tpnd(loc0, t2p0, D3Etapq(d3e0, t2js))
+
+
+private:
+    def f0_s2vs(s2vs: s2varlst) -> s2typlst:
+        @inst[x0] @inst[y0] list_map(s2vs)
+    where:
+        def x2t2p_make():
+            x2t2p_make_lctn(loctn_dummy())
+        type X0 = s2var
+        type Y0 = s2typ
+        @impl[X0, Y0]
+        def map/fopr(s2v1):
+            s2typ_xtv(x2t2p_make())
+    def f0_s2vs_t2ps(s2vs: s2varlst, t2ps: s2typlst, svts: s2vts) -> s2vts:
+        match s2vs:
+            case list_nil():
+                svts
+            case list_cons(s2v1, s2vs):
+                let list_cons(t2p1, t2ps) = t2ps
+                let svts = list_cons((s2v1, t2p1), svts)
+                f0_s2vs_t2ps(s2vs, t2ps, svts)
+
+@impl
+def d3pat_sapqize(d3p0):
+    d3p0
+
+@impl
+def d3exp_sapqize(d3e0):
+    let loc0 = d3e0.lctn()
+    let t2p0 = d3e0.styp()
+    let t2p0 = s2typ_hnfiz0(t2p0)
+    match t2p0.node():
+        case T2Puni0(s2vs, t2p1):
+            let svts = list_nil()
+            let t2ps = f0_s2vs(s2vs)
+            let svts = f0_s2vs_t2ps(s2vs, t2ps, svts)
+            let t2p1 = s2typ_subst0(t2p1, svts)
+            d3exp_sapqize(d3exp(loc0, t2p1, D3Esapq(d3e0, t2ps)))
+        case _:
+            d3e0.styp(t2p0)
+            d3e0
+
+
+def s2cst_get23_styp(env0: !tr23env, s2c0: s2cst) -> s2typopt_vt:
+    let opt1 = s2cst_get_styp(s2c0)
+    match opt1:
+        case optn_vt_cons(t2p1):
+            opt1
+        case ~optn_vt_nil():
+            tr23env_evstyp_cst(env0, s2c0)
+
+@impl
+def unify23_s2typ(env0, t2p1, t2p2):
+    type E1nv = tr23env
+    @impl[E1nv]
+    def s2typ_eval/s2cst(env0, s2c0):
+        s2cst_get23_styp(env0, s2c0)
+    @impl[E1nv]
+    def s2typ_eval/s2var(env0, s2v0):
+        optn_vt_nil()
+    @impl[E1nv]
+    def unify00_s2typ/hnfz(e1nv, t2p0):
+        @inst[E1nv] s2typ_hnfiz0_e1nv(e1nv, t2p0)
+    where:
+        let t2p0 = s2typ_untopx(s2typ_unargx(t2p0))
+    @inst[E1nv] unify00_s2typ_e1nv(env0, t2p1, t2p2)
+

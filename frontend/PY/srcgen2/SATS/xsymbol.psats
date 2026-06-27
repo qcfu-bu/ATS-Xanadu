@@ -1,0 +1,286 @@
+import "srcgen2/SATS/xstamp0" as TMP
+
+type Stamp = TMP.stamp
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+@abstract
+type Symbl_tbox
+
+type Symbl = Symbl_tbox
+
+type Sym_t = Symbl_tbox
+
+@extern
+let the_symbl_nil: Symbl
+
+@extern
+def symbl_nilq(a: Symbl) -> Bool
+
+@overload nilq = symbl_nilq
+
+@extern
+def symbl_neqz(a: Symbl) -> Bool
+
+@overload neqz = symbl_neqz
+
+@extern
+def symbl_cmp(a: Symbl, b: Symbl) -> SInt
+
+@extern
+def symbl_fprint(a: Symbl, b: FILR) -> Void
+
+@extern
+def symbl_get_name(a: Symbl) -> String
+
+@extern
+def symbl_get_stmp(a: Symbl) -> Stamp
+
+@overload name = symbl_get_name
+
+@overload stmp = symbl_get_stmp
+
+@extern
+def symbl_make_name(a: String) -> Symbl
+
+@overload symbl = symbl_make_name
+
+@extern
+let AMP_symbl: Symbl
+
+@extern
+let BAR_symbl: Symbl
+
+@extern
+let CLN_symbl: Symbl
+
+@extern
+let DOT_symbl: Symbl
+
+@extern
+let EQ0_symbl: Symbl
+
+@extern
+let DLR_symbl: Symbl
+
+@extern
+let SRP_symbl: Symbl
+
+@extern
+let BANG_symbl: Symbl
+
+@extern
+let SMCLN_symbl: Symbl
+
+@extern
+let TILDA_symbl: Symbl
+
+@extern
+let WCARD_symbl: Symbl
+
+@extern
+let ADD_symbl: Symbl
+
+@extern
+let SUB_symbl: Symbl
+
+@extern
+let MUL_symbl: Symbl
+
+@extern
+let DIV_symbl: Symbl
+
+@extern
+let MOD_symbl: Symbl
+
+@extern
+let CBV0_symbl: Symbl
+
+@extern
+let CBV1_symbl: Symbl
+
+@extern
+let CBRF_symbl: Symbl
+
+@extern
+let AXCG_symbl: Symbl
+
+@extern
+let EQLT_symbl: Symbl
+
+@extern
+let EQGT_symbl: Symbl
+
+@extern
+let MSLT_symbl: Symbl
+
+@extern
+let MSGT_symbl: Symbl
+
+@extern
+let PFLAT_symbl: Symbl
+
+@extern
+let PFREE_symbl: Symbl
+
+@extern
+let DLRDT_symbl: Symbl
+
+@extern
+let ASSGN_symbl: Symbl
+
+@extern
+let BRCKT_symbl: Symbl
+
+@extern
+let XAZGN_symbl: Symbl
+
+@extern
+let XCHNG_symbl: Symbl
+
+@extern
+let INT0_symbl: Symbl
+
+@extern
+let ADDR_symbl: Symbl
+
+@extern
+let BOOL_symbl: Symbl
+
+@extern
+let CHAR_symbl: Symbl
+
+@extern
+let STRN_symbl: Symbl
+
+@extern
+let PROP_symbl: Symbl
+
+@extern
+let VIEW_symbl: Symbl
+
+@extern
+let TYPE_symbl: Symbl
+
+@extern
+let TBOX_symbl: Symbl
+
+@extern
+let TFLT_symbl: Symbl
+
+@extern
+let VWTP_symbl: Symbl
+
+@extern
+let VTBX_symbl: Symbl
+
+@extern
+let VTFT_symbl: Symbl
+
+@extern
+let TRUE_symbl: Symbl
+
+@extern
+let FALSE_symbl: Symbl
+
+@extern
+let DADDR_symbl: Symbl
+
+@extern
+let DVIEW_symbl: Symbl
+
+@extern
+let DLVAL_symbl: Symbl
+
+@extern
+let DEVAL_symbl: Symbl
+
+@extern
+let DFOLD_symbl: Symbl
+
+@extern
+let DFREE_symbl: Symbl
+
+@extern
+let DLAZY_symbl: Symbl
+
+@extern
+let DLLAZY_symbl: Symbl
+
+@extern
+let DELAZY_symbl: Symbl
+
+@extern
+let DRAISE_symbl: Symbl
+
+@extern
+let DLAMENV_symbl: Symbl
+
+@extern
+let DLLAMENV0_symbl: Symbl
+
+@extern
+let DLLAMENV1_symbl: Symbl
+
+@extern
+def symbl_search/opt(a: String) -> Optn_vt[Symbl]
+
+@extern
+def symbl_insert/any(a: Symbl) -> Void
+
+@extern
+let DLR_EXTNAM_symbl: Symbl
+
+@extern
+let DLR_EXTVAL_symbl: Symbl
+
+@extern
+let DLR_EXTBOX_symbl: Symbl
+
+@extern
+let DLR_EXTYPE_symbl: Symbl
+
+@extern
+def symbl_wcard_kind(a: Symbl) -> SInt
+
+@extern
+let P1TR_TBOX_symbl: Symbl
+
+@extern
+let P2TR_TBOX_symbl: Symbl
+
+@extern
+let L0AZY_TBOX_symbl: Symbl
+
+@extern
+let L1AZY_VTBX_symbl: Symbl
+
+@extern
+let CBV0_V0_VT_symbl: Symbl
+
+@extern
+let CBV1_V0_VT_symbl: Symbl
+
+@extern
+let CBRF_VT_VT_symbl: Symbl
+
+@extern
+let TOP0_VT_T0_symbl: Symbl
+
+@extern
+let TOP1_VT_T0_symbl: Symbl
+
+@extern
+let DLR_SYNEXT_symbl: Symbl
+
+@extern
+def symbl_extend_stamp(a: Symbl, b: Stamp) -> Symbl
+
+@extern
+def the_xsymbls_insert(a: Sym_t) -> Void
+
+@extern
+def the_xsymbls_search(a: SInt) -> Optn_vt[Sym_t]
+

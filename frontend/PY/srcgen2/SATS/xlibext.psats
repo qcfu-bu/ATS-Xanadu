@@ -1,0 +1,50 @@
+@abstract
+type Fpath_tbox
+
+type Fpath = Fpath_tbox
+
+@extern
+def fpath_encode(a: String) -> Fpath
+
+@overload fpath = fpath_encode
+
+@extern
+def fpath_char/strmize(a: Fpath) -> Strm_vt[Char]
+
+@abstract
+type Mya1sz_tbox[Itm]
+
+@abstract
+type Mydict_tbox[Key, Itm]
+
+type Mya1sz = Mya1sz_tbox
+
+type Mydict = Mydict_tbox
+
+@extern
+def mya1sz_strmize[Itm: Type](a: Mya1sz[Itm]) -> Strm_vt[Itm]
+
+@extern
+def mydict_make_nil[Key: Type, Itm: Type]() -> Mydict[Key, Itm]
+
+@extern
+def mydict_get_keys[Key: Type, Itm: Type](a: Mydict[Key, Itm]) -> Mya1sz[Key]
+
+@extern
+def mydict_search/opt[Key: Type, Itm: Type](a: Mydict[Key, Itm], b: Key) -> Optn_vt[Itm]
+
+@extern
+def mydict_insert/any[Key: Type, Itm: Type](a: Mydict[Key, Itm], b: Key, c: Itm) -> Void
+
+@extern
+def strn_sint/parse(a: String) -> SInt
+
+@extern
+def strn_sint/parse/exn(a: String) -> SInt
+
+@extern
+def strn_dflt/parse(a: String) -> Float
+
+@extern
+def strn_dflt/parse/exn(a: String) -> Float
+

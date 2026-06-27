@@ -1,0 +1,392 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+@abstract
+type Tr23env_vtbx
+
+type Tr23env = Tr23env_vtbx
+
+import "srcgen2/SATS/xbasics" as BAS
+
+type F2clknd = BAS.f2clknd
+
+import "srcgen2/SATS/xsymbol" as SYM
+
+type Sym_t = SYM.sym_t
+
+import "srcgen2/SATS/xlabel0" as LAB
+
+import "srcgen2/SATS/locinfo" as LOC
+
+import "srcgen2/SATS/lexing0" as LEX
+
+type Lab_t = LAB.lab_t
+
+type Label = LAB.label
+
+type Loc_t = LOC.loc_t
+
+type Token = LEX.token
+
+import "srcgen2/SATS/dynexp1" as D1E
+
+import "srcgen2/SATS/staexp2" as S2E
+
+import "srcgen2/SATS/dynexp2" as D2E
+
+import "srcgen2/SATS/dynexp3" as D3E
+
+type S2cst = S2E.s2cst
+
+type S2exp = S2E.s2exp
+
+type S2typ = S2E.s2typ
+
+type D2var = D2E.d2var
+
+type D2con = D2E.d2con
+
+type D2cst = D2E.d2cst
+
+type D2pat = D2E.d2pat
+
+type L2d2p = D2E.l2d2p
+
+type D2exp = D2E.d2exp
+
+type L2d2e = D2E.l2d2e
+
+type F2arg = D2E.f2arg
+
+type D2gua = D2E.d2gua
+
+type D2gpt = D2E.d2gpt
+
+type D2cls = D2E.d2cls
+
+type D2ecl = D2E.d2ecl
+
+type T2jag = D3E.t2jag
+
+type D3pat = D3E.d3pat
+
+type L3d3p = D3E.l3d3p
+
+type D3exp = D3E.d3exp
+
+type L3d3e = D3E.l3d3e
+
+type F3arg = D3E.f3arg
+
+type D3gua = D3E.d3gua
+
+type D3gpt = D3E.d3gpt
+
+type D3cls = D3E.d3cls
+
+type D3ecl = D3E.d3ecl
+
+type S2cstlst = S2E.s2cstlst
+
+type S2explst = S2E.s2explst
+
+type S2typlst = S2E.s2typlst
+
+type L2t2plst = S2E.l2t2plst
+
+type D2varlst = D2E.d2varlst
+
+type D2conlst = D2E.d2conlst
+
+type D2cstlst = D2E.d2cstlst
+
+type D2patlst = D2E.d2patlst
+
+type D2patopt = D2E.d2patopt
+
+type L2d2plst = D2E.l2d2plst
+
+type D2explst = D2E.d2explst
+
+type D2expopt = D2E.d2expopt
+
+type L2d2elst = D2E.l2d2elst
+
+type T2jaglst = D3E.t2jaglst
+
+type D3patlst = D3E.d3patlst
+
+type D3patopt = D3E.d3patopt
+
+type L3d3plst = D3E.l3d3plst
+
+type D3explst = D3E.d3explst
+
+type D3expopt = D3E.d3expopt
+
+type L3d3elst = D3E.l3d3elst
+
+type F2arglst = D2E.f2arglst
+
+type F3arglst = D3E.f3arglst
+
+type D2gualst = D2E.d2gualst
+
+type D2clslst = D2E.d2clslst
+
+type D3gualst = D3E.d3gualst
+
+type D3clslst = D3E.d3clslst
+
+type D2eclist = D2E.d2eclist
+
+type D3eclist = D3E.d3eclist
+
+type Teqd2exp = D2E.teqd2exp
+
+type Teqd3exp = D3E.teqd3exp
+
+type D2valdcl = D2E.d2valdcl
+
+type D2vardcl = D2E.d2vardcl
+
+type D2fundcl = D2E.d2fundcl
+
+type D3valdcl = D3E.d3valdcl
+
+type D3vardcl = D3E.d3vardcl
+
+type D3fundcl = D3E.d3fundcl
+
+type D1topenv = D1E.d1topenv
+
+type D2topenv = D2E.d2topenv
+
+type D2parsed = D2E.d2parsed
+
+type D3parsed = D3E.d3parsed
+
+type S2typopt_vt = Optn_vt[S2typ]
+
+type D2valdclist = D2E.d2valdclist
+
+type D2vardclist = D2E.d2vardclist
+
+type D2fundclist = D2E.d2fundclist
+
+type D3valdclist = D3E.d3valdclist
+
+type D3vardclist = D3E.d3vardclist
+
+type D3fundclist = D3E.d3fundclist
+
+type D2explstopt = D2E.d2explstopt
+
+type D3explstopt = D3E.d3explstopt
+
+type D2eclistopt = D2E.d2eclistopt
+
+type D3eclistopt = D3E.d3eclistopt
+
+@extern
+def s2typ_fun1_f3arglst(a: F3arglst, b: S2typ, c: S2typ) -> S2typ
+
+@extern
+def s2typlst_of_d3patlst(a: D3patlst) -> S2typlst
+
+@overload s2typlst = s2typlst_of_d3patlst
+
+@extern
+def s2typlst_of_d3explst(a: D3explst) -> S2typlst
+
+@overload s2typlst = s2typlst_of_d3explst
+
+@extern
+def l2t2plst_of_l3d3plst(a: L3d3plst) -> L2t2plst
+
+@overload l2t2plst = l2t2plst_of_l3d3plst
+
+@extern
+def l2t2plst_of_l3d3elst(a: L3d3elst) -> L2t2plst
+
+@overload l2t2plst = l2t2plst_of_l3d3elst
+
+@extern
+def d3parsed_of_trans23(a: D2parsed) -> D3parsed
+
+@extern
+def tr23env_make_nil() -> Tr23env
+
+@extern
+def tr23env_free_nil(a: Tr23env) -> Void
+
+@extern
+def tr23env_pshlet0(a: !Tr23env) -> Void
+
+@extern
+def tr23env_poplet0(a: !Tr23env) -> Void
+
+@extern
+def tr23env_pshloc1(a: !Tr23env) -> Void
+
+@extern
+def tr23env_pshloc2(a: !Tr23env) -> Void
+
+@extern
+def tr23env_locjoin(a: !Tr23env) -> Void
+
+@extern
+def tr23env_search/opt(a: !Tr23env, b: S2cst) -> S2cstlst
+
+@extern
+def tr23env_insert/any(a: !Tr23env, b: S2cst) -> Void
+
+@extern
+def tr23env_evstyp_cst(a: !Tr23env, b: S2cst) -> S2typopt_vt
+
+@extern
+def list_trans23_fnp[X0: Type, Y0: Type](a: !Tr23env, b: List[X0], c: (!Tr23env, X0) -> Y0) -> List[Y0]
+
+@extern
+def optn_trans23_fnp[X0: Type, Y0: Type](a: !Tr23env, b: Optn[X0], c: (!Tr23env, X0) -> Y0) -> Optn[Y0]
+
+@extern
+def d2con23_tjagize(a: Loc_t, b: D2con) -> (T2jaglst, S2typ)
+
+@extern
+def d2con23_tapqize(a: Loc_t, b: D2con) -> D3exp
+
+@extern
+def d2cst23_tapqize(a: Loc_t, b: D2cst) -> D3exp
+
+@extern
+def d3pat_sapqize(a: D3pat) -> D3pat
+
+@extern
+def d3exp_sapqize(a: D3exp) -> D3exp
+
+@extern
+def trans23_d2pat(a: !Tr23env, b: D2pat) -> D3pat
+
+@extern
+def trans23_l2d2p(a: !Tr23env, b: L2d2p) -> L3d3p
+
+@extern
+def trans23_d2exp(a: !Tr23env, b: D2exp) -> D3exp
+
+@extern
+def trans23_l2d2e(a: !Tr23env, b: L2d2e) -> L3d3e
+
+@extern
+def trans23_f2arg(a: !Tr23env, b: F2arg) -> F3arg
+
+@extern
+def trans23_d2gua(a: !Tr23env, b: D2gua) -> D3gua
+
+@extern
+def trans23_d2gpt_tpck(a: !Tr23env, b: D2gpt, c: S2typ) -> D3gpt
+
+@extern
+def trans23_d2cls_tpck(a: !Tr23env, b: D2cls, c: D3exp, d: S2typ) -> D3cls
+
+@extern
+def trans23_d2ecl(a: !Tr23env, b: D2ecl) -> D3ecl
+
+@extern
+def trans23_d2patlst(a: !Tr23env, b: D2patlst) -> D3patlst
+
+@extern
+def trans23_l2d2plst(a: !Tr23env, b: L2d2plst) -> L3d3plst
+
+@extern
+def trans23_d2explst(a: !Tr23env, b: D2explst) -> D3explst
+
+@extern
+def trans23_d2expopt(a: !Tr23env, b: D2expopt) -> D3expopt
+
+@extern
+def trans23_l2d2elst(a: !Tr23env, b: L2d2elst) -> L3d3elst
+
+@extern
+def trans23_f2arglst(a: !Tr23env, b: F2arglst) -> F3arglst
+
+@extern
+def trans23_d2gualst(a: !Tr23env, b: D2gualst) -> D3gualst
+
+@extern
+def trans23_d2clslst_tpck1(a: !Tr23env, b: D2clslst, c: D3exp, d: S2typ) -> D3clslst
+
+@extern
+def trans23_d2eclist(a: !Tr23env, b: D2eclist) -> D3eclist
+
+@extern
+def trans23_teqd2exp(a: !Tr23env, b: Teqd2exp) -> Teqd3exp
+
+@extern
+def trans23_d2valdcl(a: !Tr23env, b: D2valdcl) -> D3valdcl
+
+@extern
+def trans23_d2vardcl(a: !Tr23env, b: D2vardcl) -> D3vardcl
+
+@extern
+def trans23_d2fundcl(a: !Tr23env, b: D2fundcl, c: D2varlst) -> D3fundcl
+
+@extern
+def trans23_d2valdclist(a: !Tr23env, b: D2valdclist) -> D3valdclist
+
+@extern
+def trans23_d2vardclist(a: !Tr23env, b: D2vardclist) -> D3vardclist
+
+@extern
+def trans23_d2fundclist(a: !Tr23env, b: D2fundclist) -> D3fundclist
+
+@extern
+def trans23_d2explstopt(a: !Tr23env, b: D2explstopt) -> D3explstopt
+
+@extern
+def trans23_d2eclistopt(a: !Tr23env, b: D2eclistopt) -> D3eclistopt
+
+@extern
+def unify23_s2typ(a: !Tr23env, b: S2typ, c: S2typ) -> Bool
+
+@extern
+def unify23_s2typlst(a: !Tr23env, b: S2typlst, c: S2typ) -> Bool
+
+@overload unify23 = unify23_s2typ
+
+@overload unify23 = unify23_s2typlst
+
+@extern
+def trans23_d2pat_tpck(a: !Tr23env, b: D2pat, c: S2typ) -> D3pat
+
+@extern
+def trans23_d2exp_tpck(a: !Tr23env, b: D2exp, c: S2typ) -> D3exp
+
+@extern
+def trans23_d3pat_tpck(a: !Tr23env, b: D3pat, c: S2typ) -> D3pat
+
+@extern
+def trans23_d3exp_tpck(a: !Tr23env, b: D3exp, c: S2typ) -> D3exp
+
+@extern
+def trans23_d2patlst_tpck1(a: !Tr23env, b: D2patlst, c: S2typ) -> D3patlst
+
+@extern
+def trans23_d3patlst_tpck1(a: !Tr23env, b: D3patlst, c: S2typ) -> D3patlst
+
+@extern
+def trans23_d3patlst_tpcks(a: !Tr23env, b: Loc_t, c: D3patlst, d: S2typlst) -> D3patlst
+
+@extern
+def trans23_d2explst_tpck1(a: !Tr23env, b: D2explst, c: S2typ) -> D3explst
+
+@extern
+def trans23_d3explst_tpck1(a: !Tr23env, b: D3explst, c: S2typ) -> D3explst
+
+@extern
+def trans23_d3explst_tpcks(a: !Tr23env, b: Loc_t, c: D3explst, d: S2typlst) -> D3explst
+
+@extern
+def trans03_from_fpath(a: SInt, b: String) -> D3parsed
+

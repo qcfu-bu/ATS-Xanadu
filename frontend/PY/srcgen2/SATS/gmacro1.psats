@@ -1,0 +1,158 @@
+import "srcgen2/SATS/xsymbol" as SYM
+
+import "srcgen2/SATS/xlabel0" as LAB
+
+import "srcgen2/SATS/locinfo" as LOC
+
+import "srcgen2/SATS/lexing0" as LEX
+
+import "srcgen2/SATS/staexp1" as S1E
+
+import "srcgen2/SATS/dynexp1" as D1E
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+type Lab_t = LAB.lab_t
+
+type Label = LAB.label
+
+type Loc_t = LOC.loc_t
+
+type Loctn = LOC.loctn
+
+type Sym_t = SYM.sym_t
+
+type Symbl = SYM.symbl
+
+type Token = LEX.token
+
+type G1exp = S1E.g1exp
+
+type G1arg = S1E.g1arg
+
+type G1mag = S1E.g1mag
+
+type S1exp = S1E.s1exp
+
+type D1pat = D1E.d1pat
+
+type D1exp = D1E.d1exp
+
+type S1explst = S1E.s1explst
+
+type D1patlst = D1E.d1patlst
+
+type D1explst = D1E.d1explst
+
+@abstract
+type G1env_tbox
+
+type G1id0 = Sym_t
+
+type G1ids = List[G1id0]
+
+type G1env = G1env_tbox
+
+type G1expopt = Optn[G1exp]
+
+type G1maglst = List[G1mag]
+
+type G1maclst = List[G1mac]
+
+enum G1mac:
+    case G1Mint(SInt)
+    case G1Mbtf(Bool)
+    case G1Mchr(Char)
+    case G1Mflt(Float)
+    case G1Mstr(String)
+    case G1Mid0(G1id0)
+    case G1Msexp(S1exp)
+    case G1Mdpat(D1pat)
+    case G1Mdexp(D1exp)
+    case G1Mift0(G1mac, G1mac, G1mac)
+    case G1Mlam0(G1ids, G1mac)
+    case G1Mapps(G1mac, G1maclst)
+    case G1Mlist(G1maclst)
+    case G1Msubs(G1mac, G1env)
+    case G1Mnone0()
+    case G1Mnone1(G1exp)
+
+@extern
+def g1mac_fprint(a: G1mac, b: FILR) -> Void
+
+@extern
+def g1env_fprint(a: G1env, b: FILR) -> Void
+
+import "srcgen2/SATS/xsymmap" as MAP
+
+type Gmacmap = MAP.topmap[G1mac]
+
+@abstract
+type Tr11env_vtbx
+
+type Tr11env = Tr11env_vtbx
+
+@extern
+def tr11env_make_nil() -> Tr11env
+
+@extern
+def tr11env_free_top(a: Tr11env) -> Gmacmap
+
+type G1macopt_vt = Optn_vt[G1mac]
+
+@extern
+def tr11env_poplam0(a: !Tr11env) -> Void
+
+@extern
+def tr11env_pshlam0(a: !Tr11env) -> Void
+
+@extern
+def tr11env_poplet0(a: !Tr11env) -> Void
+
+@extern
+def tr11env_pshlet0(a: !Tr11env) -> Void
+
+@extern
+def tr11env_pshloc1(a: !Tr11env) -> Void
+
+@extern
+def tr11env_pshloc2(a: !Tr11env) -> Void
+
+@extern
+def tr11env_locjoin(a: !Tr11env) -> Void
+
+@extern
+def tr11env_search/opt(a: !Tr11env, b: Sym_t) -> G1macopt_vt
+
+@extern
+def tr11env_insert/any(a: !Tr11env, b: Sym_t, c: G1mac) -> Void
+
+@extern
+def trans11_gmdef(a: G1maglst, b: G1expopt) -> G1mac
+
+@extern
+def trg1mac_s1exp(a: S1exp) -> G1mac
+
+@extern
+def trg1mac_d1pat(a: D1pat) -> G1mac
+
+@extern
+def trg1mac_d1exp(a: D1exp) -> G1mac
+
+@extern
+def trg1mac_s1explst(a: S1explst) -> G1maclst
+
+@extern
+def trg1mac_d1patlst(a: D1patlst) -> G1maclst
+
+@extern
+def trg1mac_d1explst(a: D1explst) -> G1maclst
+
+@extern
+def trans11_g1mac(a: !Tr11env, b: G1mac) -> G1mac
+
+@extern
+def trans11_g1mac_apps(a: !Tr11env, b: G1mac, c: G1maclst) -> G1mac
+

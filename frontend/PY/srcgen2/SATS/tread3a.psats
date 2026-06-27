@@ -1,0 +1,194 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+import "srcgen2/SATS/lexing0" as LEX
+
+import "srcgen2/SATS/staexp2" as S2E
+
+import "srcgen2/SATS/statyp2" as T2P
+
+import "srcgen2/SATS/dynexp2" as D2E
+
+import "srcgen2/SATS/dynexp3" as D3E
+
+type Token = LEX.token
+
+type S2typ = S2E.s2typ
+
+type L2t2p = S2E.l2t2p
+
+type T2jag = D2E.t2jag
+
+type D3pat = D3E.d3pat
+
+type D3exp = D3E.d3exp
+
+type L3d3p = D3E.l3d3p
+
+type L3d3e = D3E.l3d3e
+
+type F3arg = D3E.f3arg
+
+type D3gua = D3E.d3gua
+
+type D3gpt = D3E.d3gpt
+
+type D3cls = D3E.d3cls
+
+type D3ecl = D3E.d3ecl
+
+type S2typlst = S2E.s2typlst
+
+type L2t2plst = S2E.l2t2plst
+
+type T2jaglst = D2E.t2jaglst
+
+type D3patlst = D3E.d3patlst
+
+type D3explst = D3E.d3explst
+
+type D3expopt = D3E.d3expopt
+
+type L3d3plst = D3E.l3d3plst
+
+type L3d3elst = D3E.l3d3elst
+
+type F3arglst = D3E.f3arglst
+
+type D3gualst = D3E.d3gualst
+
+type D3clslst = D3E.d3clslst
+
+type D3eclist = D3E.d3eclist
+
+type Teqd3exp = D3E.teqd3exp
+
+type D3valdcl = D3E.d3valdcl
+
+type D3vardcl = D3E.d3vardcl
+
+type D3fundcl = D3E.d3fundcl
+
+type D3parsed = D3E.d3parsed
+
+type D3valdclist = D3E.d3valdclist
+
+type D3vardclist = D3E.d3vardclist
+
+type D3fundclist = D3E.d3fundclist
+
+type D3explstopt = D3E.d3explstopt
+
+type D3eclistopt = D3E.d3eclistopt
+
+@extern
+def d3parsed_of_tread3a(a: D3parsed) -> D3parsed
+
+type Ftread3a[Syn: Tbox] = (Syn, &SInt >> _) -> Syn
+
+@extern
+def list_tread3a_fnp[Syn: Tx](a: List[Syn], b: &SInt >> _, c: Ftread3a[Syn]) -> List[Syn]
+
+@extern
+def optn_tread3a_fnp[Syn: Tx](a: Optn[Syn], b: &SInt >> _, c: Ftread3a[Syn]) -> Optn[Syn]
+
+@extern
+def tread3a_s2typ() -> Ftread3a[S2typ]
+
+@extern
+def tread3a_l2t2p() -> Ftread3a[L2t2p]
+
+@extern
+def tread3a_t2jag() -> Ftread3a[T2jag]
+
+@extern
+def tread3a_d3pat() -> Ftread3a[D3pat]
+
+@extern
+def tread3a_d3exp() -> Ftread3a[D3exp]
+
+@extern
+def tread3a_l3d3p() -> Ftread3a[L3d3p]
+
+@extern
+def tread3a_l3d3e() -> Ftread3a[L3d3e]
+
+@extern
+def tread3a_f3arg() -> Ftread3a[F3arg]
+
+@extern
+def tread3a_d3gua() -> Ftread3a[D3gua]
+
+@extern
+def tread3a_d3gpt() -> Ftread3a[D3gpt]
+
+@extern
+def tread3a_d3cls() -> Ftread3a[D3cls]
+
+@extern
+def tread3a_d3ecl() -> Ftread3a[D3ecl]
+
+@extern
+def tread3a_s2typlst() -> Ftread3a[S2typlst]
+
+@extern
+def tread3a_l2t2plst() -> Ftread3a[L2t2plst]
+
+@extern
+def tread3a_t2jaglst() -> Ftread3a[T2jaglst]
+
+@extern
+def tread3a_d3patlst() -> Ftread3a[D3patlst]
+
+@extern
+def tread3a_d3explst() -> Ftread3a[D3explst]
+
+@extern
+def tread3a_d3expopt() -> Ftread3a[D3expopt]
+
+@extern
+def tread3a_l3d3plst() -> Ftread3a[L3d3plst]
+
+@extern
+def tread3a_l3d3elst() -> Ftread3a[L3d3elst]
+
+@extern
+def tread3a_f3arglst() -> Ftread3a[F3arglst]
+
+@extern
+def tread3a_d3gualst() -> Ftread3a[D3gualst]
+
+@extern
+def tread3a_d3clslst() -> Ftread3a[D3clslst]
+
+@extern
+def tread3a_d3eclist() -> Ftread3a[D3eclist]
+
+@extern
+def tread3a_teqd3exp() -> Ftread3a[Teqd3exp]
+
+@extern
+def tread3a_d3valdcl() -> Ftread3a[D3valdcl]
+
+@extern
+def tread3a_d3vardcl() -> Ftread3a[D3vardcl]
+
+@extern
+def tread3a_d3fundcl() -> Ftread3a[D3fundcl]
+
+@extern
+def tread3a_d3valdclist() -> Ftread3a[D3valdclist]
+
+@extern
+def tread3a_d3vardclist() -> Ftread3a[D3vardclist]
+
+@extern
+def tread3a_d3fundclist() -> Ftread3a[D3fundclist]
+
+@extern
+def tread3a_d3explstopt() -> Ftread3a[D3explstopt]
+
+@extern
+def tread3a_d3eclistopt() -> Ftread3a[D3eclistopt]
+

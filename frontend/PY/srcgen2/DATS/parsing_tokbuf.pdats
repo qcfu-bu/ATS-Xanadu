@@ -1,0 +1,73 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/parsing" import *
+
+private:
+    @linear
+    enum Tkbf0_:
+        case TKBF0(a1ptr[token, n], SInt[n], SInt[i])
+    @impl
+    type Tmark_type = SInt
+    @impl
+    type Tkbf0_vtbx = Tkbf0_
+
+@impl
+def tokbuf_free(buf):
+    match buf:
+        case ~TKBF0(xatsv_A0, n0, i0):
+            @inst[token] a1ptr_free(xatsv_A0, n0)
+
+@impl
+def tokbuf_getk0(buf):
+    let @(TKBF0)(xatsv_A0, n0, i0) = buf
+    let tok = if i0 < n0:
+        a1ptr_get/at1(xatsv_A0, i0)
+    else: a1ptr_get/at1(xatsv_A0, n0 - 1)
+    fold(buf)
+    tok
+
+@impl
+def tokbuf_getk1(buf):
+    let tok = if (i0 < n0):
+        a1ptr_get/at1(xatsv_A0, i0)
+    else: a1ptr_get/at1(xatsv_A0, n0 - 1)
+    buf.2 := i0 + 1
+    fold(buf)
+    tok
+where:
+    let @(TKBF0)(xatsv_A0, n0, i0) = buf
+
+@impl
+def tokbuf_skip1(buf):
+    buf.2 := i0 + 1
+    fold(buf)
+where:
+    let @(TKBF0)(xatsv_A0, n0, i0) = buf
+
+@impl
+def tokbuf_mark_get(buf):
+    let TKBF0(xatsv_A0, n0, i0) = buf
+    i0
+
+@impl
+def tokbuf_mark_set(buf, mrk):
+    let @(TKBF0)(_) = buf
+    buf.2 := mrk
+
+@impl
+def tokbuf_mark_clr(buf, mrk):
+    ()
+
+@impl
+def tokbuf_make_llist(tks):
+    TKBF0(xatsv_A0, n0, i0)
+where:
+    let i0 = 0
+    let n0 = list_vt_length1(tks)
+    let xatsv_A0 = a1ptr_make_llist(tks)
+
+

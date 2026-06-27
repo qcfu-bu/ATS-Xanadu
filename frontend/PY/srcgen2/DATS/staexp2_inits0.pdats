@@ -1,0 +1,359 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/xglobal" import *
+
+@overload atdf = s2cst_get_atdf
+
+@overload d2cs = s2cst_get_d2cs
+
+@extern
+def the_s2cst_p1tr0/reset() -> Void
+
+@extern
+def the_s2cst_p2tr0/reset() -> Void
+
+@extern
+def the_s2cst_p2at0/reset() -> Void
+
+@extern
+def the_s2cst_l0azy0/reset() -> Void
+
+@extern
+def the_s2cst_l1azy0/reset() -> Void
+
+@extern
+def the_s2cst_elazy0/reset() -> Void
+
+@extern
+def the_s2cst_excptn/reset() -> Void
+
+private:
+    let s2tb_int0 = T2Bpred(SYM.INT0_symbl)
+    let s2tb_bool = T2Bpred(SYM.BOOL_symbl)
+    let s2tb_addr = T2Bpred(SYM.ADDR_symbl)
+    let s2tb_char = T2Bpred(SYM.CHAR_symbl)
+    let s2tb_strn = T2Bpred(SYM.STRN_symbl)
+    let s2tb_prop = T2Bimpr(PROPSORT, SYM.PROP_symbl)
+    let s2tb_view = T2Bimpr(VIEWSORT, SYM.VIEW_symbl)
+    let s2tb_type = T2Bimpr(TYPESORT, SYM.TYPE_symbl)
+    let s2tb_tbox = T2Bimpr(TBOXSORT, SYM.TBOX_symbl)
+    let s2tb_tflt = T2Bimpr(TFLTSORT, SYM.TFLT_symbl)
+    let s2tb_vwtp = T2Bimpr(VWTPSORT, SYM.VWTP_symbl)
+    let s2tb_vtbx = T2Bimpr(VTBXSORT, SYM.VTBX_symbl)
+    let s2tb_vtft = T2Bimpr(VTFTSORT, SYM.VTFT_symbl)
+
+@impl
+def the_sort2_int0:
+    S2Tbas(s2tb_int0)
+
+@impl
+def the_sort2_addr:
+    S2Tbas(s2tb_addr)
+
+@impl
+def the_sort2_bool:
+    S2Tbas(s2tb_bool)
+
+@impl
+def the_sort2_char:
+    S2Tbas(s2tb_char)
+
+@impl
+def the_sort2_strn:
+    S2Tbas(s2tb_strn)
+
+@impl
+def the_sort2_prop:
+    S2Tbas(s2tb_prop)
+
+@impl
+def the_sort2_view:
+    S2Tbas(s2tb_view)
+
+@impl
+def the_sort2_type:
+    S2Tbas(s2tb_type)
+
+@impl
+def the_sort2_tbox:
+    S2Tbas(s2tb_tbox)
+
+@impl
+def the_sort2_tflt:
+    S2Tbas(s2tb_tflt)
+
+@impl
+def the_sort2_vwtp:
+    S2Tbas(s2tb_vwtp)
+
+@impl
+def the_sort2_vtbx:
+    S2Tbas(s2tb_vtbx)
+
+@impl
+def the_sort2_vtft:
+    S2Tbas(s2tb_vtft)
+
+
+private:
+    let s2cr = @inst[s2cstopt] a0ref_make_1val(optn_nil)
+
+@impl
+def the_s2cst_p1tr0():
+    match s2cr[]:
+        case optn_nil():
+            let loc0 = loctn_dummy()
+            let name = symbl("the_s2exp_p1tr0")
+            let opt1 = the_sexpenv_pvsfind(name)
+            let s2c1 = match opt1:
+                case ~optn_vt_cons(s2i1):
+                    match s2i1:
+                        case S2ITMcst(s2cs):
+                            let list_cons(s2c1, _) = s2cs
+                            s2c1
+            s2cr[] := optn_cons(s2c1)
+            s2c1
+        case optn_cons(s2c1):
+            s2c1
+
+@impl
+def the_s2cst_p1tr0/reset():
+    s2cr[] := optn_nil()
+
+
+private:
+    let s2cr = @inst[s2cstopt] a0ref_make_1val(optn_nil)
+
+@impl
+def the_s2cst_p2tr0():
+    match s2cr[]:
+        case optn_nil():
+            let loc0 = loctn_dummy()
+            let name = symbl("the_s2exp_p2tr0")
+            let opt1 = the_sexpenv_pvsfind(name)
+            let s2c1 = match opt1:
+                case ~optn_vt_cons(s2i1):
+                    match s2i1:
+                        case S2ITMcst(s2cs):
+                            let list_cons(s2c1, _) = s2cs
+                            s2c1
+            s2cr[] := optn_cons(s2c1)
+            s2c1
+        case optn_cons(s2c1):
+            s2c1
+
+@impl
+def the_s2cst_p2tr0/reset():
+    s2cr[] := optn_nil()
+
+
+private:
+    let s2cr = @inst[s2cstopt] a0ref_make_1val(optn_nil)
+
+@impl
+def the_s2cst_p2at0():
+    match s2cr[]:
+        case optn_nil():
+            let loc0 = loctn_dummy()
+            let name = symbl("the_s2exp_p2at0")
+            let opt1 = the_sexpenv_pvsfind(name)
+            let s2c1 = match opt1:
+                case ~optn_vt_cons(s2i1):
+                    match s2i1:
+                        case S2ITMcst(s2cs):
+                            let list_cons(s2c1, _) = s2cs
+                            s2c1
+            s2cr[] := optn_cons(s2c1)
+            s2c1
+        case optn_cons(s2c1):
+            s2c1
+
+@impl
+def the_s2cst_p2at0/reset():
+    s2cr[] := optn_nil()
+
+
+private:
+    let s2cr = @inst[s2cstopt] a0ref_make_1val(optn_nil)
+
+@impl
+def the_s2cst_l0azy0():
+    match s2cr[]:
+        case optn_nil():
+            let loc0 = loctn_dummy()
+            let name = symbl("the_s2exp_lazy0")
+            let opt1 = the_sexpenv_pvsfind(name)
+            let s2c1 = match opt1:
+                case ~optn_vt_cons(s2i1):
+                    match s2i1:
+                        case S2ITMcst(s2cs):
+                            let list_cons(s2c1, _) = s2cs
+                            s2c1
+            s2cr[] := optn_cons(s2c1)
+            s2c1
+        case optn_cons(s2c1):
+            s2c1
+
+@impl
+def the_s2cst_l0azy0/reset():
+    s2cr[] := optn_nil()
+
+
+private:
+    let s2cr = @inst[s2cstopt] a0ref_make_1val(optn_nil)
+
+@impl
+def the_s2cst_l1azy0():
+    match s2cr[]:
+        case optn_nil():
+            let loc0 = loctn_dummy()
+            let name = symbl("the_s2exp_llazy0")
+            let opt1 = the_sexpenv_pvsfind(name)
+            let s2c1 = match opt1:
+                case ~optn_vt_cons(s2i1):
+                    match s2i1:
+                        case S2ITMcst(s2cs):
+                            let list_cons(s2c1, _) = s2cs
+                            s2c1
+            s2cr[] := optn_cons(s2c1)
+            s2c1
+        case optn_cons(s2c1):
+            s2c1
+
+@impl
+def the_s2cst_l1azy0/reset():
+    s2cr[] := optn_nil()
+
+
+private:
+    let s2cr = @inst[s2cstopt] a0ref_make_1val(optn_nil)
+
+@impl
+def the_s2cst_elazy0():
+    match s2cr[]:
+        case optn_nil():
+            let loc0 = loctn_dummy()
+            let name = symbl("the_s2exp_elazy0")
+            let opt1 = the_sexpenv_pvsfind(name)
+            let s2c1 = match opt1:
+                case ~optn_vt_cons(s2i1):
+                    match s2i1:
+                        case S2ITMcst(s2cs):
+                            let list_cons(s2c1, _) = s2cs
+                            s2c1
+            s2cr[] := optn_cons(s2c1)
+            s2c1
+        case optn_cons(s2c1):
+            s2c1
+
+@impl
+def the_s2cst_elazy0/reset():
+    s2cr[] := optn_nil()
+
+
+private:
+    let s2cr = @inst[s2cstopt] a0ref_make_1val(optn_nil)
+
+@impl
+def the_s2cst_excptn():
+    match s2cr[]:
+        case optn_cons(s2c1):
+            s2c1
+        case optn_nil():
+            let loc0 = loctn_dummy()
+            let name = symbl("the_s2exp_excptn")
+            let s2t1 = the_sort2_vtbx
+            let s2c1 = s2cst_make_idst(loc0, name, s2t1)
+            s2cr[] := optn_cons(s2c1)
+            s2c1
+
+@impl
+def the_s2cst_excptn/reset():
+    s2cr[] := optn_nil()
+
+
+private:
+    @overload stmp = s2cst_get_stmp
+    let mymap = @sapp[s2exp] tmpmap_make_nil()
+
+@impl
+def s2cst_get_sexp(s2c0):
+    tmpmap_search/opt(mymap, s2c0.stmp())
+
+@impl
+def s2cst_set_sexp(s2c0, sexp):
+    tmpmap_insert/any(mymap, s2c0.stmp(), sexp)
+
+
+private:
+    from "srcgen2/SATS/dynexp2" import *
+    @overload stmp = s2cst_get_stmp
+    let mymap = @sapp[a2tdf] tmpmap_make_nil()
+
+@impl
+def s2cst_abstq(s2c0):
+    match s2c0.atdf():
+        case ~optn_vt_nil(_):
+            false
+        case ~optn_vt_cons(_):
+            true
+
+@impl
+def s2cst_get_atdf(s2c0):
+    tmpmap_search/opt(mymap, s2c0.stmp())
+
+@impl
+def s2cst_set_atdf(s2c0, atdf):
+    tmpmap_insert/any(mymap, s2c0.stmp(), atdf)
+
+
+private:
+    from "srcgen2/SATS/dynexp2" import *
+    @overload stmp = s2cst_get_stmp
+    let mymap = @sapp[d2conlst] tmpmap_make_nil()
+
+@impl
+def s2cst_dataq(s2c0):
+    match s2c0.d2cs():
+        case ~optn_vt_nil(_):
+            false
+        case ~optn_vt_cons(_):
+            true
+
+@impl
+def s2cst_get_d2cs(s2c0):
+    tmpmap_search/opt(mymap, s2c0.stmp())
+
+@impl
+def s2cst_set_d2cs(s2c0, d2cs):
+    tmpmap_insert/any(mymap, s2c0.stmp(), d2cs)
+
+
+@impl
+def staexp2_inits0_reset():
+    the_s2cst_p1tr0/reset()
+    the_s2cst_p2tr0/reset()
+    the_s2cst_p2at0/reset()
+    the_s2cst_l0azy0/reset()
+    the_s2cst_l1azy0/reset()
+    the_s2cst_elazy0/reset()
+    the_s2cst_excptn/reset()
+

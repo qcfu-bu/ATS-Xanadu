@@ -1,0 +1,43 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+from "srcgen2/SATS/xlibext" import *
+
+from "srcgen1/prelude/DATS/CATS/PY/basics3.dats" import *
+
+@impl[]
+def fpath_char/strmize(fpx0):
+    let sopt = XATSOPT_fpath_full/read(fpx0)
+    if stropt_nilq(sopt):
+        strm_vt_nil()
+    else:
+        strn_strmize(stropt_unsome(sopt))
+where:
+    @extern
+    def XATSOPT_fpath_full/read(fpx0: fpath) -> stropt = extnam()
+
+@impl
+type Mya1sz_tbox[X0: Type] = pya1sz[X0]
+
+@impl
+type Mydict_tbox[K0: Type, X0: Type] = pyhmap[K0, X0]
+
+@impl[]
+def mya1sz_strmize[X0: Type]:
+    @inst[X0] XATS2PY_pya1sz_strmize
+
+@impl[]
+def mydict_make_nil[K0: Type, X0: Type]:
+    @inst[K0] @sapp[X0] XATS2PY_pyhmap_make_nil
+
+@impl[]
+def mydict_get_keys[K0: Type, X0: Type]:
+    @inst[K0] @sapp[X0] XATS2PY_pyhmap_get_keys
+
+@impl[]
+def mydict_search/opt[K0: Type, X0: Type]:
+    @inst[K0] @sapp[X0] XATS2PY_pyhmap_search/opt
+
+@impl[]
+def mydict_insert/any[K0: Type, X0: Type]:
+    @inst[K0] @sapp[X0] XATS2PY_pyhmap_insert/any
+

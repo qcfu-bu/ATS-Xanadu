@@ -1,0 +1,165 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/filpath" import *
+
+from "srcgen2/SATS/xglobal" import *
+
+@overload name = drpth_get_name
+
+@impl
+def fsrch_absolute(base):
+    optn_cons(fpth)
+where:
+    let fpth = fpath_make_absolute(base)
+
+@impl
+def fsrch_dcurrent(base):
+    let dir0 = the_drpth_get()
+    fsrch_dir1base(dir0, base)
+
+@impl
+def fsrch_includes(base):
+    let dirs = the_xatsopt_include()
+    let fopt = fsrch_dnmsbase(dirs, base)
+    match fopt:
+        case optn_nil():
+            let dir0 = the_XATSHOME()
+            fsrch_dnm1base(dir0, base)
+        case optn_cons(_):
+            fopt
+
+private:
+    def fkndq0(base: String) -> Bool:
+        if strn_nilq(base):
+            false
+        else:
+            base[0] == theDirSep_get()
+    def fkndq1(base: String) -> Bool:
+        let cdir = theCurDir_get()
+        def loop(i0: Int, n0: Int) -> Bool:
+            if (i0 < n0):
+                if char_eq(cdir[i0], base[i0]):
+                    loop(i0 + 1, n0)
+                else:
+                    false
+            else:
+                base[i0] == theDirSep_get()
+        let n0 = strn_length(cdir)
+        let n1 = strn_length(base)
+        if (n0 < n1):
+            loop(0, n0)
+        else:
+            false
+
+@impl
+def fsrch_combined(fnm0):
+    let base = match fnm0:
+        case FNMbase(name):
+            name
+    let fknd = if fkndq0(base):
+        0
+    else: match ():
+        case ():
+            if fkndq1(base):
+                1
+            else:
+                -(1)
+    if (fknd == 0):
+        fsrch_absolute(base)
+    else:
+        if (fknd == 1):
+            fsrch_dcurrent(base)
+        else:
+            fsrch_includes(base)
+
+
+@impl
+def fname_stadyn(name):
+    let n0 = strn_length(name)
+    def f0_ats() -> Bool:
+        if (name[n0 - 3] != 'a'):
+            false
+        else:
+            if (name[n0 - 2] != 't'):
+                false
+            else:
+                name[n0 - 1] == 's'
+    if n0 <= 4:
+        -(1)
+    else:
+        if (name[n0 - 5] != '.'):
+            -(1)
+        else:
+            let c4 = name[n0 - 4]
+            if c4 == 'd':
+                if f0_ats():
+                    1
+                else:
+                    -(1)
+            else:
+                if c4 == 's':
+                    if f0_ats():
+                        0
+                    else:
+                        -(1)
+                else:
+                    -(1)
+
+@impl
+def fname_dbjoin(dir0, base):
+    let sp = theDirSep_get()
+    let n0 = strn_length(dir0)
+    if n0 <= 0:
+        base
+    else:
+        let c1 = dir0[n0 - 1]
+        let n1 = if c1 != sp:
+            n0
+        else: n0 - 1
+        let nb = strn_length(base)
+        strn_tabulate/f1un(n1 + nb + 1, (i0) => if i0 < n1: dir0[i0] else: (if i0 <= n1: sp else: base[i0 - n1 - 1]))
+
+private:
+    def auxmain(dir0, base):
+        let fnm1 = fname_dbjoin(dir0, base)
+        def fname_rexists(name: String) -> Bool:
+            XATSOPT_fpath_rexists(name)
+        where:
+            @extern
+            def XATSOPT_fpath_rexists(name: String) -> Bool = extnam()
+        let isexi = fname_rexists(fnm1)
+        if isexi:
+            optn_cons(fpath(base, fnm1))
+        else:
+            optn_nil
+
+@impl
+def fsrch_dnm1base(dir0, base):
+    auxmain(dir0, base)
+
+@impl
+def fsrch_dir1base(dir0, base):
+    auxmain(dir0, base)
+where:
+    let dir0 = drpth_get_name(dir0)
+
+@impl
+def fsrch_dnmsbase(dirs, base):
+    match dirs:
+        case list_nil():
+            optn_nil()
+        case list_cons(dir1, dirs):
+            let fopt = auxmain(dir1, base)
+            match fopt:
+                case optn_nil():
+                    fsrch_dnmsbase(dirs, base)
+                case optn_cons(_):
+                    fopt
+
+

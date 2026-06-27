@@ -1,0 +1,354 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+include "srcgen2/xats2js/srcgen1/HATS/mytmplib00.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/xats2js/srcgen1/SATS/intrep0" import *
+
+@overload lctn = d2con_get_lctn
+
+@overload lctn = d2cst_get_lctn
+
+@overload lctn = d3pat_get_lctn
+
+@overload lctn = d3exp_get_lctn
+
+@overload lctn = d3ecl_get_lctn
+
+@overload lctn = i0pat_lctn/get
+
+@overload node = i0pat_node/get
+
+@overload lctn = i0exp_lctn/get
+
+@overload node = i0exp_node/get
+
+@overload lctn = fiarg_lctn/get
+
+@overload node = fiarg_node/get
+
+@overload lctn = i0gua_lctn/get
+
+@overload lctn = i0gpt_lctn/get
+
+@overload lctn = i0cls_lctn/get
+
+@overload node = i0gua_node/get
+
+@overload node = i0gpt_node/get
+
+@overload node = i0cls_node/get
+
+@overload lctn = t0imp_stmp/get
+
+@overload node = t0imp_node/get
+
+@overload lctn = i0dcl_lctn/get
+
+@overload node = i0dcl_node/get
+
+@impl
+def i0pat_fprint(i0p0, out0):
+    @impl[]
+    def g_print/out():
+        out0
+    @impl[d2var]
+    def g_print(dvar):
+        d2var_fprint(dvar, out0)
+    match i0p0.node():
+        case I0Pany():
+            prints("I0Pany(", ")")
+        case I0Pvar(d2v):
+            prints("I0Pvar(", d2v, ")")
+        case I0Pint(tok):
+            prints("I0Pint(", tok, ")")
+        case I0Pbtf(sym):
+            prints("I0Pbtf(", sym, ")")
+        case I0Pchr(tok):
+            prints("I0Pchr(", tok, ")")
+        case I0Pstr(tok):
+            prints("I0Pstr(", tok, ")")
+        case I0Pcon(d2c):
+            prints("I0Pcon(", d2c, ")")
+        case I0Pbang(i0p1):
+            prints("I0Pbang(", i0p1, ")")
+        case I0Pflat(i0p1):
+            prints("I0Pflat(", i0p1, ")")
+        case I0Pfree(i0p1):
+            prints("I0Pfree(", i0p1, ")")
+        case I0Pdap1(i0f0):
+            prints("I0Pdap1(", i0f0, ")")
+        case I0Pdapp(i0f0, i0ps):
+            prints("I0Pdapp(", i0f0, ";", i0ps, ")")
+        case I0Prfpt(i0p1, i0p2):
+            prints("I0Prfpt(", i0p1, ";", i0p2, ")")
+        case I0Ptup0(i0ps):
+            prints("I0Ptup0(", i0ps, ")")
+        case I0Ptup1(tknd, i0ps):
+            prints("I0Ptup1(", tknd, ";", i0ps, ")")
+        case I0Prcd2(tknd, lips):
+            prints("I0Prcd2(", tknd, ";", lips, ")")
+        case I0Pnone0():
+            prints("I0Pnone0(", ")")
+        case I0Pnone1(d3p1):
+            let loc0 = d3p1.lctn()
+            prints("I0Pnone1(", loc0, ";", d3p1, ")")
+
+@impl
+def i0exp_fprint(i0e0, out0):
+    @impl[]
+    def g_print/out():
+        out0
+    match i0e0.node():
+        case I0Eint(int):
+            prints("I0Eint(", int, ")")
+        case I0Ebtf(btf):
+            prints("I0Ebtf(", btf, ")")
+        case I0Echr(chr):
+            prints("I0Echr(", chr, ")")
+        case I0Eflt(flt):
+            prints("I0Eflt(", flt, ")")
+        case I0Estr(str):
+            prints("I0Estr(", str, ")")
+        case I0Ei00(i00):
+            prints("I0Ei00(", i00, ")")
+        case I0Eb00(b00):
+            prints("I0Eb00(", b00, ")")
+        case I0Ec00(c00):
+            prints("I0Ec00(", c00, ")")
+        case I0Ef00(f00):
+            prints("I0Ef00(", f00, ")")
+        case I0Es00(s00):
+            prints("I0Es00(", s00, ")")
+        case I0Etop(sym):
+            prints("I0Etop(", sym, ")")
+        case I0Evar(d2v):
+            prints("I0Evar(", d2v, ")")
+        case I0Econ(d2c):
+            let loc = d2c.lctn()
+            prints("I0Econ(", d2c, "(", loc, ")", ")")
+        case I0Ecst(d2c):
+            let loc = d2c.lctn()
+            prints("I0Ecst(", d2c, "(", loc, ")", ")")
+        case I0Etimp(i0e1, timp):
+            prints("I0Etimp(", i0e1, ";", timp, ")")
+        case I0Etapp(i0f0):
+            prints("I0Etapp(", i0f0, ")")
+        case I0Etapq(i0f0, tjas):
+            prints("I0Etapq(", i0f0, ";", tjas, ")")
+        case I0Edap0(i0f0):
+            prints("I0Edap0(", i0f0, ")")
+        case I0Edapp(i0f0, i0es):
+            prints("I0Edapp(", i0f0, ";", i0es, ")")
+        case I0Epcon(lab0, i0e1):
+            prints("I0Epcon(", lab0, ";", i0e1, ")")
+        case I0Epflt(lab0, i0e1):
+            prints("I0Epflt(", lab0, ";", i0e1, ")")
+        case I0Eproj(lab0, i0e1):
+            prints("I0Eproj(", lab0, ";", i0e1, ")")
+        case I0Elet0(dcls, i0e1):
+            prints("I0Elet0(", dcls, ";", i0e1, ")")
+        case I0Eift0(test, ithn, iels):
+            print("I0Eift0(")
+            prints(test, ";", ithn, ";", iels, ")")
+        case I0Ecas0(tknd, i0e1, icls):
+            print("I0Ecas0(")
+            prints(tknd, ";", i0e1, ";", icls, ")")
+        case I0Eseqn(i0es, i0e1):
+            prints("I0Eseqn(", i0es, ";", i0e1, ")")
+        case I0Etup0(i0es):
+            prints("I0Etup0(", i0es, ")")
+        case I0Etup1(tknd, i0es):
+            prints("I0Etup1(", tknd, ";", i0es, ")")
+        case I0Ercd2(tknd, lies):
+            prints("I0Ercd2(", tknd, ";", lies, ")")
+        case I0Elam0(tknd, fias, body):
+            print("I0Elam0(")
+            prints(tknd, ";", fias, ";", body, ")")
+        case I0Efix0(tknd, fid0, fias, body):
+            prints("I0Efix0(", tknd, ";")
+            prints(fid0, ";", fias, ";", body, ")")
+        case I0Etry0(tknd, i0e1, icls):
+            print("I0Etry0(")
+            prints(tknd, ";", i0e1, ";", icls, ")")
+        case I0Eaddr(i0e1):
+            prints("I0Eaddr(", i0e1, ")")
+        case I0Eflat(i0e1):
+            prints("I0Eflat(", i0e1, ")")
+        case I0Eeval(i0e1):
+            prints("I0Eeval(", i0e1, ")")
+        case I0Efold(i0e1):
+            prints("I0Efold(", i0e1, ")")
+        case I0Efree(i0e1):
+            prints("I0Efree(", i0e1, ")")
+        case I0Edp2tr(i0e1):
+            prints("I0Edp2tr(", i0e1, ")")
+        case I0Edl0az(i0e1):
+            prints("I0Edl0az(", i0e1, ")")
+        case I0Edl1az(i0e1):
+            prints("I0Edl1az(", i0e1, ")")
+        case I0Ewhere(i0e1, dcls):
+            prints("I0Ewhere(", i0e1, ";", dcls, ")")
+        case I0Eassgn(i0el, i0er):
+            prints("I0Eassgn(", i0el, ";", i0er, ")")
+        case I0Eraise(tknd, iexn):
+            prints("I0Eraise(", tknd, ";", iexn, ")")
+        case I0El0azy(dknd, i0e1):
+            prints("I0El0azy(", dknd, ";", i0e1, ")")
+        case I0El1azy(dknd, i0e1, i0es):
+            print("I0El1azy(")
+            prints(dknd, ";", i0e1, ";", i0es, ")")
+        case I0Eextnam(tknd, gnam):
+            prints("I0Eextnam(", tknd, ";", gnam, ")")
+        case I0Esynext(tknd, gexp):
+            prints("I0Esynext(", tknd, ";", gexp, ")")
+        case I0Enone0():
+            let loc0 = i0e0.lctn()
+            prints("I0Enone0(", loc0, ")")
+        case I0Enone1(d3e1):
+            let loc0 = i0e0.lctn()
+            prints("I0Enone1(", loc0, ";", d3e1, ")")
+
+@impl
+def fiarg_fprint(farg, out0):
+    @impl[]
+    def g_print/out():
+        out0
+    match farg.node():
+        case FIARGdarg(i0ps):
+            prints("FIARGdarg(", i0ps, ")")
+
+@impl
+def i0gua_fprint(igua, out0):
+    @impl[]
+    def g_print/out():
+        out0
+    match igua.node():
+        case I0GUAexp(i0e1):
+            prints("I0GUAexp(", i0e1, ")")
+        case I0GUAmat(i0e1, i0p2):
+            prints("I0GUAmat(", i0e1, ";", i0p2, ")")
+
+@impl
+def i0gpt_fprint(igpt, out0):
+    @impl[]
+    def g_print/out():
+        out0
+    match igpt.node():
+        case I0GPTpat(i0p1):
+            prints("I0GPTpat(", i0p1, ")")
+        case I0GPTgua(i0p1, i0gs):
+            prints("I0GPTgua(", i0p1, ";", i0gs, ")")
+
+@impl
+def i0cls_fprint(icls, out0):
+    @impl[]
+    def g_print/out():
+        out0
+    match icls.node():
+        case I0CLSgpt(igpt):
+            prints("I0CLSgpt(", igpt, ")")
+        case I0CLScls(i0g1, i0e2):
+            prints("I0CLScls(", i0g1, ";", i0e2, ")")
+
+@impl
+def t0imp_fprint(timp, out0):
+    @impl
+    def g_print/out():
+        out0
+    match timp.node():
+        case T0IMPall1(d2c1, t2js, i0ds):
+            prints("T0IMPall1(", d2c1, ";", t2js, ";", i0ds, ")")
+        case T0IMPallx(d2c1, t2js, i0ds):
+            prints("T0IMPallx(", d2c1, ";", t2js, ";", i0ds, ")")
+
+@impl
+def i0dcl_fprint(dcl0, out0):
+    @impl[]
+    def g_print/out():
+        out0
+    match dcl0.node():
+        case I0Dd3ecl(d3cl):
+            prints("I0Dd3ecl(", d3cl, ")")
+        case I0Dstatic(tknd, dcl1):
+            prints("I0Dstatic(", tknd, ";", dcl1, ")")
+        case I0Dextern(tknd, dcl1):
+            prints("I0Dextern(", tknd, ";", dcl1, ")")
+        case I0Dtmpsub(svts, idcl):
+            prints("I0Dtmpsub(", svts, ";", idcl, ")")
+        case I0Ddclst0(dcls):
+            prints("I0Ddclst0(", dcls, ")")
+        case I0Dlocal0(head, body):
+            prints("I0Dlocal0(", head, ";", body, ")")
+        case I0Dinclude(knd0, tknd, gsrc, fopt, dopt):
+            print("I0Dinclude(")
+            prints(knd0, ";", tknd, ";", gsrc, ";", fopt, ";", "...", ")")
+        case I0Ddyninit(tknd, gexp):
+            prints("I0Ddyninit(", tknd, ";", gexp, ")")
+        case I0Dextcode(tknd, gexp):
+            prints("I0Dextcode(", tknd, ";", gexp, ")")
+        case I0Dvaldclst(tknd, i0vs):
+            prints("I0Dvaldclst(", tknd, ";", i0vs, ")")
+        case I0Dvardclst(tknd, i0vs):
+            prints("I0Dvardclst(", tknd, ";", i0vs, ")")
+        case I0Dfundclst(tknd, tqas, d2cs, i0fs):
+            prints("I0Dfundclst(", tknd, ";")
+            prints(tqas, ";", d2cs, ";", i0fs, ")")
+        case I0Dimplmnt0(tknd, stmp, dimp, farg, body):
+            print("I0Dimplmnt0(")
+            prints(tknd, ";", stmp, ";")
+            prints(dimp, ";", farg, ";", body, ")")
+        case I0Dnone0():
+            let loc0 = dcl0.lctn()
+            prints("I0Dnone0(", loc0, ")")
+        case I0Dnone1(d3cl):
+            let loc0 = dcl0.lctn()
+            prints("I0Dnone1(", loc0, ";", d3cl, ")")
+
+@impl
+def i0valdcl_fprint(ival, out0):
+    let ipat = i0valdcl_ipat/get(ival)
+    let tdxp = i0valdcl_tdxp/get(ival)
+    @impl[]
+    def g_print/out():
+        out0
+    prints("I0VALDCL(", ipat, ";", tdxp, ")")
+
+@impl
+def i0vardcl_fprint(ivar, out0):
+    let dpid = i0vardcl_dpid/get(ivar)
+    let dini = i0vardcl_dini/get(ivar)
+    @impl[]
+    def g_print/out():
+        out0
+    prints("I0VARDCL(", dpid, ";", dini, ")")
+
+@impl
+def i0fundcl_fprint(ifun, out0):
+    let dpid = i0fundcl_dpid/get(ifun)
+    let farg = i0fundcl_farg/get(ifun)
+    let tdxp = i0fundcl_tdxp/get(ifun)
+    @impl[]
+    def g_print/out():
+        out0
+    prints("I0FUNDCL(", dpid, ";", farg, ";", tdxp, ")")
+
+@impl
+def i0parsed_fprint(ipar, out0):
+    let stadyn = i0parsed_stadyn/get(ipar)
+    let nerror = i0parsed_nerror/get(ipar)
+    let source = i0parsed_source/get(ipar)
+    let parsed = i0parsed_parsed/get(ipar)
+    @impl[]
+    def g_print/out():
+        out0
+    print("I0PARSED(")
+    prints(stadyn, ";", nerror, ";", source, ";", parsed, ")")
+

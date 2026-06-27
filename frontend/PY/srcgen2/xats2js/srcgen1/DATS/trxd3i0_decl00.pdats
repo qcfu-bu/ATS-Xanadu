@@ -1,0 +1,185 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+include "srcgen2/xats2js/srcgen1/HATS/libxatsopt.hats"
+
+include "srcgen2/xats2js/srcgen1/HATS/mytmplib00.hats"
+
+from "srcgen2/xats2js/srcgen1/SATS/intrep0" import *
+
+from "srcgen2/xats2js/srcgen1/SATS/trxd3i0" import *
+
+import "srcgen2/xats2js/srcgen1/DATS/trxd3i0.dats" as _
+
+@overload stmp = timpl_get_stmp
+
+@overload node = timpl_get_node
+
+@overload lctn = d3ecl_get_lctn
+
+@overload node = d3ecl_get_node
+
+@impl
+def trxd3i0_timpl(env0, timp):
+    match timp.node():
+        case TIMPLall1(d2c1, t2js, dcls):
+            let dcls = match dcls:
+                case list_nil():
+                    optn_nil()
+                case list_cons(dcl1, _):
+                    optn_cons(trxd3i0_d3ecl(env0, dcl1))
+            t0imp_make_node(stmp, T0IMPall1(d2c1, t2js, dcls))
+        case TIMPLallx(d2c1, t2js, dcls):
+            let dcls = match dcls:
+                case list_nil():
+                    optn_nil()
+                case list_cons(dcl1, _):
+                    optn_cons(trxd3i0_d3ecl(env0, dcl1))
+            t0imp_make_node(stmp, T0IMPallx(d2c1, t2js, dcls))
+where:
+    let stmp = timp.stmp()
+
+@impl
+def trxd3i0_d3ecl(env0, d3cl):
+    match d3cl.node():
+        case D3Cd2ecl(_):
+            let loc0 = d3cl.lctn()
+            i0dcl_make_node(loc0, I0Dd3ecl(d3cl))
+        case D3Cstatic(_):
+            f0_static(env0, d3cl)
+        case D3Cextern(_):
+            f0_extern(env0, d3cl)
+        case D3Cdclst0(_):
+            f0_dclst0(env0, d3cl)
+        case D3Clocal0(_):
+            f0_local0(env0, d3cl)
+        case D3Ctmpsub(_):
+            f0_tmpsub(env0, d3cl)
+        case D3Cinclude(_):
+            f0_include(env0, d3cl)
+        case D3Cstaload(_):
+            f0_staload(env0, d3cl)
+        case D3Cdyninit(_):
+            f0_dyninit(env0, d3cl)
+        case D3Cextcode(_):
+            f0_extcode(env0, d3cl)
+        case D3Cvaldclst(_):
+            f0_valdclst(env0, d3cl)
+        case D3Cvardclst(_):
+            f0_vardclst(env0, d3cl)
+        case D3Cfundclst(_):
+            f0_fundclst(env0, d3cl)
+        case D3Cimplmnt0(_):
+            f0_implmnt0(env0, d3cl)
+        case _:
+            i0dcl_none1(d3cl)
+where:
+    def f0_static(env0: !envd3i0, d3cl: d3ecl) -> i0dcl:
+        let loc0 = d3cl.lctn()
+        let D3Cstatic(tknd, dcl1) = d3cl.node()
+        let dcl1 = trxd3i0_d3ecl(env0, dcl1)
+        i0dcl(loc0, I0Dstatic(tknd, dcl1))
+    def f0_extern(env0: !envd3i0, d3cl: d3ecl) -> i0dcl:
+        let loc0 = d3cl.lctn()
+        let D3Cextern(tknd, dcl1) = d3cl.node()
+        let dcl1 = trxd3i0_d3ecl(env0, dcl1)
+        i0dcl(loc0, I0Dextern(tknd, dcl1))
+    def f0_dclst0(env0: !envd3i0, d3cl: d3ecl) -> i0dcl:
+        let loc0 = d3cl.lctn()
+        let D3Cdclst0(dcls) = d3cl.node()
+        let dcls = trxd3i0_d3eclist(env0, dcls)
+        i0dcl(loc0, I0Ddclst0(dcls))
+    def f0_local0(env0: !envd3i0, d3cl: d3ecl) -> i0dcl:
+        let loc0 = d3cl.lctn()
+        let D3Clocal0(head, body) = d3cl.node()
+        let head = trxd3i0_d3eclist(env0, head)
+        let body = trxd3i0_d3eclist(env0, body)
+        i0dcl(loc0, I0Dlocal0(head, body))
+    def f0_tmpsub(env0: !envd3i0, d3cl: d3ecl) -> i0dcl:
+        let loc0 = d3cl.lctn()
+        let D3Ctmpsub(svts, dcl1) = d3cl.node()
+        let i0d1 = trxd3i0_d3ecl(env0, dcl1)
+        i0dcl(loc0, I0Dtmpsub(svts, i0d1))
+    def f0_include(env0: !envd3i0, d3cl: d3ecl) -> i0dcl:
+        let loc0 = d3cl.lctn()
+        let D3Cinclude(knd0, tknd, gsrc, fopt, dopt) = d3cl.node()
+        let dopt = match dopt:
+            case optn_nil():
+                optn_nil
+            case optn_cons(dcls):
+                optn_cons(trxd3i0_d3eclist(env0, dcls))
+        i0dcl_make_node(loc0, I0Dinclude(knd0, tknd, gsrc, fopt, dopt))
+    def f0_staload(env0: !envd3i0, d3cl: d3ecl) -> i0dcl:
+        i0dcl_make_node(loc0, I0Dd3ecl(d3cl))
+    where:
+        let loc0 = d3cl.lctn()
+        let D3Cstaload(knd0, tknd, gsrc, fopt, sopt) = d3cl.node()
+    def f0_dyninit(env0: !envd3i0, d3cl: d3ecl) -> i0dcl:
+        i0dcl_make_node(loc0, I0Ddyninit(tknd, gexp))
+    where:
+        let loc0 = d3cl.lctn()
+        let D3Cdyninit(tknd, gexp) = d3cl.node()
+    def f0_extcode(env0: !envd3i0, d3cl: d3ecl) -> i0dcl:
+        i0dcl_make_node(loc0, I0Dextcode(tknd, gexp))
+    where:
+        let loc0 = d3cl.lctn()
+        let D3Cextcode(tknd, gexp) = d3cl.node()
+    def f0_valdclst(env0: !envd3i0, d3cl: d3ecl) -> i0dcl:
+        let loc0 = d3cl.lctn()
+        let D3Cvaldclst(tknd, d3vs) = d3cl.node()
+        let i0vs = trxd3i0_d3valdclist(env0, d3vs)
+        i0dcl(loc0, I0Dvaldclst(tknd, i0vs))
+    def f0_vardclst(env0: !envd3i0, d3cl: d3ecl) -> i0dcl:
+        let loc0 = d3cl.lctn()
+        let D3Cvardclst(tknd, d3vs) = d3cl.node()
+        let i0vs = trxd3i0_d3vardclist(env0, d3vs)
+        i0dcl(loc0, I0Dvardclst(tknd, i0vs))
+    def f0_fundclst(env0: !envd3i0, d3cl: d3ecl) -> i0dcl:
+        let loc0 = d3cl.lctn()
+        let D3Cfundclst(tknd, tqas, d2cs, d3fs) = d3cl.node()
+        let i0fs = trxd3i0_d3fundclist(env0, d3fs)
+        i0dcl_make_node(loc0, I0Dfundclst(tknd, tqas, d2cs, i0fs))
+    def f0_implmnt0(env0: !envd3i0, d3cl: d3ecl) -> i0dcl:
+        let loc0 = d3cl.lctn()
+        let D3Cimplmnt0(tknd, stmp, sqas, tqas, dimp, tias, f3as, sres, dexp) = d3cl.node()
+        let fias = trxd3i0_f3arglst(env0, f3as)
+        let dexp = trxd3i0_d3exp(env0, dexp)
+        i0dcl_make_node(loc0, I0Dimplmnt0(tknd, stmp, dimp, fias, dexp))
+
+@impl
+def trxd3i0_teqd3exp(env0, tdxp):
+    match tdxp:
+        case TEQD3EXPnone():
+            TEQI0EXPnone()
+        case TEQD3EXPsome(teq1, d3e2):
+            let i0e2 = trxd3i0_d3exp(env0, d3e2)
+            TEQI0EXPsome(teq1, i0e2)
+
+@impl
+def trxd3i0_d3valdcl(env0, dval):
+    let loc0 = d3valdcl_get_lctn(dval)
+    let dpat = d3valdcl_get_dpat(dval)
+    let tdxp = d3valdcl_get_tdxp(dval)
+    let ipat = trxd3i0_d3pat(env0, dpat)
+    let tdxp = trxd3i0_teqd3exp(env0, tdxp)
+    i0valdcl_make_args(loc0, ipat, tdxp)
+
+@impl
+def trxd3i0_d3vardcl(env0, dvar):
+    let loc0 = d3vardcl_get_lctn(dvar)
+    let dpid = d3vardcl_get_dpid(dvar)
+    let dini = d3vardcl_get_dini(dvar)
+    let dini = trxd3i0_teqd3exp(env0, dini)
+    i0vardcl_make_args(loc0, dpid, dini)
+
+@impl
+def trxd3i0_d3fundcl(env0, dfun):
+    let loc0 = d3fundcl_get_lctn(dfun)
+    let dvar = d3fundcl_get_dpid(dfun)
+    let f3as = d3fundcl_get_farg(dfun)
+    let tdxp = d3fundcl_get_tdxp(dfun)
+    let fias = trxd3i0_f3arglst(env0, f3as)
+    let tdxp = trxd3i0_teqd3exp(env0, tdxp)
+    i0fundcl(loc0, dvar, fias, tdxp)
+

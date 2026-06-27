@@ -1,0 +1,178 @@
+import "srcgen2/SATS/locinfo" as LOC
+
+type Loc_t = LOC.loc_t
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+enum Assoc:
+    case ASSOCnon
+    case ASSOClft
+    case ASSOCrgt
+
+@extern
+let app_assoc: Assoc
+
+@extern
+let imp_assoc: Assoc
+
+@extern
+def assoc_fprint(a: Assoc, b: FILR) -> Void
+
+@abstract
+type Prcdv_tflt
+
+type Prcdv = Prcdv_tflt
+
+@extern
+let a0s_prcdv: Prcdv
+
+@extern
+let app_prcdv: Prcdv
+
+@extern
+let imp_prcdv: Prcdv
+
+@extern
+let brckt_prcdv: Prcdv
+
+@extern
+let dtsel_prcdv: Prcdv
+
+@extern
+let forall_prcdv: Prcdv
+
+@extern
+let exists_prcdv: Prcdv
+
+@extern
+let bslash_prcdv: Prcdv
+
+@extern
+let inftmp_prcdv: Prcdv
+
+@extern
+let the_prcdv_neginf: Prcdv
+
+@extern
+let the_prcdv_posinf: Prcdv
+
+@extern
+def prcdv_decode(a: Prcdv) -> SInt
+
+@overload decd = prcdv_decode
+
+@extern
+def prcdv_encode(a: SInt) -> Prcdv
+
+@overload prcdv = prcdv_encode
+
+@extern
+def prcdv_fprint(a: Prcdv, b: FILR) -> Void
+
+@extern
+def add_prcdv_int(a: Prcdv, b: SInt) -> Prcdv
+
+@extern
+def sub_prcdv_int(a: Prcdv, b: SInt) -> Prcdv
+
+@extern
+def cmp_prcdv_prcdv(a: Prcdv, b: Prcdv) -> SInt
+
+enum Fxitm[A]:
+    case FXITMatm(A)
+    case FXITMopr(A, Fixty)
+enum Fixty:
+    case FIXTYnon
+    case FIXTYpre(Prcdv)
+    case FIXTYpst(Prcdv)
+    case FIXTYinf(Prcdv, Assoc)
+    case FIXTYpreinf(Prcdv, Prcdv, Assoc)
+
+@extern
+let a0s_fixty: Fixty
+
+@extern
+let app_fixty: Fixty
+
+@extern
+let imp_fixty: Fixty
+
+@extern
+let brckt_fixty: Fixty
+
+@extern
+let dtsel_fixty: Fixty
+
+@extern
+let forall_fixty: Fixty
+
+@extern
+let exists_fixty: Fixty
+
+@extern
+let bslash_fixty: Fixty
+
+@extern
+let inftmp_fixty: Fixty
+
+@extern
+let postplus_fixty: Fixty
+
+@extern
+let postmnus_fixty: Fixty
+
+type Fxitmlst[A: Type] = List[Fxitm[A]]
+
+@extern
+def fixty_fprint(a: Fixty, b: FILR) -> Void
+
+@extern
+def fxitm_fprint[A: Type](a: Fxitm[A], b: FILR) -> Void
+
+@extern
+def fixty_prcdv(a: Fixty) -> Prcdv
+
+@extern
+def fixty_assoc(a: Fixty) -> Assoc
+
+@extern
+def fxopr_prcdv[A: Type](a: Fxitm[A]) -> Prcdv
+
+@extern
+def fxopr_assoc[A: Type](a: Fxitm[A]) -> Assoc
+
+@extern
+def fxatm_none[A: Type](a: Loc_t) -> A
+
+@extern
+def fxopr_get_lctn[A: Type](a: A) -> Loc_t
+
+@extern
+def fxitm_get_lctn[A: Type](a: Fxitm[A]) -> Loc_t
+
+@extern
+def fxitmlst_resolve[A: Type](a: Loc_t, b: Fxitmlst[A]) -> A
+
+@extern
+def fxitmlst_resolve/appopr[A: Type](a: Fxitm[A]) -> Fxitm[A]
+
+@extern
+def fxitmlst_resolve/oprerr[A: Type](a: Fxitm[A]) -> A
+
+@extern
+def fxitmlst_resolve/apperr[A: Type](a: Fxitm[A]) -> A
+
+@extern
+def fxitmlst_resolve/rederr[A: Type](a: Loc_t, b: Fxitmlst[A]) -> A
+
+@extern
+def fxitm_infix0[A: Type](a: A, b: A, c: A) -> Fxitm[A]
+
+@extern
+def fxitm_prefix[A: Type](a: A, b: A) -> Fxitm[A]
+
+@extern
+def fxitm_pstfix[A: Type](a: A, b: A) -> Fxitm[A]
+

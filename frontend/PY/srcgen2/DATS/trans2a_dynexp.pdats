@@ -1,0 +1,1401 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+import "srcgen2/DATS/trans2a.dats" as _
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/xlabel0" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/trans2a" import *
+
+@overload node = token_get_node
+
+@overload node = s2exp_get_node
+
+@overload node = s2typ_get_node
+
+@overload sort = s2var_get_sort
+
+@overload sort = s2exp_get_sort
+
+@overload sort = s2typ_get_sort
+
+@overload styp = d2var_get_styp
+
+@overload styp = d2var_set_styp
+
+@overload lctn = d2pat_get_lctn
+
+@overload node = d2pat_get_node
+
+@overload styp = d2pat_get_styp
+
+@overload styp = d2pat_set_styp
+
+@overload lctn = d2exp_get_lctn
+
+@overload node = d2exp_get_node
+
+@overload styp = d2exp_get_styp
+
+@overload styp = d2exp_set_styp
+
+@overload lctn = d2gua_get_lctn
+
+@overload node = d2gua_get_node
+
+@overload lctn = d2gpt_get_lctn
+
+@overload node = d2gpt_get_node
+
+@overload lctn = d2cls_get_lctn
+
+@overload node = d2cls_get_node
+
+@overload s2vs = s2qag_get_s2vs
+
+@overload s2vs = t2qag_get_s2vs
+
+def s2typ_new0_x2tp(loc0: loc_t) -> s2typ:
+    s2typ_xtv(x2t2p_make_lctn(loc0))
+
+def s2typ_subst0(t2p0: s2typ, svts: s2vts) -> s2typ:
+    match svts:
+        case list_nil():
+            t2p0
+        case list_cons(_):
+            s2typ_subst0(t2p0, svts)
+
+def s2typ_bang(t2p0: s2typ) -> s2typ:
+    match t2p0.node():
+        case T2Plft(t2p1):
+            t2p1
+        case _:
+            s2typ_lft(t2p0)
+
+def d2pat_exbang(d2p0: d2pat) -> Void:
+    match d2p0.node():
+        case D2Pvar(d2v1):
+            let t2p1 = d2v1.styp()
+            d2v1.styp(s2typ_bang(t2p1))
+        case _:
+            ()
+
+def d2patlst_exbang(d2ps: d2patlst) -> Void:
+    match d2ps:
+        case list_nil():
+            ()
+        case list_cons(d2p1, d2ps):
+            d2pat_exbang(d2p1)
+            d2patlst_exbang(d2ps)
+
+def d2pat_make_tpnd(loc0: loc_t, t2p0: s2typ, node: d2pat_node) -> d2pat:
+    let d2p0 = d2pat(loc0, node)
+    d2p0.styp(t2p0)
+    d2p0
+
+def d2exp_make_tpnd(loc0: loc_t, t2p0: s2typ, node: d2exp_node) -> d2exp:
+    let d2e0 = d2exp(loc0, node)
+    d2e0.styp(t2p0)
+    d2e0
+
+@overload d2pat = d2pat_make_tpnd
+
+@overload d2exp = d2exp_make_tpnd
+
+def d2pat_t2pckify(env0: !tr2aenv, d2p0: d2pat, t2p0: s2typ) -> d2pat:
+    let t2p1 = d2p0.styp()
+    let ubtf = unify2a_s2typ(env0, t2p1, t2p0)
+    if ubtf:
+        d2p0
+    else:
+        let loc0 = d2p0.lctn()
+        d2pat(loc0, t2p0, D2Pt2pck(d2p0, t2p0))
+
+def d2pat_t2pkcify(env0: !tr2aenv, d2p0: d2pat, t2p0: s2typ) -> d2pat:
+    let t2p1 = d2p0.styp()
+    let ubtf = unify2a_s2typ(env0, t2p0, t2p1)
+    if ubtf:
+        d2p0
+    else:
+        let loc0 = d2p0.lctn()
+        d2pat(loc0, t2p0, D2Pt2pkc(d2p0, t2p0))
+
+def d2exp_t2pckify(env0: !tr2aenv, d2e0: d2exp, t2p0: s2typ) -> d2exp:
+    let t2p1 = d2e0.styp()
+    let ubtf = unify2a_s2typ(env0, t2p1, t2p0)
+    if ubtf:
+        d2e0
+    else:
+        let loc0 = d2e0.lctn()
+        d2exp(loc0, t2p0, D2Et2pck(d2e0, t2p0))
+
+@impl
+def trans2a_d2pat(env0, d2p0):
+    match d2p0.node():
+        case D2Pany(_):
+            f0_any(env0, d2p0)
+        case D2Pvar(_):
+            f0_var(env0, d2p0)
+        case D2Pint(_):
+            f0_int(env0, d2p0)
+        case D2Pi00(_):
+            f0_i00(env0, d2p0)
+        case D2Pbtf(_):
+            f0_btf(env0, d2p0)
+        case D2Pb00(_):
+            f0_b00(env0, d2p0)
+        case D2Pchr(_):
+            f0_chr(env0, d2p0)
+        case D2Pc00(_):
+            f0_c00(env0, d2p0)
+        case D2Pstr(_):
+            f0_str(env0, d2p0)
+        case D2Ps00(_):
+            f0_s00(env0, d2p0)
+        case D2Pcon(_):
+            f0_con(env0, d2p0)
+        case D2Pbang(_):
+            f0_bang(env0, d2p0)
+        case D2Pflat(_):
+            f0_flat(env0, d2p0)
+        case D2Pfree(_):
+            f0_free(env0, d2p0)
+        case D2Pcons(_):
+            f0_cons(env0, d2p0)
+        case D2Psapp(_):
+            f0_sapp(env0, d2p0)
+        case D2Pdap0(_):
+            f0_dap0(env0, d2p0)
+        case D2Pdap1(_):
+            f0_dap1(env0, d2p0)
+        case D2Pdapp(_):
+            f0_dapp(env0, d2p0)
+        case D2Prfpt(_):
+            f0_rfpt(env0, d2p0)
+        case D2Ptup0(_):
+            f0_tup0(env0, d2p0)
+        case D2Ptup1(_):
+            f0_tup1(env0, d2p0)
+        case D2Prcd2(_):
+            f0_rcd2(env0, d2p0)
+        case D2Pannot(_):
+            f0_annot(env0, d2p0)
+        case D2Perrck(_):
+            f0_errck(env0, d2p0)
+        case _:
+            d2pat_none2(d2p0)
+where:
+    def f0_int(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        d2pat_make_tpnd(loc0, t2p0, D2Pint(tok))
+    where:
+        let loc0 = d2p0.lctn()
+        let D2Pint(tok) = d2p0.node()
+        let t2p0 = the_s2typ_sint()
+    def f0_i00(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        d2pat_make_tpnd(loc0, t2p0, D2Pi00(int))
+    where:
+        let loc0 = d2p0.lctn()
+        let D2Pi00(int) = d2p0.node()
+        let t2p0 = the_s2typ_sint()
+    def f0_btf(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        d2pat_make_tpnd(loc0, t2p0, D2Pbtf(sym))
+    where:
+        let loc0 = d2p0.lctn()
+        let D2Pbtf(sym) = d2p0.node()
+        let t2p0 = the_s2typ_bool()
+    def f0_b00(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        d2pat_make_tpnd(loc0, t2p0, D2Pb00(btf))
+    where:
+        let loc0 = d2p0.lctn()
+        let D2Pb00(btf) = d2p0.node()
+        let t2p0 = the_s2typ_bool()
+    def f0_chr(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        d2pat_make_tpnd(loc0, t2p0, D2Pchr(tok))
+    where:
+        let loc0 = d2p0.lctn()
+        let D2Pchr(tok) = d2p0.node()
+        let t2p0 = the_s2typ_char()
+    def f0_c00(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        d2pat_make_tpnd(loc0, t2p0, D2Pc00(chr))
+    where:
+        let loc0 = d2p0.lctn()
+        let D2Pc00(chr) = d2p0.node()
+        let t2p0 = the_s2typ_char()
+    def f0_str(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        d2pat_make_tpnd(loc0, t2p0, D2Pstr(tok))
+    where:
+        let loc0 = d2p0.lctn()
+        let D2Pstr(tok) = d2p0.node()
+        let t2p0 = the_s2typ_strn()
+    def f0_s00(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        d2pat_make_tpnd(loc0, t2p0, D2Ps00(str))
+    where:
+        let loc0 = d2p0.lctn()
+        let D2Ps00(str) = d2p0.node()
+        let t2p0 = the_s2typ_strn()
+    def f0_any(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        d2pat_make_tpnd(loc0, t2p0, D2Pany())
+    where:
+        let loc0 = d2p0.lctn()
+        let D2Pany() = d2p0.node()
+        let t2p0 = s2typ_new0_x2tp(loc0)
+    def f0_var(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        d2pat_make_tpnd(loc0, t2p0, D2Pvar(d2v1))
+    where:
+        let loc0 = d2p0.lctn()
+        let D2Pvar(d2v1) = d2p0.node()
+        let t2p0 = d2v1.styp()
+        let t2p0 = match t2p0.node():
+            case T2Pnone0():
+                let xtp1 = x2t2p(d2v1)
+                let t2p0 = s2typ_xtv(xtp1)
+                d2v1.styp(t2p0)
+                t2p0
+            case _:
+                t2p0
+    def f0_con(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        d2pat_make_tpnd(loc0, t2p0, D2Pcon(d2c1))
+    where:
+        let loc0 = d2p0.lctn()
+        let D2Pcon(d2c1) = d2p0.node()
+        let t2p0 = d2con2a_s2typ(loc0, d2c1)
+    def f0_bang(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        let loc0 = d2p0.lctn()
+        let D2Pbang(d2p1) = d2p0.node()
+        let d2p1 = trans2a_d2pat(env0, d2p1)
+        let loc1 = d2p1.lctn()
+        let t2p1 = d2p1.styp()
+        d2pat_exbang(d2p1)
+        let t2p0 = t2p1
+        let t2p1 = s2typ_bang(t2p0)
+        let d2p1 = d2pat(loc1, t2p1, d2p1.node())
+        d2pat(loc0, t2p0, D2Pbang(d2p1))
+    def f0_flat(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        let loc0 = d2p0.lctn()
+        let D2Pflat(d2p1) = d2p0.node()
+        let d2p1 = trans2a_d2pat(env0, d2p1)
+        let t2p1 = d2p1.styp()
+        d2pat(loc0, t2p1, D2Pflat(d2p1))
+    def f0_free(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        let loc0 = d2p0.lctn()
+        let D2Pfree(d2p1) = d2p0.node()
+        let d2p1 = trans2a_d2pat(env0, d2p1)
+        let t2p1 = d2p1.styp()
+        d2pat(loc0, t2p1, D2Pfree(d2p1))
+    def f0_cons(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        let loc0 = d2p0.lctn()
+        let D2Pcons(drpt, d2cs) = d2p0.node()
+        let t2p0 = s2typ_new0_x2tp(loc0)
+        d2pat_make_tpnd(loc0, t2p0, D2Pcons(drpt, d2cs))
+    def f0_sapp(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        let D2Psapp(d2f0, s2as) = d2p0.node()
+        let d2f0 = trans2a_d2pat(env0, d2f0)
+        let tfun = d2f0.styp()
+        let tres = match tfun.node():
+            case T2Puni0(s2vs, t2p1):
+                let svts = f1_svts(s2vs, s2as, list_nil)
+                s2typ_subst0(t2p1, svts)
+            case _:
+                tfun
+        d2pat_make_tpnd(loc0, tres, D2Psapp(d2f0, s2as))
+    where:
+        let loc0 = d2p0.lctn()
+        def f1_svts(s2vs: s2varlst, s2as: s2varlst, svts: s2vts) -> s2vts:
+            match s2vs:
+                case list_nil():
+                    svts
+                case list_cons(s2v1, s2vs):
+                    f1_svts_cons(s2v1, s2vs, s2as, svts)
+
+        def f1_svts_cons(s2v1: s2var, s2vs: s2varlst, s2as: s2varlst, svts: s2vts) -> s2vts:
+            match s2as:
+                case list_nil():
+                    let t2p1 = s2typ_new0_x2tp(loc0)
+                    let svts = list_cons((s2v1, t2p1), svts)
+                    f1_svts(s2vs, s2as, svts)
+                case list_cons(s2a1, s2as):
+                    if (sort2_imprq(s2a1.sort())):
+                        let t2p1 = s2typ_var(s2a1)
+                        let svts = list_cons((s2v1, t2p1), svts)
+                        f1_svts(s2vs, s2as, svts)
+                    else:
+                        f1_svts_cons(s2v1, s2vs, s2as, svts)
+    def f0_dap0(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        let loc0 = d2p0.lctn()
+        let D2Pdap0(d2f0) = d2p0.node()
+        let npf1 = -(1)
+        let d2ps = list_nil()
+        let d2p0 = d2pat_dapp(loc0, d2f0, npf1, d2ps)
+        f0_dapp(env0, d2p0)
+
+    def f0_dap1(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        let loc0 = d2p0.lctn()
+        let D2Pdap1(d2f0) = d2p0.node()
+        let d2f0 = trans2a_d2pat(env0, d2f0)
+        let t2f0 = d2f0.styp()
+        let tres = match t2f0.node():
+            case T2Pfun1(f2cl, npf1, targ, tres):
+                tres
+            case _:
+                s2typ_new0_x2tp(loc0)
+        d2pat(loc0, tres, D2Pdap1(d2f0))
+
+    def f0_dapp(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        let loc0 = d2p0.lctn()
+        let D2Pdapp(d2f0, npf1, d2ps) = d2p0.node()
+        let tres = s2typ_new0_x2tp(loc0)
+        let d2ps = trans2a_d2patlst(env0, d2ps)
+        let f2cl = s2typ_f2cl(F2CLfun())
+        let t2ps = s2typlst_of_d2patlst(d2ps)
+        let tfun = s2typ_make_node(sort2_none0(), T2Pfun1(f2cl, npf1, t2ps, tres))
+        let d2f0 = trans2a_d2pat_tpck(env0, d2f0, tfun)
+        d2pat_make_tpnd(loc0, tres, D2Pdapp(d2f0, npf1, d2ps))
+    def f0_rfpt(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        let loc0 = d2p0.lctn()
+        let D2Prfpt(d2p1, tkas, d2p2) = d2p0.node()
+        let d2p2 = trans2a_d2pat(env0, d2p2)
+        let t2p2 = d2p2.styp()
+        let d2p1 = trans2a_d2pat_tpck(env0, d2p1, t2p2)
+        d2pat_make_tpnd(loc0, t2p2, D2Prfpt(d2p1, tkas, d2p2))
+    def f0_tup0(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        d2pat_make_tpnd(loc0, t2p0, D2Ptup0(npf1, d2ps))
+    where:
+        let loc0 = d2p0.lctn()
+        let D2Ptup0(npf1, d2ps) = d2p0.node()
+        let d2ps = trans2a_d2patlst(env0, d2ps)
+        let t2p0 = match d2ps:
+            case list_nil():
+                the_s2typ_void()
+            case list_cons(_):
+                s2typ_tup0(npf1, s2typlst(d2ps))
+    def f0_tup1(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        d2pat_make_tpnd(loc0, t2p0, D2Ptup1(tknd, npf1, d2ps))
+    where:
+        let loc0 = d2p0.lctn()
+        let D2Ptup1(tknd, npf1, d2ps) = d2p0.node()
+        let d2ps = trans2a_d2patlst(env0, d2ps)
+        let trcd = match tknd.node():
+            case T_TRCD10(0):
+                TRCDflt0
+            case T_TRCD10(_):
+                TRCDbox0
+        let t2p0 = s2typ_tup1(trcd, npf1, s2typlst(d2ps))
+    def f0_rcd2(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        d2pat_make_tpnd(loc0, t2p0, D2Prcd2(tknd, npf1, ldps))
+    where:
+        let loc0 = d2p0.lctn()
+        let D2Prcd2(tknd, npf1, ldps) = d2p0.node()
+        let ldps = trans2a_l2d2plst(env0, ldps)
+        let trcd = match tknd.node():
+            case T_TRCD20(0):
+                TRCDflt0
+            case T_TRCD20(_):
+                TRCDbox0
+        let t2p0 = s2typ_rcd2(trcd, npf1, l2t2plst(ldps))
+    def f0_annot(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        let loc0 = d2p0.lctn()
+        let D2Pannot(d2p1, s1e2, s2e2) = d2p0.node()
+        let t2p2 = s2exp_stpize(s2e2)
+        let t2p2 = s2typ_hnfiz0(t2p2)
+        let d2p1 = trans2a_d2pat_tpck(env0, d2p1, t2p2)
+        d2pat_make_tpnd(loc0, t2p2, D2Pannot(d2p1, s1e2, s2e2))
+    def f0_errck(env0: !tr2aenv, d2p0: d2pat) -> d2pat:
+        d2p0
+
+@impl
+def trans2a_l2d2p(env0, ld2p):
+    let D2LAB(lab0, d2p1) = ld2p
+    D2LAB(lab0, trans2a_d2pat(env0, d2p1))
+
+@impl
+def trans2a_d2exp(env0, d2e0):
+    match d2e0.node():
+        case D2Evar(_):
+            f0_var(env0, d2e0)
+        case D2Eint(_):
+            f0_int(env0, d2e0)
+        case D2Ebtf(_):
+            f0_btf(env0, d2e0)
+        case D2Echr(_):
+            f0_chr(env0, d2e0)
+        case D2Eflt(_):
+            f0_flt(env0, d2e0)
+        case D2Estr(_):
+            f0_str(env0, d2e0)
+        case D2Ei00(_):
+            f0_i00(env0, d2e0)
+        case D2Eb00(_):
+            f0_b00(env0, d2e0)
+        case D2Ec00(_):
+            f0_c00(env0, d2e0)
+        case D2Ef00(_):
+            f0_f00(env0, d2e0)
+        case D2Es00(_):
+            f0_s00(env0, d2e0)
+        case D2Etop(_):
+            f0_top(env0, d2e0)
+        case D2Econ(_):
+            f0_con(env0, d2e0)
+        case D2Ecst(_):
+            f0_cst(env0, d2e0)
+        case D2Econs(_):
+            f0_cons(env0, d2e0)
+        case D2Ecsts(_):
+            f0_csts(env0, d2e0)
+        case D2Esym0(_):
+            f0_sym0(env0, d2e0)
+        case D2Esapp(_):
+            f0_sapp(env0, d2e0)
+        case D2Etapp(_):
+            f0_tapp(env0, d2e0)
+        case D2Edap0(_):
+            f0_dap0(env0, d2e0)
+        case D2Edapp(_):
+            f0_dapp(env0, d2e0)
+        case D2Eproj(_):
+            f0_proj(env0, d2e0)
+        case D2Elet0(_):
+            f0_let0(env0, d2e0)
+        case D2Eift0(_):
+            f0_ift0(env0, d2e0)
+        case D2Ecas0(_):
+            f0_cas0(env0, d2e0)
+        case D2Eseqn(_):
+            f0_seqn(env0, d2e0)
+        case D2Etup0(_):
+            f0_tup0(env0, d2e0)
+        case D2Etup1(_):
+            f0_tup1(env0, d2e0)
+        case D2Ercd2(_):
+            f0_rcd2(env0, d2e0)
+        case D2Elam0(_):
+            f0_lam0(env0, d2e0)
+        case D2Efix0(_):
+            f0_fix0(env0, d2e0)
+        case D2Etry0(_):
+            f0_try0(env0, d2e0)
+        case D2Eaddr(_):
+            f0_addr(env0, d2e0)
+        case D2Eview(_):
+            f0_view(env0, d2e0)
+        case D2Eeval(_):
+            f0_eval(env0, d2e0)
+        case D2Efold(_):
+            f0_fold(env0, d2e0)
+        case D2Efree(_):
+            f0_free(env0, d2e0)
+        case D2Ewhere(_):
+            f0_where(env0, d2e0)
+        case D2Eassgn(_):
+            f0_assgn(env0, d2e0)
+        case D2Exazgn(_):
+            f0_xazgn(env0, d2e0)
+        case D2Exchng(_):
+            f0_xchng(env0, d2e0)
+        case D2Ebrget(_):
+            f0_brget(env0, d2e0)
+        case D2Ebrset(_):
+            f0_brset(env0, d2e0)
+        case D2Edtsel(_):
+            f0_dtsel(env0, d2e0)
+        case D2Eraise(_):
+            f0_raise(env0, d2e0)
+        case D2El0azy(_):
+            f0_l0azy(env0, d2e0)
+        case D2El1azy(_):
+            f0_l1azy(env0, d2e0)
+        case D2Eelazy(_):
+            f0_elazy(env0, d2e0)
+        case D2Eannot(_):
+            f0_annot(env0, d2e0)
+        case D2Enone0(_):
+            f0_none0(env0, d2e0)
+        case D2Eextnam(_):
+            f0_extnam(env0, d2e0)
+        case D2Esynext(_):
+            f0_synext(env0, d2e0)
+        case D2Eerrck(_):
+            f0_errck(env0, d2e0)
+        case _:
+            d2exp_none2(d2e0)
+where:
+    def f0_int(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, t2p0, D2Eint(tok))
+    where:
+        let loc0 = d2e0.lctn()
+        let D2Eint(tok) = d2e0.node()
+        let t2p0 = intrep_s2typ_xint(tok)
+    def f0_i00(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, t2p0, D2Ei00(int))
+    where:
+        let loc0 = d2e0.lctn()
+        let t2p0 = the_s2typ_sint()
+        let D2Ei00(int) = d2e0.node()
+    def f0_btf(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, t2p0, D2Ebtf(sym))
+    where:
+        let loc0 = d2e0.lctn()
+        let t2p0 = the_s2typ_bool()
+        let D2Ebtf(sym) = d2e0.node()
+    def f0_b00(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, t2p0, D2Eb00(btf))
+    where:
+        let loc0 = d2e0.lctn()
+        let t2p0 = the_s2typ_bool()
+        let D2Eb00(btf) = d2e0.node()
+    def f0_chr(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, t2p0, D2Echr(tok))
+    where:
+        let loc0 = d2e0.lctn()
+        let t2p0 = the_s2typ_char()
+        let D2Echr(tok) = d2e0.node()
+    def f0_c00(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, t2p0, D2Ec00(chr))
+    where:
+        let loc0 = d2e0.lctn()
+        let t2p0 = the_s2typ_char()
+        let D2Ec00(chr) = d2e0.node()
+    def f0_flt(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, t2p0, D2Eflt(tok))
+    where:
+        let loc0 = d2e0.lctn()
+        let t2p0 = the_s2typ_dflt()
+        let D2Eflt(tok) = d2e0.node()
+    def f0_f00(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, t2p0, D2Ef00(flt))
+    where:
+        let loc0 = d2e0.lctn()
+        let t2p0 = the_s2typ_dflt()
+        let D2Ef00(flt) = d2e0.node()
+    def f0_str(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, t2p0, D2Estr(tok))
+    where:
+        let loc0 = d2e0.lctn()
+        let t2p0 = the_s2typ_strn()
+        let D2Estr(tok) = d2e0.node()
+    def f0_s00(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, t2p0, D2Es00(str))
+    where:
+        let loc0 = d2e0.lctn()
+        let t2p0 = the_s2typ_strn()
+        let D2Es00(str) = d2e0.node()
+    def f0_top(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Etop(sym1) = d2e0.node()
+        let t2p0 = s2typ_new0_x2tp(loc0)
+        d2exp_make_tpnd(loc0, t2p0, D2Etop(sym1))
+    def f0_var(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, t2p0, D2Evar(d2v1))
+    where:
+        let loc0 = d2e0.lctn()
+        let D2Evar(d2v1) = d2e0.node()
+        let t2p0 = d2v1.styp()
+        let t2p0 = match t2p0.node():
+            case T2Plft(t2p1):
+                t2p1
+            case _:
+                t2p0
+    def f0_con(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, t2p0, D2Econ(d2c1))
+    where:
+        let loc0 = d2e0.lctn()
+        let D2Econ(d2c1) = d2e0.node()
+        let t2p0 = d2con2a_s2typ(loc0, d2c1)
+    def f0_cst(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, t2p0, D2Ecst(d2c1))
+    where:
+        let loc0 = d2e0.lctn()
+        let D2Ecst(d2c1) = d2e0.node()
+        let t2p0 = d2cst2a_s2typ(loc0, d2c1)
+    def f0_cons(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, t2p0, D2Econs(d2cs))
+    where:
+        let loc0 = d2e0.lctn()
+        let D2Econs(d2cs) = d2e0.node()
+        let t2p0 = match d2cs:
+            case list_cons(d2c1, _):
+                d2con2a_s2typ(loc0, d2c1)
+            case list_nil():
+                s2typ_none0()
+    def f0_csts(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, t2p0, D2Ecsts(d2cs))
+    where:
+        let loc0 = d2e0.lctn()
+        let D2Ecsts(d2cs) = d2e0.node()
+        let t2p0 = match d2cs:
+            case list_cons(d2c1, _):
+                d2cst2a_s2typ(loc0, d2c1)
+            case list_nil():
+                s2typ_none0()
+    def f0_sym0(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Esym0(drxp, d1e1, dpis) = d2e0.node()
+        let t2p0 = s2typ_new0_x2tp(loc0)
+        d2exp_make_tpnd(loc0, t2p0, D2Esym0(drxp, d1e1, dpis))
+    def f0_sapp(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let D2Esapp(d2f0, s2es) = d2e0.node()
+        let d2f0 = trans2a_d2exp(env0, d2f0)
+        let tfun = d2f0.styp()
+        let tfun = s2typ_hnfiz0(tfun)
+        let tres = match tfun.node():
+            case T2Puni0(s2vs, t2p1):
+                let svts = f1_svts(s2vs, s2es, list_nil)
+                s2typ_subst0(t2p1, svts)
+            case _:
+                tfun
+        d2exp_make_tpnd(loc0, tres, D2Esapp(d2f0, s2es))
+    where:
+        let loc0 = d2e0.lctn()
+        def f1_svts(s2vs: s2varlst, s2es: s2explst, svts: s2vts) -> s2vts:
+            match s2vs:
+                case list_nil():
+                    svts
+                case list_cons(s2v1, s2vs):
+                    f1_svts_cons(s2v1, s2vs, s2es, svts)
+
+        def f1_svts_cons(s2v1: s2var, s2vs: s2varlst, s2es: s2explst, svts: s2vts) -> s2vts:
+            match s2es:
+                case list_nil():
+                    let t2p1 = s2typ_new0_x2tp(loc0)
+                    let svts = list_cons((s2v1, t2p1), svts)
+                    f1_svts(s2vs, s2es, svts)
+                case list_cons(s2e1, s2es):
+                    if (sort2_imprq(s2e1.sort())):
+                        let t2p1 = s2exp_stpize(s2e1)
+                        let svts = list_cons((s2v1, t2p1), svts)
+                        f1_svts(s2vs, s2es, svts)
+                    else:
+                        f1_svts_cons(s2v1, s2vs, s2es, svts)
+    private:
+        def f1_root(d2f0: d2exp) -> d2exp:
+            match d2f0.node():
+                case D2Etapp(d2f0, _):
+                    f1_root(d2f0)
+                case _:
+                    d2f0
+        def f1_make(d2e0: d2exp, d2f0: d2exp) -> d2exp:
+            match d2e0.node():
+                case D2Etapp(d2e1, s2es):
+                    let d2e1 = f1_make(d2e1, d2f0)
+                    d2exp_make_tpnd(d2e1.lctn(), d2e1.styp(), D2Etapp(d2e1, s2es))
+                case _:
+                    d2f0
+        def f1_type(d2e0: d2exp) -> s2typ:
+            let d2f0 = f1_root(d2e0)
+            match d2f0.node():
+                case D2Econ(d2c0):
+                    let tqas = d2c0.tqas()
+                    let tfun = d2c0.styp()
+                    f1_tqas_tfun(d2e0, tqas, tfun)
+                case D2Ecst(d2c0):
+                    let tqas = d2c0.tqas()
+                    let tfun = d2c0.styp()
+                    f1_tqas_tfun(d2e0, tqas, tfun)
+                case _:
+                    s2typ_none0()
+
+        def f1_tqas(d2e0: d2exp, tqas: t2qas) -> s2vts:
+            let loc0 = d2e0.lctn()
+            let svts = list_nil
+            let (tqas, svts) = f2_main(d2e0, tqas, svts)
+            f2_tqas(loc0, tqas, svts)
+        where:
+            def f2_main(d2e0: d2exp, tqas: t2qas, svts: s2vts) -> (t2qas, s2vts):
+                match tqas:
+                    case list_nil():
+                        (tqas, svts)
+                    case list_cons(_):
+                        match d2e0.node():
+                            case D2Etapp(d2e1, s2es):
+                                let (tqas, svts) = f2_main(d2e1, tqas, svts)
+                                match tqas:
+                                    case list_nil():
+                                        (tqas, svts)
+                                    case list_cons(tqa1, tqas):
+                                        let loc0 = d2e0.lctn()
+                                        let s2vs = tqa1.s2vs()
+                                        let svts = f2_s2vs_s2es(loc0, s2vs, s2es, svts)
+                                        (tqas, svts)
+                            case _:
+                                (tqas, svts)
+
+            def f2_tqas(loc0: loc_t, tqas: t2qas, svts: s2vts) -> s2vts:
+                match tqas:
+                    case list_nil():
+                        svts
+                    case list_cons(tqa1, tqas):
+                        let s2vs = tqa1.s2vs()
+                        let svts = f2_s2vs(loc0, s2vs, svts)
+                        f2_tqas(loc0, tqas, svts)
+
+            def f2_s2vs(loc0: loc_t, s2vs: s2varlst, svts: s2vts) -> s2vts:
+                match s2vs:
+                    case list_nil():
+                        svts
+                    case list_cons(s2v1, s2vs):
+                        let t2p1 = s2typ_new0_x2tp(loc0)
+                        let svts = list_cons((s2v1, t2p1), svts)
+                        f2_s2vs(loc0, s2vs, svts)
+
+            def f2_s2vs_s2es(loc0: loc_t, s2vs: s2varlst, s2es: s2explst, svts: s2vts) -> s2vts:
+                match s2vs:
+                    case list_nil():
+                        svts
+                    case list_cons(s2v1, s2vs):
+                        match s2es:
+                            case list_nil():
+                                let t2p1 = s2typ_new0_x2tp(loc0)
+                                let svts = list_cons((s2v1, t2p1), svts)
+                                f2_s2vs_s2es(loc0, s2vs, s2es, svts)
+                            case list_cons(s2e1, ses2):
+                                let t2p1 = match s2e1.node():
+                                    case S2Eany(_):
+                                        s2typ_new0_x2tp(loc0)
+                                    case _:
+                                        s2exp_stpize(s2e1)
+                                let svts = list_cons((s2v1, t2p1), svts)
+                                let s2es = match s2e1.node():
+                                    case S2Eany(k0):
+                                        if k0 <= 1:
+                                            s2es
+                                        else:
+                                            ses2
+                                    case _:
+                                        ses2
+                                f2_s2vs_s2es(loc0, s2vs, s2es, svts)
+
+        def f1_tqas_tfun(d2e0: d2exp, tqas: t2qas, tfun: s2typ) -> s2typ:
+            let svts = f1_tqas(d2e0, tqas)
+            s2typ_subst0(tfun, svts)
+
+    def f0_tapp(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Etapp(d2f0, s2es) = d2e0.node()
+        let t2p0 = f1_type(d2e0)
+        let d2f0 = f1_root(d2f0)
+        let d2f0 = trans2a_d2exp(env0, d2f0)
+        let ubtf = match t2p0.node():
+            case T2Pnone0():
+                false
+            case _:
+                unify2a_s2typ(env0, t2p0, d2f0.styp())
+        f1_make(d2e0, d2f0)
+    def f0_dap0(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Edap0(d2f0) = d2e0.node()
+        let npf1 = -(1)
+        let tres = s2typ_new0_x2tp(loc0)
+        let f2cl = s2typ_new0_x2tp(loc0)
+        let t2ps = list_nil()
+        let tfun = s2typ_make_node(sort2_none0(), T2Pfun1(f2cl, npf1, t2ps, tres))
+        let d2f0 = trans2a_d2exp_tpck(env0, d2f0, tfun)
+        d2exp(loc0, tres, D2Edap0(d2f0))
+    def f0_dapp(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Edapp(d2f0, npf1, d2es) = d2e0.node()
+        match d2f0.node():
+            case D2Edtsel(_):
+                f0_dapp_dtsel(env0, d2e0)
+            case _:
+                f0_dapp_elses(env0, d2e0)
+
+    def f0_dapp_dtsel(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Edapp(d2f0, npf1, d2es) = d2e0.node()
+        let lsym = d2f0.lctn()
+        let D2Edtsel(tknd, lab1, dpis, npf1, darg) = d2f0.node()
+        let sym1 = match lab1:
+            case LABint(int):
+                the_symbl_nil
+            case LABsym(sym):
+                sym
+        let d1e1 = d1exp(lsym, D1Eid0(sym1))
+        let drxp = d2rxp_new1(lsym)
+        let dsym = d2exp_make_node(lsym, D2Esym0(drxp, d1e1, dpis))
+        let d2e1 = match d2es:
+            case list_cons(d2e1, _):
+                d2e1
+        let darg = match darg:
+            case optn_nil():
+                list_sing(d2e1)
+            case optn_cons(d2es):
+                list_cons(d2e1, d2es)
+        f0_dapp_elses(env0, d2exp(loc0, D2Edapp(dsym, npf1, darg)))
+
+    def f0_dapp_elses(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Edapp(d2f0, npf1, d2es) = d2e0.node()
+        let d2f0 = trans2a_d2exp(env0, d2f0)
+        let tfun = d2f0.styp()
+        let tfun = s2typ_hnfiz0(tfun)
+        let tfun = deuni2a_s2typ(env0, tfun)
+        match tfun.node():
+            case T2Pfun1(_, _, t2ps, tres):
+                let d2es = trans2a_d2explst_tpcks(env0, d2es, t2ps)
+                d2exp_make_tpnd(loc0, tres, D2Edapp(d2f0, npf1, d2es))
+            case _:
+                let f2cl = s2typ_new0_x2tp(loc0)
+                let tres = s2typ_new0_x2tp(loc0)
+                let d2es = trans2a_d2explst(env0, d2es)
+                let s2tf = the_sort2_tbox
+                let t2ps = s2typlst_of_d2explst(d2es)
+                let tfun = s2typ_make_node(s2tf, T2Pfun1(f2cl, npf1, t2ps, tres))
+                let d2f0 = d2exp_t2pckify(env0, d2f0, tfun)
+                d2exp_make_tpnd(loc0, tres, D2Edapp(d2f0, npf1, d2es))
+    def f0_proj(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Eproj(tknd, drxp, dlab, dtup) = d2e0.node()
+        let dtup = trans2a_d2exp(env0, dtup)
+        let ttup = s2typ_hnfiz0(dtup.styp())
+        let topt = s2typ_prjout/opt(ttup, dlab)
+        let dtup = match topt:
+            case optn_vt_nil():
+                d2exp_make_tpnd(loc0, ttup, D2Elabck(dtup, dlab))
+            case optn_vt_cons(tprj):
+                dtup
+        let tprj = match topt:
+            case ~optn_vt_nil():
+                s2typ_new0_x2tp(loc0)
+            case ~optn_vt_cons(tprj):
+                tprj
+        d2exp_make_tpnd(loc0, tprj, D2Eproj(tknd, drxp, dlab, dtup))
+    def f0_let0(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Elet0(d2cs, d2e1) = d2e0.node()
+        tr2aenv_pshlet0(env0)
+        let d2cs = trans2a_d2eclist(env0, d2cs)
+        let d2e1 = trans2a_d2exp(env0, d2e1)
+        tr2aenv_poplet0(env0)
+        d2exp_make_tpnd(loc0, d2e1.styp(), D2Elet0(d2cs, d2e1))
+    def f0_ift0(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Eift0(d2e1, dthn, dels) = d2e0.node()
+        let t2p1 = the_s2typ_bool()
+        let d2e1 = trans2a_d2exp_tpck(env0, d2e1, t2p1)
+        let t2p0 = match dels:
+            case optn_nil():
+                the_s2typ_void()
+            case optn_cons(_):
+                match dthn:
+                    case optn_nil():
+                        the_s2typ_void()
+                    case optn_cons(_):
+                        s2typ_new0_x2tp(loc0)
+        let dthn = match dthn:
+            case optn_nil():
+                optn_nil()
+            case optn_cons(d2e2):
+                optn_cons(trans2a_d2exp_tpck(env0, d2e2, t2p0))
+        let dels = match dels:
+            case optn_nil():
+                optn_nil()
+            case optn_cons(d2e3):
+                optn_cons(trans2a_d2exp_tpck(env0, d2e3, t2p0))
+        d2exp_make_tpnd(loc0, t2p0, D2Eift0(d2e1, dthn, dels))
+    def f0_cas0(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Ecas0(tknd, d2e1, dcls) = d2e0.node()
+        let d2e1 = trans2a_d2exp(env0, d2e1)
+        let targ = d2e1.styp()
+        let tres = s2typ_new0_x2tp(loc0)
+        let dcls = trans2a_d2clslst_tpck1(env0, dcls, targ, tres)
+        d2exp_make_tpnd(loc0, tres, D2Ecas0(tknd, d2e1, dcls))
+    def f0_seqn(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, d2e1.styp(), D2Eseqn(d2es, d2e1))
+    where:
+        let loc0 = d2e0.lctn()
+        let D2Eseqn(d2es, d2e1) = d2e0.node()
+        let d2es = trans2a_d2explst_tpck1(env0, d2es, the_s2typ_void())
+        let d2e1 = trans2a_d2exp(env0, d2e1)
+    def f0_tup0(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, t2p0, D2Etup0(npf1, d2es))
+    where:
+        let loc0 = d2e0.lctn()
+        let D2Etup0(npf1, d2es) = d2e0.node()
+        let d2es = trans2a_d2explst(env0, d2es)
+        let t2p0 = match d2es:
+            case list_nil():
+                the_s2typ_void()
+            case list_cons(_):
+                s2typ_tup0(npf1, s2typlst(d2es))
+    def f0_tup1(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, t2p0, D2Etup1(tknd, npf1, d2es))
+    where:
+        let loc0 = d2e0.lctn()
+        let D2Etup1(tknd, npf1, d2es) = d2e0.node()
+        let d2es = trans2a_d2explst(env0, d2es)
+        let t2ps = s2typlst(d2es)
+        let linq = s2typlst_linq(t2ps)
+        let trcd = match tknd.node():
+            case T_TRCD10(0):
+                TRCDflt0
+            case T_TRCD10(1):
+                TRCDbox1
+            case T_TRCD10(2):
+                if linq:
+                    TRCDbox1
+                else:
+                    TRCDbox0
+            case T_TRCD10(3):
+                TRCDbox0
+            case T_TRCD10(4):
+                TRCDbox1
+            case T_TRCD10(5):
+                TRCDbox2
+        let t2p0 = s2typ_tup1(trcd, npf1, t2ps)
+    def f0_rcd2(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, t2p0, D2Ercd2(tknd, npf1, ldes))
+    where:
+        let loc0 = d2e0.lctn()
+        let D2Ercd2(tknd, npf1, ldes) = d2e0.node()
+        let ldes = trans2a_l2d2elst(env0, ldes)
+        let ltps = l2t2plst(ldes)
+        let linq = l2t2plst_linq(ltps)
+        let trcd = match tknd.node():
+            case T_TRCD20(0):
+                TRCDflt0
+            case T_TRCD20(1):
+                TRCDbox1
+            case T_TRCD20(2):
+                if linq:
+                    TRCDbox1
+                else:
+                    TRCDbox0
+            case T_TRCD20(3):
+                TRCDbox0
+            case T_TRCD20(4):
+                TRCDbox1
+            case T_TRCD20(5):
+                TRCDbox2
+        let t2p0 = s2typ_rcd2(trcd, npf1, ltps)
+    def f0_lam0(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, tfun, D2Elam0(tknd, f2as, sres, arrw, dexp))
+    where:
+        let loc0 = d2e0.lctn()
+        let D2Elam0(tknd, f2as, sres, arrw, dexp) = d2e0.node()
+        let f2as = trans2a_f2arglst(env0, f2as)
+        let dexp = match sres:
+            case S2RESnone():
+                trans2a_d2exp(env0, dexp)
+            case S2RESsome(seff, sexp):
+                let tres = s2exp_stpize(sexp)
+                trans2a_d2exp_tpck(env0, dexp, tres)
+        let f2cl = F2CLfun
+        let tres = dexp.styp()
+        let tfun = s2typ_fun1_f2arglst(f2as, f2cl, tres)
+    def f0_fix0(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2exp_make_tpnd(loc0, tfun, D2Efix0(tknd, dvar, f2as, sres, arrw, dexp))
+    where:
+        let loc0 = d2e0.lctn()
+        let D2Efix0(tknd, dvar, f2as, sres, arrw, dexp) = d2e0.node()
+        let f2as = trans2a_f2arglst(env0, f2as)
+        let tres = match sres:
+            case S2RESnone():
+                s2typ_new0_x2tp(loc0)
+            case S2RESsome(seff, s2e1):
+                s2typ_hnfiz0(s2exp_stpize(s2e1))
+        let f2cl = F2CLfun
+        let tfun = s2typ_fun1_f2arglst(f2as, f2cl, tres)
+        dvar.styp(tfun)
+        let dexp = trans2a_d2exp_tpck(env0, dexp, tres)
+    def f0_try0(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Etry0(tknd, d2e1, dcls) = d2e0.node()
+        let d2e1 = trans2a_d2exp(env0, d2e1)
+        let targ = the_s2typ_excptn()
+        let tres = d2e1.styp()
+        let dcls = trans2a_d2clslst_tpck1(env0, dcls, targ, tres)
+        d2exp_make_tpnd(loc0, tres, D2Etry0(tknd, d2e1, dcls))
+    def f0_addr(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Eaddr(d2e1) = d2e0.node()
+        let d2e1 = trans2a_d2exp(env0, d2e1)
+        let t2p0 = the_s2typ_p2tr1(d2e1.styp())
+        d2exp(loc0, t2p0, D2Eaddr(d2e1))
+    def f0_view(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Eview(d2e1) = d2e0.node()
+        let d2e1 = trans2a_d2exp(env0, d2e1)
+        let t2p0 = the_s2typ_p2at1(d2e1.styp())
+        d2exp(loc0, t2p0, D2Eview(d2e1))
+    def f0_fold(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Efold(d2e1) = d2e0.node()
+        let d2e1 = trans2a_d2exp(env0, d2e1)
+        let t2p0 = the_s2typ_void()
+        d2exp(loc0, t2p0, D2Efold(d2e1))
+    def f0_free(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Efree(d2e1) = d2e0.node()
+        let d2e1 = trans2a_d2exp(env0, d2e1)
+        let t2p0 = the_s2typ_void()
+        d2exp(loc0, t2p0, D2Efree(d2e1))
+    def f0_eval(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Eeval(d2e1) = d2e0.node()
+        let d2e1 = trans2a_d2exp(env0, d2e1)
+        let t2p1 = d2e1.styp()
+        let t2p1 = s2typ_hnfiz0(t2p1)
+        let t2p0 = if isP2TR(t2p1):
+            match t2p1.node():
+                case T2Papps(t2f1, t2ps):
+                    let list_cons(telt, _) = t2ps
+                    telt
+        else: match ():
+            case ():
+                if isL0AZY(t2p1):
+                    match t2p1.node():
+                        case T2Papps(t2f1, t2ps):
+                            let list_cons(telt, _) = t2ps
+                            telt
+                else:
+                    if isL1AZY(t2p1):
+                        match t2p1.node():
+                            case T2Papps(t2f1, t2ps):
+                                let list_cons(telt, _) = t2ps
+                                telt
+                    else:
+                        let t2p0 = s2typ_new0_x2tp(loc0)
+                        t2p0
+        d2exp(loc0, t2p0, D2Eeval(d2e1))
+    where:
+        def isP2TR(t2p1: s2typ) -> Bool:
+            s2typ_p2tr1q(t2p1)
+        def isL0AZY(t2p1: s2typ) -> Bool:
+            s2typ_l0azy1q(t2p1)
+        def isL1AZY(t2p1: s2typ) -> Bool:
+            s2typ_l1azy1q(t2p1)
+    def f0_where(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Ewhere(d2e1, d2cs) = d2e0.node()
+        tr2aenv_pshlet0(env0)
+        let d2cs = trans2a_d2eclist(env0, d2cs)
+        let d2e1 = trans2a_d2exp(env0, d2e1)
+        tr2aenv_poplet0(env0)
+        d2exp_make_tpnd(loc0, d2e1.styp(), D2Ewhere(d2e1, d2cs))
+    def f0_assgn(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Eassgn(d2el, d2er) = d2e0.node()
+        let d2el = trans2a_d2exp(env0, d2el)
+        let t2pl = d2el.styp()
+        let t2p0 = the_s2typ_void()
+        let d2er = trans2a_d2exp_tpck(env0, d2er, t2pl)
+        d2exp_make_tpnd(loc0, t2p0, D2Eassgn(d2el, d2er))
+    def f0_xazgn(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Exazgn(d2el, d2er) = d2e0.node()
+        let d2el = trans2a_d2exp(env0, d2el)
+        let t2pl = d2el.styp()
+        let d2er = trans2a_d2exp_tpck(env0, d2er, t2pl)
+        d2exp_make_tpnd(loc0, t2pl, D2Exazgn(d2el, d2er))
+    def f0_xchng(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Exchng(d2el, d2er) = d2e0.node()
+        let d2el = trans2a_d2exp(env0, d2el)
+        let d2er = trans2a_d2exp(env0, d2er)
+        let t2pl = d2el.styp()
+        let t2pr = d2er.styp()
+        let d2el = d2exp_t2pckify(env0, d2el, t2pr)
+        let d2er = d2exp_t2pckify(env0, d2er, t2pl)
+        d2exp_make_tpnd(loc0, t2pl, D2Exchng(d2el, d2er))
+    def f0_brget(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Ebrget(dpis, d2es) = d2e0.node()
+        let d2es = trans2a_d2explst(env0, d2es)
+        let npf1 = -(1)
+        let f2cl = s2typ_new0_x2tp(loc0)
+        let tres = s2typ_new0_x2tp(loc0)
+        let t2ps = s2typlst_of_d2explst(d2es)
+        let tfun = s2typ_make_node(sort2_none0(), T2Pfun1(f2cl, npf1, t2ps, tres))
+        let name = BRCKT_symbl
+        let dsym = d2exp_sym0_styp(loc0, name, dpis, tfun)
+        d2exp_make_tpnd(loc0, tres, D2Edapp(dsym, npf1, d2es))
+    def f0_brset(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Ebrset(dpis, d2es) = d2e0.node()
+        let d2es = trans2a_d2explst(env0, d2es)
+        let npf1 = -(1)
+        let f2cl = s2typ_new0_x2tp(loc0)
+        let tres = the_s2typ_void()
+        let t2ps = s2typlst_of_d2explst(d2es)
+        let tfun = s2typ_make_node(sort2_none0(), T2Pfun1(f2cl, npf1, t2ps, tres))
+        let name = BRCKT_symbl
+        let dsym = d2exp_sym0_styp(loc0, name, dpis, tfun)
+        d2exp_make_tpnd(loc0, tres, D2Edapp(dsym, npf1, d2es))
+    def f0_dtsel(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Edtsel(tknd, lab1, dpis, npf1, darg) = d2e0.node()
+        let darg = trans2a_d2explstopt(env0, darg)
+        let t2p0 = s2typ_new0_x2tp(loc0)
+        d2exp_make_tpnd(loc0, t2p0, D2Edtsel(tknd, lab1, dpis, npf1, darg))
+    def f0_raise(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Eraise(tknd, d2e1) = d2e0.node()
+        let t2p1 = the_s2typ_excptn()
+        let d2e1 = trans2a_d2exp_tpck(env0, d2e1, t2p1)
+        let t2p0 = s2typ_new0_x2tp(loc0)
+        d2exp_make_tpnd(loc0, t2p0, D2Eraise(tknd, d2e1))
+    def f0_l0azy(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2El0azy(dsym, d2e1) = d2e0.node()
+        let d2e1 = trans2a_d2exp(env0, d2e1)
+        let t2p1 = d2e1.styp()
+        let t2p0 = the_s2typ_l0azy1(t2p1)
+        d2exp_make_tpnd(loc0, t2p0, D2El0azy(dsym, d2e1))
+    def f0_l1azy(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2El1azy(dsym, d2e1, d2es) = d2e0.node()
+        let d2e1 = trans2a_d2exp(env0, d2e1)
+        let d2es = trans2a_d2explst_tpck1(env0, d2es, the_s2typ_void())
+        let t2p1 = d2e1.styp()
+        let t2p0 = the_s2typ_l1azy1(t2p1)
+        d2exp_make_tpnd(loc0, t2p0, D2El1azy(dsym, d2e1, d2es))
+    def f0_elazy(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Eelazy(dsym, d2e1, d2es) = d2e0.node()
+        let d2e1 = trans2a_d2exp(env0, d2e1)
+        let d2es = trans2a_d2explst_tpck1(env0, d2es, the_s2typ_void())
+        let t2p1 = d2e1.styp()
+        let t2p0 = the_s2typ_elazy1(t2p1)
+        d2exp_make_tpnd(loc0, t2p0, D2Eelazy(dsym, d2e1, d2es))
+    def f0_annot(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Eannot(d2e1, s1e2, s2e2) = d2e0.node()
+        let t2p2 = s2exp_stpize(s2e2)
+        let d2e1 = trans2a_d2exp_tpck(env0, d2e1, t2p2)
+        d2exp_make_tpnd(loc0, t2p2, D2Eannot(d2e1, s1e2, s2e2))
+    def f0_none0(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let t2p0 = the_s2typ_void()
+        d2exp(d2e0.lctn(), t2p0, D2Enone0)
+    def f0_errck(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        d2e0
+    def f0_extnam(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Eextnam(tknd, gnm1) = d2e0.node()
+        let t2p0 = s2typ_new0_x2tp(loc0)
+        d2exp_make_tpnd(loc0, t2p0, D2Eextnam(tknd, gnm1))
+    def f0_synext(env0: !tr2aenv, d2e0: d2exp) -> d2exp:
+        let loc0 = d2e0.lctn()
+        let D2Esynext(tknd, gexp) = d2e0.node()
+        let t2p0 = s2typ_new0_x2tp(loc0)
+        d2exp_make_tpnd(loc0, t2p0, D2Esynext(tknd, gexp))
+
+@impl
+def trans2a_l2d2e(env0, ld2e):
+    let D2LAB(lab0, d2e1) = ld2e
+    D2LAB(lab0, trans2a_d2exp(env0, d2e1))
+
+@impl
+def trans2a_f2arg(env0, farg):
+    match farg.node():
+        case F2ARGdapp(npf1, d2ps):
+            let loc0 = farg.lctn()
+            let d2ps = trans2a_d2patlst(env0, d2ps)
+            d2patlst_lftize(d2ps)
+            f2arg(loc0, F2ARGdapp(npf1, d2ps))
+        case _:
+            farg
+where:
+    def d2var_lftize(d2v0: d2var) -> Void:
+        d2v0.styp(tlft)
+    where:
+        let t2p0 = d2v0.styp()
+        let tlft = s2typ_lft(t2p0)
+    def d2pat_lftize(d2p0: d2pat) -> Void:
+        match d2p0.node():
+            case D2Pannot(d2p1, s1e1, s2e2):
+                match d2p1.node():
+                    case D2Pvar(d2v1):
+                        if s2exp_cbrfq(s2e2):
+                            d2var_lftize(d2v1)
+                        else:
+                            ()
+                    case _:
+                        ()
+            case _:
+                ()
+    def d2patlst_lftize(d2ps: d2patlst) -> Void:
+        list_foritm(d2ps)
+    where:
+        @impl[d2pat]
+        def foritm/work:
+            d2pat_lftize
+
+@impl
+def trans2a_d2gua(env0, dgua):
+    match dgua.node():
+        case D2GUAexp(d2e1):
+            let loc0 = dgua.lctn()
+            let t2p1 = the_s2typ_bool()
+            let d2e1 = trans2a_d2exp_tpck(env0, d2e1, t2p1)
+            d2gua(loc0, D2GUAexp(d2e1))
+        case D2GUAmat(d2e1, d2p2):
+            let loc0 = dgua.lctn()
+            let d2e1 = trans2a_d2exp(env0, d2e1)
+            let t2p1 = d2e1.styp()
+            let d2p2 = trans2a_d2pat_tpck(env0, d2p2, t2p1)
+            d2gua(loc0, D2GUAmat(d2e1, d2p2))
+
+@impl
+def trans2a_d2gpt_tpck(env0, dgpt, targ):
+    match dgpt.node():
+        case D2GPTpat(d2p1):
+            let loc0 = dgpt.lctn()
+            let d2p1 = trans2a_d2pat_tpck(env0, d2p1, targ)
+            d2gpt(loc0, D2GPTpat(d2p1))
+        case D2GPTgua(d2p1, d2gs):
+            let loc0 = dgpt.lctn()
+            let d2p1 = trans2a_d2pat_tpck(env0, d2p1, targ)
+            let d2gs = trans2a_d2gualst(env0, d2gs)
+            d2gpt(loc0, D2GPTgua(d2p1, d2gs))
+
+@impl
+def trans2a_d2cls_tpck(env0, dcls, targ, tres):
+    match dcls.node():
+        case D2CLSgpt(dgpt):
+            let loc0 = dcls.lctn()
+            let dgpt = trans2a_d2gpt_tpck(env0, dgpt, targ)
+            d2cls(loc0, D2CLSgpt(dgpt))
+        case D2CLScls(dgpt, d2e1):
+            let loc0 = dcls.lctn()
+            let dgpt = trans2a_d2gpt_tpck(env0, dgpt, targ)
+            let d2e1 = trans2a_d2exp_tpck(env0, d2e1, tres)
+            d2cls(loc0, D2CLScls(dgpt, d2e1))
+
+@impl
+def trans2a_d2patlst(env0, d2ps):
+    list_trans2a_fnp(env0, d2ps, trans2a_d2pat)
+
+@impl
+def trans2a_l2d2plst(env0, ldps):
+    list_trans2a_fnp(env0, ldps, trans2a_l2d2p)
+
+@impl
+def trans2a_d2expopt(env0, dopt):
+    optn_trans2a_fnp(env0, dopt, trans2a_d2exp)
+
+@impl
+def trans2a_d2explst(env0, d2es):
+    list_trans2a_fnp(env0, d2es, trans2a_d2exp)
+
+@impl
+def trans2a_l2d2elst(env0, ldes):
+    list_trans2a_fnp(env0, ldes, trans2a_l2d2e)
+
+@impl
+def trans2a_f2arglst(env0, f2as):
+    list_trans2a_fnp(env0, f2as, trans2a_f2arg)
+
+@impl
+def trans2a_d2gualst(env0, d2gs):
+    list_trans2a_fnp(env0, d2gs, trans2a_d2gua)
+
+@impl
+def trans2a_d2pat_tpck(env0, d2p0, t2p0):
+    let d2p0 = trans2a_d2pat(env0, d2p0)
+    d2pat_t2pckify(env0, d2p0, t2p0)
+
+@impl
+def trans2a_d2pat_tpkc(env0, d2p0, t2p0):
+    let d2p0 = trans2a_d2pat(env0, d2p0)
+    d2pat_t2pkcify(env0, d2p0, t2p0)
+
+@impl
+def trans2a_d2exp_tpck(env0, d2e0, t2p0):
+    let d2e0 = trans2a_d2exp(env0, d2e0)
+    d2exp_t2pckify(env0, d2e0, t2p0)
+
+@impl
+def trans2a_d2explst_tpck1(env0, d2es, t2p0):
+    @inst[x0] @inst[y0] @inst[e1] list_map/e1nv(d2es, env0)
+where:
+    type X0 = d2exp
+    type Y0 = d2exp
+    type E1 = tr2aenv
+    @impl[X0, Y0, E1]
+    def map/e1nv/fopr(x0, e1):
+        trans2a_d2exp_tpck(e1, x0, t2p0)
+
+@impl
+def trans2a_d2patlst_tpcks(env0, d2ps, t2ps):
+    match d2ps:
+        case list_nil():
+            list_nil()
+        case list_cons(d2p1, d2ps):
+            match t2ps:
+                case list_nil():
+                    let t2p1 = s2typ_none0()
+                    let d2p1 = trans2a_d2pat_tpck(env0, d2p1, t2p1)
+                    let d2ps = trans2a_d2patlst_tpcks(env0, d2ps, t2ps)
+                    list_cons(d2p1, d2ps)
+                case list_cons(t2p1, t2ps):
+                    let d2p1 = trans2a_d2pat_tpck(env0, d2p1, t2p1)
+                    let d2ps = trans2a_d2patlst_tpcks(env0, d2ps, t2ps)
+                    list_cons(d2p1, d2ps)
+
+@impl
+def trans2a_d2patlst_tpkcs(env0, d2ps, t2ps):
+    match d2ps:
+        case list_nil():
+            list_nil()
+        case list_cons(d2p1, d2ps):
+            match t2ps:
+                case list_nil():
+                    let t2p1 = s2typ_none0()
+                    let d2p1 = trans2a_d2pat_tpkc(env0, d2p1, t2p1)
+                    let d2ps = trans2a_d2patlst_tpkcs(env0, d2ps, t2ps)
+                    list_cons(d2p1, d2ps)
+                case list_cons(t2p1, t2ps):
+                    let d2p1 = trans2a_d2pat_tpkc(env0, d2p1, t2p1)
+                    let d2ps = trans2a_d2patlst_tpkcs(env0, d2ps, t2ps)
+                    list_cons(d2p1, d2ps)
+
+@impl
+def trans2a_d2explst_tpcks(env0, d2es, t2ps):
+    match d2es:
+        case list_nil():
+            list_nil()
+        case list_cons(d2e1, d2es):
+            match t2ps:
+                case list_nil():
+                    let t2p1 = s2typ_none0()
+                    let d2e1 = trans2a_d2exp_tpck(env0, d2e1, t2p1)
+                    let d2es = trans2a_d2explst_tpcks(env0, d2es, t2ps)
+                    list_cons(d2e1, d2es)
+                case list_cons(t2p1, t2ps):
+                    let d2e1 = trans2a_d2exp_tpck(env0, d2e1, t2p1)
+                    let d2es = trans2a_d2explst_tpcks(env0, d2es, t2ps)
+                    list_cons(d2e1, d2es)
+
+@impl
+def trans2a_d2clslst_tpck1(env0, dcls, targ, tres):
+    @inst[x0] @inst[y0] @inst[e1] list_map/e1nv(dcls, env0)
+where:
+    type X0 = d2cls
+    type Y0 = d2cls
+    type E1 = tr2aenv
+    @impl[X0, Y0, E1]
+    def map/e1nv/fopr(x0, e1):
+        trans2a_d2cls_tpck(e1, x0, targ, tres)
+
+@impl
+def trans2a_d2explstopt(env0, dopt):
+    optn_trans2a_fnp(env0, dopt, trans2a_d2explst)
+

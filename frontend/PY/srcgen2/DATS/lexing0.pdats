@@ -1,0 +1,62 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+import "srcgen2/DATS/lexing0_utils1.dats" as _
+
+import "srcgen2/DATS/lexing0_ext000.dats" as _
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexbuf0" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+@impl
+def lxbf1_lexing_tnode(buf):
+    @inst[obj] gobj_lexing_tnode(buf)
+where:
+    type Obj = lxbf1
+    @impl[Obj]
+    def gobj_lexing/getc1(buf):
+        buf.getc1()
+    @impl[Obj]
+    def gobj_lexing/fclst(buf):
+        buf.tclst()
+    @impl[Obj]
+    def gobj_lexing/fcnil(buf):
+        free(buf.tclst())
+    @impl[Obj]
+    def gobj_lexing/fcseg(buf):
+        strn(buf.tclst())
+    @impl[Obj]
+    def gobj_lexing/unget(buf, ci0):
+        buf.unget(ci0)
+
+@impl
+def lxbf1_lexing_tnodelst(buf):
+    list_vt_reverse0(loop(buf, list_vt_nil()))
+where:
+    def loop(buf: !lxbf1, res: list_vt[tnode]) -> list_vt[tnode]:
+        let tnd = lxbf1_lexing_tnode(buf)
+        let res = cons_vt(tnd, res)
+        match tnd:
+            case T_EOF():
+                res
+            case _:
+                loop(buf, res)
+
+@impl
+def atext_tokenize(src):
+    let buf = lxbf1_make_strn(src)
+    let lcs = LCSRCnone0()
+    lexing_preping_all(lexing_lctnize_all(lcs, lxbf1_lexing_tnodelst(buf)))
+
+@impl
+def fpath_tokenize(fpx):
+    let buf = lxbf1_make_fpath(fpx)
+    let lcs = LCSRCsome1(fpx)
+    lexing_preping_all(lexing_lctnize_all(lcs, lxbf1_lexing_tnodelst(buf)))
+

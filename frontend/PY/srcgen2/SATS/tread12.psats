@@ -1,0 +1,491 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+import "srcgen2/SATS/lexing0" as LEX
+
+import "srcgen2/SATS/staexp2" as S2E
+
+import "srcgen2/SATS/dynexp2" as D2E
+
+type Token = LEX.token
+
+type Sort2 = S2E.sort2
+
+type S2cst = S2E.s2cst
+
+type S2var = S2E.s2var
+
+type S2exp = S2E.s2exp
+
+type L2s2e = S2E.l2s2e
+
+type S2tex = S2E.s2tex
+
+type D2con = D2E.d2con
+
+type D2cst = D2E.d2cst
+
+type D2var = D2E.d2var
+
+type D2pat = D2E.d2pat
+
+type D2exp = D2E.d2exp
+
+type L2d2p = D2E.l2d2p
+
+type L2d2e = D2E.l2d2e
+
+type F2arg = D2E.f2arg
+
+type S2res = D2E.s2res
+
+type D2gua = D2E.d2gua
+
+type D2gpt = D2E.d2gpt
+
+type D2cls = D2E.d2cls
+
+type D2arg = D2E.d2arg
+
+type D2ecl = D2E.d2ecl
+
+type S2qag = D2E.s2qag
+
+type T2qag = D2E.t2qag
+
+type T2iag = D2E.t2iag
+
+type A2tdf = D2E.a2tdf
+
+type Simpl = D2E.simpl
+
+type Dimpl = D2E.dimpl
+
+type Sort2lst = S2E.sort2lst
+
+type Sort2opt = S2E.sort2opt
+
+type S2cstlst = S2E.s2cstlst
+
+type S2varlst = S2E.s2varlst
+
+type S2explst = S2E.s2explst
+
+type S2expopt = S2E.s2expopt
+
+type L2s2elst = S2E.l2s2elst
+
+type D2conlst = D2E.d2conlst
+
+type D2cstlst = D2E.d2cstlst
+
+type D2varlst = D2E.d2varlst
+
+type D2patlst = D2E.d2patlst
+
+type D2patopt = D2E.d2patopt
+
+type D2explst = D2E.d2explst
+
+type D2expopt = D2E.d2expopt
+
+type L2d2plst = D2E.l2d2plst
+
+type L2d2elst = D2E.l2d2elst
+
+type F2arglst = D2E.f2arglst
+
+type D2gualst = D2E.d2gualst
+
+type D2clslst = D2E.d2clslst
+
+type D2arglst = D2E.d2arglst
+
+type D2eclist = D2E.d2eclist
+
+type S2qaglst = D2E.s2qaglst
+
+type T2qaglst = D2E.t2qaglst
+
+type T2iaglst = D2E.t2iaglst
+
+type Wths2exp = D2E.wths2exp
+
+type Teqd2exp = D2E.teqd2exp
+
+type D2valdcl = D2E.d2valdcl
+
+type D2vardcl = D2E.d2vardcl
+
+type D2fundcl = D2E.d2fundcl
+
+type D2cstdcl = D2E.d2cstdcl
+
+type D2parsed = D2E.d2parsed
+
+type D2valdclist = D2E.d2valdclist
+
+type D2vardclist = D2E.d2vardclist
+
+type D2fundclist = D2E.d2fundclist
+
+type D2cstdclist = D2E.d2cstdclist
+
+type D2explstopt = D2E.d2explstopt
+
+type D2eclistopt = D2E.d2eclistopt
+
+@extern
+def d2parsed_of_tread12(a: D2parsed) -> D2parsed
+
+type Ftread12[Syn: Tbox] = (Syn, &SInt >> _) -> Syn
+
+@extern
+def list_tread12_fnp[Syn: Tx](a: List[Syn], b: &SInt >> _, c: Ftread12[Syn]) -> List[Syn]
+
+@extern
+def optn_tread12_fnp[Syn: Tx](a: Optn[Syn], b: &SInt >> _, c: Ftread12[Syn]) -> Optn[Syn]
+
+@extern
+def tread12_sort2() -> Ftread12[Sort2]
+
+@extern
+def tread12_s2cst() -> Ftread12[S2cst]
+
+@extern
+def tread12_s2var() -> Ftread12[S2var]
+
+@extern
+def tread12_s2exp() -> Ftread12[S2exp]
+
+@extern
+def tread12_l2s2e() -> Ftread12[L2s2e]
+
+@extern
+def tread12_s2tex() -> Ftread12[S2tex]
+
+@extern
+def tread12_sort2lst() -> Ftread12[Sort2lst]
+
+@extern
+def tread12_sort2opt() -> Ftread12[Sort2opt]
+
+@extern
+def tread12_s2cstlst() -> Ftread12[S2cstlst]
+
+@extern
+def tread12_s2varlst() -> Ftread12[S2varlst]
+
+@extern
+def tread12_s2explst() -> Ftread12[S2explst]
+
+@extern
+def tread12_s2expopt() -> Ftread12[S2expopt]
+
+@extern
+def tread12_l2s2elst() -> Ftread12[L2s2elst]
+
+@extern
+def tread12_d2con() -> Ftread12[D2con]
+
+@extern
+def tread12_d2cst() -> Ftread12[D2cst]
+
+@extern
+def tread12_d2var() -> Ftread12[D2var]
+
+@extern
+def tread12_d2pat() -> Ftread12[D2pat]
+
+@extern
+def tread12_d2exp() -> Ftread12[D2exp]
+
+@extern
+def tread12_l2d2p() -> Ftread12[L2d2p]
+
+@extern
+def tread12_l2d2e() -> Ftread12[L2d2e]
+
+@extern
+def tread12_f2arg() -> Ftread12[F2arg]
+
+@extern
+def tread12_s2res() -> Ftread12[S2res]
+
+@extern
+def tread12_d2gua() -> Ftread12[D2gua]
+
+@extern
+def tread12_d2gpt() -> Ftread12[D2gpt]
+
+@extern
+def tread12_d2cls() -> Ftread12[D2cls]
+
+@extern
+def tread12_d2arg() -> Ftread12[D2arg]
+
+@extern
+def tread12_d2ecl() -> Ftread12[D2ecl]
+
+@extern
+def tread12_s2qag() -> Ftread12[S2qag]
+
+@extern
+def tread12_t2qag() -> Ftread12[T2qag]
+
+@extern
+def tread12_t2iag() -> Ftread12[T2iag]
+
+@extern
+def tread12_a2tdf() -> Ftread12[A2tdf]
+
+@extern
+def tread12_simpl() -> Ftread12[Simpl]
+
+@extern
+def tread12_dimpl() -> Ftread12[Dimpl]
+
+@extern
+def tread12_d2conlst() -> Ftread12[D2conlst]
+
+@extern
+def tread12_d2cstlst() -> Ftread12[D2cstlst]
+
+@extern
+def tread12_d2varlst() -> Ftread12[D2varlst]
+
+@extern
+def tread12_d2patlst() -> Ftread12[D2patlst]
+
+@extern
+def tread12_d2explst() -> Ftread12[D2explst]
+
+@extern
+def tread12_d2expopt() -> Ftread12[D2expopt]
+
+@extern
+def tread12_l2d2plst() -> Ftread12[L2d2plst]
+
+@extern
+def tread12_l2d2elst() -> Ftread12[L2d2elst]
+
+@extern
+def tread12_f2arglst() -> Ftread12[F2arglst]
+
+@extern
+def tread12_d2gualst() -> Ftread12[D2gualst]
+
+@extern
+def tread12_d2clslst() -> Ftread12[D2clslst]
+
+@extern
+def tread12_d2arglst() -> Ftread12[D2arglst]
+
+@extern
+def tread12_d2eclist() -> Ftread12[D2eclist]
+
+@extern
+def tread12_s2qaglst() -> Ftread12[S2qaglst]
+
+@extern
+def tread12_t2qaglst() -> Ftread12[T2qaglst]
+
+@extern
+def tread12_t2iaglst() -> Ftread12[T2iaglst]
+
+@extern
+def tread12_teqd2exp() -> Ftread12[Teqd2exp]
+
+@extern
+def tread12_wths2exp() -> Ftread12[Wths2exp]
+
+@extern
+def tread12_d2valdcl() -> Ftread12[D2valdcl]
+
+@extern
+def tread12_d2vardcl() -> Ftread12[D2vardcl]
+
+@extern
+def tread12_d2fundcl() -> Ftread12[D2fundcl]
+
+@extern
+def tread12_d2cstdcl() -> Ftread12[D2cstdcl]
+
+@extern
+def tread12_d2valdclist() -> Ftread12[D2valdclist]
+
+@extern
+def tread12_d2vardclist() -> Ftread12[D2vardclist]
+
+@extern
+def tread12_d2fundclist() -> Ftread12[D2fundclist]
+
+@extern
+def tread12_d2cstdclist() -> Ftread12[D2cstdclist]
+
+@extern
+def tread12_d2explstopt() -> Ftread12[D2explstopt]
+
+@extern
+def tread12_d2eclistopt() -> Ftread12[D2eclistopt]
+
+@extern
+def sort2_fpemsg(a: FILR, b: Sort2) -> Void
+
+@extern
+def s2exp_fpemsg(a: FILR, b: S2exp) -> Void
+
+@extern
+def l2s2e_fpemsg(a: FILR, b: L2s2e) -> Void
+
+@extern
+def s2tex_fpemsg(a: FILR, b: S2tex) -> Void
+
+@extern
+def d2pat_fpemsg(a: FILR, b: D2pat) -> Void
+
+@extern
+def d2exp_fpemsg(a: FILR, b: D2exp) -> Void
+
+@extern
+def l2d2p_fpemsg(a: FILR, b: L2d2p) -> Void
+
+@extern
+def l2d2e_fpemsg(a: FILR, b: L2d2e) -> Void
+
+@extern
+def f2arg_fpemsg(a: FILR, b: F2arg) -> Void
+
+@extern
+def s2res_fpemsg(a: FILR, b: S2res) -> Void
+
+@extern
+def d2gua_fpemsg(a: FILR, b: D2gua) -> Void
+
+@extern
+def d2gpt_fpemsg(a: FILR, b: D2gpt) -> Void
+
+@extern
+def d2cls_fpemsg(a: FILR, b: D2cls) -> Void
+
+@extern
+def d2arg_fpemsg(a: FILR, b: D2arg) -> Void
+
+@extern
+def d2ecl_fpemsg(a: FILR, b: D2ecl) -> Void
+
+@extern
+def s2qag_fpemsg(a: FILR, b: S2qag) -> Void
+
+@extern
+def t2qag_fpemsg(a: FILR, b: T2qag) -> Void
+
+@extern
+def t2iag_fpemsg(a: FILR, b: T2iag) -> Void
+
+@extern
+def simpl_fpemsg(a: FILR, b: Simpl) -> Void
+
+@extern
+def dimpl_fpemsg(a: FILR, b: Dimpl) -> Void
+
+@extern
+def a2tdf_fpemsg(a: FILR, b: A2tdf) -> Void
+
+@extern
+def sort2lst_fpemsg(a: FILR, b: Sort2lst) -> Void
+
+@extern
+def sort2opt_fpemsg(a: FILR, b: Sort2opt) -> Void
+
+@extern
+def s2explst_fpemsg(a: FILR, b: S2explst) -> Void
+
+@extern
+def s2expopt_fpemsg(a: FILR, b: S2expopt) -> Void
+
+@extern
+def l2s2elst_fpemsg(a: FILR, b: L2s2elst) -> Void
+
+@extern
+def d2patlst_fpemsg(a: FILR, b: D2patlst) -> Void
+
+@extern
+def d2explst_fpemsg(a: FILR, b: D2explst) -> Void
+
+@extern
+def d2expopt_fpemsg(a: FILR, b: D2expopt) -> Void
+
+@extern
+def l2d2plst_fpemsg(a: FILR, b: L2d2plst) -> Void
+
+@extern
+def l2d2elst_fpemsg(a: FILR, b: L2d2elst) -> Void
+
+@extern
+def f2arglst_fpemsg(a: FILR, b: F2arglst) -> Void
+
+@extern
+def d2gualst_fpemsg(a: FILR, b: D2gualst) -> Void
+
+@extern
+def d2clslst_fpemsg(a: FILR, b: D2clslst) -> Void
+
+@extern
+def s2qaglst_fpemsg(a: FILR, b: S2qaglst) -> Void
+
+@extern
+def t2qaglst_fpemsg(a: FILR, b: T2qaglst) -> Void
+
+@extern
+def t2iaglst_fpemsg(a: FILR, b: T2iaglst) -> Void
+
+@extern
+def d2arglst_fpemsg(a: FILR, b: D2arglst) -> Void
+
+@extern
+def d2eclist_fpemsg(a: FILR, b: D2eclist) -> Void
+
+@extern
+def teqd2exp_fpemsg(a: FILR, b: Teqd2exp) -> Void
+
+@extern
+def wths2exp_fpemsg(a: FILR, b: Wths2exp) -> Void
+
+@extern
+def d2valdcl_fpemsg(a: FILR, b: D2valdcl) -> Void
+
+@extern
+def d2vardcl_fpemsg(a: FILR, b: D2vardcl) -> Void
+
+@extern
+def d2fundcl_fpemsg(a: FILR, b: D2fundcl) -> Void
+
+@extern
+def d2cstdcl_fpemsg(a: FILR, b: D2cstdcl) -> Void
+
+@extern
+def d2valdclist_fpemsg(a: FILR, b: D2valdclist) -> Void
+
+@extern
+def d2vardclist_fpemsg(a: FILR, b: D2vardclist) -> Void
+
+@extern
+def d2fundclist_fpemsg(a: FILR, b: D2fundclist) -> Void
+
+@extern
+def d2cstdclist_fpemsg(a: FILR, b: D2cstdclist) -> Void
+
+@extern
+def d2parsed_fpemsg(a: FILR, b: D2parsed) -> Void
+
+@extern
+def d2explstopt_fpemsg(a: FILR, b: D2explstopt) -> Void
+
+@extern
+def d2eclistopt_fpemsg(a: FILR, b: D2eclistopt) -> Void
+
+@extern
+def tread02_from_fpath(a: SInt, b: String) -> D2parsed
+

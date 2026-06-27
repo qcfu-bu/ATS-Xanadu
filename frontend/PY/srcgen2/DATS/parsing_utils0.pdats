@@ -1,0 +1,52 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/parsing" import *
+
+@impl[]
+def p1_fun_test_atext[R0](inp, pfn):
+    let tks = atext_tokenize(inp)
+    let buf = tokbuf_make_llist(tks)
+    var err = 0
+    let res = pfn(buf, err)
+    tokbuf_free(buf)
+    if (err == 0):
+        some(res)
+    else:
+        none()
+
+@impl[]
+def pq_fun_test_atext[R0](inp, pfn):
+    let tks = atext_tokenize(inp)
+    let buf = tokbuf_make_llist(tks)
+    var err = 0
+    let res = pfn(buf, err)
+    tokbuf_free(buf)
+    res
+
+@impl[]
+def p1_fun_test_fpath[R0](fpx, pfn):
+    let tks = fpath_tokenize(fpx)
+    let buf = tokbuf_make_llist(tks)
+    var err = 0
+    let res = pfn(buf, err)
+    tokbuf_free(buf)
+    if (err == 0):
+        some(res)
+    else:
+        none()
+
+@impl[]
+def pq_fun_test_fpath[R0](fpx, pfn):
+    let tks = fpath_tokenize(fpx)
+    let buf = tokbuf_make_llist(tks)
+    var err = 0
+    let res = pfn(buf, err)
+    tokbuf_free(buf)
+    res
+

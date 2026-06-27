@@ -1,0 +1,66 @@
+import "srcgen1/prelude/SATS/unsafex" as UN
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+from "srcgen2/SATS/dynexp0" import *
+
+from "srcgen2/SATS/parsing" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/trans01" import *
+
+from "srcgen2/SATS/xglobal" import *
+
+type Fxtyenv = topmap[fixty]
+
+@extern
+def the_fxtyenv_pvsl00d() -> SInt
+
+@extern
+def the_fxtyenv_pvsl00d/atext() -> String
+
+@extern
+def the_fxtyenv_pvsl00d/ntime() -> SInt
+
+@extern
+def the_fxtyenv_pvsl00d/ntime/set(n0: SInt) -> Void
+
+@extern
+def the_fxtyenv_pvsl00d/topmap/set(e0: Fxtyenv) -> Void
+
+@impl[]
+def the_fxtyenv_pvsl00d():
+    let n0 = @inst[] the_fxtyenv_pvsl00d/ntime()
+    @inst[] the_fxtyenv_pvsl00d/ntime/set(n0 + 1)
+    if (n0 > 0):
+        0
+    else:
+        f0_pvsl00d()
+where:
+    def f0_pvsl00d() -> SInt:
+        let fixity0_sats = @inst[] the_fxtyenv_pvsl00d/atext()
+        let dpar = d0parsed_from_atext(0, fixity0_sats)
+        let dpar = d1parsed_of_trans01(dpar)
+        let tenv = d1parsed_get_topenv(dpar)
+        match tenv:
+            case D1TOPENV(topenv):
+                @inst[] the_fxtyenv_pvsl00d/topmap/set(topenv)
+                1
+
+@impl[]
+def the_fxtyenv_pvsl00d/atext():
+    "(* ****** ****** *)\n(*\nThe content of\nprelude/fixity0.sats\n*)\n(* ****** ****** *)\n//\n(*\n#infixl app of 70\n*)\n//\n(* ****** ****** *)\n//\n(*\nHX: ATS-specialty:\n*)\n//\n#prefix\n!  of 69 (*stadyn*)\n(*\n#prefix\n~  of 69 (*static*)\n*)\n#prefix\n&  of 69 (*stadyn*)\n#prefix\n?  of 69 (*static*)\n#prefix\n?! of 69 (*static*)\n//\n(* ****** ****** *)\n//\n#infixl + of 50 (*add*)\n#infixl - of 50 (*sub*)\n//\n#infixl * of 60 (*mul*)\n#infixl / of 60 (*div*)\n#infixl % of 60 (*mod*)\n//\n(* ****** ****** *)\n//\n(*\nHX-2015-08-04:\nFORTRAN-notation\nfor exponentiation\n*)\n//\n#infixr ** of 61 (* exp *)\n//\n(* ****** ****** *)\n//\n(*\nHX: +1*2 = +(1*2)\nHX: -1*2 = -(1*2)\n*)\n#prefix + of +(+1) (*uplus*)\n#prefix - of -(+1) (*uminus*)\n//\n(* ****** ****** *)\n(*\n#infixl nadd nsub of 50\n#infixl nmul ndiv nmod of 60\n*)\n(* ****** ****** *)\n//\n#prefix ~ of 51 // lnot(*neg*)\n//\n(* ****** ****** *)\n//\n#infixl & of 46 // land(*mul*)\n#infixl ^ of 45 // lxor(*add*)\n(*\nHX-2023-12-30:\nBAR(|) is special;\nit is for separating\nproofs from programs!\n#infixl | of 45 // lor2(*add*)\n*)\n//\n(*\n#infixl asrn of 41\n#infixl lsln lsrn of 41\n*)\n#infixl << of 41 // lsln\n#infixl >> of 41 // asrn\n#infixl >>> of 41 // lsrn\n//\n(* ****** ****** *)\n//\n#infixr @ of 40 (*flat*)\n#prefix @ of 69 (*uflat*)\n//\n#infixr :: of 41 (* cons *)\n#infixr ++ of 40 (* join *)\n//\n(* ****** ****** *)\n//\n#infix0 < <= of 40 (*lt/eq*)\n#infix0 > >= of 40 (*gt/eq*)\n#infix0 = != of 30 (*equal*)\n//\n#infix0 == !== of 30 (*eqref*)\n//\n(* ****** ****** *)\n(*\n#infix0\n=== !=== of 30 // HX: for JS?\n*)\n(* ****** ****** *)\n//\n#infixl || of 20\n#infixl && of ||(+1)\n//\n(* ****** ****** *)\n\n#infixr -> of 10 (*funarrow*)\n\n(* ****** ****** *)\n//\n#infix0 := of 0 // HX: assign\n#infix0 :=> of 0 // HX: exassign\n#infix0 :=: of 0 // HX: exchange\n//\n(*\n#infix0 <-> of 0 // HX: exchange?\n*)\n//\n(* ****** ****** *)\n\n(*\n#prefix ++ -- // HX: inc/dec\n#prefix !++ --! // HX: getinc/decget\n#infixr =++ --= // HX: setinc/decset\n*)\n\n(* ****** ****** *)\n\n(*\n#infix0\n:+= :-= :*= :/= // x:=x+a, x:=x-a, ...\n#infix0\n:=+ :=- :=* :=/ // x:=a+x, x:=a-x, ...\n*)\n\n(* ****** ****** *)\n//\n#infixl orelse of || // HX: short-cutting\n#infixl andalso of && // HX: short-cutting\n//\n(* ****** ****** *)\n(* ****** ****** *)\n//\n#prefix $raise of 0 // raising an exception\n//\n(* ****** ****** *)\n(* ****** ****** *)\n//\n"
+

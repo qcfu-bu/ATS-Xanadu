@@ -1,0 +1,242 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+import "srcgen2/SATS/lexing0" as LEX
+
+import "srcgen2/SATS/staexp2" as S2E
+
+import "srcgen2/SATS/dynexp2" as D2E
+
+type Token = LEX.token
+
+type Sort2 = S2E.sort2
+
+type S2cst = S2E.s2cst
+
+type S2var = S2E.s2var
+
+type S2exp = S2E.s2exp
+
+type L2s2e = S2E.l2s2e
+
+type S2tex = S2E.s2tex
+
+type Sort2lst = S2E.sort2lst
+
+type Sort2opt = S2E.sort2opt
+
+type S2cstlst = S2E.s2cstlst
+
+type S2varlst = S2E.s2varlst
+
+type S2explst = S2E.s2explst
+
+type S2expopt = S2E.s2expopt
+
+type L2s2elst = S2E.l2s2elst
+
+type D2con = D2E.d2con
+
+type D2cst = D2E.d2cst
+
+type D2var = D2E.d2var
+
+type D2pat = D2E.d2pat
+
+type D2exp = D2E.d2exp
+
+type L2d2p = D2E.l2d2p
+
+type L2d2e = D2E.l2d2e
+
+type F2arg = D2E.f2arg
+
+type D2gua = D2E.d2gua
+
+type D2gpt = D2E.d2gpt
+
+type D2cls = D2E.d2cls
+
+type S2res = D2E.s2res
+
+type D2gua = D2E.d2gua
+
+type D2gpt = D2E.d2gpt
+
+type D2cls = D2E.d2cls
+
+type D2arg = D2E.d2arg
+
+type D2ecl = D2E.d2ecl
+
+type S2qag = D2E.s2qag
+
+type T2qag = D2E.t2qag
+
+type T2iag = D2E.t2iag
+
+type A2tdf = D2E.a2tdf
+
+type Simpl = D2E.simpl
+
+type Dimpl = D2E.dimpl
+
+type D2conlst = D2E.d2conlst
+
+type D2cstlst = D2E.d2cstlst
+
+type D2varlst = D2E.d2varlst
+
+type D2patlst = D2E.d2patlst
+
+type D2patopt = D2E.d2patopt
+
+type D2explst = D2E.d2explst
+
+type D2expopt = D2E.d2expopt
+
+type L2d2plst = D2E.l2d2plst
+
+type L2d2elst = D2E.l2d2elst
+
+type F2arglst = D2E.f2arglst
+
+type D2gualst = D2E.d2gualst
+
+type D2clslst = D2E.d2clslst
+
+type D2arglst = D2E.d2arglst
+
+type D2eclist = D2E.d2eclist
+
+type S2qaglst = D2E.s2qaglst
+
+type T2qaglst = D2E.t2qaglst
+
+type T2iaglst = D2E.t2iaglst
+
+type Wths2exp = D2E.wths2exp
+
+type Teqd2exp = D2E.teqd2exp
+
+type D2valdcl = D2E.d2valdcl
+
+type D2vardcl = D2E.d2vardcl
+
+type D2fundcl = D2E.d2fundcl
+
+type D2cstdcl = D2E.d2cstdcl
+
+type D2parsed = D2E.d2parsed
+
+type D2valdclist = D2E.d2valdclist
+
+type D2vardclist = D2E.d2vardclist
+
+type D2fundclist = D2E.d2fundclist
+
+type D2cstdclist = D2E.d2cstdclist
+
+type D2explstopt = D2E.d2explstopt
+
+type D2eclistopt = D2E.d2eclistopt
+
+@extern
+def d2parsed_of_t2read0(a: D2parsed) -> D2parsed
+
+type Ft2read0[Syn: Tbox] = (Syn, &SInt >> _) -> Syn
+
+@extern
+def list_t2read0_fnp[Syn: Tx](a: List[Syn], b: &SInt >> _, c: Ft2read0[Syn]) -> List[Syn]
+
+@extern
+def optn_t2read0_fnp[Syn: Tx](a: Optn[Syn], b: &SInt >> _, c: Ft2read0[Syn]) -> Optn[Syn]
+
+@extern
+def t2read0_d2pat() -> Ft2read0[D2pat]
+
+@extern
+def t2read0_d2exp() -> Ft2read0[D2exp]
+
+@extern
+def t2read0_l2d2p() -> Ft2read0[L2d2p]
+
+@extern
+def t2read0_l2d2e() -> Ft2read0[L2d2e]
+
+@extern
+def t2read0_f2arg() -> Ft2read0[F2arg]
+
+@extern
+def t2read0_d2gua() -> Ft2read0[D2gua]
+
+@extern
+def t2read0_d2gpt() -> Ft2read0[D2gpt]
+
+@extern
+def t2read0_d2cls() -> Ft2read0[D2cls]
+
+@extern
+def t2read0_d2ecl() -> Ft2read0[D2ecl]
+
+@extern
+def t2read0_d2patlst() -> Ft2read0[D2patlst]
+
+@extern
+def t2read0_l2d2plst() -> Ft2read0[L2d2plst]
+
+@extern
+def t2read0_d2explst() -> Ft2read0[D2explst]
+
+@extern
+def t2read0_d2expopt() -> Ft2read0[D2expopt]
+
+@extern
+def t2read0_l2d2elst() -> Ft2read0[L2d2elst]
+
+@extern
+def t2read0_f2arglst() -> Ft2read0[F2arglst]
+
+@extern
+def t2read0_d2gualst() -> Ft2read0[D2gualst]
+
+@extern
+def t2read0_d2clslst() -> Ft2read0[D2clslst]
+
+@extern
+def t2read0_d2eclist() -> Ft2read0[D2eclist]
+
+@extern
+def t2read0_teqd2exp() -> Ft2read0[Teqd2exp]
+
+@extern
+def t2read0_d2valdcl() -> Ft2read0[D2valdcl]
+
+@extern
+def t2read0_d2vardcl() -> Ft2read0[D2vardcl]
+
+@extern
+def t2read0_d2fundcl() -> Ft2read0[D2fundcl]
+
+@extern
+def t2read0_d2cstdcl() -> Ft2read0[D2cstdcl]
+
+@extern
+def t2read0_d2valdclist() -> Ft2read0[D2valdclist]
+
+@extern
+def t2read0_d2vardclist() -> Ft2read0[D2vardclist]
+
+@extern
+def t2read0_d2fundclist() -> Ft2read0[D2fundclist]
+
+@extern
+def t2read0_d2cstdclist() -> Ft2read0[D2cstdclist]
+
+@extern
+def t2read0_d2explstopt() -> Ft2read0[D2explstopt]
+
+@extern
+def t2read0_d2eclistopt() -> Ft2read0[D2eclistopt]
+

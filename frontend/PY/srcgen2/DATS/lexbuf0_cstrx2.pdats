@@ -1,0 +1,168 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexbuf0" import *
+
+@overload char = char_make_sint
+
+private:
+    @linear
+    enum Pstn1:
+        case PSTN1(SInt, SInt, SInt)
+    @linear
+    enum Lxbf2_:
+        case LXBF2(Pstn1, Pstn1, strx_vt[SInt], list_vt[Char], list_vt[Char])
+    @impl
+    type Lxbf2_vtbx = Lxbf2_
+    def pstn1_free(pos: ~Pstn1) -> Void:
+        let ~PSTN1(ntot, nrow, ncol) = pos
+    def pstn1_copy(pos: !Pstn1) -> Pstn1:
+        PSTN1(ntot, nrow, ncol)
+    where:
+        let !PSTN1(ntot, nrow, ncol) = pos
+    @overload free = pstn1_free
+    @overload copy = pstn1_copy
+    def pstn1_get_ncol(pos: !Pstn1) -> SInt:
+        match pos:
+            case PSTN1(_, _, ncol):
+                ncol
+    @overload ncol = pstn1_get_ncol
+    def postn_make_pstn1(pos: !Pstn1) -> postn:
+        let !PSTN1(ntot, nrow, ncol) = pos
+        postn_make_int3(ntot, nrow, ncol)
+    @overload postn = postn_make_pstn1
+    def pstn1_incby_char(pos: !Pstn1 >> _, chr: Char) -> Void:
+        let @(PSTN1)(!ntot, !nrow, !ncol) = pos
+        ntot := ntot + 1
+        if (chr != '\n'):
+            ncol := ncol + 1
+        else:
+            ncol := 0
+            nrow := nrow + 1
+        fold(pos)
+
+@impl
+def lxbf2_getc0(buf):
+    let @(LXBF2)(_) = buf
+    match buf.3:
+        case list_vt_nil():
+            let buf2 = buf.2
+            match !(buf2):
+                case ~strxcon_vt_cons(ci1, cis):
+                    buf.2 := cis
+                    if (ci1 >= 0):
+                        let cc1 = char(ci1)
+                        buf.3 := cons_vt(cc1, buf.3)
+                        ci1
+                    else:
+                        ci1
+        case list_vt_cons(cc1, ccs):
+            char_code(cc1)
+
+@impl
+def lxbf2_getc1(buf):
+    let @(LXBF2)(_) = buf
+    match buf.3:
+        case ~list_vt_nil():
+            let buf2 = buf.2
+            match !(buf2):
+                case ~strxcon_vt_cons(ci1, cis):
+                    buf.2 := cis
+                    if (ci1 >= 0):
+                        let cc1 = char(ci1)
+                        buf.4 := cons_vt(cc1, buf.4)
+                        pstn1_incby_char(buf.1, cc1)
+                        ci1
+                    else:
+                        ci1
+        case ~list_vt_cons(cc1, ccs):
+            let ci1 = char_code(cc1)
+            buf.3 := ccs
+            buf.4 := cons_vt(cc1, buf.4)
+            pstn1_incby_char(buf.1, cc1)
+            ci1
+
+@impl
+def lxbf2_unget(buf):
+    let @(LXBF2)(_) = buf
+    def buf_decby(pbeg: !Pstn1, pcur: !Pstn1 >> _, buf4: !list_vt[Char]) -> Void:
+        def f0_nofs(ofs: SInt, res: SInt, ccs: !list_vt[Char]) -> SInt:
+            match ccs:
+                case list_vt_nil():
+                    ofs + res
+                case list_vt_cons(cc1, ccs):
+                    if (cc1 == '\n'):
+                        res
+                    else:
+                        f0_nofs(ofs, res + 1, ccs)
+        match pcur:
+            case @(PSTN1)(!ntot, !nrow, !ncol):
+                if (ncol > 0):
+                    ntot := ntot - 1
+                    ncol := ncol - 1
+                else:
+                    let res = 0
+                    let ofs = pstn1_get_ncol(pbeg)
+                    let nofs = f0_nofs(ofs, res, buf.4)
+                    ntot := ntot - 1
+                    nrow := nrow - 1
+                    ncol := nofs
+    match buf.4:
+        case ~list_vt_nil():
+            -(1)
+        case ~list_vt_cons(cc1, ccs):
+            buf.4 := ccs
+            buf.3 := cons_vt(cc1, buf.3)
+            buf_decby(buf.0, buf.1, buf.4)
+            char_code(cc1)
+
+@impl
+def lxbf2_copy_pbeg(buf):
+    let @(LXBF2)(_) = buf
+    let pbeg = postn(buf.0)
+    fold(buf)
+    pbeg
+
+@impl
+def lxbf2_copy_pcur(buf):
+    let @(LXBF2)(_) = buf
+    let pcur = postn(buf.1)
+    fold(buf)
+    pcur
+
+@impl
+def lxbf2_take_clst(buf):
+    let @(LXBF2)(_) = buf
+    let clst = list_vt_reverse0(buf.4)
+    pstn1_free(buf.0)
+    buf.0 := pstn1_copy(buf.1)
+    buf.4 := (nil_vt())
+    fold(buf)
+    clst
+
+@impl
+def lxbf2_make_cstrx(cs0):
+    let ps0 = PSTN1(0, 0, 0)
+    let ps1 = PSTN1(0, 0, 0)
+    let cs1 = list_vt_nil
+    let cs2 = list_vt_nil
+    LXBF2(ps0, ps1, cs0, cs1, cs2)
+
+
+@impl
+def lxbf2_make_strn(src):
+    lxbf2_make_cstrx(strx_vt_map0(strn_strxize(src)))
+where:
+    @impl[Char, SInt]
+    def map/fopr0(cc):
+        let ci = char_code(cc)
+        if ci > 0:
+            ci
+        else:
+            -(1)
+

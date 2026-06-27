@@ -875,6 +875,10 @@ in
               case+ ps_peek(st2a) of
               | PT_UIDENT(nm) => @(optn_cons(nm), ps_advance(st2a))
               | PT_LIDENT(nm) => @(optn_cons(nm), ps_advance(st2a))
+              // `import "X" as _` = the round-trip of an ANONYMOUS staload `#staload _ = "X"`
+              // (loads X for registration/templates, no module name). Consume `_`, treat as a
+              // bare staload (aopt = nil). Used pervasively for impl `#staload _ = "X.dats"`.
+              | PT_USCORE() => @(optn_nil(), ps_advance(st2a))
               | _ =>
                 let val st2b = ps_diag(st2a, ps_peek_loctn(st2a), "expected an alias name after 'as'") in
                   @(optn_nil(), st2b) end

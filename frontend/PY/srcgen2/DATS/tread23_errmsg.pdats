@@ -1,0 +1,459 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/locinfo" import *
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/SATS/tread23" import *
+
+let xatsv_FPEMSG_ERRLVL = 3
+
+@overload lctn = token_get_lctn
+
+@overload node = token_get_node
+
+@overload fpemsg = d3pat_fpemsg
+
+@overload fpemsg = l3d3p_fpemsg
+
+@overload fpemsg = d3exp_fpemsg
+
+@overload fpemsg = l3d3e_fpemsg
+
+@overload fpemsg = d3ecl_fpemsg
+
+private:
+    def auxmain(out: FILR, d3p: d3pat) -> Void:
+        @impl[]
+        def g_print/out():
+            out
+        match d3p.node():
+            case D3Pvar(_):
+                ()
+            case D3Pint(_):
+                ()
+            case D3Pbtf(_):
+                ()
+            case D3Pchr(_):
+                ()
+            case D3Pflt(_):
+                ()
+            case D3Pstr(_):
+                ()
+            case D3Pcon(_):
+                ()
+            case D3Pbang(d3p1):
+                d3pat_fpemsg(out, d3p1)
+            case D3Pflat(d3p1):
+                d3pat_fpemsg(out, d3p1)
+            case D3Pfree(d3p1):
+                d3pat_fpemsg(out, d3p1)
+            case D3Ptapq(d3f0, tjas):
+                d3pat_fpemsg(out, d3f0)
+            case D3Pdap1(d3f0):
+                d3pat_fpemsg(out, d3f0)
+            case D3Pdapp(d3f0, npf1, d3ps):
+                d3pat_fpemsg(out, d3f0)
+                d3patlst_fpemsg(out, d3ps)
+            case D3Ptup0(npf1, d3ps):
+                d3patlst_fpemsg(out, d3ps)
+            case D3Pannot(d3p1, s1e2, s2e2):
+                d3pat_fpemsg(out, d3p1)
+            case D3Pt2pck(d3p1, t2p2):
+                d3pat_fpemsg(out, d3p1)
+            case D3Pnone0():
+                ()
+            case D3Pnone1(d2p1):
+                ()
+            case D3Perrck(_, _):
+                d3pat_fpemsg(out, d3p)
+
+@impl
+def d3pat_fpemsg(out, d3p0):
+    @impl[]
+    def g_print/out():
+        out
+    match d3p0.node():
+        case D3Perrck(lvl, d3p1):
+            auxmain(out, d3p1)
+            if (lvl >= xatsv_FPEMSG_ERRLVL):
+                ()
+            else:
+                let loc0 = d3p0.lctn()
+                printsln("TREAD23-ERROR:", loc0, ":", d3p0)
+        case _:
+            ()
+
+
+@impl
+def l3d3p_fpemsg(out, ld3p):
+    match ld3p:
+        case D3LAB(lab, d3p1):
+            d3pat_fpemsg(out, d3p1)
+
+private:
+    def auxmain(out: FILR, d3e: d3exp) -> Void:
+        @impl[]
+        def g_print/out():
+            out
+        match d3e.node():
+            case D3Eint(_):
+                ()
+            case D3Ebtf(_):
+                ()
+            case D3Echr(_):
+                ()
+            case D3Eflt(_):
+                ()
+            case D3Estr(_):
+                ()
+            case D3Evar(_):
+                ()
+            case D3Econ(_):
+                ()
+            case D3Ecst(_):
+                ()
+            case D3Etop(_):
+                ()
+            case D3Etapp(d3f0, s2es):
+                d3exp_fpemsg(out, d3f0)
+            case D3Etapq(d3f0, tjas):
+                d3exp_fpemsg(out, d3f0)
+            case D3Edap0(d3f0):
+                d3exp_fpemsg(out, d3f0)
+            case D3Edapp(d3f0, npf1, d3es):
+                d3exp_fpemsg(out, d3f0)
+                d3explst_fpemsg(out, d3es)
+            case D3Eproj(tknd, lab1, d3e2):
+                d3exp_fpemsg(out, d3e2)
+            case D3Elet0(d3cs, d3e1):
+                d3eclist_fpemsg(out, d3cs)
+                d3exp_fpemsg(out, d3e1)
+            case D3Eift0(d3e1, dthn, dels):
+                d3exp_fpemsg(out, d3e1)
+                d3expopt_fpemsg(out, dthn)
+                d3expopt_fpemsg(out, dels)
+            case D3Ecas0(tknd, d3e1, dcls):
+                d3exp_fpemsg(out, d3e1)
+                d3clslst_fpemsg(out, dcls)
+            case D3Eseqn(d3es, d3e1):
+                d3explst_fpemsg(out, d3es)
+                d3exp_fpemsg(out, d3e1)
+            case D3Etup0(npf1, d3es):
+                d3explst_fpemsg(out, d3es)
+            case D3Etup1(tknd, npf1, d3es):
+                d3explst_fpemsg(out, d3es)
+            case D3Etry0(tknd, d3e1, dcls):
+                d3exp_fpemsg(out, d3e1)
+                d3clslst_fpemsg(out, dcls)
+            case D3Eaddr(d3e1):
+                d3exp_fpemsg(out, d3e1)
+            case D3Eview(d3e1):
+                d3exp_fpemsg(out, d3e1)
+            case D3Eflat(d3e1):
+                d3exp_fpemsg(out, d3e1)
+            case D3Eeval(d3e1):
+                d3exp_fpemsg(out, d3e1)
+            case D3Efold(d3e1):
+                d3exp_fpemsg(out, d3e1)
+            case D3Efree(d3e1):
+                d3exp_fpemsg(out, d3e1)
+            case D3Edp2tr(d3e1):
+                d3exp_fpemsg(out, d3e1)
+            case D3Edl0az(d3e1):
+                d3exp_fpemsg(out, d3e1)
+            case D3Edl1az(d3e1):
+                d3exp_fpemsg(out, d3e1)
+            case D3Ewhere(d2e1, dcls):
+                d3eclist_fpemsg(out, dcls)
+                d3exp_fpemsg(out, d2e1)
+            case D3Eassgn(d3el, d3er):
+                d3exp_fpemsg(out, d3el)
+                d3exp_fpemsg(out, d3er)
+            case D3Eraise(tknd, d3e1):
+                d3exp_fpemsg(out, d3e1)
+            case D3El0azy(dsym, d3e1):
+                d3exp_fpemsg(out, d3e1)
+            case D3El1azy(dsym, d3e1, d3es):
+                d3exp_fpemsg(out, d3e1)
+                d3explst_fpemsg(out, d3es)
+            case D3Eannot(d3e1, s1e2, s2e2):
+                d3exp_fpemsg(out, d3e1)
+            case D3Elabck(d3e1, lab2):
+                d3exp_fpemsg(out, d3e1)
+            case D3Et2pck(d3e1, t2p2):
+                d3exp_fpemsg(out, d3e1)
+            case D3Et2ped(d3e1, t2p2):
+                d3exp_fpemsg(out, d3e1)
+            case D3Enone0():
+                ()
+            case D3Enone1(d2e1):
+                ()
+            case D3Enone2(d3e1):
+                d3exp_fpemsg(out, d3e1)
+            case D3Eextnam(tknd, gnam):
+            case D3Esynext(tknd, gexp):
+            case D3Eerrck(_, _):
+                d3exp_fpemsg(out, d3e)
+
+@impl
+def d3exp_fpemsg(out, d3e0):
+    @impl[]
+    def g_print/out():
+        out
+    match d3e0.node():
+        case D3Eerrck(lvl, d3e1):
+            auxmain(out, d3e1)
+            if (lvl >= xatsv_FPEMSG_ERRLVL):
+                ()
+            else:
+                let loc0 = d3e0.lctn()
+                printsln("TREAD23-ERROR:", loc0, ":", d3e0)
+        case _:
+            ()
+
+
+@impl
+def l3d3e_fpemsg(out, ld3e):
+    match ld3e:
+        case D3LAB(lab, d3e1):
+            d3exp_fpemsg(out, d3e1)
+
+@impl
+def f3arg_fpemsg(out, farg):
+    match farg.node():
+        case F3ARGdapp(npf1, d3ps):
+            d3patlst_fpemsg(out, d3ps)
+        case F3ARGsapp(s2vs, s2es):
+            ()
+        case F3ARGmets(s2es):
+            ()
+
+@impl
+def d3gua_fpemsg(out, dgua):
+    match dgua.node():
+        case D3GUAexp(d3e1):
+            d3exp_fpemsg(out, d3e1)
+        case D3GUAmat(d3e1, d3p2):
+            d3exp_fpemsg(out, d3e1)
+            d3pat_fpemsg(out, d3p2)
+
+@impl
+def d3gpt_fpemsg(out, dgpt):
+    match dgpt.node():
+        case D3GPTpat(d3p1):
+            d3pat_fpemsg(out, d3p1)
+        case D3GPTgua(d3p1, d3gs):
+            d3pat_fpemsg(out, d3p1)
+            d3gualst_fpemsg(out, d3gs)
+
+@impl
+def d3cls_fpemsg(out, dcls):
+    match dcls.node():
+        case D3CLSgpt(dgpt):
+            d3gpt_fpemsg(out, dgpt)
+        case D3CLScls(dgpt, d3e2):
+            d3gpt_fpemsg(out, dgpt)
+            d3exp_fpemsg(out, d3e2)
+
+private:
+    def auxmain(out: FILR, dcl: d3ecl) -> Void:
+        @impl[]
+        def g_print/out():
+            out
+        match dcl.node():
+            case D3Cd2ecl(_):
+                ()
+            case D3Cstatic(tknd, dcl1):
+                d3ecl_fpemsg(out, dcl1)
+            case D3Cextern(tknd, dcl1):
+                d3ecl_fpemsg(out, dcl1)
+            case D3Clocal0(dcs1, dcs2):
+                d3eclist_fpemsg(out, dcs1)
+                d3eclist_fpemsg(out, dcs2)
+            case D3Cabsopen(_):
+                ()
+            case D3Cabsimpl(_):
+                ()
+            case D3Cinclude(knd0, tknd, g1e1, fopt, dopt):
+                match dopt:
+                    case optn_nil():
+                        ()
+                    case optn_cons(dcls):
+                        d3eclist_fpemsg(out, dcls)
+            case D3Cstaload(knd0, tknd, g1e1, fopt, dopt):
+                ()
+            case D3Cvaldclst(tknd, d3vs):
+                d3valdclist_fpemsg(out, d3vs)
+            case D3Cvardclst(tknd, d3vs):
+                d3vardclist_fpemsg(out, d3vs)
+            case D3Cfundclst(tknd, tqas, d2cs, d3fs):
+                d3fundclist_fpemsg(out, d3fs)
+            case D3Cimplmnt0(tknd, stmp, sqas, tqas, dimp, tias, f3as, sres, d3e1):
+                f3arglst_fpemsg(out, f3as)
+                d3exp_fpemsg(out, d3e1)
+            case D3Ctmplocal(dtmp, tmps):
+                d3ecl_fpemsg(out, dtmp)
+                d3eclist_fpemsg(out, tmps)
+            case D3Cnone0(_):
+                ()
+            case D3Cnone1(_):
+                ()
+            case D3Cnone2(_):
+                ()
+            case D3Cerrck(_, _):
+                d3ecl_fpemsg(out, dcl)
+
+@impl
+def d3ecl_fpemsg(out, dcl0):
+    @impl[]
+    def g_print/out():
+        out
+    match dcl0.node():
+        case D3Cerrck(lvl, d3cl):
+            auxmain(out, d3cl)
+            if (lvl >= xatsv_FPEMSG_ERRLVL):
+                ()
+            else:
+                let loc0 = dcl0.lctn()
+                printsln("TREAD23-ERROR:", loc0, ":", dcl0)
+        case _:
+            ()
+
+
+@impl
+def teqd3exp_fpemsg(out, tdxp):
+    match tdxp:
+        case TEQD3EXPnone():
+            ()
+        case TEQD3EXPsome(teq1, d3e2):
+            let d3e2 = d3exp_fpemsg(out, d3e2)
+
+@impl
+def d3valdcl_fpemsg(out, dval):
+    d3pat_fpemsg(out, dpat)
+    teqd3exp_fpemsg(out, tdxp)
+where:
+    let dpat = d3valdcl_get_dpat(dval)
+    let tdxp = d3valdcl_get_tdxp(dval)
+
+@impl
+def d3vardcl_fpemsg(out, dvar):
+    teqd3exp_fpemsg(out, dini)
+where:
+    let dini = d3vardcl_get_dini(dvar)
+
+@impl
+def d3fundcl_fpemsg(out, dfun):
+    f3arglst_fpemsg(out, fags)
+    teqd3exp_fpemsg(out, tdxp)
+where:
+    let fags = d3fundcl_get_farg(dfun)
+    let tdxp = d3fundcl_get_tdxp(dfun)
+
+@impl
+def d3patlst_fpemsg(out, d3ps):
+    @inst[d3pat] list_foritm(d3ps)
+where:
+    @impl[d3pat]
+    def foritm/work(d3p1):
+        d3pat_fpemsg(out, d3p1)
+
+@impl
+def l3d3plst_fpemsg(out, ldps):
+    @inst[l3d3p] list_foritm(ldps)
+where:
+    @impl[l3d3p]
+    def foritm/work(ld3p):
+        l3d3p_fpemsg(out, ld3p)
+
+@impl
+def d3explst_fpemsg(out, d3es):
+    @inst[d3exp] list_foritm(d3es)
+where:
+    @impl[d3exp]
+    def foritm/work(d3e1):
+        d3exp_fpemsg(out, d3e1)
+
+@impl
+def d3expopt_fpemsg(out, dopt):
+    @inst[d3exp] optn_foritm(dopt)
+where:
+    @impl[d3exp]
+    def foritm/work(d3e1):
+        d3exp_fpemsg(out, d3e1)
+
+@impl
+def l3d3elst_fpemsg(out, ldes):
+    @inst[l3d3e] list_foritm(ldes)
+where:
+    @impl[l3d3e]
+    def foritm/work(ld3e):
+        l3d3e_fpemsg(out, ld3e)
+
+@impl
+def f3arglst_fpemsg(out, f3as):
+    @inst[f3arg] list_foritm(f3as)
+where:
+    @impl[f3arg]
+    def foritm/work(f3a1):
+        f3arg_fpemsg(out, f3a1)
+
+@impl
+def d3gualst_fpemsg(out, d3gs):
+    @inst[d3gua] list_foritm(d3gs)
+where:
+    @impl[d3gua]
+    def foritm/work(d3g1):
+        d3gua_fpemsg(out, d3g1)
+
+@impl
+def d3clslst_fpemsg(out, d3cs):
+    @inst[d3cls] list_foritm(d3cs)
+where:
+    @impl[d3cls]
+    def foritm/work(d3c1):
+        d3cls_fpemsg(out, d3c1)
+
+@impl
+def d3eclist_fpemsg(out, dcls):
+    @inst[d3ecl] list_foritm(dcls)
+where:
+    @impl[d3ecl]
+    def foritm/work(dcl1):
+        d3ecl_fpemsg(out, dcl1)
+
+@impl
+def d3valdclist_fpemsg(out, d3vs):
+    @inst[d3valdcl] list_foritm(d3vs)
+where:
+    @impl[d3valdcl]
+    def foritm/work(dvar):
+        d3valdcl_fpemsg(out, dvar)
+
+@impl
+def d3vardclist_fpemsg(out, d3vs):
+    @inst[d3vardcl] list_foritm(d3vs)
+where:
+    @impl[d3vardcl]
+    def foritm/work(dvar):
+        d3vardcl_fpemsg(out, dvar)
+
+@impl
+def d3fundclist_fpemsg(out, d3fs):
+    @inst[d3fundcl] list_foritm(d3fs)
+where:
+    @impl[d3fundcl]
+    def foritm/work(dfun):
+        d3fundcl_fpemsg(out, dfun)
+

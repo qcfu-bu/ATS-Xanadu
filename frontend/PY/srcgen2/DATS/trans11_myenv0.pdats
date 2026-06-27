@@ -1,0 +1,110 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/gmacro1" import *
+
+from "srcgen2/SATS/xglobal" import *
+
+private:
+    type Xatslocal0_key = sym_t
+    @linear
+    enum Tr11env:
+        case TR11ENV(topmap[g1mac], stkmap[g1mac])
+    @impl
+    type Tr11env_vtbx = Tr11env
+
+@impl
+def tr11env_make_nil():
+    TR11ENV(topmap, stkmap)
+where:
+    let topmap = @sapp[g1mac] topmap_make_nil()
+    let stkmap = @sapp[g1mac] stkmap_make_nil()
+
+@impl
+def tr11env_free_top(tr11):
+    topmap
+where:
+    let ~TR11ENV(topmap, stkmap) = tr11
+    stkmap_free_nil(stkmap)
+
+@impl
+def tr11env_poplam0(tr11):
+    let @(TR11ENV)(topmap, !stkmap) = tr11
+    let nerr = stkmap_poplam0(stkmap)
+    fold(tr11)
+
+@impl
+def tr11env_pshlam0(tr11):
+    let @(TR11ENV)(topmap, !stkmap) = tr11
+    let nerr = stkmap_pshlam0(stkmap)
+    fold(tr11)
+
+@impl
+def tr11env_poplet0(tr11):
+    let @(TR11ENV)(topmap, !stkmap) = tr11
+    let nerr = stkmap_poplet0(stkmap)
+    fold(tr11)
+
+@impl
+def tr11env_pshlet0(tr11):
+    let @(TR11ENV)(topmap, !stkmap) = tr11
+    stkmap_pshlet0(stkmap)
+    fold(tr11)
+
+@impl
+def tr11env_pshloc1(tr11):
+    let @(TR11ENV)(topmap, !stkmap) = tr11
+    let nerr = stkmap_pshloc1(stkmap)
+    fold(tr11)
+
+@impl
+def tr11env_pshloc2(tr11):
+    let @(TR11ENV)(topmap, !stkmap) = tr11
+    let nerr = stkmap_pshloc2(stkmap)
+    fold(tr11)
+
+@impl
+def tr11env_locjoin(tr11):
+    let @(TR11ENV)(topmap, !stkmap) = tr11
+    let (nerr, kxs) = stkmap_poploc0(stkmap)
+    if stkmap_nilq(stkmap):
+        topmap_insert/kxs(topmap, kxs)
+    else:
+        stkmap_insert/kxs(stkmap, kxs)
+    fold(tr11)
+
+@impl
+def tr11env_search/opt(env0, k0):
+    let TR11ENV(topmap, stkmap) = env0
+    let opt = stkmap_search/opt(stkmap, k0)
+    match opt:
+        case optn_vt_cons(gmac):
+            opt
+        case ~optn_vt_nil():
+            let opt = topmap_search/opt(topmap, k0)
+            match opt:
+                case optn_vt_cons(gmac):
+                    opt
+                case ~optn_vt_nil():
+                    the_gmacenv_pvsfind(k0)
+
+@impl
+def tr11env_insert/any(tr11, k0, x0):
+    let @(TR11ENV)(topmap, !stkmap) = tr11
+    if stkmap_nilq(stkmap):
+        topmap_insert/any(topmap, k0, x0)
+    else:
+        stkmap_insert/any(stkmap, k0, x0)
+
+

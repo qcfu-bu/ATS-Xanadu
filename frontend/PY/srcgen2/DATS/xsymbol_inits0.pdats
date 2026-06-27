@@ -1,0 +1,296 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xsymbol" import *
+
+@impl
+def AMP_symbl:
+    symbl("&")
+
+@impl
+def BAR_symbl:
+    symbl("|")
+
+@impl
+def CLN_symbl:
+    symbl(":")
+
+@impl
+def DOT_symbl:
+    symbl(".")
+
+@impl
+def EQ0_symbl:
+    symbl("=")
+
+@impl
+def DLR_symbl:
+    symbl("$")
+
+@impl
+def SRP_symbl:
+    symbl("#")
+
+@impl
+def BANG_symbl:
+    symbl("!")
+
+@impl
+def SMCLN_symbl:
+    symbl(";")
+
+@impl
+def TILDA_symbl:
+    symbl("~")
+
+@impl
+def WCARD_symbl:
+    symbl("_")
+
+@impl
+def ADD_symbl:
+    symbl("+")
+
+@impl
+def SUB_symbl:
+    symbl("-")
+
+@impl
+def MUL_symbl:
+    symbl("*")
+
+@impl
+def DIV_symbl:
+    symbl("/")
+
+@impl
+def MOD_symbl:
+    symbl("%")
+
+@impl
+def CBV0_symbl:
+    symbl("~")
+
+@impl
+def CBV1_symbl:
+    symbl("!")
+
+@impl
+def CBRF_symbl:
+    symbl("&")
+
+@impl
+def AXCG_symbl:
+    symbl(">>")
+
+@impl
+def EQLT_symbl:
+    symbl("=<")
+
+@impl
+def EQGT_symbl:
+    symbl("=>")
+
+@impl
+def MSLT_symbl:
+    symbl("-<")
+
+@impl
+def MSGT_symbl:
+    symbl("->")
+
+@impl
+def PFLAT_symbl:
+    symbl("@")
+
+@impl
+def PFREE_symbl:
+    symbl("~")
+
+@impl
+def DLRDT_symbl:
+    symbl("$.")
+
+@impl
+def ASSGN_symbl:
+    symbl(":=")
+
+@impl
+def BRCKT_symbl:
+    symbl("[]")
+
+@impl
+def XAZGN_symbl:
+    symbl(":=>")
+
+@impl
+def XCHNG_symbl:
+    symbl(":=:")
+
+@impl
+def INT0_symbl:
+    symbl("int0")
+
+@impl
+def ADDR_symbl:
+    symbl("addr")
+
+@impl
+def BOOL_symbl:
+    symbl("bool")
+
+@impl
+def CHAR_symbl:
+    symbl("char")
+
+@impl
+def STRN_symbl:
+    symbl("strn")
+
+@impl
+def PROP_symbl:
+    symbl("prop")
+
+@impl
+def VIEW_symbl:
+    symbl("view")
+
+@impl
+def TYPE_symbl:
+    symbl("type")
+
+@impl
+def TBOX_symbl:
+    symbl("tbox")
+
+@impl
+def TFLT_symbl:
+    symbl("tflt")
+
+@impl
+def VWTP_symbl:
+    symbl("vwtp")
+
+@impl
+def VTBX_symbl:
+    symbl("vtbx")
+
+@impl
+def VTFT_symbl:
+    symbl("vtft")
+
+@impl
+def TRUE_symbl:
+    symbl("true")
+
+@impl
+def FALSE_symbl:
+    symbl("false")
+
+@impl
+def DADDR_symbl:
+    symbl("$addr")
+
+@impl
+def DVIEW_symbl:
+    symbl("$view")
+
+@impl
+def DEVAL_symbl:
+    symbl("$eval")
+
+@impl
+def DFOLD_symbl:
+    symbl("$fold")
+
+@impl
+def DFREE_symbl:
+    symbl("$free")
+
+@impl
+def DLAZY_symbl:
+    symbl("$lazy")
+
+@impl
+def DLLAZY_symbl:
+    symbl("$llazy")
+
+@impl
+def DELAZY_symbl:
+    symbl("$elazy")
+
+@impl
+def DRAISE_symbl:
+    symbl("$raise")
+
+@impl
+def DLAMENV_symbl:
+    symbl("$lamenv")
+
+@impl
+def DLLAMENV0_symbl:
+    symbl("$llamenv0")
+
+@impl
+def DLLAMENV1_symbl:
+    symbl("$llamenv1")
+
+@impl
+def DLR_EXTNAM_symbl:
+    symbl("$extnam")
+
+@impl
+def DLR_EXTVAL_symbl:
+    symbl("$extval")
+
+@impl
+def DLR_EXTBOX_symbl:
+    symbl("$extbox")
+
+@impl
+def DLR_EXTYPE_symbl:
+    symbl("$extype")
+
+@impl
+def DLR_SYNEXT_symbl:
+    symbl("$synext")
+
+@impl
+def P1TR_TBOX_symbl:
+    symbl("p1tr_tbox")
+
+@impl
+def P2TR_TBOX_symbl:
+    symbl("p2tr_tbox")
+
+@impl
+def L0AZY_TBOX_symbl:
+    symbl("lazy_t0_tx")
+
+@impl
+def L1AZY_VTBX_symbl:
+    symbl("lazy_vt_vx")
+
+@impl
+def CBV0_V0_VT_symbl:
+    symbl("cbv0_v0_vt")
+
+@impl
+def CBV1_V0_VT_symbl:
+    symbl("cbv1_v0_vt")
+
+@impl
+def CBRF_VT_VT_symbl:
+    symbl("cbrf_vt_vt")
+
+@impl
+def TOP0_VT_T0_symbl:
+    symbl("top0_vt_t0")
+
+@impl
+def TOP1_VT_T0_symbl:
+    symbl("top1_vt_t0")
+

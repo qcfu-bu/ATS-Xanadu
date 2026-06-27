@@ -1,0 +1,87 @@
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/xats2js/srcgen1/SATS/intrep0" import *
+
+from "srcgen2/xats2js/srcgen1/SATS/trxd3i0" import *
+
+@impl
+def i0parsed_of_trxd3i0(dpar):
+    let stadyn = d3parsed_get_stadyn(dpar)
+    let nerror = d3parsed_get_nerror(dpar)
+    let source = d3parsed_get_source(dpar)
+    let parsed = d3parsed_get_parsed(dpar)
+    let env0 = envd3i0_make_nil()
+    let parsed = trxd3i0_d3eclistopt(env0, parsed)
+    envd3i0_free_nil(env0)
+    i0parsed(stadyn, nerror, source, parsed)
+
+@impl[]
+def list_trxd3i0_fnp[X0, Y0](e1, xs, fopr):
+    @inst[X0] @inst[Y0] @inst[e1] list_map/e1nv(xs, e1)
+where:
+    type E1 = envd3i0
+    @impl[X0, Y0, E1]
+    def map/e1nv/fopr(x0, e1):
+        fopr(e1, x0)
+
+@impl[]
+def optn_trxd3i0_fnp[X0, Y0](e1, xs, fopr):
+    @inst[X0] @inst[Y0] @inst[e1] optn_map/e1nv(xs, e1)
+where:
+    type E1 = envd3i0
+    @impl[X0, Y0, E1]
+    def map/e1nv/fopr(x0, e1):
+        fopr(e1, x0)
+
+@impl
+def trxd3i0_d3patlst(env0, d3ps):
+    list_trxd3i0_fnp(env0, d3ps, trxd3i0_d3pat)
+
+@impl
+def trxd3i0_l3d3plst(env0, ldps):
+    list_trxd3i0_fnp(env0, ldps, trxd3i0_l3d3p)
+
+@impl
+def trxd3i0_d3explst(env0, d3es):
+    list_trxd3i0_fnp(env0, d3es, trxd3i0_d3exp)
+
+@impl
+def trxd3i0_d3expopt(env0, dopt):
+    optn_trxd3i0_fnp(env0, dopt, trxd3i0_d3exp)
+
+@impl
+def trxd3i0_l3d3elst(env0, ldes):
+    list_trxd3i0_fnp(env0, ldes, trxd3i0_l3d3e)
+
+@impl
+def trxd3i0_d3gualst(env0, d3gs):
+    list_trxd3i0_fnp(env0, d3gs, trxd3i0_d3gua)
+
+@impl
+def trxd3i0_d3clslst(env0, dcls):
+    list_trxd3i0_fnp(env0, dcls, trxd3i0_d3cls)
+
+@impl
+def trxd3i0_d3eclist(env0, dcls):
+    list_trxd3i0_fnp(env0, dcls, trxd3i0_d3ecl)
+
+@impl
+def trxd3i0_d3valdclist(env0, d3vs):
+    list_trxd3i0_fnp(env0, d3vs, trxd3i0_d3valdcl)
+
+@impl
+def trxd3i0_d3vardclist(env0, d3vs):
+    list_trxd3i0_fnp(env0, d3vs, trxd3i0_d3vardcl)
+
+@impl
+def trxd3i0_d3fundclist(env0, d3fs):
+    list_trxd3i0_fnp(env0, d3fs, trxd3i0_d3fundcl)
+
+@impl
+def trxd3i0_d3eclistopt(env0, dopt):
+    optn_trxd3i0_fnp(env0, dopt, trxd3i0_d3eclist)
+

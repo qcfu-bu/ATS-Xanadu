@@ -1,0 +1,244 @@
+import "srcgen2/SATS/xstamp0" as TMP
+
+import "srcgen2/SATS/xsymbol" as SYM
+
+import "srcgen2/SATS/filpath" as FP0
+
+import "srcgen2/SATS/xsymmap" as MAP
+
+import "srcgen2/SATS/xfixity" as FIX
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+type Sym_t = SYM.sym_t
+
+type Fpath = FP0.fpath
+
+type Stamp = TMP.stamp
+
+type Tmpmap[A: Type] = TMP.tmpmap[A]
+
+type Topmap[A: Type] = MAP.topmap[A]
+
+type Fixty = FIX.fixty
+
+type Fixtyopt_vt = Optn_vt[Fixty]
+
+import "srcgen2/SATS/staexp1" as S1E
+
+import "srcgen2/SATS/gmacro1" as G1M
+
+import "srcgen2/SATS/dynexp1" as D1E
+
+import "srcgen2/SATS/staexp2" as S2E
+
+import "srcgen2/SATS/dynexp2" as D2E
+
+import "srcgen2/SATS/dynexp3" as D3E
+
+type Sort1 = S1E.sort1
+
+type S1exp = S1E.s1exp
+
+type G1mac = G1M.g1mac
+
+type Sort2 = S2E.sort2
+
+type S2exp = S2E.s2exp
+
+type S2tex = S2E.s2tex
+
+type S2itm = S2E.s2itm
+
+type D2pat = D2E.d2pat
+
+type D2exp = D2E.d2exp
+
+type D2itm = D2E.d2itm
+
+type D2ptm = D2E.d2ptm
+
+type X2nam = D2E.x2nam
+
+@extern
+def the_XATSHOME() -> String
+
+@extern
+def xglobal_reset() -> Void
+
+@extern
+def the_xatsopt_include() -> List[String]
+
+@extern
+def the_fxtyenv_pvsload() -> SInt
+
+@extern
+def the_fxtyenv_pvsl00d() -> SInt
+
+@extern
+def the_fxtyenv_pvsl01d() -> SInt
+
+@extern
+def the_fxtyenv_pvsfind(a: Sym_t) -> Fixtyopt_vt
+
+@extern
+def filpath_pvsload(a: SInt, b: String) -> Void
+
+@extern
+def the_tr12env_pvsl00d() -> SInt
+
+@extern
+def the_tr12env_pvsl01d() -> SInt
+
+@extern
+def the_gmacenv_pvstmap() -> Topmap[G1mac]
+
+@extern
+def the_sortenv_pvstmap() -> Topmap[S2tex]
+
+@extern
+def the_sexpenv_pvstmap() -> Topmap[S2itm]
+
+@extern
+def the_dexpenv_pvstmap() -> Topmap[D2itm]
+
+@extern
+def the_gmacenv_pvsmrgw(a: Topmap[G1mac]) -> Void
+
+@extern
+def the_sortenv_pvsmrgw(a: Topmap[S2tex]) -> Void
+
+@extern
+def the_sexpenv_pvsmrgw(a: Topmap[S2itm]) -> Void
+
+@extern
+def the_dexpenv_pvsmrgw(a: Topmap[D2itm]) -> Void
+
+@extern
+def the_gmacenv_pvsfind(a: Sym_t) -> Optn_vt[G1mac]
+
+@extern
+def the_sortenv_pvsfind(a: Sym_t) -> Optn_vt[S2tex]
+
+@extern
+def the_sexpenv_pvsfind(a: Sym_t) -> Optn_vt[S2itm]
+
+@extern
+def the_dexpenv_pvsfind(a: Sym_t) -> Optn_vt[D2itm]
+
+@extern
+def the_gmacenv_pvsadd0(a: Sym_t, b: G1mac) -> Void
+
+type D1parsed = D1E.d1parsed
+
+type D2parsed = D2E.d2parsed
+
+type D3parsed = D3E.d3parsed
+
+@extern
+def the_d1parenv_pvstmap() -> Topmap[D1parsed]
+
+@extern
+def the_d1parenv_pvsfind(a: Sym_t) -> Optn_vt[D1parsed]
+
+@extern
+def the_d1parenv_pvsadd0(a: Sym_t, b: D1parsed) -> Void
+
+@extern
+def the_d2cstmap_xnm() -> Tmpmap[X2nam]
+
+@extern
+def the_d2cstmap_xnmfind(a: Stamp) -> Optn_vt[X2nam]
+
+@extern
+def the_d2cstmap_xnmadd0(a: Stamp, b: X2nam) -> Void
+
+@extern
+def the_d2parenv_pvstmap() -> Topmap[D2parsed]
+
+@extern
+def the_d2parenv_pvsfind(a: Sym_t) -> Optn_vt[D2parsed]
+
+@extern
+def the_d2parenv_pvsadd0(a: Sym_t, b: D2parsed) -> Void
+
+@extern
+def the_d3parenv_pvstmap() -> Topmap[D3parsed]
+
+@extern
+def the_d3parenv_pvsfind(a: Sym_t) -> Optn_vt[D3parsed]
+
+@extern
+def the_d3parenv_pvsadd0(a: Sym_t, b: D3parsed) -> Void
+
+@extern
+def the_d3tmpenv_pvstmap() -> Topmap[D3parsed]
+
+@extern
+def the_d3tmpenv_pvsfind(a: Sym_t) -> Optn_vt[D3parsed]
+
+@extern
+def the_d3tmpenv_pvsadd0(a: Sym_t, b: D3parsed) -> Void
+
+@extern
+def the_gmacenv_allist() -> List[(Sym_t, G1mac)]
+
+@extern
+def the_sortenv_allist() -> List[(Sym_t, S2tex)]
+
+@extern
+def the_sexpenv_allist() -> List[(Sym_t, S2itm)]
+
+@extern
+def the_dexpenv_allist() -> List[(Sym_t, D2itm)]
+
+@extern
+def the_gmacenv_allist_print() -> Void
+
+@extern
+def the_gmacenv_allist_prerr() -> Void
+
+@extern
+def the_gmacenv_allist_fprint(a: FILR) -> Void
+
+@extern
+def the_sortenv_allist_print() -> Void
+
+@extern
+def the_sortenv_allist_prerr() -> Void
+
+@extern
+def the_sortenv_allist_fprint(a: FILR) -> Void
+
+@extern
+def the_sexpenv_allist_print() -> Void
+
+@extern
+def the_sexpenv_allist_prerr() -> Void
+
+@extern
+def the_sexpenv_allist_fprint(a: FILR) -> Void
+
+@extern
+def the_dexpenv_allist_print() -> Void
+
+@extern
+def the_dexpenv_allist_prerr() -> Void
+
+@extern
+def the_dexpenv_allist_fprint(a: FILR) -> Void
+
+@extern
+def the_gmacenv_allist_add0(a: Sym_t, b: G1mac) -> Void
+
+@extern
+def the_sortenv_allist_add0(a: Sym_t, b: S2tex) -> Void
+
+@extern
+def the_sexpenv_allist_add0(a: Sym_t, b: S2itm) -> Void
+
+@extern
+def the_dexpenv_allist_add0(a: Sym_t, b: D2itm) -> Void
+

@@ -1,0 +1,98 @@
+import "srcgen2/SATS/filpath" as FP0
+
+type Fpath = FP0.fpath
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+enum Lcsrc:
+    case LCSRCnone0()
+    case LCSRCsome1(String)
+    case LCSRCfpath(Fpath)
+
+@extern
+def lcsrc_fprint(a: Lcsrc, b: FILR) -> Void
+
+@abstract
+type Postn_tbox
+
+type Postn = Postn_tbox
+
+type Pos_t = Postn_tbox
+
+@abstract
+type Loctn_tbox
+
+type Loctn = Loctn_tbox
+
+type Loc_t = Loctn_tbox
+
+@extern
+def postn_cmp(a: Postn, b: Postn) -> SInt
+
+@extern
+def loctn_cmp(a: Loctn, b: Loctn) -> SInt
+
+@extern
+def postn_get_ntot(a: Postn) -> SInt
+
+@extern
+def postn_get_nrow(a: Postn) -> SInt
+
+@extern
+def postn_get_ncol(a: Postn) -> SInt
+
+@overload ntot = postn_get_ntot
+
+@overload nrow = postn_get_nrow
+
+@overload ncol = postn_get_ncol
+
+@extern
+def postn_make_int3(a: SInt, b: SInt, c: SInt) -> Postn
+
+@overload postn = postn_make_int3
+
+@extern
+def postn_fprint(a: Postn, b: FILR) -> Void
+
+@extern
+def loctn_get_lsrc(a: Loctn) -> Lcsrc
+
+@extern
+def loctn_get_pbeg(a: Loctn) -> Postn
+
+@extern
+def loctn_get_pend(a: Loctn) -> Postn
+
+@overload lsrc = loctn_get_lsrc
+
+@overload pbeg = loctn_get_pbeg
+
+@overload pend = loctn_get_pend
+
+@extern
+def loctn_dummy() -> Loctn
+
+@extern
+def loctn_fprint(a: Loctn, b: FILR) -> Void
+
+@extern
+def loctn_make_arg3(a: Lcsrc, b: Postn, c: Postn) -> Loctn
+
+@extern
+def loctn_make_fpath(a: Fpath, b: Postn, c: Postn) -> Loctn
+
+@overload loctn = loctn_make_arg3
+
+@overload loctn = loctn_make_fpath
+
+@extern
+def add_loctn_loctn(a: Loctn, b: Loctn) -> Loctn
+
+@overload[1000] + = add_loctn_loctn
+
+@extern
+def fprint_loctn_as_stamp(a: FILR, b: Loctn) -> Void
+

@@ -1,0 +1,293 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xstamp0" import *
+
+from "srcgen2/SATS/xsymmap" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/dynexp3" import *
+
+from "srcgen2/SATS/trtmp3b" import *
+
+private:
+    let stamper = stamper_new()
+
+def the_tmpstk_stamp_new() -> stamp:
+    stamper.getinc()
+
+
+@linear
+enum Tmpstk:
+    case Tmpstk_nil()
+    case Tmpstk_decl(stamp, d3ecl, Tmpstk)
+    case Tmpstk_let0(Tmpstk)
+    case Tmpstk_loc1(Tmpstk)
+    case Tmpstk_loc2(Tmpstk)
+
+@linear
+enum Tr3benv:
+    case TR3BENV(topmap[d3eclist], Tmpstk)
+
+@impl
+type Tmpstk_vtbx = Tmpstk
+
+@impl
+type Tr3benv_vtbx = Tr3benv
+
+def tmpstk_free_nil(stk0: ~Tmpstk) -> Void:
+    match stk0:
+        case ~Tmpstk_nil():
+            ()
+
+@impl
+def tmpstk_nilq1(stk0):
+    match stk0:
+        case Tmpstk_nil():
+            true
+        case _:
+            false
+
+@impl
+def tmpstk_pshlet0(stk0):
+    stk0 := Tmpstk_let0(stk0)
+
+@impl
+def tmpstk_pshloc1(stk0):
+    stk0 := Tmpstk_loc1(stk0)
+
+@impl
+def tmpstk_pshloc2(stk0):
+    stk0 := Tmpstk_loc2(stk0)
+
+@impl
+def tmpstk_poptop0(stk0):
+    def loop(kxs: Tmpstk, err: &SInt >> _) -> Tmpstk:
+        match kxs:
+            case Tmpstk_nil():
+                kxs
+            case ~Tmpstk_decl(k1, x1, kxs):
+                loop(kxs, err)
+            case Tmpstk_let0(_):
+                err := 1
+                kxs
+            case Tmpstk_loc1(_):
+                err := 1
+                kxs
+            case Tmpstk_loc2(_):
+                err := 1
+                kxs
+    var err: SInt = 0
+    stk0 := loop(stk0, err)
+    err
+
+@impl
+def tmpstk_poplet0(stk0):
+    def loop(kxs: Tmpstk, err: &SInt >> _) -> Tmpstk:
+        match kxs:
+            case ~Tmpstk_let0(kxs):
+                kxs
+            case ~Tmpstk_decl(k1, x1, kxs):
+                loop(kxs, err)
+            case Tmpstk_nil():
+                err := 1
+                kxs
+            case Tmpstk_loc1(_):
+                err := 1
+                kxs
+            case Tmpstk_loc2(_):
+                err := 1
+                kxs
+    var err: SInt = 0
+    stk0 := loop(stk0, err)
+    err
+
+@impl
+def tmpstk_locjoin(stk0):
+    def poploc1(kxs: Tmpstk, kys: Tmpstk, err: &SInt >> _) -> Tmpstk:
+        match kxs:
+            case ~Tmpstk_loc1(kxs):
+                pshloc2(kxs, kys, err)
+            case ~Tmpstk_decl(k1, x1, kxs):
+                poploc1(kxs, kys, err)
+            case Tmpstk_nil():
+                prerrsln("tmpstk_locjoin: poploc1: tmpstk_nil")
+                err := 1
+                pshloc2(kxs, kys, err)
+            case Tmpstk_let0(_):
+                prerrsln("tmpstk_locjoin: poploc1: tmpstk_let0")
+                err := 1
+                pshloc2(kxs, kys, err)
+            case Tmpstk_loc2(_):
+                prerrsln("tmpstk_locjoin: poploc1: tmpstk_loc1")
+                err := 1
+                pshloc2(kxs, kys, err)
+
+    def poploc2(kxs: Tmpstk, kys: Tmpstk, err: &SInt >> _) -> Tmpstk:
+        match kxs:
+            case ~Tmpstk_loc2(kxs):
+                poploc1(kxs, kys, err)
+            case ~Tmpstk_decl(k1, x1, kxs):
+                let kys = Tmpstk_decl(k1, x1, kys)
+                poploc2(kxs, kys, err)
+            case Tmpstk_nil():
+                prerrsln("tmpstk_locjoin: poploc2: tmpstk_nil")
+                err := 1
+                poploc1(kxs, kys, err)
+            case Tmpstk_let0(_):
+                prerrsln("tmpstk_locjoin: poploc2: tmpstk_let0")
+                err := 1
+                poploc1(kxs, kys, err)
+            case Tmpstk_loc1(_):
+                prerrsln("tmpstk_locjoin: poploc2: tmpstk_loc1")
+                err := 1
+                poploc1(kxs, kys, err)
+
+    def pshloc2(kxs: Tmpstk, kys: Tmpstk, err: &SInt >> _) -> Tmpstk:
+        match kys:
+            case ~Tmpstk_nil():
+                kxs
+            case ~Tmpstk_decl(k1, x1, kys):
+                let kxs = Tmpstk_decl(k1, x1, kxs)
+                pshloc2(kxs, kys, err)
+    var err: SInt = 0
+    let kxs = stk0
+    let kys = Tmpstk_nil
+    stk0 := poploc2(kxs, kys, err)
+    err
+
+@impl
+def tmpstk_getstmp(stk0):
+    match stk0:
+        case Tmpstk_decl(stmp, _, _):
+            stmp
+        case Tmpstk_let0(stk0):
+            tmpstk_getstmp(stk0)
+        case Tmpstk_loc1(stk0):
+            tmpstk_getstmp(stk0)
+        case Tmpstk_loc2(stk0):
+            tmpstk_getstmp(stk0)
+        case Tmpstk_nil():
+            the_stamp_nil
+
+@impl
+def tmpstk_insert_decl(stk0, d3cl):
+    let tag0 = the_tmpstk_stamp_new()
+    stk0 := Tmpstk_decl(tag0, d3cl, stk0)
+
+@impl
+def tmpstk_search_dcst(stk0, dcst):
+    list_vt_reverse0(res)
+where:
+    def test(dcl: d3ecl, d2c: d2cst) -> Bool:
+        match dcl.node():
+            case D3Cfundclst(_):
+                d3imp_d2csteq(dcl, d2c)
+            case D3Cimplmnt0(_):
+                d3imp_d2csteq(dcl, d2c)
+            case D3Ctmplocal(dcl1, dcls):
+                tests(dcls, d2c)
+            case _:
+                false
+
+    def tests(dcls: d3eclist, d2c: d2cst) -> Bool:
+        match dcls:
+            case list_nil():
+                false
+            case list_cons(dcl1, dcls):
+                if test(dcl1, d2c):
+                    true
+                else:
+                    tests(dcls, d2c)
+    def loop(kxs: !Tmpstk, d2c: d2cst, res: d3eclist_vt) -> d3eclist_vt:
+        match kxs:
+            case Tmpstk_nil():
+                res
+            case Tmpstk_decl(tmp, dcl, kxs):
+                let dcs = static_search_dcst(dcl, d2c)
+                let res = list_rappendx0_vt(dcs, res)
+                let res = if test(dcl, d2c):
+                    list_vt_cons(dcl, res)
+                else: res
+                loop(kxs, d2c, res)
+            case Tmpstk_let0(kxs):
+                loop(kxs, d2c, res)
+            case Tmpstk_loc1(kxs):
+                loop(kxs, d2c, res)
+            case Tmpstk_loc2(kxs):
+                loop(kxs, d2c, res)
+    let res = list_vt_nil
+    let res = loop(stk0, dcst, res)
+
+@impl
+def tr3benv_make_nil():
+    TR3BENV(map1, Tmpstk_nil)
+where:
+    let map1 = @sapp[d3eclist] topmap_make_nil()
+
+@impl
+def tr3benv_free_nil(env0):
+    match env0:
+        case ~TR3BENV(map1, map2):
+            var tmpstk = map2
+            let nerr = tmpstk_poptop0(tmpstk)
+            tmpstk_free_nil(tmpstk)
+
+@impl
+def tr3benv_poplet0(env0):
+    let @(TR3BENV)(topmap, !tmpstk) = env0
+    let nerr = tmpstk_poplet0(tmpstk)
+    fold(env0)
+
+@impl
+def tr3benv_pshlet0(env0):
+    let @(TR3BENV)(topmap, !tmpstk) = env0
+    tmpstk_pshlet0(tmpstk)
+    fold(env0)
+
+@impl
+def tr3benv_pshloc1(env0):
+    let @(TR3BENV)(topmap, !tmpstk) = env0
+    tmpstk_pshloc1(tmpstk)
+    fold(env0)
+
+@impl
+def tr3benv_pshloc2(env0):
+    let @(TR3BENV)(topmap, !tmpstk) = env0
+    tmpstk_pshloc2(tmpstk)
+    fold(env0)
+
+@impl
+def tr3benv_locjoin(env0):
+    let @(TR3BENV)(topmap, !tmpstk) = env0
+    let err = tmpstk_locjoin(tmpstk)
+    fold(env0)
+
+@impl
+def tr3benv_getstmp(env0):
+    let @(TR3BENV)(topmap, !tmpstk) = env0
+    let stmp = tmpstk_getstmp(tmpstk)
+    fold(env0)
+    stmp
+
+@impl
+def tr3benv_insert_decl(env0, d3cl):
+    let @(TR3BENV)(topmap, !tmpstk) = env0
+    tmpstk_insert_decl(tmpstk, d3cl)
+    fold(env0)
+
+@impl
+def tr3benv_search_dcst(env0, d2c0):
+    let @(TR3BENV)(topmap, !tmpstk) = env0
+    let dcls = tmpstk_search_dcst(tmpstk, d2c0)
+    fold(env0)
+    dcls
+

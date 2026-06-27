@@ -1,0 +1,209 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/xlabel0" import *
+
+from "srcgen2/SATS/xsymbol" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+def s2varlst_memberq(s2vs: s2varlst, s2v0: s2var) -> Bool:
+    type X0 = s2var
+    type Xs = s2varlst
+    @inst[Xs] @inst[X0] gseq_memberq(s2vs, s2v0)
+
+@impl
+def s2exp_revar0(s2e0, s2v0, s2v1):
+    var flag: SInt = 0
+    s2exp_revarx(s2e0, s2v0, s2v1, flag)
+
+@impl
+def l2s2e_revar0(ls2e, s2v0, s2v1):
+    var flag: SInt = 0
+    l2s2e_revarx(ls2e, s2v0, s2v1, flag)
+
+@impl
+def s2explst_revar0(s2es, s2v0, s2v1):
+    var flag: SInt = 0
+    s2explst_revarx(s2es, s2v0, s2v1, flag)
+
+@impl
+def l2s2elst_revar0(lses, s2v0, s2v1):
+    var flag: SInt = 0
+    l2s2elst_revarx(lses, s2v0, s2v1, flag)
+
+@impl
+def s2exp_revarx(s2e0, s2v0, s2v1, flag):
+    f0_main(s2e0, flag)
+where:
+    def f0_main(s2e0: s2exp, flag: &SInt >> _) -> s2exp:
+        match s2e0.node():
+            case S2Eint(_):
+                s2e0
+            case S2Ebtf(_):
+                s2e0
+            case S2Echr(_):
+                s2e0
+            case S2Estr(_):
+                s2e0
+            case S2Ecst(_):
+                s2e0
+            case S2Evar(svar):
+                if not(svar == s2v0):
+                    s2e0
+                else:
+                    flag := flag + 1
+                    s2exp_make_node(s2e0.sort(), S2Evar(s2v1))
+            case S2Eany(_):
+                s2e0
+            case S2Etop0(s2e1):
+                let fval = flag
+                let s2e1 = f0_main(s2e1, flag)
+                let s2t0 = s2e1.sort()
+                if flag <= fval:
+                    s2e0
+                else:
+                    s2exp_make_node(s2t0, S2Etop0(s2e1))
+            case S2Etop1(s2e1):
+                let fval = flag
+                let s2e1 = f0_main(s2e1, flag)
+                let s2t0 = s2e1.sort()
+                if flag <= fval:
+                    s2e0
+                else:
+                    s2exp_make_node(s2t0, S2Etop1(s2e1))
+            case S2Eapps(s2e1, s2es):
+                let fval = flag
+                let s2e1 = f0_main(s2e1, flag)
+                let s2es = s2explst_revarx(s2es, s2v0, s2v1, flag)
+                if flag <= fval:
+                    s2e0
+                else:
+                    s2exp_make_node(s2e0.sort(), S2Eapps(s2e1, s2es))
+            case S2Elam1(s2vs, s2e1):
+                let fval = flag
+                let s2e1 = f0_main(s2e1, flag)
+                if flag <= fval:
+                    s2e0
+                else:
+                    s2exp_make_node(s2e0.sort(), S2Elam1(s2vs, s2e1))
+            case S2Efun1(f2cl, npf1, s2es, s2e1):
+                let fval = flag
+                let s2e1 = f0_main(s2e1, flag)
+                let s2es = s2explst_revarx(s2es, s2v0, s2v1, flag)
+                if flag <= fval:
+                    s2e0
+                else:
+                    s2exp_make_node(s2e0.sort(), S2Efun1(f2cl, npf1, s2es, s2e1))
+            case S2Emet0(s2es, s2e1):
+                let fval = flag
+                let s2e1 = f0_main(s2e1, flag)
+                let s2es = s2explst_revarx(s2es, s2v0, s2v1, flag)
+                if flag <= fval:
+                    s2e0
+                else:
+                    s2exp_make_node(s2e0.sort(), S2Emet0(s2es, s2e1))
+            case S2Eexi0(s2vs, s2ps, s2e1):
+                let test = s2varlst_memberq(s2vs, s2v0)
+                if test:
+                    s2e0
+                else:
+                    let fval = flag
+                    let s2e1 = f0_main(s2e1, flag)
+                    let s2ps = s2explst_revarx(s2ps, s2v0, s2v1, flag)
+                    if flag <= fval:
+                        s2e0
+                    else:
+                        s2exp_make_node(s2e0.sort(), S2Eexi0(s2vs, s2ps, s2e1))
+            case S2Euni0(s2vs, s2ps, s2e1):
+                let test = s2varlst_memberq(s2vs, s2v0)
+                if test:
+                    s2e0
+                else:
+                    let fval = flag
+                    let s2e1 = f0_main(s2e1, flag)
+                    let s2ps = s2explst_revarx(s2ps, s2v0, s2v1, flag)
+                    if flag <= fval:
+                        s2e0
+                    else:
+                        s2exp_make_node(s2e0.sort(), S2Euni0(s2vs, s2ps, s2e1))
+            case S2Elist(s2es):
+                let fval = flag
+                let s2t0 = s2e0.sort()
+                let s2es = s2explst_revarx(s2es, s2v0, s2v1, flag)
+                s2exp_make_node(s2t0, S2Elist(s2es))
+            case S2Etext(name, s2es):
+                let fval = flag
+                let s2es = s2explst_revarx(s2es, s2v0, s2v1, flag)
+                s2exp_make_node(s2e0.sort(), S2Etext(name, s2es))
+            case S2Etrcd(tknd, npf1, lses):
+                let fval = flag
+                let lses = l2s2elst_revarx(lses, s2v0, s2v1, flag)
+                s2exp_make_node(s2e0.sort(), S2Etrcd(tknd, npf1, lses))
+            case S2Eimpr(loc0, s2e1):
+                let fval = flag
+                let s2e1 = f0_main(s2e1, flag)
+                if flag <= fval:
+                    s2e0
+                else:
+                    s2exp_make_node(s2e0.sort(), S2Eimpr(loc0, s2e1))
+            case S2Eprgm(loc0, s2e1):
+                let fval = flag
+                let s2e1 = f0_main(s2e1, flag)
+                if flag <= fval:
+                    s2e0
+                else:
+                    s2exp_make_node(s2e0.sort(), S2Eprgm(loc0, s2e1))
+            case S2Ecast(loc0, s2e1, s2t2):
+                let fval = flag
+                let s2e1 = f0_main(s2e1, flag)
+                if flag <= fval:
+                    s2e0
+                else:
+                    s2exp_make_node(s2e0.sort(), S2Ecast(loc0, s2e1, s2t2))
+            case _:
+                s2exp_none2(s2e0)
+
+@impl
+def l2s2e_revarx(ls2e, s2v0, s2v1, flag):
+    let fval = flag
+    let S2LAB(l0, s2e0) = ls2e
+    let s2e0 = s2exp_revarx(s2e0, s2v0, s2v1, flag)
+    if flag <= fval:
+        ls2e
+    else:
+        S2LAB(l0, s2e0)
+
+@impl
+def s2explst_revarx(s2es, s2v0, s2v1, flag):
+    match s2es:
+        case list_nil():
+            list_nil()
+        case list_cons(s2e1, ses2):
+            let fval = flag
+            let s2e1 = s2exp_revarx(s2e1, s2v0, s2v1, flag)
+            let ses2 = s2explst_revarx(ses2, s2v0, s2v1, flag)
+            if flag <= fval:
+                s2es
+            else:
+                list_cons(s2e1, ses2)
+
+@impl
+def l2s2elst_revarx(lses, s2v0, s2v1, flag):
+    match lses:
+        case list_nil():
+            list_nil()
+        case list_cons(lse1, lss2):
+            let fval = flag
+            let lse1 = l2s2e_revarx(lse1, s2v0, s2v1, flag)
+            let lss2 = l2s2elst_revarx(lss2, s2v0, s2v1, flag)
+            if flag <= fval:
+                lses
+            else:
+                list_cons(lse1, lss2)
+

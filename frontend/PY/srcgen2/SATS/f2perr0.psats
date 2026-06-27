@@ -1,0 +1,185 @@
+import "srcgen2/SATS/locinfo" as LOC
+
+import "srcgen2/SATS/lexing0" as LEX
+
+import "srcgen2/SATS/staexp2" as S2E
+
+import "srcgen2/SATS/dynexp2" as D2E
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+type Loc_t = LOC.loc_t
+
+type Loctn = LOC.loctn
+
+type Token = LEX.token
+
+type S2exp = S2E.s2exp
+
+type D2pat = D2E.d2pat
+
+type D2exp = D2E.d2exp
+
+type L2d2p = D2E.l2d2p
+
+type L2d2e = D2E.l2d2e
+
+type F2arg = D2E.f2arg
+
+type D2gua = D2E.d2gua
+
+type D2gpt = D2E.d2gpt
+
+type D2cls = D2E.d2cls
+
+type D2ecl = D2E.d2ecl
+
+type S2explst = List[S2exp]
+
+type D2patlst = D2E.d2patlst
+
+type D2patopt = D2E.d2patopt
+
+type D2explst = D2E.d2explst
+
+type D2expopt = D2E.d2expopt
+
+type L2d2plst = D2E.l2d2plst
+
+type L2d2elst = D2E.l2d2elst
+
+type F2arglst = D2E.f2arglst
+
+type D2gualst = D2E.d2gualst
+
+type D2clslst = D2E.d2clslst
+
+type D2eclist = D2E.d2eclist
+
+type Teqd2exp = D2E.teqd2exp
+
+type D2valdcl = D2E.d2valdcl
+
+type D2vardcl = D2E.d2vardcl
+
+type D2fundcl = D2E.d2fundcl
+
+type D2cstdcl = D2E.d2cstdcl
+
+type D2parsed = D2E.d2parsed
+
+type D2valdclist = D2E.d2valdclist
+
+type D2vardclist = D2E.d2vardclist
+
+type D2fundclist = D2E.d2fundclist
+
+type D2cstdclist = D2E.d2cstdclist
+
+type D2explstopt = D2E.d2explstopt
+
+type D2eclistopt = D2E.d2eclistopt
+
+type F2perr0_t[Syn: Tbox] = (FILR, Syn) -> Void
+
+@extern
+def list_f2perr0_fnp[Syn: Tbox](a: FILR, b: List[Syn], c: F2perr0_t[Syn]) -> Void
+
+@extern
+def optn_f2perr0_fnp[Syn: Tbox](a: FILR, b: Optn[Syn], c: F2perr0_t[Syn]) -> Void
+
+@extern
+def f2perr0_d2pat(a: FILR, b: D2pat) -> Void
+
+@extern
+def f2perr0_d2exp(a: FILR, b: D2exp) -> Void
+
+@extern
+def f2perr0_l2d2p(a: FILR, b: L2d2p) -> Void
+
+@extern
+def f2perr0_l2d2e(a: FILR, b: L2d2e) -> Void
+
+@extern
+def f2perr0_f2arg(a: FILR, b: F2arg) -> Void
+
+@extern
+def f2perr0_d2gua(a: FILR, b: D2gua) -> Void
+
+@extern
+def f2perr0_d2gpt(a: FILR, b: D2gpt) -> Void
+
+@extern
+def f2perr0_d2cls(a: FILR, b: D2cls) -> Void
+
+@extern
+def f2perr0_d2ecl(a: FILR, b: D2ecl) -> Void
+
+@extern
+def f2perr0_d2patlst(a: FILR, b: D2patlst) -> Void
+
+@extern
+def f2perr0_d2patopt(a: FILR, b: D2patopt) -> Void
+
+@extern
+def f2perr0_d2explst(a: FILR, b: D2explst) -> Void
+
+@extern
+def f2perr0_d2expopt(a: FILR, b: D2expopt) -> Void
+
+@extern
+def f2perr0_l2d2plst(a: FILR, b: L2d2plst) -> Void
+
+@extern
+def f2perr0_l2d2elst(a: FILR, b: L2d2elst) -> Void
+
+@extern
+def f2perr0_f2arglst(a: FILR, b: F2arglst) -> Void
+
+@extern
+def f2perr0_d2gualst(a: FILR, b: D2gualst) -> Void
+
+@extern
+def f2perr0_d2clslst(a: FILR, b: D2clslst) -> Void
+
+@extern
+def f2perr0_d2eclist(a: FILR, b: D2eclist) -> Void
+
+@extern
+def f2perr0_teqd2exp(a: FILR, b: Teqd2exp) -> Void
+
+@extern
+def f2perr0_d2valdcl(a: FILR, b: D2valdcl) -> Void
+
+@extern
+def f2perr0_d2vardcl(a: FILR, b: D2vardcl) -> Void
+
+@extern
+def f2perr0_d2fundcl(a: FILR, b: D2fundcl) -> Void
+
+@extern
+def f2perr0_d2valdclist(a: FILR, b: D2valdclist) -> Void
+
+@extern
+def f2perr0_d2vardclist(a: FILR, b: D2vardclist) -> Void
+
+@extern
+def f2perr0_d2fundclist(a: FILR, b: D2fundclist) -> Void
+
+@extern
+def f2perr0_d2parsed(a: FILR, b: D2parsed) -> Void
+
+@extern
+def f2perr0_d2explstopt(a: FILR, b: D2explstopt) -> Void
+
+@extern
+def f2perr0_d2eclistopt(a: FILR, b: D2eclistopt) -> Void
+
+@extern
+def f2perr0_s2exp(a: FILR, b: S2exp, c: Loc_t) -> Void
+
+@extern
+def f2perr0_s2explst(a: FILR, b: S2explst, c: Loc_t) -> Void
+

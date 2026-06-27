@@ -1,0 +1,410 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+import "srcgen2/DATS/lexing0_print0.dats" as _
+
+from "srcgen2/SATS/lexing0" import *
+
+from "srcgen2/SATS/staexp0" import *
+
+@impl
+def t0int_fprint(int, out):
+    @impl[]
+    def g_print/out():
+        out
+    match int:
+        case T0INTnone(tok):
+            prints("T0INTnone(", tok, ")")
+        case T0INTsome(tok):
+            prints("T0INTsome(", tok, ")")
+
+@impl
+def t0chr_fprint(chr, out):
+    @impl[]
+    def g_print/out():
+        out
+    match chr:
+        case T0CHRnone(tok):
+            prints("T0CHRnone(", tok, ")")
+        case T0CHRsome(tok):
+            prints("T0CHRsome(", tok, ")")
+
+@impl
+def t0flt_fprint(flt, out):
+    @impl[]
+    def g_print/out():
+        out
+    match flt:
+        case T0FLTnone(tok):
+            prints("T0FLTnone(", tok, ")")
+        case T0FLTsome(tok):
+            prints("T0FLTsome(", tok, ")")
+
+@impl
+def t0str_fprint(str, out):
+    @impl[]
+    def g_print/out():
+        out
+    match str:
+        case T0STRnone(tok):
+            prints("T0STRnone(", tok, ")")
+        case T0STRsome(tok):
+            prints("T0STRsome(", tok, ")")
+
+@impl
+def i0dnt_fprint(id0, out):
+    @impl[]
+    def g_print/out():
+        out
+    match id0.node():
+        case I0DNTnone(tok):
+            prints("I0DNTnone(", tok, ")")
+        case I0DNTsome(tok):
+            prints("I0DNTsome(", tok, ")")
+
+@impl
+def l0abl_fprint(lab, out):
+    @impl[]
+    def g_print/out():
+        out
+    match lab.node():
+        case L0ABLnone(tok):
+            prints("L0ABLnone(", tok, ")")
+        case L0ABLsome(lab):
+            prints("L0ABLsome(", lab, ")")
+
+@impl
+def s0ymb_fprint(sym, out):
+    @impl[]
+    def g_print/out():
+        out
+    match sym.node():
+        case S0YMBi0dnt(id0):
+            prints("S0YMBi0dnt(", id0, ")")
+        case S0YMBbrckt(tk1, tk2):
+            prints("S0YMBbrckt(", tk1, ";", tk2, ")")
+
+@impl
+def s0qid_fprint(qid, out):
+    @impl[]
+    def g_print/out():
+        out
+    match qid:
+        case S0QIDnone(id0):
+            prints("S0QIDnone(", id0, ")")
+        case S0QIDsome(tok, id0):
+            prints("S0QIDsome(", tok, ";", id0, ")")
+
+@impl
+def d0qid_fprint(qid, out):
+    @impl[]
+    def g_print/out():
+        out
+    match qid:
+        case D0QIDnone(id0):
+            prints("D0QIDnone(", id0, ")")
+        case D0QIDsome(tok, id0):
+            prints("D0QIDsome(", tok, ";", id0, ")")
+
+@impl
+def g0nam_fprint(g0n, out):
+    @impl[]
+    def g_print/out():
+        out
+    match g0n.node():
+        case G0Nid0(id0):
+            prints("G0Nid0(", id0, ")")
+        case G0Nint(tok):
+            prints("G0Nint(", tok, ")")
+        case G0Nchr(tok):
+            prints("G0Nchr(", tok, ")")
+        case G0Nflt(tok):
+            prints("G0Nflt(", tok, ")")
+        case G0Nstr(tok):
+            prints("G0Nstr(", tok, ")")
+        case G0Nlist(tk1, gns, tk2):
+            print("G0Nlist(")
+            prints(tk1, ";", gns, ";", tk2, ")")
+        case G0Ntkerr(tok):
+            prints("G0Ntkerr(", tok, ")")
+
+@impl
+def g0exp_fprint(g0e, out):
+    @impl[]
+    def g_print/out():
+        out
+    match g0e.node():
+        case G0Eid0(id0):
+            prints("G0Eid0(", id0, ")")
+        case G0Eint(tok):
+            prints("G0Eint(", tok, ")")
+        case G0Echr(tok):
+            prints("G0Echr(", tok, ")")
+        case G0Eflt(tok):
+            prints("G0Eflt(", tok, ")")
+        case G0Estr(tok):
+            prints("G0Estr(", tok, ")")
+        case G0Eapps(ges):
+            prints("G0Eapps(", ges, ")")
+        case G0Elpar(tkb, ges, tke):
+            print("G0Elpar(")
+            prints(tkb, ";", ges, ",", tke, ")")
+        case G0Eift0(tknd, g0e1, g0e2, g0e3, topt):
+            prints("G0Eift0(", tknd, ";")
+            prints(g0e1, ";", g0e2, ";", g0e3, ";", topt, ")")
+        case G0Etkerr(tok):
+            prints("G0Etkerr(", tok, ")")
+        case G0Eerrck(lvl, ge1):
+            prints("G0Eerrck(", lvl, ";", ge1, ")")
+
+@impl
+def g0mag_fprint(gma, out):
+    match gma.node():
+        case G0MAGnone(tok):
+            prints("G0MAGnone(", tok, ")")
+        case G0MAGsarg(tbeg, g0as, tend):
+            prints("G0MAGsarg(", tbeg, ";", g0as, ";", tend, ")")
+        case G0MAGdarg(tbeg, g0as, tend):
+            prints("G0MAGdarg(", tbeg, ";", g0as, ";", tend, ")")
+where:
+    @impl[]
+    def g_print/out():
+        out
+
+@impl
+def sort0_fprint(s0t, out):
+    @impl[]
+    def g_print/out():
+        out
+    match s0t.node():
+        case S0Tid0(id0):
+            prints("S0Tid0(", id0, ")")
+        case S0Tint(int):
+            prints("S0Tint(", int, ")")
+        case S0Tqid(tk1, st2):
+            prints("S0Tqid(", tk1, ";", st2, ")")
+        case S0Tapps(sts):
+            prints("S0Tapps(", sts, ")")
+        case S0Tlpar(tkb, sts, tke):
+            prints("S0Tlpar(", tkb, ";", sts, ";", tke, ")")
+        case S0Ttkerr(tok):
+            prints("S0Ttkerr(", tok, ")")
+        case S0Terrck(lvl, st1):
+            prints("S0Terrck(", lvl, ";", st1, ")")
+
+@impl
+def s0tcn_fprint(stcn, out):
+    @impl[]
+    def g_print/out():
+        out
+    match stcn.node():
+        case S0TCNnode(id0, stq):
+            prints("S0TCNnode(", id0, ";", stq, ")")
+
+@impl
+def d0tst_fprint(dtst, out):
+    @impl[]
+    def g_print/out():
+        out
+    match dtst.node():
+        case D0TSTnode(tid0, teq1, topt, stcs):
+            prints("D0TSTnode(", tid0)
+            prints(";", teq1, ";", topt, ";", stcs, ")")
+
+@impl
+def s0arg_fprint(s0a, out):
+    @impl[]
+    def g_print/out():
+        out
+    match s0a.node():
+        case S0ARGnone(tok):
+            prints("S0ARGnone(", tok, ")")
+        case S0ARGsome(id0, tres):
+            prints("S0ARGsome(", id0, ";", tres, ")")
+
+@impl
+def t0arg_fprint(t0a, out):
+    @impl[]
+    def g_print/out():
+        out
+    match t0a.node():
+        case T0ARGnone(tok):
+            prints("T0ARGnone(", tok, ")")
+        case T0ARGsome(s0t1, topt):
+            prints("T0ARGsome(", s0t1, ";", topt, ")")
+
+@impl
+def s0mag_fprint(s0m, out):
+    @impl[]
+    def g_print/out():
+        out
+    match s0m.node():
+        case S0MAGnone(tok):
+            prints("S0MAGnone(", tok, ")")
+        case S0MAGsing(id0):
+            prints("S0MAGsing(", id0, ")")
+        case S0MAGlist(tbeg, s0as, tend):
+            prints("S0MAGlist(", tbeg, ";", s0as, ";", tend, ")")
+
+@impl
+def t0mag_fprint(t0m, out):
+    @impl[]
+    def g_print/out():
+        out
+    match t0m.node():
+        case T0MAGnone(tok):
+            prints("T0MAGnone(", tok, ")")
+        case T0MAGlist(tbeg, t0as, tend):
+            prints("T0MAGlist(", tbeg, ";", t0as, ";", tend, ")")
+
+@impl
+def s0qua_fprint(s0q, out):
+    @impl[]
+    def g_print/out():
+        out
+    match s0q.node():
+        case S0QUAprop(s0e):
+            prints("S0QUAprop(", s0e, ")")
+        case S0QUAvars(ids, tres):
+            prints("S0QUAvars(", ids, ";", tres, ")")
+
+@impl
+def s0uni_fprint(s0u, out):
+    @impl[]
+    def g_print/out():
+        out
+    match s0u.node():
+        case S0UNInone(tok):
+            prints("S0UNInone(", tok, ")")
+        case S0UNIsome(tbeg, s0qs, tend):
+            prints("S0UNIsome(", tbeg, ";", s0qs, ";", tend, ")")
+
+@impl
+def s0exp_fprint(s0e, out):
+    @impl[]
+    def g_print/out():
+        out
+    match s0e.node():
+        case S0Eid0(id0):
+            prints("S0Eid0(", id0, ")")
+        case S0Eop1(tok):
+            prints("S0Eop1(", tok, ")")
+        case S0Eop2(tok):
+            prints("S0Eop2(", tok, ")")
+        case S0Eop3(tkb, id0, tke):
+            prints("S0Eop3(", tkb, ";", id0, ";", tke, ")")
+        case S0Eint(int):
+            prints("S0Eint(", int, ")")
+        case S0Echr(chr):
+            prints("S0Echr(", chr, ")")
+        case S0Eflt(flt):
+            prints("S0Eflt(", flt, ")")
+        case S0Estr(str):
+            prints("S0Estr(", str, ")")
+        case S0Eapps(ses):
+            prints("S0Eapps(", ses, ")")
+        case S0Efimp(tkb, ses, tke):
+            prints("S0Efimp(", tkb, ";", ses, ";", tke, ")")
+        case S0Elpar(tkb, ses, srp):
+            prints("S0Elist(", tkb, ";", ses, ";", srp, ")")
+        case S0Etup1(tkb, opt, ses, srp):
+            print("S0Etup1(")
+            prints(tkb, ";", opt, ";", ses, ";", srp, ")")
+        case S0Ercd2(tkb, opt, lses, lsrb):
+            print("S0Ercd2(")
+            prints(tkb, ";", opt, ";", lses, ";", lsrb, ")")
+        case S0Elams(tlam, s0ms, tres, arrw, body, tend):
+            print("S0Elams(")
+            prints(tlam, ";", s0ms, ";")
+            prints(tres, ";", arrw, ";", body, ";", tend, ")")
+        case S0Euni0(tkb, sqs, tbe):
+            prints("S0Euni0(", tkb, ";", sqs, ";", tbe, ")")
+        case S0Eexi0(tkb, sqs, tbe):
+            prints("S0Eexi0(", tkb, ";", sqs, ";", tbe, ")")
+        case S0Eannot(se1, st2):
+            prints("S0Eannot(", se1, ";", st2, ")")
+        case S0Equal0(tok, se1):
+            prints("S0Equal0(", tok, ";", se1, ")")
+        case S0Etkerr(tok):
+            prints("S0Etkerr(", tok, ")")
+        case S0Eerrck(lvl, se1):
+            prints("S0Eerrck(", lvl, ";", se1, ")")
+
+@impl
+def s0tdf_fprint(stdf, out):
+    @impl[]
+    def g_print/out():
+        out
+    match stdf.node():
+        case S0TDFsort(s0t1):
+            prints("S0TDFsort(", s0t1, ")")
+        case S0TDFtsub(tbeg, s0a1, tbar, s0es, tend):
+            print("S0TDFtsub(")
+            prints(tbeg, ";", s0a1, ";")
+            prints(tbar, ";", s0es, ";", tend, ")")
+
+@impl
+def g0exp_THEN_fprint(gthn, out):
+    match gthn:
+        case g0exp_THEN(tok, g0e):
+            prints("g0exp_THEN(", tok, ";", g0e, ")")
+where:
+    @impl[]
+    def g_print/out():
+        out
+
+@impl
+def g0exp_ELSE_fprint(gels, out):
+    match gels:
+        case g0exp_ELSE(tok, g0e):
+            prints("g0exp_ELSE(", tok, ";", g0e, ")")
+where:
+    @impl[]
+    def g_print/out():
+        out
+
+@impl
+def s0exp_RPAREN_fprint(srp, out):
+    @impl[]
+    def g_print/out():
+        out
+    match srp:
+        case s0exp_RPAREN_cons0(tbar):
+            prints("s0exp_RPAREN_cons0(", tbar, ")")
+        case s0exp_RPAREN_cons1(tok1, s0es, tok2):
+            prints("s0exp_RPAREN_cons1(", tok1, ";", s0es, ";", tok2, ")")
+
+@impl
+def l0s0e_RBRACE_fprint(lsrb, out):
+    @impl[]
+    def g_print/out():
+        out
+    match lsrb:
+        case l0s0e_RBRACE_cons0(tbar):
+            prints("l0s0e_RBRACE_cons0(", tbar, ")")
+        case l0s0e_RBRACE_cons1(tok1, lses, tok2):
+            prints("l0s0e_RBRACE_cons1(", tok1, ";", lses, ";", tok2, ")")
+
+@impl
+def d0tcn_fprint(dtcn, out):
+    @impl[]
+    def g_print/out():
+        out
+    match dtcn.node():
+        case D0TCNnode(s0us, deid, s0is, tres):
+            print("D0TCNnode(")
+            prints(s0us, ";", deid, ";", s0is, ";", tres, ")")
+
+@impl
+def d0typ_fprint(dtyp, out):
+    @impl[]
+    def g_print/out():
+        out
+    match dtyp.node():
+        case D0TYPnode(deid, tmas, tres, teq1, dtcs):
+            prints("D0TYPnode(", deid, ";")
+            prints(tmas, ";", tres, ";", teq1, ";", dtcs, ")")
+

@@ -1,0 +1,177 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+from "srcgen2/SATS/xbasics" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/trans2a" import *
+
+from "srcgen2/SATS/trsym2b" import *
+
+import "srcgen2/DATS/statyp2_tmplib.dats" as _
+
+@impl
+def match2a_d2var(env0, d2v1, t2p2):
+    match2a_s2typ(env0, t2p1, t2p2)
+where:
+    let t2p1 = d2var_get_styp(d2v1)
+
+@impl
+def match2a_d2con(env0, d2c1, t2p2):
+    match2a_s2typ(env0, t2p1, t2p2)
+where:
+    let t2p1 = d2con_get_xtyp(d2c1)
+
+@impl
+def match2a_d2ap1(env0, d2c1, t2p2):
+    match2a_s2typ(env0, t2p1, t2p2)
+where:
+    let tfun = d2con_get_xtyp(d2c1)
+    let tfnd = s2typ_get_node(tfun)
+    let t2p1 = match tfnd:
+        case T2Pfun1(_, _, _, tres):
+            tres
+
+@impl
+def match2a_d2cst(env0, d2c1, t2p2):
+    match2a_s2typ(env0, t2p1, t2p2)
+where:
+    let t2p1 = d2cst_get_xtyp(d2c1)
+
+@impl
+def match2a_d2itm(env0, d2i1, t2p2):
+    match d2i1:
+        case D2ITMvar(_):
+            f0_d2var(env0, d2i1, t2p2)
+        case D2ITMcon(_):
+            f0_d2con(env0, d2i1, t2p2)
+        case D2ITMcst(_):
+            f0_d2cst(env0, d2i1, t2p2)
+        case D2ITMsym(_):
+            f0_d2sym(env0, d2i1, t2p2)
+where:
+    def f0_d2var(env0: !tr2aenv, d2i1: d2itm, t2p2: s2typ) -> d2itmopt:
+        let D2ITMvar(d2v1) = d2i1
+        if match2a_d2var(env0, d2v1, t2p2):
+            optn_cons(d2i1)
+        else:
+            optn_nil()
+    def f0_d2con(env0: !tr2aenv, d2i1: d2itm, t2p2: s2typ) -> d2itmopt:
+        let D2ITMcon(d2cs) = d2i1
+        let d2cs = f1_d2conlst(env0, d2cs, t2p2)
+        match d2cs:
+            case list_nil(_):
+                optn_nil()
+            case list_cons(_):
+                let d2i1 = D2ITMcon(d2cs)
+                optn_cons(d2i1)
+    where:
+        def f1_d2conlst(env0: !tr2aenv, d2cs: d2conlst, t2p0: s2typ) -> d2conlst:
+            match d2cs:
+                case list_nil():
+                    list_nil()
+                case list_cons(d2c1, d2cs):
+                    let d2cs = f1_d2conlst(env0, d2cs, t2p0)
+                    let test = match2a_d2con(env0, d2c1, t2p2)
+                    if test:
+                        list_cons(d2c1, d2cs)
+                    else:
+                        d2cs
+    def f0_d2cst(env0: !tr2aenv, d2i1: d2itm, t2p2: s2typ) -> d2itmopt:
+        let D2ITMcst(d2cs) = d2i1
+        let d2cs = f1_d2cstlst(env0, d2cs, t2p2)
+        match d2cs:
+            case list_nil(_):
+                optn_nil()
+            case list_cons(_):
+                let d2i1 = D2ITMcst(d2cs)
+                optn_cons(d2i1)
+    where:
+        def f1_d2cstlst(env0: !tr2aenv, d2cs: d2cstlst, t2p0: s2typ) -> d2cstlst:
+            match d2cs:
+                case list_nil():
+                    list_nil()
+                case list_cons(d2c1, d2cs):
+                    let d2cs = f1_d2cstlst(env0, d2cs, t2p0)
+                    let test = match2a_d2cst(env0, d2c1, t2p2)
+                    if test:
+                        list_cons(d2c1, d2cs)
+                    else:
+                        d2cs
+    def f0_d2sym(env0: !tr2aenv, d2i1: d2itm, t2p2: s2typ) -> d2itmopt:
+        let D2ITMsym(sym1, dpis) = d2i1
+        def auxmain(env0: !tr2aenv, dpis: d2ptmlst) -> d2itmopt:
+            match dpis:
+                case list_nil():
+                    optn_nil()
+                case list_cons(dpi1, dpis):
+                    let opt1 = match2a_d2ptm(env0, dpi1, t2p2)
+                    match opt1:
+                        case optn_nil():
+                            auxmain(env0, dpis)
+                        case optn_cons(dptm):
+                            match dptm:
+                                case D2PTMnone(_):
+                                    auxmain(env0, dpis)
+                                case D2PTMsome(pval, ditm):
+                                    optn_cons(ditm)
+        auxmain(env0, dpis)
+
+@impl
+def match2a_d2ptm(env0, dptm, t2p2):
+    match dptm:
+        case D2PTMnone(dqid):
+            optn_nil()
+        case D2PTMsome(pval, ditm):
+            let dopt = match2a_d2itm(env0, ditm, t2p2)
+            match dopt:
+                case optn_nil():
+                    optn_nil
+                case optn_cons(ditm):
+                    optn_cons(D2PTMsome(pval, ditm))
+
+@impl
+def match2a_d2conlst(env0, d2cs, tfun):
+    match d2cs:
+        case list_nil():
+            list_nil
+        case list_cons(d2c1, d2cs):
+            let dopt = match2a_d2con(env0, d2c1, tfun)
+            if dopt:
+                list_cons(d2c1, match2a_d2conlst(env0, d2cs, tfun))
+            else:
+                match2a_d2conlst(env0, d2cs, tfun)
+
+@impl
+def match2a_d2ap1lst(env0, d2cs, tres):
+    match d2cs:
+        case list_nil():
+            list_nil
+        case list_cons(d2c1, d2cs):
+            let dopt = match2a_d2ap1(env0, d2c1, tres)
+            if dopt:
+                list_cons(d2c1, match2a_d2ap1lst(env0, d2cs, tres))
+            else:
+                match2a_d2ap1lst(env0, d2cs, tres)
+
+@impl
+def match2a_d2ptmlst(env0, dpis, t2p0):
+    match dpis:
+        case list_nil():
+            list_nil
+        case list_cons(dpi1, dpis):
+            let dopt = match2a_d2ptm(env0, dpi1, t2p0)
+            match dopt:
+                case optn_nil():
+                    match2a_d2ptmlst(env0, dpis, t2p0)
+                case optn_cons(dpi1):
+                    list_cons(dpi1, match2a_d2ptmlst(env0, dpis, t2p0))
+

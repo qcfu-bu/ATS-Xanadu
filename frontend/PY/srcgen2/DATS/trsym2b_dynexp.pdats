@@ -1,0 +1,388 @@
+let xatsv_ATS_PACKNAME = "ATS3.XANADU.xatsopt-20220500"
+
+include "srcgen2/HATS/xatsopt_sats.hats"
+
+include "srcgen2/HATS/xatsopt_dpre.hats"
+
+import "srcgen2/DATS/trsym2b.dats" as _
+
+from "srcgen2/SATS/staexp1" import *
+
+from "srcgen2/SATS/dynexp1" import *
+
+from "srcgen2/SATS/staexp2" import *
+
+from "srcgen2/SATS/statyp2" import *
+
+from "srcgen2/SATS/dynexp2" import *
+
+from "srcgen2/SATS/trans2a" import *
+
+from "srcgen2/SATS/trsym2b" import *
+
+@overload dexp = d2rxp_get_dexp
+
+@overload dexp = d2rxp_set_dexp
+
+def d2exp_make_dpis(loc0: loc_t, d1e0: d1exp, dpis: d2ptmlst, t2p1: s2typ) -> d2exp:
+    match dpis:
+        case list_nil():
+            f0_else(loc0, dpis, t2p1)
+        case list_cons(dpi1, dps2):
+            match dps2:
+                case list_nil():
+                    f0_sing(loc0, dpi1, t2p1)
+                case list_cons(_):
+                    f0_sing(loc0, dpi1, t2p1)
+where:
+    def f0_sing(loc0: loc_t, dpi1: d2ptm, t2p1: s2typ) -> d2exp:
+        match dpi1:
+            case D2PTMsome(pval, d2i1):
+                match d2i1:
+                    case D2ITMvar(d2v1):
+                        let d2e1 = d2exp_var(loc0, d2v1)
+                        d2e1.styp(t2p1)
+                        d2e1
+                    case D2ITMcon(d2cs):
+                        let d2e1 = d2exp_cons(loc0, d2cs)
+                        d2e1.styp(t2p1)
+                        d2e1
+                    case D2ITMcst(d2cs):
+                        let d2e1 = d2exp_csts(loc0, d2cs)
+                        d2e1.styp(t2p1)
+                        d2e1
+
+    def f0_else(loc0: loc_t, dpis: d2ptmlst, t2p1: s2typ) -> d2exp:
+        let drxp = d2rxp_new1(loc0)
+        let dexp = d2exp_sym0(loc0, drxp, d1e0, dpis)
+        dexp.styp(t2p1)
+        dexp
+
+@impl
+def trsym2b_d2pat(env0, d2p0):
+    match d2p0.node():
+        case D2Pvar(_):
+            ()
+        case D2Pbang(d2p1):
+            trsym2b_d2pat(env0, d2p1)
+        case D2Pflat(d2p1):
+            trsym2b_d2pat(env0, d2p1)
+        case D2Pfree(d2p1):
+            trsym2b_d2pat(env0, d2p1)
+        case D2Pcons(_):
+            f0_cons(env0, d2p0)
+        case D2Pdap1(_):
+            f0_dap1(env0, d2p0)
+        case D2Pdapp(_):
+            f0_dapp(env0, d2p0)
+        case D2Prfpt(_):
+            f0_rfpt(env0, d2p0)
+        case D2Pt2pck(_):
+            f0_t2pck(env0, d2p0)
+        case _:
+            ()
+where:
+    def f0_cons(env0: !tr2aenv, d2p0: d2pat) -> Void:
+        let loc0 = d2p0.lctn()
+        let D2Pcons(drpt, d2cs) = d2p0.node()
+        let t2p1 = d2p0.styp()
+        let dpat = drpt.dpat()
+        match dpat.node():
+            case D2Pnone0():
+                let d2cs = match2a_d2conlst(env0, d2cs, t2p1)
+                let dcon = d2pat_cons(loc0, d2cs)
+                d2rpt_set_dpat(drpt, dcon)
+            case _:
+                trsym2b_d2pat(env0, dpat)
+    def f0_dap1(env0: !tr2aenv, d2p0: d2pat) -> Void:
+        let loc0 = d2p0.lctn()
+        let D2Pdap1(d2f0) = d2p0.node()
+        match d2f0.node():
+            case D2Pcons(drpt, d2cs):
+                let tres = d2p0.styp()
+                let dpat = drpt.dpat()
+                match dpat.node():
+                    case D2Pnone0():
+                        let d2cs = match2a_d2ap1lst(env0, d2cs, tres)
+                        let dcon = d2pat_cons(loc0, d2cs)
+                        d2rpt_set_dpat(drpt, dcon)
+                    case _:
+                        trsym2b_d2pat(env0, dpat)
+            case _:
+                ()
+    def f0_dapp(env0: !tr2aenv, d2p0: d2pat) -> Void:
+        let D2Pdapp(d2f0, npf1, d2ps) = d2p0.node()
+        trsym2b_d2pat(env0, d2f0)
+        trsym2b_d2patlst(env0, d2ps)
+    def f0_rfpt(env0: !tr2aenv, d2p0: d2pat) -> Void:
+        let D2Prfpt(d2p1, tkas, d2p2) = d2p0.node()
+        trsym2b_d2pat(env0, d2p1)
+        trsym2b_d2pat(env0, d2p2)
+    def f0_t2pck(env0: !tr2aenv, d2p0: d2pat) -> Void:
+        trsym2b_d2pat(env0, d2p1)
+    where:
+        let D2Pt2pck(d2p1, t2p2) = d2p0.node()
+
+@impl
+def trsym2b_l2d2p(env0, ld2p):
+    let D2LAB(lab0, d2p1) = ld2p
+    trsym2b_d2pat(env0, d2p1)
+
+@impl
+def trsym2b_d2exp(env0, d2e0):
+    match d2e0.node():
+        case D2Esym0(_):
+            f0_sym0(env0, d2e0)
+        case D2Esapp(d2f0, s2es):
+            trsym2b_d2exp(env0, d2f0)
+        case D2Etapp(d2f0, s2es):
+            trsym2b_d2exp(env0, d2f0)
+        case D2Edap0(d2f0):
+            trsym2b_d2exp(env0, d2f0)
+        case D2Edapp(d2f0, npf1, d2es):
+            trsym2b_d2explst(env0, d2es)
+            trsym2b_d2exp(env0, d2f0)
+        case D2Eproj(_):
+            f0_proj(env0, d2e0)
+        case D2Elet0(dcls, d2e1):
+            trsym2b_d2eclist(env0, dcls)
+            trsym2b_d2exp(env0, d2e1)
+        case D2Eift0(d2e1, dthn, dels):
+            trsym2b_d2exp(env0, d2e1)
+            trsym2b_d2expopt(env0, dthn)
+            trsym2b_d2expopt(env0, dels)
+        case D2Ecas0(tknd, d2e1, d2cs):
+            trsym2b_d2exp(env0, d2e1)
+            trsym2b_d2clslst(env0, d2cs)
+        case D2Eseqn(d2es, d2e1):
+            trsym2b_d2explst(env0, d2es)
+            trsym2b_d2exp(env0, d2e1)
+        case D2Etup0(npf1, d2es):
+            trsym2b_d2explst(env0, d2es)
+        case D2Etup1(tknd, npf1, d2es):
+            trsym2b_d2explst(env0, d2es)
+        case D2Ercd2(tknd, npf1, ldes):
+            trsym2b_l2d2elst(env0, ldes)
+        case D2Elam0(tknd, f2as, sres, arrw, dexp):
+            trsym2b_f2arglst(env0, f2as)
+            trsym2b_d2exp(env0, dexp)
+        case D2Efix0(tknd, d2v0, f2as, sres, arrw, dexp):
+            trsym2b_f2arglst(env0, f2as)
+            trsym2b_d2exp(env0, dexp)
+        case D2Etry0(tknd, d2e1, dcls):
+            trsym2b_d2exp(env0, d2e1)
+            trsym2b_d2clslst(env0, dcls)
+        case D2Eaddr(d2e1):
+            trsym2b_d2exp(env0, d2e1)
+        case D2Eview(d2e1):
+            trsym2b_d2exp(env0, d2e1)
+        case D2Elval(d2e1):
+            trsym2b_d2exp(env0, d2e1)
+        case D2Eeval(d2e1):
+            trsym2b_d2exp(env0, d2e1)
+        case D2Efold(d2e1):
+            trsym2b_d2exp(env0, d2e1)
+        case D2Efree(d2e1):
+            trsym2b_d2exp(env0, d2e1)
+        case D2Ewhere(d2e1, dcls):
+            trsym2b_d2eclist(env0, dcls)
+            trsym2b_d2exp(env0, d2e1)
+        case D2Eassgn(d2el, d2er):
+            trsym2b_d2exp(env0, d2el)
+            trsym2b_d2exp(env0, d2er)
+        case D2Edtsel(_):
+            f0_dtsel(env0, d2e0)
+        case D2Eraise(tknd, d2e1):
+            trsym2b_d2exp(env0, d2e1)
+        case D2El0azy(dsym, d2e1):
+            trsym2b_d2exp(env0, d2e1)
+        case D2El1azy(dsym, d2e1, d2es):
+            trsym2b_d2exp(env0, d2e1)
+            trsym2b_d2explst(env0, d2es)
+        case D2Eelazy(dsym, d2e1, d2es):
+            trsym2b_d2exp(env0, d2e1)
+            trsym2b_d2explst(env0, d2es)
+        case D2Eannot(d2e1, s1e2, s2e2):
+            trsym2b_d2exp(env0, d2e1)
+        case D2Elabck(_, _):
+            f0_labck(env0, d2e0)
+        case D2Et2pck(_, _):
+            f0_t2pck(env0, d2e0)
+        case D2Et2ped(_, _):
+            f0_t2ped(env0, d2e0)
+        case D2Eextnam(_, _):
+            ()
+        case D2Esynext(_, _):
+            ()
+        case _:
+            ()
+where:
+    def f0_sym0(env0: !tr2aenv, d2e0: d2exp) -> Void:
+        let D2Esym0(drxp, d1e0, dpis) = d2e0.node()
+        let loc0 = d2e0.lctn()
+        let t2p1 = d2e0.styp()
+        let dexp = drxp.dexp()
+        match dexp.node():
+            case D2Enone0():
+                let dpis = match2a_d2ptmlst(env0, dpis, t2p1)
+                let dpis = match dpis:
+                    case list_nil():
+                        list_nil
+                    case list_cons(_):
+                        f1_maxes(dpis)
+                let dsym = d2exp_make_dpis(loc0, d1e0, dpis, t2p1)
+                f1_sympp(env0, dsym)
+                d2rxp_set_dexp(drxp, dsym)
+            case _:
+                trsym2b_d2exp(env0, dexp)
+    where:
+        def f1_maxes(dpis: d2ptmlst) -> d2ptmlst:
+            auxtake(pmax, dpis)
+        where:
+            let pmax = match dpis:
+                case list_cons(dpi1, dpis):
+                    match dpi1:
+                        case D2PTMsome(pval, _):
+                            auxpmax(pval, dpis)
+
+        def auxpmax(pmax: SInt, dpis: d2ptmlst) -> SInt:
+            match dpis:
+                case list_nil():
+                    pmax
+                case list_cons(dpi1, dpis):
+                    match dpi1:
+                        case D2PTMsome(pval, _):
+                            auxpmax(max(pmax, pval), dpis)
+
+        def auxtake(pmax: SInt, dpis: d2ptmlst) -> d2ptmlst:
+            match dpis:
+                case list_nil():
+                    list_nil()
+                case list_cons(dpi1, dpis):
+                    match dpi1:
+                        case D2PTMsome(pval, d2i1):
+                            if (pval < pmax):
+                                auxtake(pmax, dpis)
+                            else:
+                                list_cons(dpi1, auxtake(pmax, dpis))
+        def f1_sympp(env0: !tr2aenv, dsym: d2exp) -> Void:
+            let loc0 = dsym.lctn()
+            let tsym = dsym.styp()
+            match dsym.node():
+                case D2Evar(d2v1):
+                    let t2p1 = d2v1.styp()
+                    let ubtf = unify2a_s2typ(env0, t2p1, tsym)
+                case D2Econ(d2c1):
+                    let t2p1 = d2con2a_s2typ(loc0, d2c1)
+                    let ubtf = unify2a_s2typ(env0, t2p1, tsym)
+                case D2Ecst(d2c1):
+                    let t2p1 = d2cst2a_s2typ(loc0, d2c1)
+                    let ubtf = unify2a_s2typ(env0, t2p1, tsym)
+                case _:
+                    ()
+    def f0_proj(env0: !tr2aenv, d2e0: d2exp) -> Void:
+        let D2Eproj(tknd, drxp, dlab, dtup) = d2e0.node()
+        trsym2b_d2exp(env0, dtup)
+        let ttup = dtup.styp()
+        let ttup = s2typ_hnfiz0(ttup)
+        let topt = s2typ_prjout/opt(ttup, dlab)
+        match topt:
+            case ~optn_vt_nil():
+                ()
+            case ~optn_vt_cons(tprj):
+                let t2p0 = d2e0.styp()
+                let ubtf = unify2a_s2typ(env0, tprj, t2p0)
+    def f0_dtsel(env0: !tr2aenv, d2e0: d2exp) -> Void:
+        let D2Edtsel(tknd, dlab, dpis, npf1, darg) = d2e0.node()
+        match darg:
+            case optn_nil():
+                ()
+            case optn_cons(d2es):
+                trsym2b_d2explst(env0, d2es)
+    def f0_labck(env0: !tr2aenv, d2e0: d2exp) -> Void:
+        trsym2b_d2exp(env0, d2e1)
+    where:
+        let D2Elabck(d2e1, lab2) = d2e0.node()
+    def f0_t2pck(env0: !tr2aenv, d2e0: d2exp) -> Void:
+        trsym2b_d2exp(env0, d2e1)
+    where:
+        let D2Et2pck(d2e1, t2p2) = d2e0.node()
+    def f0_t2ped(env0: !tr2aenv, d2e0: d2exp) -> Void:
+        trsym2b_d2exp(env0, d2e1)
+    where:
+        let D2Et2ped(d2e1, t2p2) = d2e0.node()
+
+@impl
+def trsym2b_l2d2e(env0, ld2e):
+    let D2LAB(lab0, d2e1) = ld2e
+    trsym2b_d2exp(env0, d2e1)
+
+@impl
+def trsym2b_f2arg(env0, farg):
+    match farg.node():
+        case F2ARGdapp(npf1, d2ps):
+            trsym2b_d2patlst(env0, d2ps)
+        case F2ARGsapp(s2vs, s2es):
+            ()
+        case F2ARGmets(s2es):
+            ()
+
+@impl
+def trsym2b_d2gua(env0, dgua):
+    match dgua.node():
+        case D2GUAexp(d2e1):
+            trsym2b_d2exp(env0, d2e1)
+        case D2GUAmat(d2e1, d2p2):
+            trsym2b_d2exp(env0, d2e1)
+            trsym2b_d2pat(env0, d2p2)
+
+@impl
+def trsym2b_d2gpt(env0, dgpt):
+    match dgpt.node():
+        case D2GPTpat(d2p1):
+            trsym2b_d2pat(env0, d2p1)
+        case D2GPTgua(d2p1, d2gs):
+            trsym2b_d2pat(env0, d2p1)
+            trsym2b_d2gualst(env0, d2gs)
+
+@impl
+def trsym2b_d2cls(env0, dcls):
+    match dcls.node():
+        case D2CLSgpt(dgpt):
+            trsym2b_d2gpt(env0, dgpt)
+        case D2CLScls(dgpt, d2e2):
+            trsym2b_d2gpt(env0, dgpt)
+            trsym2b_d2exp(env0, d2e2)
+
+@impl
+def trsym2b_d2patlst(env0, d2ps):
+    list_trsym2b_fnp(env0, d2ps, trsym2b_d2pat)
+
+@impl
+def trsym2b_l2d2plst(env0, ldps):
+    list_trsym2b_fnp(env0, ldps, trsym2b_l2d2p)
+
+@impl
+def trsym2b_d2explst(env0, d2es):
+    list_trsym2b_fnp(env0, d2es, trsym2b_d2exp)
+
+@impl
+def trsym2b_d2expopt(env0, dopt):
+    optn_trsym2b_fnp(env0, dopt, trsym2b_d2exp)
+
+@impl
+def trsym2b_l2d2elst(env0, ldes):
+    list_trsym2b_fnp(env0, ldes, trsym2b_l2d2e)
+
+@impl
+def trsym2b_f2arglst(env0, f2as):
+    list_trsym2b_fnp(env0, f2as, trsym2b_f2arg)
+
+@impl
+def trsym2b_d2gualst(env0, d2gs):
+    list_trsym2b_fnp(env0, d2gs, trsym2b_d2gua)
+
+@impl
+def trsym2b_d2clslst(env0, d2cs):
+    list_trsym2b_fnp(env0, d2cs, trsym2b_d2cls)
+
