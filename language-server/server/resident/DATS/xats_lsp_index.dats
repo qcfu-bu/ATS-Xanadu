@@ -130,6 +130,19 @@ fun mkrange(l0: sint, c0: sint, l1: sint, c1: sint): jval =
 (* ****** ****** *)
 (* ---- generic dedup/sort over jval rows ---- *)
 //
+// lexicographic string order (portable: str_len + str_char_code only).
+fun strn_lt(a: string, b: string): bool = let
+  val na = str_len(a) val nb = str_len(b)
+  fun go(i: sint): bool =
+    if (i >= na) then (i < nb)
+    else if (i >= nb) then false
+    else let val ca = str_char_code(a, i) val cb = str_char_code(b, i) in
+      if (ca < cb) then true else if (ca > cb) then false else go(i+1)
+    end
+in go(0) end
+//
+// linear membership over a small string list (used by the references/completion
+// name dedups; the hot per-uri row dedup uses jdedup1 below).
 fun seen_has(seen: list(string), k: string): bool =
   (case+ seen of
    | list_nil() => false
@@ -141,27 +154,85 @@ fun jfilter(rows: list(jval), keep: jval -> bool): list(jval) =
    | list_cons(x, rest) =>
      if keep(x) then list_cons(x, jfilter(rest, keep)) else jfilter(rest, keep))
 //
-fun jdedup1(rows: list(jval), keyf: jval -> string, seen: list(string)): list(jval) =
+// dedup by a string key, keeping the FIRST occurrence in input order.  O(n log n):
+// tag each row with its input index, stable-sort by key (equal keys keep input
+// order), drop all but the head of each key-run (= first occurrence), then sort the
+// survivors back by index to restore input order.  Byte-for-byte equal to the prior
+// O(n^2) seen-list dedup.
+#typedef kir = @(string, sint, jval)   // (key, input-index, row)
+fun kir_len(xs: list(kir)): sint =
+  (case+ xs of list_nil() => 0 | list_cons(_, r) => 1 + kir_len(r))
+fun kir_take(xs: list(kir), n: sint): list(kir) =
+  if (n <= 0) then list_nil()
+  else (case+ xs of list_nil() => list_nil() | list_cons(x, r) => list_cons(x, kir_take(r, n-1)))
+fun kir_drop(xs: list(kir), n: sint): list(kir) =
+  if (n <= 0) then xs
+  else (case+ xs of list_nil() => list_nil() | list_cons(_, r) => kir_drop(r, n-1))
+fun kir_merge(a: list(kir), b: list(kir), before: (kir, kir) -> bool): list(kir) =
+  (case+ a of
+   | list_nil() => b
+   | list_cons(x, ra) =>
+     (case+ b of
+      | list_nil() => a
+      | list_cons(y, rb) =>
+        if before(y, x) then list_cons(y, kir_merge(a, rb, before))
+        else list_cons(x, kir_merge(ra, b, before))))
+fun kir_sort(xs: list(kir), before: (kir, kir) -> bool): list(kir) = let
+  val n = kir_len(xs)
+in
+  if (n <= 1) then xs
+  else let
+    val h = n / 2
+    val l = kir_sort(kir_take(xs, h), before)
+    val r = kir_sort(kir_drop(xs, h), before)
+  in kir_merge(l, r, before) end
+end
+fun kir_lt_key(a: kir, b: kir): bool = strn_lt(a.0, b.0)
+fun kir_lt_idx(a: kir, b: kir): bool = (a.1 < b.1)
+fun kir_tag(rows: list(jval), keyf: jval -> string, i: sint): list(kir) =
   (case+ rows of
    | list_nil() => list_nil()
-   | list_cons(x, rest) => let val k = keyf(x) in
-       if seen_has(seen, k) then jdedup1(rest, keyf, seen)
-       else list_cons(x, jdedup1(rest, keyf, list_cons(k, seen)))
-     end)
+   | list_cons(x, rest) => list_cons(@(keyf(x), i, x), kir_tag(rest, keyf, i+1)))
+fun kir_dedup_go(cur: kir, rest: list(kir)): list(kir) =
+  (case+ rest of
+   | list_nil() => list_cons(cur, list_nil())
+   | list_cons(y, r2) =>
+     if strn_eq(y.0, cur.0) then kir_dedup_go(cur, r2)
+     else list_cons(cur, kir_dedup_go(y, r2)))
+fun kir_dedup(xs: list(kir)): list(kir) =
+  (case+ xs of list_nil() => list_nil() | list_cons(x, rest) => kir_dedup_go(x, rest))
+fun kir_rows(xs: list(kir)): list(jval) =
+  (case+ xs of list_nil() => list_nil() | list_cons(x, r) => list_cons(x.2, kir_rows(r)))
+fun jdedup1(rows: list(jval), keyf: jval -> string): list(jval) =
+  kir_rows(kir_sort(kir_dedup(kir_sort(kir_tag(rows, keyf, 0), kir_lt_key)), kir_lt_idx))
 //
-// stable insertion sort (forward fold; equal keys keep input order).
-fun sins(x: jval, sorted: list(jval), before: (jval, jval) -> bool): list(jval) =
-  (case+ sorted of
-   | list_nil() => list_cons(x, list_nil())
-   | list_cons(y, rest) =>
-     if before(x, y) then list_cons(x, sorted)
-     else list_cons(y, sins(x, rest, before)))
-fun jssort_go(rows: list(jval), acc: list(jval), before: (jval, jval) -> bool): list(jval) =
-  (case+ rows of
-   | list_nil() => acc
-   | list_cons(x, rest) => jssort_go(rest, sins(x, acc, before), before))
-fun jstable_sort(rows: list(jval), before: (jval, jval) -> bool): list(jval) =
-  jssort_go(rows, list_nil(), before)
+// stable merge sort (O(n log n); equal keys keep input order — byte-for-byte equal
+// to the prior insertion sort).
+fun jtake(xs: list(jval), n: sint): list(jval) =
+  if (n <= 0) then list_nil()
+  else (case+ xs of list_nil() => list_nil() | list_cons(x, r) => list_cons(x, jtake(r, n-1)))
+fun jdrop(xs: list(jval), n: sint): list(jval) =
+  if (n <= 0) then xs
+  else (case+ xs of list_nil() => list_nil() | list_cons(_, r) => jdrop(r, n-1))
+fun jmerge(a: list(jval), b: list(jval), before: (jval, jval) -> bool): list(jval) =
+  (case+ a of
+   | list_nil() => b
+   | list_cons(x, ra) =>
+     (case+ b of
+      | list_nil() => a
+      | list_cons(y, rb) =>
+        if before(y, x) then list_cons(y, jmerge(a, rb, before))
+        else list_cons(x, jmerge(ra, b, before))))
+fun jstable_sort(rows: list(jval), before: (jval, jval) -> bool): list(jval) = let
+  val n = jlen(rows)
+in
+  if (n <= 1) then rows
+  else let
+    val h = n / 2
+    val l = jstable_sort(jtake(rows, h), before)
+    val r = jstable_sort(jdrop(rows, h), before)
+  in jmerge(l, r, before) end
+end
 //
 // comparators (true iff a strictly precedes b).
 fun pos4_before(a: jval, b: jval): bool = // (l0,c0,l1,c1) all ascending
@@ -202,7 +273,7 @@ end
 fun hov_key(r: jval): string =
   k_str(k_str(k_int(k_int(k_int(k_int("", gi(r,"l0")), gi(r,"c0")), gi(r,"l1")), gi(r,"c1")), gs(r,"kind")), gs(r,"typ"))
 fun dedup_hovers(rows: list(jval)): list(jval) =
-  jstable_sort(jdedup1(jfilter(rows, hov_keep), hov_key, list_nil()), hov_before)
+  jstable_sort(jdedup1(jfilter(rows, hov_keep), hov_key), hov_before)
 //
 (* ****** ****** *)
 (* ---- def dedup ---- *)
@@ -216,7 +287,7 @@ fun def_key(r: jval): string =
     gi(r,"l0")), gi(r,"c0")), gi(r,"l1")), gi(r,"c1")), gs(r,"du")),
     gi(r,"dl0")), gi(r,"dc0")), gi(r,"dl1")), gi(r,"dc1")), gs(r,"entity"))
 fun dedup_defs(rows: list(jval)): list(jval) =
-  jstable_sort(jdedup1(jfilter(rows, def_keep), def_key, list_nil()), pos4_before)
+  jstable_sort(jdedup1(jfilter(rows, def_keep), def_key), pos4_before)
 //
 (* ****** ****** *)
 (* ---- inlay dedup ---- *)
@@ -226,7 +297,7 @@ fun inl_keep(r: jval): bool =
 fun inl_key(r: jval): string =
   k_str(k_int(k_int(k_int("", gi(r,"line")), gi(r,"col")), gi(r,"kind")) , gs(r,"label"))
 fun dedup_inlays(rows: list(jval)): list(jval) =
-  jstable_sort(jdedup1(jfilter(rows, inl_keep), inl_key, list_nil()), line_col_before)
+  jstable_sort(jdedup1(jfilter(rows, inl_keep), inl_key), line_col_before)
 //
 (* ****** ****** *)
 (* ---- symbol / scope / member dedup ---- *)
@@ -241,19 +312,19 @@ fun line_col2_before(a: jval, b: jval): bool = // (l0,c0) ascending (symbols)
     if (a0 = b0) then (gi(a,"c0") < gi(b,"c0")) else (a0 < b0)
   end
 fun dedup_symbols(rows: list(jval)): list(jval) =
-  jstable_sort(jdedup1(jfilter(rows, pos2_keep), sym_key, list_nil()), line_col2_before)
+  jstable_sort(jdedup1(jfilter(rows, pos2_keep), sym_key), line_col2_before)
 // scopes: key l0:c0:l1:c1:name:typ ; NO sort (push order preserved, as the glue).
 fun scope_key(r: jval): string =
   k_str(k_str(k_int(k_int(k_int(k_int("",
     gi(r,"l0")), gi(r,"c0")), gi(r,"l1")), gi(r,"c1")), gs(r,"name")), gs(r,"typ"))
 fun dedup_scopes(rows: list(jval)): list(jval) =
-  jdedup1(jfilter(rows, pos2_keep), scope_key, list_nil())
+  jdedup1(jfilter(rows, pos2_keep), scope_key)
 // members: key l0:c0:l1:c1:name ; NO sort.
 fun member_key(r: jval): string =
   k_str(k_int(k_int(k_int(k_int("",
     gi(r,"l0")), gi(r,"c0")), gi(r,"l1")), gi(r,"c1")), gs(r,"name"))
 fun dedup_members(rows: list(jval)): list(jval) =
-  jdedup1(jfilter(rows, pos2_keep), member_key, list_nil())
+  jdedup1(jfilter(rows, pos2_keep), member_key)
 //
 (* ****** ****** *)
 (* ---- diagnostics dedup (overlap suppression + severity rank) ---- *)
@@ -279,59 +350,71 @@ in
   else if (de = ce) then (if (diag_rank(gs(d,"code")) > diag_rank(gs(e,"code"))) then d else e)
   else e
 end
-fun diag_ins(acc: list(jval), d: jval): list(jval) =
-  (case+ acc of
-   | list_nil() => list_cons(d, list_nil())
-   | list_cons(e, rest) =>
-     if same_key01(e, d) then list_cons(diag_pick(e, d), rest)
-     else list_cons(e, diag_ins(rest, d)))
-fun diag_best_go(rows: list(jval), acc: list(jval)): list(jval) =
-  (case+ rows of
-   | list_nil() => acc
-   | list_cons(d, rest) => diag_best_go(rest, diag_ins(acc, d)))
+// O(n log n) overlap-suppression.  After collapsing to one diag per (l0,c0)
+// (so all starts are unique), the original two pairwise rules reduce to running
+// min/max sweeps over a single start-sorted pass:
+//   * STRICT CONTAINMENT — drop d if it strictly contains some other diag, i.e.
+//     a later-starting diag ends at-or-before it  -> suffix-min of end-code.
+//   * DECL DOMINATION — drop a decl-error that overlaps ANY non-decl diagnostic
+//     (every non-decl outranks decl-error rank 1): a non-decl ending at/after
+//     d.start exists BEFORE it (prefix-max of non-decl end >= d.start), or a
+//     non-decl starting at/before d.end exists AFTER it (suffix-min of non-decl
+//     start <= d.end).  Byte-for-byte equal to the prior O(n^2) pairwise filter.
+fun imin(a: sint, b: sint): sint = if (a < b) then a else b
+fun imax(a: sint, b: sint): sint = if (a > b) then a else b
+fun startcode(d: jval): sint = gi(d,"l0") * 1000000 + gi(d,"c0")
+fun endcode(d: jval): sint = gi(d,"l1") * 1000000 + gi(d,"c1")
+fun is_decl(d: jval): bool = strn_eq(gs(d,"code"), "decl-error")
 //
-fun overlap(a: jval, b: jval): bool =
-  if posLE(gi(a,"l0"),gi(a,"c0"), gi(b,"l1"),gi(b,"c1"))
-  then posLE(gi(b,"l0"),gi(b,"c0"), gi(a,"l1"),gi(a,"c1")) else false
-fun coords_eq(a: jval, b: jval): bool =
-  if (gi(a,"l0") = gi(b,"l0")) then
-    (if (gi(a,"c0") = gi(b,"c0")) then
-      (if (gi(a,"l1") = gi(b,"l1")) then (gi(a,"c1") = gi(b,"c1")) else false)
-     else false)
-  else false
-// keep d unless some e strictly-contains d, or d is a decl-error dominated by an
-// overlapping higher-rank diagnostic.
-fun diag_keep1(d: jval, ys: list(jval)): bool =
-  (case+ ys of
-   | list_nil() => true
-   | list_cons(e, rest) =>
-     if same_key01(e, d) then diag_keep1(d, rest)  // e is self (keys unique)
-     else let
-       val inside =
-         if posLE(gi(d,"l0"),gi(d,"c0"), gi(e,"l0"),gi(e,"c0"))
-         then posLE(gi(e,"l1"),gi(e,"c1"), gi(d,"l1"),gi(d,"c1")) else false
-       val strictly = if inside then (if coords_eq(e, d) then false else true) else false
-       val decldom =
-         if strn_eq(gs(d,"code"), "decl-error") then
-           (if (if strn_eq(gs(e,"code"), "decl-error") then false else true) then
-              (if overlap(d, e) then (diag_rank(gs(e,"code")) > diag_rank(gs(d,"code"))) else false)
-            else false)
-         else false
-     in
-       if strictly then false
-       else if decldom then false
-       else diag_keep1(d, rest)
-     end)
-fun diag_filter(ys_all: list(jval), ys: list(jval)): list(jval) =
-  (case+ ys of
+#typedef sminr = @(sint, sint)   // (min end-code after, min non-decl start-code after)
+val diag_inf: sint = 1000000000000000   // > any real position code
+//
+// phase 1: one diag per (l0,c0), best per diag_pick, in (l0,c0) order.
+fun diag_collapse_go(cur: jval, rest: list(jval)): list(jval) =
+  (case+ rest of
+   | list_nil() => list_cons(cur, list_nil())
+   | list_cons(y, r2) =>
+     if same_key01(y, cur) then diag_collapse_go(diag_pick(cur, y), r2)
+     else list_cons(cur, diag_collapse_go(y, r2)))
+fun diag_collapse(xs: list(jval)): list(jval) =
+  (case+ xs of list_nil() => list_nil() | list_cons(x, rest) => diag_collapse_go(x, rest))
+//
+// left-to-right: for each d, the max end-code of a non-decl strictly before it.
+fun diag_pmax(s: list(jval), acc: sint): list(sint) =
+  (case+ s of
    | list_nil() => list_nil()
    | list_cons(d, rest) =>
-     if diag_keep1(d, ys_all) then list_cons(d, diag_filter(ys_all, rest))
-     else diag_filter(ys_all, rest))
+     list_cons(acc, diag_pmax(rest, (if is_decl(d) then acc else imax(acc, endcode(d))))))
+// right-to-left: for each d, (min end-code after it, min non-decl start-code after it).
+fun diag_smin(s: list(jval)): @(list(sminr), sint, sint) =
+  (case+ s of
+   | list_nil() => @(list_nil(), diag_inf, diag_inf)
+   | list_cons(d, rest) => let
+       val sub = diag_smin(rest)
+       val ndStart = if is_decl(d) then sub.2 else imin(sub.2, startcode(d))
+     in @(list_cons(@(sub.1, sub.2), sub.0), imin(sub.1, endcode(d)), ndStart) end)
+// combine the three aligned lists -> survivors (final order set by the sort below).
+fun diag_combine(s: list(jval), pmax: list(sint), smin: list(sminr)): list(jval) =
+  (case+ s of
+   | list_nil() => list_nil()
+   | list_cons(d, srest) =>
+     (case+ pmax of
+      | list_nil() => list_nil()
+      | list_cons(pm, prest) =>
+        (case+ smin of
+         | list_nil() => list_nil()
+         | list_cons(sm, smrest) => let
+             val sc = startcode(d) val ec = endcode(d)
+             val drop_contain = (sm.0 <= ec)
+             val drop_decl = if is_decl(d) then (if (pm >= sc) then true else (sm.1 <= ec)) else false
+             val tl = diag_combine(srest, prest, smrest)
+           in if (if drop_contain then true else drop_decl) then tl else list_cons(d, tl) end)))
 fun dedup_diags(rows: list(jval)): list(jval) = let
   val xs = jfilter(rows, diag_valid)
-  val ys = diag_best_go(xs, list_nil())
-  val kept = diag_filter(ys, ys)
+  val ys = diag_collapse(jstable_sort(xs, tok_before))
+  val pmax = diag_pmax(ys, 0 - 1)
+  val sm = diag_smin(ys)
+  val kept = diag_combine(ys, pmax, sm.0)
 in
   jstable_sort(kept, pos4_before)
 end
@@ -341,17 +424,18 @@ end
 //
 fun tok_valid(r: jval): bool =
   if (if (gi(r,"l0") >= 0) then (gi(r,"c0") >= 0) else false) then (gi(r,"len") > 0) else false
-fun tok_ins(acc: list(jval), t: jval): list(jval) =
-  (case+ acc of
-   | list_nil() => list_cons(t, list_nil())
-   | list_cons(e, rest) =>
-     if same_key01(e, t) then
-       (if (gi(t,"len") < gi(e,"len")) then list_cons(t, rest) else list_cons(e, rest))
-     else list_cons(e, tok_ins(rest, t)))
-fun tok_bystart(rows: list(jval), acc: list(jval)): list(jval) =
-  (case+ rows of
-   | list_nil() => acc
-   | list_cons(t, rest) => tok_bystart(rest, tok_ins(acc, t)))
+// collapse adjacent same-(l0,c0) tokens in a list already sorted by (l0,c0),
+// keeping the shortest (ties keep the earlier).  O(n) given the sorted input;
+// replaces the prior O(n^2) insert-by-key accumulation.
+fun tok_collapse_go(cur: jval, rest: list(jval)): list(jval) =
+  (case+ rest of
+   | list_nil() => list_cons(cur, list_nil())
+   | list_cons(y, r2) =>
+     if same_key01(y, cur) then
+       (if (gi(y,"len") < gi(cur,"len")) then tok_collapse_go(y, r2) else tok_collapse_go(cur, r2))
+     else list_cons(cur, tok_collapse_go(y, r2)))
+fun tok_collapse(xs: list(jval)): list(jval) =
+  (case+ xs of list_nil() => list_nil() | list_cons(x, rest) => tok_collapse_go(x, rest))
 fun tok_delta(xs: list(jval), pl: sint, pc: sint): list(sint) =
   (case+ xs of
    | list_nil() => list_nil()
@@ -364,7 +448,7 @@ fun tok_delta(xs: list(jval), pl: sint, pc: sint): list(sint) =
          list_cons(gi(t,"tt"), list_cons(gi(t,"mods"), tok_delta(rest, l0, c0))))))
      end)
 fun encode_tokens(rows: list(jval)): list(sint) =
-  tok_delta(jstable_sort(tok_bystart(jfilter(rows, tok_valid), list_nil()), tok_before), 0, 0)
+  tok_delta(tok_collapse(jstable_sort(jfilter(rows, tok_valid), tok_before)), 0, 0)
 //
 (* ****** ****** *)
 (* ---- innermost-by-position over a jval row list ---- *)
@@ -888,9 +972,13 @@ fun comp_add(name: string, symKind: sint, src: string, detail: string,
              rng: jval, wlow: string, wlen: sint, cap: sint, st: cst): cst = let
   val items = st.0 val seen = st.1 val cnt = st.2
 in
+  // NOTE: test the cheap prefix filter BEFORE the linear seen-scan, so seen_has is
+  // only paid for prefix-matching names (<= cap of them).  Pure functions, so this
+  // is the same predicate as `seen_has ? false : ci_prefix` but drops the O(n*K) term
+  // from scanning the whole prelude/staload caches.
   if (if (cnt < cap) then
         (if (if strn_eq(name, "") then false else true) then
-           (if seen_has(seen, name) then false else ci_prefix(name, wlow, wlen))
+           (if ci_prefix(name, wlow, wlen) then (if seen_has(seen, name) then false else true) else false)
          else false)
       else false)
   then let
@@ -965,7 +1053,7 @@ fun add_keywords(kws: list(string), rng: jval, wlow: string, wlen: sint, cap: si
 fun mem_match(m: jval, dotLine: sint, dotCol: sint, seen: list(string), wlow: string, wlen: sint): bool =
   if (gi(m,"l1") = dotLine) then
     (if (gi(m,"c1") = dotCol) then
-       (if seen_has(seen, gs(m,"name")) then false else ci_prefix(gs(m,"name"), wlow, wlen))
+       (if ci_prefix(gs(m,"name"), wlow, wlen) then (if seen_has(seen, gs(m,"name")) then false else true) else false)
      else false)
   else false
 fun mem_item(m: jval, rng: jval): jval = let
