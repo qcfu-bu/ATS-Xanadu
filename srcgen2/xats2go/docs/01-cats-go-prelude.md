@@ -38,31 +38,55 @@ use `CATS/GO`, the backend must instead **compile the prelude template bodies**
 (the xats2cz inline‑template strategy), bottoming at `XATS2GO_*`. `CATS/GO` is
 inert without this.
 
-## Vertical slice — the ordered plumbing (shared by all 14 modules)
+## How arm selection ACTUALLY works (verified 2026-06-29 — corrects earlier notes)
 
-1. **`CATS/GO/gint000.{dats,cats}` + `prelude_GO_cats.hats`** — ✅ this commit
-   (additive; the first module, faithful to `CATS/JS`).
-2. **`_XATS2GO_` dispatch** in `srcgen2/HATS/xatsopt_dpre.hats` — mirror the
-   `#if defq(_XATS2JS_)` arm (the `basics{1,2,3}`/`g_eqref`/`g_print` includes
-   get GO analogs under `prelude/DATS/CATS/GO/`), and add the
-   `xlibext_goemit` staload analog.
-3. **Driver flag** — `xats2go_goemit01.dats`: pass `--_XATS2GO_`
-   (+`--_SRCGEN2_XATS2GO_`) instead of the JS flags, so prelude resolution
-   selects the GO arm. (Verify the `pvsl00d`/`pvsl01d` store choice matches the
-   tree that *defines* the GO arm, per docs/00 of xats2cz §3.)
-4. **Emitter `.cats` linking** — splice `prelude_GO_cats.hats`'s `.cats` floor
-   into the emitted Go package (the harness already assembles a Go module; add
-   the floor + a GO precats defining `XATS2GO_the_print_store` and imports
-   `strconv`). Analog of how `build-go.sh` prepends `runtime/xatsgo`.
-5. **Prove** `make run/test02_arith` (an int program) byte‑equal through the
-   oracle with the prelude now flowing through `CATS/GO`, not the shortcut.
-6. **Scale** — add the remaining 13 modules (mechanical: copy the JS arm,
-   `XATS2JS`→`XATS2GO`; translate the one‑line `.cats` bodies to typed Go).
+Two distinct layers, easy to conflate:
 
-Steps 2–4 likely require a `lib2xatsopt` rebuild (dpre.hats is frontend‑wide)
-and careful prelude‑store handling; they are build‑gated and land as a
-coordinated, oracle‑validated change — not piecemeal (flipping the driver flag
-before the GO arms exist would break the green suite).
+- **Target prelude arm — per-program, RUNTIME, no rebuild.** A program targeting
+  a backend `#include`s `prelude/HATS/prelude_<B>_dats.hats`; e.g.
+  `test01_xats2go.dats:24` includes `prelude_JS_dats.hats`, which `#staload`s the
+  `CATS/JS/*.dats` arms (`sint_neg → XATS2JS_sint_neg`, …). The emitter reads the
+  program + its includes at runtime, so **switching a program to the GO arm is
+  just `#include prelude_GO_dats.hats`** — **no `lib2xatsopt` rebuild.**
+- **The compiler's OWN runtime** (`#if defq(_XATS2JS_)` in `basics0-3.dats` etc.,
+  baked into `lib2xatsopt`). These are how the *compiler* runs — and it runs on
+  **Node/JS**, so they correctly stay `_XATS2JS_`. They become `_XATS2GO_` work
+  only when compiling **the compiler itself** to Go (true self-hosting) — a later
+  milestone, NOT a prerequisite for compiling a user program to Go.
+
+So my earlier "needs a `lib2xatsopt` rebuild / `_XATS2GO_` dispatch in dpre.hats"
+note was wrong for the user-program case. The pivot is **emitter-side**.
+
+## The real crux: the emitter must USE the floor
+
+Verified emitter facts:
+- `I1Vextnam(_tk, ivin, _gnam) ⇒ i1valgo1(filr, ivin)` — an `$extnam` reference
+  emits the resolved external NAME, so an `XATS2GO_*` extern emits as a bare call.
+- The Go emitter has **no `#extcode` handling** (`grep extcode` ⇒ none): it does
+  **not** splice the `.cats` floor into the output.
+- Native ops are **shortcut** to Go operators (`a+b`), bypassing the arm — which
+  we *keep* (optimal). CATS/GO matters for the **non-native** prelude
+  (`list/optn/strm/strn`), today served by `runtime/xatsgo`'s `Xats_*`.
+
+## Vertical slice — the corrected, ordered steps
+
+1. **`CATS/GO/gint000.{dats,cats}` + `prelude_GO_{cats,dats}.hats`** — ✅
+   (additive; the first module + both manifests).
+2. **Emitter `.cats` linking** — assemble the `prelude_GO_cats.hats` floor into
+   the emitted Go module (build-harness step, analog of `runtime/xatsgo`), with
+   the same `$`→`_` identifier mangling the emitter uses for extern names + a GO
+   precats (`XATS2GO_the_print_store`, `import "strconv"`).
+3. **Route one non-native prelude function through the arm** — emit its template
+   body (bottoming at an `XATS2GO_*` primitive) instead of the `xatsgo.Xats_*`
+   shortcut; `#include prelude_GO_dats.hats` in that test.
+4. **Prove** byte-equal through the oracle (`make run/<test>`), prelude now
+   flowing through `CATS/GO`.
+5. **Scale** — the remaining 13 modules (mechanical: copy the JS arm,
+   `XATS2JS`→`XATS2GO`; translate the one-line `.cats` bodies to typed Go).
+
+No `lib2xatsopt` rebuild on this path. The work is concentrated in the emitter
+(`.cats` linking + template-body emission for the non-native prelude) — the
+M3/M4 milestone — oracle-gated per construct.
 
 ## Are we ready to self‑host?
 
