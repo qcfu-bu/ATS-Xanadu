@@ -20,7 +20,7 @@ BUNDLE="$X/srcgen2/BUILD/xats2go-bundle.patched.js"
 [ -f "$BUNDLE" ] || { echo "!! bundle missing: $BUNDLE (run 'make' in $X first)"; exit 1; }
 
 # the CATS/GO modules that make up the floor (extend as modules are added).
-GO_CATS="xtop000 gint000 strn000"
+GO_CATS="xtop000 gint000 bool000 char000 gflt000 strn000"
 
 WORK="$X/srcgen2/BUILD/goarm_$NAME"; rm -rf "$WORK"; mkdir -p "$WORK"
 
@@ -33,9 +33,16 @@ if [ "$RC" -ne 0 ] || [ ! -s "$WORK/main.go" ]; then
 fi
 
 echo ">> [2/4] assemble module (emitted + CATS/GO floor)"
+# auto-detect the std imports the included floor actually references (Go errors
+# on BOTH a missing import and an unused one, so the set must match exactly).
+CATSPATHS=""; for c in $GO_CATS; do CATSPATHS="$CATSPATHS $XATSHOME/prelude/DATS/CATS/GO/$c.cats"; done
+IMPLINE=""
+for p in fmt math strconv strings; do
+  if grep -qhE "\b$p\." $CATSPATHS 2>/dev/null; then IMPLINE="$IMPLINE \"$p\";"; fi
+done
 {
   echo 'package main'
-  echo 'import ("fmt"; "strconv"; "strings")'
+  echo "import ($IMPLINE )"
   for c in $GO_CATS; do sed 's/\$/_/g' "$XATSHOME/prelude/DATS/CATS/GO/$c.cats"; done
 } > "$WORK/zz_floor.go"
 cat > "$WORK/go.mod" <<EOF

@@ -9,9 +9,9 @@ prelude_JS_cats.hats.  Each [#extcode file] splices a typed `.cats` of
 XATS2GO_* primitives into the emitted Go.  Everything ELSE in the prelude is
 shared ATS, COMPILED to Go by xats2go (NOT mirrored here).
 
-VERTICAL SLICE (in progress): only gint000 is wired so far; the remaining 13
-modules (xtop/gbas/gdbg/bool/char/gflt/strn/list/optn/strm/strx/axrf/axsz)
-are added once the slice is proven end-to-end through the oracle.  See
+VERTICAL SLICE (in progress): xtop/gint/strn + the scalar floor (bool/char/
+gflt) are wired; the remaining modules (gbas/gdbg/list/optn/strm/strx/axrf/
+axsz) are added once the slice is proven end-to-end through the oracle.  See
 srcgen2/xats2go/docs/01-cats-go-prelude.md.
 *)
 (* ****** ****** *)
@@ -20,6 +20,12 @@ srcgen2/xats2go/docs/01-cats-go-prelude.md.
 file"prelude/DATS/CATS/GO/xtop000.cats"
 #extcode
 file"prelude/DATS/CATS/GO/gint000.cats"
+#extcode
+file"prelude/DATS/CATS/GO/bool000.cats"
+#extcode
+file"prelude/DATS/CATS/GO/char000.cats"
+#extcode
+file"prelude/DATS/CATS/GO/gflt000.cats"
 #extcode
 file"prelude/DATS/CATS/GO/strn000.cats"
 //
