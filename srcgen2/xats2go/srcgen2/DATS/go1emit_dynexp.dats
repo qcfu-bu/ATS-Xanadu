@@ -1210,6 +1210,7 @@ end//endof[i1dcl_preludeq(idcl)]
 fun
 t1imp_func_literal_go1emit
 ( filr: FILR
+, ostmp: stamp
 , timp: t1imp
 , env0: !envx2go): bool =
 (
@@ -1236,6 +1237,10 @@ case+ t1imp_i1dclq(timp) of
       val bnds = binds_of_fjarglst(fjas)
       val argtys = gotypes_of_fjarglst(fjas)
       val retty = gotype_of_lam_ret(icmp, bnds)
+      // RESULT BOUNDARY (go-arm): record this instance func's EMITTED return type
+      // keyed by its bound temp, so an application whose result temp is concretely
+      // typed can assert an `any`-returning forwarder (e.g. a0rf_get).
+      val () = (if go_arm_getq() then inst_retty_add(ostmp, retty))
       val () =
       (
       strnfpr(filr, "func(");
@@ -1331,6 +1336,62 @@ in
   if s[4] != '(' then "" else
   scan(5, 0)
 end//endof[go_first_param(s)]
+//
+(*
+[go_return_type]: parse the RESULT Go-type out of a function-type string --
+"func(bool) any" -> "any", "func(int, int) int" -> "int", "func() float64" ->
+"float64".  Skips past the matching ")" of the param list (paren-depth tracked)
+and returns the remainder (one leading space trimmed).  "" when [s] is not a
+"func(...)..." type.  Used at the RESULT BOUNDARY: an `any`-returning call bound
+to a concretely-typed temp must be asserted.
+*)
+fun
+go_return_type
+(s: strn): strn =
+let
+  val n = strn_length(s)
+  //
+  fun
+  char1(c: cgtz): strn = strn_make_list(list_cons(c, list_nil()))
+  //
+  // collect s[i0..n) verbatim (the return-type tail).
+  fun
+  rest(i0: sint): strn =
+  (
+  if (i0 >= n) then ""
+  else strn_append(char1(s[i0]), rest(i0+1))
+  )//endof[rest]
+  //
+  // index just PAST the param-list ")" (entered at depth 1 after "func(").
+  fun
+  findclose(i0: sint, depth: sint): sint =
+  (
+  if (i0 >= n) then n
+  else
+    let val c: cgtz = s[i0] in
+    (
+    if (c = '(') then findclose(i0+1, depth+1)
+    else if (c = ')')
+    then (if (depth <= 1) then (i0+1) else findclose(i0+1, depth-1))
+    else findclose(i0+1, depth))
+    end
+  )//endof[findclose]
+in
+  if (n < 5) then ""
+  else
+  if s[0] != 'f' then "" else
+  if s[1] != 'u' then "" else
+  if s[2] != 'n' then "" else
+  if s[3] != 'c' then "" else
+  if s[4] != '(' then "" else
+  let
+    val j = findclose(5, 1)
+    // trim one leading space between ")" and the return type.
+    val k = (if (j < n) then (if (s[j] = ' ') then j+1 else j) else j)
+  in
+    rest(k)
+  end
+end//endof[go_return_type(s)]
 //
 (*
 [t1imp_hook_paramty]: the Go type of the FIRST param of a value-like instance's
@@ -3192,7 +3253,7 @@ case+ ilet of
       then (i1tnmgo1(filr, itnm); strnfpr(filr, " := "))
       else strnfpr(filr, "_ = ");
     if
-    t1imp_func_literal_go1emit(filr, timp, env0)
+    t1imp_func_literal_go1emit(filr, i1tnm_stmp$get(itnm), timp, env0)
     then ((*void*))
     else i1insgo1(filr, scp, iins);
     strnfpr(filr, "\n"))
@@ -3219,7 +3280,33 @@ case+ ilet of
         strnfpr(filr, ".("); strnfpr(filr, goty); strnfpr(filr, ")"))
     end
   | _(*otherwise*) =>
+      (
       i1insgo1(filr, scp, iins);
+      // RESULT BOUNDARY: a call whose Go form returns `any` (a prim/instance
+      // whose leaf is `any`-typed -- e.g. XATS2GO_a0rf_get) bound to a temp with
+      // a known CONCRETE gotyp must be asserted, else Go rejects the any->concrete
+      // use downstream.  Assert ONLY when the callee's recovered return type is
+      // provably "any" (so a natively-typed call / infix op is never mis-asserted,
+      // which Go would reject as an assertion on a non-interface value).
+      (case+ iins of
+       |I1INSdapp(i1f0, _) =>
+         let
+           val goty = gotyp_emit(i1tnm_gotyp$get(itnm))
+         in
+           if not(goty = "any")
+           then
+             // the callee i1f0 is an instance-func temp whose EMITTED return type
+             // we recorded; "any" there means the emitted func returns `any`, so a
+             // concrete result temp must be asserted (`tmp(args).(T)`).
+             (case+ i1f0.node() of
+              |I1Vtnm(ftnm) =>
+                if (inst_retty_get(i1tnm_stmp$get(ftnm)) = "any")
+                then (strnfpr(filr, ".("); strnfpr(filr, goty); strnfpr(filr, ")"))
+                else ()
+              | _(*non-tnm callee*) => ())
+           else ()
+         end
+       | _(*non-dapp*) => ()));
   strnfpr(filr, "\n"))
   end)
   )

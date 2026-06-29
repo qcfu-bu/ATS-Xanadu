@@ -27,6 +27,8 @@ file"prelude/DATS/CATS/GO/char000.cats"
 #extcode
 file"prelude/DATS/CATS/GO/gflt000.cats"
 #extcode
+file"prelude/DATS/CATS/GO/axrf000.cats"
+#extcode
 file"prelude/DATS/CATS/GO/strn000.cats"
 //
 (* ****** ****** *)

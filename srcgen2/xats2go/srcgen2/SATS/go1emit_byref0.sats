@@ -123,6 +123,29 @@ fun
 nullary_inst_paramty(stmp: stamp): strn
 //
 (* ****** ****** *)
+//
+(*
+INSTANCE-FUNC EMITTED-RETURN-TYPE SIDE-TABLE (go-arm RESULT boundary).  A
+template instance is emitted as a Go func literal bound to a temp; its emitted
+return type is the body-derived [gotype_of_lam_ret], which for a forwarding
+instance over an `any`-returning leaf (e.g. XATS2GO_a0rf_get) is "any".  We
+record (instance-temp stamp -> emitted return type) at the I1INStimp emission;
+when that temp is later APPLIED and the application's result temp has a CONCRETE
+gotyp, the call must be asserted (`tmp(args).(T)`) -- the recorded "any" is the
+signal that the emitted func really returns `any` (the temp's own recorded gotyp
+carries the CONCRETE type, so it cannot be used to detect the mismatch).
+*)
+fun
+inst_retty_add(stmp: stamp, retty: strn): void
+//
+(*
+[inst_retty_get(stmp)]: the recorded emitted return type of the instance-func
+temp [stmp], or "" if none was recorded (not an instance func / not go-arm).
+*)
+fun
+inst_retty_get(stmp: stamp): strn
+//
+(* ****** ****** *)
 (* ****** ****** *)
 //
 (***********************************************************************)

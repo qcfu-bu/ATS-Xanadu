@@ -212,6 +212,30 @@ nullary_inst_paramty
 (stmp) =
   nient_find(a0ref_get<nientlst>(the_nullary_inst_ref), stmp)
 //
+(* ****** ****** *)
+//
+// the instance-func emitted-return-type map (go-arm RESULT boundary).  Same
+// linear assoc-list shape as the nullary-instance map.  See SATS.
+val
+the_inst_retty_ref =
+a0ref_make_1val<nientlst>(list_nil(*void*))
+//
+#implfun
+inst_retty_add
+(stmp, retty) =
+let
+  val ents = a0ref_get<nientlst>(the_inst_retty_ref)
+in
+  if nient_memq(ents, stmp)
+  then ((*void*))
+  else a0ref_set<nientlst>(the_inst_retty_ref, list_cons(@(stmp, retty), ents))
+end
+//
+#implfun
+inst_retty_get
+(stmp) =
+  nient_find(a0ref_get<nientlst>(the_inst_retty_ref), stmp)
+//
 end(*local*)//endof[local(the_nullary_inst_ref)]
 //
 (* ****** ****** *)
