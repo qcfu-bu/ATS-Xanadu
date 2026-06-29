@@ -46,10 +46,12 @@ set -uo pipefail
 # 0. args + paths
 ########################################################################
 FORCE=0
+GOARM=0
 SRC=""
 for a in "$@"; do
   case "$a" in
     --force) FORCE=1 ;;
+    --go-arm) GOARM=1 ;;   # CATS/GO prelude pivot: emit prelude bodies -> XATS2GO_* floor
     -*) echo "!! unknown flag: $a" >&2; exit 2 ;;
     *)  SRC="$a" ;;
   esac
@@ -221,7 +223,8 @@ echo ">> [3/7] link go-emitter bundle + run on $NAME -> emit Go"
 GOBUNDLE="$WORK/xats2go-bundle.js"
 GOPATCHED="$(link_bundle "$LIB2GO" "$DRV_GO" "$GOBUNDLE")" || exit 1
 RAWOUT="$WORK/go-stdout.txt"
-$NODE "$GOPATCHED" "$SRC" > "$RAWOUT" 2>"$WORK/go-stderr.txt"; RC=$?
+GOARMFLAG=""; [ "$GOARM" = 1 ] && GOARMFLAG="--go-arm"
+$NODE "$GOPATCHED" "$SRC" $GOARMFLAG > "$RAWOUT" 2>"$WORK/go-stderr.txt"; RC=$?
 echo ">> go-emitter exit code: $RC"
 if [ "$RC" -ne 0 ]; then
   echo "!! go-emitter bundle did not exit 0" >&2
@@ -246,6 +249,23 @@ require xatsgo v0.0.0
 replace xatsgo => $RUNTIMEGO
 EOF
 cp "$EMIT" "$GOMOD/$NAME.go"
+
+# CATS/GO prelude pivot: splice the self-contained typed .cats floor (the
+# XATS2GO_* primitives) into the module as a sibling package-main file, with
+# the same `$`->`_` identifier mangling the emitter applies to extern names.
+if [ "$GOARM" = 1 ]; then
+  {
+    echo 'package main'
+    echo 'import ('
+    echo '  "fmt"'
+    echo '  "strconv"'
+    echo '  "strings"'
+    echo ')'
+    sed 's/\$/_/g' "$XATSHOME/prelude/DATS/CATS/GO/xtop000.cats"
+    sed 's/\$/_/g' "$XATSHOME/prelude/DATS/CATS/GO/gint000.cats"
+  } > "$GOMOD/zz_catsfloor.go"
+  gofmt -w "$GOMOD/zz_catsfloor.go" 2>/dev/null || true
+fi
 ( cd "$GOMOD" && go mod tidy >/dev/null 2>&1 || true )
 
 # M2.6b: gofmt-CANONICALIZE the assembled file in place (PLAN Sec.5.8 -- "run
@@ -283,7 +303,9 @@ echo ">> [5/7] build JS-backend reference (the differential oracle)"
 ########################################################################
 JS_STDOUT="$WORK/$NAME.js.stdout"
 : > "$JS_STDOUT"
-if [ -f "$LIB2JS" ]; then
+if [ "$GOARM" = 1 ]; then
+  echo "   (go-arm: source targets the CATS/GO prelude arm; JS oracle N/A -> golden)"
+elif [ -f "$LIB2JS" ]; then
   JDRV="$BUILD/xats2js_jsemit01_dats.js"
   if [ "$FORCE" -ne 0 ] || [ ! -f "$JDRV" ]; then
     $NODE "$JSEMIT" "$SRCGEN2/xats2js/srcgen2/UTIL/xats2js_jsemit01.dats" > "$JDRV" 2>"$BUILD/transpile_jsdrv.err"

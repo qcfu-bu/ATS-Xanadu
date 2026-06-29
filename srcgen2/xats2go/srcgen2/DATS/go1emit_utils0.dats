@@ -263,8 +263,33 @@ if d2cst_known_runtimeq(sname) then false else
 if xrtq then false else
 if d2cst_known_packageq(sname) then true else
 d2cst_package_sourceq(dcst))
+//
+// CATS/GO prelude floor: a leaf primitive named `XATS2GO_*` (from the GO arm's
+// $extnam binding) is provided by the linked .cats, so it emits as the BARE
+// mangled name ([xsymgo1] maps `$`->`_`), NOT `xatsgo.Xats_XATS2GO_*`.  This
+// only fires for `XATS2GO_`-prefixed names, which never occur in a JS-arm
+// program, so the existing (JS-arm) suite is unaffected.
+val goleafq =
+(
+if (strn_length(sname) >= 8)
+then
+  (
+  if sname[0] != 'X' then false else
+  if sname[1] != 'A' then false else
+  if sname[2] != 'T' then false else
+  if sname[3] != 'S' then false else
+  if sname[4] != '2' then false else
+  if sname[5] != 'G' then false else
+  if sname[6] != 'O' then false else
+  (sname[7] = '_'))
+else false)
 in//let
 (
+if
+goleafq
+then
+  xsymgo1(filr, name)
+else
 if
 pkgq
 then

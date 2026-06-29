@@ -11,7 +11,8 @@
 //
 // console_log is generic in ATS (console_log{t0}(x0)); fmt.Println(any) is the
 // faithful Go form (prints the value + a trailing newline, == JS console.log).
-func XATS2GO_console_log(x0 any) { fmt.Println(x0) }
+// Returns `any` (nil) so the emitter can bind its result (void-as-value contract).
+func XATS2GO_console_log(x0 any) any { fmt.Println(x0); return nil }
 //
 // the three output stores (mirrors XATS2JS_the_{print,prout,prerr}_store).
 var XATS2GO_the_print_store []string

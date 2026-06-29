@@ -80,6 +80,30 @@ Verified emitter facts:
   covered too (xtop000/precats), so the first end-to-end test is an
   int-print program over `gint000` + a GO precats.
 
+## ✅ VERTICAL SLICE PROVEN END-TO-END (2026-06-29)
+
+`test_goarm01_xats2go.dats` (`#include prelude_GO_dats.hats`; `sint_print` +
+`the_print_store_log`) compiled through the CATS/GO arm with the emitter in
+`--go-arm` mode: the prelude template bodies are EMITTED (not shortcut),
+bottoming at the typed `XATS2GO_*` floor — including the composed
+`the_print_store_log → console_log(the_print_store_flush())`. The emitted Go +
+the self-contained `gint000`+`xtop000` floor builds (`go build`) and runs:
+**`42\n123\n`, byte-equal to golden.** The JS-arm suite stayed **75/75** (the
+`go_arm` gate is default-off → byte-identical). The full pivot:
+- `d2cstgo1`: an `XATS2GO_*` leaf emits the bare `$`→`_`-mangled name (the linked
+  `.cats` primitive), not `xatsgo.Xats_*`.
+- `go_arm_set`/`go_arm_getq` (go1emit_byref0): process-global flag, default off.
+- `t1imp_func_literal_go1emit`: relax the `i1dcl_preludeq` shortcut **only** in
+  go-arm mode → prelude bodies emit down to the `XATS2GO_*` leaves.
+- driver (`--go-arm`) + `build-go.sh --go-arm` (splice the floor) + a golden.
+- **Bug fixed:** void prims (`sint_print`/`console_log`) must return `any` (nil),
+  matching the emitter's "every body result is bindable" contract (as
+  `xatsgo.Xats_*` do).
+- *Caveat:* the automated `build-go.sh --go-arm` path hits the pre-existing
+  `build-go.sh` `lib2xats2cc` stamp-mismatch (`i0parsed_of_trxd3i0` undefined —
+  the Makefile is the canonical builder); the proof used the correct Makefile
+  bundle run with `--go-arm`, then the same floor-splice/assemble/build steps.
+
 ## Vertical slice — the corrected, ordered steps
 
 1. **`CATS/GO/gint000.{dats,cats}` + `prelude_GO_{cats,dats}.hats`** — ✅

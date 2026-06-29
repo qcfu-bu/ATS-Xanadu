@@ -67,6 +67,7 @@ program between //==XATS2GO-BEGIN==/ //==XATS2GO-END== sentinels.
 #staload "./../SATS/trxi0i1.sats"
 #staload "./../SATS/xats2go.sats"
 #staload "./../SATS/go1emit.sats"
+#staload "./../SATS/go1emit_byref0.sats"//for[go_arm_set]
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -205,6 +206,22 @@ val (  ) =
 xatsopt_flag$pvsadd0("--_XATS2JS_")
 val (  ) =
 xatsopt_flag$pvsadd0("--_SRCGEN2_XATS2JS_")
+//
+// CATS/GO prelude pivot: if any arg is `--go-arm`, enable GO-arm emission
+// (emit prelude template bodies down to the typed XATS2GO_* .cats leaves).
+val (  ) =
+let
+  val n0 = length(argv)
+  fun
+  chk(i0: sint): void =
+  if (i0 < n0)
+  then
+    (
+    (if (argv[i0] = "--go-arm") then go_arm_set() else ((*skip*)));
+    chk(i0+1))
+in
+  chk(3)
+end
 //
 in//let
 (

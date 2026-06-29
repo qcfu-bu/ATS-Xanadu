@@ -1220,8 +1220,13 @@ else
 case+ t1imp_i1dclq(timp) of
 |optn_nil() => false
 |optn_cons(idcl) =>
+  // GO-ARM PIVOT: a prelude body is shortcut to xatsgo.Xats_* ONLY when NOT in
+  // go-arm mode.  In go-arm mode we EMIT the prelude body so it reaches the
+  // typed XATS2GO_* leaves of the linked CATS/GO .cats floor (the leaf, an
+  // $extnam with no body, has optn_nil i1dclq -> falls to d2cstgo1's bare-name
+  // emission).  Default-off keeps the JS-arm suite byte-identical.
   if
-  i1dcl_preludeq(idcl)
+  (if i1dcl_preludeq(idcl) then (if go_arm_getq() then false else true) else false)
   then false
   else
   (

@@ -28,11 +28,15 @@ func XATS2GO_sint_mul$sint(i1 int, i2 int) int { return i1 * i2 }
 func XATS2GO_sint_div$sint(i1 int, i2 int) int { return i1 / i2 }
 func XATS2GO_sint_mod$sint(i1 int, i2 int) int { return i1 % i2 }
 //
-func XATS2GO_sint_print(i0 int) {
+// void prelude prims return `any` (nil), matching the emitter's contract that
+// every template-body result is bindable (the same convention xatsgo.Xats_* use).
+func XATS2GO_sint_print(i0 int) any {
 	XATS2GO_the_print_store = append(XATS2GO_the_print_store, strconv.Itoa(i0))
+	return nil
 }
-func XATS2GO_uint_print(u0 int) {
+func XATS2GO_uint_print(u0 int) any {
 	XATS2GO_the_print_store = append(XATS2GO_the_print_store, strconv.Itoa(u0))
+	return nil
 }
 //
 func XATS2GO_sint_to$uint(i0 int) int {
