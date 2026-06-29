@@ -219,11 +219,22 @@ backends and asserts byte‑equal stdout; it gates every step.
   note:* each touched file transpiles through the jsemit00 seed with 0
   parse/typecheck errors; full byte‑equal‑vs‑JS validation arrives with S3
   (the emitter switchover is what changes output, so it must be oracle‑gated).
-- **S3 — emitter reads `gotyp` (oracle‑gated).** Replace the emitter's
-  `gotype_of_*` recovery with `i1val_gotyp` + a `gotyp_emit` renderer (added in
-  the emitter layer, byte‑identical to today's strings); delete
-  `go1emit_tytab0` and the side‑table population. Re‑green each construct
-  against the JS oracle (`build-go.sh`).
+- **S3 — emitter reads `gotyp`. ✅ DONE (ORACLE‑VALIDATED: 75/75 byte‑equal).**
+  Added `gotyp_emit` in the emitter layer (`go1emit_styp0.dats`, byte‑identical
+  to the `gotype_of_*` strings: struct/func/pointer arms reproduce
+  `goty_of_i0t_fields`/`gorender_funty` exactly). Switched the two type‑recovery
+  sites that hold the `itnm` — the `gotype_of_tnm_in_lets2` matched‑let backstop
+  and the `I1INSpcon` projection assertion — from the side‑table lookup
+  (`gotype_of_tnm_from_tytab(stmp)`) to the temp's finalized type
+  (`gotyp_emit(i1tnm_gotyp$get(itnm))`). The full suite stays byte‑equal‑vs‑JS
+  (`make psuite` → 75 passed, 0 failed), proving the typed‑temp path drives real
+  emission. *Remaining S3 cleanup (follow‑up):* the stmp‑only consult sites
+  (`gotrcd_of_tnm` construction‑site; the free‑param/capture `list_nil` backstop)
+  still read the side‑table — fully deleting `go1emit_tytab0` needs those callers
+  refactored to carry the `itnm`. Build‑infra fixes landed alongside: `grep -a`
+  in the i0varfst‑shim generator + the Makefile `SHIMNAMES` extract (the rebuilt
+  174 MB lib reads as binary to grep), and `go1emit_byref0.dats` added to
+  `build-go.sh`'s GO_DATS (was Makefile‑only).
 - **S4 — idiomatic layout.** `GOTstruct`/`GOTptr` from `I0Ttrcd` drive value
   struct vs pointer; `I0Tlft`/by‑ref → `GOTptr`; `GOTcon` graduates from
   `*xatsgo.XatsCon` to typed tagged structs.

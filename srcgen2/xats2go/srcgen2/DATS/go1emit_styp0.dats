@@ -66,6 +66,7 @@ go1emit_styp0 — milestone M2.0 — two scaffolds for the Go backend:
 /../../xats2cc\
 /srcgen1/SATS/intrep0.sats"//...
 //
+#staload "./../SATS/gotyp.sats"
 #staload "./../SATS/intrep1.sats"
 #staload "./../SATS/xats2go.sats"
 #staload "./../SATS/go1emit.sats"
@@ -1136,6 +1137,83 @@ case+ lab0 of
 |LABsym(sym) => strn_append("F", symbl_get_name(sym))
 )//endof[gofield_of_label(lab0)]
 //
+(* ****** ****** *)
+//
+(*
+[gotyp_emit] (and its two field/arg helpers): render the [gotyp] carried on a
+typed-intrep1 temp to Go source text.  The struct / func / pointer arms
+reproduce [goty_of_i0t_fields] / [gorender_funty] EXACTLY (field sep "; ",
+field name [gofield_of_label], "func(" args ") " res), so the typed-temp path
+is byte-identical to the side-table path it replaces (staging S3).
+//
+The two helpers are local [fun]s (NOT SATS-declared), defined BEFORE the
+[#implfun gotyp_emit] they recurse into ([gotyp_emit] is SATS-declared, so the
+forward reference resolves).
+*)
+fun
+gotyp_emit_fields
+(i0: sint, fields: labgotyplst): strn =
+(
+case+ fields of
+|list_nil() => ""
+|list_cons(ft1, flds1) =>
+  let
+    val @(lab1, ty1) = ft1
+    val fnm = gofield_of_label(lab1)
+    val fty = gotyp_emit(ty1)
+    val one = strn_append(strn_append(fnm, " "), fty)
+    val sep = (if (i0 >= 1) then "; " else "")
+  in
+    strn_append(strn_append(sep, one), gotyp_emit_fields(i0+1, flds1))
+  end
+)//endof[gotyp_emit_fields(i0,fields)]
+//
+and
+gotyp_emit_args
+(i0: sint, args: gotyplst): strn =
+(
+case+ args of
+|list_nil() => ""
+|list_cons(a1, args1) =>
+  let
+    val t1 = gotyp_emit(a1)
+    val sep = (if (i0 >= 1) then ", " else "")
+  in
+    strn_append(strn_append(sep, t1), gotyp_emit_args(i0+1, args1))
+  end
+)//endof[gotyp_emit_args(i0,args)]
+//
+#implfun
+gotyp_emit
+(gty) =
+(
+case+ gty of
+|GOTint()  => "int"
+|GOTflt()  => "float64"
+|GOTbool() => "bool"
+|GOTrune() => "rune"
+|GOTstr()  => "string"
+|GOTany()  => "any"
+|GOTunit() => "any"   // defensive: the typed-temp query sites never see unit
+|GOText(s) => s
+|GOTcon(_) => "*xatsgo.XatsCon"
+|GOTptr(t1)   => strn_append("*", gotyp_emit(t1))
+|GOTslice(t1) => strn_append("[]", gotyp_emit(t1))
+|GOTstruct(fields) =>
+  let
+    val body = gotyp_emit_fields(0, fields)
+  in
+    strn_append(strn_append("struct{", body), "}")
+  end
+|GOTfunc(args, res) =>
+  let
+    val sargs = gotyp_emit_args(0, args)
+    val sres  = gotyp_emit(res)
+  in
+    strn_append(strn_append(strn_append("func(", sargs), ") "), sres)
+  end
+)//endof[gotyp_emit(gty)]
+//
 // NOTE: a record label symbol ([LABsym]) is an ordinary ATS identifier
 // (letters/digits/underscore), so [symbl_get_name] is already a valid Go
 // identifier fragment -- prefixing "F" keeps it a single, collision-free,
@@ -1679,7 +1757,13 @@ case+ search of
       let
         val tyl = gotype_of_ins_local(full, iins, bnds)
       in
-        if (tyl = "any") then gotype_of_tnm_from_tytab(stmp) else tyl
+        // typed-intrep1 (S3): when local recovery is "any", read the type the
+        // lowering finalized ON the temp ([i1tnm_gotyp$get]) -- this replaces
+        // the M2.6a side-table lookup ([gotype_of_tnm_from_tytab(stmp)]) at the
+        // site where the [itnm] is in scope.  Byte-identical: both render the
+        // [i0exp]'s [ityp] (the temp's gotyp = gotyp_of_i0typ(iexp.ityp()),
+        // the table's = gotype_of_i0typ of the SAME ityp).
+        if (tyl = "any") then gotyp_emit(i1tnm_gotyp$get(itnm)) else tyl
       end
     else gotype_of_tnm_in_lets2(stmp, full, ilts1, bnds))
   |I1LETnew0(_) => gotype_of_tnm_in_lets2(stmp, full, ilts1, bnds))

@@ -3054,7 +3054,9 @@ case+ ilet of
   case+ iins of
   |I1INSpcon(_, _) =>
     let
-      val goty = gotype_of_tnm_from_tytab(i1tnm_stmp$get(itnm))
+      // typed-intrep1 (S3): the projected value's Go type comes from the
+      // temp's finalized gotyp (replaces the M2.6a side-table lookup).
+      val goty = gotyp_emit(i1tnm_gotyp$get(itnm))
     in
       i1insgo1(filr, scp, iins);
       if (goty = "any") then ((*void*)) else

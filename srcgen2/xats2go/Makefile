@@ -428,7 +428,7 @@ $(CC_JS2_OLD): $(LIB2CC_OLD) | dirs
 SHIMNAMES := $(BUILD)/i0varfst-shim.optnames.js
 $(SHIMNAMES): $(OPT_JS1) | dirs
 	@echo ">> extract opt-resident shim helper names (one-time grep over opt.js1)"
-	@grep -oE 'd2var_get_stmp_[0-9]+|stamp_get_uint_[0-9]+' $(OPT_JS1) \
+	@grep -a -oE 'd2var_get_stmp_[0-9]+|stamp_get_uint_[0-9]+' $(OPT_JS1) \
 	  | sort -u > $@
 
 # GO shim: scan cc.js2 + the opt-name extract (the Go bundle has no tokenfpr, so

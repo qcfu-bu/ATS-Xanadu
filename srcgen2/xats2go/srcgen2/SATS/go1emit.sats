@@ -35,6 +35,7 @@ file split (utils0/dynexp/decl00). Nodes outside test01's needs emit
 //
 (* ****** ****** *)
 //
+#staload "./gotyp.sats"
 #staload "./intrep1.sats"
 #staload "./xats2go.sats"
 //
@@ -89,6 +90,15 @@ gotype_of_tnm_from_tytab
 fun
 gofield_of_label
 (lab0: label): strn
+//
+// gotyp_emit: render a [gotyp] (the native Go type carried on a typed-intrep1
+// temp) to its Go source-text type.  Byte-identical to the [gotype_of_*]
+// string family (struct field names via [gofield_of_label]; `func(..) res`;
+// `*T`; datatype -> `*xatsgo.XatsCon`), so the typed-temp path emits exactly
+// what the side-table path did.  (typed-intrep1 redesign, staging S3.)
+fun
+gotyp_emit
+(gty: gotyp): strn
 //
 // gotrcd_of_tnm: the construction-site side-table lookup (M2.6b).  Given a
 // result temp's STAMP, if its recorded i0typ is a tuple/record, return
