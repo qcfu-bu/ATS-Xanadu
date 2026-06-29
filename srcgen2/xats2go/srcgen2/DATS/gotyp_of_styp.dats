@@ -343,7 +343,16 @@ case+ i0typ_node$get(hd) of
     then
       let val gt = gtx_text_in_args_i(args)
       in if gotyp_is_any(gt) then GOTflt() else gt end
-    else gtx_s2cst_head(s2c0)))
+    else
+    (
+    // a p2tr(a) POINTER -> Go `*a` (the deref `$eval(p)` then typechecks as
+    // `*p`).  The counter type is concrete (ni = nint = int), so this is a real
+    // typed `*int`, not a generic `*any`.
+    if (hdnm = "p2tr")
+    then (case+ args of
+          |list_cons(a1, _) => GOTptr(gotyp_of_i0typ(a1))
+          |list_nil() => GOTptr(GOTany()))
+    else gtx_s2cst_head(s2c0))))
   end
 | _(*non-cst head*) => GOTany()
 )
@@ -425,7 +434,14 @@ case+ s2typ_get_node(t2p0) of
       then
         let val gt = gtx_text_in_args_s(args)
         in if gotyp_is_any(gt) then GOTflt() else gt end
-      else gtx_s2cst_head(s2c0)))
+      else
+      (
+      // a p2tr(a) POINTER -> Go `*a` (see the i0typ path).
+      if (hdnm = "p2tr")
+      then (case+ args of
+            |list_cons(a1, _) => GOTptr(gotyp_of_styp(a1))
+            |list_nil() => GOTptr(GOTany()))
+      else gtx_s2cst_head(s2c0))))
     end
   | _(*non-cst head*) => GOTany())
 //

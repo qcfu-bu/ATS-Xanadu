@@ -974,6 +974,9 @@ d3e0.node() of
 |D3Eaddr _ =>
 (
   f0_addr(d3e0, env0))
+|D3Edp2tr _ =>
+(
+  f0_dp2tr(d3e0, env0))
 |D3Eflat _ =>
 (
   f0_flat(d3e0, env0))
@@ -2165,6 +2168,44 @@ in//let
 (
 i0exp(loc0, i0t0, I0Eaddr(i0e1)))
 end(*let*)//end-of-[f0_addr(d3e0,env0)]
+//
+(* ****** ****** *)
+//
+(*
+[f0_dp2tr]: p2tr-DEREFERENCE `$eval(p)` -> [I0Edp2tr].  xats2cc (an incomplete
+backend) omitted this, so `$eval(p)` fell through to [I0Enone] -- which the
+go-emitter then could not lower (`UNHANDLED i1val` for a read, `I1Vaexp` for a
+deref-assign LHS).  The shape mirrors [f0_addr] exactly (single child, recur,
+re-wrap); the go-emitter's [I0Edp2tr] path (trxi0i1 [f0_dp2tr] -> [I1INSdp2tr],
+go1emit) renders Go's real pointer `&var`/`*p`.  Needed for the prelude's
+[gseq] iteration (a stack counter via `$addr`+`p2tr_get`/`p2tr_set`), which
+container `g_print`/`prints` pulls in.
+*)
+fun
+f0_dp2tr
+(
+d3e0: d3exp,
+env0: !envd3i0): i0exp =
+let
+//
+val-
+D3Edp2tr
+(   d3e1   ) = d3e0.node()
+//
+val loc0 = d3e0.lctn((*0*))
+val t2p0 = d3e0.styp((*0*))
+val i0t0 =
+(
+  s2typ_trxd3i0(t2p0, env0))
+//
+val i0e1 =
+(
+  d3exp_trxd3i0(d3e1, env0))
+//
+in//let
+(
+i0exp(loc0, i0t0, I0Edp2tr(i0e1)))
+end(*let*)//end-of-[f0_dp2tr(d3e0,env0)]
 //
 (* ****** ****** *)
 //

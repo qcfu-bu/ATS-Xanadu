@@ -1724,6 +1724,14 @@ addressable-Go-lvalue assignment.
       (
       i1valgo1(filr, ivin);
       strnfpr(filr, " = "); i1valgo1(filr, irgt)))
+  // DP2TR deref-assign: `$eval(p) := x` -> Go `*p = x`.  The lvalue forwards to
+  // the bare pointer temp [p]; [dp2tr_ptr_has] (populated at trxi0i1 [f0_dp2tr])
+  // marks it as a `$eval` pointer, so we deref on the LHS (NOT overwrite the
+  // pointer).  The deref READ already emits `*p` structurally (I1INSdp2tr).
+  |I1Vtnm(itnm) when dp2tr_ptr_has(i1tnm_stmp$get(itnm)) =>
+    (
+    strnfpr(filr, "*"); i1tnmgo1(filr, itnm);
+    strnfpr(filr, " = "); i1valgo1(filr, irgt))
   | _(*else*) =>
     (
     i1valgo1(filr, ilft);
@@ -1776,23 +1784,16 @@ front-end lowers lazy/fold/free they are handled (no UNHANDLED).
   strnfpr(filr, ")"))
 //
 (*
-I1INSdp2tr(v): address-of (`&`) / p2tr-dereference.  The JS backend emits
-`XATS000_dp2tr(v)` (= XATS000_lvget(v), reading the box).  Go has REAL pointers
-(GAP A1's by-ref module), so the address/deref is the SAME form the I1Vaddr
-call-arg site uses: a by-ref pointer param flows as-is, an addressable var is
-`&<var>`, otherwise the inner value.  NOT produced on the current surface
-([f0_dp2tr] FORWARDS to the inner value instead of building I1INSdp2tr), so this
-is completeness/totality -- but compile-correct if it ever surfaces.
+I1INSdp2tr(v): p2tr-DEREFERENCE `$eval(p)` -- READ through a pointer.  The JS
+backend emits `XATS000_dp2tr(v)` (= XATS000_lvget(v), reading the box); Go has
+REAL pointers, so this is `*<v>`.  [v] is the pointer i1val (a `$addr(x)` =
+`&x`, or a by-ref `*T` param flowing onward), so a uniform `*<v>` derefs both.
+Produced by the VALUE-path [f0_dp2tr_v] -> [i1val_dp2tr]; the prelude's gseq
+counter (`$UN.p2tr_get(p0)`) is the first surface use.
 *)
 |I1INSdp2tr(iv1) =>
   (
-  case+ iv1.node() of
-  |I1Vtnm(itnm) =>
-    (
-    if byref_has(i1tnm_stmp$get(itnm))
-    then i1tnmgo1(filr, itnm)            // already a *T pointer -> pass as-is
-    else (strnfpr(filr, "&"); i1tnmgo1(filr, itnm)))  // &<addressable var>
-  | _(*else*) => i1valgo1(filr, iv1))
+  strnfpr(filr, "*"); i1valgo1(filr, iv1))
 //
 (* ****** ****** *)
 (* ****** ****** *)

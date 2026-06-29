@@ -270,3 +270,58 @@ new module/feature tends to surface one more `any`↔concrete boundary; the two
 capabilities above are the reusable tools for them. The frontend (lib2xatsopt)
 is still JS-hosted; a fully self-hosted Go binary additionally needs the
 frontend through go-arm (the large remaining piece).
+
+---
+
+## Rung 9 (in progress) — container structural printing → the `$eval`/p2tr + boxing frontier
+
+Target: `prints(..., someOptn, ...)` (the prelude's `g_print<optn>`), which is
+EXACTLY how the emitter's own IR printers work (`intrep1_print0.dats`:
+`prints("I1CMPcons(", ilts, ...)` over a LIST) — so this is squarely on the
+self-hosting critical path for the emitter's own sources.
+
+Structural container printing pulls in `gseq` (generic-sequence iteration),
+whose hot loop uses a STACK COUNTER via an address + unsafe pointer:
+`var i0: ni = 0 ; val p0 = $addr(i0) ; $UN.p2tr_get(p0) ; $UN.p2tr_set(p0, …)`.
+
+### Fixed this pass (the `$eval`/p2tr IR-lowering gaps — committed)
+xats2cc is an incomplete backend, so `$eval(p)` = `D3Edp2tr` had no lowering:
+  1. **trxd3i0** (`xats2cc` d3→i0): added `f0_dp2tr` (`D3Edp2tr` → `I0Edp2tr`),
+     mirroring `f0_addr`. Without it `$eval` fell to `I0Enone1`.
+  2. **tryd3i0** (the i0 normalization pass): added an `I0Edp2tr` PASS-THROUGH
+     (`f0_dp2tr`); its `_(*otherwise*)` arm was clobbering `I0Edp2tr` into
+     `I0Enone2` (same class of bug as the earlier try/raise migration).
+  3. **trxi0i1** (i0→i1): added the VALUE-position `I0Edp2tr` case
+     (`f0_dp2tr_v` → `i1val_dp2tr` → `I1INSdp2tr`); only the lvalue path existed.
+  4. **emitter**: `I1INSdp2tr` now emits Go `*p` (deref); it previously emitted
+     `&` (address-of) as untested dead code. Deref-ASSIGN `$eval(p):=x` → `*p=x`
+     via a dp2tr-pointer side-table (`dp2tr_ptr_add/has`, populated at lowering,
+     read by the assignment emitter — same cross-phase idiom as the tytab).
+  5. `p2tr(a)` now maps to Go `*a` in the gotyp engine (`gotyp_of_styp`).
+
+These erase the `UNHANDLED i1val` / `I1Vaexp` markers — `$eval` lowers and
+emits a real Go deref. Verified: rungs 1-8 byte-equal, JS suite 75/75 (all gated
+/ only fire for `$eval`, unused elsewhere).
+
+### The remaining barrier — addressable-var BOXING (generic pointer compat)
+`gseq` instantiates `p2tr_get<ni>`/`p2tr_set<ni>`, but the typed pipeline ERASES
+the template's pointer param to `any` (exactly as it does `a0rf`'s param). For
+`a0rf` that was fine — its handle is a `[]any` BOX, which is `any`-compatible.
+But `$addr(i0)` produces a REAL Go pointer `*int`, and:
+  - Go has no pointer covariance: a `*int` is NOT assignable to an `any`/`*any`
+    param, and you cannot `*` an `any`.
+
+So real Go pointers cannot flow through an `any`-erased generic instance. The
+fix is to BOX address-taken locals exactly like `a0rf`:
+  - escape-analysis pre-pass: collect vars `v` with `$addr(v)` taken;
+  - emit such a `var v` as `goxtnmV := []any{init}`; reads → `goxtnmV[0].(T)`,
+    writes → `goxtnmV[0] = x`; `$addr(v)` → `goxtnmV` (the box);
+  - `$eval(box)` → `box[0]` (so `I1INSdp2tr` emits `box[0]` for a boxed pointer,
+    keeping `*p` only for a genuine monomorphic/by-ref pointer);
+  - override `$UN.p2tr_get`/`p2tr_set` in a GO arm to `[]any` box ops (literally
+    the `a0rf` bodies).
+
+This is a multi-site feature (var decl/read/write + escape analysis) touching the
+hot var path, so it is the next focused effort. Once it lands, container
+structural printing — and therefore the emitter's own `prints`-based IR dumps —
+compiles through go-arm, clearing the path to compiling the emitter's sources.

@@ -241,6 +241,37 @@ end(*local*)//endof[local(the_nullary_inst_ref)]
 (* ****** ****** *)
 (* ****** ****** *)
 //
+local
+//
+// the dp2tr-pointer stamp set ($eval/p2tr deref).  Same linear-list-as-set
+// idiom as the byref set.  See the SATS.
+val
+the_dp2tr_ptr_ref =
+a0ref_make_1val<stamplst>(list_nil(*void*))
+//
+in//local
+//
+#implfun
+dp2tr_ptr_add
+(stmp) =
+let
+  val stps = a0ref_get<stamplst>(the_dp2tr_ptr_ref)
+in
+  if stmp_mem(stps, stmp)
+  then ((*void*))
+  else a0ref_set<stamplst>(the_dp2tr_ptr_ref, list_cons(stmp, stps))
+end
+//
+#implfun
+dp2tr_ptr_has
+(stmp) =
+  stmp_mem(a0ref_get<stamplst>(the_dp2tr_ptr_ref), stmp)
+//
+end(*local*)//endof[local(the_dp2tr_ptr_ref)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
 (***********************************************************************)
 (* end of [ATS3/XANADU_srcgen2_xats2go_srcgen2_DATS_go1emit_byref0.dats] *)
 (***********************************************************************)

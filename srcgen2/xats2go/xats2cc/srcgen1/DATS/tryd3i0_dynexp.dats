@@ -171,6 +171,7 @@ i0e0.node() of
 (* ****** ****** *)
 //
 |I0Eaddr _ => f0_addr(i0e0, enw0)
+|I0Edp2tr _ => f0_dp2tr(i0e0, enw0)
 |I0Eflat _ => f0_flat(i0e0, enw0)
 //
 (* ****** ****** *)
@@ -1202,6 +1203,41 @@ in//let
 i0exp(loc0, i0t0, I0Eaddr( i0e1 )))
 //
 end(*let*)//end-of-[f0_addr(i0e0,enw0)]
+//
+(* ****** ****** *)
+//
+(*
+[f0_dp2tr]: PASS-THROUGH the p2tr-dereference node (recursing into its inner
+pointer expression), modeled on [f0_addr].  Without this, the tryd3i0
+normalization pass clobbers [I0Edp2tr] into [I0Enone2] via its [_(*otherwise*)]
+arm -- exactly the try/raise migration issue above, here for `$eval(p)`.
+*)
+fun
+f0_dp2tr
+(
+i0e0: i0exp,
+enw0: !enwd3i0): i0exp =
+let
+//
+val
+loc0 = i0e0.lctn((*0*))
+val
+i0t0 = i0e0.ityp((*0*))
+//
+val-
+I0Edp2tr
+(   i0e1   ) = i0e0.node()
+//
+val i0e1 =
+(
+  i0exp_tryd3i0(i0e1, enw0))
+//
+in//let
+//
+(
+i0exp(loc0, i0t0, I0Edp2tr( i0e1 )))
+//
+end(*let*)//end-of-[f0_dp2tr(i0e0,enw0)]
 //
 (* ****** ****** *)
 //

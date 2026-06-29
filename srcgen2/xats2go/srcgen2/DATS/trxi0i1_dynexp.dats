@@ -74,6 +74,11 @@ temps that would otherwise fall back to "any".  See go1emit_tytab0.sats.
 *)
 #staload "./../SATS/go1emit_tytab0.sats"
 //
+// for [dp2tr_ptr_add]: mark a `$eval(p)` pointer so the assignment emitter
+// renders a deref-assign `*p = x` (cross-phase same-process side table, like
+// the tytab above).
+#staload "./../SATS/go1emit_byref0.sats"
+//
 (*
 typed-intrep1 (S2): the type-translation engine.  At the SAME chokepoint that
 populates the side-table, we now ALSO finalize the producing temp's Go type
@@ -1663,6 +1668,12 @@ iexp.node() of
 //
 |I0Eaddr _ => f0_addr(iexp, env0)
 //
+// VALUE-position p2tr-dereference `$eval(p)` -> [I1INSdp2tr] (Go `*p`), via
+// [i1val_dp2tr].  The lvalue-position dp2tr is handled in [i0lft_trxi0i1]
+// ([f0_dp2tr]); this is the rvalue read (e.g. the prelude's gseq counter
+// `$UN.p2tr_get(p0)` = `$eval(p0)`).
+|I0Edp2tr _ => f0_dp2tr_v(iexp, env0)
+//
 |I0Eflat _ => f0_flat(iexp, env0)
 //
 (* ****** ****** *)
@@ -2647,6 +2658,34 @@ prerrsln(
 //
 (* ****** ****** *)
 //
+(*
+[f0_dp2tr_v]: VALUE-position p2tr-dereference `$eval(p)`.  Lower the inner
+pointer expression to an i1val, then build the deref instruction via
+[i1val_dp2tr] (-> [I1INSdp2tr], emitted as Go `*p`).
+*)
+fun
+f0_dp2tr_v
+(
+iexp: i0exp,
+env0: !envi0i1): i1val =
+let
+//
+val loc0 = iexp.lctn()
+//
+val-
+I0Edp2tr(i0e1) = iexp.node()
+//
+val iptr =
+(
+  i0exp_trxi0i1(i0e1, env0))
+//
+in
+(
+  i1val_dp2tr(env0, loc0, iptr))
+end//let//end-of-[f0_dp2tr_v(iexp,env0)]
+//
+(* ****** ****** *)
+//
 fun
 f0_flat
 (
@@ -3304,12 +3343,22 @@ f0_dp2tr
 (
 iexp: i0exp,
 env0: !envi0i1): i1val =
-(
-  i0exp_trxi0i1(i0e1, env0))
-where{
+let
 //
-val-I0Edp2tr(i0e1) = iexp.node() }
-(*where*)//end-of-[f0_dp2tr(iexp,env0)]
+val-I0Edp2tr(i0e1) = iexp.node()
+//
+// LVALUE-position `$eval(p)`: forward to the pointer value, but MARK the
+// pointer stamp so the assignment emitter derefs (`*p = x`, not `p = x`).
+val iptr = i0exp_trxi0i1(i0e1, env0)
+val () =
+(
+case+ iptr.node() of
+|I1Vtnm(ptnm) => dp2tr_ptr_add(i1tnm_stmp$get(ptnm))
+| _(*else*) => ((*void*)))
+//
+in
+  iptr
+end//let//end-of-[f0_dp2tr(iexp,env0)]
 //
 (* ****** ****** *)
 (* ****** ****** *)

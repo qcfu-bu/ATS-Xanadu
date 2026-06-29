@@ -125,6 +125,24 @@ nullary_inst_paramty(stmp: stamp): strn
 (* ****** ****** *)
 //
 (*
+DP2TR-POINTER SET ($eval/p2tr deref).  Records the [stamp]s of temps that hold
+a p2tr POINTER dereferenced via `$eval(p)` (the prelude's gseq stack counter:
+`val p0 = $addr(i0)` then `$UN.p2tr_get/set(p0)`).  POPULATED during lowering
+(trxi0i1 [f0_dp2tr], whenever a `$eval(p)` lvalue is seen) and READ by the
+ASSIGNMENT emitter so a deref-assign `$eval(p) := x` becomes Go `*p = x` (NOT
+`p = x`, which would overwrite the pointer).  Cross-phase same-process side
+table, exactly like the tytab.  The deref READ path needs no set (it emits
+[I1INSdp2tr] = `*p` structurally); only the assignment LHS, which forwards to
+the bare pointer i1val, needs the discriminator.
+*)
+fun
+dp2tr_ptr_add(stmp: stamp): void
+fun
+dp2tr_ptr_has(stmp: stamp): bool
+//
+(* ****** ****** *)
+//
+(*
 INSTANCE-FUNC EMITTED-RETURN-TYPE SIDE-TABLE (go-arm RESULT boundary).  A
 template instance is emitted as a Go func literal bound to a temp; its emitted
 return type is the body-derived [gotype_of_lam_ret], which for a forwarding
