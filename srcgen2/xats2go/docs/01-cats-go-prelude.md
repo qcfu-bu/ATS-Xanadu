@@ -67,6 +67,18 @@ Verified emitter facts:
 - Native ops are **shortcut** to Go operators (`a+b`), bypassing the arm — which
   we *keep* (optimal). CATS/GO matters for the **non-native** prelude
   (`list/optn/strm/strn`), today served by `runtime/xatsgo`'s `Xats_*`.
+- **The exact bridge today** (`go1emit_dynexp.dats`): `t1imp_func_literal_go1emit`
+  emits a template instance's body as a Go func literal **except** when
+  `t1imp_xats2js_runtimeq(timp)` (the d2cst name starts `XATS2JS_`) **or**
+  `i1dcl_preludeq(idcl)` — both send the call to the `xatsgo.Xats_*` shortcut.
+  So the CATS/GO pivot is: add a parallel `t1imp_xats2go_runtimeq` that emits the
+  bare `XATS2GO_*` primitive (from the linked `.cats`), and let the chosen
+  prelude bodies emit (relax `i1dcl_preludeq` for them) so they reach that leaf.
+  **Open integration decision:** the GO precats print store must be SHARED with
+  (or replace) `runtime/xatsgo`'s store, else `prints` output won't flush
+  consistently — a self-contained CATS/GO I/O path needs `the_print_store_log`
+  covered too (xtop000/precats), so the first end-to-end test is an
+  int-print program over `gint000` + a GO precats.
 
 ## Vertical slice — the corrected, ordered steps
 
@@ -76,6 +88,12 @@ Verified emitter facts:
    the emitted Go module (build-harness step, analog of `runtime/xatsgo`), with
    the same `$`→`_` identifier mangling the emitter uses for extern names + a GO
    precats (`XATS2GO_the_print_store`, `import "strconv"`).
+   - **Floor validated as real Go (2026-06-29):** the typed `gint000.cats`,
+     `$`→`_`-mangled and assembled into a `package main` with the print store +
+     `strconv`, passes `gofmt`/`go vet`/`go build` and RUNS correctly
+     (`sint_add(3,4)=7`, `sint_mul(7,2)=14`, `sint_neg(14)=-14` → store
+     `[14 -14]`). So the typed primitive floor is sound and linkable; the
+     remaining work is the *emitter* using it (next).
 3. **Route one non-native prelude function through the arm** — emit its template
    body (bottoming at an `XATS2GO_*` primitive) instead of the `xatsgo.Xats_*`
    shortcut; `#include prelude_GO_dats.hats` in that test.
