@@ -84,8 +84,10 @@ case+ nm of
 | "double" => GOTflt()
 | "float" => GOTflt()
 | "string" => GOTstr()
+| "strn" => GOTstr()
 | "strptr" => GOTstr()
 | "strnptr" => GOTstr()
+| "nint" => GOTint()
 //
 | "bool_type" => GOTbool()
 | "char_type" => GOTrune()

@@ -655,8 +655,10 @@ case+ nm of
 | "double" => "float64"
 | "float" => "float64"
 | "string" => "string"
+| "strn" => "string"
 | "strptr" => "string"
 | "strnptr" => "string"
+| "nint" => "int"
 //
 // The PRELUDE scalar types are abstract type-constructors, not bare csts:
 //   sint = gint_type(sint_k, i)   gint_type's name is "gint_type"

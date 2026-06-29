@@ -20,7 +20,7 @@ BUNDLE="$X/srcgen2/BUILD/xats2go-bundle.patched.js"
 [ -f "$BUNDLE" ] || { echo "!! bundle missing: $BUNDLE (run 'make' in $X first)"; exit 1; }
 
 # the CATS/GO modules that make up the floor (extend as modules are added).
-GO_CATS="xtop000 gint000"
+GO_CATS="xtop000 gint000 strn000"
 
 WORK="$X/srcgen2/BUILD/goarm_$NAME"; rm -rf "$WORK"; mkdir -p "$WORK"
 

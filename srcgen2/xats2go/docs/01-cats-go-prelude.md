@@ -80,6 +80,27 @@ Verified emitter facts:
   covered too (xtop000/precats), so the first end-to-end test is an
   int-print program over `gint000` + a GO precats.
 
+## Go-arm escalation ladder (programs proven through CATS/GO)
+
+A repeatable runner `run-goarm.sh <test>` (canonical Makefile bundle + `--go-arm`
++ floor splice + golden) drives these. The JS-arm suite stays **75/75** at every
+step (gate default-off).
+
+- **Rung 1 — `test_goarm01`** (int print): `42`/`123`. ✅
+- **Rung 2 — `test_goarm02_fact`** (recursion + if + native ops): `fact(5)=120`,
+  `fact(10)=3628800`. ✅ — proves the emitter's fun/if/recursion machinery runs
+  *together with* prelude-body emission.
+- **Rung 3 — `test_goarm03_strn`** (strings: `strn_print`, `strn_length`):
+  `hello, go!\n\n10\n`. ✅ — added `CATS/GO/strn000`; `console_log`(=`fmt.Println`)
+  adds a newline exactly like JS `console.log` (so a `"...\n"` literal flushes
+  `\n\n`, matching the JS backend).
+  - *Known typing gap:* the string `.cats` prims take `any` (asserted to
+    `string`), because an ATS `strn` param's static type is an existential the
+    current param-recovery maps to `any` (unlike `sint`'s `gint_type` path). The
+    floor is correct; tightening to typed `string` params is gated on the
+    emitter's existential-chase / typed-temp param path. (`gotype_of_symname`
+    now maps `strn`/`nint`, which helps direct `T2Pcst` cases.)
+
 ## ✅ VERTICAL SLICE PROVEN END-TO-END (2026-06-29)
 
 `test_goarm01_xats2go.dats` (`#include prelude_GO_dats.hats`; `sint_print` +
