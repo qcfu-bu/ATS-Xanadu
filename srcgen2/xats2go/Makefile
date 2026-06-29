@@ -91,6 +91,7 @@ MINLINES := 3
 # edits (only appending changes nothing already assigned).
 ########################################################################
 GO_DATS := \
+  gotyp.dats \
   intrep1.dats \
   intrep1_print0.dats \
   intrep1_utils0.dats \

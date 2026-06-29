@@ -135,29 +135,22 @@ where
 } // end-of-[datatype(gotyp)]
 //
 (* ****** ****** *)
-//
-#typedef gotyplst = list(gotyp)
-#typedef gotypopt = optn(gotyp)
-#typedef labgotyp = (label, gotyp)
-#typedef labgotyplst = list(labgotyp)
-//
-(* ****** ****** *)
 (* ****** ****** *)
 //
 (*
-[gotyp_emit(gty)]: render [gty] to its Go source-text type, e.g.
+The Go SOURCE-TEXT renderer [gotyp_emit(gty): strn] -- e.g.
   GOTint                       -> "int"
   GOTptr(GOTint)               -> "*int"
-  GOTslice(GOTany)             -> "[]any"
   GOTstruct[(0,int),(1,bool)]  -> "struct{F0 int; F1 bool}"
   GOTfunc([int],bool)          -> "func(int) bool"
   GOTcon("list")               -> "*xatsgo.XatsCon"
-This replaces the HEAD of the string-producing [gotype_of_*] family in
-[go1emit_styp0.dats]: the emitter renders the [gotyp] already on the node
-instead of recovering a type.
+-- lives in the EMITTER layer (go1emit_styp0.dats, added at staging step S3),
+because it shares the field-naming ([gofield_of_label]) and int-formatting
+([gostr_of_uint]) utilities defined there, and must stay byte-identical to the
+construction/projection sites.  It is intentionally NOT declared here so this
+module stays self-contained (no go1emit dependency).  This module provides only
+the DATA and its structural helpers.
 *)
-fun
-gotyp_emit(gty: gotyp): strn
 //
 (*
 [gotyp_fprint]: a human-readable dump (for IR diagnostics / [i1*_fprint]).

@@ -67,6 +67,7 @@ XATSOPT "./../../.."
 #staload ".\
 /../../xats2cc\
 /srcgen1/SATS/intrep0.sats"//...
+#staload "./../SATS/gotyp.sats"
 #staload "./../SATS/intrep1.sats"
 //
 (* ****** ****** *)
@@ -288,7 +289,7 @@ local
 //
 datatype
 i1tnm =
-I1TNM of (stamp)
+I1TNM of (stamp, gotyp)
 //
 #absimpl i1tnm_tbox = i1tnm
 //
@@ -299,17 +300,27 @@ i1tnm_stmp$get
   ( itnm ) =
 let
 val+
-I1TNM(stmp) = itnm in stmp end
+I1TNM(stmp, _) = itnm in stmp end
+//
+#implfun
+i1tnm_gotyp$get
+  ( itnm ) =
+let
+val+
+I1TNM(_, gty) = itnm in gty end
 //
 (* ****** ****** *)
 //
 #implfun
-i1tnm_new0() =
+i1tnm_new1(gty) =
 (
-  I1TNM(stmp)) where
+  I1TNM(stmp, gty)) where
 { val
   stmp = the_i1tnm_stamp_new()
-}(*where*)//end-of-[i1tnm_new0()]
+}(*where*)//end-of-[i1tnm_new1(gty)]
+//
+#implfun
+i1tnm_new0() = i1tnm_new1(GOTany())
 //
 (* ****** ****** *)
 //
@@ -321,10 +332,10 @@ let
 #impltmp
 g_print$out<>() = out0
 //
-val+I1TNM(stmp) = itnm
+val+I1TNM(stmp, gty) = itnm
 //
 in//let
-  prints("I1TNM(", stmp, ")") endlet
+  prints("I1TNM(", stmp, " : "); gotyp_fprint(gty, out0); prints(")") endlet
 //
 (* ****** ****** *)
 //

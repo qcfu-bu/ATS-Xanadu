@@ -68,6 +68,7 @@ XATSOPT "./../../.."
 #staload ".\
 /../../xats2cc\
 /srcgen1/SATS/intrep0.sats"//...
+#staload "./../SATS/gotyp.sats"
 #staload "./../SATS/intrep1.sats"
 //
 (* ****** ****** *)
@@ -118,6 +119,41 @@ ival.node()
 of // case+
 | I1Vfid _ => true
 | _(*non-I1Vvar*) => false)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
+[i1val_gotyp]: the native Go type of an atomic operand.  A temp carries its
+type ([i1tnm_gotyp$get]); a literal IS its scalar type; [I1Vnil] is unit;
+everything else ([I1Vcst]/[I1Vcon]/[I1Vfenv]/...) is [GOTany] until S2 wires
+the d2cst/d2con signatures in.  The emitter calls this instead of recovering
+a Go type from [s2typ].
+*)
+#implfun
+i1val_gotyp
+  (ival) =
+(
+case+
+ival.node()
+of // case+
+//
+| I1Vtnm(tnm) => i1tnm_gotyp$get(tnm)
+//
+| I1Vint _ => GOTint()
+| I1Vi00 _ => GOTint()
+| I1Vflt _ => GOTflt()
+| I1Vf00 _ => GOTflt()
+| I1Vbtf _ => GOTbool()
+| I1Vb00 _ => GOTbool()
+| I1Vchr _ => GOTrune()
+| I1Vc00 _ => GOTrune()
+| I1Vstr _ => GOTstr()
+| I1Vs00 _ => GOTstr()
+//
+| I1Vnil() => GOTunit()
+//
+| _(*else*) => GOTany())
 //
 (* ****** ****** *)
 (* ****** ****** *)

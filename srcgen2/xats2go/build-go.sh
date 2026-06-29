@@ -93,6 +93,7 @@ command -v go >/dev/null 2>&1 || { echo "!! 'go' not on PATH" >&2; exit 1; }
 #    env [xats2go_myenv0] and before the tmplib [xats2go_tmplib, last]).
 ########################################################################
 GO_DATS=(
+  gotyp.dats                # typed-intrep1 redesign: the Go type language (intrep1 depends on it)
   intrep1.dats
   intrep1_print0.dats
   intrep1_utils0.dats

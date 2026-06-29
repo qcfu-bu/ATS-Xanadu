@@ -58,6 +58,8 @@ XATSOPT/xats2cc/srcgen1"
 /../../xats2cc\
 /srcgen1/SATS/intrep0.sats"
 //
+#staload "./gotyp.sats"
+//
 (* ****** ****** *)
 (* ****** ****** *)
 //
@@ -202,6 +204,15 @@ i1opr_name$get(i1opr): sym_t
 fun
 i1tnm_stmp$get(i1tnm): stamp
 //
+(*
+HX-typed-intrep1: every ANF temp carries the NATIVE GO TYPE of the
+computation it names.  This is the type the new [trxi0i1] computes from the
+source [i0exp]'s [ityp] at the mint site (see docs/00-typed-intrep1-redesign.md);
+the emitter RENDERS it ([gotyp_emit]) instead of recovering one.
+*)
+fun
+i1tnm_gotyp$get(i1tnm): gotyp
+//
 (* ****** ****** *)
 //
 fun
@@ -210,6 +221,14 @@ i1env_make(num: sint): i1env
 fun
 i1opr_make(nam: sym_t): i1opr
 //
+(*
+[i1tnm_new1(gty)]: mint a fresh temp carrying Go type [gty].  This is the
+real constructor the typed lowering calls.  [i1tnm_new0()] is kept as
+[i1tnm_new1(GOTany())] so the sites not yet converted to thread a type still
+build (they get the faithful [any] until converted).
+*)
+fun
+i1tnm_new1(gty: gotyp): i1tnm
 fun
 i1tnm_new0( (*void*) ): i1tnm
 //
@@ -556,6 +575,21 @@ i1val_node$get
 //
 #symload lctn with i1val_lctn$get
 #symload node with i1val_node$get
+//
+(* ****** ****** *)
+//
+(*
+[i1val_gotyp(ival)]: the NATIVE GO TYPE of an atomic operand.  Total:
+  I1Vtnm(tnm)              -> tnm.gotyp()        (the stored dataflow type)
+  I1Vint/flt/btf/chr/str   -> GOTint/flt/bool/rune/str
+  I1Vi00/f00/b00/c00/s00   -> ditto (evaluated literals)
+  I1Vnil                   -> GOTunit
+  everything else          -> GOTany             (refined in S2 from the
+                                                   d2cst/d2con signatures)
+The emitter calls this rather than re-deriving a Go type from [s2typ].
+*)
+fun
+i1val_gotyp(ival: i1val): gotyp
 //
 (* ****** ****** *)
 //
