@@ -95,6 +95,7 @@ GO_DATS := \
   intrep1.dats \
   intrep1_print0.dats \
   intrep1_utils0.dats \
+  gotyp_of_styp.dats \
   go1emit_tytab0.dats \
   go1emit_byref0.dats \
   trxi0i1.dats \

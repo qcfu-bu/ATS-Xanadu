@@ -74,6 +74,16 @@ temps that would otherwise fall back to "any".  See go1emit_tytab0.sats.
 *)
 #staload "./../SATS/go1emit_tytab0.sats"
 //
+(*
+typed-intrep1 (S2): the type-translation engine.  At the SAME chokepoint that
+populates the side-table, we now ALSO finalize the producing temp's Go type
+on the temp itself ([i1tnm_gotyp$set]) via [gotyp_of_i0typ].  The side-table
+stays for now (the emitter still reads it; staging S3 switches the emitter to
+the temp's [gotyp] and removes the table).
+*)
+#staload "./../SATS/gotyp.sats"
+#staload "./../SATS/gotyp_of_styp.sats"
+//
 (* ****** ****** *)
 (* ****** ****** *)
 //
@@ -1540,7 +1550,17 @@ go_tytab_record
 (
 case+ ival.node() of
 |I1Vtnm(itnm) =>
-  go_tytab_put(i1tnm_stmp$get(itnm), iexp.ityp())
+  let
+    val ity0 = iexp.ityp()
+    // typed-intrep1 (S2): finalize the temp's Go type ON the temp.  The
+    // [i1tnm] is shared, so this is seen by its [I1LETnew1] binding and every
+    // [I1Vtnm] referencing it.
+    val () = i1tnm_gotyp$set(itnm, gotyp_of_i0typ(ity0))
+    // M2.6a side-table (kept until S3): record the source [i0typ] too.
+    val () = go_tytab_put(i1tnm_stmp$get(itnm), ity0)
+  in
+    (*void*)
+  end
 | _(*not a freshly-minted computed temp*) => ((*skip*))
 )//endof[go_tytab_record(iexp,ival)]
 //

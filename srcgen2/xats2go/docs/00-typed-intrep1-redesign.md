@@ -156,10 +156,11 @@ emitter:
 | `I0Ttrcd(knd, npf, fields)` | drop `npf` proof fields → `GOTstruct(per‑field gotyp_of_i0typ)`; if `trcdknd_fltq(knd)` false (boxed) wrap in `GOTptr` |
 | `I0Ttcon(d2con, args)` | `GOTcon(parent‑datatype name)` (today boxed `*xatsgo.XatsCon`; typed struct later) |
 | `I0Tapps(hd, args)` | `gint_type(KIND,_)`→width(`GOTint`), `gflt_type(KIND)`→`GOTflt`, parametrized datatype→`GOTcon`; else chase `hd` |
-| `I0Ttext(name, args)` | `GOText(name)` mapping (e.g. function arrows → `GOTfunc`) |
-| `I0Tlft(t)` | `GOTptr(gotyp_of_i0typ t)` — the by‑ref/lvalue pointer |
+| `I0Ttext(name, args)` | `gotyp_of_textnm(name)` (the `xats_*_t` KIND → scalar map) |
+| `I0Tlft(t)` | chase the inner `i0typ` (matches the proven emitter; the by‑ref/lvalue `GOTptr` is an S4/byref refinement) |
 | `I0Ttop0/1`, `I0Texi0/uni0`, `I0Tlam1` | chase the inner `i0typ` |
-| `I0Tnone0/1` | `GOTany` |
+| `I0Tnone1(t2p)` | `gotyp_of_styp(t2p)` (reuse the `s2typ` arm) |
+| else (datatype/poly/unknown) | `GOTany` |
 
 At each site in `trxi0i1_dynexp.dats` that currently calls `i1tnm_new0()`, the
 new code calls `i1tnm_new1(gotyp_of_i0typ(iexp.ityp()))` using the `i0exp` already
@@ -200,25 +201,37 @@ typed temps like any other code.
 The existing `build-go.sh <src>` harness compiles a source through **both**
 backends and asserts byte‑equal stdout; it gates every step.
 
-- **S0 — `gotyp` foundation (this commit).** `SATS/gotyp.sats` (the type
-  language) + this doc. Additive; no existing file changed; the green suite is
-  untouched.
-- **S1 — typed temps.** Add `gotyp` to `i1tnm` (`intrep1.sats`/`.dats`);
-  `i1tnm_new1`/`i1tnm_gotyp$get`/`i1val_gotyp`. Keep `i1tnm_new0` as
-  `i1tnm_new1(GOTany)` so unconverted sites still build.
-- **S2 — `gotyp_of_i0typ` in the lowering.** Port `go1emit_styp0`'s
-  `gotype_of_i0typ`/`_styp` logic into `trxi0i1` as `gotyp_of_i0typ`. Thread it
-  through the `i0exp_trxi0i1` chokepoint first (scalars), then calls,
-  projections, control flow, params.
-- **S3 — emitter reads `gotyp`.** Replace `gotype_of_*` recovery with
-  `gotyp_emit`; delete `go1emit_tytab0`. Each test re‑greens against the JS
-  oracle as its construct converts.
+- **S0 — `gotyp` foundation. ✅ DONE.** `SATS/gotyp.sats` (the type language) +
+  `DATS/gotyp.dats` (`gotyp_fprint`/predicates) + this doc. Additive.
+- **S1 — typed temps. ✅ DONE (transpile‑verified).** `i1tnm` carries the Go
+  type; `i1tnm_new1`/`i1tnm_gotyp$get`/`i1tnm_gotyp$set`/`i1val_gotyp`.
+  `i1tnm_new0` kept as `i1tnm_new1(GOTany)` so unconverted sites still build.
+  The type is a settable cell (`a0ref(gotyp)`) so it can be finalized at the
+  lowering chokepoint without threading every mint site.
+- **S2 — the translation engine + temp‑type finalization. ✅ DONE
+  (transpile‑verified).** `SATS/DATS/gotyp_of_styp` = the faithful structured
+  port of `go1emit_styp0`'s `gotype_of_styp`/`gotype_of_i0typ` (→ `gotyp`),
+  layered below `trxi0i1` (no intrep1/go1emit dep). Wired at the
+  `i0exp_trxi0i1` chokepoint: `i1tnm_gotyp$set(itnm, gotyp_of_i0typ(iexp.ityp()))`
+  finalizes each producing temp's type. The side‑table is kept in parallel
+  (the emitter still reads it), so emitted Go is unchanged and the suite stays
+  green; this lands the typed‑type computation ready for S3. *Verification
+  note:* each touched file transpiles through the jsemit00 seed with 0
+  parse/typecheck errors; full byte‑equal‑vs‑JS validation arrives with S3
+  (the emitter switchover is what changes output, so it must be oracle‑gated).
+- **S3 — emitter reads `gotyp` (oracle‑gated).** Replace the emitter's
+  `gotype_of_*` recovery with `i1val_gotyp` + a `gotyp_emit` renderer (added in
+  the emitter layer, byte‑identical to today's strings); delete
+  `go1emit_tytab0` and the side‑table population. Re‑green each construct
+  against the JS oracle (`build-go.sh`).
 - **S4 — idiomatic layout.** `GOTstruct`/`GOTptr` from `I0Ttrcd` drive value
-  struct vs pointer; `GOTcon` graduates from `*xatsgo.XatsCon` to typed tagged
-  structs.
+  struct vs pointer; `I0Tlft`/by‑ref → `GOTptr`; `GOTcon` graduates from
+  `*xatsgo.XatsCon` to typed tagged structs.
 
 Each S‑step is independently testable and reversible; none rebuilds the 171 MB
-frontend lib.
+frontend lib. S0–S2 are additive (the emitter still uses the side‑table), so the
+existing green suite is preserved; S3 is the first step that changes emitted
+output and is therefore gated by the differential‑vs‑JS oracle.
 
 ---
 

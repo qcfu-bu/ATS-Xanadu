@@ -213,6 +213,18 @@ the emitter RENDERS it ([gotyp_emit]) instead of recovering one.
 fun
 i1tnm_gotyp$get(i1tnm): gotyp
 //
+(*
+The temp's Go type is a SETTABLE cell, finalized during lowering at the
+[i0exp_trxi0i1] chokepoint (where the typed source [i0exp] is in scope) via
+[i1tnm_gotyp$set].  The temp is born [GOTany] (at [i1tnm_new0]) and is set to
+its concrete type as soon as the producing expression is lowered.  Because an
+[i1tnm] is a shared boxed value, the set is seen by every [I1Vtnm] referencing
+it and by its [I1LETnew1] binding.  This replaces the M2.6a stamp->i0typ
+side-table: the type lives ON the temp, not in a global map.
+*)
+fun
+i1tnm_gotyp$set(i1tnm, gotyp): void
+//
 (* ****** ****** *)
 //
 fun

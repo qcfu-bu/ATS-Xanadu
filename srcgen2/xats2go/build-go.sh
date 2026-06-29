@@ -97,6 +97,7 @@ GO_DATS=(
   intrep1.dats
   intrep1_print0.dats
   intrep1_utils0.dats
+  gotyp_of_styp.dats        # typed-intrep1 S2: s2typ/i0typ -> gotyp engine (used by trxi0i1)
   trxi0i1.dats
   trxi0i1_myenv0.dats
   trxi0i1_dynexp.dats

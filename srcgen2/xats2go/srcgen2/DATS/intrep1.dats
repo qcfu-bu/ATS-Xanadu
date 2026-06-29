@@ -289,7 +289,7 @@ local
 //
 datatype
 i1tnm =
-I1TNM of (stamp, gotyp)
+I1TNM of (stamp, a0ref(gotyp))
 //
 #absimpl i1tnm_tbox = i1tnm
 //
@@ -307,16 +307,27 @@ i1tnm_gotyp$get
   ( itnm ) =
 let
 val+
-I1TNM(_, gty) = itnm in gty end
+I1TNM(_, gtr) = itnm
+in a0ref_get<gotyp>(gtr) end
+//
+#implfun
+i1tnm_gotyp$set
+  ( itnm, gty ) =
+let
+val+
+I1TNM(_, gtr) = itnm
+in a0ref_set<gotyp>(gtr, gty) end
 //
 (* ****** ****** *)
 //
 #implfun
 i1tnm_new1(gty) =
 (
-  I1TNM(stmp, gty)) where
+  I1TNM(stmp, gtr)) where
 { val
   stmp = the_i1tnm_stamp_new()
+  val
+  gtr = a0ref_make_1val<gotyp>(gty)
 }(*where*)//end-of-[i1tnm_new1(gty)]
 //
 #implfun
@@ -332,7 +343,8 @@ let
 #impltmp
 g_print$out<>() = out0
 //
-val+I1TNM(stmp, gty) = itnm
+val+I1TNM(stmp, gtr) = itnm
+val gty = a0ref_get<gotyp>(gtr)
 //
 in//let
   prints("I1TNM(", stmp, " : "); gotyp_fprint(gty, out0); prints(")") endlet
