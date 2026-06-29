@@ -197,3 +197,76 @@ compile‑the‑prelude pivot, **not** a from‑scratch Go prelude. After that: 
 Class‑C cross‑module frontend accessors (docs/00 §self‑hosting) and scaling up
 the escalation ladder (large programs → a prelude module → the emitter's own
 sources → the full compiler).
+
+---
+
+## Progress log — go-arm rungs (2026-06-29)
+
+The CATS/GO prelude pivot is now proven END-TO-END across an escalation ladder
+of programs, each compiled `--go-arm` (prelude template bodies emitted down to
+the typed `XATS2GO_*` leaves of the linked `.cats` floor) and verified
+byte-equal to a golden. The JS oracle suite stays **75/75 byte-equal** at every
+step (the go-arm gate + all go-arm-only side-tables are default-off, so the JS
+arm is untouched).
+
+| rung | program | exercises |
+|------|---------|-----------|
+| 1 | int arithmetic | native scalar ops, print store |
+| 2 | factorial | recursion, TCO |
+| 3 | strings | `strn_print` / `strn_length` |
+| 4 | datatypes | boxed cons, tag dispatch |
+| 5 | lists | recursive datatype + list ops |
+| 6 | AVL (`isAVL`) | higher-order `prints`/`g_print` hooks |
+| 7 | scalar floor | bool / char / float (`bool000`/`char000`/`gflt000`) |
+| 8 | references | `a0rf` get/set/mutate (`axrf000`) |
+
+### CATS/GO floor modules wired so far
+`xtop000` (I/O store), `gint000` (sint), `bool000`, `char000` (rune),
+`gflt000` (float64, JS-parity printing), `strn000` (string), `axrf000`
+(reference). Remaining: `gbas000`, `gdbg000`, `strm000`, `strx000`,
+`optn000`/`list000` (mostly pure-ATS, may need no `.cats`), `axsz000`,
+`a1rf` arrays.
+
+### Two general emitter capabilities built for the typed pivot
+
+Both are the SAME shape — recover a concrete Go type at a typed boundary the
+`any`-erased IR drops, and bridge it with a Go type assertion — gated on
+go-arm so the JS arm is byte-identical.
+
+1. **Typed-param hook boundary** (rung 6). A value-like (nullary) template
+   instance returning a typed function (`g_print<bool>` → `func() func(bool)
+   any`) applied to an `any`-typed generic param: emitted `tmp()(arg.(T))`,
+   recovering `T` from the instance's result-lambda signature
+   (`t1imp_hook_paramty` → `gotype_of_lam_ret` → `go_first_param`).
+
+2. **any→concrete RESULT boundary** (rung 8). A template instance is emitted as
+   a func literal whose return type is body-derived `gotype_of_lam_ret` — for a
+   forwarder over an `any`-returning leaf (`a0rf_get`) that is `"any"`, while the
+   instance temp's recorded gotyp carries the CONCRETE type. We record
+   (instance-temp stamp → emitted return type) at the `I1INStimp` emission
+   (`inst_retty_add`, go1emit_byref0); at the application, if the callee's
+   recorded emitted-return is `"any"` and the result temp has a concrete gotyp,
+   the call is asserted `tmp(args).(T)`.
+
+### Reference design note (`axrf000`)
+
+The JS arm provides only the linear leaves `a0rf_lget`/`a0rf_lset` and lets
+`a0rf_get`/`a0rf_set` be base pure-ATS impls built on an `(owed(a) | a)` PROOF
+tuple. Emitting THOSE bodies through go-arm hits an un-erased proof-tuple
+(`I1Vnone` proof token → `UNHANDLED i1val`; `struct{F1}` vs `.F0` layout
+mismatch) — linear-proof erasure the Go value-emit surface does not yet model.
+The GO arm sidesteps this by ALSO overriding `a0rf_get`/`a0rf_set` directly to
+typed Go primitives (ATS3 accepts the arm `#impltmp` override of the base): a
+reference is a length-1 `[]any` whose shared backing array gives the mutation
+semantics. **Open item for full self-hosting:** proper linear/proof-tuple
+erasure in the go-emitter, if any compiler code uses the `owed`-proof leaves
+directly rather than `a0rf_get`/`set`.
+
+### Path forward to self-hosting
+
+The ladder from here: finish the small primitive floor (above) → compile a real
+prelude module end-to-end → the emitter's own sources → the full compiler. Each
+new module/feature tends to surface one more `any`↔concrete boundary; the two
+capabilities above are the reusable tools for them. The frontend (lib2xatsopt)
+is still JS-hosted; a fully self-hosted Go binary additionally needs the
+frontend through go-arm (the large remaining piece).
