@@ -1,0 +1,3 @@
+isAVL(t5) = true
+isAVL(t6) = false
+

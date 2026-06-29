@@ -109,9 +109,18 @@ the I1INSdapp emitter inserts the `()` for a non-empty arg list.  A 0-arg
 application stays `tmp()` (the generic form already invokes the thunk).
 *)
 fun
-nullary_inst_add(stmp: stamp): void
+nullary_inst_add(stmp: stamp, paramty: strn): void
 fun
 nullary_inst_has(stmp: stamp): bool
+//
+(*
+[nullary_inst_paramty(stmp)]: the Go param type of the value-like instance's
+RESULT function (its first param), recorded at registration -- used to ASSERT
+an `any`-typed arg at the hook application (`tmp()(arg.(T))`).  Empty string
+when unknown / the result is not a function.
+*)
+fun
+nullary_inst_paramty(stmp: stamp): strn
 //
 (* ****** ****** *)
 (* ****** ****** *)

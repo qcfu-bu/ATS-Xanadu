@@ -1280,6 +1280,85 @@ case+ t1imp_i1dclq(timp) of
 )//endof[t1imp_nullaryq(timp)]
 //
 (* ****** ****** *)
+//
+(*
+[t1imp_hook_paramty]: the Go type of the FIRST param of a value-like instance's
+RESULT function -- i.e. for a nullary instance whose body is `let f = lam(x:T)..
+in f`, return T's Go type.  Used to assert an `any`-typed arg at the hook
+application (`tmp()(arg.(T))`).  "" if the result is not a (let-bound) lambda.
+*)
+(*
+[go_first_param]: parse the FIRST parameter Go-type out of a function-type
+string like "func(bool) any" -> "bool", "func(int, string) any" -> "int",
+"func(func(int) bool) any" -> "func(int) bool" (paren-depth tracked so a
+NESTED func type's inner comma/paren does not terminate the scan).  Returns
+"" when [s] is not a "func(...)..." type or has no parameters ("func() any").
+*)
+fun
+go_first_param
+(s: strn): strn =
+let
+  val n = strn_length(s)
+  //
+  fun
+  char1(c: cgtz): strn = strn_make_list(list_cons(c, list_nil()))
+  //
+  // scan from just after the "func(" prefix, accumulating the first param's
+  // chars; a top-level (depth 0) ',' or ')' ENDS the first param.
+  fun
+  scan(i0: sint, depth: sint): strn =
+  (
+  if (i0 >= n) then ""
+  else
+    let val c: cgtz = s[i0] in
+    (
+    if (c = ')')
+    then (if (depth <= 0) then "" else strn_append(char1(c), scan(i0+1, depth-1)))
+    else if (c = ',')
+    then (if (depth <= 0) then "" else strn_append(char1(c), scan(i0+1, depth)))
+    else if (c = '(')
+    then strn_append(char1(c), scan(i0+1, depth+1))
+    else strn_append(char1(c), scan(i0+1, depth)))
+    end
+  )//endof[scan]
+in
+  if (n < 5) then ""
+  else
+  if s[0] != 'f' then "" else
+  if s[1] != 'u' then "" else
+  if s[2] != 'n' then "" else
+  if s[3] != 'c' then "" else
+  if s[4] != '(' then "" else
+  scan(5, 0)
+end//endof[go_first_param(s)]
+//
+(*
+[t1imp_hook_paramty]: the Go type of the FIRST param of a value-like instance's
+RESULT function.  Computed from the SAME [gotype_of_lam_ret] string the emitter
+prints for the thunk's result (e.g. "func(bool) any"), then [go_first_param]'d
+-- so it is guaranteed consistent with the emitted `func(<pty>) ...` signature.
+"" when the result is not a function type.
+*)
+fun
+t1imp_hook_paramty
+(timp: t1imp): strn =
+(
+case+ t1imp_i1dclq(timp) of
+|optn_nil() => ""
+|optn_cons(idcl) =>
+  (
+  case+ idcl.node() of
+  |I1Dimplmnt0(_, _, _, _, fjas, icmp) =>
+    let
+      val bnds = binds_of_fjarglst(fjas)
+      val retty = gotype_of_lam_ret(icmp, bnds)
+    in
+      go_first_param(retty)
+    end
+  | _(*else*) => "")
+)//endof[t1imp_hook_paramty(timp)]
+//
+(* ****** ****** *)
 (* ****** ****** *)
 //
 #implfun
@@ -1390,24 +1469,55 @@ case+ i1f0.node() of
   i1valgo1_list(filr, i1vs);
   strnfpr(filr, ")"))
 | _(*otherwise*) =>
-  (
-  i1valgo1(filr, i1f0);
   // go-arm higher-order: applying a value-like (nullary) instance thunk WITH
   // args -> `tmp()(args)` (invoke the thunk to get the function, then apply).
-  // A 0-arg application is left as `tmp()` by the generic form below.
+  // A 0-arg application is left as `tmp()`.  When the thunk's result-func param
+  // is concretely typed (e.g. a `func(bool)` print hook) and the single arg is
+  // an `any`-typed value (a generic instance param), assert it: `tmp()(arg.(T))`.
   (
   case+ i1f0.node() of
   |I1Vtnm(tnm) =>
     (
     case+ i1vs of
-    |list_cons(_, _) =>
-      (if nullary_inst_has(i1tnm_stmp$get(tnm)) then strnfpr(filr, "()"))
-    |list_nil() => ((*0-arg: generic `tmp()` already invokes the thunk*)))
-  | _(*non-tnm callee*) => ((*void*)));
-  strnfpr(filr, "(");
-  i1valgo1_list(filr, i1vs);
-  strnfpr(filr, ")"))))
-end//let
+    |list_nil() =>
+      // 0-arg application: the generic thunk-invocation form `tmp()`.
+      (i1valgo1(filr, i1f0); strnfpr(filr, "()"))
+    |list_cons(a1, ar1) =>
+      if nullary_inst_has(i1tnm_stmp$get(tnm))
+      then
+        // nullary hook applied with args -> `tmp()(args)`.
+        let
+          val pty = nullary_inst_paramty(i1tnm_stmp$get(tnm))
+        in
+          i1valgo1(filr, i1f0);
+          strnfpr(filr, "()(");
+          // assert a single `any`-typed arg to the hook's concrete param type.
+          (
+          case+ ar1 of
+          |list_nil() =>
+            (if (strn_length(pty) > 0)
+             then
+               (if not(pty = "any")
+                then
+                  (if (gotype_of_ival(a1) = "any")
+                   then (i1valgo1(filr, a1); strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")"))
+                   else i1valgo1_list(filr, i1vs))
+                else i1valgo1_list(filr, i1vs))
+             else i1valgo1_list(filr, i1vs))
+          | _(*many*) => i1valgo1_list(filr, i1vs));
+          strnfpr(filr, ")")
+        end
+      else
+        // generic call `tmp(args)`.
+        (i1valgo1(filr, i1f0);
+         strnfpr(filr, "("); i1valgo1_list(filr, i1vs); strnfpr(filr, ")"))
+    )
+  | _(*non-tnm callee*) =>
+    (i1valgo1(filr, i1f0);
+     strnfpr(filr, "("); i1valgo1_list(filr, i1vs); strnfpr(filr, ")"))
+  )(*otherwise-arm*)
+)(*else callee_strn_foritm_q*))(*else binop*)
+end(*let val gop*)//let
 )//endof[I1INSdapp(i1f0,i1vs) -- datacon vs op vs call dispatch]
 //
 (* ****** ****** *)
@@ -3074,7 +3184,7 @@ case+ ilet of
       val () =
       (
       if (if go_arm_getq() then t1imp_nullaryq(timp) else false)
-      then nullary_inst_add(i1tnm_stmp$get(itnm)))
+      then nullary_inst_add(i1tnm_stmp$get(itnm), t1imp_hook_paramty(timp)))
     in
     (
     nindfpr(filr, nind);

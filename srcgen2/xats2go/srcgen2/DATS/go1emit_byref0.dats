@@ -160,28 +160,57 @@ end(*local*)//endof[local(the_go_arm_ref)]
 //
 local
 //
-// the nullary-instance temp stamp set (go-arm higher-order path).  See SATS.
+// the nullary-instance temp -> result-func-param-type map (go-arm higher-order
+// path).  A linear assoc list of (stamp, paramty-string).  See SATS.
+#typedef nient = @(stamp, strn)
+#typedef nientlst = list(nient)
+//
 val
 the_nullary_inst_ref =
-a0ref_make_1val<stamplst>(list_nil(*void*))
+a0ref_make_1val<nientlst>(list_nil(*void*))
+//
+fun
+nient_memq
+(ents: nientlst, stmp: stamp): bool =
+(
+case+ ents of
+|list_nil() => false
+|list_cons(@(s1, _), ents1) =>
+  if (stamp_cmp(s1, stmp) = 0) then true else nient_memq(ents1, stmp)
+)
+//
+fun
+nient_find
+(ents: nientlst, stmp: stamp): strn =
+(
+case+ ents of
+|list_nil() => ""
+|list_cons(@(s1, p1), ents1) =>
+  if (stamp_cmp(s1, stmp) = 0) then p1 else nient_find(ents1, stmp)
+)
 //
 in//local
 //
 #implfun
 nullary_inst_add
-(stmp) =
+(stmp, paramty) =
 let
-  val stps = a0ref_get<stamplst>(the_nullary_inst_ref)
+  val ents = a0ref_get<nientlst>(the_nullary_inst_ref)
 in
-  if stmp_mem(stps, stmp)
+  if nient_memq(ents, stmp)
   then ((*void*))
-  else a0ref_set<stamplst>(the_nullary_inst_ref, list_cons(stmp, stps))
+  else a0ref_set<nientlst>(the_nullary_inst_ref, list_cons(@(stmp, paramty), ents))
 end
 //
 #implfun
 nullary_inst_has
 (stmp) =
-  stmp_mem(a0ref_get<stamplst>(the_nullary_inst_ref), stmp)
+  nient_memq(a0ref_get<nientlst>(the_nullary_inst_ref), stmp)
+//
+#implfun
+nullary_inst_paramty
+(stmp) =
+  nient_find(a0ref_get<nientlst>(the_nullary_inst_ref), stmp)
 //
 end(*local*)//endof[local(the_nullary_inst_ref)]
 //
