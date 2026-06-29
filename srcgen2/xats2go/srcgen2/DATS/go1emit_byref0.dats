@@ -158,6 +158,36 @@ end(*local*)//endof[local(the_go_arm_ref)]
 (* ****** ****** *)
 (* ****** ****** *)
 //
+local
+//
+// the nullary-instance temp stamp set (go-arm higher-order path).  See SATS.
+val
+the_nullary_inst_ref =
+a0ref_make_1val<stamplst>(list_nil(*void*))
+//
+in//local
+//
+#implfun
+nullary_inst_add
+(stmp) =
+let
+  val stps = a0ref_get<stamplst>(the_nullary_inst_ref)
+in
+  if stmp_mem(stps, stmp)
+  then ((*void*))
+  else a0ref_set<stamplst>(the_nullary_inst_ref, list_cons(stmp, stps))
+end
+//
+#implfun
+nullary_inst_has
+(stmp) =
+  stmp_mem(a0ref_get<stamplst>(the_nullary_inst_ref), stmp)
+//
+end(*local*)//endof[local(the_nullary_inst_ref)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
 (***********************************************************************)
 (* end of [ATS3/XANADU_srcgen2_xats2go_srcgen2_DATS_go1emit_byref0.dats] *)
 (***********************************************************************)

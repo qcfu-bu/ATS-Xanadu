@@ -97,6 +97,23 @@ fun
 go_arm_getq((*void*)): bool
 //
 (* ****** ****** *)
+//
+(*
+NULLARY-INSTANCE TEMP SET (go-arm higher-order path).  A value-like (nullary,
+no-param) template instance is emitted as a Go THUNK `func() T {..}` bound to
+a temp.  When that temp is later APPLIED WITH ARGS (a g_print/prints hook
+returns a function), the call must be `tmp()(args)` -- invoke the thunk to get
+the function, THEN apply -- not `tmp(args)` (an arity mismatch).  This records
+the stamps of such temps (populated at the I1INStimp dispatch in go-arm mode);
+the I1INSdapp emitter inserts the `()` for a non-empty arg list.  A 0-arg
+application stays `tmp()` (the generic form already invokes the thunk).
+*)
+fun
+nullary_inst_add(stmp: stamp): void
+fun
+nullary_inst_has(stmp: stamp): bool
+//
+(* ****** ****** *)
 (* ****** ****** *)
 //
 (***********************************************************************)

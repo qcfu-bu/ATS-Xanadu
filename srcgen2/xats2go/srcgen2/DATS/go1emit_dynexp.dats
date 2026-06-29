@@ -1258,6 +1258,28 @@ case+ t1imp_i1dclq(timp) of
 )//endof[t1imp_func_literal_go1emit(...)]
 //
 (* ****** ****** *)
+//
+(*
+[t1imp_nullaryq]: is this template instance VALUE-LIKE (an I1Dimplmnt0 with no
+value params)?  Such an instance is emitted by [t1imp_func_literal_go1emit] as
+a 0-param Go thunk `func() T {..}`; the go-arm dispatch records its bound temp
+(nullary_inst_add) so a later application with args becomes `tmp()(args)`.
+*)
+fun
+t1imp_nullaryq
+(timp: t1imp): bool =
+(
+case+ t1imp_i1dclq(timp) of
+|optn_nil() => false
+|optn_cons(idcl) =>
+  (
+  case+ idcl.node() of
+  |I1Dimplmnt0(_, _, _, _, fjas, _) =>
+    (case+ binds_of_fjarglst(fjas) of list_nil() => true | _ => false)
+  | _(*else*) => false)
+)//endof[t1imp_nullaryq(timp)]
+//
+(* ****** ****** *)
 (* ****** ****** *)
 //
 #implfun
@@ -1370,6 +1392,18 @@ case+ i1f0.node() of
 | _(*otherwise*) =>
   (
   i1valgo1(filr, i1f0);
+  // go-arm higher-order: applying a value-like (nullary) instance thunk WITH
+  // args -> `tmp()(args)` (invoke the thunk to get the function, then apply).
+  // A 0-arg application is left as `tmp()` by the generic form below.
+  (
+  case+ i1f0.node() of
+  |I1Vtnm(tnm) =>
+    (
+    case+ i1vs of
+    |list_cons(_, _) =>
+      (if nullary_inst_has(i1tnm_stmp$get(tnm)) then strnfpr(filr, "()"))
+    |list_nil() => ((*0-arg: generic `tmp()` already invokes the thunk*)))
+  | _(*non-tnm callee*) => ((*void*)));
   strnfpr(filr, "(");
   i1valgo1_list(filr, i1vs);
   strnfpr(filr, ")"))))
@@ -3035,6 +3069,12 @@ case+ ilet of
   |I1INStimp(_, timp) =>
     let
       val live = i1tnm_used_in_cmp(itnm, scp)
+      // go-arm: a value-like (nullary) instance emits as a thunk bound to this
+      // temp; record it so a later application with args becomes `tmp()(args)`.
+      val () =
+      (
+      if (if go_arm_getq() then t1imp_nullaryq(timp) else false)
+      then nullary_inst_add(i1tnm_stmp$get(itnm)))
     in
     (
     nindfpr(filr, nind);

@@ -80,6 +80,37 @@ Verified emitter facts:
   covered too (xtop000/precats), so the first end-to-end test is an
   int-print program over `gint000` + a GO precats.
 
+## Higher-order prelude (`prints`/`g_print`) — partial; the typed-param frontier
+
+The higher-order template path (variadic `prints`, the `g_print`/`map$fopr`
+hooks) has two facets in go-arm mode:
+
+1. **Value-like (nullary) instance application — ✅ FIXED.** A nullary template
+   instance is emitted as a Go thunk `func() T {..}` bound to a temp; when that
+   temp is applied WITH ARGS (a hook that returns a function), the call must be
+   `tmp()(args)` (invoke the thunk, then apply), not `tmp(args)` (an arity
+   mismatch). Implemented via a go-arm `nullary_inst` stamp set
+   (`t1imp_nullaryq` at the `I1INStimp` dispatch) + an `I1INSdapp` rule that
+   inserts `()` for a non-empty arg list. A 0-arg application stays `tmp()`. The
+   JS-arm suite is byte-identical (the set is go-arm-only). The AVL test's hook
+   applications now emit correctly (`goxtnm77()(goxtnm46)`).
+2. **Typed-param boundary — THE FRONTIER (unsolved).** An instantiated template
+   like `gs_print_a3(s, b, s)` has its params typed **generically `any`** (the
+   param's static type is the template's type variable; `gotype_of_param_bnd`
+   reads `d2var_get_styp` which is the generic param, not the monomorphic
+   instance type). But the typed hooks inside want concrete types (the bool
+   printer is `func(goxtnm62 bool)`, using `if goxtnm62`). So passing the `any`
+   param to the typed hook fails: `cannot use goxtnm46 (any) as bool ... need
+   type assertion`. This is the M3 "monomorphized param typing" work: either
+   (a) type instantiated-template params from the concrete instance types
+   (`t2jaglst` / the typed-IR param gotyp) instead of the generic `d2var_get_styp`,
+   or (b) insert `arg.(T)` assertions at the typed-hook application (recover the
+   hook's result-func param type at `nullary_inst` registration and assert).
+   Until then, programs using variadic `prints` over heterogeneous args don't
+   compile through go-arm (direct `sint_print`/`strn_print` do — rungs 1-5). This
+   is the critical-path item for self-hosting (the compiler uses `prints`
+   pervasively).
+
 ## Go-arm escalation ladder (programs proven through CATS/GO)
 
 A repeatable runner `run-goarm.sh <test>` (canonical Makefile bundle + `--go-arm`
