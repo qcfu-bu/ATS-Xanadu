@@ -1,5 +1,16 @@
 # xats2go — Go backend for ATS3 — Architecture & Roadmap
 
+> **REDESIGN (2026‑06‑29): typed intrep1.** Emitting from the JS‑copied
+> (type‑erased) intrep1 + the `go1emit_tytab0` side‑table was the wrong shape for
+> a statically‑typed target. New direction: a **typed intrep1** whose temps/values
+> carry a `gotyp` (native Go type as data) + a **new `trxi0i1`** that computes that
+> `gotyp` from the source `i0exp`'s `ityp` at each lowering site. Basis stays
+> **xats2cc** — its `intrep0` is the only one that preserves a per‑expression type
+> (`i0exp_ityp$get`); the JS/Chez `intrep0` is type‑erased and cannot feed a typed
+> IR. Full design + staging: `docs/00-typed-intrep1-redesign.md`. Foundation
+> landed: `srcgen2/SATS/gotyp.sats`. The M2/M3 status below describes the
+> superseded first attempt (kept for reference; still green against the old IR).
+
 Status: **M2/M3 IN PROGRESS** — M2.0–M2.7 ✅; M2.8 underway (exceptions green; non-linear lazy stream forcing green; linear `list_vt` datacon-field mutation green); first M3 user-template body rung ✅; xats2js-style top-level `prints` auto-flush ✅ · M0/M1 done · Go 1.26.4. **suite = 74/74 GREEN.**
 Self-hosting probe → full categorized gap inventory (see §"Gap tracker"); P1 string-literal `case`
 patterns ✅ (keystone: `goop_of_name` 107 dead-`false` markers → 0) + P2 native generic-int `gint_*$sint$sint`
