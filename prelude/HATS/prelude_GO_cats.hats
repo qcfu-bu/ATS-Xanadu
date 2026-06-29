@@ -17,6 +17,8 @@ srcgen2/xats2go/docs/01-cats-go-prelude.md.
 (* ****** ****** *)
 //
 #extcode
+file"prelude/DATS/CATS/GO/xtop000.cats"
+#extcode
 file"prelude/DATS/CATS/GO/gint000.cats"
 //
 (* ****** ****** *)

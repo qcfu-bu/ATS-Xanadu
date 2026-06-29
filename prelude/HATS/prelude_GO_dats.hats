@@ -16,6 +16,9 @@ are added as the slice is proven.  See srcgen2/xats2go/docs/01-cats-go-prelude.m
 *)
 (* ****** ****** *)
 //
+#staload // XTOP
+"prelude/DATS/CATS/GO/xtop000.dats"
+//
 #staload _ =
 "prelude/DATS/CATS/GO/gint000.dats"
 //

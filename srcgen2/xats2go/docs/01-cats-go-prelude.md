@@ -92,8 +92,16 @@ Verified emitter facts:
      `$`→`_`-mangled and assembled into a `package main` with the print store +
      `strconv`, passes `gofmt`/`go vet`/`go build` and RUNS correctly
      (`sint_add(3,4)=7`, `sint_mul(7,2)=14`, `sint_neg(14)=-14` → store
-     `[14 -14]`). So the typed primitive floor is sound and linkable; the
-     remaining work is the *emitter* using it (next).
+     `[14 -14]`). So the typed primitive floor is sound and linkable.
+   - **Self-contained runtime (user choice) — built + validated:**
+     `CATS/GO/xtop000.{dats,cats}` is the self-contained I/O floor (its OWN
+     print/prout/prerr stores + `the_print_store_flush` + `console_log =
+     fmt.Println`); it does NOT share `runtime/xatsgo`'s store. Assembled with
+     `gint000` and the emitted-style composed body `the_print_store_log() =
+     console_log(the_print_store_flush())`, an int-print program compiles
+     (`gofmt`/`vet`/`build` clean) and RUNS correctly: `sint_print(42)` → `42`,
+     `sint_print(sint_add(100,23))` → `123` (each flushed on its own line). The
+     self-contained floor is proven sound.
 3. **Route one non-native prelude function through the arm** — emit its template
    body (bottoming at an `XATS2GO_*` primitive) instead of the `xatsgo.Xats_*`
    shortcut; `#include prelude_GO_dats.hats` in that test.
