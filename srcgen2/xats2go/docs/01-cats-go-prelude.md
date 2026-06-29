@@ -325,3 +325,52 @@ This is a multi-site feature (var decl/read/write + escape analysis) touching th
 hot var path, so it is the next focused effort. Once it lands, container
 structural printing — and therefore the emitter's own `prints`-based IR dumps —
 compiles through go-arm, clearing the path to compiling the emitter's sources.
+
+---
+
+## Rung 9 update — p2tr by REFLECTION dissolves the boxing frontier
+
+The "addressable-var boxing" barrier (previous section) turned out to be
+AVOIDABLE. Boxing was only needed because a real Go `*int` cannot flow through
+an `any`-erased generic `p2tr_get<a>`/`p2tr_set<a>` instance (no pointer
+covariance). But the pointer CAN be carried as `any` and dereferenced by
+REFLECTION — so the `a0rf`-style arm override applies after all:
+
+**`CATS/GO/unsfx00` arm** overrides the two unsafe leaves `$UN.p2tr_get` /
+`$UN.p2tr_set` (the base impls are `$eval(p)` / `$eval(p):=x`) to typed Go
+primitives:
+```
+func XATS2GO_p2tr_get(p0 any) any { return reflect.ValueOf(p0).Elem().Interface() }
+func XATS2GO_p2tr_set(p0 any, x0 any) any { reflect.ValueOf(p0).Elem().Set(reflect.ValueOf(x0)); return nil }
+```
+`$addr(v)` stays a real Go `&v`; it flows into the generic instance as `any`
+holding a `*int`, and `reflect.ValueOf(p).Elem()` reads/writes the pointed-to
+cell generically. The higher p2tr ops (`p2tr_ret`, `p2tr_set_list_*`) are pure
+ATS on top of these two leaves, so they ride the override for free. (`p2tr` is
+mapped back to `any`, NOT `*a`, so the `any` reflection signature is consistent;
+the earlier `$eval`/`*p` IR-lowering remains correct foundation for any genuine
+MONOMORPHIC `$eval`, but the gseq generic counter now never reaches it.)
+
+Result: the gseq stack-counter loop compiles and runs — **no var-boxing pass
+needed**. Verified rungs 1-8 byte-equal + JS suite 75/75 (the override + p2tr-as-
+any only affect p2tr-using programs).
+
+### The NEXT frontier — `g_print` generic-dispatch variance
+With p2tr cleared, `prints(..., optn, ...)` gets MUCH further but still hits the
+generic-print dispatch's TYPE-VARIANCE boundaries (Go function types and pointer
+types are INVARIANT):
+  1. a typed print hook `func(int) any` returned through a generic slot expecting
+     `func(any) any` — Go rejects it (func invariance);
+  2. an `any`-typed datatype value passed to a worker whose param is the concrete
+     `*xatsgo.XatsCon` — needs a call-arg assertion (the general form of the
+     rung-6 hook-arg assertion; the callee's param type is on its recorded gotyp,
+     not recoverable via `gotype_of_ival`'s temp→`any` fallback).
+
+Both are the same underlying tension as the pointer case: the emitter is
+TYPED-with-boundary-assertions, but `g_print`'s generic dispatch wants uniform
+`any` interfaces. The clean resolution is to emit instance/hook funcs with `any`
+params (assert INSIDE: `func(x any) any { ... x.(T) ... }`) so every hook is
+uniformly `func(any) any` — the JS-erasure shape — instead of typed params +
+adapters. This is a focused change to the func-literal emitter (param typing +
+internal assertion) and is the next step; it directly enables the emitter's own
+`prints(..., list, ...)` IR dumps.

@@ -36,6 +36,9 @@ srcgen2/xats2go/docs/01-cats-go-prelude.md.
 "prelude/DATS/CATS/GO/axrf000.dats"
 //
 #staload _ =
+"prelude/DATS/CATS/GO/unsfx00.dats"
+//
+#staload _ =
 "prelude/DATS/CATS/GO/strn000.dats"
 //
 (* ****** ****** *)
