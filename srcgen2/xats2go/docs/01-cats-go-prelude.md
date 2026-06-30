@@ -797,3 +797,29 @@ the sentinels is complete.)  So both self-contained side-table modules
 emission is needed for them.  The remaining work is the codegen tail in the
 cross-referencing heavy modules (measured in the whole-assembly build) plus the
 frontend boundary.
+
+### Coercion-pass results + the comprehensive-tracking conclusion
+Six GENERAL coercion boundaries now land (a0ref-result, erased-tuple, assign,
+return, arg, param-emitted-type), each regression-clean (12 rungs + 75 suite).
+They got the two SELF-CONTAINED side-table modules (byref0, tytab0) to compile
+cleanly as Go and cleared whole error CLASSES across the assembly (`has no
+field` -> 0).  But on the whole-assembly codegen tail the per-source recording
+shows DIMINISHING RETURNS:
+  - whole-assembly codegen errors: 103 -> 96 (arg boundary) -> 95 (param
+    recording).
+The reason: the two self-contained modules have a SMALL, enumerable set of `any`
+sources (their own a0ref/tuple/assoc-list), all now tracked.  The HEAVY modules
+(intrep1/trxi0i1/styp0/dynexp) have PERVASIVE `any` flows -- let-bindings of
+any-typed sub-results, nested call results, datacon payloads -- arriving from many
+sites, so each new recording site (`goemit_ty` at block-results, params,
+any-calls, projections) catches only a few more.
+
+CONCLUSION.  Closing the heavy modules is not more piecemeal boundary patches; it
+needs COMPREHENSIVE emitted-type tracking -- record EVERY temp binding's emitted
+Go type (so any concrete-target boundary can assert a genuine `any`), which is
+effectively a small type-inference pass over the emitted IR, OR a strategy that
+emits fewer `any` values at the source.  That is a distinct, larger subsystem; the
+self-contained modules compiling + the six general boundaries are the demonstrable
+result, and they are the foundation that comprehensive tracking would complete.
+The OTHER remaining block is unchanged: ~419 frontend-boundary undefined symbols,
+filled by emitting the frontend modules (which emit UNHANDLED-free).
