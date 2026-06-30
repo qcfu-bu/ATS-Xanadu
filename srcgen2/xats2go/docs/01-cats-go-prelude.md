@@ -785,3 +785,15 @@ context (the Makefile's `$(JSDIR)/%_dats_out0.js` transpile path provides exactl
 this for the JS build).  Wiring a full-context Go-emit path is the next
 build-pipeline step before the coercion pass can be driven across the remaining
 modules.
+
+### Correction: the "emit-in-isolation" wall was a concurrency artifact
+The earlier `tytab0` "emits empty / F3PERR0" observation was a FALSE alarm -- it
+happened while the 18-module assembly job was hammering the emitter concurrently.
+Re-run alone, `tytab0` emits fully (93 lines) and **compiles cleanly** -- the
+SECOND fully-compiling emitter module.  (F3PERR0 lines on stderr are benign here:
+byref0 emits 191 of them yet builds fine; the emitter recovers and the Go between
+the sentinels is complete.)  So both self-contained side-table modules
+(byref0, tytab0) now build as Go from the general coercion fixes; no full-context
+emission is needed for them.  The remaining work is the codegen tail in the
+cross-referencing heavy modules (measured in the whole-assembly build) plus the
+frontend boundary.
