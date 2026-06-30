@@ -419,3 +419,51 @@ the prelude's documented gseq format (`gseq$beg="optn("`, `$sep=","`, `$end=")"`
 The container-structural-print chain (`g_print` over a datatype via the gseq
 counter) is now fully self-hosting-ready — the shape the emitter's own
 `prints(..., list, ...)` IR dumps need.
+
+### Rungs 10–11 + the SELF-HOSTING FRONTIER MAP
+Two more prelude rungs landed (test + golden, byte-equal to the JS twin):
+  - **rung 10** `prints(..., <list>, ...)` → `ns = list(1,2,3)` — the multi-element
+    gseq `sep=","` path (no emitter change; the rung-9 return-mode fix generalizes
+    to multi-element containers, the shape the emitter's own IR dumps use).
+  - **rung 11** `strn_foritm` with a `foritm$work` template → `8 0 3` — needed the
+    UNSAFE raw indexer `$UN.strn_get$at$raw` (the leaf `strn_foritm` iterates with,
+    bypassing the bounds-checked `strn_get$at`) rebound in the GO unsfx00 arm to
+    the existing `XATS2GO_strn_get_at_raw` leaf.
+
+With the prelude floor broad enough to print containers and iterate strings, the
+question becomes: **how close is the EMITTER ITSELF to self-hosting?**  The new
+`srcgen2/TEST/selfhost-frontier-audit.sh` runs the go-emitter on each of its own
+18 `srcgen2/DATS` source modules and classifies the output:
+
+```
+16/18 modules self-hosting-clean   (REAL_UNH = 0 AND INT_ROUTE = 0)
+   0  genuine /* UNHANDLED: */ markers across ALL 18 modules
+ 660  package-level Go funcs emitted in total
+   3  frontend-accessor routing sites remain (the whole remaining frontier)
+```
+
+(The word "UNHANDLED" appears 13× in `go1emit_dynexp`'s output, but every one is
+a STRING LITERAL — the emitter faithfully reproducing its OWN fallback-marker
+strings; the audit's `REAL_UNH` regex excludes string-quoted occurrences, so the
+true count is 0.)
+
+The entire remaining frontier is **3 frontend-node-accessor calls** that the
+emitter routes through the `xatsgo` runtime instead of emitting natively:
+  - `intrep1_utils0.dats:108`  `d2cst_castq(d2c)`     (in `i1val_cfnq` — is this
+     dynamic constant a CAST function?)  → `xatsgo.Xats_d2cst_castq`
+  - `trxi0i1_myenv0.dats:89`   `d2var_get_unam(d2v)`  (a d2var's unique name)
+     → `xatsgo.Xats_d2var_get_unam`  (2 emitted call sites)
+
+These are NOT prelude/emitter gaps — they are inherent **frontend coupling**: the
+emitter reads `d2cst`/`d2var` nodes produced by the shared frontend
+(lib2xatsopt) and queries them with frontend predicates/accessors.  Crossing this
+last boundary is a DISTINCT, larger phase: it needs the frontend's `d2cst`/`d2var`
+node types + accessors available in Go (either compiled from the frontend SATS, or
+provided as a runtime representation of the deserialized frontend IR).  It cannot
+be eliminated at the emitter-source level (the predicate/accessor semantics live in
+the frontend).
+
+**Milestone:** the CATS/GO prelude pivot + the emitter's own dynexp/decl/styp
+lowering now emit clean, UNHANDLED-free Go for the WHOLE emitter; emitter
+self-hosting is gated only on the frontend-node-accessor boundary (3 sites).  Run
+`bash srcgen2/TEST/selfhost-frontier-audit.sh` to reproduce the map.
