@@ -603,3 +603,22 @@ because selfhost-smoke emits WITHOUT `--go-arm` (the prelude-shortcut path).  So
 Task #8's real fix is to emit the emitter sources WITH go-arm body-emission (the
 same compiler-prelude-arm integration the Route-1 analysis describes), at which
 point these inline with their methods — no runtime leaves needed.
+
+#### But the emitter's OWN template-method prims still route to runtime
+Re-emitting `intrep1_utils0.dats` (which has the SAME `list_exists(icls) where {
+exists$test ... }` shape as rung 12) WITH `--go-arm` still yields
+`goxtnm92 := xatsgo.Xats_list_exists` — it does NOT inline, unlike the user
+program.  The only difference is the prelude NAMESPACE: rung 12 uses the USER
+prelude (whose `list_exists` template instance carries a resolved body the go-arm
+`t1imp_func_literal_go1emit` path emits), while the emitter uses the COMPILER
+prelude, whose instance reaches the emitter as a d2cst VALUE reference with no
+attached body (`t1imp_i1dclq` is empty) — so go-arm has nothing to inline and it
+falls through to `d2cstgo1` → `xatsgo.Xats_*`.
+
+So Task #8 (inline the emitter's template-method prims) CONVERGES with the Route-1
+compiler-prelude integration: both need the compiler-prelude templates to resolve
+their bodies under go-arm (the `_XATS2GO_` compiler-prelude arm).  Until then the
+emitter's own `exists`/`sortedq`/`map_e1nv`/`mergesort` route to runtime, where
+they cannot be correct leaves (the `$pred`/`$fopr`/`$cmp` method is lost).  The
+rung-12 arg-boundary fix is still a real, byte-equal-verified win for ANY go-arm
+program using a template-method prim over a polymorphic container.
