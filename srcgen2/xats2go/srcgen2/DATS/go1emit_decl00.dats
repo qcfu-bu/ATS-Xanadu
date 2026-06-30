@@ -1113,6 +1113,169 @@ end//let//endof[f0_implmnt0(dcl0,env0)]
 (* ****** ****** *)
 //
 (*
+PASS-1.5: module-level GLOBALS.  Emit a NAMED top-level / local-head [val x =
+init] as a Go PACKAGE-LEVEL `var goxtnm<x> <T>` plus its initialization in a
+per-val `func init()`.  See the SATS.  An [a0ref] side-table global (the
+[I1Dlocal0] head) is read/written by the package-level functions in the local
+body; this is what DEFINES it (otherwise it is referenced but never emitted).
+*)
+#implfun
+i1dclistopt_go1emit_globals
+(dopt, env0) =
+(
+case+ dopt of
+| optn_nil() => ((*void*))
+| optn_cons(dcls) => i1dclist_go1emit_globals(dcls, env0))
+//
+#implfun
+i1dclist_go1emit_globals
+(dcls, env0) =
+(
+case+ dcls of
+| list_nil() => ((*void*))
+| list_cons(dcl1, dcls1) =>
+  (i1dcl_go1emit_global(dcl1, env0);
+   i1dclist_go1emit_globals(dcls1, env0)))
+//
+#implfun
+i1dcl_go1emit_global
+(dcl0, env0) =
+(
+case+ dcl0.node() of
+|I1Dvaldclst(_, i1vs) => g0_valdclst(i1vs, env0)
+|I1Dlocal0(head, body) =>
+  (i1dclist_go1emit_globals(head, env0);
+   i1dclist_go1emit_globals(body, env0))
+|I1Ddclenv(idcl1, _) => i1dcl_go1emit_global(idcl1, env0)
+|I1Dtmpsub(_, idcl1) => i1dcl_go1emit_global(idcl1, env0)
+|I1Dstatic(_, idcl1) => i1dcl_go1emit_global(idcl1, env0)
+| _(*else*) => ((*void*))
+) where
+{
+//
+fun
+g0_valdclst
+(i1vs: i1valdclist, env0: !envx2go): void =
+(
+case+ i1vs of
+| list_nil() => ((*void*))
+| list_cons(iv1, ivs1) =>
+  (g0_valdcl(iv1, env0); g0_valdclst(ivs1, env0)))
+//
+and
+g0_valdcl
+(idcl: i1valdcl, env0: !envx2go): void =
+let
+  val filr = env0.filr()
+  val dpat = i1valdcl_dpat$get(idcl)
+  val tdxp = i1valdcl_tdxp$get(idcl)
+  val (itnm, ipat) =
+  (case+ dpat of |I1BNDcons(itnm, ipat, _) => @(itnm, ipat))
+  val namedq =
+  (case+ ipat.node() of |I0Pvar _ => true | _(*else*) => false)
+in//let
+case+ tdxp of
+|TEQI1CMPsome(_, icmp) =>
+  if namedq
+  then
+    let
+      val gty0 = gotyp_emit(i1tnm_gotyp$get(itnm))
+      val gty = (if (strn_length(gty0) = 0) then "any" else gty0)
+    in
+      // package-level declaration `var goxtnm<x> <T>`
+      strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
+      strnfpr(filr, " "); strnfpr(filr, gty); strnfpr(filr, "\n");
+      // its init in a per-val `func init()` (Go runs each before main).
+      strnfpr(filr, "func init() {\n");
+      envx2go_incnind(env0, 1(*++*));
+      i1cmp_go1emit_tnm(itnm, icmp, env0);
+      envx2go_decnind(env0, 1(*--*));
+      strnfpr(filr, "}\n")
+    end
+  else ((*void*)) // effect / structural -> emitted by the in-main pass
+|TEQI1CMPnone() => ((*void*))
+end//let//endof[g0_valdcl(idcl,env0)]
+//
+}(*where*)//endof[i1dcl_go1emit_global(dcl0,env0)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
+PASS-2 (in-main) TOP-LEVEL walk.  Emit the program's top-level EFFECT
+computations inside `func main`.  Mirrors [i1dcl_go1emit] BUT: a NAMED top-level
+val is SKIPPED (already a package global from PASS-1.5), and an [I1Dlocal0] is
+RECURSED (head globalized + body functions hoisted, so only its body EFFECTS
+remain).  Nested let-block vals still use the shared [i1dcl_go1emit] (a local
+`:=`), unaffected.
+*)
+#implfun
+i1dclistopt_go1emit_main
+(dopt, env0) =
+(
+case+ dopt of
+| optn_nil() => ((*void*))
+| optn_cons(dcls) => i1dclist_go1emit_main(dcls, env0))
+//
+#implfun
+i1dclist_go1emit_main
+(dcls, env0) =
+(
+case+ dcls of
+| list_nil() => ((*void*))
+| list_cons(dcl1, dcls1) =>
+  (i1dcl_go1emit_main(dcl1, env0);
+   i1dclist_go1emit_main(dcls1, env0)))
+//
+#implfun
+i1dcl_go1emit_main
+(dcl0, env0) =
+(
+case+ dcl0.node() of
+|I1Dvaldclst(_, i1vs) => m0_valdclst(i1vs, env0)
+|I1Dvardclst _ => i1dcl_go1emit(dcl0, env0)
+|I1Dlocal0(head, body) =>
+  (i1dclist_go1emit_main(head, env0);
+   i1dclist_go1emit_main(body, env0))
+|I1Ddclenv(idcl1, _) => i1dcl_go1emit_main(idcl1, env0)
+|I1Dtmpsub(_, idcl1) => i1dcl_go1emit_main(idcl1, env0)
+|I1Dstatic(_, idcl1) => i1dcl_go1emit_main(idcl1, env0)
+|I1Dfundclst _ => ((*void*)) // hoisted in PASS-1
+|I1Dimplmnt0 _ => ((*void*)) // hoisted in PASS-1
+| _(*else*) => ((*void*))
+) where
+{
+//
+fun
+m0_valdclst
+(i1vs: i1valdclist, env0: !envx2go): void =
+(
+case+ i1vs of
+| list_nil() => ((*void*))
+| list_cons(iv1, ivs1) =>
+  (m0_valdcl(iv1, env0); m0_valdclst(ivs1, env0)))
+//
+and
+m0_valdcl
+(idcl: i1valdcl, env0: !envx2go): void =
+let
+  val dpat = i1valdcl_dpat$get(idcl)
+  val ipat =
+  (case+ dpat of |I1BNDcons(_, ipat, _) => ipat)
+  val namedq =
+  (case+ ipat.node() of |I0Pvar _ => true | _(*else*) => false)
+in//let
+  // a NAMED val is a package GLOBAL (PASS-1.5); skip here.  Effect (`val () =`)
+  // and structural vals stay top-level effects in main.
+  if namedq then ((*void*)) else i1valdcl_go1emit(idcl, env0)
+end//let//endof[m0_valdcl(idcl,env0)]
+//
+}(*where*)//endof[i1dcl_go1emit_main(dcl0,env0)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
 i1fundclist_go1emit: walk a function group, pairing each i1fundcl with its
 positional d2cst (for signature typing).  When the lists desync (should
 not happen) the missing d2cst becomes optn_nil() -> `any` signature.

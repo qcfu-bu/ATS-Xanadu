@@ -215,13 +215,22 @@ val () = strnfpr(filr, "\n")
 //
 val () = i1dclistopt_go1emit_funs(parsed, env0)
 //
+// --- PASS 1.5: MODULE-LEVEL GLOBALS at package scope -------------------
+// A named top-level / local-head `val x = init` becomes a Go package-level
+// `var goxtnm<x> <T>` + a `func init()` -- so a module-private global (an
+// a0ref side-table) read by the hoisted package functions is DEFINED, not
+// just referenced.  (The in-main pass below skips these named vals.)
+//
+val () = i1dclistopt_go1emit_globals(parsed, env0)
+//
 val () = strnfpr(filr, "func main() {\n")
 //
 // --- PASS 2: the top-level effect cmps inside func main ---------------
-// (indented one level; SKIPS I1Dfundclst, already emitted in pass 1).
+// (indented one level; SKIPS I1Dfundclst [pass 1] and named vals [pass 1.5];
+// recurses I1Dlocal0 bodies for their effects).
 //
 val () = envx2go_incnind(env0, 1(*++*))
-val () = i1dclistopt_go1emit(parsed, env0)
+val () = i1dclistopt_go1emit_main(parsed, env0)
 val () = strnfpr(filr, "\txatsgo.XATS2GO_flush_pending()\n")
 val () = envx2go_decnind(env0, 1(*--*))
 //

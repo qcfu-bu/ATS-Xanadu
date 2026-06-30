@@ -456,6 +456,42 @@ fun
 i1dcl_go1emit_fun
 (dcl0: i1dcl, env0: !envx2go): void
 //
+// PASS-1.5 (package-level GLOBAL) walkers -- emit a MODULE-LEVEL named [val]
+// (a top-level `val x = init`, or the head `val` of a `local val ... in ...
+// end` side-table block) as a Go PACKAGE-LEVEL `var goxtnm<x> <T>` plus its
+// initialization in a per-val `func init()`.  Without this, a module-private
+// global (e.g. an [a0ref] side-table) is referenced by the package-level
+// functions that read/write it but never DEFINED (the in-main pass either
+// skips the enclosing [I1Dlocal0] or emits the val as a main-LOCAL that a
+// package func cannot see) -- the core self-hosting codegen gap.  The in-main
+// pass (i1dcl_go1emit) then SKIPS these named globals (they are already at
+// package scope) but still emits EFFECT vals (`val () = ...`).
+fun
+i1dclistopt_go1emit_globals
+(dopt: i1dclistopt, env0: !envx2go): void
+fun
+i1dclist_go1emit_globals
+(dcls: i1dclist, env0: !envx2go): void
+fun
+i1dcl_go1emit_global
+(dcl0: i1dcl, env0: !envx2go): void
+//
+// PASS-2 (in-main) TOP-LEVEL walkers.  The body of `func main` -- the program's
+// top-level EFFECT computations (`val () = ...`).  Distinct from the shared
+// [i1dcl_go1emit] (which is also reused for NESTED let-block decls): the
+// top-level walk SKIPS a named [val] (already emitted as a package GLOBAL by
+// PASS-1.5) and recurses an [I1Dlocal0] BODY (its functions hoisted in PASS-1,
+// its head globalized), whereas a nested val stays a function-local `:=`.
+fun
+i1dclistopt_go1emit_main
+(dopt: i1dclistopt, env0: !envx2go): void
+fun
+i1dclist_go1emit_main
+(dcls: i1dclist, env0: !envx2go): void
+fun
+i1dcl_go1emit_main
+(dcl0: i1dcl, env0: !envx2go): void
+//
 (* ****** ****** *)
 //
 fun

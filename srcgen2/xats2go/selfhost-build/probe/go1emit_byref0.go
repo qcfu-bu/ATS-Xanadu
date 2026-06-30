@@ -55,7 +55,7 @@ func the_go_byref_get_2291() *xatsgo.XatsCon {
 func byref_add_2781(goxtnm24 any) any {
 	var goxtnm33 any
 	{
-		// I1Dvaldclist(LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(2528(line=103,offs=3)--2565(line=103,offs=40)))
+		// I1Dvaldclist(LCSRCsome1(srcgen2/DATS/go1emit_byref0.dats)@(2528(line=103,offs=3)--2565(line=103,offs=40)))
 		goxtnm25 := the_go_byref_get_2291()
 		goxtnm26 := goxtnm25
 		_ = goxtnm26
@@ -77,7 +77,7 @@ func byref_add_2781(goxtnm24 any) any {
 
 func byref_has_3018(goxtnm34 any) bool {
 	{
-		// I1Dvaldclist(LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(2829(line=117,offs=3)--2866(line=117,offs=40)))
+		// I1Dvaldclist(LCSRCsome1(srcgen2/DATS/go1emit_byref0.dats)@(2829(line=117,offs=3)--2866(line=117,offs=40)))
 		goxtnm35 := the_go_byref_get_2291()
 		goxtnm36 := goxtnm35
 		_ = goxtnm36
@@ -127,7 +127,7 @@ func nient_memq_4413(goxtnm61 *xatsgo.XatsCon, goxtnm62 any) bool {
 	case xatsgo.Xats_as_con(goxtnm61).Tag == 1:
 		goxtnm64 := goxtnm61
 		_ = xatsgo.Xats_gint_eq_sint_sint
-		goxtnm66 := stamp_cmp_1903(xatsgo.Xats_as_con(goxtnm64).Args[0].F0, goxtnm62)
+		goxtnm66 := xatsgo.Xats_stamp_cmp(xatsgo.Xats_as_con(goxtnm64).Args[0].F0, goxtnm62)
 		goxtnm67 := (goxtnm66 == 0)
 		var goxtnm69 bool
 		if goxtnm67 {
@@ -153,7 +153,7 @@ func nient_find_4609(goxtnm71 *xatsgo.XatsCon, goxtnm72 any) any {
 	case xatsgo.Xats_as_con(goxtnm71).Tag == 1:
 		goxtnm74 := goxtnm71
 		_ = xatsgo.Xats_gint_eq_sint_sint
-		goxtnm76 := stamp_cmp_1903(xatsgo.Xats_as_con(goxtnm74).Args[0].F0, goxtnm72)
+		goxtnm76 := xatsgo.Xats_stamp_cmp(xatsgo.Xats_as_con(goxtnm74).Args[0].F0, goxtnm72)
 		goxtnm77 := (goxtnm76 == 0)
 		var goxtnm79 any
 		if goxtnm77 {
@@ -172,7 +172,7 @@ func nient_find_4609(goxtnm71 *xatsgo.XatsCon, goxtnm72 any) any {
 func nullary_inst_add_4470(goxtnm81 any, goxtnm82 string) any {
 	var goxtnm93 any
 	{
-		// I1Dvaldclist(LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(4861(line=223,offs=3)--4913(line=223,offs=55)))
+		// I1Dvaldclist(LCSRCsome1(srcgen2/DATS/go1emit_byref0.dats)@(4861(line=223,offs=3)--4913(line=223,offs=55)))
 		goxtnm83 := xatsgo.Xats_a0ref_get
 		goxtnm84 := goxtnm83(goxtnm60)
 		goxtnm85 := goxtnm84
@@ -211,7 +211,7 @@ func nullary_inst_paramty_4851(goxtnm98 any) string {
 func inst_retty_add_6398(goxtnm106 any, goxtnm107 string) any {
 	var goxtnm118 any
 	{
-		// I1Dvaldclist(LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(5543(line=252,offs=3)--5593(line=252,offs=53)))
+		// I1Dvaldclist(LCSRCsome1(srcgen2/DATS/go1emit_byref0.dats)@(5543(line=252,offs=3)--5593(line=252,offs=53)))
 		goxtnm108 := xatsgo.Xats_a0ref_get
 		goxtnm109 := goxtnm108(goxtnm105)
 		goxtnm110 := goxtnm109
@@ -243,7 +243,7 @@ func inst_retty_get_6613(goxtnm119 any) string {
 func goemit_ty_add_7670(goxtnm127 any, goxtnm128 string) any {
 	var goxtnm139 any
 	{
-		// I1Dvaldclist(LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(6157(line=277,offs=3)--6206(line=277,offs=52)))
+		// I1Dvaldclist(LCSRCsome1(srcgen2/DATS/go1emit_byref0.dats)@(6157(line=277,offs=3)--6206(line=277,offs=52)))
 		goxtnm129 := xatsgo.Xats_a0ref_get
 		goxtnm130 := goxtnm129(goxtnm126)
 		goxtnm131 := goxtnm130
@@ -275,7 +275,7 @@ func goemit_ty_get_7717(goxtnm140 any) string {
 func dp2tr_ptr_add_5593(goxtnm148 any) any {
 	var goxtnm158 any
 	{
-		// I1Dvaldclist(LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(6777(line=308,offs=3)--6826(line=308,offs=52)))
+		// I1Dvaldclist(LCSRCsome1(srcgen2/DATS/go1emit_byref0.dats)@(6777(line=308,offs=3)--6826(line=308,offs=52)))
 		goxtnm149 := xatsgo.Xats_a0ref_get
 		goxtnm150 := goxtnm149(goxtnm147)
 		goxtnm151 := goxtnm150
@@ -303,19 +303,53 @@ func dp2tr_ptr_has_5630(goxtnm159 any) bool {
 	return goxtnm162
 }
 
+var goxtnm16 any
+func init() {
+	goxtnm13 := xatsgo.Xats_a0ref_make_1val
+	goxtnm14 := &xatsgo.XatsCon{Tag: 0, Args: []any{}}
+	goxtnm15 := goxtnm13(goxtnm14)
+	goxtnm16 = goxtnm15
+}
+var goxtnm44 any
+func init() {
+	goxtnm42 := xatsgo.Xats_a0ref_make_1val
+	goxtnm43 := goxtnm42(false)
+	goxtnm44 = goxtnm43
+}
+var goxtnm51 any
+func init() {
+	goxtnm49 := xatsgo.Xats_a0ref_make_1val
+	goxtnm50 := goxtnm49(false)
+	goxtnm51 = goxtnm50
+}
+var goxtnm60 any
+func init() {
+	goxtnm57 := xatsgo.Xats_a0ref_make_1val
+	goxtnm58 := &xatsgo.XatsCon{Tag: 0, Args: []any{}}
+	goxtnm59 := goxtnm57(goxtnm58)
+	goxtnm60 = goxtnm59
+}
+var goxtnm105 any
+func init() {
+	goxtnm102 := xatsgo.Xats_a0ref_make_1val
+	goxtnm103 := &xatsgo.XatsCon{Tag: 0, Args: []any{}}
+	goxtnm104 := goxtnm102(goxtnm103)
+	goxtnm105 = goxtnm104
+}
+var goxtnm126 any
+func init() {
+	goxtnm123 := xatsgo.Xats_a0ref_make_1val
+	goxtnm124 := &xatsgo.XatsCon{Tag: 0, Args: []any{}}
+	goxtnm125 := goxtnm123(goxtnm124)
+	goxtnm126 = goxtnm125
+}
+var goxtnm147 any
+func init() {
+	goxtnm144 := xatsgo.Xats_a0ref_make_1val
+	goxtnm145 := &xatsgo.XatsCon{Tag: 0, Args: []any{}}
+	goxtnm146 := goxtnm144(goxtnm145)
+	goxtnm147 = goxtnm146
+}
 func main() {
-	// (skipped non-val dcl @ LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(1336(line=34,offs=1)--1382(line=36,offs=25)))
-	// (skipped non-val dcl @ LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(1383(line=37,offs=1)--1429(line=39,offs=25)))
-	// (skipped non-val dcl @ LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(1456(line=43,offs=1)--1505(line=44,offs=31)))
-	// (skipped non-val dcl @ LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(1509(line=46,offs=1)--1549(line=46,offs=41)))
-	// (skipped non-val dcl @ LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(1596(line=51,offs=1)--1627(line=51,offs=32)))
-	// (skipped non-val dcl @ LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(1654(line=55,offs=1)--1710(line=59,offs=11)))
-	// (skipped non-val dcl @ LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(1714(line=61,offs=1)--1891(line=69,offs=2)))
-	// (skipped non-val dcl @ LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(1966(line=74,offs=1)--3078(line=131,offs=4)))
-	// (skipped non-val dcl @ LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(3166(line=136,offs=1)--3512(line=156,offs=4)))
-	// (skipped non-val dcl @ LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(3598(line=161,offs=1)--4013(line=181,offs=4)))
-	// (skipped non-val dcl @ LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(4110(line=186,offs=1)--6436(line=289,offs=4)))
-	// (skipped non-val dcl @ LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(6528(line=294,offs=1)--7045(line=320,offs=4)))
-	// (skipped non-val dcl @ LCSRCsome1(/home/user/ATS-Xanadu/srcgen2/xats2go/srcgen2/DATS/go1emit_byref0.dats)@(7358(line=328,offs=1)--7358(line=328,offs=1)))
 	xatsgo.XATS2GO_flush_pending()
 }
