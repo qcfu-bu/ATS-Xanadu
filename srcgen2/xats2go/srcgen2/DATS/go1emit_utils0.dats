@@ -647,8 +647,9 @@ case- tchr.node() of
   strnfpr(filr, rep)
 |T_CHAR3_blsh(rep) =>
   // rep is "'\\?'" -- emit the recognized Go escapes; ATS and Go share
-  // \n \t \r \b \f \v \\ \' so the source rep is Go-compatible verbatim.
-  strnfpr(filr, rep)
+  // \n \t \r \b \f \v \\ \' so the source rep is Go-compatible verbatim,
+  // EXCEPT \" which is invalid in a Go rune literal (Go wants '"', not '\"').
+  if rep = "'\\\"'" then strnfpr(filr, "'\"'") else strnfpr(filr, rep)
 )
 //endof[i0chrgo1(filr,tchr)]
 //
