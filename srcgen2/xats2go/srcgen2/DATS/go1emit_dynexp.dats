@@ -517,6 +517,76 @@ in//let
 end//endof[tup_proj_go1emit(filr,iroot,pind)]
 //
 (*
+[i1val_emitted_anyq]: does [i1valgo1] emit this value as a Go `any` (interface)?
+TRUE for a temp recorded emitted-`any` (goemit_ty), an ERASED datacon-field
+projection ([I1Vp1cn] whose field type is "any" -> `.Args[i]`), and a tuple field
+off such an erased root (emitted via [tup_proj_go1emit]'s reflective `Xats_tup_get`
+-> `any`).  Used by the ARG / value boundaries to decide a `.(T)` assertion: a
+genuine `any` value passed where a CONCRETE Go type is expected needs the assert,
+and keying on the EMITTED form means a concretely-emitted value is never
+mis-asserted.
+*)
+fun
+i1val_erased_p1cn_rootq
+(iroot: i1val): bool =
+(
+case+ iroot.node() of
+|I1Vp1cn(ipat0, _, pind0) => (goty_of_p1cn(ipat0, pind0) = "any")
+| _(*else*) => false)
+//
+fun
+i1val_emitted_anyq
+(ival: i1val): bool =
+(
+case+ ival.node() of
+|I1Vtnm(t) => (goemit_ty_get(i1tnm_stmp$get(t)) = "any")
+|I1Vp1cn(ipat, _, pind) => (goty_of_p1cn(ipat, pind) = "any")
+|I1Vp0rj(iroot, _) => i1val_erased_p1cn_rootq(iroot)
+|I1Vp1rj(_, iroot, _) => i1val_erased_p1cn_rootq(iroot)
+| _(*else*) => false)
+//
+(*
+[i1valgo1_list_argtyped]: emit an ARGUMENT list, inserting a `.(T)` assertion on
+each arg that is emitted-`any` but whose corresponding callee PARAM type [pty] is
+CONCRETE.  [ptys] is the callee's Go param-type list (gotypes_of_funstyp of the
+callee d2var's styp); when it is shorter / empty the extra args emit untyped (the
+fallback that preserves the prior behavior for callees with no recoverable
+signature).
+*)
+fun
+i1valgo1_list_argtyped
+( filr: FILR
+, ivs: i1valist
+, ptys: list(strn)): void =
+let
+  fun
+  loop
+  (ivs: i1valist, ptys: list(strn), first: bool): void =
+  (
+  case+ ivs of
+  |list_nil() => ((*void*))
+  |list_cons(iv1, ivs1) =>
+    let
+      val () = (if first then ((*void*)) else strnfpr(filr, ", "))
+      val (pty, ptys1) =
+      (
+      case+ ptys of
+      |list_cons(p1, ps1) => @(p1, ps1)
+      |list_nil() => @("", list_nil<strn>()))
+    in
+      i1valgo1(filr, iv1);
+      (if (strn_length(pty) = 0) then ((*void*)) else
+       if (pty = "any") then ((*void*)) else
+       if i1val_emitted_anyq(iv1)
+       then (strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")"))
+       else ((*void*)));
+      loop(ivs1, ptys1, false)
+    end)
+in//let
+  loop(ivs, ptys, true)
+end//endof[i1valgo1_list_argtyped(filr,ivs,ptys)]
+//
+(*
 i1ins_is_construct: is this ins a tuple/record CONSTRUCTION?  (See the SATS
 doc -- such an ins routes through [i1trcd_construct_go1emit] with its result
 temp, not the generic [i1insgo1].)
@@ -1627,7 +1697,13 @@ case+ i1f0.node() of
   (
   d2vargo1(filr, d2f0);
   strnfpr(filr, "(");
-  i1valgo1_list(filr, i1vs);
+  // ARG BOUNDARY: recover the callee's Go param types from its d2var styp and
+  // assert each emitted-`any` arg into a CONCRETE param (`f(arg.(T))`).  Empty
+  // param list (unrecoverable signature) -> untyped emission (prior behavior).
+  (
+  let val (ptys, _) = gotypes_of_funstyp(d2var_get_styp(d2f0)) in
+    i1valgo1_list_argtyped(filr, i1vs, ptys)
+  end);
   strnfpr(filr, ")"))
 | _(*otherwise*) =>
   // go-arm higher-order: applying a value-like (nullary) instance thunk WITH
