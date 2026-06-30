@@ -716,3 +716,38 @@ the 12 byte-equal rungs + 75 JS-suite, so they want careful per-class verificati
 The KEY structural blocker (package globals) is solved; the rest of self-hosting is
 this type-boundary tail across the 18 emitter + frontend modules plus a handful of
 runtime leaves.
+
+### The type-coercion pass — byref0 from 11 to 3 build errors
+The "any value at a concrete boundary" tail is being closed by a systematic
+coercion pass (each step keyed on the EMITTED type so a concretely-emitted value
+is never mis-asserted; all regression-clean against 12 rungs + 75 JS-suite):
+
+1. **Result boundary of any-returning accessors** (`a0ref_get`/`p2tr_get`).
+   Materialized as a value, they record emitted return type "any"
+   (`t1imp_anyret_accessorq` → `inst_retty`), so the existing result-boundary
+   assertion fires: `goxtnm := tmp(args).(T)`.  Fixes every `return a0ref_get(..)
+   as bool` and `nient_memq(a0ref_get(..))` wanting `*XatsCon`.
+
+2. **Erased-tuple field projection.**  A flat-tuple field read off an erased
+   `any` root (a tuple stored as a `list`/datacon field) cannot emit `root.F<i>`;
+   `tup_proj_go1emit` emits `xatsgo.Xats_tup_get(root, i)` (reflection).  Fixes
+   `Args[0].F0/F1 undefined`.
+
+3. **Assign boundary.**  Each if/case/let-in result var records its DECLARED Go
+   type in `goemit_ty`; the value-mode branch-result assignment asserts
+   `<ival>.(T)` when [itnm] is concrete and the assigned value is recorded "any".
+   Fixes `goxtnm80 = goxtnm79.(string)`.
+
+REMAINING (byref0's last 3): the **return boundary** — `return <r>` where the
+function returns a concrete type but `r` is a LOCAL helper's `any` result (a
+d2cst-less `fun` like `nient_find` defaults its Go signature to `func(..) any`).
+The clean fix is to RECORD each function's emitted return type (keyed by its
+d2var stamp) and assert at the CALL binding (`goxtnm := nient_find(..).(string)`,
+making the result concrete) -- the same shape as step 1 but for a local-function
+(I1Vfenv) callee.  That needs a small cross-module return-type table (a SATS
+addition + the d2var-stamp accessor + extending the result-boundary's callee
+case), which is the next focused step.
+
+The first 3 steps are GENERAL (they help every module, not just byref0); byref0
+is the proving ground because its side-tables exercise the a0ref/tuple/assoc-list
+patterns densely.
