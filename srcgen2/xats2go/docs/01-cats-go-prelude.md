@@ -497,3 +497,14 @@ So two routes to a buildable Go emitter:
 Route 1 reuses the floor this work has been building, and is the natural
 continuation; both still require the frontend node ABI in Go, which is the genuine
 remaining bulk of emitter self-hosting.
+
+#### Empirical note: `--go-arm` alone does NOT reroute emitter prelude prims
+Emitting `intrep1_utils0.dats` with `--go-arm` yields the SAME 101
+`xatsgo.Xats_*` references as without it (and the `d2cst_castq` routing is
+unchanged).  Reason: the go-arm floor templates (`XATS2GO_*`) reach a program
+only when it manifests `prelude_GO_dats.hats`; the emitter sources stalload the
+COMPILER prelude (`xatsopt_sats.hats`/`xatsopt_dpre.hats`), a different regime, so
+the `--go-arm` flag has nothing to rebind.  Route 1 (go-arm self-emission) thus
+requires the CATS/GO floor to be MANIFESTED INTO the emitter's compiler-prelude
+staloading — a real integration step, not a flag flip.  Recorded as a negative
+result so the next phase does not assume the flag suffices.
