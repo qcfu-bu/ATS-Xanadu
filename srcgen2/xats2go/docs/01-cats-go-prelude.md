@@ -508,3 +508,40 @@ the `--go-arm` flag has nothing to rebind.  Route 1 (go-arm self-emission) thus
 requires the CATS/GO floor to be MANIFESTED INTO the emitter's compiler-prelude
 staloading — a real integration step, not a flag flip.  Recorded as a negative
 result so the next phase does not assume the flag suffices.
+
+### Route 1 reality check — the floor does NOT serve the emitter's own prims
+Investigating go-arm self-emission surfaced three facts that invalidate the
+"≈48 prims discharged for free by the floor" premise:
+
+1. **Separate prelude namespaces.**  The emitter sources stalload the COMPILER
+   prelude (`srcgen1/prelude/SATS`, e.g. `bool_neg of 1001`); the `XATS2GO_*`
+   floor this work built rebinds the USER prelude (`prelude/SATS`, `bool_neg of
+   1000`).  The GO arm `#impltmp`s target user-prelude templates, so they never
+   apply to the emitter's compiler-prelude templates.
+
+2. **Name + coverage mismatch.**  The emitter references `Xats_gint_add_sint_sint`,
+   `Xats_bool_neg`, `Xats_gint_mod_sint_sint`, … ; the floor `.cats` exposes
+   `XATS2GO_sint_add_sint`, `XATS2GO_bool_eq`, … — different names, and the floor
+   has NO `bool_neg` / no `gint` arithmetic at all (only comparisons).  The floor
+   is a USER-prelude vertical slice, not a compiler-prelude floor.
+
+3. **Wrong emission path.**  The emitter uses these prims mostly as FIRST-CLASS
+   VALUES — `goxtnm196 := xatsgo.Xats_bool_neg` (a hook passed to a higher-order
+   prim) — emitted by `d2cstgo1`, which routes a d2cst NAME to `xatsgo.Xats_*`.
+   The go-arm body-emission (`t1imp_func_literal_go1emit`) only fires for
+   `I1INStimp` APPLICATIONS, so even a compiler-prelude GO arm + `--go-arm` would
+   not reroute a value reference.  (Verified: emitting `intrep1_utils0.dats` with
+   `--go-arm` is byte-identical to without — `bool_neg` stays `xatsgo.Xats_bool_neg`.)
+
+CONSEQUENCE.  A buildable Go emitter needs the compiler-prelude prim leaves as
+real Go functions that `d2cstgo1`'s target (`xatsgo.Xats_<name>`) resolves to —
+i.e. **xatsgo runtime leaves** (`Xats_bool_neg = !b`, `Xats_gint_add_sint_sint =
+a+b`, …), most of them one-liners.  This is the SAME `xatsgo.Xats_*` ABI the
+"full-build distance" section counted (129 referenced, 16 defined).  Building a
+SECOND `XATS2GO_*` floor for the compiler prelude + teaching `d2cstgo1` a
+name-map would be strictly more work for the same result.  So the prim half of
+self-hosting is a **runtime-leaf** job, not a floor job; the go-arm floor remains
+the right model for USER programs targeting Go, which is what it was built for.
+
+The frontend-node ABI (~52 accessors + ~23 symbol-table funcs) is the dominant
+remaining work under EITHER route, and is unchanged by this finding.
