@@ -892,3 +892,17 @@ var Xats_stamp_cmp = func(s1 any, s2 any) any {
 	}
 	return 0
 }
+
+// Xats_tup_get(t, i): the i-th field (F<i>) of a flat tuple/record struct that
+// reached us ERASED as `any` (e.g. a tuple stored as a `list` element in
+// `Args[i]`). A direct `t.F<i>` needs the exact `struct{...}` type, which is not
+// recoverable where the element type was erased to the type variable; reflection
+// reads the i-th field generically. (Normal projections off a typed root still
+// emit `root.F<i>` directly; this is only for the erased-`any` root.)
+func Xats_tup_get(t any, i int) any {
+	v := reflect.ValueOf(t)
+	if v.Kind() == reflect.Pointer {
+		v = v.Elem()
+	}
+	return v.Field(i).Interface()
+}

@@ -482,6 +482,41 @@ else gt0
 end//endof[goty_of_p1cn(ipat,pind)]
 //
 (*
+[tup_proj_go1emit]: a FLAT-tuple / record field projection `<root>.F<pind>`.
+When the ROOT is an ERASED-`any` value -- a tuple stored as a `list`/datacon
+field whose element type was the erased type variable (so the field projection
+[I1Vp1cn] recovers "any") -- a direct `<root>.F<pind>` is invalid Go (an `any`
+has no fields).  Project the field GENERICALLY by reflection
+([xatsgo.Xats_tup_get]) instead.  A typed root keeps the direct field-name
+projection (flat value struct or boxed pointer; Go auto-derefs the pointer).
+This is the read-path twin of the [I1Vp1cn] arg-assertion: both bottom out at a
+datacon-field projection whose element type is the erased `a`.
+*)
+fun
+tup_proj_go1emit
+( filr: FILR
+, iroot: i1val
+, pind: sint): void =
+let
+  val erasedq =
+  (
+  case+ iroot.node() of
+  |I1Vp1cn(ipat0, _, pind0) => (goty_of_p1cn(ipat0, pind0) = "any")
+  | _(*else*) => false)
+in//let
+  if erasedq
+  then
+    (
+    strnfpr(filr, "xatsgo.Xats_tup_get(");
+    i1valgo1(filr, iroot);
+    strnfpr(filr, ", "); i0i00go1(filr, pind); strnfpr(filr, ")"))
+  else
+    (
+    i1valgo1(filr, iroot);
+    strnfpr(filr, "."); strnfpr(filr, gofield_of_label(LABint(pind))))
+end//endof[tup_proj_go1emit(filr,iroot,pind)]
+//
+(*
 i1ins_is_construct: is this ins a tuple/record CONSTRUCTION?  (See the SATS
 doc -- such an ins routes through [i1trcd_construct_go1emit] with its result
 temp, not the generic [i1insgo1].)
@@ -846,13 +881,9 @@ boxed-pointer param both project correctly (Go auto-derefs a pointer root).
   I1Vp1rj(token, root, pind) : BOXED tuple projection -> `<root>.F<pind>`
 *)
 |I1Vp0rj(iroot, pind) =>
-  (
-  i1valgo1(filr, iroot);
-  strnfpr(filr, "."); strnfpr(filr, gofield_of_label(LABint(pind))))
+  tup_proj_go1emit(filr, iroot, pind)
 |I1Vp1rj(_tok, iroot, pind) =>
-  (
-  i1valgo1(filr, iroot);
-  strnfpr(filr, "."); strnfpr(filr, gofield_of_label(LABint(pind))))
+  tup_proj_go1emit(filr, iroot, pind)
 //
 (*
 M2.7 DATACON LEFT-VALUE.  I1Vlpcn(lab, root): a consed-datatype field as an
