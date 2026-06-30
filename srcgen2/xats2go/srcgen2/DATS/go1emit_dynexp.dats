@@ -1643,6 +1643,17 @@ case+ i1f0.node() of
                      (if (goemit_ty_get(i1tnm_stmp$get(atnm)) = "any")
                       then (i1valgo1(filr, a1); strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")"))
                       else i1valgo1_list(filr, i1vs))
+                   // a POLYMORPHIC datacon-field projection (e.g. the head `x` of
+                   // `cons(x, xs)` on a `list(sint)`) is emitted as a bare `.Args[i]`
+                   // (`any`) because its field type is the erased `a`.  Passed to a
+                   // concrete-param hook (an inlined template-method prim like
+                   // exists$test : sint -> bool), it needs `<proj>.(T)`.  Only when
+                   // the projection's own recovered field type IS "any" (else it
+                   // already self-asserts -- a double assert would be invalid Go).
+                   |I1Vp1cn(ipat, _, pind) =>
+                     (if (goty_of_p1cn(ipat, pind) = "any")
+                      then (i1valgo1(filr, a1); strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")"))
+                      else i1valgo1_list(filr, i1vs))
                    | _(*non-tnm arg*) => i1valgo1_list(filr, i1vs))
                 else i1valgo1_list(filr, i1vs))
              else i1valgo1_list(filr, i1vs))

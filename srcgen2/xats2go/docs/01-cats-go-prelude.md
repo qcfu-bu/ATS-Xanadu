@@ -577,3 +577,29 @@ built+run (which still needs the frontend-node ABI), so they are compile-checked
 + semantics-ported, not yet end-to-end runtime-validated.  The runtime-`Xats_*`
 ABI for the PRELUDE half of self-hosting is now down to those 6; the frontend-node
 ABI remains the dominant block.
+
+### Rung 12 + template-method prim inlining (Task #8 progress)
+Probed whether go-arm body-emission can inline a TEMPLATE-METHOD prelude prim
+(the `exists`/`sortedq`/`map_e1nv`/`mergesort` family the emitter's own sources
+use, whose `$pred`/`$fopr`/`$cmp` method the runtime routing drops).  Rung 12
+(`list_exists(xs)` with an inline `exists$test<sint>(x) = x >= 10`) showed go-arm
+DOES inline the body WITH its predicate — so these are NOT runtime leaves, they
+inline correctly.  The only obstacle was an arg-boundary type error: the inlined
+predicate is `func(int) bool`, but the list head `x` (an `I1Vp1cn` datacon-field
+projection on a `list(sint)`) is emitted as a bare `.Args[0]` (`any`, the erased
+element type `a`), so `pred(.Args[0])` failed Go's type check.
+
+Fix: extend the go-arm generic-call arg-assertion to handle an `I1Vp1cn`
+projection arg — when the callee's first param is CONCRETE and the projection's
+own recovered field type is "any" (a polymorphic field, emitted bare), assert
+`<proj>.(T)`.  Guarded by the existing concrete-`pty` gate (empty off-arm) and by
+the projection's field type being "any" (else it already self-asserts; a double
+assert is invalid Go).
+
+Result: rung 12 → `true false`, byte-equal.  Rungs 1‑11 byte-equal; JS suite
+75/75.  This is the user-program proof that the 5 template-method prims inline
+correctly under go-arm; the emitter's OWN sources route them to runtime only
+because selfhost-smoke emits WITHOUT `--go-arm` (the prelude-shortcut path).  So
+Task #8's real fix is to emit the emitter sources WITH go-arm body-emission (the
+same compiler-prelude-arm integration the Route-1 analysis describes), at which
+point these inline with their methods — no runtime leaves needed.
