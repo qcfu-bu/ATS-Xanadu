@@ -622,3 +622,33 @@ emitter's own `exists`/`sortedq`/`map_e1nv`/`mergesort` route to runtime, where
 they cannot be correct leaves (the `$pred`/`$fopr`/`$cmp` method is lost).  The
 rung-12 arg-boundary fix is still a real, byte-equal-verified win for ANY go-arm
 program using a template-method prim over a polymorphic container.
+
+### Frontend-node ABI RESOLVED — emit it, don't hand-write it
+The frontend-node ABI looked like a hand-written ~52-accessor wall.  Inspecting
+the frontend reveals it is not:
+  - `d2con = d2con_tbox`, and `d2con_tbox` is `#absimpl`'d to a `D2CON` datatype
+    with 8 POSITIONAL fields `(loc, sym, ctag, tqas, s2e, stmp, t2p, xt2p)`.
+  - `d2con_get_ctag(c)` is just `let val+ D2CON(...,ctag,...) = c in ctag end` —
+    the 3rd field.
+Compiling the frontend module `dynexp2.dats` through the go-emitter confirms it:
+**162 funcs, 0 real UNHANDLED markers**, and the accessor emits as a clean field
+read:
+```
+func d2con_get_ctag_8344(c any) int { return xatsgo.Xats_as_con(c).Args[2].(int) }
+```
+So the frontend-node accessors are NOT a separate ABI to author — they EMIT
+automatically (as `*XatsCon` field reads) when the frontend datatypes are
+compiled to Go, exactly like the emitter's own datatypes.  (Standalone emission
+of `dynexp2.dats` also prints some `F3PERR0` type-check errors — `castlin10`
+linear casts, `$extnam` leaves — that come from emitting the module in ISOLATION
+without its full xatsopt staload context; in the real `lib2xats2cc` build they
+resolve.  They are an emit-in-isolation artifact, not an UNHANDLED gap.)
+
+CONCLUSION — the path to full self-hosting needs NO frontend-ABI design decision:
+compile the WHOLE pipeline (frontend `lib2xatsopt` + the 18 emitter modules) to
+Go, link, run.  The accessors + symbol tables come for free from emitting the
+frontend DATS.  The remaining work is therefore SCALE (emit + assemble every
+pipeline module, supply the handful of irreducible runtime leaves like the 12
+already added + the FILR model + the linear-cast `castlin10` primitive), not a
+new architecture.  The go-emitter already emits every module tried so far
+UNHANDLED-free, which is the core capability self-hosting rests on.
