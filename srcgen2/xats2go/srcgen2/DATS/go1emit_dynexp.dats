@@ -1152,6 +1152,30 @@ in//let
   else false
 end//endof[t1imp_xats2js_runtimeq(timp)]
 //
+(*
+[t1imp_anyret_accessorq]: is this instance one of the GENERIC `any`-returning
+runtime accessors -- [a0ref_get] (read a side-table ref) / [p2tr_get] (deref a
+pointer) -- whose Go leaf (xatsgo.Xats_a0ref_get / _p2tr_get) returns `any`
+because its result type is the erased type variable?  When such an accessor is
+materialized as a function VALUE (`goxtnm := xatsgo.Xats_a0ref_get`) and later
+APPLIED, the application result is `any`; recording the value temp's emitted
+return type as "any" makes the existing RESULT-BOUNDARY assertion
+(`tmp(args).(T)`) fire for a CONCRETE result temp -- the load-bearing coercion
+for the side-table modules in the emitter's OWN (non-go-arm) self-emission.
+This is a NAME match (the dynamic value is genuinely a T boxed in `any`, so
+`.(T)` is always sound), distinct from the go-arm inst_retty population.
+*)
+fun
+t1imp_anyret_accessorq
+(timp: t1imp): bool =
+let
+  val dcst = t1imp_dcst$get(timp)
+  val name = symbl_get_name(d2cst_get_name(dcst))
+in//let
+  if (name = "a0ref_get") then true else
+  if (name = "p2tr_get") then true else false
+end//endof[t1imp_anyret_accessorq(timp)]
+//
 fun
 strn_contains_go1
 (hay: strn, needle: strn): bool =
@@ -3355,6 +3379,13 @@ case+ ilet of
       (
       if (if go_arm_getq() then t1imp_nullaryq(timp) else false)
       then nullary_inst_add(i1tnm_stmp$get(itnm), t1imp_hook_paramty(timp)))
+      // RESULT-BOUNDARY (emitter self-emission): a generic `any`-returning
+      // accessor materialized as a value -> record its emitted return type "any"
+      // so a later `tmp(args)` with a concrete result temp gets `tmp(args).(T)`.
+      val () =
+      (
+      if t1imp_anyret_accessorq(timp)
+      then inst_retty_add(i1tnm_stmp$get(itnm), "any"))
     in
     (
     nindfpr(filr, nind);
