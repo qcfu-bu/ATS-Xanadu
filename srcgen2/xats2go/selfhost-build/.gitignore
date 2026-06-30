@@ -1,0 +1,4 @@
+# Generated multi-module self-hosting assembly artifacts (reproduce with
+# `bash assemble.sh`). Only the harness + README are tracked.
+emit/
+src/
