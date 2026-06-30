@@ -823,3 +823,87 @@ self-contained modules compiling + the six general boundaries are the demonstrab
 result, and they are the foundation that comprehensive tracking would complete.
 The OTHER remaining block is unchanged: ~419 frontend-boundary undefined symbols,
 filled by emitting the frontend modules (which emit UNHANDLED-free).
+
+## Emitter-self-host: the complete frontier map (quantified)
+
+This section is the first complete, quantified accounting of what stands
+between the assembled Go emitter (the 18 `srcgen2/DATS/go1emit_*.dats` modules,
+emitted to one `selfhost-build/src/emitter_all.go` and built against the
+`xatsgo` runtime) and a clean `go build`. Two correctness fixes and one new
+runtime floor in this round took the assembled build from **591 -> 379**
+errors. The remaining 379 split into FIVE buckets, each with a distinct,
+identified resolution path -- no longer an undifferentiated tail.
+
+### Round deltas
+- **Rune-literal escape fix** (`go1emit_utils0.dats`, `i0chrgo1`): `'\"'` is a
+  valid ATS char literal but an INVALID Go rune literal (Go wants `'"'`). The
+  emitter compiled its own source (`f0_gostr` matches `| '\"' =>`) into a Go
+  syntax error. Translate the one Go-incompatible rune escape. This was a real
+  emitter correctness bug, independent of self-host.
+- **intrep0 IR-type accessor floor** (`runtime/xatsgo/xatsgo.go`): the emitter
+  reads its INPUT IR via abstract-type selectors `ipat.node()`, `iexp.lctn()`,
+  ... which route (d2cstgo1) to `xatsgo.Xats_i0*_..._get`. Every intrep0 carrier
+  is a single-constructor datatype -> a `*XatsCon` with positional Args, so each
+  accessor is a fixed field read whose index mirrors the `datatype` def in
+  `xats2cc/srcgen1/DATS/intrep0.dats`. Added ~36 accessors + the
+  `i0pat_make_ityp$node` constructor + `strn_fprint`. Effect: undefined
+  `xatsgo.*` fell **233 -> 15**.
+
+### The five remaining buckets (379 total)
+
+1. **Frontend-accessor boundary -- 178.** `symbl_get_name`, `s2typ_get_node`,
+   `d2cst_get_*`, `d2var_get_*`, `s2cst_get_*`, `d2con_get_ctag`, `token_get_node`,
+   `stkmap_*`, `topmap_*`, `stamper_*`, ... These are frontend abstract-type
+   accessors AND stateful frontend maps. CRUCIAL DIFFERENCE from the i0* floor:
+   d2cstgo1 classifies these as PACKAGE symbols (compiler/backend source), so
+   they emit as BARE `name_<stamp>` local names -- NOT `xatsgo.Xats_*`. The
+   classifier already EXPECTS them to be compiled in locally. So the correct
+   resolution is **emit the frontend modules and include them in the assembly**
+   (Task #6), not hand-shims. (Hand-shimming would require both a classifier
+   change to re-route them to xatsgo AND reimplementing the stateful maps -- a
+   parallel hand-maintained ABI that defeats self-hosting. The i0* floor was
+   justified only because those ALREADY route to xatsgo by the existing
+   classifier and are pure field reads.)
+
+2. **Template-method subsystem -- 15 (+ missing emitter funcs).** The 15
+   remaining `undefined: xatsgo.Xats_*` are `list_map_e1nv` (10), `list_exists`,
+   `list_sortedq`, `list_mergesort`, `optn_map_e1nv`, and `i0pat_allq`. A
+   template method like `list_foritm$e1nv<x0><e1>(xs, env)` carries an IMPLICIT
+   `$work` worker; the emitter generates a wrapper that takes the worker as a
+   param but DROPS it at the call, forwarding to a nonexistent runtime prim.
+   This same gap ALSO explains why emitter-internal functions whose whole body
+   is a template-method call (e.g. `i1vardclist_go1emit`, body =
+   `list_foritm$e1nv<...>(i1vs, env0)`) are emitted with NO definition at all --
+   producing further `undefined` cascades. Resolution = the documented Task #8:
+   thread `$work` through (or inline the template body). A runtime shim cannot
+   fix these -- the worker is absent at the call by construction.
+
+3. **Block-expression result hoisting -- 9.** `undefined: goxtnm<N>` where a
+   temp is COMPUTED inside `case`/`switch` arms and READ after the switch. Go
+   scopes case-local declarations to their arm, so the post-switch read is out
+   of scope. The emitter must hoist the result var (`var goxtnmN T` before the
+   switch, assign in each arm) instead of declaring it per-arm. A distinct
+   codegen-shape bug; touches the case/if result-emission path (rung-sensitive).
+
+4. **Coercion over-assert -- 51 ("X is not an interface").** The coercion pass
+   emits `x.(T)` on a value `x` that is ALREADY concretely typed (`*XatsCon`),
+   which Go rejects (assert requires an interface source). The inverse of the
+   under-assert case. Needs the emitted-type key to gate OUT concretely-emitted
+   values before asserting.
+
+5. **Coercion under-assert + struct mismatch -- 101+ ("need type assertion",
+   "cannot use", "mismatched types").** 87 `need type assertion` + 14 `cannot
+   use` + 53 `mismatched/invalid-op`. The bulk is the documented Task #10:
+   comprehensive emitted-type tracking (record EVERY temp binding's emitted Go
+   type so any concrete boundary can assert a genuine `any`, and the over-assert
+   in bucket 4 can be suppressed). Buckets 4 and 5 are two faces of one
+   subsystem: a precise emitted-type table makes both directions exact.
+
+### Reading
+Buckets 4+5 (coercion, ~152) and bucket 2 (templates, 15) are EMITTER
+subsystems whose completion also improves every future-emitted module. Bucket 1
+(178) is resolved structurally by emitting the frontend (Task #6). Bucket 3 (9)
+is a self-contained codegen-shape fix. The i0* floor in this round proves the
+pattern: where a boundary is pure abstract-type field-reads that already route
+to the runtime, a small correct floor erases a whole error class at zero
+regression risk (rungs 1-12 + JS 75/75 byte-equal throughout).
