@@ -652,3 +652,42 @@ pipeline module, supply the handful of irreducible runtime leaves like the 12
 already added + the FILR model + the linear-cast `castlin10` primitive), not a
 new architecture.  The go-emitter already emits every module tried so far
 UNHANDLED-free, which is the core capability self-hosting rests on.
+
+### First multi-module build — assembly works; surfaces the first real codegen bug
+`selfhost-build/assemble.sh` emits all 18 emitter modules and concatenates them
+into ONE Go package (493 funcs, ~20.7k lines).  The ASSEMBLY mechanism is sound:
+  - cross-module calls link by identical stamp-mangled names (`byref_add_2781`
+    in the def and every caller),
+  - ZERO duplicate function definitions across the 18 modules,
+so they concatenate without redefinition or linkage errors.
+
+`go build` then surfaced the FIRST genuine self-hosting CODEGEN bug — and it is in
+the emitter's OWN output, not the assembly.  Even a SINGLE module (`go1emit_byref0.go`)
+fails to compile standalone:
+```
+undefined: goxtnm16        // = the_go_byref_ref, a module-private a0ref global
+```
+ROOT CAUSE: the side-table pattern the emitter leans on everywhere —
+```
+local val the_go_byref_ref = a0ref_make_1val<...>(list_nil()) in <funcs> end
+```
+is an `I1Dlocal0(head, body)` node.  PASS 1 hoists the body FUNCTIONS to package
+level (so `byref_add` etc. are emitted), but `i1dcl_go1emit`'s PASS-2 walk has NO
+`I1Dlocal0` case, so the whole block falls to `f0_otherwise` → `// (skipped non-
+val dcl)`.  The HEAD val (`the_go_byref_ref`) is therefore NEVER emitted, while
+the package-level functions reference its temp (`goxtnm16`) — undefined.
+
+WHY IT NEVER SHOWED BEFORE: the `_oracle`/`suite` tests compile+run EMITTED Go
+for simple TEST programs that have no module-level `local val` globals referenced
+by package-level functions; and selfhost-smoke only EMITS modules, never compiles
+them.  The multi-module build is the first time the emitter's own
+side-table-heavy code is actually `go build`'d — exactly what self-hosting is for.
+
+THE FIX (next): emit module-level globals as PACKAGE-LEVEL Go vars.  A top-level
+`val`/`local`-head `val x = init` must become `var goxtnm<x> <T>` at package scope
+plus its initialization (single-expression inits inline as `var x = <init>`;
+multi-statement inits go in a per-module `func init()`), instead of a main-local
+(or skipped).  PASS 2's `i1dcl_go1emit` needs an `I1Dlocal0` case (recurse head +
+body) and a package-level-val emission mode.  This is the load-bearing feature for
+the side-table modules (byref0/tytab0) and the frontend's stamp/symbol-table
+globals.
