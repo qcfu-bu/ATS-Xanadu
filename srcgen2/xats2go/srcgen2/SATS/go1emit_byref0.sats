@@ -164,6 +164,28 @@ fun
 inst_retty_get(stmp: stamp): strn
 //
 (* ****** ****** *)
+//
+(*
+EMITTED-TYPE SIDE-TABLE (go-arm general arg boundary).  Records the EMITTED Go
+type of a temp where it diverges from the temp's recorded gotyp: a func-literal
+PARAM emitted `any` (a generic-dispatch slot), and a func-literal TEMP's own
+`func(...)...` type.  POPULATED at func-literal emission (each param temp -> its
+emitted Go param type; the func temp -> its `func(<args>) <ret>` type).  READ at
+a call site to decide an arg assertion: when the callee's first PARAM type
+(go_first_param of the callee temp's recorded func type) is CONCRETE and the ARG
+temp's recorded EMITTED type is exactly "any", emit `callee(arg.(T))`.  Keying
+the arg-is-`any` test on the EMITTED type (not gotype_of_ival, which is "any"
+for every temp, nor the recorded gotyp, which is "any" for a boxed datatype that
+is nonetheless emitted as a concrete `*XatsCon`) is what makes the assertion
+fire ONLY on a genuine interface value -- asserting a concrete value is a Go
+compile error ("X is not an interface").
+*)
+fun
+goemit_ty_add(stmp: stamp, ty: strn): void
+fun
+goemit_ty_get(stmp: stamp): strn
+//
+(* ****** ****** *)
 (* ****** ****** *)
 //
 (***********************************************************************)

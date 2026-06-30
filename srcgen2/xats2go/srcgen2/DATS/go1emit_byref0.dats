@@ -236,6 +236,31 @@ inst_retty_get
 (stmp) =
   nient_find(a0ref_get<nientlst>(the_inst_retty_ref), stmp)
 //
+(* ****** ****** *)
+//
+// the emitted-Go-type map (go-arm general ARG boundary).  Same assoc-list shape.
+// See the SATS.  Keyed by temp stamp -> its emitted Go type (a param's `any`, a
+// func temp's `func(...)...`).
+val
+the_goemit_ty_ref =
+a0ref_make_1val<nientlst>(list_nil(*void*))
+//
+#implfun
+goemit_ty_add
+(stmp, ty) =
+let
+  val ents = a0ref_get<nientlst>(the_goemit_ty_ref)
+in
+  if nient_memq(ents, stmp)
+  then ((*void*))
+  else a0ref_set<nientlst>(the_goemit_ty_ref, list_cons(@(stmp, ty), ents))
+end
+//
+#implfun
+goemit_ty_get
+(stmp) =
+  nient_find(a0ref_get<nientlst>(the_goemit_ty_ref), stmp)
+//
 end(*local*)//endof[local(the_nullary_inst_ref)]
 //
 (* ****** ****** *)

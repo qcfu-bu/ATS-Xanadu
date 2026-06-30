@@ -1686,6 +1686,32 @@ case+ iins of
   in
     gofunctype_of_fjarglst(argtys, retty)
   end
+//
+// GO-ARM: a value-like template instance is emitted as a Go func literal
+// `func(<argtys>) <retty>` (a nullary one -> a thunk `func() <retty>`), so type
+// it STRUCTURALLY -- matching the emit -- instead of falling through to the temp's
+// recorded (generic) gotyp.  This keeps an enclosing func's RETURN type
+// consistent with the instance value it returns, so Go's func INVARIANCE does not
+// reject e.g. a `func() func(int) any` returned where the recorded gotyp said
+// `func(any) any`.  Gated to go-arm: in non-go-arm an instance is shortcut to
+// `xatsgo.Xats_*` (NOT a func literal), so the structural type would mis-describe
+// it -- the recorded-gotyp fallback is correct there.
+|I1INStimp(_, timp) when go_arm_getq() =>
+  (
+  case+ t1imp_i1dclq(timp) of
+  |optn_cons(idcl) =>
+    (
+    case+ idcl.node() of
+    |I1Dimplmnt0(_, _, _, _, fjas, icmp) =>
+      let
+        val argtys = gotypes_of_fjarglst(fjas)
+        val bnds1  = list_append(binds_of_fjarglst(fjas), bnds)
+        val retty  = gotype_of_lam_ret2(icmp, bnds1)
+      in
+        gofunctype_of_fjarglst(argtys, retty)
+      end
+    | _(*else*) => "any")
+  | _(*else*) => "any")
 | _(*else*) => "any"
 )
 //

@@ -1115,6 +1115,9 @@ let
       case+ gs of
       |list_nil() => @("any", list_nil())
       |list_cons(g1, gs1) => @(g1, gs1))
+      // go-arm general ARG boundary: record this param's EMITTED Go type so a
+      // CALL passing it (an `any` param into a typed slot) can be asserted.
+      val () = (if go_arm_getq() then goemit_ty_add(i1tnm_stmp$get(p1), goty))
       val () =
       (
       if (i0 >= 1) then strnfpr(filr, ", ");
@@ -1241,6 +1244,9 @@ case+ t1imp_i1dclq(timp) of
       // keyed by its bound temp, so an application whose result temp is concretely
       // typed can assert an `any`-returning forwarder (e.g. a0rf_get).
       val () = (if go_arm_getq() then inst_retty_add(ostmp, retty))
+      // ARG BOUNDARY (go-arm): record this func temp's own emitted Go func type
+      // so a CALL `tmp(arg)` can recover [tmp]'s concrete first param type.
+      val () = (if go_arm_getq() then goemit_ty_add(ostmp, gofunctype_of_fjarglst(argtys, retty)))
       val () =
       (
       strnfpr(filr, "func(");
@@ -1392,6 +1398,45 @@ in
     rest(k)
   end
 end//endof[go_return_type(s)]
+//
+(*
+[go_is_nullary_thunk]: does [s] start with "func()" -- a NULLARY thunk type
+(empty param list)?  A value-like template instance is emitted as such a thunk;
+when one instance's body returns ANOTHER (g_print's nested hooks), the type is
+`func() func() ...`, and the application must peel one `()` per nullary layer
+before applying the real args.
+*)
+fun
+go_is_nullary_thunk
+(s: strn): bool =
+let
+  val n = strn_length(s)
+in
+  if (n < 6) then false
+  else
+  if s[0] != 'f' then false else
+  if s[1] != 'u' then false else
+  if s[2] != 'n' then false else
+  if s[3] != 'c' then false else
+  if s[4] != '(' then false else
+  (s[5] = ')')
+end//endof[go_is_nullary_thunk(s)]
+//
+(*
+[go_peel_thunks(filr, s)]: while [s] is a nullary thunk `func() X`, EMIT one
+`()` (invoking that layer) and recurse on its return type [X]; return the first
+NON-nullary type (`func(P) R` or a non-func).  Used at a nullary-instance
+application to peel every nested-thunk layer (g_print's `func() func() ...`)
+before applying the real args.
+*)
+fun
+go_peel_thunks
+(filr: FILR, s: strn): strn =
+(
+if go_is_nullary_thunk(s)
+then (strnfpr(filr, "()"); go_peel_thunks(filr, go_return_type(s)))
+else s
+)//endof[go_peel_thunks(filr,s)]
 //
 (*
 [t1imp_hook_paramty]: the Go type of the FIRST param of a value-like instance's
@@ -1546,12 +1591,19 @@ case+ i1f0.node() of
     |list_cons(a1, ar1) =>
       if nullary_inst_has(i1tnm_stmp$get(tnm))
       then
-        // nullary hook applied with args -> `tmp()(args)`.
+        // nullary hook applied with args -> `tmp()...()(args)`.  The instance
+        // is a thunk; its body may RETURN another nullary instance (g_print's
+        // nested hooks), so peel one `()` per nullary-thunk layer (driven by the
+        // recorded emitted return type) before applying.  [pty] is the FIRST
+        // param of the final (non-thunk) hook -- assert a single `any` arg to it.
         let
-          val pty = nullary_inst_paramty(i1tnm_stmp$get(tnm))
+          val restype = inst_retty_get(i1tnm_stmp$get(tnm))
+          val () = i1valgo1(filr, i1f0)
+          val () = strnfpr(filr, "()")           // invoke the instance's own thunk
+          val finaltype = go_peel_thunks(filr, restype)  // peel nested thunk layers
+          val pty = go_first_param(finaltype)
         in
-          i1valgo1(filr, i1f0);
-          strnfpr(filr, "()(");
+          strnfpr(filr, "(");
           // assert a single `any`-typed arg to the hook's concrete param type.
           (
           case+ ar1 of
@@ -1569,9 +1621,34 @@ case+ i1f0.node() of
           strnfpr(filr, ")")
         end
       else
-        // generic call `tmp(args)`.
-        (i1valgo1(filr, i1f0);
-         strnfpr(filr, "("); i1valgo1_list(filr, i1vs); strnfpr(filr, ")"))
+        // generic call `tmp(args)`.  ARG BOUNDARY: a single arg EMITTED as `any`
+        // (a generic-dispatch param, per the goemit_ty table) passed to a callee
+        // whose recorded first param type is CONCRETE must be asserted
+        // (`tmp(arg.(T))`) -- e.g. an `any` optn arg into a `*XatsCon` print
+        // worker.  Keying arg-is-`any` on the EMITTED type avoids mis-asserting a
+        // concretely-emitted value (which Go rejects as a non-interface assert).
+        let
+          val pty = go_first_param(goemit_ty_get(i1tnm_stmp$get(tnm)))
+        in
+          i1valgo1(filr, i1f0); strnfpr(filr, "(");
+          (
+          case+ i1vs of
+          |list_cons(a1, list_nil()) =>
+            (if (strn_length(pty) > 0)
+             then
+               (if not(pty = "any")
+                then
+                  (case+ a1.node() of
+                   |I1Vtnm(atnm) =>
+                     (if (goemit_ty_get(i1tnm_stmp$get(atnm)) = "any")
+                      then (i1valgo1(filr, a1); strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")"))
+                      else i1valgo1_list(filr, i1vs))
+                   | _(*non-tnm arg*) => i1valgo1_list(filr, i1vs))
+                else i1valgo1_list(filr, i1vs))
+             else i1valgo1_list(filr, i1vs))
+          | _(*0 or many args*) => i1valgo1_list(filr, i1vs));
+          strnfpr(filr, ")")
+        end
     )
   | _(*non-tnm callee*) =>
     (i1valgo1(filr, i1f0);
