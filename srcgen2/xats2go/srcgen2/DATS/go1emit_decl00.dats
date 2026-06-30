@@ -337,6 +337,9 @@ let
       (
       if need_sep then strnfpr(filr, ", ");
       i1tnmgo1(filr, p1); strnfpr(filr, " "); strnfpr(filr, goty))
+      // EMITTED-TYPE: record this closure param's emitted Go type (see
+      // fjarglst_go1emit_params).
+      val () = goemit_ty_add(i1tnm_stmp$get(p1), goty)
     in
       loop(true, ts1, gs1)
     end
@@ -1361,6 +1364,11 @@ case+ i1bs of
       i1tnmgo1(filr, itnm);
       strnfpr(filr, " ");
       strnfpr(filr, goty))
+    // EMITTED-TYPE: record each param's emitted Go type, so a param emitted `any`
+    // (a generic-erased arg) is asserted at a later CONCRETE boundary (assign /
+    // return / arg).  Recording CONCRETE param types is also correct -- it only
+    // PREVENTS a spurious assertion on a concretely-typed param.
+    val () = goemit_ty_add(i1tnm_stmp$get(itnm), goty)
   in
     loop_bnds(true, i1bs1, tys1)
   end
