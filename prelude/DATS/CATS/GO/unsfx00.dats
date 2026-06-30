@@ -70,6 +70,30 @@ XATS2GO_p2tr_set
 //
 (* ****** ****** *)
 //
+(*
+The UNSAFE raw string indexer [$UN.strn_get$at$raw] -- the leaf [strn_foritm]/
+[strn_rforitm] iterate with (prelude/DATS/strn000.dats), bypassing the bounds-
+checked [strn_get$at].  The safe [strn_get$at] is already rebound in the GO arm
+(strn000.dats), but the foritm family calls the raw form DIRECTLY, so it needs
+its own GO leaf.  Body: strn000.cats's [XATS2GO_strn_get_at_raw] (rune of the
+i0-th byte).  Without this the emitter falls back to the JS-runtime shim
+[xatsgo.Xats_XATS000_strn_get_at_raw], which the Go runtime does not define.
+*)
+#impltmp
+<(*tmp*)>
+$UN.strn_get$at$raw
+(cs, i0) =
+(
+XATS2GO_strn_get$at$raw
+(     cs   ,   i0     )) where
+{
+#extern
+fun
+XATS2GO_strn_get$at$raw
+(cs: strn, i0: nint): char = $extnam() }
+//
+(* ****** ****** *)
+//
 (***********************************************************************)
 (* end of [ATS3_XANADU_prelude_DATS_CATS_GO_unsfx00.dats] *)
 (***********************************************************************)
