@@ -2742,11 +2742,16 @@ case+ iins of
       if retq then () else
       (
       if live then
+      let val gty = gotype_of_ift0type(iins) in
       (
       nindfpr(filr, nind);
       strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
-      strnfpr(filr, " "); strnfpr(filr, gotype_of_ift0type(iins));
-      strnfpr(filr, "\n"))
+      strnfpr(filr, " "); strnfpr(filr, gty);
+      strnfpr(filr, "\n");
+      // EMITTED-TYPE: this result temp is declared `any` -> record it so a later
+      // boundary (an assign/return into a CONCRETE target) asserts `.(T)`.
+      goemit_ty_add(i1tnm_stmp$get(itnm), gty))
+      end
       else ())
     //
     val () =
@@ -2787,11 +2792,14 @@ case+ iins of
       if retq then () else
       (
       if live then
+      let val gty = gotype_of_ift0type(iins) in
       (
       nindfpr(filr, nind);
       strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
-      strnfpr(filr, " "); strnfpr(filr, gotype_of_ift0type(iins));
-      strnfpr(filr, "\n"))
+      strnfpr(filr, " "); strnfpr(filr, gty);
+      strnfpr(filr, "\n");
+      goemit_ty_add(i1tnm_stmp$get(itnm), gty))
+      end
       else ())
     //
     // GUARD pre-pass: emit ONLY each guarded clause's pre-switch scrutinee BIND
@@ -2858,11 +2866,14 @@ case+ iins of
       if retq then () else
       (
       if live then
+      let val gty = gotype_of_ift0type(iins) in
       (
       nindfpr(filr, nind);
       strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
-      strnfpr(filr, " "); strnfpr(filr, gotype_of_ift0type(iins));
-      strnfpr(filr, "\n"))
+      strnfpr(filr, " "); strnfpr(filr, gty);
+      strnfpr(filr, "\n");
+      goemit_ty_add(i1tnm_stmp$get(itnm), gty))
+      end
       else ())
     //
     val () =
@@ -3697,7 +3708,24 @@ in//let
   (
   nindfpr(filr, nind);
   i1tnmgo1(filr, itnm); strnfpr(filr, " = ");
-  i1valgo1(filr, ival); strnfpr(filr, "\n"))
+  i1valgo1(filr, ival);
+  // ASSIGN BOUNDARY: a value EMITTED as `any` (an inner if/case/let-in result
+  // temp recorded "any" in goemit_ty) assigned to a result temp [itnm] DECLARED
+  // with a CONCRETE Go type needs `<ival>.(T)`.  BOTH the target [T] and the
+  // arg-is-`any` test read the EMITTED type table (goemit_ty -- the same type
+  // the var was DECLARED with), so a concretely-emitted value is never
+  // mis-asserted and the declared/asserted types always agree.
+  (
+  let val tgt = goemit_ty_get(i1tnm_stmp$get(itnm)) in
+    if (tgt = "") then ((*void*)) else
+    if (tgt = "any") then ((*void*)) else
+    (case+ ival.node() of
+     |I1Vtnm(vtnm) =>
+       (if (goemit_ty_get(i1tnm_stmp$get(vtnm)) = "any")
+        then (strnfpr(filr, ".("); strnfpr(filr, tgt); strnfpr(filr, ")")) else ())
+     | _(*non-tnm*) => ())
+  end);
+  strnfpr(filr, "\n"))
 end//let//endof[i1cmp_go1emit_tnm(itnm,icmp,env0)]
 //
 (* ****** ****** *)
