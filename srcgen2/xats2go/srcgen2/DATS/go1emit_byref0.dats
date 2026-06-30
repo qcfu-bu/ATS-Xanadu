@@ -263,6 +263,46 @@ inst_retty_get
 //
 (* ****** ****** *)
 //
+// the FUNCTION emitted-return-type map (self-emission RESULT boundary), keyed by
+// a function's d2var stamp.  Same linear assoc-list shape.  See the SATS.
+val
+the_funretty_ref =
+a0ref_make_1val<nientlst>(list_nil(*void*))
+//
+#implfun
+funretty_add
+(stmp, retty) =
+let
+  val ents = a0ref_get<nientlst>(the_funretty_ref)
+in
+  if nient_memq(ents, stmp)
+  then ((*void*))
+  else a0ref_set<nientlst>(the_funretty_ref, list_cons(@(stmp, retty), ents))
+end
+//
+#implfun
+funretty_get
+(stmp) =
+  nient_find(a0ref_get<nientlst>(the_funretty_ref), stmp)
+//
+// the CURRENT-FUNCTION return type (self-emission return boundary).  A single
+// process-global string.  See the SATS.
+val
+the_cur_funretty_ref =
+a0ref_make_1val<strn>("")
+//
+#implfun
+cur_funretty_set
+(ty) =
+  a0ref_set<strn>(the_cur_funretty_ref, ty)
+//
+#implfun
+cur_funretty_get
+((*void*)) =
+  a0ref_get<strn>(the_cur_funretty_ref)
+//
+(* ****** ****** *)
+//
 // the emitted-Go-type map (go-arm general ARG boundary).  Same assoc-list shape.
 // See the SATS.  Keyed by temp stamp -> its emitted Go type (a param's `any`, a
 // func temp's `func(...)...`).

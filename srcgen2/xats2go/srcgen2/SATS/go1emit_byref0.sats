@@ -166,6 +166,39 @@ inst_retty_get(stmp: stamp): strn
 (* ****** ****** *)
 //
 (*
+FUNCTION EMITTED-RETURN-TYPE TABLE (self-emission return boundary).  Keyed by a
+function's d2var STAMP -> the Go return type its signature was emitted with.  A
+module-local helper `fun` with no SATS d2cst emits `func f(..) any` (the regime-B
+default), so a CALL `goxtnm := f(args)` binds an `any` temp even when the result
+is used at a CONCRETE context (`return goxtnm` where the caller returns `string`).
+Recording (d2var stamp -> emitted retty) at the function's DEFINITION lets the
+call-binding RESULT BOUNDARY assert `f(args).(T)` when the callee's recorded retty
+is "any" and the result temp's gotyp is concrete -- the local-function twin of the
+[inst_retty] accessor path.  Keyed by d2var stamp (distinct table from the i1tnm-
+keyed [inst_retty], so the two stamp namespaces never alias).
+*)
+fun
+funretty_add(stmp: stamp, retty: strn): void
+fun
+funretty_get(stmp: stamp): strn
+//
+(*
+CURRENT-FUNCTION RETURN TYPE (self-emission return boundary).  The Go return type
+of the function/closure body CURRENTLY being emitted, set (save/restore) at each
+function/lambda-body entry.  The RETURN emitter ([emit_ret_plain]) reads it: when
+it is CONCRETE and the returned value is a temp recorded emitted-`any` (goemit_ty),
+it asserts `return <r>.(T)`.  "" / "any" disables the assertion (e.g. inside a
+lambda whose own retty is not pinned), so a genuine `any` return is never
+mis-asserted.
+*)
+fun
+cur_funretty_set(ty: strn): void
+fun
+cur_funretty_get((*void*)): strn
+//
+(* ****** ****** *)
+//
+(*
 EMITTED-TYPE SIDE-TABLE (go-arm general arg boundary).  Records the EMITTED Go
 type of a temp where it diverges from the temp's recorded gotyp: a func-literal
 PARAM emitted `any` (a generic-dispatch slot), and a func-literal TEMP's own

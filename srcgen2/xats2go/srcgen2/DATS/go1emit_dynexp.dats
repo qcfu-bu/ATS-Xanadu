@@ -3474,18 +3474,26 @@ case+ ilet of
        |I1INSdapp(i1f0, _) =>
          let
            val goty = gotyp_emit(i1tnm_gotyp$get(itnm))
+           // does the callee's emitted Go signature return `any`?  An instance-func
+           // value temp (inst_retty) or a DIRECT call to a d2cst-less helper `fun`
+           // whose signature defaults to `func(..) any` (funretty, keyed by the
+           // callee d2var stamp, recorded at the function's definition).
+           val retany =
+           (
+           case+ i1f0.node() of
+           |I1Vtnm(ftnm) => (inst_retty_get(i1tnm_stmp$get(ftnm)) = "any")
+           |I1Vfenv(fdvar, _) => (funretty_get(d2var_get_stmp(fdvar)) = "any")
+           | _(*other callee*) => false)
          in
-           if not(goty = "any")
+           if retany
            then
-             // the callee i1f0 is an instance-func temp whose EMITTED return type
-             // we recorded; "any" there means the emitted func returns `any`, so a
-             // concrete result temp must be asserted (`tmp(args).(T)`).
-             (case+ i1f0.node() of
-              |I1Vtnm(ftnm) =>
-                if (inst_retty_get(i1tnm_stmp$get(ftnm)) = "any")
-                then (strnfpr(filr, ".("); strnfpr(filr, goty); strnfpr(filr, ")"))
-                else ()
-              | _(*non-tnm callee*) => ())
+             // callee returns `any`.  A concretely-typed RESULT temp asserts HERE
+             // (`f(args).(T)`).  An `any` result temp is RECORDED emitted-`any`
+             // (goemit_ty) so a later CONCRETE boundary (e.g. `return <r>` where the
+             // caller returns a concrete type) supplies the target T and asserts.
+             (if not(goty = "any")
+              then (strnfpr(filr, ".("); strnfpr(filr, goty); strnfpr(filr, ")"))
+              else goemit_ty_add(i1tnm_stmp$get(itnm), "any"))
            else ()
          end
        | _(*non-dapp*) => ()));
@@ -3686,7 +3694,23 @@ in//let
   (
   nindfpr(filr, nind);
   strnfpr(filr, "return ");
-  i1valgo1(filr, ival1); strnfpr(filr, "\n"))
+  i1valgo1(filr, ival1);
+  // RETURN BOUNDARY: the function returns a CONCRETE type ([cur_funretty]) but the
+  // returned value is a temp recorded emitted-`any` (an any-returning call result
+  // whose own gotyp was also `any`) -- assert `return <r>.(T)`.  Disabled when the
+  // current retty is "" / "any" (e.g. inside a lambda whose retty is not pinned),
+  // so a genuine `any` return is never mis-asserted.
+  (
+  let val cfr = cur_funretty_get() in
+    if (cfr = "") then ((*void*)) else
+    if (cfr = "any") then ((*void*)) else
+    (case+ ival1.node() of
+     |I1Vtnm(rtnm) =>
+       (if (goemit_ty_get(i1tnm_stmp$get(rtnm)) = "any")
+        then (strnfpr(filr, ".("); strnfpr(filr, cfr); strnfpr(filr, ")")) else ())
+     | _(*non-tnm*) => ())
+  end);
+  strnfpr(filr, "\n"))
 end//let//endof[emit_ret_plain(icmp,params,bnds,env0)]
 //
 #implfun

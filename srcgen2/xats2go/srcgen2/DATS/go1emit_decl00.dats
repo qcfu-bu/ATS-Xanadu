@@ -1058,6 +1058,9 @@ let
   strnfpr(filr, ") ");
   strnfpr(filr, retty);
   strnfpr(filr, " {\n"))
+  // RETURN BOUNDARY: pin this #implfun's emitted return type for its body.
+  val saved_cfr = cur_funretty_get()
+  val () = cur_funretty_set(retty)
   val () =
   (
   if i1cmp_body_has_tailcall(icmp)
@@ -1079,6 +1082,7 @@ let
     envx2go_incnind(env0, 1(*++*));
     i1cmp_go1emit_ret(icmp, list_nil(), bnds, env0);
     envx2go_decnind(env0, 1(*--*))))
+  val () = cur_funretty_set(saved_cfr)
   val () = strnfpr(filr, "}\n\n")
 in
   ((*void*))
@@ -1395,6 +1399,11 @@ val (argtys, retty) =
   |optn_nil() => @(list_nil(), "any")
   |optn_cons(dcst) => gotypes_of_funstyp(d2cst_get_styp(dcst)))
 //
+// RESULT BOUNDARY (self-emission): record this function's EMITTED return type
+// keyed by its d2var stamp, so a CALL `goxtnm := f(args)` whose result is used at
+// a CONCRETE context can assert `f(args).(T)` when [f]'s recorded retty is "any".
+val () = funretty_add(d2var_get_stmp(dvar), retty)
+//
 // GAP A1: register this function's by-REFERENCE params (`&T` -> Go `*T`) in
 // the byref stamp set BEFORE emitting the body, so the body's read/write/
 // call emitters deref (`*p`) / pass (`p`) each pointer param.  Uses the SAME
@@ -1428,6 +1437,10 @@ strnfpr(filr, " {\n"))
 // (params = list_nil(), no `for` wrapper) -- a plain Go recursive call for
 // any non-tail self-call, exactly as M2.3.
 //
+// RETURN BOUNDARY: pin this function's emitted return type while its body is
+// emitted, so a `return <r>` of an emitted-`any` value asserts to [retty].
+val saved_cfr = cur_funretty_get()
+val () = cur_funretty_set(retty)
 val () =
 (
 case+ tdxp of
@@ -1475,6 +1488,7 @@ case+ tdxp of
     envx2go_decnind(env0, 1(*--*)))
   end
 )
+val () = cur_funretty_set(saved_cfr)
 //
 val () = strnfpr(filr, "}\n\n")
 //
