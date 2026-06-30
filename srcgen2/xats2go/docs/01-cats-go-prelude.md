@@ -467,3 +467,33 @@ the frontend).
 lowering now emit clean, UNHANDLED-free Go for the WHOLE emitter; emitter
 self-hosting is gated only on the frontend-node-accessor boundary (3 sites).  Run
 `bash srcgen2/TEST/selfhost-frontier-audit.sh` to reproduce the map.
+
+### The full-build distance (runtime ABI breakdown)
+The frontier has TWO layers.  The `selfhost-strict` GATE forbids 3 specific
+*compiler-internal* routings (above).  A full functional BUILD of the Go emitter
+needs more: the emitted Go references **129 distinct `xatsgo.Xats_*` symbols**, of
+which the runtime currently defines **16** — leaving **123** to supply.  Broken
+down:
+  - **~52 frontend-IR node accessors** (`i0exp_node_get`, `i0dcl_lctn_get`,
+    `d2con_get_ctag`, `d2cst_castq`, `d2var_get_unam`, `t1imp_*`, `token_*` …) —
+    the shared frontend's node ABI; needs the frontend's node types in Go.
+  - **~48 prelude prims** (`gint_add_sint_sint`, `bool_neg`, `char_eq`, `g_print`,
+    `gs_print_n*`, `a0ref_*`, `list_*`, `optn_*`, `strn_*`, `symbl`) — these are
+    exactly the family the **CATS/GO floor already implements as `XATS2GO_*`**.
+    The gap is a NAMING/routing convention: the non-go-arm emission routes them to
+    `xatsgo.Xats_<name>`, whereas go-arm emission routes them to the typed
+    `XATS2GO_*` floor.  So emitting the EMITTER ITSELF in go-arm mode would
+    discharge this whole bucket against the floor already built in this work,
+    leaving only the frontend-node ABI + symbol tables.
+  - **~23 symbol-table / misc** (`stkmap_*`, `topmap_*`, `the_d2cstmap_xnmfind`,
+    `t0imp_*`, `x2t2p_get_styp`, `trcdknd_fltq`, `label_fprint`).
+
+So two routes to a buildable Go emitter:
+  1. **go-arm self-emission** — emit the emitter sources with the CATS/GO prelude
+     arm so prelude prims hit the `XATS2GO_*` floor (≈48 discharged for free);
+     supply the ~75 frontend-node + symbol-table funcs as a Go runtime/ABI.
+  2. **non-go-arm** — supply all 123 as `xatsgo` runtime funcs.
+
+Route 1 reuses the floor this work has been building, and is the natural
+continuation; both still require the frontend node ABI in Go, which is the genuine
+remaining bulk of emitter self-hosting.
