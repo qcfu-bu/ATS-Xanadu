@@ -753,3 +753,111 @@ var Xats_gs_prerrln_n2 = func(x0 any, x1 any) any {
 	fmt.Fprint(os.Stderr, "\n")
 	return XATSNIL()
 }
+
+// ===========================================================================
+// SELF-HOSTING prim leaves — the COMPILER-prelude primitives the EMITTER's own
+// sources reference via xatsgo.Xats_* (the d2cstgo1 routing) that the runtime
+// did not yet define. See docs/01-cats-go-prelude.md "Route 1 reality check":
+// the emitter uses the compiler prelude (separate namespace from the XATS2GO_*
+// user-prelude floor), and routes these prims to runtime leaves here. Semantics
+// ported from the ATS prelude source; the Go value model is the runtime's:
+// list = *XatsCon (Tag 0 nil / Tag 1 cons, Args[0]=head Args[1]=tail), char =
+// int32/rune, bool = bool, sint = int, strn = string, symbl = interned NAME
+// string.
+//
+// VERIFICATION STATUS: these are exercised only when the WHOLE Go emitter is
+// built+run, which also needs the frontend-node ABI (still pending), so they
+// are COMPILE targets matched to the emitted call sites + ported semantics, not
+// yet end-to-end runtime-validated. The runtime package itself compiles (go
+// build ./runtime/xatsgo), which is the check available today.
+//
+// EXCLUDED ON PURPOSE: list_exists / list_sortedq / list_map_e1nv /
+// optn_map_e1nv / list_mergesort carry a per-call TEMPLATE METHOD
+// ($pred/$fopr/$cmp) that the runtime routing drops, so they cannot be correct
+// runtime leaves — the emitter must inline them. strn_fprint needs the FILR
+// output model, deferred with the frontend ABI.
+// ===========================================================================
+
+// bool_neg: logical negation (prelude bool000: bool_neg(b) = ~b).
+var Xats_bool_neg = func(b any) any { return !b.(bool) }
+
+// symbl is an interned NAME string. TRUE_symbl = symbl("true");
+// DLR_EXTNAM_symbl = symbl("$extnam"). symbl_cmp is the lexicographic name
+// compare returning a sint (-1/0/1), consumed at the call site as `== 0`.
+var Xats_TRUE_symbl any = "true"
+var Xats_DLR_EXTNAM_symbl any = "$extnam"
+var Xats_symbl_cmp = func(s1 any, s2 any) any {
+	return strings.Compare(s1.(string), s2.(string))
+}
+
+// g_print<T>(x): the per-type print that PUSHES onto the print store; the
+// generic dispatch is xatsValueString (same surface as gsPrintOne / prints).
+var Xats_g_print = func(x any) any { gsPrintOne(x); return XATSNIL() }
+
+// gs_print1_n<N>: the `print1s` family. prelude gbas000 has g_print1<a> =
+// g_print<a>, so this is observably identical to gs_print_n<N> (each arg via
+// g_print, no separator).
+var Xats_gs_print1_n2 = func(x0, x1 any) any { gsPrintOne(x0); gsPrintOne(x1); return XATSNIL() }
+var Xats_gs_print1_n3 = func(x0, x1, x2 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	gsPrintOne(x2)
+	return XATSNIL()
+}
+var Xats_gs_print1_n5 = func(x0, x1, x2, x3, x4 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	gsPrintOne(x2)
+	gsPrintOne(x3)
+	gsPrintOne(x4)
+	return XATSNIL()
+}
+
+// list_sing(x): the singleton list [x] (prelude list000).
+var Xats_list_sing = func(x any) any {
+	return xatsListCons("list", x, xatsListNil("list"))
+}
+
+// list_consq(xs): is xs a non-empty (cons) list? (prelude list000). The call
+// site consumes the result as a Go bool.
+var Xats_list_consq = func(xs any) bool {
+	c, _ := xs.(*XatsCon)
+	return c != nil && c.Tag != 0
+}
+
+// list_append(xs, ys): concatenate two lists, sharing ys's spine (prelude
+// list000). Order-preserving: heads of xs are re-consed onto ys.
+var Xats_list_append = func(xs any, ys any) any {
+	x, _ := xs.(*XatsCon)
+	var heads []any
+	for x != nil && x.Tag != 0 {
+		heads = append(heads, x.Args[0])
+		x, _ = x.Args[1].(*XatsCon)
+	}
+	res, _ := ys.(*XatsCon)
+	if res == nil {
+		res = xatsListNil("list")
+	}
+	for i := len(heads) - 1; i >= 0; i-- {
+		res = xatsListCons("list", heads[i], res)
+	}
+	return res
+}
+
+// strn_make_list(cs): build a string from a list of chars (prelude strn000).
+// Chars are runes (int32); ints are tolerated defensively. (rune == int32 in
+// Go, so the type switch uses int32 only to avoid a duplicate case.)
+var Xats_strn_make_list = func(cs any) any {
+	var b strings.Builder
+	xs, _ := cs.(*XatsCon)
+	for xs != nil && xs.Tag != 0 {
+		switch c := xs.Args[0].(type) {
+		case int32:
+			b.WriteRune(rune(c))
+		case int:
+			b.WriteRune(rune(c))
+		}
+		xs, _ = xs.Args[1].(*XatsCon)
+	}
+	return b.String()
+}

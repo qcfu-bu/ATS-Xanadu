@@ -545,3 +545,35 @@ the right model for USER programs targeting Go, which is what it was built for.
 
 The frontend-node ABI (~52 accessors + ~23 symbol-table funcs) is the dominant
 remaining work under EITHER route, and is unchanged by this finding.
+
+### Prim-leaf runtime (Route 1, prim half) — 12 leaves implemented
+With the floor ruled out for the emitter's own prims, the prim half of
+self-hosting is a runtime-leaf job (the `xatsgo.Xats_*` ABI `d2cstgo1` already
+targets).  A corrected audit (the first pass under-counted: it matched only
+`func Xats_*`, missing the runtime's many `var Xats_* = func(...)` defs) showed
+the runtime already defines 98 of the referenced symbols; only **18 prelude
+prims were truly missing**.  Implemented **12** of them in
+`runtime/xatsgo/xatsgo.go`, ported from the ATS prelude source against the
+runtime's value model (list = `*XatsCon`, char = `int32`, symbl = interned name
+string):
+  `bool_neg`, `symbl_cmp`, `TRUE_symbl`, `DLR_EXTNAM_symbl`, `g_print`,
+  `gs_print1_n2/n3/n5`, `list_sing`, `list_consq`, `list_append`,
+  `strn_make_list`.
+Signatures were pinned from the emitted call sites (e.g. `symbl_cmp(_, TRUE_symbl)
+== 0`, `list_consq(xs)` consumed as a Go `bool`).  The runtime package compiles
++ vets clean; rungs 1‑11 stay byte-equal and the JS suite is 75/75 (the new
+defs are additive — nothing referenced them before).
+
+The **6 left** are NOT simple leaves:
+  - `list_exists`, `list_sortedq`, `list_map_e1nv`, `optn_map_e1nv`,
+    `list_mergesort` carry a per-call TEMPLATE METHOD (`$pred`/`$fopr`/`$cmp`)
+    that the runtime routing DROPS — they must be emitted INLINE by the
+    backend, not implemented as runtime leaves (an emitter-inlining gap, not a
+    runtime gap).
+  - `strn_fprint` needs the FILR output model, deferred with the frontend ABI.
+
+VERIFICATION CAVEAT: prim leaves are exercised only when the WHOLE Go emitter is
+built+run (which still needs the frontend-node ABI), so they are compile-checked
++ semantics-ported, not yet end-to-end runtime-validated.  The runtime-`Xats_*`
+ABI for the PRELUDE half of self-hosting is now down to those 6; the frontend-node
+ABI remains the dominant block.
