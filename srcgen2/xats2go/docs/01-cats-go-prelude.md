@@ -751,3 +751,37 @@ case), which is the next focused step.
 The first 3 steps are GENERAL (they help every module, not just byref0); byref0
 is the proving ground because its side-tables exercise the a0ref/tuple/assoc-list
 patterns densely.
+
+### Milestone: byref0 is the first emitter module to COMPILE as Go
+The type-coercion pass closed `go1emit_byref0.go` to a clean `go build` -- the
+first of the 18 emitter modules to compile end-to-end.  Four GENERAL coercion
+steps got there (each keyed on the EMITTED type, each regression-clean: 12 rungs
++ JS suite 75/75):
+  1. result boundary of any-returning accessors (`a0ref_get`/`p2tr_get`),
+  2. erased-tuple field projection via reflection (`Xats_tup_get`),
+  3. assign boundary (emitted-`any` value into a concrete result var),
+  4. return boundary (`funretty` per-function emitted retty + a `cur_funretty`
+     global -> `return <r>.(T)`).
+
+GENERALITY (the whole-pipeline assembly, all 18 modules in one Go package):
+  - `has no field` (the erased-tuple class) -> **0** (cleared everywhere by
+    step 2),
+  - the build's remaining shape: ~419 undefined (the FRONTEND boundary --
+    `stkmap`/`topmap` symbol tables + node accessors), ~156 codegen-tail errors
+    (type assertions + cannot-use) in the heavier modules (intrep1/trxi0i1/
+    styp0/dynexp), which the next coercion-pass iterations target.
+
+### The emit-in-ISOLATION limitation (next build-pipeline step)
+Extending past byref0 hits a structural wall: a module that uses a FRONTEND type
+emits with `F3PERR0` type-check errors when emitted STANDALONE (`node bundle
+module.dats`).  E.g. `tytab0` is byref0's twin but its side-table holds
+`list(@(stamp, i0typ))`; `i0typ` (a frontend tbox) does not fully resolve in
+isolation, so `a0ref_make_1val<list(@(stamp,i0typ))>` fails to type and the module
+emits only partially.  byref0 compiled BECAUSE it uses only `stamp`/`strn`/`list`
+(which resolve standalone).  So the `selfhost-build/assemble.sh` harness
+(standalone `node bundle module.dats` per module) is sufficient ONLY for
+frontend-type-free modules; the rest need emission WITH the full xatsopt staload
+context (the Makefile's `$(JSDIR)/%_dats_out0.js` transpile path provides exactly
+this for the JS build).  Wiring a full-context Go-emit path is the next
+build-pipeline step before the coercion pass can be driven across the remaining
+modules.
