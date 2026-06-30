@@ -691,3 +691,28 @@ multi-statement inits go in a per-module `func init()`), instead of a main-local
 body) and a package-level-val emission mode.  This is the load-bearing feature for
 the side-table modules (byref0/tytab0) and the frontend's stamp/symbol-table
 globals.
+
+### Package-globals fixed → byref0 now reaches the type-boundary tail
+With PASS-1.5 emitting module-level globals (`var goxtnm16 any` + `func init()`),
+`go1emit_byref0.go`'s `undefined: goxtnm16` is gone.  Compiling it now surfaces
+the NEXT layer — all the same "an `any` value used at a CONCRETE boundary needs a
+`.(T)` assertion" class, but in the emitter's NON-go-arm self-emission (which has
+far more such boundaries than the simple oracle test programs ever did):
+  - `Xats_stamp_cmp` — missing runtime leaf (added: a stamp is an abstract id over
+    `uint`; compare → sint, tolerant of the concrete Go int width).
+  - `Xats_as_con(x).Args[0].F0` — a TUPLE projection off a datacon-field
+    projection: `Args[0]` is `any` (erased field), so `.F0` needs
+    `Args[0].(<struct>).F0`.
+  - `goxtnm48 (any) as bool in return` — an `a0ref_get`/forwarded result returned
+    where a concrete `bool` is expected.
+  - `nient_memq(any, ...)` wanting `*xatsgo.XatsCon`; `... = any` wanting `string`
+    — `a0ref_get` returns `any`; the read of a side-table's contents must assert
+    to the recorded element type.
+
+These are localized codegen fixes (assert at each boundary — the same shape as the
+rung-12 `I1Vp1cn` arg-assertion and the M2.7 datacon-field assertions, extended to
+tuple-projection roots and `a0ref_get` results), each with regression risk against
+the 12 byte-equal rungs + 75 JS-suite, so they want careful per-class verification.
+The KEY structural blocker (package globals) is solved; the rest of self-hosting is
+this type-boundary tail across the 18 emitter + frontend modules plus a handful of
+runtime leaves.

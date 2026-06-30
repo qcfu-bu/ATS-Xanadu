@@ -861,3 +861,34 @@ var Xats_strn_make_list = func(cs any) any {
 	}
 	return b.String()
 }
+
+// stamp_cmp(s1, s2): a stamp is an abstract id over `uint` (xstamp0.sats:
+// `#abstype stamp_type <= uint`); compare returns a sint (-1/0/1). Tolerant of
+// the stamp's concrete Go integer type since the recorded gotyp for an abstract
+// id is not always a fixed width.
+func xatsStampVal(x any) uint64 {
+	switch v := x.(type) {
+	case int:
+		return uint64(v)
+	case uint:
+		return uint64(v)
+	case int64:
+		return uint64(v)
+	case uint64:
+		return v
+	case int32:
+		return uint64(v)
+	}
+	return 0
+}
+
+var Xats_stamp_cmp = func(s1 any, s2 any) any {
+	a, b := xatsStampVal(s1), xatsStampVal(s2)
+	if a < b {
+		return -1
+	}
+	if a > b {
+		return 1
+	}
+	return 0
+}
