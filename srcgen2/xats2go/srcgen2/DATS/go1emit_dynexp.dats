@@ -2665,7 +2665,10 @@ case+ iins of
 (* ----- I1INSift0 : Go `if` ------------------------------------------- *)
 |I1INSift0(itst, othn, oels) =>
   let
-    val retq = i1ins_fully_returnsq(iins)
+    // RETURN-MODE GATE: a block-form in a NON-LAST let position (block_force_value)
+    // must NOT return from the function -- emit it in VALUE mode so control reaches
+    // the trailing lets (the gseq suffix-print bug).  Default-off elsewhere.
+    val retq = (if block_force_value_get() then false else i1ins_fully_returnsq(iins))
     val live = i1tnm_used_in_cmp(itnm, scp)
     val nind = envx2go_nind$get(env0)
     //
@@ -2707,7 +2710,10 @@ case+ iins of
 (* ----- I1INScas0 : Go expression-less `switch` ----------------------- *)
 |I1INScas0(_, casval, icls) =>
   let
-    val retq = i1ins_fully_returnsq(iins)
+    // RETURN-MODE GATE: a block-form in a NON-LAST let position (block_force_value)
+    // must NOT return from the function -- emit it in VALUE mode so control reaches
+    // the trailing lets (the gseq suffix-print bug).  Default-off elsewhere.
+    val retq = (if block_force_value_get() then false else i1ins_fully_returnsq(iins))
     val live = i1tnm_used_in_cmp(itnm, scp)
     val nind = envx2go_nind$get(env0)
     //
@@ -2772,7 +2778,10 @@ case+ iins of
     // in return mode the body emits its OWN returns (via i1cmp_go1emit_ret),
     // so NO result temp is pre-declared and NO trailing `return goxtnm<N>` is
     // appended -- which would be UNREACHABLE (`go vet`: "unreachable code").
-    val retq = i1ins_fully_returnsq(iins)
+    // RETURN-MODE GATE: a block-form in a NON-LAST let position (block_force_value)
+    // must NOT return from the function -- emit it in VALUE mode so control reaches
+    // the trailing lets (the gseq suffix-print bug).  Default-off elsewhere.
+    val retq = (if block_force_value_get() then false else i1ins_fully_returnsq(iins))
     val live = i1tnm_used_in_cmp(itnm, scp)
     val nind = envx2go_nind$get(env0)
     //
@@ -3272,9 +3281,20 @@ case+ ilts of
   if try_emit_proj_lvalue_assign(ilt1, ilt2, ilts2, env0)
   then i1letlst_go1emit_p(ilts2, scp, params, bnds, env0)
   else
-    (
-    i1let_go1emit_p(ilt1, scp, params, bnds, env0);
-    i1letlst_go1emit_p(list_cons(ilt2, ilts2), scp, params, bnds, env0))
+    let
+      // [ilt1] is NOT the last let (ilt2 follows), so a block-form if/case in it
+      // must emit in VALUE mode -- never `return` from the function -- else the
+      // trailing lets are dropped.  Restore the gate after (it may itself be set,
+      // when this whole list is a non-last let's sub-block).  GATED on go-arm:
+      // the JS suite + rungs 1-8 are byte-frozen, and this pattern (a non-last
+      // fully-returning block-form) only arises in the go-arm gseq lowering.
+      val saved = block_force_value_get()
+    in
+      (if go_arm_getq() then block_force_value_set(true) else ());
+      i1let_go1emit_p(ilt1, scp, params, bnds, env0);
+      block_force_value_set(saved);
+      i1letlst_go1emit_p(list_cons(ilt2, ilts2), scp, params, bnds, env0)
+    end
   )
 |list_cons(ilt1, ilts1) =>
   (
@@ -3403,7 +3423,20 @@ case+ ilet of
   // position still becomes a loop continue.
   case+ iins of
   |I1INSrturn(ical, innercmp) =>
-    i1cmp_go1emit_ret(innercmp, params, bnds, env0)
+    if block_force_value_get()
+    then
+      // NON-LAST position (gseq `beg; iterate; end`): this is NOT the function
+      // tail, so emit the inner cmp's lets (its EFFECTS) and DISCARD its result
+      // (`_ = <result>`) instead of `return`-ing -- otherwise the trailing lets
+      // (the suffix print) become dead code.
+      let
+        val-I1CMPcons(ilts, ival) = innercmp
+        val () = i1letlst_go1emit_p(ilts, innercmp, params, bnds, env0)
+      in
+        nindfpr(filr, nind); strnfpr(filr, "_ = ");
+        i1valgo1(filr, ival); strnfpr(filr, "\n")
+      end
+    else i1cmp_go1emit_ret(innercmp, params, bnds, env0)
   | _(*else*) =>
   (
   if i1ins_is_blockform(iins)
@@ -3455,8 +3488,11 @@ let
 in//let
   // discard the result UNLESS the cmp already returned (a fully-returning
   // trailing if/case): then no `_ = <ival>` is emitted (it would read an
-  // unassigned temp / be unreachable).
-  if i1cmp_tail_returns(icmp) then () else
+  // unassigned temp / be unreachable).  When [block_force_value] is set
+  // (go-arm non-tail context, e.g. a unit val-decl), the trailing block-form
+  // was forced to VALUE mode -- it assigned its temp instead of returning --
+  // so the discard MUST fire (else the temp is "declared and not used").
+  if (if block_force_value_get() then false else i1cmp_tail_returns(icmp)) then () else
   (
   nindfpr(filr, nind);
   strnfpr(filr, "_ = ");
@@ -3469,7 +3505,14 @@ i1cmp_go1emit_ret
 let
   val filr = env0.filr()
   val nind = envx2go_nind$get(env0)
-in//let
+  // RETURN-MODE GATE reset: a function/branch BODY is a fresh tail context, so
+  // clear [block_force_value] -- a non-last-let force from an ENCLOSING sequence
+  // (e.g. a lambda nested in the gseq iteration) must NOT suppress this body's
+  // own tail return.  Restored at the end.
+  val saved_bfv = block_force_value_get()
+  val () = block_force_value_set(false)
+  val () =
+  (
   //
   // The canonical function-body / branch-body shape is a single
   // [I1LETnew0(I1INSrturn(ical, innerCmp))].  M2.4 TCO: when [innerCmp] is a
@@ -3499,6 +3542,10 @@ in//let
   | _(*otherwise: a multi-let body (e.g. lets + a trailing if/case)*) =>
     emit_ret_plain(icmp, params, bnds, env0)
   //
+  )
+  val () = block_force_value_set(saved_bfv)
+in//let
+  ((*void*))
 end//let//endof[i1cmp_go1emit_ret(icmp,params,bnds,env0)]
 //
 (*
@@ -3568,8 +3615,12 @@ let
   val () = i1letlst_go1emit(ilts, icmp, env0)
 in//let
   // assign the result to the binding temp UNLESS the cmp already returned
-  // (then the branch emitted its own return; no assignment).
-  if i1cmp_tail_returns(icmp) then () else
+  // (then the branch emitted its own return; no assignment).  When
+  // [block_force_value] is set (go-arm non-tail context), the trailing block-
+  // form was forced to VALUE mode -- it assigned ITS OWN temp [ival] rather
+  // than returning -- so the bridge assignment MUST fire (else [itnm] stays
+  // unassigned and [ival]'s temp dangles "declared and not used").
+  if (if block_force_value_get() then false else i1cmp_tail_returns(icmp)) then () else
   (
   nindfpr(filr, nind);
   i1tnmgo1(filr, itnm); strnfpr(filr, " = ");

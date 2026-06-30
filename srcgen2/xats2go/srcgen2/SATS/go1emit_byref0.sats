@@ -186,6 +186,24 @@ fun
 goemit_ty_get(stmp: stamp): strn
 //
 (* ****** ****** *)
+//
+(*
+BLOCK-FORM RETURN-MODE GATE.  A block-form if/case emits in RETURN mode (each
+branch emits its own `return`) when all branches end in [I1INSrturn]
+([i1ins_fully_returnsq]).  But that is correct ONLY in genuine FUNCTION-TAIL
+position; a fully-returning if/case in the MIDDLE of a let-sequence (e.g. the
+gseq_print0 `beg; iterate; end` where the iteration's branches end in rturn but
+control must continue to the suffix print) would emit `return` and KILL the
+trailing lets.  This process-global, set TRUE by [i1letlst_go1emit_p] around a
+NON-LAST let, forces such a block-form to VALUE mode (assign to its temp);
+default FALSE preserves the genuine-tail behavior (and every existing case).
+*)
+fun
+block_force_value_set(b: bool): void
+fun
+block_force_value_get((*void*)): bool
+//
+(* ****** ****** *)
 (* ****** ****** *)
 //
 (***********************************************************************)

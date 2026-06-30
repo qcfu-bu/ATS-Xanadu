@@ -374,3 +374,48 @@ uniformly `func(any) any` — the JS-erasure shape — instead of typed params +
 adapters. This is a focused change to the func-literal emitter (param typing +
 internal assertion) and is the next step; it directly enables the emitter's own
 `prints(..., list, ...)` IR dumps.
+
+### Rung 9 CROSSED — `prints(..., optn, ...)` compiles AND runs byte-equal
+The g_print generic-dispatch chain now compiles end-to-end (rung 9:
+`val ns = optn_cons(10); prints("ns = ", ns, "\n"); length; head`). The earlier
+func-variance / nested-thunk / arg-boundary pieces (committed in 3219fe8) made it
+BUILD; the last defect was a RETURN-MODE bug that dropped the `)` suffix:
+
+  - The gseq `g_print` lowers to a `beg; iterate; end` sequence of **val-decls**
+    in a let-block. The `iterate` val-decl's computation is a fully-returning
+    if/case (`i1ins_fully_returnsq` = true — both branches end in `I1INSrturn`).
+    The block-form emitter therefore emitted it in **return mode** (`return
+    goxtnm`), which EXITS the enclosing print function — so the trailing `end`
+    val-decl (the `)` print) became dead code. Output: `optn(10` (no close paren).
+
+  - Root cause: a fully-returning if/case is emitted in return mode whenever
+    `i1ins_fully_returnsq` holds, but that is only correct in genuine
+    FUNCTION-TAIL position. A val-decl's computation is NEVER the function tail
+    (the let-body's result is what returns), yet `i1valdcl_go1emit` →
+    `i1cmp_go1emit` drove the trailing if straight to return mode.
+
+  - Fix — a process-global `block_force_value` gate (go1emit_byref0), set TRUE
+    around any computation that is NOT in tail position, read by the block-form
+    emitters to force VALUE mode (assign the result temp) instead of return mode:
+      * `i1valdcl_go1emit`  — every val-decl computation is non-tail → force.
+      * `i1letlst_go1emit_p` — a NON-LAST let is non-tail → force.
+      * `i1cmp_go1emit_ret`  — a function/branch BODY is a fresh tail context →
+        RESET to false (so a force from an enclosing sequence does not suppress a
+        nested lambda's own tail return).
+      * `i1ins_go1emit_block` (if/case/let-in): `retq = if force then false else
+        i1ins_fully_returnsq`.
+      * `i1cmp_go1emit` / `i1cmp_go1emit_tnm`: when forced, the trailing block
+        assigned its temp (did NOT return), so the discard / bridge-assignment
+        (`_ = ival` / `itnm = ival`) MUST fire (else the temp is "declared and
+        not used"). This bridges the nested value-mode temps (let-in temp ←
+        inner-if temp).
+    All set-TRUE sites are **gated on `go_arm_getq()`**: this non-tail
+    fully-returning-block pattern only arises in the go-arm gseq lowering, so the
+    byte-frozen JS suite (75/75) and rungs 1‑8 are provably untouched (the gate
+    is never taken off-arm; verified byte-equal).
+
+Result: rung 9 emits `ns = optn(10)\n|ns| = 1\nhead(ns) = 10\n\n` — byte-equal to
+the prelude's documented gseq format (`gseq$beg="optn("`, `$sep=","`, `$end=")"`).
+The container-structural-print chain (`g_print` over a datatype via the gseq
+counter) is now fully self-hosting-ready — the shape the emitter's own
+`prints(..., list, ...)` IR dumps need.

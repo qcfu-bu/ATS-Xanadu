@@ -53,6 +53,7 @@ dispatch, emitting Go. Only the constructors the M1 walking skeleton
 #staload "./../SATS/intrep1.sats"
 #staload "./../SATS/xats2go.sats"
 #staload "./../SATS/go1emit.sats"
+#staload "./../SATS/go1emit_byref0.sats"
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -665,7 +666,16 @@ case+ tdxp of
 //
 |TEQI1CMPsome
 (teq1, icmp) =>
-(
+let
+  // A val-decl's computation is NEVER in function-tail position (the let-body's
+  // result is what returns), so a trailing fully-returning if/case in it must
+  // emit in VALUE mode -- not `return` (which would escape the enclosing func:
+  // the go-arm gseq `beg; iterate; end` suffix-print bug).  GATED on go-arm so
+  // the byte-frozen JS suite + rungs 1-8 are untouched.
+  val saved_bfv = block_force_value_get()
+  val () = (if go_arm_getq() then block_force_value_set(true) else ())
+  val () =
+  (
 if
 isunit
 then//then
@@ -717,6 +727,10 @@ case+ ipat.node() of
     strnfpr(filr, "_ = "); i1tnmgo1(filr, itnm); strnfpr(filr, "\n")
   end
 ))
+  val () = block_force_value_set(saved_bfv)
+in//let
+  ((*void*))
+end//let
 //
 end//let//endof[i1valdcl_go1emit(idcl,env0)]
 //

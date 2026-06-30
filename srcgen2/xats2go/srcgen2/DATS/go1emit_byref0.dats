@@ -160,6 +160,31 @@ end(*local*)//endof[local(the_go_arm_ref)]
 //
 local
 //
+// BLOCK-FORM RETURN-MODE GATE.  Default false (genuine-tail behavior); set true
+// by [i1letlst_go1emit_p] around a NON-LAST let.  See the SATS.
+val
+the_block_force_value_ref =
+a0ref_make_1val<bool>(false)
+//
+in//local
+//
+#implfun
+block_force_value_set
+(b) =
+  a0ref_set<bool>(the_block_force_value_ref, b)
+//
+#implfun
+block_force_value_get
+((*void*)) =
+  a0ref_get<bool>(the_block_force_value_ref)
+//
+end(*local*)//endof[local(the_block_force_value_ref)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+local
+//
 // the nullary-instance temp -> result-func-param-type map (go-arm higher-order
 // path).  A linear assoc list of (stamp, paramty-string).  See SATS.
 #typedef nient = @(stamp, strn)
