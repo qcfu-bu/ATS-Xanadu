@@ -906,3 +906,105 @@ func Xats_tup_get(t any, i int) any {
 	}
 	return v.Field(i).Interface()
 }
+
+// -- intrep0 IR-type accessor floor -----------------------------------------
+//
+// The Go emitter (the 18 srcgen2/DATS/go1emit_*.dats modules) reads its INPUT
+// IR through abstract-type method selectors -- `ipat.node()`, `iexp.lctn()`,
+// etc. Those selectors resolve (via #symload) to the intrep0 accessor
+// functions `i0pat_node$get`, `i0exp_lctn$get`, ... which d2cstgo1 routes to
+// `xatsgo.Xats_i0pat_node_get`, `xatsgo.Xats_i0exp_lctn_get`, ... (abstract
+// `tbox` accessors are runtime-ABI constants, the SAME boundary as list/strn/
+// tuple ops). When the emitter is compiled to a standalone Go program, these
+// names must be provided by the runtime floor -- intrep0 itself is not part of
+// the assembled emitter package.
+//
+// Every intrep0 carrier is a SINGLE-constructor datatype, so it reaches the Go
+// runtime as a `*XatsCon` with the constructor's value args in source order
+// (Tag 0). Each accessor is therefore a fixed positional field read; the
+// indices below mirror the `datatype` definitions in
+// xats2cc/srcgen1/DATS/intrep0.dats verbatim.
+func xatsIRfield(p any, i int) any {
+	if c, ok := p.(*XatsCon); ok && i >= 0 && i < len(c.Args) {
+		return c.Args[i]
+	}
+	return XATSNIL()
+}
+
+// i0exp = I0EXP of (loctn, i0typ, i0exp_node)
+func Xats_i0exp_lctn_get(p any) any { return xatsIRfield(p, 0) }
+func Xats_i0exp_ityp_get(p any) any { return xatsIRfield(p, 1) }
+func Xats_i0exp_node_get(p any) any { return xatsIRfield(p, 2) }
+
+// i0pat = I0PAT of (loctn, i0typ, i0pat_node)
+func Xats_i0pat_lctn_get(p any) any { return xatsIRfield(p, 0) }
+func Xats_i0pat_ityp_get(p any) any { return xatsIRfield(p, 1) }
+func Xats_i0pat_node_get(p any) any { return xatsIRfield(p, 2) }
+
+// i0pat_make_ityp$node(loc, ityp, node) = I0PAT(loc, ityp, node)
+func Xats_i0pat_make_ityp_node(loc any, ityp any, node any) any {
+	return &XatsCon{Tag: 0, Args: []any{loc, ityp, node}}
+}
+
+// i0dcl = I0DCL of (loctn, i0dcl_node)
+func Xats_i0dcl_lctn_get(p any) any { return xatsIRfield(p, 0) }
+func Xats_i0dcl_node_get(p any) any { return xatsIRfield(p, 1) }
+
+// i0typ = I0TYP of (sort2, i0typ_node)
+func Xats_i0typ_node_get(p any) any { return xatsIRfield(p, 1) }
+
+// i0var = I0VAR of (d2var, sint lvl0, sint bvk0, i0typ)
+func Xats_i0var_dvar_get(p any) any { return xatsIRfield(p, 0) }
+func Xats_i0var_ityp_get(p any) any { return xatsIRfield(p, 3) }
+
+// i0fundcl = I0FUNDCL of (loc_t, sint lvl0, d2var dpid, d2varlst, fiarglst farg, teqi0exp tdxp, i0varlst)
+func Xats_i0fundcl_lctn_get(p any) any { return xatsIRfield(p, 0) }
+func Xats_i0fundcl_dpid_get(p any) any { return xatsIRfield(p, 2) }
+func Xats_i0fundcl_farg_get(p any) any { return xatsIRfield(p, 4) }
+func Xats_i0fundcl_tdxp_get(p any) any { return xatsIRfield(p, 5) }
+
+// i0vardcl = I0VARDCL of (loctn, i0var dpid, teqi0exp dini)
+func Xats_i0vardcl_lctn_get(p any) any { return xatsIRfield(p, 0) }
+func Xats_i0vardcl_dpid_get(p any) any { return xatsIRfield(p, 1) }
+func Xats_i0vardcl_dini_get(p any) any { return xatsIRfield(p, 2) }
+
+// i0valdcl = I0VALDCL of (loctn, i0pat ipat, teqi0exp tdxp)
+func Xats_i0valdcl_lctn_get(p any) any { return xatsIRfield(p, 0) }
+func Xats_i0valdcl_ipat_get(p any) any { return xatsIRfield(p, 1) }
+func Xats_i0valdcl_tdxp_get(p any) any { return xatsIRfield(p, 2) }
+
+// i0gua = I0GUA of (loctn, i0gua_node)
+func Xats_i0gua_lctn_get(p any) any { return xatsIRfield(p, 0) }
+func Xats_i0gua_node_get(p any) any { return xatsIRfield(p, 1) }
+
+// i0gpt = I0GPT of (loctn, i0gpt_node)
+func Xats_i0gpt_lctn_get(p any) any { return xatsIRfield(p, 0) }
+func Xats_i0gpt_node_get(p any) any { return xatsIRfield(p, 1) }
+
+// i0cls = I0CLS of (loctn, i0cls_node)
+func Xats_i0cls_lctn_get(p any) any { return xatsIRfield(p, 0) }
+func Xats_i0cls_node_get(p any) any { return xatsIRfield(p, 1) }
+
+// fiarg = FIARG of (loctn, fiarg_node)
+func Xats_fiarg_lctn_get(p any) any { return xatsIRfield(p, 0) }
+func Xats_fiarg_node_get(p any) any { return xatsIRfield(p, 1) }
+
+// t0imp = T0IMP of (stamp, t0imp_node)
+func Xats_t0imp_stmp_get(p any) any { return xatsIRfield(p, 0) }
+func Xats_t0imp_node_get(p any) any { return xatsIRfield(p, 1) }
+
+// i0parsed = I0PARSED of (sint stadyn, sint nerror, lcsrc source, i0dclistopt parsed)
+func Xats_i0parsed_stadyn_get(p any) any { return xatsIRfield(p, 0) }
+func Xats_i0parsed_nerror_get(p any) any { return xatsIRfield(p, 1) }
+func Xats_i0parsed_source_get(p any) any { return xatsIRfield(p, 2) }
+func Xats_i0parsed_parsed_get(p any) any { return xatsIRfield(p, 3) }
+
+// strn_fprint(s, filr): write the string body s to a FILR-like writer (mirrors
+// Xats_XATS2GO_chrfpr's writer handling). The emitter's strnfpr lowers to this.
+func Xats_strn_fprint(s any, filr any) any {
+	str, _ := s.(string)
+	if w, ok := filr.(interface{ Write([]byte) (int, error) }); ok {
+		_, _ = w.Write([]byte(str))
+	}
+	return XATSNIL()
+}
