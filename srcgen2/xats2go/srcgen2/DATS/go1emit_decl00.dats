@@ -715,16 +715,21 @@ case+ ipat.node() of
     val () = i1letlst_go1emit(ilts, icmp, env0)
     val gty = gotype_of_ival(ival)
     val dcq = i0pat_dataconq(ipat)
+    // datacon-scrutinee coercion: bind the matched value as the uniform boxed
+    // datatype *xatsgo.XatsCon.  Use [Xats_as_con] (an `any`->*XatsCon helper)
+    // rather than a bare `.(*xatsgo.XatsCon)` assert: the assert is INVALID Go
+    // when [ival] already has concrete *XatsCon type (e.g. the value is a node
+    // accessor result whose recovered emitted type is conservatively "any"),
+    // whereas [Xats_as_con] accepts BOTH an interface and a concrete *XatsCon
+    // (the concrete value auto-boxes to the `any` param), so the coercion is
+    // idempotent.  Same runtime value either way -> program output unchanged.
+    val wrapq = (if dcq then (gty = "any") else false)
   in
     nindfpr(filr, nind);
     i1tnmgo1(filr, itnm); strnfpr(filr, " := ");
+    (if wrapq then strnfpr(filr, "xatsgo.Xats_as_con(") else ((*void*)));
     i1valgo1(filr, ival);
-    if dcq
-      then
-      (
-        if (gty = "any")
-          then strnfpr(filr, ".(*xatsgo.XatsCon)") else ((*void*)))
-      else ((*void*));
+    (if wrapq then strnfpr(filr, ")") else ((*void*)));
     strnfpr(filr, "\n");
     nindfpr(filr, nind);
     strnfpr(filr, "_ = "); i1tnmgo1(filr, itnm); strnfpr(filr, "\n")
