@@ -28,8 +28,29 @@ for f in "$X"/srcgen2/xats2go/srcgen2/DATS/*.dats; do
   printf "\n" >> "$OUT/src/emitter_all.go"
   n=$((n+1))
 done
+
+# 1b. emit the designated FRONTEND modules (host-compiler library, from
+#     srcgen2/DATS) and append them the same way.  These resolve the
+#     package-routed frontend symbols (stamp_cmp_<N>, ...) the emitter calls;
+#     the bundle assigns STABLE stamps across separately-emitted modules, so a
+#     frontend def `stamp_cmp_1903` matches the emitter call site `stamp_cmp_1903`.
+FRONTEND="xstamp0"
+fn=0
+for m in $FRONTEND; do
+  f="$X/srcgen2/DATS/$m.dats"
+  node --stack-size=8801 "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
+  awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
+  awk 'BEGIN{started=0}
+       /^func main\(\) \{/{inmain=1}
+       inmain{next}
+       /^func /{started=1}
+       started{print}' "$EMIT/$m.go" >> "$OUT/src/emitter_all.go"
+  printf "\n" >> "$OUT/src/emitter_all.go"
+  fn=$((fn+1))
+done
+
 printf '\nfunc main() { xatsgo.XATS2GO_flush_pending() }\n' >> "$OUT/src/emitter_all.go"
-echo ">> assembled $n modules -> $OUT/src/emitter_all.go ($(wc -l < "$OUT/src/emitter_all.go") lines)"
+echo ">> assembled $n emitter + $fn frontend modules -> $OUT/src/emitter_all.go ($(wc -l < "$OUT/src/emitter_all.go") lines)"
 
 # 2. go module
 printf 'module selfhostemit\n\ngo 1.26\n\nrequire xatsgo v0.0.0\nreplace xatsgo => %s\n' "$RUNTIME" > "$OUT/src/go.mod"

@@ -488,6 +488,24 @@ var Xats_gint_gte_sint_sint = func(i1 any, i2 any) any { return i1.(int) >= i2.(
 var Xats_gint_eq_sint_sint = func(i1 any, i2 any) any { return i1.(int) == i2.(int) }
 var Xats_gint_neq_sint_sint = func(i1 any, i2 any) any { return i1.(int) != i2.(int) }
 
+// uint ops for the emitted frontend floor (xstamp0: stamp == uint boxed as int).
+// [eq]/[cmp] return bool/int (NOT boxed `any`) because the emitter types their
+// results from the SATS return type and emits the value bare (`return <r>` in a
+// bool/int function), so the runtime Go type must match.
+var Xats_gint_sint2uint = func(i any) any { return i.(int) }
+var Xats_gint_suc_uint = func(i any) any { return i.(int) + 1 }
+var Xats_gint_eq_uint_uint = func(i1 any, i2 any) bool { return i1.(int) == i2.(int) }
+var Xats_gint_cmp_uint_uint = func(i1 any, i2 any) int {
+	a, b := i1.(int), i2.(int)
+	if a < b {
+		return -1
+	}
+	if a > b {
+		return 1
+	}
+	return 0
+}
+
 var Xats_g_eq = func(x1 any, x2 any) bool {
 	if x1 == nil || x2 == nil {
 		return x1 == x2
