@@ -1063,3 +1063,58 @@ The reverts leave the tree at the committed 319 state. The durable wins remain:
 rune-escape fix; intrep0 IR-type accessor floor (-212); idempotent
 datacon-scrutinee coercion (over-assert 51 -> 0); block_force_value ungate
 (block-hoist 9 -> 0).
+
+## Emitter-self-host: the frontend boundary is EMITTABLE (bucket 1 validated)
+
+The largest bucket (frontend-library accessors, package-routed `name_<stamp>`
+symbols the emitter calls) is resolved structurally by EMITTING the host-compiler
+library module by module through the same bundle and appending each to the
+assembly. This session validated the path end-to-end and applied it to two
+modules; the assembled-emitter build went **319 -> 294**.
+
+### Why it works: stamps are stable across separately-emitted modules
+The decisive fact: the bundle assigns the SAME d2cst stamp to a frontend symbol
+regardless of which `.dats` is being emitted, because the base-SATS load order is
+deterministic. So a frontend DEFINITION `stamp_cmp_1903` (emitting
+srcgen2/DATS/xstamp0.dats) matches the emitter CALL site `stamp_cmp_1903` -- the
+package-routed symbols link by construction. Verified for stamp_cmp_1903,
+symbl_get_name_2206, s2cst_get_name_6998. (This is the same reason the 18 emitter
+modules already cross-link by stamp.)
+
+### Mechanics
+- `assemble.sh` grew a `FRONTEND=` list; each named module in srcgen2/DATS is
+  emitted (sentinels extracted, header + trailing `main` stripped) and appended
+  alongside the 18 emitter modules. Module globals survive: the emitter emits
+  them as package vars + `init()` AFTER the funcs, so the strip keeps them.
+- Each frontend module's emitted body depends only on `xatsgo.*` runtime prims
+  (its own funcs resolve locally); missing prims are added to the runtime floor,
+  exactly like the intrep0 IR-accessor floor.
+
+### Modules landed
+- **xstamp0** (125 ln): stamp/stamper/stamp_cmp. +4 uint prims. Resolved
+  stamp_cmp x8 + stamper_*; 319 -> 309, 0 new undefined (self-contained).
+- **xsymbol** (293 ln): symbl/symbl_get_name/symbl_cmp + interned table. +5 prims
+  (incl. strn_strmize as an eager char cons-list matching strmcon_vt Tag 0/1).
+  Resolved symbl_* 23 -> 2; 309 -> 294. Pulled its table dep (mydict_* -> 3 new
+  undefined) -- the expected frontend cascade.
+
+### Module-dependency map for the remaining frontend symbols
+Probed, in dependency order (each builds on the prior):
+- s2typ_get_node (18) is in **statyp2** (NOT staexp2).
+- s2cst_* is in **staexp2** (1837 ln; emits 0 UNHANDLED; new deps castlin10,
+  list_nilq, list_pair, and **list_map** -- a template method that hits the
+  Task #8 `$fwork`-threading subsystem, the one cross-bucket entanglement).
+- d2cst_* (23) / d2var_* (19) / d2con_* are in **dynexp2** (2429 ln), which
+  depends on staexp2/statyp2.
+- mydict_* in lexing0_mymap0; topmap_* in xsymmap_topmap (350 ln); token_* in a
+  lexing module.
+The core trio (statyp2 + staexp2 + dynexp2, ~4300 ln, interdependent) is the big
+remaining prize; it emits without UNHANDLED but entangles with the template-
+method subsystem via `list_map`, so it is best done as a focused multi-module
+pass (emit the trio + close the list_map template dep together).
+
+### Session tally: 591 -> 294 (seven verified commits)
+rune-escape fix; intrep0 IR-type accessor floor (-212); idempotent
+datacon-scrutinee coercion (over-assert 51 -> 0); block_force_value ungate
+(block-hoist 9 -> 0); xstamp0 + xsymbol frontend modules (-25). Every step
+rungs 1-12 + JS 75/75 byte-equal.
