@@ -1145,3 +1145,33 @@ xsymbol) are done; the rest of bucket 1 is a single focused batch:
 That is a focused multi-module effort, not an incremental single add -- best run
 fresh rather than at a session tail. Assembled-emitter build stands at 294
 (committed: xstamp0 + xsymbol); the marathon session's tally is 591 -> 294.
+
+## Task #8 (template threading): the fix is in trxi0i1, not the emitter gate
+
+Direct investigation this round, comparing a WORKING go-arm template (rung12
+`exists`) against a FAILING one (staexp2 `list_map`):
+- **rung12 `exists`** (go-arm): fully INLINED. The `$pred` worker is emitted as a
+  Go closure and threaded into an inlined recursive loop -- no runtime call.
+- **staexp2 `list_map`** source: `list_map(s2vs) where { #impltmp
+  map$fopr<s2var><sort2> = s2var_get_sort }`. Emitted -- WITH OR WITHOUT
+  `--go-arm` -- as `goxtnm365 := xatsgo.Xats_list_map; goxtnm366 :=
+  goxtnm365(goxtnm363)`: the `map$fopr` worker (the "skipped non-val dcl") is
+  DROPPED and the call shortcuts to a 1-arg runtime prim.
+
+So go-arm body-emission is CONDITIONAL on the pipeline having attached the
+template instance's I1Dimplmnt0 body (t1imp_i1dclq = cons). `exists` gets a body
+attached; this `list_map` instantiation does NOT, so both modes shortcut and drop
+the worker. The `--go-arm` flag is therefore NOT the fix -- staexp2 with
+`--go-arm` still shows `Xats_list_map` (2x) and adds zero XATS2GO_ leaves.
+
+Consequence: closing Task #8 (and thus the core-frontend batch that needs
+`list_map`) requires a change in **trxi0i1** instance resolution -- make it attach
+the prelude body for the list/optn template-methods so the emitter inlines the
+worker (as it already does for `exists`) -- OR have the emitter synthesize the
+worker-forwarding at the shortcut point. Both are pipeline-depth changes that
+touch code the passing rungs exercise, so they carry real regression risk and
+belong in a focused, byte-gated effort. This is the highest-leverage single
+target: it unblocks templates (bucket) AND the core frontend (bucket 1's tail).
+
+Session tally holds at 591 -> 294; this round mapped Task #8 to its root
+(trxi0i1 instance-body attachment) rather than reducing the count.
