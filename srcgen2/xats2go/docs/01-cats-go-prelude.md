@@ -1003,3 +1003,63 @@ intrep0 IR-type accessor floor (-212); idempotent datacon-scrutinee coercion
 template prims -> Task #8) + under-assert 87 + cannot-use 14 + misc 25 (15
 unused, 8 non-bool, 2 arith) -- the coercion/emitted-type table (Task #10) and
 the frontend/template subsystems.
+
+## Emitter-self-host: under-assert subsystem — three failed probes, one diagnosis
+
+This section records THREE incremental fixes for the under-assert cluster
+(bucket 5, 87 `need type assertion` + 8 non-bool + 2 arith) that were each
+implemented, measured, and REVERTED because they did not converge. Together they
+pin down why the cluster is a coordinated subsystem, not a set of local patches.
+Baseline throughout: 319 assembled-emitter errors, rungs 1-12 + JS 75/75 byte-equal.
+
+### Probe A — if-condition `.(bool)` boundary (reverted, inert)
+Added `.(bool)` after an `if` test emitted-`any`. Fired 0 times: the failing
+conditions are `if xatsgo.Xats_tup_get(...datacon.Args[i]..., 0)` -- a tuple
+field OFF an erased datacon field. `i1val_emitted_anyq` bottoms out only at a
+DIRECT `I1Vp1cn` root (not a projection-of-a-projection), and `gotype_of_ival`
+returns the LOGICAL `bool`, not the EMITTED `any`. Neither oracle reports the
+emitted-`any` truth. 319 -> 319.
+
+### Probe B — per-binding emitted-type recording (reverted, inert)
+Recorded `goemit_ty := "any"` at the ordinary-binding site for erased
+`I1INSpcon` projections and flat copies `goxtnm := goxtnmB` (`I1INSflat`).
+Correct and regression-clean, but 319 -> 319: recording the SOURCE emitted-`any`
+does nothing unless the USE-site boundary consumes it, and the dominant use
+(a `strnfpr` argument) has NO working boundary (see Probe C).
+
+### Probe C — funparamtys arg-ptys table (reverted, net-negative)
+Verified first that the ARG boundary (`i1valgo1_list_argtyped`) produces ZERO
+assertions anywhere in the assembly, while the RETURN/ASSIGN boundaries assert
+`.(T)` 39 times -- and that the SAME value (a `nient_find(...) any` result) is
+asserted at `return` (`goxtnm101`) but NOT as an argument (`goxtnm122`). So the
+source IS recorded emitted-`any`; the arg boundary alone fails. Root cause: it
+recovers param types via `gotypes_of_funstyp(d2var_get_styp(callee))`, and the
+callee d2var's OWN styp does not decode a local helper's signature at the call
+site -> empty ptys -> nothing asserted.
+Fix attempted: a `funparamtys` table (mirroring `funretty`) recording each
+function's Go param types at its DEFINITION (where the d2cst styp yields them)
+keyed by d2var stamp, read at the I1Vfenv call. Result 319 -> 324 (WORSE):
+(1) the primary target `strnfpr` reaches `i1fundcl_go1emit` with `dcopt =
+optn_nil`, so its `argtys` is `[]` and nothing is recorded for it; (2) functions
+that DID record ptys produced arg-asserts that introduced +4 undefined and +1
+new under-assert downstream. So even a correct param-type table does not close
+it, and perturbs adjacent emission.
+
+### Diagnosis
+The three probes fail at three DIFFERENT layers (recognition oracle; use-site
+boundary coverage; param-type recovery + downstream perturbation), which is the
+signature of a subsystem that needs ONE coherent redesign rather than layered
+patches: a single source of truth for every value's EMITTED Go type (distinct
+from its logical type), computed once per binding and consumed UNIFORMLY by all
+boundaries (arg, return, assign, if, projection). Until that exists, each local
+assertion patch just relocates the mismatch. The over-assert direction is
+already solved this way in miniature (idempotent `Xats_as_con`); the under-assert
+direction needs the same idempotent-coercion discipline generalized to
+string/rune/int/bool with an accurate emitted-type table behind it -- Task #10,
+confirmed as a standalone build, not an incremental tail.
+
+### Session tally unchanged: 591 -> 319 (five verified commits)
+The reverts leave the tree at the committed 319 state. The durable wins remain:
+rune-escape fix; intrep0 IR-type accessor floor (-212); idempotent
+datacon-scrutinee coercion (over-assert 51 -> 0); block_force_value ungate
+(block-hoist 9 -> 0).
