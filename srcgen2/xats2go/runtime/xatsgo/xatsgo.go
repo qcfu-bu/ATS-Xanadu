@@ -505,6 +505,31 @@ var Xats_gint_cmp_uint_uint = func(i1 any, i2 any) int {
 	}
 	return 0
 }
+var Xats_gint_neg_sint = func(i any) any { return -i.(int) }
+var Xats_gint_uint2sint = func(i any) any { return i.(int) }
+
+// g_free: generic free.  Go is garbage-collected, so this is a no-op.  Kept so
+// the emitted frontend (which frees linear values explicitly) type-checks.
+var Xats_g_free = func(x any) any { return XATSNIL() }
+
+// XATSOPT_strn_append_uint(name, stmp): append the uint's decimal digits to a
+// string (xsymbol's symbl_extend_stamp builds "name<stmp>").
+var Xats_XATSOPT_strn_append_uint = func(name any, stmp any) any {
+	return name.(string) + strconv.Itoa(stmp.(int))
+}
+
+// strn_strmize(s): a char STREAM over s (strm_vt(cgtz)).  The frontend consumes
+// it via strmcon_vt_nil()/strmcon_vt_cons(c, cs) -- i.e. Tag 0 / Tag 1 with
+// Args[0]=char(int32), Args[1]=tail.  A finite string needs no laziness, so build
+// the equivalent EAGER char cons-list (same Tag/Args shape -> identical matches).
+var Xats_strn_strmize = func(s any) any {
+	rs := []rune(s.(string))
+	acc := &XatsCon{Tag: 0, Args: nil}
+	for i := len(rs) - 1; i >= 0; i-- {
+		acc = &XatsCon{Tag: 1, Args: []any{int32(rs[i]), acc}}
+	}
+	return acc
+}
 
 var Xats_g_eq = func(x1 any, x2 any) bool {
 	if x1 == nil || x2 == nil {

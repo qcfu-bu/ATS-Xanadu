@@ -34,7 +34,7 @@ done
 #     package-routed frontend symbols (stamp_cmp_<N>, ...) the emitter calls;
 #     the bundle assigns STABLE stamps across separately-emitted modules, so a
 #     frontend def `stamp_cmp_1903` matches the emitter call site `stamp_cmp_1903`.
-FRONTEND="xstamp0"
+FRONTEND="xstamp0 xsymbol"
 fn=0
 for m in $FRONTEND; do
   f="$X/srcgen2/DATS/$m.dats"
