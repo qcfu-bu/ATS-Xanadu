@@ -676,7 +676,13 @@ let
   // the go-arm gseq `beg; iterate; end` suffix-print bug).  GATED on go-arm so
   // the byte-frozen JS suite + rungs 1-8 are untouched.
   val saved_bfv = block_force_value_get()
-  val () = (if go_arm_getq() then block_force_value_set(true) else ())
+  // A val-decl's computation is never in function-tail position, so force VALUE
+  // mode for its trailing block-forms.  UNGATED from go_arm: the fix is correct
+  // in general, and the ONLY non-go-arm Go consumer is the self-host assembly
+  // (which needs it -- else a non-tail case-arg leaks `return` and its result
+  // temp goes undefined).  go-arm rungs already ran with go_arm=true so their
+  // emission is unchanged; the JS suite uses a different emitter.
+  val () = block_force_value_set(true)
   val () =
   (
 if

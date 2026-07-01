@@ -3443,7 +3443,10 @@ case+ ilts of
       // fully-returning block-form) only arises in the go-arm gseq lowering.
       val saved = block_force_value_get()
     in
-      (if go_arm_getq() then block_force_value_set(true) else ());
+      // UNGATED from go_arm (see i1valdcl_go1emit): a non-last let's block-form
+      // must emit in VALUE mode in every mode; the self-host assembly (non-go-arm)
+      // depends on it, and go-arm rungs / the JS suite are unaffected.
+      block_force_value_set(true);
       i1let_go1emit_p(ilt1, scp, params, bnds, env0);
       block_force_value_set(saved);
       i1letlst_go1emit_p(list_cons(ilt2, ilts2), scp, params, bnds, env0)
