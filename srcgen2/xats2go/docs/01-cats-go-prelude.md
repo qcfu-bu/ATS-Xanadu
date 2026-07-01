@@ -1175,3 +1175,35 @@ target: it unblocks templates (bucket) AND the core frontend (bucket 1's tail).
 
 Session tally holds at 591 -> 294; this round mapped Task #8 to its root
 (trxi0i1 instance-body attachment) rather than reducing the count.
+
+## Task #8 DEFINITIVE root cause: the go-arm prelude provides the inlinable bodies
+
+A controlled experiment settled it. rung12 uses
+`list_exists(xs) where { #impltmp exists$test<sint>(x0) = (x0>=10) }` and inlines
+perfectly; staexp2 uses the IDENTICAL shape
+`list_map(s2vs) where { #impltmp map$fopr<...> = s2var_get_sort }` and drops the
+worker. The only structural difference: rung12 `#include`s
+`prelude/HATS/prelude_GO_dats.hats`; staexp2 (a compiler source) includes the
+compiler's own `xatsopt_dats.hats`.
+
+Test: a minimal program using `list_map` WITH the prelude_GO include, emitted
+`--go-arm`, INLINES it (0 `Xats_list_map`; the map becomes a recursive Go loop
+applying the `map$fopr` worker). So `list_map` is fully inlinable -- the emitter
+already does it -- IFF the go-arm prelude bodies are loaded. The compiler/frontend
+modules do NOT load them, which is why every template-method call in the assembly
+(frontend AND emitter, e.g. i1vardclist_go1emit's list_foritm) drops its worker.
+
+Two consequences for closing Task #8 / the core-frontend batch:
+1. The assembled modules must be emitted with the go-arm prelude template bodies
+   in scope (they currently load xatsopt_dats.hats, not prelude_GO_dats.hats).
+   This is a build/prelude-wiring change, not an emitter gate -- `--go-arm` alone
+   does nothing without those bodies loaded (verified: staexp2 --go-arm still
+   drops list_map).
+2. Some inlined bodies hit emitter gaps: `list_map` over a `list(a)` resolves to
+   the LINEAR `list000_vt.dats` map, which emits `UNHANDLED: i1val` (a vt/linear
+   construct the go emitter does not cover). So the template unblock also needs
+   vt-list coverage (or persistent-list resolution) for the affected calls.
+
+Net: Task #8 is a build-config + prelude-wiring + emitter-coverage effort, not a
+bounded patch -- but now fully root-caused with a reproduction. Session build
+holds at 294 (591 -> 294 overall); this round produced the decisive diagnosis.
