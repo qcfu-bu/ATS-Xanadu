@@ -1118,3 +1118,30 @@ rune-escape fix; intrep0 IR-type accessor floor (-212); idempotent
 datacon-scrutinee coercion (over-assert 51 -> 0); block_force_value ungate
 (block-hoist 9 -> 0); xstamp0 + xsymbol frontend modules (-25). Every step
 rungs 1-12 + JS 75/75 byte-equal.
+
+## Frontend emission: clean single modules are exhausted; the core is a batch
+
+Two more probes pinned the boundary between "clean single-module add" and "must
+batch". A module is a clean add ONLY if every bare `_<stamp>` symbol its emitted
+body references is either self-defined, an already-included module, or an
+xatsgo prim. Verified with a defined-vs-referenced diff:
+- **lexing0_mymap0 (mydict)**: ATTEMPTED, REVERTED. Defines the 3 emitter-called
+  mydict_* (stamps matched) but its body references 6 MORE mydict internals that
+  are undefined -> 294 -> 297 (net +3). A generic-container module whose concrete
+  instances are scattered is NOT self-contained.
+- **statyp2 (s2typ)**: PROBED. Emits 0 UNHANDLED; s2typ_get_node_6796 matches the
+  call site. But defines 28 bare symbols while referencing 50, ~20 of them NEW
+  external deps: s2cst_/s2exp_ (staexp2), s2var_, sort2_, l2t2plst_, token_,
+  the_s2typ_* globals. So it churns net-negative-to-neutral alone.
+
+Conclusion (data-backed): the core static/dynamic type modules form ONE
+interdependent closure -- statyp2 <-> staexp2 <-> dynexp2 plus sort2, token,
+s2var, l2t2plst -- that only nets down when added TOGETHER, and the closure pulls
+the `list_map` template method (Task #8). The clean concrete modules (xstamp0,
+xsymbol) are done; the rest of bucket 1 is a single focused batch:
+  emit {statyp2, staexp2, dynexp2, sort2, token, s2var, l2t2plst, ...} at once
+  + implement the list_map/$fwork template threading (Task #8)
+  + add the batch's runtime-prim closure.
+That is a focused multi-module effort, not an incremental single add -- best run
+fresh rather than at a session tail. Assembled-emitter build stands at 294
+(committed: xstamp0 + xsymbol); the marathon session's tally is 591 -> 294.
