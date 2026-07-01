@@ -907,3 +907,54 @@ is a self-contained codegen-shape fix. The i0* floor in this round proves the
 pattern: where a boundary is pure abstract-type field-reads that already route
 to the runtime, a small correct floor erases a whole error class at zero
 regression risk (rungs 1-12 + JS 75/75 byte-equal throughout).
+
+## Emitter-self-host: over-assert eliminated, coercion tail refined (591->328)
+
+Follow-up round. The assembled Go emitter build went **379 -> 328** by
+eliminating the coercion OVER-assert class entirely.
+
+### Over-assert fix (bucket 4): 51 -> 0
+Root cause pinned: the datacon-scrutinee val-binding
+(`i1valdcl_go1emit`, else-arm) coerced its matched value with a bare
+`<ival>.(*xatsgo.XatsCon)` assert, gated on `gotype_of_ival(ival) = "any"`.
+But `gotype_of_ival` conservatively returns "any" for values whose REAL Go type
+is already concrete `*XatsCon` -- a node accessor result (`i1dcl_node_get(...)
+: *XatsCon`) or a self-asserting field projection (`...Args[i].(*XatsCon)`).
+Go rejects a type assertion whose operand is not an interface, so the emitted
+`<concrete>.(*XatsCon)` (and the double `....(*XatsCon).(*XatsCon)` on
+projections) was invalid.
+Fix: emit `xatsgo.Xats_as_con(<ival>)` -- an `any`->*XatsCon helper -- instead
+of the bare append. It accepts BOTH an interface operand (asserts) AND an
+already-concrete `*XatsCon` (auto-boxes to the `any` param, then asserts), so
+the coercion is idempotent and always valid Go, with the same runtime value.
+The KEY enabling fact: the rung gate is byte-equal program OUTPUT
+(`cmp out.txt golden`), NOT emitted Go text -- so a coercion whose runtime value
+is unchanged is free to change form. Result: `is not an interface` 51 -> 0, no
+new errors, rungs 1-12 + JS 75/75 byte-equal.
+
+### The under-assert cluster refined (bucket 5, 87): operand census
+`need type assertion` errors are the inverse -- an `any`-emitted value reaching
+a concrete param without a `.(T)`. The existing arg-boundary
+(`i1valgo1_list_argtyped` + `i1val_emitted_anyq`) DOES assert, but only when the
+arg is RECOGNIZED as emitted-`any` (recorded goemit_ty="any", or an erased
+datacon-field projection). The 87 misses census by operand shape:
+- **70 bare temps** (`goxtnm<N>`) -- an `I1Vtnm` whose `goemit_ty` is UNRECORDED
+  (returns "" != "any"), so the boundary skips it though Go emits it as `any`.
+- **12 tuple-field projections** (`goxtnm<N>.F<i>`) with an `any` field type.
+- **5 `Xats_tup_get(...)` results** (reflective tuple read -> `any`).
+By target type: 53 want `string` (24 to `strnfpr`, the string sink), 25 want
+`*xatsgo.XatsCon`, 7 `rune`, 2 `int`.
+This is NOT a surgical patch: the 70 bare temps require recording EVERY temp
+binding's emitted Go type (the comprehensive emitted-type table, Task #10); the
+17 projection cases need the tuple's field types, also the table. An
+unconditional idempotent-wrap shortcut (emit `Xats_as_<pty>(arg)` for every
+concrete-scalar param) would compile but trusts `pty` precision at RUNTIME --
+if the recovered param type is imprecise it turns a currently-correct bare arg
+into a runtime panic, breaking rung output. So the correct fix is the table,
+not the shortcut.
+
+### Standing tally (328)
+undefined 202 (178 compiler-library accessors -> emit the frontend; 15 template
+prims -> Task #8; 9 block-hoist -> Task #11) + under-assert 87 (Task #10) +
+cannot-use 14 + misc 2. Three verified emitter/runtime deltas this session took
+the assembled build 591 -> 328, every step rungs 1-12 + JS 75/75 byte-equal.
