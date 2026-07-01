@@ -958,3 +958,48 @@ undefined 202 (178 compiler-library accessors -> emit the frontend; 15 template
 prims -> Task #8; 9 block-hoist -> Task #11) + under-assert 87 (Task #10) +
 cannot-use 14 + misc 2. Three verified emitter/runtime deltas this session took
 the assembled build 591 -> 328, every step rungs 1-12 + JS 75/75 byte-equal.
+
+## Emitter-self-host: block-hoist fixed (328->319) + a bucket-5 boundary confirmed
+
+### Block-expression result hoisting (bucket 3): 9 -> 0
+Root cause found: the go-arm fix that forces a NON-tail block-form (if/case) to
+emit in VALUE mode -- assign its result temp instead of `return`ing out of the
+enclosing function -- was GATED on `go_arm_getq()` at both set sites
+(`i1valdcl_go1emit`, `i1letlst_go1emit_p`). But the self-host assembly is emitted
+WITHOUT `--go-arm`, so the gate disabled the fix there: a non-tail case-expression
+used as a call ARGUMENT (`byref_register_params(fjas, case dcopt of ...)`) leaked
+`return` in its arms, so its result temp `goxtnm<N>` was never bound and every
+downstream use was undefined (9 sites).
+Ungated both sites (unconditional `block_force_value_set(true)`). Correct in
+general (a val-decl computation / a non-last let is never in function-tail
+position) and safe for every frozen test: the go-arm rungs already ran with
+go_arm=true (byte-identical emission), the JS suite uses a different emitter, and
+there is NO non-go-arm Go golden -- the only non-go-arm Go consumer IS the
+self-host assembly. Result: `undefined goxtnm` 9 -> 0, no new errors, rungs 1-12
++ JS 75/75 byte-equal.
+
+### `non-boolean condition in if` (8) is bucket 5, not a surgical fix
+Investigated and REVERTED an attempted if-condition boundary. The failing
+conditions are `if xatsgo.Xats_tup_get(...datacon.Args[i]..., 0) {` -- a tuple
+field, off an ERASED datacon field, projected reflectively -> Go `any`, used
+where Go wants `bool`. The natural gate does NOT catch them:
+- `i1val_emitted_anyq(itst)` is false -- the outer node is a tuple projection
+  whose ROOT is the erased datacon field, but the recognizer only bottoms out at
+  a direct `I1Vp1cn` root, not a projection-of-a-projection.
+- `gotype_of_ival(itst)` returns the LOGICAL type `bool`, NOT the EMITTED type
+  `any` -- exactly the recorded-vs-emitted-type split that the whole coercion
+  subsystem turns on.
+So the condition is emitted as `any` while BOTH type oracles say "not any". This
+is the defining signature of bucket 5: only a comprehensive EMITTED-type table
+(record what `i1valgo1` actually prints for each value, distinct from the value's
+logical type) closes it. The 8 if-conditions + the 87 arg under-asserts + the 2
+arithmetic mismatches are one subsystem, not independent patches.
+
+### Session tally: 591 -> 319
+Five verified deltas, each rungs 1-12 + JS 75/75 byte-equal: rune-escape fix;
+intrep0 IR-type accessor floor (-212); idempotent datacon-scrutinee coercion
+(over-assert 51 -> 0); block_force_value ungate (block-hoist 9 -> 0). Remaining
+319 = undefined 193 (178 compiler-library accessors -> emit the frontend; 15
+template prims -> Task #8) + under-assert 87 + cannot-use 14 + misc 25 (15
+unused, 8 non-bool, 2 arith) -- the coercion/emitted-type table (Task #10) and
+the frontend/template subsystems.
