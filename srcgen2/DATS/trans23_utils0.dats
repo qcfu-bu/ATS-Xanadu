@@ -158,10 +158,12 @@ not
 then
 auxmain(f3as, tfun)
 else
-let
-val-
+(
+case+ tfun.node() of
+|
 T2Puni0
-(s2vs, tfun) = tfun.node()
+(s2vs, tfun) =>
+let
 //
 val
 s2t0 = tfun.sort()
@@ -171,21 +173,36 @@ tres = auxmain(f3as, tfun)
 in//let
 s2typ_make_node
 (s2t0, T2Puni0(s2vs, tres))
-endlet // end-of-[else]
+endlet
+(*
+HX-late/CLAUDE-2026-07:
+an ERRORED decl's lambda may carry a type that does not decompose as the
+arg groups expect (the old strict val- CRASHED with XATS000_patck once
+errck-wrapped decls started flowing through trans23 instead of being
+erased).  Keep the type as-is for the remaining groups -- total, degraded,
+and unreachable for well-typed code.
+*)
+|
+_(*non-uni0*) => auxmain(f3as, tfun)
+)
 ) (* end of [F3ARGsapp(...) *)
 //
 |
 F3ARGdapp(npf1, d3ps) =>
 let
-//
-val
-s2t0 = tfun.sort((*0*))
-//
-val-
+// the sort of the WHOLE function type (captured BEFORE the destructuring
+// below rebinds [tfun] to the result part -- the original code read it
+// before its val-).
+val s2t0 = tfun.sort((*0*))
+in//let
+(
+case+ tfun.node() of
+|
 T2Pfun1
 (f2cl
 ,npf1
-,targ, tfun) = tfun.node()
+,targ, tfun) =>
+let
 //
 val
 tres = auxmain(f3as, tfun)
@@ -200,7 +217,13 @@ s2typ_make_node
 ( s2t0
 , T2Pfun1(f2cl,npf1,t2ps,tres))
 //
-end (*let*) // end of [F3ARGdapp]
+end (*let*)
+(*
+HX-late/CLAUDE-2026-07: same totalization as the F3ARGsapp case above.
+*)
+|
+_(*non-fun1*) => auxmain(f3as, tfun)
+) end//let (* end of [F3ARGdapp] *)
 //
 ) (* end of [list_cons(...)] *)
 ) (*case+*) // end of [auxmain(...)]

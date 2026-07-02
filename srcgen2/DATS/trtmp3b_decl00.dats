@@ -127,7 +127,22 @@ d3cl.node() of
 (* ****** ****** *)
 //
 |D3Cd2ecl _ => d3cl
-|D3Cerrck _ => d3cl
+|D3Cerrck
+(lvl0, d3cl1) =>
+(*
+HX-late/CLAUDE-2026-07:
+an errck-WRAPPED decl was previously passed through UNPROCESSED, so any
+template impl inside was never REGISTERED and any template instance inside
+was never RESOLVED (the F3PERR0-TIMQ1 class).  Recurse into the payload
+(registering + resolving) while KEEPING the errck wrapper.
+*)
+let
+val
+d3cl1 = trtmp3b_d3ecl(env0, d3cl1)
+in//let
+d3ecl_make_node
+(d3cl.lctn(), D3Cerrck(lvl0, d3cl1))
+end//let//end-of-[D3Cerrck(...)]
 //
 (* ****** ****** *)
 //

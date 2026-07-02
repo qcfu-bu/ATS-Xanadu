@@ -160,6 +160,17 @@ d3e0.node() of
 |D3Eaddr _ => f0_addr(env0, d3e0)
 |D3Eview _ => f0_view(env0, d3e0)
 |D3Eflat _ => f0_flat(env0, d3e0)
+|D3Elval _ => f0_lval(env0, d3e0)
+//
+(*
+HX-late/CLAUDE-2026-07:
+these node kinds postdate this walker; the old catch-all ERASED them
+(d3exp_none2), silently dropping every template instance nested inside
+(the F3PERR0-TIMQ1 class).  Each is a faithful recurse+rebuild.
+*)
+|D3Eeval _ => f0_eval(env0, d3e0)
+|D3Elabck _ => f0_labck(env0, d3e0)
+|D3Et2pck _ => f0_t2pck(env0, d3e0)
 //
 (* ****** ****** *)
 |D3Efold _ => f0_fold(env0, d3e0)
@@ -846,6 +857,98 @@ in//let
 (
   d3exp(loc0, t2p0, D3Eview(d3e1)) )
 end (*let*) // end of [f0_view(env0,...)]
+//
+(* ****** ****** *)
+//
+fun
+f0_lval
+( env0:
+! tr3benv
+, d3e0: d3exp): d3exp =
+let
+//
+val loc0 = d3e0.lctn()
+val t2p0 = d3e0.styp()
+//
+val-
+D3Elval(d3e1) = d3e0.node()
+//
+val
+d3e1 = trtmp3b_d3exp(env0, d3e1)
+//
+in//let
+(
+  d3exp(loc0, t2p0, D3Elval(d3e1)) )
+end (*let*) // end of [f0_lval(env0,...)]
+//
+(* ****** ****** *)
+//
+fun
+f0_eval
+( env0:
+! tr3benv
+, d3e0: d3exp): d3exp =
+let
+//
+val loc0 = d3e0.lctn()
+val t2p0 = d3e0.styp()
+//
+val-
+D3Eeval(d3e1) = d3e0.node()
+//
+val
+d3e1 = trtmp3b_d3exp(env0, d3e1)
+//
+in//let
+(
+  d3exp(loc0, t2p0, D3Eeval(d3e1)) )
+end (*let*) // end of [f0_eval(env0,...)]
+//
+(* ****** ****** *)
+//
+fun
+f0_labck
+( env0:
+! tr3benv
+, d3e0: d3exp): d3exp =
+let
+//
+val loc0 = d3e0.lctn()
+val t2p0 = d3e0.styp()
+//
+val-
+D3Elabck(d3e1, lab1) = d3e0.node()
+//
+val
+d3e1 = trtmp3b_d3exp(env0, d3e1)
+//
+in//let
+(
+  d3exp(loc0, t2p0, D3Elabck(d3e1, lab1)) )
+end (*let*) // end of [f0_labck(env0,...)]
+//
+(* ****** ****** *)
+//
+fun
+f0_t2pck
+( env0:
+! tr3benv
+, d3e0: d3exp): d3exp =
+let
+//
+val loc0 = d3e0.lctn()
+val t2p0 = d3e0.styp()
+//
+val-
+D3Et2pck(d3e1, t2p1) = d3e0.node()
+//
+val
+d3e1 = trtmp3b_d3exp(env0, d3e1)
+//
+in//let
+(
+  d3exp(loc0, t2p0, D3Et2pck(d3e1, t2p1)) )
+end (*let*) // end of [f0_t2pck(env0,...)]
 //
 (* ****** ****** *)
 //

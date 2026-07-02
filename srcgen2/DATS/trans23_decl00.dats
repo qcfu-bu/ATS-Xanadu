@@ -283,6 +283,40 @@ d3ecl_make_node
 (* ****** ****** *)
 //
 |
+D2Cerrck
+(lvl0, d2cl1) =>
+(*
+HX-late/CLAUDE-2026-07:
+an errck-WRAPPED D2 decl previously fell into the OTHERWISE branch and was
+ERASED to D3Cnone1 -- including the `#include "xatsopt_dpre.hats"` carrying
+the ENTIRE prelude template-impl chain (one recoverable read error inside
+the payload poisons the wrapper).  Translate the payload and KEEP the errck
+wrapper at D3, so template resolution downstream can see the impls.
+*)
+(
+case+ d2cl1.node() of
+|D2Cinclude _ => auxwrap(env0, d2cl1)
+|D2Cstaload _ => auxwrap(env0, d2cl1)
+// a broken LEAF decl (the one whose read actually errored) stays ERASED as
+// before -- translating it can hit strict val- matches downstream.  Only the
+// CONTAINER shapes (include/staload) are translated, so the healthy decls
+// inside them (the prelude template impls) reach D3.
+| _(*leaf*) =>
+  d3ecl_make_node(d2cl.lctn(), D3Cnone1( d2cl ))
+) where
+{
+fun
+auxwrap
+( env0: !tr23env
+, d2cl1: d2ecl): d3ecl =
+let
+  val d3cl1 = trans23_d2ecl(env0, d2cl1)
+in
+  d3ecl_make_node(d2cl.lctn(), D3Cerrck(lvl0, d3cl1))
+end
+} (*where*) // end-of-[D2Cerrck(...)]
+//
+|
 _(*otherwise*) =>
 let
   val loc0 = d2cl.lctn()

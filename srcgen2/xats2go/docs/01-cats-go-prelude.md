@@ -1246,3 +1246,52 @@ blocked on a NEW identified subsystem -- #implval/frontend-constant emission
 (name the package global by the d2cst symbol so cross-module refs link, the same
 way top-level funs already do) -- NOT on template resolution (solved) or module
 selection.  That is the next well-scoped emitter work item for bucket 1.
+
+## The TIMQ bug fixed AT THE SOURCE: frontend erasure of the prelude impl chain
+
+Per the user's directive, the template-resolution failure was chased to its true
+root in the ATS3 frontend sources and fixed there, with the lib rebuilt through
+the in-repo bootstrap (`srcgen2/Makefile_xjsemit lib2xatsopt` -- 162 modules
+transpiled by the ATS2-built jsemit00; the per-module BUILD/JS cache makes a
+1-2 module fix an incremental, minutes-long rebuild).
+
+### The root-cause chain (each layer verified by targeted instrumentation)
+1. One RECOVERABLE read error inside the prelude payload makes tread12 wrap the
+   whole `#include "xatsopt_dpre.hats"` decl -- the carrier of the ENTIRE
+   prelude template-impl chain -- in D2Cerrck.
+2. trans23 (D2 -> D3) had NO D2Cerrck case: the wrapper fell into the OTHERWISE
+   branch and was ERASED to D3Cnone1.  At D3, the prelude template impls simply
+   did not exist.
+3. The template passes' envs therefore registered ~nothing (measured: 2 inserts
+   per compile, both from the main file), so every D3Etapq query failed with an
+   EMPTY search (F3PERR0-TIMQ1) -> D3Etimq -> the emitter's worker-dropped
+   shortcut.  Additionally trtmp3b/c's decl walks SKIPPED errck decls and their
+   expression walkers ERASED six late-added node kinds (D3Elval/eval/labck/
+   t2pck/xazgn/xchng) to d3exp_none2 -- the D3Cnone erasure class that also
+   blanked whole emitter functions (i1vardclist_go1emit).
+
+### The fixes (frontend sources; JS lib rebuilt via the bootstrap)
+- trans23_decl00: D2Cerrck now TRANSLATES CONTAINER payloads (include/staload),
+  keeping the errck wrapper at D3; broken LEAF decls stay erased as before
+  (translating them hits pre-existing strict val- matches downstream).
+- trans23_utils0: s2typ_fun1_f3arglst TOTALIZED -- its two strict val- matches
+  (T2Puni0/T2Pfun1) crash on an errored decl's non-decomposing lambda type; the
+  fallback keeps the type as-is (unreachable for well-typed code).
+- trtmp3b/c_decl00: an errck-wrapped decl is now WALKED (registering impls +
+  resolving instances inside) with the wrapper kept.
+- trtmp3b/c_dynexp: the six missing expression kinds now recurse+rebuild
+  faithfully instead of being erased by the catch-all.
+- xats2cc trxd3i0_decl00 (the Go-emitter pipeline): an errck-wrapped INCLUDE
+  lowers as a payload-LESS include marker -- its role (template bodies) is
+  consumed at resolution; re-lowering the whole prelude hits d3pat coverage
+  gaps and the emitter must not re-emit prelude bodies anyway.
+
+### Measured effect
+Template-env registrations per staexp2 compile: 2 -> 1886 (1665 from the
+prelude).  The original failing class -- list_map, list_length, list_append,
+list_nilq, list_pair, gint_*, g_eq -- now RESOLVES (worker bodies attach).
+Residual: ~9 queries (g_print/strn_print, eta map$e1nv$fopr, s2lab_get_itm) and
+leaf-errck decls (i1vardclist_go1emit) remain for follow-up.  Both byte-equal
+gates pass on the rebuilt frontend: go-arm rungs 1-12 and the JS oracle suite
+75/75.  A diagnostic caveat for future sessions: a "TIMQ: 0" measured while the
+pipeline CRASHES downstream is vacuous -- always check the emit rc first.

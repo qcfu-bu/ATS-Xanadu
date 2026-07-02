@@ -220,6 +220,23 @@ d3cl.node() of
 //
 |D3Cerrck(_, d3cl1) =>
 (
+(*
+HX-late/CLAUDE-2026-07:
+an errck-WRAPPED include (the `#include "xatsopt_dpre.hats"` chain, which
+now FLOWS through trans23 instead of being erased so the prelude template
+impls can register) must NOT have its payload re-LOWERED here: the payload's
+role -- template bodies -- was consumed at resolution time, and lowering the
+whole prelude crashes on constructs trxd3i0 does not cover (d3pat cfail).
+Lower it as a payload-less include marker; every other errck payload recurses
+as before.
+*)
+case+ d3cl1.node() of
+|D3Cinclude
+ (knd0, tknd, gsrc, fopt, _) =>
+  i0dcl_make_node
+  (d3cl1.lctn(),
+   I0Dinclude(knd0, tknd, gsrc, fopt, optn_nil()))
+| _(*non-include*) =>
   d3ecl_trxd3i0(d3cl1, env0))
 //
 (* ****** ****** *)
