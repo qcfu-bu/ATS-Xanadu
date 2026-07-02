@@ -1139,8 +1139,81 @@ func Xats_strn_foldl_w(f func(any, any) any) func(string, int) int {
 	}
 }
 
+// list_forall over a cons list; the worker returns bool (boxed any).
+func Xats_list_forall_w(f func(any) any) func(*XatsCon) bool {
+	return func(xs *XatsCon) bool {
+		for c := xs; c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
+			if !f(c.Args[0]).(bool) {
+				return false
+			}
+		}
+		return true
+	}
+}
+
 // simple prims for the emitted frontend floor.
 func Xats_castlin10(x any) any { return x }
+func Xats_list_head(xs any) any {
+	return xs.(*XatsCon).Args[0]
+}
+func Xats_list_singq(xs any) bool {
+	c, ok := xs.(*XatsCon)
+	if !ok || c == nil || c.Tag != 1 {
+		return false
+	}
+	t := c.Args[1].(*XatsCon)
+	return t == nil || t.Tag == 0
+}
+func Xats_list_vt_reverse0(xs any) *XatsCon {
+	out := &XatsCon{Tag: 0, Args: nil}
+	for c, ok := xs.(*XatsCon); ok && c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
+		out = &XatsCon{Tag: 1, Args: []any{c.Args[0], out}}
+	}
+	return out
+}
+
+// generic compare/min/max over the scalar reps the frontend uses (int, string).
+func xatsGcmp(a any, b any) int {
+	switch x := a.(type) {
+	case int:
+		y := b.(int)
+		if x < y {
+			return -1
+		}
+		if x > y {
+			return 1
+		}
+		return 0
+	case string:
+		return strings.Compare(x, b.(string))
+	case int32:
+		y := b.(int32)
+		if x < y {
+			return -1
+		}
+		if x > y {
+			return 1
+		}
+		return 0
+	}
+	panic("xatsgo: Xats_g_cmp: unsupported operand")
+}
+func Xats_g_cmp(a any, b any) int { return xatsGcmp(a, b) }
+func Xats_g_max(a any, b any) any {
+	if xatsGcmp(a, b) >= 0 {
+		return a
+	}
+	return b
+}
+func Xats_g_min(a any, b any) any {
+	if xatsGcmp(a, b) <= 0 {
+		return a
+	}
+	return b
+}
+func Xats_gint_cmp_sint_sint(a any, b any) int { return xatsGcmp(a, b) }
+func Xats_gint_asrn_sint(a any, n any) any     { return a.(int) >> uint(n.(int)) }
+func Xats_gint_land_uint(a any, b any) any     { return a.(int) & b.(int) }
 func Xats_list_nilq(xs any) bool {
 	c, ok := xs.(*XatsCon)
 	return !ok || c == nil || c.Tag == 0

@@ -24,6 +24,7 @@ for f in "$X"/srcgen2/xats2go/srcgen2/DATS/*.dats; do
        /^func main\(\) \{/{inmain=1}
        inmain{next}
        /^func /{started=1}
+       /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" >> "$OUT/src/emitter_all.go"
   printf "\n" >> "$OUT/src/emitter_all.go"
   n=$((n+1))
@@ -34,7 +35,7 @@ done
 #     package-routed frontend symbols (stamp_cmp_<N>, ...) the emitter calls;
 #     the bundle assigns STABLE stamps across separately-emitted modules, so a
 #     frontend def `stamp_cmp_1903` matches the emitter call site `stamp_cmp_1903`.
-FRONTEND="xstamp0 xsymbol"
+FRONTEND="xstamp0 xsymbol statyp2 statyp2_inits0 staexp2 staexp2_inits0 dynexp2 lexing0_token0 locinfo xbasics staexp2_utils1 xstamp0_tmpmap"
 fn=0
 for m in $FRONTEND; do
   f="$X/srcgen2/DATS/$m.dats"
@@ -44,6 +45,7 @@ for m in $FRONTEND; do
        /^func main\(\) \{/{inmain=1}
        inmain{next}
        /^func /{started=1}
+       /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" >> "$OUT/src/emitter_all.go"
   printf "\n" >> "$OUT/src/emitter_all.go"
   fn=$((fn+1))

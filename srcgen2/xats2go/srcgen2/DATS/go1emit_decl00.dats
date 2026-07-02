@@ -590,6 +590,7 @@ if (iname = "exists$test") then "exists_test" else
 if (iname = "map$e1nv$fopr") then "map_e1nv_fopr" else
 if (iname = "foritm$e1nv$work") then "foritm_e1nv_work" else
 if (iname = "foldl$fopr") then "foldl_fopr" else
+if (iname = "forall$test") then "forall_test" else
 ""
 )//endof[tmpw_hook_suffix(iname)]
 //
@@ -668,8 +669,15 @@ else
 let
   val iname = impl_name_of_idcl(dcl0)
   val sfx = tmpw_hook_suffix(iname)
+  // PRELUDE-DEFAULT GUARD: a prelude worker impl (`forall$test =
+  // forall$test0<x0>`, gbas001.dats) must stay SKIPPED -- its body references
+  // further unresolvable template hooks (the default-forwarding chain), so
+  // emitting it produces undefined Xats_* names.  Only a USER/COMPILER-source
+  // worker is emitted as a XATS_tmpw closure.
+  val emitq =
+    (if (strn_length(sfx) > 0) then not(i1dcl_preludeq(dcl0)) else false)
 in
-  if (strn_length(sfx) > 0)
+  if emitq
   then tmpworker_go1emit(env0.filr(), iname, sfx, dcl0, env0)
   else i1dcl_go1emit(dcl0, env0)
 end
@@ -1115,6 +1123,15 @@ case+ tknd.node() of
 )//endof[implfunq(tknd)]
 //
 fun
+implvalq
+(tknd: token): bool =
+(
+case+ tknd.node() of
+|T_IMPLMNT(IMPLval()) => true
+| _(*else*) => false
+)//endof[implvalq(tknd)]
+//
+fun
 dimpl_dcstopt
 (dimp: dimpl): optn(d2cst) =
 (
@@ -1192,6 +1209,38 @@ in
   ((*void*))
 end//endof[emit_implfun(dcst)]
 //
+(*
+[emit_implval]: a top-level `#implval <name> = <exp>` -- a frontend module
+CONSTANT (the_sort2_tbox, ...).  Emit it as a package-level Go var NAMED BY ITS
+D2CST (the same [d2cstimplgo1] name every cross-module REFERENCE emits, exactly
+how top-level #implfuns already link), initialized by an immediately-invoked
+func literal so the body can be arbitrary statements.  Go initializes package
+vars in DEPENDENCY order automatically, so cross-constant references need no
+manual ordering.  The var's Go type is `any` (a frontend value constant; its
+uses read it as `any`).
+*)
+fun
+emit_implval
+(dcst: d2cst): void =
+let
+  val saved_cfr = cur_funretty_get()
+  val () = cur_funretty_set("any")
+  val () =
+  (
+  strnfpr(filr, "var ");
+  d2cstimplgo1(filr, dcst);
+  strnfpr(filr, " any = func() any {\n"))
+  val () =
+  (
+  envx2go_incnind(env0, 1(*++*));
+  i1cmp_go1emit_ret(icmp, list_nil(), list_nil(), env0);
+  envx2go_decnind(env0, 1(*--*)))
+  val () = cur_funretty_set(saved_cfr)
+  val () = strnfpr(filr, "}()\n\n")
+in
+  ((*void*))
+end//endof[emit_implval(dcst)]
+//
 in//let
 //
 if
@@ -1209,6 +1258,16 @@ then
   |optn_nil() =>
     (
     emit_comment("unsupported unresolved I1Dimplmnt0")))
+else
+if
+implvalq(tknd)
+then
+  (
+  case+ dimpl_dcstopt(dimp) of
+  |optn_cons(dcst) => emit_implval(dcst)
+  |optn_nil() =>
+    (
+    emit_comment("unsupported unresolved #implval I1Dimplmnt0")))
 else
   (
   emit_comment("unsupported non-#implfun I1Dimplmnt0"))

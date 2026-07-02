@@ -1320,9 +1320,9 @@ in//let
   loop(0)
 end//endof[strn_contains_go1(hay,needle)]
 //
-fun
+#implfun
 i1dcl_preludeq
-(idcl: i1dcl): bool =
+(idcl) =
 let
   val loc0 = idcl.lctn()
   val lsrc = loctn_get_lsrc(loc0)
@@ -1641,6 +1641,7 @@ if (snm = "list_map$e1nv") then "map$e1nv$fopr" else
 if (snm = "optn_map$e1nv") then "map$e1nv$fopr" else
 if (snm = "list_foritm$e1nv") then "foritm$e1nv$work" else
 if (snm = "strn_foldl") then "foldl$fopr" else
+if (snm = "list_forall") then "forall$test" else
 "")
 val wsfx =
 (
@@ -1650,6 +1651,7 @@ if (snm = "list_map$e1nv") then "map_e1nv_fopr" else
 if (snm = "optn_map$e1nv") then "map_e1nv_fopr" else
 if (snm = "list_foritm$e1nv") then "foritm_e1nv_work" else
 if (snm = "strn_foldl") then "foldl_fopr" else
+if (snm = "list_forall") then "forall_test" else
 "")
 // the runtime wrapper name (Go-safe: the `$` in these prim names must not reach
 // the emitted identifier) and the worker/call arity (false = worker (x), call

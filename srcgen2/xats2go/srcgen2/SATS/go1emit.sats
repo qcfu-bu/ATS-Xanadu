@@ -665,6 +665,18 @@ fun
 xsymgo1
 (filr:FILR, xsym: sym_t): void
 //
+(*
+[i1dcl_preludeq]: is this decl's source LOCATION inside prelude/?  Used by the
+prelude-body shortcut (go1emit_dynexp) and by the template-WORKER emission
+(go1emit_decl00): a prelude DEFAULT worker impl (e.g. `forall$test =
+forall$test0<x0>`, gbas001.dats) must stay SKIPPED -- its body references
+further unresolvable template hooks -- while a user/compiler-source worker is
+emitted as a XATS_tmpw closure.
+*)
+fun
+i1dcl_preludeq
+(idcl: i1dcl): bool
+//
 (* ****** ****** *)
 (* ****** ****** *)
 //
