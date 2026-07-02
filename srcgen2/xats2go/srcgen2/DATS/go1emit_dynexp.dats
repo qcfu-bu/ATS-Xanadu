@@ -1640,6 +1640,7 @@ if (snm = "list_exists") then "exists$test" else
 if (snm = "list_map$e1nv") then "map$e1nv$fopr" else
 if (snm = "optn_map$e1nv") then "map$e1nv$fopr" else
 if (snm = "list_foritm$e1nv") then "foritm$e1nv$work" else
+if (snm = "strn_foldl") then "foldl$fopr" else
 "")
 val wsfx =
 (
@@ -1648,6 +1649,7 @@ if (snm = "list_exists") then "exists_test" else
 if (snm = "list_map$e1nv") then "map_e1nv_fopr" else
 if (snm = "optn_map$e1nv") then "map_e1nv_fopr" else
 if (snm = "list_foritm$e1nv") then "foritm_e1nv_work" else
+if (snm = "strn_foldl") then "foldl_fopr" else
 "")
 // the runtime wrapper name (Go-safe: the `$` in these prim names must not reach
 // the emitted identifier) and the worker/call arity (false = worker (x), call
@@ -1663,6 +1665,7 @@ val war2 =
 if (snm = "list_map$e1nv") then true else
 if (snm = "optn_map$e1nv") then true else
 if (snm = "list_foritm$e1nv") then true else
+if (snm = "strn_foldl") then true else
 false)
 in//let
 if (snm = "strn_foritm")

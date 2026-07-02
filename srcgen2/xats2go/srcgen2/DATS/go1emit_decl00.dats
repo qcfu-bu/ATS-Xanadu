@@ -589,6 +589,7 @@ if (iname = "map$fopr") then "map_fopr" else
 if (iname = "exists$test") then "exists_test" else
 if (iname = "map$e1nv$fopr") then "map_e1nv_fopr" else
 if (iname = "foritm$e1nv$work") then "foritm_e1nv_work" else
+if (iname = "foldl$fopr") then "foldl_fopr" else
 ""
 )//endof[tmpw_hook_suffix(iname)]
 //

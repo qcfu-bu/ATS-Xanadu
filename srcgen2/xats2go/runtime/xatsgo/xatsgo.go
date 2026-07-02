@@ -1127,3 +1127,25 @@ func Xats_optn_map_e1nv_w(f func(any, any) any) func(*XatsCon, any) *XatsCon {
 		return &XatsCon{Tag: 1, Args: []any{f(ox.Args[0], env)}}
 	}
 }
+
+// strn_foldl over the chars of a string; the worker takes (accumulator, char).
+func Xats_strn_foldl_w(f func(any, any) any) func(string, int) int {
+	return func(s string, r0 int) int {
+		acc := r0
+		for _, c := range s {
+			acc = f(acc, int32(c)).(int)
+		}
+		return acc
+	}
+}
+
+// simple prims for the emitted frontend floor.
+func Xats_castlin10(x any) any { return x }
+func Xats_list_nilq(xs any) bool {
+	c, ok := xs.(*XatsCon)
+	return !ok || c == nil || c.Tag == 0
+}
+func Xats_list_pair(x1 any, x2 any) *XatsCon {
+	return &XatsCon{Tag: 1, Args: []any{x1,
+		&XatsCon{Tag: 1, Args: []any{x2, &XatsCon{Tag: 0, Args: nil}}}}}
+}

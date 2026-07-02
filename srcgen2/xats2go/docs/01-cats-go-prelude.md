@@ -1207,3 +1207,42 @@ Two consequences for closing Task #8 / the core-frontend batch:
 Net: Task #8 is a build-config + prelude-wiring + emitter-coverage effort, not a
 bounded patch -- but now fully root-caused with a reproduction. Session build
 holds at 294 (591 -> 294 overall); this round produced the decisive diagnosis.
+
+## Task #8 BUILT: template-method worker forwarding (12 of 15 prims closed)
+
+The Task-#8 machinery is implemented and verified.  When a template-method call
+reaches the emitter UNRESOLVED (the self-hosted frontend's template query failed
+-- confirmed against the ATS2 bootstrap, which resolves the same sites with 0
+TIMQ errors), the worker `#impltmp` in the same let/where block is emitted as a
+named local Go closure (`XATS_tmpw_<hook>`, latest-wins table in go1emit_byref0)
+and the template VALUE is emitted as a runtime worker-forwarding wrapper
+`xatsgo.Xats_<prim>_w(<adapter>)` of the arity the downstream application
+expects.  Covered families: list_map/list_exists (1-arg workers), list_map$e1nv/
+optn_map$e1nv/list_foritm$e1nv (2-arg (element, env)), strn_foldl (2-arg
+(acc, char)).  Eta-contracted (nullary) workers coerce through the idempotent
+Xats_as_fun1/2 (the Xats_as_con lesson applied to func values: the thunk result
+may be `any` OR an already-concrete func type).  Hard-won details: the e1nv prim
+NAMES carry `$` (`list_map$e1nv`) -- an underscore spelling never matches; and
+the adapters assert worker param types only when concretely recorded.
+Wrappers fire 11x in the emitter assembly; template-prim undefined fell 15 -> 3
+(list_sortedq/list_mergesort: global default-compare, no local worker to
+forward; i0pat_allq).  Assembly 294 -> 291.  Rungs 1-12 + JS 75/75 byte-equal at
+every commit.
+
+## Core-frontend batch: measured divergence -- the #implval constant gap
+
+With list_map unblocked, the statyp2+staexp2 batch was attempted and MEASURED:
+- +statyp2+staexp2: 291 -> 407.  Their own targets DO resolve (s2typ 18 -> 4,
+  s2cst 11 -> 5) but the cascade pulls ~75 `the_sort2_*` refs + token/d2cst/
+  s2explst deps.
+- +statyp2_inits0+staexp2_inits0 (which textually define the_sort2_*): 407 ->
+  479, and the_sort2_tbox refs ROSE (75 -> 85).  The defining modules' emissions
+  ADD more references than they satisfy: a frontend `#implval` abstract CONSTANT
+  does not emit as a linkable named Go symbol under the current PASS-1.5
+  package-global scheme (globals emit as goxtnm<stamp> vars + init(), while
+  cross-module REFERENCES use the constant's own d2cst name `the_sort2_tbox_<N>`).
+Conclusion (measured, reverted to the 291 baseline): the core-frontend batch is
+blocked on a NEW identified subsystem -- #implval/frontend-constant emission
+(name the package global by the d2cst symbol so cross-module refs link, the same
+way top-level funs already do) -- NOT on template resolution (solved) or module
+selection.  That is the next well-scoped emitter work item for bucket 1.
