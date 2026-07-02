@@ -1622,9 +1622,56 @@ in//let
 // instead of the undefined `xatsgo.Xats_strn_foritm` runtime name.  The
 // op-aware liveness ([strn_foritm_callee_q], go1emit_styp0) drops this binding
 // to `_ = xatsgo.XATSNIL`.
-if (symbl_get_name(d2cst_get_name(dcst)) = "strn_foritm")
+let
+val snm = symbl_get_name(d2cst_get_name(dcst))
+// TASK-#8 WORKER FORWARDING: a template-method prim (list_map, ...) whose
+// instance the frontend failed to resolve (no attached body -- F3PERR0-TIMQ1)
+// would emit the UNDEFINED worker-less 1-arg name `xatsgo.Xats_list_map`.  When
+// the worker `#impltmp` was emitted in scope as `XATS_tmpw_<sfx>` (the local
+// decl walk, see [tmpworker_go1emit]), emit the runtime worker-forwarding
+// wrapper instead: `xatsgo.Xats_list_map_w(func(goxtwa any) any { return
+// XATS_tmpw_map_fopr(goxtwa[.(P0)]) })` -- a value of the SAME arity the
+// downstream application expects, with the worker captured.  The adapter
+// asserts the worker's param-0 type only when it is concrete.
+val whook =
+(
+if (snm = "list_map") then "map$fopr" else
+if (snm = "list_exists") then "exists$test" else
+"")
+val wsfx =
+(
+if (snm = "list_map") then "map_fopr" else
+if (snm = "list_exists") then "exists_test" else
+"")
+in//let
+if (snm = "strn_foritm")
 then strnfpr(filr, "xatsgo.XATSNIL")
-else d2cstgo1(filr, dcst)) end
+else
+if (if (strn_length(whook) > 0) then tmpworker_pendingq(whook) else false)
+then
+let
+  val p0ty = tmpworker_p0ty(whook)
+in
+  strnfpr(filr, "xatsgo.Xats_");
+  strnfpr(filr, snm);
+  strnfpr(filr, "_w(func(goxtwa any) any { return XATS_tmpw_");
+  strnfpr(filr, wsfx);
+  // "@nullary": an ETA-CONTRACTED worker impl -- the emitted closure is a
+  // 0-param THUNK returning the worker FUNCTION; invoke the thunk and assert the
+  // canonical func shape before applying the element.  Otherwise apply the
+  // closure directly (asserting a concrete param-0 type when recorded).
+  (if (p0ty = "@nullary")
+   then strnfpr(filr, "().(func(any) any)(goxtwa")
+   else
+   (
+   strnfpr(filr, "(goxtwa");
+   (if (if (strn_length(p0ty) > 0) then not(p0ty = "any") else false)
+    then (strnfpr(filr, ".("); strnfpr(filr, p0ty); strnfpr(filr, ")"))
+    else ((*void*)))));
+  strnfpr(filr, ") })")
+end
+else d2cstgo1(filr, dcst)
+end) end
 //
 (* ****** ****** *)
 //

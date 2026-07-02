@@ -196,6 +196,26 @@ cur_funretty_set(ty: strn): void
 fun
 cur_funretty_get((*void*)): strn
 //
+(*
+TEMPLATE-METHOD WORKER table (the Task-#8 worker-forwarding shortcut).  When a
+template-method call (list_map, ...) reaches the emitter UNRESOLVED (its t1imp
+carries no body -- the self-hosted frontend's template query failed, F3PERR0-
+TIMQ1), the worker `#impltmp` (map$fopr, ...) is nevertheless present in the SAME
+let/where block as a separate I1Dimplmnt0 decl.  The local decl walk emits that
+worker as a named Go closure (XATS_tmpw_<hook>) and records its hook name +
+param-0 Go type here; the I1INStimp value emission then emits the runtime
+worker-forwarding wrapper `xatsgo.Xats_<prim>_w(<adapter>)` instead of the
+undefined 1-arg prim name.  LATEST-WINS, one worker per Go block (the same
+assumption the foritm$work path makes); [tmpworker_p0ty] returns "" when no
+worker of that hook is pending.
+*)
+fun
+tmpworker_add(hook: strn, p0ty: strn): void
+fun
+tmpworker_p0ty(hook: strn): strn
+fun
+tmpworker_pendingq(hook: strn): bool
+//
 (* ****** ****** *)
 //
 (*

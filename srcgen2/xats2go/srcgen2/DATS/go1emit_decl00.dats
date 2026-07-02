@@ -573,6 +573,77 @@ in
   strnfpr(filr, "}\n")
 end//endof[foritm_work_emit(filr,dcl0,env0)]
 //
+(*
+[tmpw_hook_suffix]: the Go-identifier suffix for a recognized template-method
+WORKER hook ("map$fopr" -> "map_fopr"); "" for a non-hook impl name.  This set
+is the Task-#8 worker-forwarding family: template methods whose prelude body the
+self-hosted frontend fails to attach (F3PERR0-TIMQ1), leaving the worker
+`#impltmp` as a separate local decl that would otherwise be skipped while the
+call shortcuts to a worker-less 1-arg runtime prim.
+*)
+fun
+tmpw_hook_suffix
+(iname: strn): strn =
+(
+if (iname = "map$fopr") then "map_fopr" else
+if (iname = "exists$test") then "exists_test" else
+""
+)//endof[tmpw_hook_suffix(iname)]
+//
+(*
+[tmpworker_go1emit]: emit a recognized worker `#impltmp` as a NAMED local Go
+closure `XATS_tmpw_<suffix> := func(<params>) <ret> { <body> }` (+ a `_ =` keep-
+alive so a block whose template call DID resolve -- and thus inlines the body,
+never referencing the closure -- still compiles), and record the hook + param-0
+Go type in the tmpworker table for the I1INStimp wrapper emission.  Mirrors
+[foritm_work_emit]; same one-per-block assumption.
+*)
+fun
+tmpworker_go1emit
+( filr: FILR
+, iname: strn
+, sfx: strn
+, dcl0: i1dcl
+, env0: !envx2go): void =
+let
+  val-
+  I1Dimplmnt0
+  (_, _, _, _, fjas, icmp) = unwrap_idcl(dcl0).node()
+  val bnds = binds_of_fjarglst(fjas)
+  val argtys = gotypes_of_fjarglst(fjas)
+  val retty = gotype_of_lam_ret(icmp, bnds)
+  // an ETA-CONTRACTED worker impl (`#impltmp map$fopr = s2var_get_sort`) has NO
+  // value params: the emitted closure is a 0-param THUNK returning the worker
+  // FUNCTION.  Record the "@nullary" marker so the call-site adapter invokes the
+  // thunk and asserts the returned function (`XATS_tmpw().(func(any) any)(x)`)
+  // instead of applying the thunk directly with the element arg.
+  val p0ty =
+  (
+  case+ bnds of
+  |list_nil() => "@nullary"
+  | _(*cons*) =>
+    (
+    case+ argtys of
+    |list_cons(t1, _) => t1
+    |list_nil() => "any"))
+  val () = tmpworker_add(iname, p0ty)
+in
+  nindfpr(filr, env0.nind());
+  strnfpr(filr, "XATS_tmpw_"); strnfpr(filr, sfx);
+  strnfpr(filr, " := func(");
+  localfun_emit_params(filr, fjas, argtys);
+  strnfpr(filr, ") ");
+  strnfpr(filr, retty);
+  strnfpr(filr, " {\n");
+  envx2go_incnind(env0, 1(*++*));
+  i1cmp_go1emit_ret(icmp, list_nil(), bnds, env0);
+  envx2go_decnind(env0, 1(*--*));
+  nindfpr(filr, env0.nind());
+  strnfpr(filr, "}\n");
+  nindfpr(filr, env0.nind());
+  strnfpr(filr, "_ = XATS_tmpw_"); strnfpr(filr, sfx); strnfpr(filr, "\n")
+end//endof[tmpworker_go1emit(filr,iname,sfx,dcl0,env0)]
+//
 #implfun
 i1dcl_go1emit_local
 (dcl0, env0) =
@@ -582,7 +653,15 @@ then f0_localfun(dcl0, env0)
 else
 if (impl_name_of_idcl(dcl0) = "foritm$work")
 then foritm_work_emit(env0.filr(), dcl0, env0)
-else i1dcl_go1emit(dcl0, env0)
+else
+let
+  val iname = impl_name_of_idcl(dcl0)
+  val sfx = tmpw_hook_suffix(iname)
+in
+  if (strn_length(sfx) > 0)
+  then tmpworker_go1emit(env0.filr(), iname, sfx, dcl0, env0)
+  else i1dcl_go1emit(dcl0, env0)
+end
 )//endof[i1dcl_go1emit_local(dcl0,env0)]
 //
 (*

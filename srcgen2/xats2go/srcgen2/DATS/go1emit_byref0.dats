@@ -303,6 +303,58 @@ cur_funretty_get
 //
 (* ****** ****** *)
 //
+// the TEMPLATE-METHOD WORKER table (Task #8 worker-forwarding).  hook name ->
+// param-0 Go type of the emitted worker closure.  LATEST WINS: add CONSES at the
+// head (unconditionally -- unlike nient_add's skip-if-present) and find returns
+// the FIRST match, so an inner/later worker shadows an outer/earlier one exactly
+// like Go lexical scoping of the emitted XATS_tmpw_* closure names.
+#typedef went = @(strn, strn)
+#typedef wentlst = list(went)
+val
+the_tmpworker_ref =
+a0ref_make_1val<wentlst>(list_nil(*void*))
+//
+fun
+went_find
+(ents: wentlst, hook: strn): strn =
+(
+case+ ents of
+|list_nil() => ""
+|list_cons(@(h1, p1), ents1) =>
+  if (h1 = hook) then p1 else went_find(ents1, hook)
+)
+//
+fun
+went_memq
+(ents: wentlst, hook: strn): bool =
+(
+case+ ents of
+|list_nil() => false
+|list_cons(@(h1, _), ents1) =>
+  if (h1 = hook) then true else went_memq(ents1, hook)
+)
+//
+#implfun
+tmpworker_add
+(hook, p0ty) =
+let
+  val ents = a0ref_get<wentlst>(the_tmpworker_ref)
+in
+  a0ref_set<wentlst>(the_tmpworker_ref, list_cons(@(hook, p0ty), ents))
+end
+//
+#implfun
+tmpworker_p0ty
+(hook) =
+  went_find(a0ref_get<wentlst>(the_tmpworker_ref), hook)
+//
+#implfun
+tmpworker_pendingq
+(hook) =
+  went_memq(a0ref_get<wentlst>(the_tmpworker_ref), hook)
+//
+(* ****** ****** *)
+//
 // the emitted-Go-type map (go-arm general ARG boundary).  Same assoc-list shape.
 // See the SATS.  Keyed by temp stamp -> its emitted Go type (a param's `any`, a
 // func temp's `func(...)...`).

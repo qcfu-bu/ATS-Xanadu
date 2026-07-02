@@ -1051,3 +1051,38 @@ func Xats_strn_fprint(s any, filr any) any {
 	}
 	return XATSNIL()
 }
+
+// -- template-method worker-forwarding wrappers ------------------------------
+//
+// A template-method call (list_map, list_exists, ...) that reaches the emitter
+// UNRESOLVED (the self-hosted frontend's template query failed, F3PERR0-TIMQ1)
+// shortcuts to a worker-less 1-arg prim name. The emitter's Task-#8 forwarding
+// re-attaches the worker: the in-scope `#impltmp` is emitted as a local closure
+// and the prim VALUE is emitted as `Xats_<prim>_w(<adapter>)` -- these wrappers
+// take the adapted worker (canonical func(any) any) and return the function of
+// the arity the downstream application expects. Lists are Tag 0 nil / Tag 1
+// cons with Args[0]=head, Args[1]=tail.
+func Xats_list_map_w(f func(any) any) func(*XatsCon) *XatsCon {
+	return func(xs *XatsCon) *XatsCon {
+		var items []any
+		for c := xs; c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
+			items = append(items, f(c.Args[0]))
+		}
+		out := &XatsCon{Tag: 0, Args: nil}
+		for i := len(items) - 1; i >= 0; i-- {
+			out = &XatsCon{Tag: 1, Args: []any{items[i], out}}
+		}
+		return out
+	}
+}
+
+func Xats_list_exists_w(f func(any) any) func(*XatsCon) bool {
+	return func(xs *XatsCon) bool {
+		for c := xs; c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
+			if f(c.Args[0]).(bool) {
+				return true
+			}
+		}
+		return false
+	}
+}
