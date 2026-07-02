@@ -587,6 +587,8 @@ tmpw_hook_suffix
 (
 if (iname = "map$fopr") then "map_fopr" else
 if (iname = "exists$test") then "exists_test" else
+if (iname = "map$e1nv$fopr") then "map_e1nv_fopr" else
+if (iname = "foritm$e1nv$work") then "foritm_e1nv_work" else
 ""
 )//endof[tmpw_hook_suffix(iname)]
 //
@@ -627,6 +629,14 @@ let
     |list_cons(t1, _) => t1
     |list_nil() => "any"))
   val () = tmpworker_add(iname, p0ty)
+  // a 2-arg worker (the e1nv family: worker(x, env)) also records its param-1 Go
+  // type under the DERIVED key `<hook>@1` (no separate table needed; the same
+  // latest-wins shadowing applies to both entries together).
+  val () =
+  (
+  case+ argtys of
+  |list_cons(_, list_cons(t2, _)) => tmpworker_add(strn_append(iname, "@1"), t2)
+  | _(*fewer than 2*) => ((*void*)))
 in
   nindfpr(filr, env0.nind());
   strnfpr(filr, "XATS_tmpw_"); strnfpr(filr, sfx);

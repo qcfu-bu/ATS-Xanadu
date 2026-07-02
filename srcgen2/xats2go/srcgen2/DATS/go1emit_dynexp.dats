@@ -1637,12 +1637,33 @@ val whook =
 (
 if (snm = "list_map") then "map$fopr" else
 if (snm = "list_exists") then "exists$test" else
+if (snm = "list_map$e1nv") then "map$e1nv$fopr" else
+if (snm = "optn_map$e1nv") then "map$e1nv$fopr" else
+if (snm = "list_foritm$e1nv") then "foritm$e1nv$work" else
 "")
 val wsfx =
 (
 if (snm = "list_map") then "map_fopr" else
 if (snm = "list_exists") then "exists_test" else
+if (snm = "list_map$e1nv") then "map_e1nv_fopr" else
+if (snm = "optn_map$e1nv") then "map_e1nv_fopr" else
+if (snm = "list_foritm$e1nv") then "foritm_e1nv_work" else
 "")
+// the runtime wrapper name (Go-safe: the `$` in these prim names must not reach
+// the emitted identifier) and the worker/call arity (false = worker (x), call
+// (xs); true = the e1nv family, worker (x, env), call (xs, env)).
+val wnm =
+(
+if (snm = "list_map$e1nv") then "list_map_e1nv" else
+if (snm = "optn_map$e1nv") then "optn_map_e1nv" else
+if (snm = "list_foritm$e1nv") then "list_foritm_e1nv" else
+snm)
+val war2 =
+(
+if (snm = "list_map$e1nv") then true else
+if (snm = "optn_map$e1nv") then true else
+if (snm = "list_foritm$e1nv") then true else
+false)
 in//let
 if (snm = "strn_foritm")
 then strnfpr(filr, "xatsgo.XATSNIL")
@@ -1651,22 +1672,44 @@ if (if (strn_length(whook) > 0) then tmpworker_pendingq(whook) else false)
 then
 let
   val p0ty = tmpworker_p0ty(whook)
+  val p1ty = tmpworker_p0ty(strn_append(whook, "@1"))
+  // one concrete-type assert (arg into worker param); skipped for ""/"any".
+  fun assert1(filr: FILR, pty: strn): void =
+  (
+  if (if (strn_length(pty) > 0) then not(pty = "any") else false)
+  then (strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")"))
+  else ((*void*)))
 in
   strnfpr(filr, "xatsgo.Xats_");
-  strnfpr(filr, snm);
-  strnfpr(filr, "_w(func(goxtwa any) any { return XATS_tmpw_");
-  strnfpr(filr, wsfx);
+  strnfpr(filr, wnm);
+  (if war2
+   then strnfpr(filr, "_w(func(goxtwa any, goxtwe any) any { return ")
+   else strnfpr(filr, "_w(func(goxtwa any) any { return "));
   // "@nullary": an ETA-CONTRACTED worker impl -- the emitted closure is a
-  // 0-param THUNK returning the worker FUNCTION; invoke the thunk and assert the
-  // canonical func shape before applying the element.  Otherwise apply the
-  // closure directly (asserting a concrete param-0 type when recorded).
+  // 0-param THUNK returning the worker FUNCTION.  Invoke the thunk and coerce
+  // the result through the IDEMPOTENT runtime helper Xats_as_fun1/2 (accepts
+  // BOTH an `any`-typed thunk result, asserting it, AND an already-concrete
+  // func value, auto-boxed then asserted -- a bare `.()` assert would be
+  // invalid Go on the concrete case, same as the Xats_as_con lesson) before
+  // applying the element(s).  Otherwise apply the closure directly (asserting
+  // concrete param types when recorded).
   (if (p0ty = "@nullary")
-   then strnfpr(filr, "().(func(any) any)(goxtwa")
+   then
+   (
+   (if war2
+    then strnfpr(filr, "xatsgo.Xats_as_fun2(")
+    else strnfpr(filr, "xatsgo.Xats_as_fun1("));
+   strnfpr(filr, "XATS_tmpw_"); strnfpr(filr, wsfx);
+   (if war2
+    then strnfpr(filr, "())(goxtwa, goxtwe")
+    else strnfpr(filr, "())(goxtwa")))
    else
    (
+   strnfpr(filr, "XATS_tmpw_"); strnfpr(filr, wsfx);
    strnfpr(filr, "(goxtwa");
-   (if (if (strn_length(p0ty) > 0) then not(p0ty = "any") else false)
-    then (strnfpr(filr, ".("); strnfpr(filr, p0ty); strnfpr(filr, ")"))
+   assert1(filr, p0ty);
+   (if war2
+    then (strnfpr(filr, ", goxtwe"); assert1(filr, p1ty))
     else ((*void*)))));
   strnfpr(filr, ") })")
 end

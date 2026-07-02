@@ -1086,3 +1086,44 @@ func Xats_list_exists_w(f func(any) any) func(*XatsCon) bool {
 		return false
 	}
 }
+
+// Xats_as_fun1/2: idempotent any -> canonical-func coercions (the Xats_as_con
+// pattern). A nullary (eta-contracted) worker thunk may return its function
+// EITHER as an `any` (needs the assert) OR as a concrete func type (a bare
+// `.()` assert would be invalid Go); the `any` parameter accepts both.
+func Xats_as_fun1(f any) func(any) any      { return f.(func(any) any) }
+func Xats_as_fun2(f any) func(any, any) any { return f.(func(any, any) any) }
+
+// e1nv family: the worker takes (element, env); the call takes (xs, env).
+func Xats_list_map_e1nv_w(f func(any, any) any) func(*XatsCon, any) *XatsCon {
+	return func(xs *XatsCon, env any) *XatsCon {
+		var items []any
+		for c := xs; c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
+			items = append(items, f(c.Args[0], env))
+		}
+		out := &XatsCon{Tag: 0, Args: nil}
+		for i := len(items) - 1; i >= 0; i-- {
+			out = &XatsCon{Tag: 1, Args: []any{items[i], out}}
+		}
+		return out
+	}
+}
+
+func Xats_list_foritm_e1nv_w(f func(any, any) any) func(*XatsCon, any) any {
+	return func(xs *XatsCon, env any) any {
+		for c := xs; c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
+			_ = f(c.Args[0], env)
+		}
+		return XATSNIL()
+	}
+}
+
+// optn is Tag 0 none / Tag 1 some with Args[0] the payload.
+func Xats_optn_map_e1nv_w(f func(any, any) any) func(*XatsCon, any) *XatsCon {
+	return func(ox *XatsCon, env any) *XatsCon {
+		if ox == nil || ox.Tag == 0 {
+			return &XatsCon{Tag: 0, Args: nil}
+		}
+		return &XatsCon{Tag: 1, Args: []any{f(ox.Args[0], env)}}
+	}
+}
