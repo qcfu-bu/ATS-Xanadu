@@ -1671,3 +1671,107 @@ func xatsRunesToList(rs []rune) *XatsCon {
 	}
 	return acc
 }
+
+// -- self-hosting floor, round 4 (full-pipeline surface) ----------------------
+
+// gs_max_n<N>: the variadic `maxs(...)` family (synoug0) — generic max.
+func Xats_gs_max_n2(x1, x2 any) any { return Xats_g_max(x1, x2) }
+func Xats_gs_max_n3(x1, x2, x3 any) any {
+	return Xats_g_max(Xats_g_max(x1, x2), x3)
+}
+func Xats_gs_max_n4(x1, x2, x3, x4 any) any {
+	return Xats_g_max(Xats_gs_max_n3(x1, x2, x3), x4)
+}
+func Xats_gs_min_n2(x1, x2 any) any { return Xats_g_min(x1, x2) }
+func Xats_gs_min_n3(x1, x2, x3 any) any {
+	return Xats_g_min(Xats_g_min(x1, x2), x3)
+}
+
+// gs_println_n<N>: print each arg + newline (stdout store).
+var Xats_gs_println_n0 = func() any {
+	XATS2JS_strn_print("\n")
+	return XATSNIL()
+}
+var Xats_gs_println_n2 = func(x0, x1 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	XATS2JS_strn_print("\n")
+	return XATSNIL()
+}
+var Xats_gs_println_n4 = func(x0, x1, x2, x3 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	gsPrintOne(x2)
+	gsPrintOne(x3)
+	XATS2JS_strn_print("\n")
+	return XATSNIL()
+}
+
+// gs_fproc_n3: like n1/n2 — every assembled call site originates from
+// synoug0's gs_prerr_n3 (verified) — print each arg to stderr.
+var Xats_gs_fproc_n3 = func(x0, x1, x2 any) any {
+	gsPrerrOne(x0)
+	gsPrerrOne(x1)
+	gsPrerrOne(x2)
+	return XATSNIL()
+}
+
+// char/code conversions (int <-> char; chars are rune/int32 or int at runtime).
+func Xats_char_make_code(c any) any {
+	switch v := c.(type) {
+	case int:
+		return rune(v)
+	case rune:
+		return v
+	}
+	return c
+}
+func Xats_char_code(c any) any {
+	switch v := c.(type) {
+	case rune:
+		return int(v)
+	case int:
+		return v
+	}
+	return c
+}
+
+func Xats_list_last(xs any) any {
+	c := xs.(*XatsCon)
+	for c.Args[1].(*XatsCon).Tag != 0 {
+		c = c.Args[1].(*XatsCon)
+	}
+	return c.Args[0]
+}
+
+func Xats_g_neq(a any, b any) bool { return !Xats_g_eq(a, b) }
+
+// linearity casts — representation identity.
+func Xats_enlinear(x any) any { return x }
+func Xats_delinear(x any) any { return x }
+
+// XATSOPT_a0ref_set = a0ref_set (the xlibext JS-arm extern).
+func Xats_XATSOPT_a0ref_set(a0 any, x0 any) any {
+	a0.(*XatsA0Ref).val = x0
+	return XATSNIL()
+}
+func Xats_XATSOPT_a0ref_get(a0 any) any { return a0.(*XatsA0Ref).val }
+
+// foritm worker wrappers (bridge family `foritm$work` — the plain, env-less
+// foritm): apply the worker to each element for its effect.
+func Xats_list_foritm_w(f func(any) any) func(*XatsCon) any {
+	return func(xs *XatsCon) any {
+		for c := xs; c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
+			f(c.Args[0])
+		}
+		return XATSNIL()
+	}
+}
+func Xats_optn_foritm_w(f func(any) any) func(*XatsCon) any {
+	return func(xs *XatsCon) any {
+		if xs != nil && xs.Tag == 1 {
+			f(xs.Args[0])
+		}
+		return XATSNIL()
+	}
+}

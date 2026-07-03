@@ -2507,6 +2507,19 @@ case+ t2p0.node() of
 |T2Plft (t2p1) => chase_fun(t2p1)
 |T2Pnone1(t2p1) => chase_fun(t2p1)
 //
+// a TYPE-ALIAS head (`#typedef p1_fun(r0) = (!tkbf0, &sint >> _) -> r0`):
+// the cst carries its DEFINITION s2typ — chase through it (the T2Plam1 case
+// above strips the alias's own type params; args are not substituted, which
+// is sound here because only the ARG SHAPES matter and an alias var in arg
+// position recovers as "any" anyway).  Without this, every function DECLARED
+// via such an alias emitted all-`any` params while its CALL SITES recovered
+// the real types — the &sint>>_ (`*int`) def/call mismatch class.
+|T2Pcst(s2c) =>
+  (
+  case+ s2cst_get_styp(s2c) of
+  | ~optn_vt_cons(def) => chase_fun(def)
+  | ~optn_vt_nil() => optn_nil())
+//
 | _(*otherwise*) => optn_nil()
 )
 //

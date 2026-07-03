@@ -2101,6 +2101,8 @@ if (snm = "strn_foldl") then "foldl$fopr" else
 if (snm = "list_forall") then "forall$test" else
 if (snm = "list_filter") then "filter$test" else
 if (snm = "gseq_group_lstrm_llist") then "group$test" else
+if (snm = "list_foritm") then "foritm$work" else
+if (snm = "optn_foritm") then "foritm$work" else
 "")
 val wsfx =
 (
@@ -2113,6 +2115,8 @@ if (snm = "strn_foldl") then "foldl_fopr" else
 if (snm = "list_forall") then "forall_test" else
 if (snm = "list_filter") then "filter_test" else
 if (snm = "gseq_group_lstrm_llist") then "group_test" else
+if (snm = "list_foritm") then "foritm_work" else
+if (snm = "optn_foritm") then "foritm_work" else
 "")
 // the runtime wrapper name (Go-safe: the `$` in these prim names must not reach
 // the emitted identifier) and the worker/call arity (false = worker (x), call

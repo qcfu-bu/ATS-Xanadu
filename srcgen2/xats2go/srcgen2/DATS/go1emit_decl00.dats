@@ -580,7 +580,24 @@ in
   in cur_funretty_set(saved_cfr) end;
   envx2go_decnind(env0, 1(*--*));
   nindfpr(filr, env0.nind());
-  strnfpr(filr, "}\n")
+  strnfpr(filr, "}\n");
+  // BRIDGE the plain-foritm worker too: record it (hook `foritm$work`) and
+  // alias the closure to the XATS_tmpw_ name the I1INStimp forwarding emits,
+  // with a keep-alive on BOTH names (a resolved/loop-handled call references
+  // neither — the strn_foritm typed-loop path reads XATS_foritm_work only).
+  let
+    val p0ty =
+      (case+ argtys of
+       |list_cons(t1, _) => t1
+       |list_nil() => "")
+    val () = tmpworker_add("foritm$work", p0ty)
+  in ((*void*)) end;
+  nindfpr(filr, env0.nind());
+  strnfpr(filr, "XATS_tmpw_foritm_work := XATS_foritm_work\n");
+  nindfpr(filr, env0.nind());
+  strnfpr(filr, "_ = XATS_tmpw_foritm_work\n");
+  nindfpr(filr, env0.nind());
+  strnfpr(filr, "_ = XATS_foritm_work\n")
 end//endof[foritm_work_emit(filr,dcl0,env0)]
 //
 (*
