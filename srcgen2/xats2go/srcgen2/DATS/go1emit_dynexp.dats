@@ -1365,13 +1365,16 @@ case+ t1imp_i1dclq(timp) of
       val bnds = binds_of_fjarglst(fjas)
       val argtys = gotypes_of_fjarglst(fjas)
       val retty = gotype_of_lam_ret(icmp, bnds)
-      // RESULT BOUNDARY (go-arm): record this instance func's EMITTED return type
-      // keyed by its bound temp, so an application whose result temp is concretely
+      // RESULT BOUNDARY: record this instance func's EMITTED return type keyed
+      // by its bound temp, so an application whose result temp is concretely
       // typed can assert an `any`-returning forwarder (e.g. a0rf_get).
-      val () = (if go_arm_getq() then inst_retty_add(ostmp, retty))
-      // ARG BOUNDARY (go-arm): record this func temp's own emitted Go func type
+      // (UNGATED from go-arm: the nullary `tmp()(args)` peel now runs in both
+      // modes and needs the recorded return type to know whether the peeled
+      // value is an `any` needing a func-type assertion.)
+      val () = inst_retty_add(ostmp, retty)
+      // ARG BOUNDARY: record this func temp's own emitted Go func type
       // so a CALL `tmp(arg)` can recover [tmp]'s concrete first param type.
-      val () = (if go_arm_getq() then goemit_ty_add(ostmp, gofunctype_of_fjarglst(argtys, retty)))
+      val () = goemit_ty_add(ostmp, gofunctype_of_fjarglst(argtys, retty))
       val () =
       (
       strnfpr(filr, "func(");
@@ -1856,6 +1859,31 @@ case+ i1f0.node() of
           val () = i1valgo1(filr, i1f0)
           val () = strnfpr(filr, "()")           // invoke the instance's own thunk
           val finaltype = go_peel_thunks(filr, restype)  // peel nested thunk layers
+          // an `any`-typed thunk result (the literal's return type could not be
+          // recovered) is still APPLIED here — assert it to the generic n-ary
+          // func type `func(any,..,any) any` first (`tmp().(func(..) any)(args)`),
+          // else Go rejects calling a value of interface type.
+          val () =
+          (
+          if (finaltype = "any")
+          then
+          let
+            fun
+            f0_anys(vs: i1valist): void =
+            (
+            case+ vs of
+            |list_nil() => ()
+            |list_cons(_, vs1) =>
+              (
+              strnfpr(filr, "any");
+              case+ vs1 of
+              |list_nil() => ()
+              |list_cons _ => (strnfpr(filr, ", "); f0_anys(vs1))))
+          in
+            strnfpr(filr, ".(func(");
+            f0_anys(i1vs);
+            strnfpr(filr, ") any)")
+          end)
           val pty = go_first_param(finaltype)
         in
           strnfpr(filr, "(");
