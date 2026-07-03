@@ -1088,7 +1088,8 @@ let
       (
       if (if fnq then
            (case+ iv1.node() of
-            |I1Vcst _ => true |I1Vfid _ => true | _ => false) else false)
+            |I1Vcst _ => true |I1Vfid _ => true
+            |I1Vfenv _ => true | _ => false) else false)
       then
       (
       case+ iv1.node() of
@@ -1096,6 +1097,9 @@ let
         (let val (fptys, frt) = gotypes_of_funstyp(d2cst_get_styp(dcst2)) in
            go_funarg_adapter_emit(filr, iv1, fptys, frt, pty) end)
       |I1Vfid(fdvar2) =>
+        (let val (fptys, frt) = gotypes_of_funstyp(d2var_get_styp(fdvar2)) in
+           go_funarg_adapter_emit(filr, iv1, fptys, frt, pty) end)
+      |I1Vfenv(fdvar2, _) =>
         (let val (fptys, frt) = gotypes_of_funstyp(d2var_get_styp(fdvar2)) in
            go_funarg_adapter_emit(filr, iv1, fptys, frt, pty) end)
       | _(*unreachable*) => i1valgo1(filr, iv1))
