@@ -2380,7 +2380,8 @@ case+ t1imp_i1dclq(timp) of
 temp DECLARED `any` (a block-form result hoist whose branch types did not
 join concretely) cannot take `.F<lab>` directly -- when the temp's M2.6b
 construction side-table carries its tuple/record type, re-assert it first:
-`root.(struct{..}).F0` (flat) / `root.(*struct{..}).F0` (boxed).  Fires ONLY
+`root.(struct{..}).F0` for a flat root; the boxed form asserts the pointer
+type (a star before the struct body).  Fires ONLY
 on a RECORDED-`any` root with a RECORDED trcd; every other root emits plain
 (a `:=`-typed concrete root would be broken by a spurious assert).
 *)
