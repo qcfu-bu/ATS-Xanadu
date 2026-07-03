@@ -737,6 +737,89 @@ callee d2var's styp); when it is shorter / empty the extra args emit untyped (th
 fallback that preserves the prior behavior for callees with no recoverable
 signature).
 *)
+(*
+[go_funq]: is [s] a Go function type "func(..."?
+*)
+fun
+go_funq
+(s: strn): bool =
+(
+if (strn_length(s) < 5) then false else
+if (strn_get$at(s, 0) = 'f') then
+if (strn_get$at(s, 1) = 'u') then
+if (strn_get$at(s, 2) = 'n') then
+if (strn_get$at(s, 3) = 'c') then
+(strn_get$at(s, 4) = '(')
+else false else false else false else false
+)//endof[go_funq(s)]
+//
+(*
+[go_funarg_adapter_emit]: a FUNCTION-VALUE argument (I1Vcst/I1Vfid) whose own
+emitted Go signature (fptys -> frt) differs from the callee's func-typed param
+[pty] cannot be passed directly (Go func types are invariant).  Emit an
+ADAPTER literal
+  func(goxtwp0 any, ..) any { return <f>(<coerce_i(goxtwp_i)>, ..) }
+— per-param idempotent coercion into [f]'s own param types, result auto-boxed
+to `any`.  When the signatures already AGREE the arg is passed plain.
+(Assumes the common all-`any` hook shape for [pty]'s params — the coercions
+are what re-concretize.)
+*)
+fun
+go_funarg_adapter_emit
+( filr: FILR
+, fval: i1val
+, fptys: list(strn)
+, frt: strn
+, pty: strn): void =
+(
+if (gofunctype_of_fjarglst(fptys, frt) = pty)
+then i1valgo1(filr, fval)
+else
+let
+  fun
+  params(fptys: list(strn), i0: sint): void =
+  (
+  case+ fptys of
+  |list_nil() => ()
+  |list_cons(_, fs1) =>
+    (
+    if (i0 >= 1) then strnfpr(filr, ", ");
+    strnfpr(filr, "goxtwp");
+    strnfpr(filr, gofield_of_label(LABint(i0)));
+    strnfpr(filr, " any");
+    params(fs1, i0+1))
+  )
+  fun
+  args(fptys: list(strn), i0: sint): void =
+  (
+  case+ fptys of
+  |list_nil() => ()
+  |list_cons(f1, fs1) =>
+    let
+      val coerfn = go_coerfn_of(f1)
+    in
+    (
+    if (i0 >= 1) then strnfpr(filr, ", ");
+    (if (strn_length(coerfn) > 0)
+     then (strnfpr(filr, coerfn); strnfpr(filr, "("))
+     else ());
+    strnfpr(filr, "goxtwp");
+    strnfpr(filr, gofield_of_label(LABint(i0)));
+    (if (strn_length(coerfn) > 0) then strnfpr(filr, ")") else ());
+    args(fs1, i0+1))
+    end
+  )
+in
+  strnfpr(filr, "func(");
+  params(fptys, 0);
+  strnfpr(filr, ") any { return ");
+  i1valgo1(filr, fval);
+  strnfpr(filr, "(");
+  args(fptys, 0);
+  strnfpr(filr, ") }")
+end
+)//endof[go_funarg_adapter_emit(...)]
+//
 fun
 i1valgo1_list_argtyped
 ( filr: FILR
@@ -775,8 +858,25 @@ let
       // ONLY the erased by-ref image `*any` — value-pointer types like
       // `*xatsgo.XatsCon` are ordinary BY-VALUE args and must not take `&`.
       val ptrq = (pty = "*any")
+      // a func-typed param taking a FUNCTION-VALUE arg -> adapter when the
+      // signatures differ (Go func types are invariant).
+      val fnq = go_funq(pty)
     in
       (
+      if (if fnq then
+           (case+ iv1.node() of
+            |I1Vcst _ => true |I1Vfid _ => true | _ => false) else false)
+      then
+      (
+      case+ iv1.node() of
+      |I1Vcst(dcst2) =>
+        (let val (fptys, frt) = gotypes_of_funstyp(d2cst_get_styp(dcst2)) in
+           go_funarg_adapter_emit(filr, iv1, fptys, frt, pty) end)
+      |I1Vfid(fdvar2) =>
+        (let val (fptys, frt) = gotypes_of_funstyp(d2var_get_styp(fdvar2)) in
+           go_funarg_adapter_emit(filr, iv1, fptys, frt, pty) end)
+      | _(*unreachable*) => i1valgo1(filr, iv1))
+      else
       if ptrq
       then
       (
@@ -1747,6 +1847,85 @@ in
 end//endof[go_first_param(s)]
 //
 (*
+[go_params_of_functype]: parse ALL parameter Go-types out of a function-type
+string — "func(int, string) any" -> ["int","string"] (paren AND brace depth
+tracked, so a nested func(..)/struct{..} param's ','/';' does not split).
+nil when [s] is not "func(...)..." or has no params.
+*)
+fun
+go_params_of_functype
+(s: strn): list(strn) =
+let
+  val n = strn_length(s)
+  fun
+  onep(i0: sint, pd: sint, bd: sint): list(cgtz) =
+  (
+  if (i0 >= n) then list_nil()
+  else
+    let val c: cgtz = s[i0] in
+    (
+    if (c = ')')
+    then (if (if (pd <= 0) then (bd <= 0) else false)
+          then list_nil()
+          else list_cons(c, onep(i0+1, pd-1, bd)))
+    else if (c = ',')
+    then (if (if (pd <= 0) then (bd <= 0) else false)
+          then list_nil()
+          else list_cons(c, onep(i0+1, pd, bd)))
+    else if (c = '(') then list_cons(c, onep(i0+1, pd+1, bd))
+    else if (c = '{') then list_cons(c, onep(i0+1, pd, bd+1))
+    else if (c = '}') then list_cons(c, onep(i0+1, pd, bd-1))
+    else list_cons(c, onep(i0+1, pd, bd)))
+    end
+  )
+  fun
+  skipone(i0: sint, pd: sint, bd: sint): sint =
+  (
+  if (i0 >= n) then i0
+  else
+    let val c: cgtz = s[i0] in
+    (
+    if (c = ')')
+    then (if (if (pd <= 0) then (bd <= 0) else false) then i0 else skipone(i0+1, pd-1, bd))
+    else if (c = ',')
+    then (if (if (pd <= 0) then (bd <= 0) else false) then i0 else skipone(i0+1, pd, bd))
+    else if (c = '(') then skipone(i0+1, pd+1, bd)
+    else if (c = '{') then skipone(i0+1, pd, bd+1)
+    else if (c = '}') then skipone(i0+1, pd, bd-1)
+    else skipone(i0+1, pd, bd))
+    end
+  )
+  fun
+  many(i0: sint): list(strn) =
+  (
+  if (i0 >= n) then list_nil()
+  else
+  if (s[i0] = ')') then list_nil()
+  else
+  let
+    // skip a separator space (the ", " the type strings use)
+    val i0 = (if (s[i0] = ' ') then (i0 + 1) else i0)
+    val p1 = strn_make_list(onep(i0, 0, 0))
+    val j0 = skipone(i0, 0, 0)
+  in
+    if (j0 >= n) then list_cons(p1, list_nil())
+    else
+    if (s[j0] = ')') then list_cons(p1, list_nil())
+    else list_cons(p1, many(j0 + 1))
+  end
+  )
+in
+  if (n < 5) then list_nil()
+  else
+  if s[0] != 'f' then list_nil() else
+  if s[1] != 'u' then list_nil() else
+  if s[2] != 'n' then list_nil() else
+  if s[3] != 'c' then list_nil() else
+  if s[4] != '(' then list_nil() else
+  many(5)
+end//endof[go_params_of_functype(s)]
+//
+(*
 [go_return_type]: parse the RESULT Go-type out of a function-type string --
 "func(bool) any" -> "any", "func(int, int) int" -> "int", "func() float64" ->
 "float64".  Skips past the matching ")" of the param list (paren-depth tracked)
@@ -2166,8 +2345,20 @@ case+ i1f0.node() of
         // worker.  Keying arg-is-`any` on the EMITTED type avoids mis-asserting a
         // concretely-emitted value (which Go rejects as a non-interface assert).
         let
-          val pty = go_first_param(goemit_ty_get(i1tnm_stmp$get(tnm)))
+          val fty = goemit_ty_get(i1tnm_stmp$get(tnm))
+          val pty = go_first_param(fty)
         in
+          // FULL-SIGNATURE path: the callee temp's recorded Go func type gives
+          // ALL param types — route every arg through the idempotent-coercion
+          // argtyped emitter (multi-arg boundary, func-arg adapters included).
+          if go_funq(fty)
+          then
+          (
+          i1valgo1(filr, i1f0); strnfpr(filr, "(");
+          i1valgo1_list_argtyped(filr, i1vs, go_params_of_functype(fty));
+          strnfpr(filr, ")"))
+          else
+          (
           i1valgo1(filr, i1f0); strnfpr(filr, "(");
           (
           case+ i1vs of
@@ -2196,7 +2387,7 @@ case+ i1f0.node() of
                 else i1valgo1_list(filr, i1vs))
              else i1valgo1_list(filr, i1vs))
           | _(*0 or many args*) => i1valgo1_list(filr, i1vs));
-          strnfpr(filr, ")")
+          strnfpr(filr, ")"))
         end
     )
   | _(*non-tnm callee*) =>
@@ -3444,6 +3635,9 @@ case+ iins of
     val bnds1  = list_append(binds_of_fjarglst(fjas), bnds)
     val retty  = gotype_of_lam_ret(body, bnds1)
     val live = i1tnm_used_in_cmp(itnm, scp)
+    // EMITTED-TYPE: record this lambda temp's full Go func type so a later
+    // `tmp(args)` call recovers ALL param types (multi-arg boundary).
+    val () = goemit_ty_add(i1tnm_stmp$get(itnm), gofunctype_of_fjarglst(argtys, retty))
     //
     // goxtnm<itnm> := func(<typed params>) <ret> {   (or `_ =` if dead, so
     // a never-used lambda does not trip Go's "declared and not used").
@@ -3487,6 +3681,8 @@ case+ iins of
     val retty  =
       (if (vretty = "any") then gotype_of_lam_ret(body, bnds1) else vretty)
     val ftype  = gofunctype_of_fjarglst(argtys, retty)
+    // EMITTED-TYPE: as at I1INSlam0 — the outer temp aliases this closure.
+    val () = goemit_ty_add(i1tnm_stmp$get(itnm), ftype)
     //
     // var <fname> <functype>           (so the func literal can name itself)
     val () =
