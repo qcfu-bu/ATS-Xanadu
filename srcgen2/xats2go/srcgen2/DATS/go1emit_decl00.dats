@@ -1477,15 +1477,27 @@ case+ tdxp of
       val gty0 = gotyp_emit(i1tnm_gotyp$get(itnm))
       val gty = (if (strn_length(gty0) = 0) then "any" else gty0)
     in
-      // package-level declaration `var goxtnm<x> <T>`
+      // package-level `var goxtnm<x> <T> = func() <T> { ..; return .. }()`:
+      // an IIFE INITIALIZER, not a `func init()` body.  Go runs ALL var
+      // initializers (in reference-dependency order; declaration order for
+      // independents) BEFORE any func init(), so a `func init()`-assigned
+      // global (the xsymbol jshmap) was still nil when another module's
+      // IIFE global (AMP_symbl = symbl_make_name"&") read it through a
+      // function call.  With every module-level val an IIFE var, Go's
+      // dependency ordering initializes the map first -- and declaration
+      // order (= module order) matches the ATS/JS sequential semantics.
       strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
-      strnfpr(filr, " "); strnfpr(filr, gty); strnfpr(filr, "\n");
-      // its init in a per-val `func init()` (Go runs each before main).
-      strnfpr(filr, "func init() {\n");
+      strnfpr(filr, " "); strnfpr(filr, gty);
+      strnfpr(filr, " = func() "); strnfpr(filr, gty);
+      strnfpr(filr, " {\n");
       envx2go_incnind(env0, 1(*++*));
-      i1cmp_go1emit_tnm(itnm, icmp, env0);
+      // RETURN-BOUNDARY SCOPE: pin the IIFE's return type.
+      let val saved_cfr = cur_funretty_get()
+          val () = cur_funretty_set(gty)
+          val () = i1cmp_go1emit_ret(icmp, list_nil(), list_nil(), env0)
+      in cur_funretty_set(saved_cfr) end;
       envx2go_decnind(env0, 1(*--*));
-      strnfpr(filr, "}\n")
+      strnfpr(filr, "}()\n")
     end
   else ((*void*)) // effect / structural -> emitted by the in-main pass
 |TEQI1CMPnone() => ((*void*))
