@@ -1321,3 +1321,34 @@ loop_* with its byref accumulator) with ZERO worker-forwarding wrappers --
 the Task-#8 bridge auto-retires exactly as designed, replaced by code compiled
 and emitted by the ATS compiler itself.  Gates on the rebuilt frontend:
 go-arm rungs 1-12 byte-equal, JS oracle suite 75/75 byte-equal.
+
+## Session: full-pipeline assembly push (2026-07-03)
+
+State: the 18-emitter + 162-frontend assembly (assemble.sh, ~195k lines)
+builds with ~428 error lines (from 2383 at first full assembly).  All
+Task-#10 boundary machinery is in place and gate-verified: idempotent
+Xats_as_* coercions at arg/return/assign/if-cond/binop/struct-field
+boundaries, struct repack, func-arg adapters mirroring the target pty,
+by-ref `*T` images in BOTH func-type renderers (gtx_argchase +
+gorender_funty), type-ALIAS chase in chase_fun (p1_fun class),
+full-signature I1Vtnm calls, per-module goxtnm renaming in assemble.sh.
+
+REMAINING (in build order of value):
+1. 134x nil-callee = I1Vnone1(I0Enone2(I0Enone1(d3exp))) — an INNER
+   prelude template query fails (list_map$e1nv's body resolves, its
+   inner list_map$e1nv_vt call does not; genv000.dats:216).  The d3exp
+   payload is not chaseable at i0 level.  Options: chase the d3exp in
+   trxd3i0's `_ => i0exp_none1` catch-all (find WHICH node kind falls
+   through — probe there, it is xats2cc/srcgen1 so CC_JS2 rebuilds),
+   or fix the inner query at the frontend (why does the vt-variant
+   query fail when the outer resolved?), or add list_map$e1nv_vt to
+   the bridge families AND make the none-chain chaseable.
+2. 100x any->*XatsCon args to TEMP callees with unrecorded fty.
+3. 129 undefined: ~30 runtime prims (char/a1ptr/gseq leaves) + ~38
+   frontend stamped names (d0parsed accessors -> parsing.dats etc. are
+   IN the module list — check why their defs did not emit) + shims.
+4. Driver wiring: UTIL/xats2go_goemit01.dats as main; then self-emit.
+
+Caveat discovered: any go1emit SATS change shifts stamps — touch-all
+DATS + the UTIL driver before `make bundle`, else the bundle carries
+stale cross-module stamps (all-red psuite, ReferenceError at runtime).

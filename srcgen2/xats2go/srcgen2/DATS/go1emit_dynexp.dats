@@ -1323,6 +1323,29 @@ end//let//endof[i1trcd_construct_go1emit(filr,otnm,iins)]
 (* ****** ****** *)
 //
 (*
+[i0exp_head_dcst]: chase an i0exp APPLICATION head (tapq/tapp/sapq/sapp/timp
+wrappers) to its underlying d2cst; nil when the head is not a cst.
+*)
+fun
+i0exp_head_dcst
+(e0: i0exp): optn(d2cst) =
+(
+case+ e0.node() of
+|I0Ecst(dcst) => optn_cons(dcst)
+|I0Etapq(e1, _) => i0exp_head_dcst(e1)
+|I0Etapp(e1, _) => i0exp_head_dcst(e1)
+|I0Esapq(e1, _) => i0exp_head_dcst(e1)
+|I0Esapp(e1, _) => i0exp_head_dcst(e1)
+|I0Etimp(e1, _) => i0exp_head_dcst(e1)
+// erased wrappers: the erasure may wrap the original application
+// (I0Enone1 carries a d3exp — not chaseable at this level; I0Enone2 an i0exp)
+|I0Enone2(e1) => i0exp_head_dcst(e1)
+|I0Edapp(e1, _, _) => i0exp_head_dcst(e1)
+|I0Edap0(e1) => i0exp_head_dcst(e1)
+| _(*else*) => optn_nil()
+)//endof[i0exp_head_dcst(e0)]
+//
+(*
 [tmpw_forward_emitq]: the Task-#8 worker-forwarding emission for a template-
 method d2cst whose instance the frontend failed to resolve.  Shared by the
 I1INStimp binding (the op-temp value) and the I1Vaexp fallback (an unresolved
@@ -1681,27 +1704,28 @@ is specific.
   // flat-expression fallback): chase the application head to its d2cst and
   // try the Task-#8 worker forwarding — the in-scope XATS_tmpw_* worker
   // re-attaches.  Anything else keeps the loud UNHANDLED marker.
-  let
-    fun
-    chasehead(e0: i0exp): optn(d2cst) =
+  (
+  case+ i0exp_head_dcst(iexp) of
+  |optn_cons(dcst) =>
     (
-    case+ e0.node() of
-    |I0Ecst(dcst) => optn_cons(dcst)
-    |I0Etapq(e1, _) => chasehead(e1)
-    |I0Etapp(e1, _) => chasehead(e1)
-    |I0Esapq(e1, _) => chasehead(e1)
-    |I0Esapp(e1, _) => chasehead(e1)
-    |I0Etimp(e1, _) => chasehead(e1)
-    | _(*else*) => optn_nil())
-  in
-    case+ chasehead(iexp) of
-    |optn_cons(dcst) =>
-      (
-      if tmpw_forward_emitq(filr, dcst)
-      then ((*emitted*))
-      else unhandled_val(filr, "I1Vaexp(flat-expr lvalue)", ival))
-    |optn_nil() => unhandled_val(filr, "I1Vaexp(flat-expr lvalue)", ival)
-  end
+    if tmpw_forward_emitq(filr, dcst)
+    then ((*emitted*))
+    else unhandled_val(filr, "I1Vaexp(flat-expr lvalue)", ival))
+  |optn_nil() => unhandled_val(filr, "I1Vaexp(flat-expr lvalue)", ival))
+//
+// an ERASED/errck'd expression value (I1Vnone1 carries the original i0exp):
+// same story as I1Vaexp — an unresolved template application whose in-scope
+// worker the forwarding re-attaches.
+|I1Vnone1(iexp) =>
+  (
+  case+ i0exp_head_dcst(iexp) of
+  |optn_cons(dcst) =>
+    (
+    if tmpw_forward_emitq(filr, dcst)
+    then ((*emitted*))
+    else unhandled_val(filr, "I1Vnone1(erased)", ival))
+  |optn_nil() => unhandled_val(filr, "I1Vnone1(erased)", ival))
+|I1Vnone0() => unhandled_val(filr, "I1Vnone0(erased)", ival)
 //
 (*
 I1Venv(i1env): an environment-slot value (a captured-env record).  Produced
@@ -1711,6 +1735,7 @@ bypassed entirely (see the I1Vfenv / M2.5 capture notes).  An I1Venv therefore
 never reaches a Go value-emit site on the supported surface; mark UNHANDLED with
 a specific note rather than emit a meaningless env handle.
 *)
+|I1Vcon(_dcon) => unhandled_val(filr, "I1Vcon(first-class datacon)", ival)
 |I1Venv(_ienv) => unhandled_val(filr, "I1Venv(env-slot; Go captures lexically)", ival)
 //
 (* ****** ****** *)
