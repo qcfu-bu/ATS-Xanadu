@@ -1396,6 +1396,35 @@ case+ t1imp_i1dclq(timp) of
 (* ****** ****** *)
 //
 (*
+[t1imp_func_literalq]: WOULD [t1imp_func_literal_go1emit] emit the func-literal
+(thunk) form for this instance?  The same predicate chain as the emitter above,
+minus the emission — used to decide nullary_inst registration, which must agree
+with the FORM actually emitted (a flat prim value must NOT be `()`-peeled).
+*)
+fun
+t1imp_func_literalq
+(timp: t1imp): bool =
+(
+if
+t1imp_xats2js_runtimeq(timp)
+then false
+else
+case+ t1imp_i1dclq(timp) of
+|optn_nil() => false
+|optn_cons(idcl) =>
+  if
+  (if i1dcl_preludeq(idcl) then (if go_arm_getq() then false else true) else false)
+  then false
+  else
+  (
+  case+ idcl.node() of
+  |I1Dimplmnt0 _ => true
+  | _(*else*) => false)
+)//endof[t1imp_func_literalq(timp)]
+//
+(* ****** ****** *)
+//
+(*
 [t1imp_nullaryq]: is this template instance VALUE-LIKE (an I1Dimplmnt0 with no
 value params)?  Such an instance is emitted by [t1imp_func_literal_go1emit] as
 a 0-param Go thunk `func() T {..}`; the go-arm dispatch records its bound temp
@@ -3589,11 +3618,14 @@ case+ ilet of
   |I1INStimp(_, timp) =>
     let
       val live = i1tnm_used_in_cmp(itnm, scp)
-      // go-arm: a value-like (nullary) instance emits as a thunk bound to this
-      // temp; record it so a later application with args becomes `tmp()(args)`.
+      // a value-like (nullary) instance emits as a thunk bound to this temp;
+      // record it so a later application with args becomes `tmp()(args)`.
+      // (UNGATED from go-arm, but keyed to the FORM: register ONLY when the
+      // func-literal (thunk) form is what gets emitted below — a flat prim
+      // value (t1imp_func_literalq false) must NOT be `()`-peeled.)
       val () =
       (
-      if (if go_arm_getq() then t1imp_nullaryq(timp) else false)
+      if (if t1imp_nullaryq(timp) then t1imp_func_literalq(timp) else false)
       then nullary_inst_add(i1tnm_stmp$get(itnm), t1imp_hook_paramty(timp)))
       // RESULT-BOUNDARY (emitter self-emission): a generic `any`-returning
       // accessor materialized as a value -> record its emitted return type "any"

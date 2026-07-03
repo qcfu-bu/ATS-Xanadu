@@ -26,6 +26,7 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -1222,3 +1223,243 @@ func Xats_list_pair(x1 any, x2 any) *XatsCon {
 	return &XatsCon{Tag: 1, Args: []any{x1,
 		&XatsCon{Tag: 1, Args: []any{x2, &XatsCon{Tag: 0, Args: nil}}}}}
 }
+
+// ===========================================================================
+// Self-hosting floor: JS-arm leaves (the _XATS2JS_ prelude arm resolved by the
+// frontend routes its extern leaves here — the Go analogue of basics*.cats /
+// NODE/basics0.cats), plus the sort/compare leaves of the compiler's own
+// labeled-list templates.
+// ===========================================================================
+
+// -- NODE handles + fprint (NODE/basics0.cats) -------------------------------
+//
+// The JS arm's file handles are process.stdout/stderr; here the analogous
+// io.Writer values. Every *_fprint below writes via the same duck-typed
+// Write([]byte) the existing FILR helpers use.
+var Xats_XATS2JS_NODE_g_stdout = func() any { return os.Stdout }
+var Xats_XATS2JS_NODE_g_stderr = func() any { return os.Stderr }
+
+// XATS2JS_NODE_strn_fprint(obj, out): out.write(obj) — arg order (obj, out).
+var Xats_XATS2JS_NODE_strn_fprint = func(obj any, out any) any {
+	s, ok := obj.(string)
+	if !ok {
+		s = xatsValueString(obj)
+	}
+	if w, ok := out.(interface{ Write([]byte) (int, error) }); ok {
+		_, _ = w.Write([]byte(s))
+	}
+	return XATSNIL()
+}
+
+// -- stderr print family (synoug0's gs_prerr chain) --------------------------
+//
+// Every emitted call to the generic gs_fproc_n1/n2 hooks originates from
+// gs_prerr_n1/n2 (synoug0.dats lines 478/489 — verified: ALL call-site source
+// locations in the assembled output point there), whose local `#impltmp
+// g_fproc = g_prerr` makes the observable behavior "print each arg to stderr".
+var Xats_g_prerr = func(x any) any { gsPrerrOne(x); return XATSNIL() }
+var Xats_gs_fproc_n1 = func(x0 any) any { gsPrerrOne(x0); return XATSNIL() }
+var Xats_gs_fproc_n2 = func(x0 any, x1 any) any {
+	gsPrerrOne(x0)
+	gsPrerrOne(x1)
+	return XATSNIL()
+}
+
+// -- generic ordering --------------------------------------------------------
+func Xats_g_lte(a any, b any) bool { return xatsGcmp(a, b) <= 0 }
+func Xats_g_gte(a any, b any) bool { return xatsGcmp(a, b) >= 0 }
+
+// -- labeled-list sortedq/mergesort ------------------------------------------
+//
+// The compiler's two list_sortedq/list_mergesort instances (statyp2's
+// f0_orderize over l2t2p, trxi0i1's over l1i1v) both sort single-constructor
+// labeled pairs CON(label, item) by LABEL ONLY (xatsopt_tmplib's
+// g_cmp<s2lab(x0)> compares just the labels; ditto the i1lab domain).
+//
+// label = LABint(sint) | LABsym(symbl): LABint(tag 0) < LABsym(tag 1); ints
+// numerically; symbols by their STAMP (symbl = SYMBL(name, stamp), stamp is a
+// plain int at runtime) — mirrors xlabel0's label_cmp + xsymbol's symbl_cmp.
+func xatsLabelCmp(l1 any, l2 any) int {
+	c1 := l1.(*XatsCon)
+	c2 := l2.(*XatsCon)
+	if c1.Tag != c2.Tag {
+		if c1.Tag < c2.Tag {
+			return -1
+		}
+		return 1
+	}
+	if c1.Tag == 0 { // LABint(i)
+		return xatsGcmp(c1.Args[0], c2.Args[0])
+	}
+	// LABsym(SYMBL(name, stamp)): stamp compare
+	s1 := c1.Args[0].(*XatsCon)
+	s2 := c2.Args[0].(*XatsCon)
+	return xatsGcmp(s1.Args[1], s2.Args[1])
+}
+
+// element = CON(label, item) — Args[0] is the label in both l2t2p and l1i1v.
+func xatsLabItemCmp(a any, b any) int {
+	return xatsLabelCmp(a.(*XatsCon).Args[0], b.(*XatsCon).Args[0])
+}
+
+func Xats_list_sortedq(xs any) bool {
+	c := xs.(*XatsCon)
+	for c.Tag != 0 {
+		next := c.Args[1].(*XatsCon)
+		if next.Tag == 0 {
+			break
+		}
+		if xatsLabItemCmp(c.Args[0], next.Args[0]) > 0 {
+			return false
+		}
+		c = next
+	}
+	return true
+}
+
+// stable merge sort over a cons-list (prelude list_mergesort semantics: the
+// prelude's split/merge with g_cmp<=0 keeping the left element is stable).
+func Xats_list_mergesort(xs any) *XatsCon {
+	var elems []any
+	for c := xs.(*XatsCon); c.Tag != 0; c = c.Args[1].(*XatsCon) {
+		elems = append(elems, c.Args[0])
+	}
+	// insertion-free stable sort (mergesort)
+	var merge func(a, b []any) []any
+	merge = func(a, b []any) []any {
+		out := make([]any, 0, len(a)+len(b))
+		for len(a) > 0 && len(b) > 0 {
+			if xatsLabItemCmp(a[0], b[0]) <= 0 {
+				out = append(out, a[0])
+				a = a[1:]
+			} else {
+				out = append(out, b[0])
+				b = b[1:]
+			}
+		}
+		out = append(out, a...)
+		return append(out, b...)
+	}
+	var msort func(v []any) []any
+	msort = func(v []any) []any {
+		if len(v) <= 1 {
+			return v
+		}
+		m := len(v) / 2
+		return merge(msort(v[:m]), msort(v[m:]))
+	}
+	elems = msort(elems)
+	acc := &XatsCon{Tag: 0}
+	for i := len(elems) - 1; i >= 0; i-- {
+		acc = &XatsCon{Tag: 1, Args: []any{elems[i], acc}}
+	}
+	return acc
+}
+
+// -- i0pat_allq (xats2cc/srcgen1 intrep0_utils0.dats) -------------------------
+//
+// Is the pattern irrefutable? i0pat_node tags follow intrep0.sats declaration
+// order: I0Pany=0 I0Pvar=1 ... I0Ptup0=16(npf,i0ps) I0Ptup1=17(knd,npf,i0ps)
+// I0Prcd2=18(knd,npf,l0i0ps with l0i0p=I0LAB(label,pat) — pat at Args[1]).
+func Xats_i0pat_allq(p any) bool {
+	node := Xats_i0pat_node_get(p).(*XatsCon)
+	allList := func(lst any, patOf func(any) any) bool {
+		for c := lst.(*XatsCon); c.Tag != 0; c = c.Args[1].(*XatsCon) {
+			if !Xats_i0pat_allq(patOf(c.Args[0])) {
+				return false
+			}
+		}
+		return true
+	}
+	switch node.Tag {
+	case 0, 1: // I0Pany, I0Pvar
+		return true
+	case 16: // I0Ptup0(npf, i0ps)
+		return allList(node.Args[1], func(x any) any { return x })
+	case 17: // I0Ptup1(knd, npf, i0ps)
+		return allList(node.Args[2], func(x any) any { return x })
+	case 18: // I0Prcd2(knd, npf, l0i0ps)
+		return allList(node.Args[2], func(x any) any { return x.(*XatsCon).Args[1] })
+	default:
+		return false
+	}
+}
+
+// -- jshmap (basics3.cats: the JS-object hashmap behind xlibext's mydict) -----
+//
+// JS Object.keys ordering is OBSERVABLE by the compiler (template-instance
+// emission order): integer-like keys ascend numerically FIRST, then string
+// keys in insertion order. xatsJSHMap reproduces exactly that.
+type xatsJSHMap struct {
+	m    map[any]any
+	keys []any // insertion order of first insertion
+}
+
+func Xats_XATS2JS_jshmap_make_nil() any {
+	return &xatsJSHMap{m: make(map[any]any)}
+}
+
+func Xats_XATS2JS_jshmap_insert_any(mp any, key any, itm any) any {
+	h := mp.(*xatsJSHMap)
+	if _, dup := h.m[key]; !dup {
+		h.keys = append(h.keys, key)
+	}
+	h.m[key] = itm
+	return XATSNIL()
+}
+
+// search$opt: optn_vt_nil()=Tag 0 / optn_vt_cons(itm)=Tag 1.
+func Xats_XATS2JS_jshmap_search_opt(mp any, key any) *XatsCon {
+	h := mp.(*xatsJSHMap)
+	if itm, ok := h.m[key]; ok {
+		return &XatsCon{Tag: 1, Args: []any{itm}}
+	}
+	return &XatsCon{Tag: 0}
+}
+
+// get_keys: a jsa1sz (JS array) of the keys — []any, JS enumeration order
+// (numeric keys ascending, then string keys by insertion).
+func Xats_XATS2JS_jshmap_get_keys(mp any) any {
+	h := mp.(*xatsJSHMap)
+	var ints []any
+	var strs []any
+	for _, k := range h.keys {
+		switch k.(type) {
+		case int:
+			ints = append(ints, k)
+		default:
+			strs = append(strs, k)
+		}
+	}
+	sort.Slice(ints, func(i, j int) bool { return ints[i].(int) < ints[j].(int) })
+	return append(ints, strs...)
+}
+
+// jsa1sz_strmize: a stream over a JS array — like Xats_strn_strmize, a finite
+// input needs no laziness: the equivalent EAGER cons-list (Tag 0/1 shape).
+func Xats_XATS2JS_jsa1sz_strmize(xs any) any {
+	arr := xs.([]any)
+	acc := &XatsCon{Tag: 0}
+	for i := len(arr) - 1; i >= 0; i-- {
+		acc = &XatsCon{Tag: 1, Args: []any{arr[i], acc}}
+	}
+	return acc
+}
+
+// strm_vt_map0 reaches the runtime only via the worker-less fallback of
+// gmap_strmize inside tmpmap_strmize — which no compiler module ever calls
+// (declared in xstamp0.sats, zero call sites). Present only so the assembled
+// package links; loudly unreachable by construction.
+func Xats_strm_vt_map0(xs any) any {
+	panic("xatsgo: Xats_strm_vt_map0: worker-less fallback (no live caller in xatsopt)")
+}
+
+// -- a0ref/a0ptr boxes (basics2.cats) ----------------------------------------
+//
+// The JS arm's 1-cell box (A0=[x0]) — same representation as the existing
+// XatsA0Ref cell above; a0ptr2ref/a0ref2ptr are representation identity.
+func Xats_a0ptr_make_1val(x0 any) any { return &XatsA0Ref{val: x0} }
+func Xats_a0ptr2ref(a0 any) any       { return a0 }
+func Xats_a0ref2ptr(a0 any) any       { return a0 }
+func Xats_a0ref_dtget(a0 any) any     { return a0.(*XatsA0Ref).val }
+func Xats_a0ref_dtset(a0, x0 any) any { a0.(*XatsA0Ref).val = x0; return XATSNIL() }
