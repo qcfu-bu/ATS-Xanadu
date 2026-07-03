@@ -738,6 +738,186 @@ fallback that preserves the prior behavior for callees with no recoverable
 signature).
 *)
 (*
+[go_first_param]: parse the FIRST parameter Go-type out of a function-type
+string like "func(bool) any" -> "bool", "func(int, string) any" -> "int",
+"func(func(int) bool) any" -> "func(int) bool" (paren-depth tracked so a
+NESTED func type's inner comma/paren does not terminate the scan).  Returns
+"" when [s] is not a "func(...)..." type or has no parameters ("func() any").
+*)
+fun
+go_first_param
+(s: strn): strn =
+let
+  val n = strn_length(s)
+  //
+  fun
+  char1(c: cgtz): strn = strn_make_list(list_cons(c, list_nil()))
+  //
+  // scan from just after the "func(" prefix, accumulating the first param's
+  // chars; a top-level (depth 0) ',' or ')' ENDS the first param.
+  fun
+  scan(i0: sint, depth: sint): strn =
+  (
+  if (i0 >= n) then ""
+  else
+    let val c: cgtz = s[i0] in
+    (
+    if (c = ')')
+    then (if (depth <= 0) then "" else strn_append(char1(c), scan(i0+1, depth-1)))
+    else if (c = ',')
+    then (if (depth <= 0) then "" else strn_append(char1(c), scan(i0+1, depth)))
+    else if (c = '(')
+    then strn_append(char1(c), scan(i0+1, depth+1))
+    else strn_append(char1(c), scan(i0+1, depth)))
+    end
+  )//endof[scan]
+in
+  if (n < 5) then ""
+  else
+  if s[0] != 'f' then "" else
+  if s[1] != 'u' then "" else
+  if s[2] != 'n' then "" else
+  if s[3] != 'c' then "" else
+  if s[4] != '(' then "" else
+  scan(5, 0)
+end//endof[go_first_param(s)]
+//
+(*
+[go_params_of_functype]: parse ALL parameter Go-types out of a function-type
+string — "func(int, string) any" -> ["int","string"] (paren AND brace depth
+tracked, so a nested func(..)/struct{..} param's ','/';' does not split).
+nil when [s] is not "func(...)..." or has no params.
+*)
+fun
+go_params_of_functype
+(s: strn): list(strn) =
+let
+  val n = strn_length(s)
+  fun
+  onep(i0: sint, pd: sint, bd: sint): list(cgtz) =
+  (
+  if (i0 >= n) then list_nil()
+  else
+    let val c: cgtz = s[i0] in
+    (
+    if (c = ')')
+    then (if (if (pd <= 0) then (bd <= 0) else false)
+          then list_nil()
+          else list_cons(c, onep(i0+1, pd-1, bd)))
+    else if (c = ',')
+    then (if (if (pd <= 0) then (bd <= 0) else false)
+          then list_nil()
+          else list_cons(c, onep(i0+1, pd, bd)))
+    else if (c = '(') then list_cons(c, onep(i0+1, pd+1, bd))
+    else if (c = '{') then list_cons(c, onep(i0+1, pd, bd+1))
+    else if (c = '}') then list_cons(c, onep(i0+1, pd, bd-1))
+    else list_cons(c, onep(i0+1, pd, bd)))
+    end
+  )
+  fun
+  skipone(i0: sint, pd: sint, bd: sint): sint =
+  (
+  if (i0 >= n) then i0
+  else
+    let val c: cgtz = s[i0] in
+    (
+    if (c = ')')
+    then (if (if (pd <= 0) then (bd <= 0) else false) then i0 else skipone(i0+1, pd-1, bd))
+    else if (c = ',')
+    then (if (if (pd <= 0) then (bd <= 0) else false) then i0 else skipone(i0+1, pd, bd))
+    else if (c = '(') then skipone(i0+1, pd+1, bd)
+    else if (c = '{') then skipone(i0+1, pd, bd+1)
+    else if (c = '}') then skipone(i0+1, pd, bd-1)
+    else skipone(i0+1, pd, bd))
+    end
+  )
+  fun
+  many(i0: sint): list(strn) =
+  (
+  if (i0 >= n) then list_nil()
+  else
+  if (s[i0] = ')') then list_nil()
+  else
+  let
+    // skip a separator space (the ", " the type strings use)
+    val i0 = (if (s[i0] = ' ') then (i0 + 1) else i0)
+    val p1 = strn_make_list(onep(i0, 0, 0))
+    val j0 = skipone(i0, 0, 0)
+  in
+    if (j0 >= n) then list_cons(p1, list_nil())
+    else
+    if (s[j0] = ')') then list_cons(p1, list_nil())
+    else list_cons(p1, many(j0 + 1))
+  end
+  )
+in
+  if (n < 5) then list_nil()
+  else
+  if s[0] != 'f' then list_nil() else
+  if s[1] != 'u' then list_nil() else
+  if s[2] != 'n' then list_nil() else
+  if s[3] != 'c' then list_nil() else
+  if s[4] != '(' then list_nil() else
+  many(5)
+end//endof[go_params_of_functype(s)]
+//
+(*
+[go_return_type]: parse the RESULT Go-type out of a function-type string --
+"func(bool) any" -> "any", "func(int, int) int" -> "int", "func() float64" ->
+"float64".  Skips past the matching ")" of the param list (paren-depth tracked)
+and returns the remainder (one leading space trimmed).  "" when [s] is not a
+"func(...)..." type.  Used at the RESULT BOUNDARY: an `any`-returning call bound
+to a concretely-typed temp must be asserted.
+*)
+fun
+go_return_type
+(s: strn): strn =
+let
+  val n = strn_length(s)
+  //
+  fun
+  char1(c: cgtz): strn = strn_make_list(list_cons(c, list_nil()))
+  //
+  // collect s[i0..n) verbatim (the return-type tail).
+  fun
+  rest(i0: sint): strn =
+  (
+  if (i0 >= n) then ""
+  else strn_append(char1(s[i0]), rest(i0+1))
+  )//endof[rest]
+  //
+  // index just PAST the param-list ")" (entered at depth 1 after "func(").
+  fun
+  findclose(i0: sint, depth: sint): sint =
+  (
+  if (i0 >= n) then n
+  else
+    let val c: cgtz = s[i0] in
+    (
+    if (c = '(') then findclose(i0+1, depth+1)
+    else if (c = ')')
+    then (if (depth <= 1) then (i0+1) else findclose(i0+1, depth-1))
+    else findclose(i0+1, depth))
+    end
+  )//endof[findclose]
+in
+  if (n < 5) then ""
+  else
+  if s[0] != 'f' then "" else
+  if s[1] != 'u' then "" else
+  if s[2] != 'n' then "" else
+  if s[3] != 'c' then "" else
+  if s[4] != '(' then "" else
+  let
+    val j = findclose(5, 1)
+    // trim one leading space between ")" and the return type.
+    val k = (if (j < n) then (if (s[j] = ' ') then j+1 else j) else j)
+  in
+    rest(k)
+  end
+end//endof[go_return_type(s)]
+//
+(*
 [go_funq]: is [s] a Go function type "func(..."?
 *)
 fun
@@ -776,27 +956,49 @@ if (gofunctype_of_fjarglst(fptys, frt) = pty)
 then i1valgo1(filr, fval)
 else
 let
+  // the adapter's OWN signature mirrors the callee's param type [pty]
+  // EXACTLY (Go func types are invariant): its param types and return type
+  // are parsed out of [pty]; the body re-concretizes each param into [f]'s
+  // own param type (identity when equal, Xats_as_* for the common shapes,
+  // a direct `.(T)` assert otherwise — the adapter param is interface-typed
+  // whenever the types differ, since [pty] params are the erased hooks).
+  val wptys = go_params_of_functype(pty)
+  val wrt0 = go_return_type(pty)
+  val wrt = (if (strn_length(wrt0) > 0) then wrt0 else "any")
   fun
-  params(fptys: list(strn), i0: sint): void =
+  params(wptys: list(strn), i0: sint): void =
   (
-  case+ fptys of
+  case+ wptys of
   |list_nil() => ()
-  |list_cons(_, fs1) =>
+  |list_cons(w1, ws1) =>
     (
     if (i0 >= 1) then strnfpr(filr, ", ");
     strnfpr(filr, "goxtwp");
     strnfpr(filr, gofield_of_label(LABint(i0)));
-    strnfpr(filr, " any");
-    params(fs1, i0+1))
+    strnfpr(filr, " ");
+    strnfpr(filr, w1);
+    params(ws1, i0+1))
   )
   fun
-  args(fptys: list(strn), i0: sint): void =
+  args(fptys: list(strn), wptys: list(strn), i0: sint): void =
   (
   case+ fptys of
   |list_nil() => ()
   |list_cons(f1, fs1) =>
     let
-      val coerfn = go_coerfn_of(f1)
+      val (w1, ws1) =
+      (
+      case+ wptys of
+      |list_cons(w1, ws1) => @(w1, ws1)
+      |list_nil() => @("any", list_nil<strn>()))
+      val coerfn =
+        (if (f1 = w1) then "" else go_coerfn_of(f1))
+      // no helper + differing types: a direct assert (adapter param is the
+      // erased `any` in that case, so `.(T)` is a legal interface assert).
+      val assertq =
+        (if (f1 = w1) then false else
+         if (strn_length(coerfn) > 0) then false else
+         if (f1 = "any") then false else true)
     in
     (
     if (i0 >= 1) then strnfpr(filr, ", ");
@@ -806,17 +1008,34 @@ let
     strnfpr(filr, "goxtwp");
     strnfpr(filr, gofield_of_label(LABint(i0)));
     (if (strn_length(coerfn) > 0) then strnfpr(filr, ")") else ());
-    args(fs1, i0+1))
+    (if assertq
+     then (strnfpr(filr, ".("); strnfpr(filr, f1); strnfpr(filr, ")"))
+     else ());
+    args(fs1, ws1, i0+1))
     end
   )
 in
   strnfpr(filr, "func(");
-  params(fptys, 0);
-  strnfpr(filr, ") any { return ");
-  i1valgo1(filr, fval);
-  strnfpr(filr, "(");
-  args(fptys, 0);
-  strnfpr(filr, ") }")
+  params(wptys, 0);
+  strnfpr(filr, ") ");
+  strnfpr(filr, wrt);
+  strnfpr(filr, " { return ");
+  // the adapter returns [wrt]; coerce [f]'s result when the types differ
+  // (identity when equal or when [wrt] is `any` — auto-boxed).
+  let
+    val rcoer =
+      (if (wrt = frt) then "" else
+       if (wrt = "any") then "" else go_coerfn_of(wrt))
+  in
+    (if (strn_length(rcoer) > 0)
+     then (strnfpr(filr, rcoer); strnfpr(filr, "(")) else ());
+    i1valgo1(filr, fval);
+    strnfpr(filr, "(");
+    args(fptys, wptys, 0);
+    strnfpr(filr, ")");
+    (if (strn_length(rcoer) > 0) then strnfpr(filr, ")") else ())
+  end;
+  strnfpr(filr, " }")
 end
 )//endof[go_funarg_adapter_emit(...)]
 //
@@ -1801,186 +2020,9 @@ RESULT function -- i.e. for a nullary instance whose body is `let f = lam(x:T)..
 in f`, return T's Go type.  Used to assert an `any`-typed arg at the hook
 application (`tmp()(arg.(T))`).  "" if the result is not a (let-bound) lambda.
 *)
-(*
-[go_first_param]: parse the FIRST parameter Go-type out of a function-type
-string like "func(bool) any" -> "bool", "func(int, string) any" -> "int",
-"func(func(int) bool) any" -> "func(int) bool" (paren-depth tracked so a
-NESTED func type's inner comma/paren does not terminate the scan).  Returns
-"" when [s] is not a "func(...)..." type or has no parameters ("func() any").
-*)
-fun
-go_first_param
-(s: strn): strn =
-let
-  val n = strn_length(s)
-  //
-  fun
-  char1(c: cgtz): strn = strn_make_list(list_cons(c, list_nil()))
-  //
-  // scan from just after the "func(" prefix, accumulating the first param's
-  // chars; a top-level (depth 0) ',' or ')' ENDS the first param.
-  fun
-  scan(i0: sint, depth: sint): strn =
-  (
-  if (i0 >= n) then ""
-  else
-    let val c: cgtz = s[i0] in
-    (
-    if (c = ')')
-    then (if (depth <= 0) then "" else strn_append(char1(c), scan(i0+1, depth-1)))
-    else if (c = ',')
-    then (if (depth <= 0) then "" else strn_append(char1(c), scan(i0+1, depth)))
-    else if (c = '(')
-    then strn_append(char1(c), scan(i0+1, depth+1))
-    else strn_append(char1(c), scan(i0+1, depth)))
-    end
-  )//endof[scan]
-in
-  if (n < 5) then ""
-  else
-  if s[0] != 'f' then "" else
-  if s[1] != 'u' then "" else
-  if s[2] != 'n' then "" else
-  if s[3] != 'c' then "" else
-  if s[4] != '(' then "" else
-  scan(5, 0)
-end//endof[go_first_param(s)]
-//
-(*
-[go_params_of_functype]: parse ALL parameter Go-types out of a function-type
-string — "func(int, string) any" -> ["int","string"] (paren AND brace depth
-tracked, so a nested func(..)/struct{..} param's ','/';' does not split).
-nil when [s] is not "func(...)..." or has no params.
-*)
-fun
-go_params_of_functype
-(s: strn): list(strn) =
-let
-  val n = strn_length(s)
-  fun
-  onep(i0: sint, pd: sint, bd: sint): list(cgtz) =
-  (
-  if (i0 >= n) then list_nil()
-  else
-    let val c: cgtz = s[i0] in
-    (
-    if (c = ')')
-    then (if (if (pd <= 0) then (bd <= 0) else false)
-          then list_nil()
-          else list_cons(c, onep(i0+1, pd-1, bd)))
-    else if (c = ',')
-    then (if (if (pd <= 0) then (bd <= 0) else false)
-          then list_nil()
-          else list_cons(c, onep(i0+1, pd, bd)))
-    else if (c = '(') then list_cons(c, onep(i0+1, pd+1, bd))
-    else if (c = '{') then list_cons(c, onep(i0+1, pd, bd+1))
-    else if (c = '}') then list_cons(c, onep(i0+1, pd, bd-1))
-    else list_cons(c, onep(i0+1, pd, bd)))
-    end
-  )
-  fun
-  skipone(i0: sint, pd: sint, bd: sint): sint =
-  (
-  if (i0 >= n) then i0
-  else
-    let val c: cgtz = s[i0] in
-    (
-    if (c = ')')
-    then (if (if (pd <= 0) then (bd <= 0) else false) then i0 else skipone(i0+1, pd-1, bd))
-    else if (c = ',')
-    then (if (if (pd <= 0) then (bd <= 0) else false) then i0 else skipone(i0+1, pd, bd))
-    else if (c = '(') then skipone(i0+1, pd+1, bd)
-    else if (c = '{') then skipone(i0+1, pd, bd+1)
-    else if (c = '}') then skipone(i0+1, pd, bd-1)
-    else skipone(i0+1, pd, bd))
-    end
-  )
-  fun
-  many(i0: sint): list(strn) =
-  (
-  if (i0 >= n) then list_nil()
-  else
-  if (s[i0] = ')') then list_nil()
-  else
-  let
-    // skip a separator space (the ", " the type strings use)
-    val i0 = (if (s[i0] = ' ') then (i0 + 1) else i0)
-    val p1 = strn_make_list(onep(i0, 0, 0))
-    val j0 = skipone(i0, 0, 0)
-  in
-    if (j0 >= n) then list_cons(p1, list_nil())
-    else
-    if (s[j0] = ')') then list_cons(p1, list_nil())
-    else list_cons(p1, many(j0 + 1))
-  end
-  )
-in
-  if (n < 5) then list_nil()
-  else
-  if s[0] != 'f' then list_nil() else
-  if s[1] != 'u' then list_nil() else
-  if s[2] != 'n' then list_nil() else
-  if s[3] != 'c' then list_nil() else
-  if s[4] != '(' then list_nil() else
-  many(5)
-end//endof[go_params_of_functype(s)]
-//
-(*
-[go_return_type]: parse the RESULT Go-type out of a function-type string --
-"func(bool) any" -> "any", "func(int, int) int" -> "int", "func() float64" ->
-"float64".  Skips past the matching ")" of the param list (paren-depth tracked)
-and returns the remainder (one leading space trimmed).  "" when [s] is not a
-"func(...)..." type.  Used at the RESULT BOUNDARY: an `any`-returning call bound
-to a concretely-typed temp must be asserted.
-*)
-fun
-go_return_type
-(s: strn): strn =
-let
-  val n = strn_length(s)
-  //
-  fun
-  char1(c: cgtz): strn = strn_make_list(list_cons(c, list_nil()))
-  //
-  // collect s[i0..n) verbatim (the return-type tail).
-  fun
-  rest(i0: sint): strn =
-  (
-  if (i0 >= n) then ""
-  else strn_append(char1(s[i0]), rest(i0+1))
-  )//endof[rest]
-  //
-  // index just PAST the param-list ")" (entered at depth 1 after "func(").
-  fun
-  findclose(i0: sint, depth: sint): sint =
-  (
-  if (i0 >= n) then n
-  else
-    let val c: cgtz = s[i0] in
-    (
-    if (c = '(') then findclose(i0+1, depth+1)
-    else if (c = ')')
-    then (if (depth <= 1) then (i0+1) else findclose(i0+1, depth-1))
-    else findclose(i0+1, depth))
-    end
-  )//endof[findclose]
-in
-  if (n < 5) then ""
-  else
-  if s[0] != 'f' then "" else
-  if s[1] != 'u' then "" else
-  if s[2] != 'n' then "" else
-  if s[3] != 'c' then "" else
-  if s[4] != '(' then "" else
-  let
-    val j = findclose(5, 1)
-    // trim one leading space between ")" and the return type.
-    val k = (if (j < n) then (if (s[j] = ' ') then j+1 else j) else j)
-  in
-    rest(k)
-  end
-end//endof[go_return_type(s)]
-//
+
+
+
 (*
 [go_is_nullary_thunk]: does [s] start with "func()" -- a NULLARY thunk type
 (empty param list)?  A value-like template instance is emitted as such a thunk;
