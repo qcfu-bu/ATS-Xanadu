@@ -1632,10 +1632,11 @@ iexp.node() of
 //
 (* ****** ****** *)
 //
-(*
-|I0Epcon _ => f0_pcon(iexp, env0)
-|I0Epflt _ => f0_pflt(iexp, env0)
-*)
+// a BY-VALUE read of a datacon/flat field (`buf.0` on a viewtype) — the
+// same lowering the lvalue path uses (previously commented out, so such a
+// read fell to the un-lowerable I1Vnone1 fallback).
+|I0Epcon _ => i0lft_trxi0i1(iexp, env0)
+|I0Epflt _ => i0lft_trxi0i1(iexp, env0)
 |I0Eproj _ => f0_proj(iexp, env0)
 //
 (* ****** ****** *)
