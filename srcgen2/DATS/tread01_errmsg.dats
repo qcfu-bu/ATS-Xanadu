@@ -2180,6 +2180,55 @@ foritm$work<d1cstdcl>(dcst) = d1cstdcl_fpemsg(out,dcst)
 (* ****** ****** *)
 (* ****** ****** *)
 //
+#implfun
+d1typ_fpemsg
+  (out, d1t0) =
+(
+case+
+d1t0.node() of
+|
+D1TYPnode
+(tok0, tmas, res0, tcns) =>
+(
+t1maglst_fpemsg(out, tmas);
+sort1opt_fpemsg(out, res0);
+d1tcnlst_fpemsg(out, tcns))
+) (*case+*)//end-of-[d1typ_fpemsg(out,d1t0)]
+//
+(* ****** ****** *)
+//
+#implfun
+d1arg_fpemsg
+  (out, darg) =
+(
+case+
+darg.node() of
+|
+D1ARGsta0(s1qs) =>
+s1qualst_fpemsg(out, s1qs)
+|
+D1ARGdyn1(tok1) => ((*void*))
+| // HX: a1typ carries no errck payload to surface here
+D1ARGdyn2(a1ts, opt2) => ((*void*))
+) (*case+*)//end-of-[d1arg_fpemsg(out,darg)]
+//
+(* ****** ****** *)
+//
+#implfun
+wd1eclseq_fpemsg
+  (out, wdcs) =
+(
+case+ wdcs of
+|
+WD1CSnone((*void*)) => ((*void*))
+|
+WD1CSsome(dcls) =>
+d1eclist_fpemsg(out, dcls)
+) (*case+*)//end-of-[wd1eclseq_fpemsg(out,wdcs)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
 (***********************************************************************)
 (* end of [ATS3/XATSOPT_srcgen2_DATS_tread01_errmsg.dats] *)
 (***********************************************************************)

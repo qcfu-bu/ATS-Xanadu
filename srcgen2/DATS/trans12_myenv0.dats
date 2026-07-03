@@ -2182,6 +2182,27 @@ foritm$e1nv$work
 (* ****** ****** *)
 //
 #implfun
+tr12env_add0_l2d2plst
+  (env0, ldps) =
+(
+case+ ldps of
+|
+list_nil() => ((*void*))
+|
+list_cons(ldp1, ldps) =>
+let
+val+
+D2LAB(lab0, d2p1) = ldp1
+val () =
+tr12env_add0_d2pat(env0, d2p1)
+in//let
+tr12env_add0_l2d2plst(env0, ldps)
+end(*let*)
+) (*case+*)//end(tr12env_add0_l2d2plst(env0,...))
+//
+(* ****** ****** *)
+//
+#implfun
 tr12env_add0_f2arglst
   (env0, f2as) =
 (

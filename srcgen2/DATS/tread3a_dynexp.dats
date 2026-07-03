@@ -3468,6 +3468,27 @@ end (*let*)//end-(tread3a_l3d3e(ld3e,err))
 (* ****** ****** *)
 //
 #implfun
+tread3a_l3d3p
+  (ld3p, err) =
+let
+//
+val e00 = err
+//
+val+
+D3LAB(lab0, d3p1) = ld3p
+//
+val
+d3p1 = tread3a_d3pat(d3p1, err)
+//
+in//let
+if // if
+(err=e00)
+then (ld3p) else D3LAB(lab0, d3p1)
+end (*let*)//end-(tread3a_l3d3p(ld3p,err))
+//
+(* ****** ****** *)
+//
+#implfun
 tread3a_f3arg
   (farg, err) =
 (

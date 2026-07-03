@@ -243,6 +243,17 @@ T2DAT
 end (*let*) // end of [t2dat_get_s2cs]
 //
 (* ****** ****** *)
+//
+(*
+HX: [t2dat]'s s2cs field is immutable (set at [t2dat_make_name]); the setter
+is declared but has no backing store, so it is a no-op.  (No caller relies on
+the write: the sole call site is on a path never exercised -- an undefined
+function in the JS backend.)
+*)
+#implfun
+t2dat_set_s2cs(t2d0, s2cs) = ((*void*))
+//
+(* ****** ****** *)
 
 end (*local*) // end of [local(t2dat)]
 
@@ -1772,6 +1783,28 @@ val (  ) =
 in//let
 s2exp_make_node(s2t0, S2Enone1(s1e0))
 end (*let*) // end of [s2exp_none1(s1e0)]
+//
+#implfun
+s2exp_none2(s2e0) =
+let
+  val s2t0 = sort2_none0()
+in//let
+s2exp_make_node(s2t0, S2Enone2(s2e0))
+end (*let*) // end of [s2exp_none2(s2e0)]
+//
+(* ****** ****** *)
+//
+(*
+HX: there is no S2Eflt node (and no real sort is exported): a float literal
+in static position is an error-indication case, so it lowers to an error
+node -- mirroring [s2exp_none0].
+*)
+#implfun
+s2exp_flt(f0) =
+let
+val s2t0 = sort2_none0() in
+s2exp_make_node(s2t0, S2Enone0())
+end (*let*) // end of [s2exp_flt(f0)]
 //
 (* ****** ****** *)
 (* ****** ****** *)

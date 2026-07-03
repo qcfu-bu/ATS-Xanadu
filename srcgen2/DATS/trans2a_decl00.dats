@@ -1105,6 +1105,27 @@ trans2a_d2eclist
 //
 (* ****** ****** *)
 //
+(*
+HX: the per-item alpha-renaming of template/sort qualified args and dynamic
+args is IDENTITY for now: these forms carry no d2var binders that trans2a
+renames (their binders are handled where the enclosing declaration's scope
+is entered), so the item passes through unchanged.
+*)
+#implfun
+trans2a_s2qag
+  (env0, s2qa) = (s2qa)
+#implfun
+trans2a_t2qag
+  (env0, t2qa) = (t2qa)
+#implfun
+trans2a_t2iag
+  (env0, t2ia) = (t2ia)
+#implfun
+trans2a_d2arg
+  (env0, darg) = (darg)
+//
+(* ****** ****** *)
+//
 #implfun
 trans2a_s2qaglst
   (env0, sqas) =
@@ -1347,6 +1368,15 @@ list_trans2a_fnp(env0,dcls,trans2a_d2fundcl)}
 endloc // end of [local(trans2a_d2fundclist)]
 //
 (* ****** ****** *)
+//
+(*
+HX: a d2cstdcl introduces a CONSTANT (d2cst), not a d2var; trans2a's
+variable alpha-renaming has nothing to rewrite in it, so it passes through
+unchanged.
+*)
+#implfun
+trans2a_d2cstdcl
+  (env0, dcst) = (dcst)
 //
 #implfun
 trans2a_d2cstdclist

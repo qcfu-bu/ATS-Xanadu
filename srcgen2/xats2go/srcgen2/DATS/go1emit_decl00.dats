@@ -702,6 +702,22 @@ i1dcl_go1emit_local
 if dcl_is_fundclst(dcl0)
 then f0_localfun(dcl0, env0)
 else
+case+
+unwrap_idcl(dcl0).node() of
+// a NESTED `local <head> in <body> end` inside a function body / where-block:
+// walk BOTH decl lists with the SAME local-closure routing, head first (the
+// body funs reference the head funs; [f0_localfun] predeclares each closure
+// var before assigning, so in-block forward references still resolve).
+// Without this arm the whole block fell into [i1dcl_go1emit]'s
+// [f0_otherwise] skip and every fun inside it VANISHED from the emitted Go
+// while its stamped call sites remained (the self-host `undefined:
+// f0_*/s2typ_*_inst` class).
+|I1Dlocal0(head, body) =>
+  (
+  i1dclist_go1emit_local(head, env0);
+  i1dclist_go1emit_local(body, env0))
+//
+| _(*non-local0*) =>
 if (impl_name_of_idcl(dcl0) = "foritm$work")
 then foritm_work_emit(env0.filr(), dcl0, env0)
 else

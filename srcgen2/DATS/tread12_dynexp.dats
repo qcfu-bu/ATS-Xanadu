@@ -1087,6 +1087,22 @@ val (  ) =
 //
 (* ****** ****** *)
 //
+(*
+HX: a bare d2cst/d2var occurrence is a LEAF for unboundness-gleaning (the
+name was already resolved by trans12; there is no subterm to read into), so
+the tread is identity -- mirroring the commented-out leaf arms of
+[tread12_sort2] (S2Tid0/S2Tint).
+*)
+#implfun
+tread12_d2cst
+( dcst, err ) = (dcst)
+//
+#implfun
+tread12_d2var
+( dvar, err ) = (dvar)
+//
+(* ****** ****** *)
+//
 #implfun
 tread12_d2pat
 ( d2p0, err ) =

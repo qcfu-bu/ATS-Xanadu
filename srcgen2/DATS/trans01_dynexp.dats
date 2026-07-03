@@ -1842,6 +1842,31 @@ D1LAB(lab0, trans01_d0exp(tenv, d0e1))
 end (*let*)//end-of[trans01_l0d0e(tenv,ld0e)]
 //
 (* ****** ****** *)
+//
+#implfun
+trans01_l0d0p
+( tenv, ld0p ) =
+let
+//
+val+
+D0LAB
+( l0ab
+, teq1, d0p1) = ld0p
+//
+val lab0 =
+(
+case+
+l0ab.node() of
+|
+L0ABLsome(lab1) => lab1
+| // HX:error
+L0ABLnone(tok1) => label_none())
+//
+in//let
+D1LAB(lab0, trans01_d0pat(tenv, d0p1))
+end (*let*)//end-of[trans01_l0d0p(tenv,ld0p)]
+//
+(* ****** ****** *)
 
 #implfun
 trans01_f0arg
@@ -2152,6 +2177,13 @@ val
 s1qs = trans01_s0qualst(tenv, s0qs)
 } (*where*)//end-of-[T0QUAsome(_,_,_)]
 ) (*case+*)//end-of[trans01_t0qua(tenv,dres)]
+
+(* ****** ****** *)
+
+#implfun
+trans01_t0qualst
+( tenv, t0qs ) =
+list_trans01_fnp(tenv, t0qs, trans01_t0qua)
 
 (* ****** ****** *)
 

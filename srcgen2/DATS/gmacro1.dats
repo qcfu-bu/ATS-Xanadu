@@ -169,6 +169,17 @@ end (*end*) // end of [f0_int(d1p0)]
 
 (* ****** ****** *)
 
+(*
+HX: a static expression carries no macro-expandable id/int leaves of its
+own at this level; it is wrapped whole (mirroring [trg1mac_d1pat]'s
+otherwise-arm).
+*)
+#implfun
+trg1mac_s1exp
+(    s1e0    ) = G1Msexp(s1e0)
+
+(* ****** ****** *)
+
 #implfun
 trg1mac_d1exp
 (    d1e0    ) =

@@ -653,6 +653,8 @@ case- tchr.node() of
   if rep = "'\\\"'" then strnfpr(filr, "'\"'") else
   let
     val c = strn_get$at(rep, 2)
+    val octq =
+      (if (c >= '0') then (c <= '7') else false)
     val gokq =
       (if (c = 'n') then true else
        if (c = 't') then true else
@@ -665,11 +667,32 @@ case- tchr.node() of
        if (c = '\'') then true else
        if (c = 'x') then true else
        if (c = 'u') then true else
-       if (c = 'U') then true else
-       if (c >= '0') then (c <= '7') else false)
+       if (c = 'U') then true else false)
   in
     if gokq
     then strnfpr(filr, rep)
+    else
+    if octq
+    then
+    // an OCTAL escape: Go requires EXACTLY three octal digits (`'\0'` is
+    // "invalid character in octal escape") -- left-pad the ATS rep's 1-3
+    // digits with zeros ('\0' -> '\000', '\12' -> '\012').
+    let
+      val ndig = strn_length(rep) - 3
+    in
+      strnfpr(filr, "'\\");
+      (if (ndig <= 1)
+       then strnfpr(filr, "00")
+       else (if (ndig <= 2) then strnfpr(filr, "0") else ((*void*))));
+      strnfpr(filr, strn_make_list(list_cons(c, list_nil())));
+      (if (ndig >= 2)
+       then strnfpr(filr, strn_make_list(list_cons(strn_get$at(rep, 3), list_nil())))
+       else ((*void*)));
+      (if (ndig >= 3)
+       then strnfpr(filr, strn_make_list(list_cons(strn_get$at(rep, 4), list_nil())))
+       else ((*void*)));
+      strnfpr(filr, "'")
+    end
     else
     (
     strnfpr(filr, "'");

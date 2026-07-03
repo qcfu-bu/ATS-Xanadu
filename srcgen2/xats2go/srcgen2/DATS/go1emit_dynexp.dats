@@ -62,6 +62,8 @@ and the I1CMPcons result ival as a final  goxtnmX := <ival>; _ = goxtnmX.
 "./../../../SATS/dynexp1.sats"
 #staload // D3E (for the I1Vnone1 erased-payload chase) =
 "./../../../SATS/dynexp3.sats"
+#staload // GLO (for the castfn $extnam-routing test) =
+"./../../../SATS/xglobal.sats"
 //
 (* ****** ****** *)
 //
@@ -2612,6 +2614,58 @@ case+ i1f0.node() of
     // signature agree by construction) and emit each arg through the
     // idempotent-coercion argtyped path.
     |I1Vcst(dcst) =>
+      // CASTFN callee: an `fcast` (e.g. fpath_encode) is IDENTITY at runtime
+      // (the JS backend emits XATSCAST("<name>", [arg]) -- return the arg),
+      // so a cast that would emit as a PACKAGE-STAMPED name (compiler-source
+      // castfn with NO Go definition to link against) emits its single
+      // argument instead.  The routing test replicates [d2cstgo1]'s
+      // classifier: an EXTERN-bound ($extnam) / runtime-routed / XATS2GO_-
+      // leaf cast keeps the direct call -- the floor/runtime provides a REAL
+      // function there (possibly CONVERTING, e.g. XATS2GO_si2dflt's
+      // int->float64, or COPYING, e.g. datacopy), which identity emission
+      // would break under Go's typing.
+      let
+        val sname = symbl_get_name(dcst.name())
+        val xrtq =
+        (
+        case+ the_d2cstmap_xnmfind(d2cst_get_stmp(dcst)) of
+        | ~optn_vt_cons(X2NAMsome(_)) => true
+        | ~optn_vt_cons(X2NAMnone()) => false
+        | ~optn_vt_nil() => false)
+        val goleafq =
+        (
+        if (strn_length(sname) >= 8)
+        then
+          (
+          if strn_get$at(sname, 0) != 'X' then false else
+          if strn_get$at(sname, 1) != 'A' then false else
+          if strn_get$at(sname, 2) != 'T' then false else
+          if strn_get$at(sname, 3) != 'S' then false else
+          if strn_get$at(sname, 4) != '2' then false else
+          if strn_get$at(sname, 5) != 'G' then false else
+          if strn_get$at(sname, 6) != 'O' then false else
+          (strn_get$at(sname, 7) = '_'))
+        else false)
+        val pkgq =
+        (
+        if d2cst_known_runtimeq(sname) then false else
+        if xrtq then false else
+        if goleafq then false else
+        if d2cst_known_packageq(sname) then true else
+        d2cst_package_sourceq(dcst))
+        val identq =
+        (
+        if i1val_cfnq(i1f0) then pkgq else false)
+      in//let
+      if identq
+      then
+      (
+      case+ i1vs of
+      |list_cons(a1, list_nil()) => i1valgo1(filr, a1)
+      | _(*0-or-many args*) =>
+        (i1valgo1(filr, i1f0);
+         strnfpr(filr, "("); i1valgo1_list(filr, i1vs); strnfpr(filr, ")")))
+      else
       (
       i1valgo1(filr, i1f0);
       strnfpr(filr, "(");
@@ -2620,6 +2674,7 @@ case+ i1f0.node() of
         i1valgo1_list_argtyped(filr, i1vs, ptys)
       end);
       strnfpr(filr, ")"))
+      end//let//endof[I1Vcst castfn routing]
     // a function-id value callee (I1Vfid wraps the d2var): same recovery,
     // from the d2var's static type.
     |I1Vfid(fdvar) =>

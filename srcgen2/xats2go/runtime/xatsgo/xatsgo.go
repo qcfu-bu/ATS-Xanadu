@@ -1821,7 +1821,9 @@ func Xats_bool_mul(a any, b any) bool { return a.(bool) && b.(bool) }
 
 // a1ptr / jsa1sz (JS array) — []any at runtime.
 func Xats_a1ptr_get_at1(arr any, i any) any { return arr.([]any)[i.(int)] }
-func Xats_a1ptr_free(arr any) any           { return XATSNIL() }
+// some call sites pass the array's size along (a1ptr_free(ptr, n)) — accept
+// and ignore it (freeing is the GC's job either way).
+func Xats_a1ptr_free(arr any, _ ...any) any { return XATSNIL() }
 func Xats_a1ptr_make_llist(xs any) any {
 	var out []any
 	for c := xs.(*XatsCon); c.Tag != 0; c = c.Args[1].(*XatsCon) {
@@ -1897,8 +1899,16 @@ func Xats_gseq_memberq(xs any, x0 any) bool {
 	}
 	return false
 }
-func Xats_gseq_last_ini(xs any) any {
+// gseq_last_ini(xs) / gseq_last_ini(xs, ini): last item, or [ini] when the
+// sequence is empty (the 2-arg form is what the frontend emits).
+func Xats_gseq_last_ini(xs any, ini ...any) any {
 	items := xatsSeqItems(xs)
+	if len(items) == 0 {
+		if len(ini) > 0 {
+			return ini[0]
+		}
+		panic("xatsgo: Xats_gseq_last_ini: empty sequence, no initial value")
+	}
 	return items[len(items)-1]
 }
 func Xats_gseq_get_at_opt(xs any, i any) *XatsCon {
@@ -1960,7 +1970,9 @@ func Xats_g_parse(s any) any {
 	}
 	return f
 }
-var Xats_XATSOPT_strn_dflt_parse_exn = Xats_g_parse
+// typed dflt return: the emitted reference site returns it as a
+// `func(any) float64` value (token2sflt's parse hook).
+func Xats_XATSOPT_strn_dflt_parse_exn(s any) float64 { return Xats_g_parse(s).(float64) }
 
 // file I/O leaves (the compiler's source reading).
 func Xats_XATSOPT_fpath_rexists(path any) bool {
