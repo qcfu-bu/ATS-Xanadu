@@ -1352,3 +1352,40 @@ REMAINING (in build order of value):
 Caveat discovered: any go1emit SATS change shifts stamps — touch-all
 DATS + the UTIL driver before `make bundle`, else the bundle carries
 stale cross-module stamps (all-red psuite, ReferenceError at runtime).
+
+## Session continuation (2026-07-03, later): 428 -> 110 error lines
+
+Landed (all gate-verified 12/12 rungs + 75/75 psuite, pushed):
+- name-keyed Task-#8 forwarding (tmpw_forward_emitq takes the head NAME;
+  d3/d2/d1-level chases recover it from fully-erased payloads) + the
+  list_map$e1nv_vt family/wrapper — the 134 nil-callee class.
+- ALL _w wrappers take/return `any` (assert inside) — the 100-strong
+  any->*XatsCon at forwarding-temp call sites.
+- xatsopt_sats.hats now loads srcgen1 prelude SATS gmap000+genv000 (the
+  dpre DATS includes whose names were undeclared — tr12env_add0_* class)
+  and gras000+grasn00 (strn000.dats gras_rstrmize).  EACH such chain
+  change is a stamp-shift: touch-all srcgen2/DATS + xats2go DATS + UTIL
+  driver, rebuild lib2xatsopt (~15min), rebundle, gates.
+- by-ref of a BOXED inner images as *any in all three arg renderers;
+  uninitialized boxed vars declare `any` (destination-passing pattern).
+- I1Vfenv args adapter-wrapped; adapters mirror target pty exactly.
+- ATS-only char escapes ('\(' etc) strip the backslash; var decls record
+  goemit_ty and I1INSassgn coerces its RHS.
+
+REMAINING at build34 (110 lines):
+- 49 undefined: ~10 runtime leaves (strn_head_opt, strn_tail_raw,
+  strmcon_vt_sing, strm_vt_listize0, gseq_foritm, foritm_e1nv_work,
+  datacopy...) + s2typ_uni0/exi0_inst + trans01_t0qualst + 2 gofNtnm
+  module-var refs (block-hoisting gap).
+- 16 nil-assign + 15 unused = 138 UNHANDLED I1Vnone1 with UNCHASEABLE
+  payloads in 18 modules (f2perr0/f3perr0/errmsg families + lexbuf0
+  cstrx + lexing0 + parsing_decl00 + trans01/12_decl00 + trans2a_utils0
+  + staexp2_inits0).  The gras fix removed those modules' F3PERR0 lines
+  — the residue has a different root; probe ONE payload with the
+  i0exp_fprint-into-output trick (see git history for the recipe).
+- 10 any->int assignments (a non-I1INSassgn assignment path), 2+2+1
+  small func-shape/arity, 1 octal escape ('\''-class), 1 strn_dflt_parse
+  return-shape, 2 T.F0-on-any (fallout of the any-var change).
+
+NEXT after zero: wire UTIL/xats2go_goemit01 as main, self-emit a module,
+compare against the bundle's output.
