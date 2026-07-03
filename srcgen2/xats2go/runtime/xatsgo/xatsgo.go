@@ -1533,3 +1533,141 @@ func Xats_as_rune(x any) rune {
 	}
 	return x.(rune)
 }
+
+// -- self-hosting floor, round 3 (filpath / string-builder leaves) -----------
+
+// strtmp_vt: the JS arm's mutable char buffer (basics1.cats: an Array with a
+// trailing 0 sentinel).  A pointer-boxed rune slice mirrors the reference
+// semantics; vt2t drops the sentinel and materializes the string.
+type xatsStrTmp struct{ cs []rune }
+
+func Xats_strtmp_vt_alloc(bsz any) any {
+	n := bsz.(int)
+	return &xatsStrTmp{cs: make([]rune, n+1)}
+}
+func Xats_strtmp_vt_set_at(cs any, i0 any, c0 any) any {
+	b := cs.(*xatsStrTmp)
+	switch v := c0.(type) {
+	case rune:
+		b.cs[i0.(int)] = v
+	case int:
+		b.cs[i0.(int)] = rune(v)
+	}
+	return XATSNIL()
+}
+func Xats_strn_vt2t(cs any) any {
+	b := cs.(*xatsStrTmp)
+	return string(b.cs[:len(b.cs)-1])
+}
+func Xats_UN_strn_vt_cast(x any) any { return x }
+
+// strn_make_llist: build a string from a linear cons-list of chars.
+func Xats_strn_make_llist(cs any) any {
+	var b strings.Builder
+	for c := cs.(*XatsCon); c.Tag != 0; c = c.Args[1].(*XatsCon) {
+		switch v := c.Args[0].(type) {
+		case rune:
+			b.WriteRune(v)
+		case int:
+			b.WriteRune(rune(v))
+		}
+	}
+	return b.String()
+}
+
+// list_vt basics: linear frees are GC no-ops; append0 is structural append.
+func Xats_list_vt_free(xs any) any { return XATSNIL() }
+func Xats_list_vt_append0(xs any, ys any) *XatsCon {
+	var elems []any
+	for c := xs.(*XatsCon); c.Tag != 0; c = c.Args[1].(*XatsCon) {
+		elems = append(elems, c.Args[0])
+	}
+	acc := ys.(*XatsCon)
+	for i := len(elems) - 1; i >= 0; i-- {
+		acc = &XatsCon{Tag: 1, Args: []any{elems[i], acc}}
+	}
+	return acc
+}
+
+func Xats_gint_suc_sint(x any) any { return x.(int) + 1 }
+func Xats_gint_pre_sint(x any) any { return x.(int) - 1 }
+
+// gseq_z2cmp11<clst><cgtz><strn><cgtz>(x1, x2): lexicographic compare of a
+// char cons-list against a string (filpath's z2eq "."/".."/"" tests).
+func Xats_gseq_z2cmp11(x1 any, x2 any) int {
+	rs := []rune(x2.(string))
+	i := 0
+	c := x1.(*XatsCon)
+	for c.Tag != 0 && i < len(rs) {
+		var ch rune
+		switch v := c.Args[0].(type) {
+		case rune:
+			ch = v
+		case int:
+			ch = rune(v)
+		}
+		if ch < rs[i] {
+			return -1
+		}
+		if ch > rs[i] {
+			return 1
+		}
+		c = c.Args[1].(*XatsCon)
+		i++
+	}
+	if c.Tag != 0 {
+		return 1
+	}
+	if i < len(rs) {
+		return -1
+	}
+	return 0
+}
+
+// gseq_group_lstrm_llist worker wrapper (bridge family `group$test`): split a
+// char sequence (a string here — the <strn><cgtz> instances in filpath) into
+// an EAGER stream of char cons-list groups.  Prelude strm_vt_group0 semantics:
+// a char failing the test CLOSES the current group and is DISCARDED; the final
+// group is always emitted (so "a//b" -> ["a","","b"], "/x" -> ["","x"]).
+func Xats_gseq_group_lstrm_llist_w(f func(any) any) func(any) any {
+	return func(xs any) any {
+		var runes []rune
+		switch v := xs.(type) {
+		case string:
+			runes = []rune(v)
+		case *XatsCon:
+			for c := v; c.Tag != 0; c = c.Args[1].(*XatsCon) {
+				switch cv := c.Args[0].(type) {
+				case rune:
+					runes = append(runes, cv)
+				case int:
+					runes = append(runes, rune(cv))
+				}
+			}
+		}
+		var groups []*XatsCon
+		cur := []rune{}
+		for _, ch := range runes {
+			if f(ch).(bool) {
+				cur = append(cur, ch)
+			} else {
+				groups = append(groups, xatsRunesToList(cur))
+				cur = []rune{}
+			}
+		}
+		groups = append(groups, xatsRunesToList(cur))
+		acc := &XatsCon{Tag: 0}
+		for i := len(groups) - 1; i >= 0; i-- {
+			acc = &XatsCon{Tag: 1, Args: []any{groups[i], acc}}
+		}
+		return acc
+	}
+}
+
+func xatsRunesToList(rs []rune) *XatsCon {
+	acc := &XatsCon{Tag: 0}
+	for i := len(rs) - 1; i >= 0; i-- {
+		acc = &XatsCon{Tag: 1, Args: []any{rs[i], acc}}
+	}
+	return acc
+}

@@ -602,6 +602,7 @@ if (iname = "foritm$e1nv$work") then "foritm_e1nv_work" else
 if (iname = "foldl$fopr") then "foldl_fopr" else
 if (iname = "forall$test") then "forall_test" else
 if (iname = "filter$test") then "filter_test" else
+if (iname = "group$test") then "group_test" else
 ""
 )//endof[tmpw_hook_suffix(iname)]
 //
