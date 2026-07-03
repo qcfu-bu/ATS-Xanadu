@@ -1775,3 +1775,9 @@ func Xats_optn_foritm_w(f func(any) any) func(*XatsCon) any {
 		return XATSNIL()
 	}
 }
+
+// list_map$e1nv_vt — the linear (list_vt) variant of list_map$e1nv; the
+// runtime list representation is identical (cons Tag 0/1).
+func Xats_list_map_e1nv_vt_w(f func(any, any) any) func(*XatsCon, any) *XatsCon {
+	return Xats_list_map_e1nv_w(f)
+}

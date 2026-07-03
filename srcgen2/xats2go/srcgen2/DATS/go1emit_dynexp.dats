@@ -58,6 +58,10 @@ and the I1CMPcons result ival as a final  goxtnmX := <ival>; _ = goxtnmX.
 "./../../../SATS/xstamp0.sats"
 #staload // D2E =
 "./../../../SATS/dynexp2.sats"
+#staload // D1E (for the erased-name chase) =
+"./../../../SATS/dynexp1.sats"
+#staload // D3E (for the I1Vnone1 erased-payload chase) =
+"./../../../SATS/dynexp3.sats"
 //
 (* ****** ****** *)
 //
@@ -1323,27 +1327,73 @@ end//let//endof[i1trcd_construct_go1emit(filr,otnm,iins)]
 (* ****** ****** *)
 //
 (*
-[i0exp_head_dcst]: chase an i0exp APPLICATION head (tapq/tapp/sapq/sapp/timp
-wrappers) to its underlying d2cst; nil when the head is not a cst.
+[d3exp_head_name]: chase a D3-level application head to the NAME of its
+underlying constant — including the ERASED case where name resolution itself
+failed (D3Enone1(D2Enone1(D1Eid0(sym))): no d2cst exists, only the symbol).
+The Task-#8 forwarding keys on the name, so this recovers bridged families
+even from fully-erased inner template queries.
 *)
 fun
-i0exp_head_dcst
-(e0: i0exp): optn(d2cst) =
+d1exp_head_name
+(d1e: d1exp): optn(strn) =
+(
+case+ d1exp_get_node(d1e) of
+|D1Eid0(sym) => optn_cons(symbl_get_name(sym))
+| _(*else*) => optn_nil()
+)
+fun
+d2exp_head_name
+(d2e: d2exp): optn(strn) =
+(
+case+ d2exp_get_node(d2e) of
+|D2Enone1(d1e) => d1exp_head_name(d1e)
+|D2Enone2(d2e1) => d2exp_head_name(d2e1)
+| _(*else*) => optn_nil()
+)
+fun
+d3exp_head_name
+(d3e: d3exp): optn(strn) =
+(
+case+ d3exp_get_node(d3e) of
+|D3Ecst(dcst) => optn_cons(symbl_get_name(d2cst_get_name(dcst)))
+|D3Etimq(d3e1, _, _) => d3exp_head_name(d3e1)
+|D3Etimp(d3e1, _) => d3exp_head_name(d3e1)
+|D3Etapq(d3e1, _) => d3exp_head_name(d3e1)
+|D3Etapp(d3e1, _) => d3exp_head_name(d3e1)
+|D3Esapq(d3e1, _) => d3exp_head_name(d3e1)
+|D3Esapp(d3e1, _) => d3exp_head_name(d3e1)
+|D3Edapp(d3e1, _, _) => d3exp_head_name(d3e1)
+|D3Edap0(d3e1) => d3exp_head_name(d3e1)
+|D3Eerrck(_, d3e1) => d3exp_head_name(d3e1)
+|D3Et2ped(d3e1, _) => d3exp_head_name(d3e1)
+|D3Et2pck(d3e1, _) => d3exp_head_name(d3e1)
+|D3Elabck(d3e1, _) => d3exp_head_name(d3e1)
+|D3Enone1(d2e) => d2exp_head_name(d2e)
+|D3Enone2(d3e1) => d3exp_head_name(d3e1)
+| _(*else*) => optn_nil()
+)//endof[d3exp_head_name(d3e)]
+//
+(*
+[i0exp_head_name]: the i0-level entry — chase tapq/tapp/sapq/sapp/timp and
+the erased wrappers down to the head constant's NAME.
+*)
+fun
+i0exp_head_name
+(e0: i0exp): optn(strn) =
 (
 case+ e0.node() of
-|I0Ecst(dcst) => optn_cons(dcst)
-|I0Etapq(e1, _) => i0exp_head_dcst(e1)
-|I0Etapp(e1, _) => i0exp_head_dcst(e1)
-|I0Esapq(e1, _) => i0exp_head_dcst(e1)
-|I0Esapp(e1, _) => i0exp_head_dcst(e1)
-|I0Etimp(e1, _) => i0exp_head_dcst(e1)
-// erased wrappers: the erasure may wrap the original application
-// (I0Enone1 carries a d3exp — not chaseable at this level; I0Enone2 an i0exp)
-|I0Enone2(e1) => i0exp_head_dcst(e1)
-|I0Edapp(e1, _, _) => i0exp_head_dcst(e1)
-|I0Edap0(e1) => i0exp_head_dcst(e1)
+|I0Ecst(dcst) => optn_cons(symbl_get_name(d2cst_get_name(dcst)))
+|I0Etapq(e1, _) => i0exp_head_name(e1)
+|I0Etapp(e1, _) => i0exp_head_name(e1)
+|I0Esapq(e1, _) => i0exp_head_name(e1)
+|I0Esapp(e1, _) => i0exp_head_name(e1)
+|I0Etimp(e1, _) => i0exp_head_name(e1)
+|I0Enone1(d3e) => d3exp_head_name(d3e)
+|I0Enone2(e1) => i0exp_head_name(e1)
+|I0Edapp(e1, _, _) => i0exp_head_name(e1)
+|I0Edap0(e1) => i0exp_head_name(e1)
 | _(*else*) => optn_nil()
-)//endof[i0exp_head_dcst(e0)]
+)//endof[i0exp_head_name(e0)]
 //
 (*
 [tmpw_forward_emitq]: the Task-#8 worker-forwarding emission for a template-
@@ -1356,9 +1406,8 @@ family / no worker is pending (the caller falls back to d2cstgo1/UNHANDLED).
 fun
 tmpw_forward_emitq
 ( filr: FILR
-, dcst: d2cst): bool =
+, snm: strn): bool =
 let
-val snm = symbl_get_name(d2cst_get_name(dcst))
 // TASK-#8 WORKER FORWARDING: a template-method prim (list_map, ...) whose
 // instance the frontend failed to resolve (no attached body -- F3PERR0-TIMQ1)
 // would emit the UNDEFINED worker-less 1-arg name `xatsgo.Xats_list_map`.  When
@@ -1373,6 +1422,7 @@ val whook =
 if (snm = "list_map") then "map$fopr" else
 if (snm = "list_exists") then "exists$test" else
 if (snm = "list_map$e1nv") then "map$e1nv$fopr" else
+if (snm = "list_map$e1nv_vt") then "map$e1nv$fopr" else
 if (snm = "optn_map$e1nv") then "map$e1nv$fopr" else
 if (snm = "list_foritm$e1nv") then "foritm$e1nv$work" else
 if (snm = "strn_foldl") then "foldl$fopr" else
@@ -1387,6 +1437,7 @@ val wsfx =
 if (snm = "list_map") then "map_fopr" else
 if (snm = "list_exists") then "exists_test" else
 if (snm = "list_map$e1nv") then "map_e1nv_fopr" else
+if (snm = "list_map$e1nv_vt") then "map_e1nv_fopr" else
 if (snm = "optn_map$e1nv") then "map_e1nv_fopr" else
 if (snm = "list_foritm$e1nv") then "foritm_e1nv_work" else
 if (snm = "strn_foldl") then "foldl_fopr" else
@@ -1402,12 +1453,14 @@ if (snm = "optn_foritm") then "foritm_work" else
 val wnm =
 (
 if (snm = "list_map$e1nv") then "list_map_e1nv" else
+if (snm = "list_map$e1nv_vt") then "list_map_e1nv_vt" else
 if (snm = "optn_map$e1nv") then "optn_map_e1nv" else
 if (snm = "list_foritm$e1nv") then "list_foritm_e1nv" else
 snm)
 val war2 =
 (
 if (snm = "list_map$e1nv") then true else
+if (snm = "list_map$e1nv_vt") then true else
 if (snm = "optn_map$e1nv") then true else
 if (snm = "list_foritm$e1nv") then true else
 if (snm = "strn_foldl") then true else
@@ -1705,10 +1758,10 @@ is specific.
   // try the Task-#8 worker forwarding — the in-scope XATS_tmpw_* worker
   // re-attaches.  Anything else keeps the loud UNHANDLED marker.
   (
-  case+ i0exp_head_dcst(iexp) of
-  |optn_cons(dcst) =>
+  case+ i0exp_head_name(iexp) of
+  |optn_cons(snm) =>
     (
-    if tmpw_forward_emitq(filr, dcst)
+    if tmpw_forward_emitq(filr, snm)
     then ((*emitted*))
     else unhandled_val(filr, "I1Vaexp(flat-expr lvalue)", ival))
   |optn_nil() => unhandled_val(filr, "I1Vaexp(flat-expr lvalue)", ival))
@@ -1718,10 +1771,10 @@ is specific.
 // worker the forwarding re-attaches.
 |I1Vnone1(iexp) =>
   (
-  case+ i0exp_head_dcst(iexp) of
-  |optn_cons(dcst) =>
+  case+ i0exp_head_name(iexp) of
+  |optn_cons(snm) =>
     (
-    if tmpw_forward_emitq(filr, dcst)
+    if tmpw_forward_emitq(filr, snm)
     then ((*emitted*))
     else unhandled_val(filr, "I1Vnone1(erased)", ival))
   |optn_nil() => unhandled_val(filr, "I1Vnone1(erased)", ival))
@@ -2288,7 +2341,7 @@ in//let
 (
 // [strn_foritm] placeholder + Task-#8 forwarding live in [tmpw_forward_emitq];
 // a non-bridged cst emits its plain runtime/frontend reference.
-if tmpw_forward_emitq(filr, dcst)
+if tmpw_forward_emitq(filr, symbl_get_name(d2cst_get_name(dcst)))
 then ((*emitted*))
 else d2cstgo1(filr, dcst)) end
 //
