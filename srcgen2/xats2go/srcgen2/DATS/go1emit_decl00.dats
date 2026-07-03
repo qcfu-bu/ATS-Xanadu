@@ -708,17 +708,17 @@ closure instead of being skipped.
 i1dclist_go1emit_local
 (dcls, env0) =
 (
-list_foritm$e1nv<x0><e1>(dcls, env0)
-) where
-{
-#vwtpdef e1 = envx2go
-#typedef x0 = i1dcl
-#impltmp
-foritm$e1nv$work
-<x0><e1>(dcl1, env0) =
-(
-  i1dcl_go1emit_local(dcl1, env0))
-}(*where*)//endof[i1dclist_go1emit_local(dcls,env0)]
+// plain recursion (NOT list_foritm$e1nv): the $e1nv template name fails to
+// resolve when THIS module is compiled by the self-hosted frontend (its decl
+// gets errck-erased and the function vanishes from the emitted Go) — the
+// direct loop is semantically identical and self-hosting-safe.
+case+ dcls of
+|list_nil() => ((*void*))
+|list_cons(dcl1, dcls1) =>
+  (
+  i1dcl_go1emit_local(dcl1, env0);
+  i1dclist_go1emit_local(dcls1, env0))
+)//endof[i1dclist_go1emit_local(dcls,env0)]
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -888,17 +888,14 @@ construction -- no XATSVAR box indirection (unlike the JS backend's
 i1vardclist_go1emit
 (i1vs, env0) =
 (
-list_foritm$e1nv<x0><e1>(i1vs, env0)
-) where
-{
-#vwtpdef e1 = envx2go
-#typedef x0 = i1vardcl
-#impltmp
-foritm$e1nv$work
-<x0><e1>(idcl, env0) =
-(
-  i1vardcl_go1emit(idcl, env0))
-}(*where*)//endof[i1vardclist_go1emit(i1vs,env0)]
+// plain recursion — see [i1dclist_go1emit_local]'s self-hosting note.
+case+ i1vs of
+|list_nil() => ((*void*))
+|list_cons(idcl, i1vs1) =>
+  (
+  i1vardcl_go1emit(idcl, env0);
+  i1vardclist_go1emit(i1vs1, env0))
+)//endof[i1vardclist_go1emit(i1vs,env0)]
 //
 #implfun
 i1vardcl_go1emit
