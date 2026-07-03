@@ -195,6 +195,23 @@ ordered to match the struct fields).  Falls back to [i1valgo1] of the raw
 ctor only if the type is somehow unrecoverable (documented; the oracle would
 catch a wrong layout).
 *)
+(*
+[go_coerfn_of]: the runtime idempotent-coercion helper for a concrete Go type
+("" when none exists).  Xats_as_* take `any` and return the concrete type, so
+wrapping compiles whether the wrapped expression is interface-typed or already
+concrete (auto-boxed then unboxed) — the Task-#10 boundary primitive.
+*)
+fun
+go_coerfn_of
+(pty: strn): strn =
+(
+if (pty = "*xatsgo.XatsCon") then "xatsgo.Xats_as_con" else
+if (pty = "string") then "xatsgo.Xats_as_str" else
+if (pty = "int") then "xatsgo.Xats_as_int" else
+if (pty = "rune") then "xatsgo.Xats_as_rune" else
+if (pty = "bool") then "xatsgo.Xats_as_bool" else
+"")
+//
 fun
 i1trcd_emit_litvals
 ( filr: FILR
@@ -215,6 +232,110 @@ case+ i1vs of
 in
 loop(i1vs, 0)
 end//endof[i1trcd_emit_litvals(filr,i1vs)]
+//
+(*
+[go_struct_field_types]: parse the field Go types out of a struct-body string
+"struct{F0 T0; F1 T1; ...}" (as recorded in the gotrcd side-table).  Fields
+split on ';' at BRACE depth 1 (a nested struct{..} field type is not split);
+each field's type is the text after its first ' ' (the `F<i> ` name).  Empty
+list when [s] is not "struct{...}".
+*)
+fun
+go_struct_field_types
+(s: strn): list(strn) =
+let
+  val n0 = strn_length(s)
+  // fields begin after "struct{" (7 chars)
+  fun
+  fieldty
+  (i0: sint, j0: sint): strn =
+  // the field text is [i0, j0); its type starts after the first ' '
+  let
+    fun
+    findsp(k0: sint): sint =
+      if (k0 >= j0) then i0 else
+      if (strn_get$at(s, k0) = ' ') then (k0 + 1) else findsp(k0 + 1)
+    val t0 = findsp(i0)
+    fun
+    build(k0: sint): list(cgtz) =
+      if (k0 >= j0)
+      then list_nil()
+      else list_cons(strn_get$at(s, k0), build(k0 + 1))
+  in
+    strn_make_list(build(t0))
+  end
+  fun
+  scan
+  (i0: sint, st: sint, dep: sint): list(strn) =
+  (
+  if (i0 >= n0)
+  then list_nil()
+  else
+  let val c0 = strn_get$at(s, i0) in
+    if (c0 = '{')
+    then scan(i0 + 1, st, dep + 1)
+    else
+    if (c0 = '}')
+    then
+      (if (dep = 1)
+       then
+         (if (i0 > st)
+          then list_cons(fieldty(st, i0), list_nil())
+          else list_nil())
+       else scan(i0 + 1, st, dep - 1))
+    else
+    if (if (c0 = ';') then (dep = 1) else false)
+    then list_cons(fieldty(st, i0), scan(i0 + 2, i0 + 2, dep))
+    else scan(i0 + 1, st, dep)
+  end
+  )
+in
+  // start ON the opening '{' (index 6 of "struct{") so the OUTER interior is
+  // depth 1 — a nested struct{...} field type then sits at depth 2 and its
+  // ';' does not split.
+  if (strn_length(s) > 7)
+  then scan(6, 7, 0) else list_nil()
+end//endof[go_struct_field_types(s)]
+//
+(*
+[i1trcd_emit_litvals_typed]: [i1trcd_emit_litvals] with per-field IDEMPOTENT
+coercion — a field value not provably of the struct body's declared field type
+goes through the runtime Xats_as_* helper for the common shapes.
+*)
+fun
+i1trcd_emit_litvals_typed
+( filr: FILR
+, i1vs: i1valist
+, ftys: list(strn)): void =
+let
+fun
+loop
+( i1vs: i1valist
+, ftys: list(strn)
+, i0: sint): void =
+(
+case+ i1vs of
+|list_nil() => ()
+|list_cons(i1v, i1vs) =>
+ let
+   val (fty, ftys1) =
+   (
+   case+ ftys of
+   |list_cons(f1, fs1) => @(f1, fs1)
+   |list_nil() => @("", list_nil<strn>()))
+   val coerfn =
+     (if (gotype_of_ival(i1v) = fty) then "" else go_coerfn_of(fty))
+ in
+ (
+ if (i0 >= 1) then strnfpr(filr, ", ");
+ (if (strn_length(coerfn) > 0)
+  then (strnfpr(filr, coerfn); strnfpr(filr, "("); i1valgo1(filr, i1v); strnfpr(filr, ")"))
+  else i1valgo1(filr, i1v));
+ loop(i1vs, ftys1, i0+1))
+ end)
+in
+loop(i1vs, ftys, 0)
+end//endof[i1trcd_emit_litvals_typed(filr,i1vs,ftys)]
 //
 fun
 i1trcd_emit_rcdvals
@@ -553,23 +674,6 @@ callee d2var's styp); when it is shorter / empty the extra args emit untyped (th
 fallback that preserves the prior behavior for callees with no recoverable
 signature).
 *)
-(*
-[go_coerfn_of]: the runtime idempotent-coercion helper for a concrete Go type
-("" when none exists).  Xats_as_* take `any` and return the concrete type, so
-wrapping compiles whether the wrapped expression is interface-typed or already
-concrete (auto-boxed then unboxed) — the Task-#10 boundary primitive.
-*)
-fun
-go_coerfn_of
-(pty: strn): strn =
-(
-if (pty = "*xatsgo.XatsCon") then "xatsgo.Xats_as_con" else
-if (pty = "string") then "xatsgo.Xats_as_str" else
-if (pty = "int") then "xatsgo.Xats_as_int" else
-if (pty = "rune") then "xatsgo.Xats_as_rune" else
-if (pty = "bool") then "xatsgo.Xats_as_bool" else
-"")
-//
 fun
 i1valgo1_list_argtyped
 ( filr: FILR
@@ -815,8 +919,8 @@ in//let
       val () =
       (
       case+ iins of
-      |I1INStup0(i1vs)    => i1trcd_emit_litvals(filr, i1vs)
-      |I1INStup1(_, i1vs) => i1trcd_emit_litvals(filr, i1vs)
+      |I1INStup0(i1vs)    => i1trcd_emit_litvals_typed(filr, i1vs, go_struct_field_types(body))
+      |I1INStup1(_, i1vs) => i1trcd_emit_litvals_typed(filr, i1vs, go_struct_field_types(body))
       |I1INSrcd2(_, livs) => i1trcd_emit_rcdvals(filr, livs)
       | _(*unreachable: only construction ins reach here*) => ())
       val () = strnfpr(filr, "}")
@@ -1203,7 +1307,22 @@ end//endof[foritm_loop_emit(filr,i1vs)]
 fun
 i1valgo1_binop_arg
 (filr: FILR, scp: i1cmp, ival: i1val, goty: strn): void =
-(
+let
+  // IDEMPOTENT COERCION: a native-infix operand whose own emitted type is not
+  // PROVABLY [goty] goes through the runtime Xats_as_* helper (compiles for
+  // interface-typed and already-concrete operands alike) — closes the
+  // `(anyTemp <= 1)` class the pcon-only assert missed.
+  val coerfn =
+    (if (gotype_of_ival(ival) = goty) then "" else go_coerfn_of(goty))
+in
+  if (strn_length(coerfn) > 0)
+  then
+  (
+  strnfpr(filr, coerfn); strnfpr(filr, "(");
+  i1valgo1(filr, ival);
+  strnfpr(filr, ")"))
+  else
+  (
   i1valgo1(filr, ival);
   if (goty = "") then ((*void*)) else
   (
@@ -1213,8 +1332,8 @@ i1valgo1_binop_arg
   then
     (
     strnfpr(filr, ".("); strnfpr(filr, goty); strnfpr(filr, ")"))
-  else ((*void*))))
-)
+  else ((*void*)))))
+end
 //
 (* ****** ****** *)
 (* ****** ****** *)
