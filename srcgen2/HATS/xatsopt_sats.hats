@@ -16,6 +16,19 @@ For ATS3/XATSOPT
 #staload
 "srcgen1/prelude/SATS/gseq000.sats"
 //
+(*
+HX-late/CLAUDE-2026-07:
+The dpre chain INCLUDES srcgen1/prelude/DATS/{gmap000,genv000}.dats, whose
+declarations live in the SATS below — without them every use of the genv
+template families (list_map$e1nv_vt, list_foritm$e1nv, ...) and the gmap
+interface fails NAME resolution (D2Enone1) and the enclosing decls are
+errck-erased.
+*)
+#staload
+"srcgen1/prelude/SATS/gmap000.sats"
+#staload
+"srcgen1/prelude/SATS/genv000.sats"
+//
 (* ****** ****** *)
 (*
 #staload
