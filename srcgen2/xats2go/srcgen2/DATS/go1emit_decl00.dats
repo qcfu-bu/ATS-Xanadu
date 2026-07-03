@@ -301,6 +301,12 @@ in//let
       nindfpr(filr, nind);
       strnfpr(filr, "var "); d2vargo1(filr, dvar);
       strnfpr(filr, " "); strnfpr(filr, funty); strnfpr(filr, "\n"))
+      // keep-alive: a local fun whose every USE got inlined/erased would trip
+      // Go's "declared and not used" on the predecl var.
+      val () =
+      (
+      nindfpr(filr, nind);
+      strnfpr(filr, "_ = "); d2vargo1(filr, dvar); strnfpr(filr, "\n"))
     in
       localfun_predecl(i1fs1, d2cs1, env0)
     end

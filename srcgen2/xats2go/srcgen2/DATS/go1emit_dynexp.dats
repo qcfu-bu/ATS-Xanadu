@@ -4617,11 +4617,22 @@ let
 in//let
   case+ (params, args) of
   |(list_cons(p1, ps1), list_cons(a1, as1)) =>
+    let
+      // TCO-REASSIGN BOUNDARY: coerce the new value into the param's
+      // recorded emitted type (a concrete int param taking an any-returning
+      // call result) — idempotent when they already agree.
+      val coerfn = go_coerfn_of(goemit_ty_get(i1tnm_stmp$get(p1)))
+    in
     (
     nindfpr(filr, nind);
     i1tnmgo1(filr, p1); strnfpr(filr, " = ");
-    i1valgo1(filr, a1); strnfpr(filr, "\n");
+    (if (strn_length(coerfn) > 0)
+     then (strnfpr(filr, coerfn); strnfpr(filr, "(");
+           i1valgo1(filr, a1); strnfpr(filr, ")"))
+     else i1valgo1(filr, a1));
+    strnfpr(filr, "\n");
     emit_param_reassign(ps1, as1, env0))
+    end
   | _(*exhausted*) => ((*void*))
 end//let//endof[emit_param_reassign(...)]
 //
