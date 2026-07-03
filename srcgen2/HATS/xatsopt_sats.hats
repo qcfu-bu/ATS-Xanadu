@@ -28,6 +28,10 @@ errck-erased.
 "srcgen1/prelude/SATS/gmap000.sats"
 #staload
 "srcgen1/prelude/SATS/genv000.sats"
+#staload
+"srcgen1/prelude/SATS/gras000.sats"
+#staload
+"srcgen1/prelude/SATS/grasn00.sats"
 //
 (* ****** ****** *)
 (*
