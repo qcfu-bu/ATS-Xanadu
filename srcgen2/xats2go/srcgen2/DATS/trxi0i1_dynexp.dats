@@ -1719,6 +1719,11 @@ iexp.node() of
 |I0Et2pck(i0e1, _) => i0exp_trxi0i1(i0e1, env0)
 |I0Elabck(i0e1, _) => i0exp_trxi0i1(i0e1, env0)
 //
+// an ERASED wrapper around a still-PRESENT i0exp (a read error wraps
+// anything): lower the inner as if not erased — else a projection/var under
+// the wrapper reaches the emitter as an un-lowerable I1Vnone1 (`nil`).
+|I0Enone2(i0e1) => i0exp_trxi0i1(i0e1, env0)
+//
 (* ****** ****** *)
 //
 |I0Enone0 _ => f0_none0(iexp, env0)
