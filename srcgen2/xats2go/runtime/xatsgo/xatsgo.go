@@ -523,17 +523,30 @@ var Xats_XATSOPT_strn_append_uint = func(name any, stmp any) any {
 	return name.(string) + strconv.Itoa(stmp.(int))
 }
 
-// strn_strmize(s): a char STREAM over s (strm_vt(cgtz)).  The frontend consumes
-// it via strmcon_vt_nil()/strmcon_vt_cons(c, cs) -- i.e. Tag 0 / Tag 1 with
-// Args[0]=char(int32), Args[1]=tail.  A finite string needs no laziness, so build
-// the equivalent EAGER char cons-list (same Tag/Args shape -> identical matches).
+// xatsStrmFrom/Xats_strm_of_items: the CALL-BY-NAME stream over [items] --
+// a strm_vt is a `func() any` thunk yielding a strmcon (Tag 0 nil / Tag 1
+// cons(x, next-strm)).  Emitted stream consumers FORCE each cell
+// (`cs.(func() any)()`, the prelude's `!cs`), so producers must yield this
+// thunk shape (the earlier eager cons-list shortcut only satisfied runtime-
+// internal consumers).
+func xatsStrmFrom(items []any, i int) func() any {
+	return func() any {
+		if i >= len(items) {
+			return &XatsCon{Tag: 0}
+		}
+		return &XatsCon{Tag: 1, Args: []any{items[i], xatsStrmFrom(items, i+1)}}
+	}
+}
+func Xats_strm_of_items(items []any) func() any { return xatsStrmFrom(items, 0) }
+
+// strn_strmize(s): the char STREAM over s (strm_vt(cgtz)); chars as int32.
 var Xats_strn_strmize = func(s any) any {
 	rs := []rune(s.(string))
-	acc := &XatsCon{Tag: 0, Args: nil}
-	for i := len(rs) - 1; i >= 0; i-- {
-		acc = &XatsCon{Tag: 1, Args: []any{int32(rs[i]), acc}}
+	items := make([]any, len(rs))
+	for i, r := range rs {
+		items[i] = int32(r)
 	}
-	return acc
+	return xatsStrmFrom(items, 0)
 }
 
 var Xats_g_eq = func(x1 any, x2 any) bool {
@@ -1448,15 +1461,9 @@ func Xats_XATS2JS_jshmap_get_keys(mp any) any {
 	return append(ints, strs...)
 }
 
-// jsa1sz_strmize: a stream over a JS array — like Xats_strn_strmize, a finite
-// input needs no laziness: the equivalent EAGER cons-list (Tag 0/1 shape).
+// jsa1sz_strmize: the stream over a JS array (same thunk shape).
 func Xats_XATS2JS_jsa1sz_strmize(xs any) any {
-	arr := xs.([]any)
-	acc := &XatsCon{Tag: 0}
-	for i := len(arr) - 1; i >= 0; i-- {
-		acc = &XatsCon{Tag: 1, Args: []any{arr[i], acc}}
-	}
-	return acc
+	return xatsStrmFrom(xs.([]any), 0)
 }
 
 // strm_vt_map0 reaches the runtime only via the worker-less fallback of
@@ -1878,6 +1885,27 @@ func Xats_list_extend(xs any, x any) *XatsCon {
 // gseq generics over string / cons-list sequences.
 func xatsSeqItems(xs any) []any {
 	switch v := xs.(type) {
+	case func() any:
+		// a call-by-name stream: force each cell.
+		var out []any
+		cur := v
+		for {
+			c := Xats_as_con(cur())
+			if c == nil || c.Tag != 1 {
+				break
+			}
+			out = append(out, c.Args[0])
+			nxt, ok := c.Args[1].(func() any)
+			if !ok {
+				// eager tail (mixed producer): fall back to the con walk.
+				for t := Xats_as_con(c.Args[1]); t != nil && t.Tag == 1; t = t.Args[1].(*XatsCon) {
+					out = append(out, t.Args[0])
+				}
+				break
+			}
+			cur = nxt
+		}
+		return out
 	case string:
 		var out []any
 		for _, r := range v {
@@ -1958,9 +1986,26 @@ func Xats_gflt_eq_dflt_dflt(a any, b any) bool { return a.(float64) == b.(float6
 
 // strings.
 func Xats_strn_nilq(s any) bool { return len(s.(string)) == 0 }
-// strn_strxize: like strn_strmize — the char stream of a string (eager).
-var Xats_strn_strxize = Xats_strn_strmize
-func Xats_strm_vt_nil() *XatsCon { return &XatsCon{Tag: 0} }
+// strn_strxize: the INFINITE char strx stream of a string.  strxcon_vt has a
+// SINGLE constructor (basics0.sats: strxcon_vt_cons of (a, streax_vt(a)) --
+// Tag 0 = cons); past the end the stream yields NUL (rune 0) forever, and the
+// lexbuf terminates on its worker's negative EOF sentinel.
+var Xats_strn_strxize = func(s any) any {
+	rs := []rune(s.(string))
+	var at func(i int) func() any
+	at = func(i int) func() any {
+		return func() any {
+			if i < len(rs) {
+				return &XatsCon{Tag: 0, Args: []any{int32(rs[i]), at(i + 1)}}
+			}
+			return &XatsCon{Tag: 0, Args: []any{int32(0), at(i)}}
+		}
+	}
+	return at(0)
+}
+func Xats_strm_vt_nil() func() any {
+	return func() any { return &XatsCon{Tag: 0} }
+}
 
 // stropt: the JS arm's nullable string.
 func Xats_stropt_nilq(x any) bool   { return x == nil }
@@ -1993,9 +2038,11 @@ func Xats_XATSOPT_argv_get() []any {
 func Xats_XATS2JS_jsa1sz_length(a any) int        { return len(a.([]any)) }
 func Xats_XATS2JS_jsa1sz_get_at(a any, i any) any { return a.([]any)[i.(int)] }
 
-// streams are EAGER cons-lists in the Go floor (strm_vt_listize0 is identity):
-// list_make_lstrm (stream -> list) is the same identity.
-func Xats_list_make_lstrm(s any) *XatsCon { return Xats_as_con(s) }
+// list_make_lstrm (stream -> list): force a lazy stream to the cons list;
+// an already-eager list passes through.
+func Xats_list_make_lstrm(s any) *XatsCon {
+	return Xats_as_con(Xats_strm_vt_listize0(s))
+}
 
 // strm_vt_print0: a DEBUG stream printer (i0varfst_fprint's path) never
 // exercised on the compile pipeline; keep it honest.
@@ -2045,15 +2092,17 @@ func Xats_strx_vt_map0(xs any) any {
 }
 // bridged strx_vt_map0: map the worker over a char sequence -> cons list
 // (the lexbuf `map$fopr0` rune->code path).
-func Xats_strx_vt_map0_w(f func(any) any) func(any) *XatsCon {
-	return func(s any) *XatsCon {
-		items := xatsSeqItems(s)
-		r := &XatsCon{Tag: 0}
-		for i := len(items) - 1; i >= 0; i-- {
-			r = &XatsCon{Tag: 1, Args: []any{f(items[i]), r}}
+// LAZY: strx is an INFINITE stream -- force exactly one input cell per
+// output force (collecting would diverge).
+func Xats_strx_vt_map0_w(f func(any) any) func(any) any {
+	var wrap func(cur any) func() any
+	wrap = func(cur any) func() any {
+		return func() any {
+			c := Xats_as_con(cur.(func() any)())
+			return &XatsCon{Tag: 0, Args: []any{f(c.Args[0]), wrap(c.Args[1])}}
 		}
-		return r
 	}
+	return func(s any) any { return wrap(s) }
 }
 
 // list_make_fwork(fwork): REAL semantics — [fwork] drives construction by
@@ -2110,14 +2159,34 @@ func Xats_strn_tail_raw(s any) any {
 
 // strm_vt basics over the eager cons-list stream representation.
 func Xats_strmcon_vt_sing(x any) *XatsCon {
-	return &XatsCon{Tag: 1, Args: []any{x, &XatsCon{Tag: 0}}}
+	return &XatsCon{Tag: 1, Args: []any{x, func() any { return &XatsCon{Tag: 0} }}}
 }
-func Xats_strm_vt_listize0(xs any) any { return xs } // identical representation
+
+// strm_vt_listize0: force a (possibly lazy) stream into the eager cons list.
+func Xats_strm_vt_listize0(xs any) any {
+	if _, ok := xs.(func() any); !ok {
+		return xs // already the eager list shape
+	}
+	items := xatsSeqItems(xs)
+	acc := &XatsCon{Tag: 0}
+	for i := len(items) - 1; i >= 0; i-- {
+		acc = &XatsCon{Tag: 1, Args: []any{items[i], acc}}
+	}
+	return acc
+}
 
 // gseq_foritm: worker-less fallback — the bridged family covers the live
 // call shapes; loud stub for the rest.
 func Xats_gseq_foritm(xs any) any {
 	panic("xatsgo: Xats_gseq_foritm: worker-less fallback")
+}
+func Xats_gseq_foritm_w(f func(any) any) func(any) any {
+	return func(xs any) any {
+		for _, it := range xatsSeqItems(xs) {
+			f(it)
+		}
+		return XATSNIL()
+	}
 }
 func Xats_foritm_e1nv_work(x any, env any) any {
 	panic("xatsgo: Xats_foritm_e1nv_work: unresolved default hook")

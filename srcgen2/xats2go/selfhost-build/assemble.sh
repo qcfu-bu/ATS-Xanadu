@@ -167,6 +167,14 @@ GOEOF
     fi
   done
 
+  # stamped mydict_search$opt shims: xlibext's mydict IS the jshmap (see the
+  # runtime), so an unresolved inner-template reference delegates directly.
+  grep -ohE '\bmydict_search_opt_[0-9]+' "$OUT/src/emitter_all.go" | sort -u | while read -r nm; do
+    if ! grep -q "^func $nm(" "$OUT/src/emitter_all.go"; then
+      printf '\nfunc %s(m any, k any) *xatsgo.XatsCon { return xatsgo.Xats_XATS2JS_jshmap_search_opt(m, k) }\n' "$nm"
+    fi
+  done
+
   # i0varfst funset shims (the Go port of runtime/jsshim/gen-i0varfst-shim.sh):
   # intrep0_utils0.dats cannot be lowered by the prebuilt lib2xats2cc, so the
   # 6 i0varfst_* helpers + i0pat_allq it implements are supplied here.  The
@@ -224,7 +232,7 @@ func ${ADDLST}(s any, vs any) any { return xats2goI0varfstFold(s.([]any), vs) }
 // listize/strmize both yield the ascending cons-list (the Go floor's streams
 // are eager lists: strm_vt_listize0 is identity, list_make_lstrm asserts).
 func ${LISTIZE}(s any) *xatsgo.XatsCon { return xats2goI0varfstConslist(s.([]any)) }
-func ${STRMIZE}(s any) *xatsgo.XatsCon { return xats2goI0varfstConslist(s.([]any)) }
+func ${STRMIZE}(s any) func() any       { return xatsgo.Xats_strm_of_items(s.([]any)) }
 GOEOF
   fi
   if [ -n "$ALLQ" ] && [ -n "$I0PAT_NODE" ]; then

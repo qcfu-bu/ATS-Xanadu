@@ -1485,6 +1485,7 @@ if (snm = "list_filter") then "filter$test" else
 if (snm = "gseq_group_lstrm_llist") then "group$test" else
 if (snm = "list_foritm") then "foritm$work" else
 if (snm = "optn_foritm") then "foritm$work" else
+if (snm = "gseq_foritm") then "foritm$work" else
 if (snm = "strx_vt_map0") then "map$fopr0" else
 if (snm = "list_iforitm") then "iforitm$work" else
 "")
@@ -1504,6 +1505,7 @@ if (snm = "list_filter") then "filter_test" else
 if (snm = "gseq_group_lstrm_llist") then "group_test" else
 if (snm = "list_foritm") then "foritm_work" else
 if (snm = "optn_foritm") then "foritm_work" else
+if (snm = "gseq_foritm") then "foritm_work" else
 if (snm = "strx_vt_map0") then "map_fopr0" else
 if (snm = "list_iforitm") then "iforitm_work" else
 "")
@@ -1531,6 +1533,34 @@ false)
 in//let
 if (snm = "strn_foritm")
 then (strnfpr(filr, "xatsgo.XATSNIL"); true)
+else
+// the UNRESOLVED prelude default hook `foritm$e1nv$work<x><e>(x, env)`
+// inside an inlined genv000 g_foritm body: the USER e1nv worker closure
+// (XATS_tmpw_foritm_e1nv_work) is emitted IN SCOPE just above -- forward
+// the call to it through an `any`-param adapter (the closure's params are
+// concretely typed; asserts from the recorded hook types).
+if (snm = "foritm$e1nv$work")
+then
+(
+if tmpworker_pendingq("foritm$e1nv$work")
+then
+let
+  val p0ty = tmpworker_p0ty("foritm$e1nv$work")
+  val p1ty = tmpworker_p0ty("foritm$e1nv$work@1")
+  fun asrt(filr: FILR, pty: strn): void =
+  (
+  if (if (strn_length(pty) > 0) then not(pty = "any") else false)
+  then (strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")"))
+  else ((*void*)))
+in
+  strnfpr(filr, "func(goxtwa any, goxtwe any) any { return XATS_tmpw_foritm_e1nv_work(goxtwa");
+  asrt(filr, p0ty);
+  strnfpr(filr, ", goxtwe");
+  asrt(filr, p1ty);
+  strnfpr(filr, ") }");
+  true
+end
+else false)
 else
 if (if (strn_length(whook) > 0) then tmpworker_pendingq(whook) else false)
 then
