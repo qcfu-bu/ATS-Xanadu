@@ -131,6 +131,13 @@ fun
 i1binop_of_dapp
 (callee: i1val, args: i1valist, scp: i1cmp): strn
 //
+// i1binopty_of_dapp: the OPERAND Go type pinned by the native op's own
+// FAMILY name ("gint_add$sint$sint" -> "int"); "" when not a native op.
+//
+fun
+i1binopty_of_dapp
+(callee: i1val, args: i1valist, scp: i1cmp): strn
+//
 // i1ins_is_native_op: true iff this instruction is an I1INStimp resolving
 // to a native-able scalar op (so its op-temp binding can drop to `_ = ...`).
 //

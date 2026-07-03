@@ -252,6 +252,46 @@ case+ iins of
 | _(*else*) => ""
 )//endof[goop_of_ins(iins)]
 //
+(*
+[goopty_of_opname]: the OPERAND Go type of a native-able scalar op, from its
+d2cst NAME's family prefix ("gint_lte$sint$sint" -> "int", "char_gte" ->
+"rune", "strn_eq" -> "string", "dflt_add$dflt" -> "float64").  "" when the
+name is not a native-able op (callers fall back to value-derived typing).
+*)
+fun
+goopty_of_opname
+(nm: strn): strn =
+let
+  fun pfxq(p: strn): bool =
+  let
+    val np = strn_length(p)
+    val nn = strn_length(nm)
+    fun loop(i0: sint): bool =
+      if (i0 >= np) then true else
+      if (strn_get$at(nm, i0) = strn_get$at(p, i0)) then loop(i0+1) else false
+  in
+    if (nn < np) then false else loop(0)
+  end
+in
+  if (strn_length(goop_of_name(nm)) = 0) then "" else
+  if pfxq("sint_") then "int" else
+  if pfxq("gint_") then "int" else
+  if pfxq("dflt_") then "float64" else
+  if pfxq("char_") then "rune" else
+  if pfxq("strn_") then "string" else
+  ""
+end//endof[goopty_of_opname(nm)]
+//
+fun
+goopty_of_ins
+(iins: i1ins): strn =
+(
+case+ iins of
+|I1INStimp(_, timp) =>
+  goopty_of_opname(symbl_get_name(timp.dcst().name()))
+| _(*else*) => ""
+)//endof[goopty_of_ins(iins)]
+//
 (* ****** ****** *)
 //
 (*
@@ -604,6 +644,42 @@ if is_native_binop_dapp(callee, args, scp)
 then binop_of_callee(callee, scp)
 else ""
 )//endof[i1binop_of_dapp(callee,args,scp)]
+//
+(*
+[i1binopty_of_dapp]: the OPERAND Go type of a native-infix dapp (the SAME
+callee resolution as [i1binop_of_dapp], mapped through [goopty_of_opname]).
+Used when NEITHER operand's own emitted type is recoverable — the op family
+itself pins the type ("gint_add$sint$sint" means int operands).
+*)
+#implfun
+i1binopty_of_dapp
+(callee, args, scp) =
+(
+case+ callee.node() of
+|I1Vtnm(itnm) =>
+  let
+    val-I1CMPcons(ilts, _) = scp
+    fun
+    loop(stmp: stamp, ilts: i1letlst): strn =
+    (
+    case+ ilts of
+    |list_nil() => ""
+    |list_cons(ilt1, ilts1) =>
+      (
+      case+ ilt1 of
+      |I1LETnew1(itnm1, iins) =>
+        (
+        if stmp_eq(stmp, i1tnm_stmp$get(itnm1))
+        then goopty_of_ins(iins)
+        else loop(stmp, ilts1))
+      |I1LETnew0(_) => loop(stmp, ilts1))
+    )
+  in
+    loop(i1tnm_stmp$get(itnm), ilts)
+  end
+|I1Vcst(dcst) => goopty_of_opname(symbl_get_name(dcst.name()))
+| _(*else*) => ""
+)//endof[i1binopty_of_dapp(callee,args,scp)]
 //
 (*
 [i1ins_is_native_op]: true iff an I1INStimp instruction resolves to a

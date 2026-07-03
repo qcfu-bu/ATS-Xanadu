@@ -335,7 +335,70 @@ case+ i1vs of
  end)
 in
 loop(i1vs, ftys, 0)
-end//endof[i1trcd_emit_litvals_typed(filr,i1vs,ftys)]
+end//endof[i1trcd_emit_litvals_typed(filr,i1vs,ftys)]//
+(*
+[go_struct_repack_emit]: emit `<tgt>{ <coerce(v.F0)>, <coerce(v.F1)>, .. }` —
+a FIELD-WISE repack of a struct value into the target struct type [tgt].
+Go requires IDENTICAL struct types at assign/return boundaries; when two
+recoveries of the same logical tuple disagree in a field (`F1 any` vs
+`F1 string`), the repack converts field-by-field (per-field IDEMPOTENT
+coercion for the common shapes).  Idempotent when the types already agree.
+Only for an I1Vtnm value (re-referenced once per field) — the caller checks.
+*)
+fun
+go_struct_repack_emit
+( filr: FILR
+, tgt: strn
+, ival: i1val): void =
+let
+  val ftys = go_struct_field_types(tgt)
+  fun
+  loop
+  (ftys: list(strn), i0: sint): void =
+  (
+  case+ ftys of
+  |list_nil() => ()
+  |list_cons(fty, ftys1) =>
+    let
+      val coerfn = go_coerfn_of(fty)
+    in
+    (
+    if (i0 >= 1) then strnfpr(filr, ", ");
+    (if (strn_length(coerfn) > 0)
+     then (strnfpr(filr, coerfn); strnfpr(filr, "("))
+     else ());
+    i1valgo1(filr, ival);
+    strnfpr(filr, ".");
+    strnfpr(filr, gofield_of_label(LABint(i0)));
+    (if (strn_length(coerfn) > 0) then strnfpr(filr, ")") else ());
+    loop(ftys1, i0+1))
+    end
+  )
+in
+  strnfpr(filr, tgt);
+  strnfpr(filr, "{");
+  loop(ftys, 0);
+  strnfpr(filr, "}")
+end//endof[go_struct_repack_emit(filr,tgt,ival)]
+//
+(*
+[go_structq]: is [s] a FLAT struct-body type "struct{...}"?
+*)
+fun
+go_structq
+(s: strn): bool =
+(
+if (strn_length(s) < 7) then false else
+if (strn_get$at(s, 0) = 's') then
+if (strn_get$at(s, 1) = 't') then
+if (strn_get$at(s, 2) = 'r') then
+if (strn_get$at(s, 3) = 'u') then
+if (strn_get$at(s, 4) = 'c') then
+if (strn_get$at(s, 5) = 't') then
+(strn_get$at(s, 6) = '{')
+else false else false else false else false else false else false
+)//endof[go_structq(s)]
+
 //
 fun
 i1trcd_emit_rcdvals
@@ -1972,6 +2035,13 @@ let
   val-list_cons(a1, _) = ar1
   val goty0 = gotype_of_ival(a0)
   val goty1 = gotype_of_ival(a1)
+  // when NEITHER operand carries a recoverable type, the resolved op's own
+  // FAMILY pins it ("gint_add$sint$sint" -> int) — closes `(any + any)`.
+  val famty =
+    (if (if (goty0 = "any") then (goty1 = "any") else false)
+     then i1binopty_of_dapp(i1f0, i1vs, scp) else "")
+  val goty0 = (if (goty0 = "any") then (if (strn_length(famty) > 0) then famty else goty0) else goty0)
+  val goty1 = (if (goty1 = "any") then (if (strn_length(famty) > 0) then famty else goty1) else goty1)
   val targ0 = (if (goty0 = "any") then goty1 else goty0)
   val targ1 = (if (goty1 = "any") then goty0 else goty1)
 in
@@ -4179,7 +4249,16 @@ in//let
     val coerfn =
       (if (cfr = "") then "" else
        if (cfr = "any") then "" else go_coerfn_of(cfr))
+    // FLAT-struct return type + temp value -> field-wise repack (see the
+    // assign boundary in [i1cmp_go1emit_tnm]).
+    val repackq =
+      (if go_structq(cfr)
+       then (case+ ival1.node() of I1Vtnm _ => true | _ => false)
+       else false)
   in
+    if repackq
+    then go_struct_repack_emit(filr, cfr, ival1)
+    else
     if (strn_length(coerfn) > 0)
     then
     (
@@ -4230,7 +4309,17 @@ in//let
     val coerfn =
       (if (tgt = "") then "" else
        if (tgt = "any") then "" else go_coerfn_of(tgt))
+    // a FLAT-struct target + a re-referenceable temp value -> FIELD-WISE
+    // repack (Go rejects assigning between struct types that differ in any
+    // field; per-field coercion converts — idempotent when they agree).
+    val repackq =
+      (if go_structq(tgt)
+       then (case+ ival.node() of I1Vtnm _ => true | _ => false)
+       else false)
   in
+    if repackq
+    then go_struct_repack_emit(filr, tgt, ival)
+    else
     if (strn_length(coerfn) > 0)
     then
     (

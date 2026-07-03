@@ -1130,10 +1130,13 @@ func Xats_optn_map_e1nv_w(f func(any, any) any) func(*XatsCon, any) *XatsCon {
 }
 
 // strn_foldl over the chars of a string; the worker takes (accumulator, char).
-func Xats_strn_foldl_w(f func(any, any) any) func(string, int) int {
-	return func(s string, r0 int) int {
-		acc := r0
-		for _, c := range s {
+// The returned func takes/returns `any` (asserting inside) so a call site with
+// an interface-typed string argument compiles; the result is coerced by the
+// caller's own boundary (Xats_as_int).
+func Xats_strn_foldl_w(f func(any, any) any) func(any, any) any {
+	return func(s any, r0 any) any {
+		acc := r0.(int)
+		for _, c := range s.(string) {
 			acc = f(acc, int32(c)).(int)
 		}
 		return acc
