@@ -592,10 +592,20 @@ in
   // with a keep-alive on BOTH names (a resolved/loop-handled call references
   // neither — the strn_foritm typed-loop path reads XATS_foritm_work only).
   let
+    // mirror [tmpworker_go1emit]: an ETA-CONTRACTED worker (`#impltmp
+    // foritm$work<..> = <named fun>`) has NO value params -- the emitted
+    // closure is a 0-param THUNK returning the worker, so record the
+    // "@nullary" marker (the I1INStimp wrapper then emits
+    // `Xats_as_fun1(XATS_tmpw_foritm_work())(goxtwa)` instead of applying
+    // the thunk with the element).
     val p0ty =
+    (
+    case+ bnds of
+    |list_nil() => "@nullary"
+    | _(*cons*) =>
       (case+ argtys of
        |list_cons(t1, _) => t1
-       |list_nil() => "")
+       |list_nil() => "any"))
     val () = tmpworker_add("foritm$work", p0ty)
   in ((*void*)) end;
   nindfpr(filr, env0.nind());
@@ -1099,13 +1109,24 @@ case+ tdxp of
     // path, so value storage is correct (matches the JS number-by-value box).
     |optn_nil() =>
       let
-        val goty = gotype_of_init_cmp(icmp)
+        val goty0 = gotype_of_init_cmp(icmp)
+        // an INITIALIZED BOXED-typed var (`var res = <datatype value>`):
+        // same rule as the uninitialized branch -- its by-ref image is
+        // `*any` (gotype_of_arg), so the cell must be `any`, else a later
+        // `&res` is `**XatsCon` where the callee wants `*any`.  Reads are
+        // re-concretized at the consumption boundaries (Xats_as_con).
+        val goty =
+          (if (strn_length(goty0) = 0) then goty0 else
+           if (strn_get$at(goty0, 0) = '*') then "any" else goty0)
       in
         nindfpr(filr, nind);
         strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
         strnfpr(filr, " "); strnfpr(filr, goty);
         strnfpr(filr, " = ");
-        i1valgo1(filr, ival); strnfpr(filr, "\n")
+        i1valgo1(filr, ival); strnfpr(filr, "\n");
+        // EMITTED-TYPE: record so the mutation boundary (I1INSassgn) and the
+        // read boundaries coerce against the DECLARED type.
+        goemit_ty_add(i1tnm_stmp$get(itnm), goty)
       end
   end
 //

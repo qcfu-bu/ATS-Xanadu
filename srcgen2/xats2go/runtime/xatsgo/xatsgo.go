@@ -269,7 +269,9 @@ func Xats_list_vt2t(xs *XatsCon) *XatsCon {
 }
 
 // Xats_list_reverse: a fresh list with the cons cells in reverse order.
-func Xats_list_reverse(xs *XatsCon) *XatsCon {
+// `any` param: emitted args can be untyped projections (Xats_as_con inside).
+func Xats_list_reverse(xs0 any) *XatsCon {
+	xs := Xats_as_con(xs0)
 	acc := &XatsCon{Tag: 0}
 	for xs != nil && xs.Tag != 0 {
 		acc = &XatsCon{Tag: 1, Args: []any{xs.Args[0], acc}}
@@ -506,7 +508,9 @@ var Xats_gint_cmp_uint_uint = func(i1 any, i2 any) int {
 	}
 	return 0
 }
-var Xats_gint_neg_sint = func(i any) any { return -i.(int) }
+// typed int return: negation results flow into `int`-declared vars/globals
+// (an `any` return needed an assertion Go's initializer position can't take).
+var Xats_gint_neg_sint = func(i any) int { return -i.(int) }
 var Xats_gint_uint2sint = func(i any) any { return i.(int) }
 
 // g_free: generic free.  Go is garbage-collected, so this is a no-op.  Kept so

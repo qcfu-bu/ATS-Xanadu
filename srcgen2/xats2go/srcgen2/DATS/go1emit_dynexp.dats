@@ -2374,6 +2374,40 @@ case+ t1imp_i1dclq(timp) of
 )//endof[t1imp_hook_paramty(timp)]
 //
 (* ****** ****** *)
+//
+(*
+[proj_root_go1emit]: emit a tuple/record PROJECTION's root value.  A root
+temp DECLARED `any` (a block-form result hoist whose branch types did not
+join concretely) cannot take `.F<lab>` directly -- when the temp's M2.6b
+construction side-table carries its tuple/record type, re-assert it first:
+`root.(struct{..}).F0` (flat) / `root.(*struct{..}).F0` (boxed).  Fires ONLY
+on a RECORDED-`any` root with a RECORDED trcd; every other root emits plain
+(a `:=`-typed concrete root would be broken by a spurious assert).
+*)
+fun
+proj_root_go1emit
+(filr: FILR, iroot: i1val): void =
+(
+case+ iroot.node() of
+|I1Vtnm(rtnm) =>
+  (
+  if (goemit_ty_get(i1tnm_stmp$get(rtnm)) = "any")
+  then
+    (
+    case+ gotrcd_of_tnm(i1tnm_stmp$get(rtnm)) of
+    |optn_cons(@(isFlat, body)) =>
+      (
+      i1valgo1(filr, iroot);
+      strnfpr(filr, ".(");
+      (if isFlat then ((*void*)) else strnfpr(filr, "*"));
+      strnfpr(filr, body);
+      strnfpr(filr, ")"))
+    |optn_nil() => i1valgo1(filr, iroot))
+  else i1valgo1(filr, iroot))
+| _(*else*) => i1valgo1(filr, iroot)
+)//endof[proj_root_go1emit(filr,iroot)]
+//
+(* ****** ****** *)
 (* ****** ****** *)
 //
 #implfun
@@ -2720,11 +2754,11 @@ projection form is correct for both layouts.)
 *)
 |I1INSpflt(lab0, i1v1) =>
   (
-  i1valgo1(filr, i1v1);
+  proj_root_go1emit(filr, i1v1);
   strnfpr(filr, "."); strnfpr(filr, gofield_of_label(lab0)))
 |I1INSproj(lab0, i1v1) =>
   (
-  i1valgo1(filr, i1v1);
+  proj_root_go1emit(filr, i1v1);
   strnfpr(filr, "."); strnfpr(filr, gofield_of_label(lab0)))
 //
 (*
