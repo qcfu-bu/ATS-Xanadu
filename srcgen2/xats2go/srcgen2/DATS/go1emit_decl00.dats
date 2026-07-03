@@ -975,14 +975,19 @@ case+ tdxp of
     strnfpr(filr, " *"); strnfpr(filr, body); strnfpr(filr, "\n"))
   |optn_nil() =>
     let
-      val goty = goty_of_dpid(dpid)
+      val goty0 = goty_of_dpid(dpid)
+      // an uninitialized BOXED-typed var (`var res: List`) exists to be
+      // &-passed (the destination-passing pattern); its by-ref image is
+      // `*any` (see gotype_of_arg), so the cell must be `any` — reads are
+      // re-concretized at the consumption boundaries.
+      val goty =
+        (if (strn_length(goty0) = 0) then "any" else
+         if (strn_get$at(goty0, 0) = '*') then "any" else goty0)
     in
       nindfpr(filr, nind);
       strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
       strnfpr(filr, " "); strnfpr(filr, goty); strnfpr(filr, "\n");
-      if (goty = "any")
-      then prerrsln("[go1emit] NOTE: var without initializer -> `var goxtnm<x> any`")
-      else ((*void*))
+      ((*void*))
     end)
 //
 // `var x = init` -> emit the init cmp's lets, then
