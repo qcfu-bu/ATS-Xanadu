@@ -1420,12 +1420,14 @@ let
 val whook =
 (
 if (snm = "list_map") then "map$fopr" else
+if (snm = "list_maprev") then "map$fopr" else
 if (snm = "list_exists") then "exists$test" else
 if (snm = "list_map$e1nv") then "map$e1nv$fopr" else
 if (snm = "list_map$e1nv_vt") then "map$e1nv$fopr" else
 if (snm = "optn_map$e1nv") then "map$e1nv$fopr" else
 if (snm = "list_foritm$e1nv") then "foritm$e1nv$work" else
 if (snm = "strn_foldl") then "foldl$fopr" else
+if (snm = "gseq_foldl") then "foldl$fopr" else
 if (snm = "list_forall") then "forall$test" else
 if (snm = "list_filter") then "filter$test" else
 if (snm = "gseq_group_lstrm_llist") then "group$test" else
@@ -1435,12 +1437,14 @@ if (snm = "optn_foritm") then "foritm$work" else
 val wsfx =
 (
 if (snm = "list_map") then "map_fopr" else
+if (snm = "list_maprev") then "map_fopr" else
 if (snm = "list_exists") then "exists_test" else
 if (snm = "list_map$e1nv") then "map_e1nv_fopr" else
 if (snm = "list_map$e1nv_vt") then "map_e1nv_fopr" else
 if (snm = "optn_map$e1nv") then "map_e1nv_fopr" else
 if (snm = "list_foritm$e1nv") then "foritm_e1nv_work" else
 if (snm = "strn_foldl") then "foldl_fopr" else
+if (snm = "gseq_foldl") then "foldl_fopr" else
 if (snm = "list_forall") then "forall_test" else
 if (snm = "list_filter") then "filter_test" else
 if (snm = "gseq_group_lstrm_llist") then "group_test" else
@@ -1464,6 +1468,7 @@ if (snm = "list_map$e1nv_vt") then true else
 if (snm = "optn_map$e1nv") then true else
 if (snm = "list_foritm$e1nv") then true else
 if (snm = "strn_foldl") then true else
+if (snm = "gseq_foldl") then true else
 false)
 in//let
 if (snm = "strn_foritm")

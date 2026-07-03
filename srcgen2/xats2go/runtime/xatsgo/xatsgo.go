@@ -1790,3 +1790,221 @@ func Xats_optn_foritm_w(f func(any) any) func(any) any {
 func Xats_list_map_e1nv_vt_w(f func(any, any) any) func(any, any) any {
 	return Xats_list_map_e1nv_w(f)
 }
+
+// -- self-hosting floor, round 5 ----------------------------------------------
+
+// char classification / conversion (chars are rune or int at runtime).
+func xatsRuneOf(c any) rune {
+	switch v := c.(type) {
+	case rune:
+		return v
+	case int:
+		return rune(v)
+	}
+	return c.(rune)
+}
+func Xats_char_make_sint(i any) any  { return xatsRuneOf(i) }
+func Xats_char_isdigit(c any) bool   { r := xatsRuneOf(c); return r >= '0' && r <= '9' }
+func Xats_char_isalpha(c any) bool {
+	r := xatsRuneOf(c)
+	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
+}
+func Xats_char_isalnum(c any) bool { return Xats_char_isdigit(c) || Xats_char_isalpha(c) }
+func Xats_char_isxdigit(c any) bool {
+	r := xatsRuneOf(c)
+	return (r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')
+}
+func Xats_sub_char_char(a any, b any) int { return int(xatsRuneOf(a)) - int(xatsRuneOf(b)) }
+
+// bool_mul = conjunction (prelude bool 'multiplication').
+func Xats_bool_mul(a any, b any) bool { return a.(bool) && b.(bool) }
+
+// a1ptr / jsa1sz (JS array) — []any at runtime.
+func Xats_a1ptr_get_at1(arr any, i any) any { return arr.([]any)[i.(int)] }
+func Xats_a1ptr_free(arr any) any           { return XATSNIL() }
+func Xats_a1ptr_make_llist(xs any) any {
+	var out []any
+	for c := xs.(*XatsCon); c.Tag != 0; c = c.Args[1].(*XatsCon) {
+		out = append(out, c.Args[0])
+	}
+	return out
+}
+
+// NODE char/uint fprint (NODE/basics0.cats).
+var Xats_XATS2JS_NODE_char_fprint = func(obj any, out any) any {
+	if w, ok := out.(interface{ Write([]byte) (int, error) }); ok {
+		_, _ = w.Write([]byte(string(xatsRuneOf(obj))))
+	}
+	return XATSNIL()
+}
+var Xats_XATS2JS_NODE_gint_fprint_uint = Xats_XATS2JS_NODE_gint_fprint_sint
+
+// list basics.
+func Xats_list_vt_length1(xs any) int { return Xats_list_length(xs.(*XatsCon)) }
+func Xats_list_get_at(xs any, i any) any {
+	c := xs.(*XatsCon)
+	for k := i.(int); k > 0; k-- {
+		c = c.Args[1].(*XatsCon)
+	}
+	return c.Args[0]
+}
+// list_rappendx0_vt(xs, ys): reverse xs onto ys (prelude revappend).
+func Xats_list_rappendx0_vt(xs any, ys any) *XatsCon {
+	acc := ys.(*XatsCon)
+	for c := xs.(*XatsCon); c.Tag != 0; c = c.Args[1].(*XatsCon) {
+		acc = &XatsCon{Tag: 1, Args: []any{c.Args[0], acc}}
+	}
+	return acc
+}
+// list_extend(xs, x): append one element.
+func Xats_list_extend(xs any, x any) *XatsCon {
+	var elems []any
+	for c := xs.(*XatsCon); c.Tag != 0; c = c.Args[1].(*XatsCon) {
+		elems = append(elems, c.Args[0])
+	}
+	acc := &XatsCon{Tag: 1, Args: []any{x, &XatsCon{Tag: 0}}}
+	for i := len(elems) - 1; i >= 0; i-- {
+		acc = &XatsCon{Tag: 1, Args: []any{elems[i], acc}}
+	}
+	return acc
+}
+
+// gseq generics over string / cons-list sequences.
+func xatsSeqItems(xs any) []any {
+	switch v := xs.(type) {
+	case string:
+		var out []any
+		for _, r := range v {
+			out = append(out, r)
+		}
+		return out
+	case []any:
+		return v
+	case *XatsCon:
+		var out []any
+		for c := v; c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
+			out = append(out, c.Args[0])
+		}
+		return out
+	}
+	return nil
+}
+func Xats_gseq_memberq(xs any, x0 any) bool {
+	for _, it := range xatsSeqItems(xs) {
+		if Xats_g_eq(it, x0) {
+			return true
+		}
+	}
+	return false
+}
+func Xats_gseq_last_ini(xs any) any {
+	items := xatsSeqItems(xs)
+	return items[len(items)-1]
+}
+func Xats_gseq_get_at_opt(xs any, i any) *XatsCon {
+	items := xatsSeqItems(xs)
+	k := i.(int)
+	if k >= 0 && k < len(items) {
+		return &XatsCon{Tag: 1, Args: []any{items[k]}}
+	}
+	return &XatsCon{Tag: 0}
+}
+// gseq_prefixq(xs, ys): is xs a prefix of ys?
+func Xats_gseq_prefixq(xs any, ys any) bool {
+	a := xatsSeqItems(xs)
+	b := xatsSeqItems(ys)
+	if len(a) > len(b) {
+		return false
+	}
+	for i := range a {
+		if !Xats_g_eq(a[i], b[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// gs_println n7/n8.
+var Xats_gs_println_n7 = func(x0, x1, x2, x3, x4, x5, x6 any) any {
+	for _, x := range []any{x0, x1, x2, x3, x4, x5, x6} {
+		gsPrintOne(x)
+	}
+	XATS2JS_strn_print("\n")
+	return XATSNIL()
+}
+var Xats_gs_println_n8 = func(x0, x1, x2, x3, x4, x5, x6, x7 any) any {
+	for _, x := range []any{x0, x1, x2, x3, x4, x5, x6, x7} {
+		gsPrintOne(x)
+	}
+	XATS2JS_strn_print("\n")
+	return XATSNIL()
+}
+
+func Xats_gflt_eq_dflt_dflt(a any, b any) bool { return a.(float64) == b.(float64) }
+
+// strings.
+func Xats_strn_nilq(s any) bool { return len(s.(string)) == 0 }
+// strn_strxize: like strn_strmize — the char stream of a string (eager).
+var Xats_strn_strxize = Xats_strn_strmize
+func Xats_strm_vt_nil() *XatsCon { return &XatsCon{Tag: 0} }
+
+// stropt: the JS arm's nullable string.
+func Xats_stropt_nilq(x any) bool   { return x == nil }
+func Xats_stropt_unsome(x any) any  { return x.(string) }
+
+// g_parse / XATSOPT_strn_dflt_parse_exn: string -> float.
+func Xats_g_parse(s any) any {
+	f, err := strconv.ParseFloat(s.(string), 64)
+	if err != nil {
+		panic("xatsgo: Xats_g_parse: " + s.(string))
+	}
+	return f
+}
+var Xats_XATSOPT_strn_dflt_parse_exn = Xats_g_parse
+
+// file I/O leaves (the compiler's source reading).
+func Xats_XATSOPT_fpath_rexists(path any) bool {
+	_, err := os.Stat(path.(string))
+	return err == nil
+}
+func Xats_XATSOPT_fpath_full_read(path any) any {
+	bs, err := os.ReadFile(path.(string))
+	if err != nil {
+		return nil // stropt none
+	}
+	return string(bs)
+}
+
+// gseq_foldl worker wrapper (bridge family foldl$fopr, generic sequences).
+func Xats_gseq_foldl_w(f func(any, any) any) func(any, any) any {
+	return func(xs any, ini any) any {
+		acc := ini
+		for _, it := range xatsSeqItems(xs) {
+			acc = f(acc, it)
+		}
+		return acc
+	}
+}
+
+// list_maprev worker wrapper (map$fopr family): map then reverse.
+func Xats_list_maprev_w(f func(any) any) func(any) any {
+	return func(xs any) any {
+		acc := &XatsCon{Tag: 0}
+		for c := xs.(*XatsCon); c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
+			acc = &XatsCon{Tag: 1, Args: []any{f(c.Args[0]), acc}}
+		}
+		return acc
+	}
+}
+
+// loudly-unreachable stubs (no live compiler caller; present so the package
+// links — revisit if self-emission ever reaches them).
+func Xats_strx_vt_map0(xs any) any {
+	panic("xatsgo: Xats_strx_vt_map0: worker-less fallback")
+}
+func Xats_list_make_fwork(n any) any {
+	panic("xatsgo: Xats_list_make_fwork: worker-less fallback")
+}
+func Xats_list_iforitm(xs any) any {
+	panic("xatsgo: Xats_list_iforitm: worker-less fallback")
+}
