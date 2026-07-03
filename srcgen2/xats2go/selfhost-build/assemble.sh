@@ -65,8 +65,12 @@ done
 #     source, every intrep0 accessor/constructor reference is a stamped name
 #     defined by intrep0.dats's own emission here.  xats2cc's intrep1* are
 #     EXCLUDED -- xats2go's own srcgen2/DATS/intrep1.dats already owns the
-#     emit/intrep1.go slot (same basename).
-CCMODS="intrep0 intrep0_print0 intrep0_utils0 trxd3i0 trxd3i0_decl00 trxd3i0_dynexp trxd3i0_myenv0 trxd3i0_print0 trxd3i0_statyp tryd3i0 tryd3i0_decl00 tryd3i0_dynexp tryd3i0_myenv0 xats2cc_tmplib"
+#     emit/intrep1.go slot (same basename).  intrep0_utils0 is EXCLUDED too:
+#     the prebuilt lib2xats2cc lowering CRASHES on it (d3pat_trxd3i0 cfail --
+#     the same pre-existing defect the JS bundle works around); its exports
+#     (i0pat_allq + the 6 i0varfst_*) are supplied as Go shims in zz_shims.go
+#     below, mirroring runtime/jsshim/gen-i0varfst-shim.sh.
+CCMODS="intrep0 intrep0_print0 trxd3i0 trxd3i0_decl00 trxd3i0_dynexp trxd3i0_myenv0 trxd3i0_print0 trxd3i0_statyp tryd3i0 tryd3i0_decl00 tryd3i0_dynexp tryd3i0_myenv0 xats2cc_tmplib"
 cn=0
 for m in $CCMODS; do
   f="$X/srcgen2/xats2go/xats2cc/srcgen1/DATS/$m.dats"
@@ -162,6 +166,106 @@ GOEOF
       printf '\nfunc %s(slab any) any { return xatsgo.Xats_as_con(slab).Args[1] }\n' "$nm"
     fi
   done
+
+  # i0varfst funset shims (the Go port of runtime/jsshim/gen-i0varfst-shim.sh):
+  # intrep0_utils0.dats cannot be lowered by the prebuilt lib2xats2cc, so the
+  # 6 i0varfst_* helpers + i0pat_allq it implements are supplied here.  The
+  # set is a []any SORTED ASCENDING by the var's stamp key, deduped -- the
+  # SAME order the JS shim uses, so free-var traversal (and thus emitted
+  # code) matches the oracle.  Stamped helper names are discovered from the
+  # assembled package (robust to stamp shifts).
+  AGG="$OUT/src/emitter_all.go $OUT/src/zz_driver.go"
+  ref() { grep -ohE "$1"'_[0-9]+' $AGG 2>/dev/null | sort -u | head -1; }
+  MKNIL=$(ref 'i0varfst_mknil'); MKLST=$(ref 'i0varfst_mklst')
+  ADDVAR=$(ref 'i0varfst_addvar'); ADDLST=$(ref 'i0varfst_addlst')
+  LISTIZE=$(ref 'i0varfst_listize'); STRMIZE=$(ref 'i0varfst_strmize')
+  ALLQ=$(ref 'i0pat_allq')
+  I0VAR_DVAR=$(ref 'i0var_dvar_get'); D2VAR_STMP=$(ref 'd2var_get_stmp')
+  STMP_UINT=$(ref 'stamp_get_uint'); I0PAT_NODE=$(ref 'i0pat_node_get')
+  if [ -n "$MKNIL" ] && [ -n "$I0VAR_DVAR" ] && [ -n "$D2VAR_STMP" ] && [ -n "$STMP_UINT" ]; then
+    cat <<GOEOF
+
+// i0varfst: functional set of i0var, keyed+ordered by stamp (see the JS shim).
+func xats2goI0varfstKey(v any) int {
+	return xatsgo.Xats_as_int(${STMP_UINT}(${D2VAR_STMP}(${I0VAR_DVAR}(v))))
+}
+func xats2goI0varfstIns(s []any, v any) []any {
+	k := xats2goI0varfstKey(v)
+	i := 0
+	for i < len(s) && xats2goI0varfstKey(s[i]) < k {
+		i++
+	}
+	if i < len(s) && xats2goI0varfstKey(s[i]) == k {
+		return s // already present
+	}
+	out := make([]any, 0, len(s)+1)
+	out = append(out, s[:i]...)
+	out = append(out, v)
+	out = append(out, s[i:]...)
+	return out
+}
+func xats2goI0varfstFold(s []any, vs any) []any {
+	for p := xatsgo.Xats_as_con(vs); p != nil && p.Tag == 1; p = xatsgo.Xats_as_con(p.Args[1]) {
+		s = xats2goI0varfstIns(s, p.Args[0])
+	}
+	return s
+}
+func xats2goI0varfstConslist(s []any) *xatsgo.XatsCon {
+	r := &xatsgo.XatsCon{Tag: 0}
+	for i := len(s) - 1; i >= 0; i-- {
+		r = &xatsgo.XatsCon{Tag: 1, Args: []any{s[i], r}}
+	}
+	return r
+}
+func ${MKNIL}() any            { return []any{} }
+func ${ADDVAR}(s any, v any) any { return xats2goI0varfstIns(s.([]any), v) }
+func ${MKLST}(vs any) any      { return xats2goI0varfstFold([]any{}, vs) }
+func ${ADDLST}(s any, vs any) any { return xats2goI0varfstFold(s.([]any), vs) }
+// listize/strmize both yield the ascending cons-list (the Go floor's streams
+// are eager lists: strm_vt_listize0 is identity, list_make_lstrm asserts).
+func ${LISTIZE}(s any) *xatsgo.XatsCon { return xats2goI0varfstConslist(s.([]any)) }
+func ${STRMIZE}(s any) *xatsgo.XatsCon { return xats2goI0varfstConslist(s.([]any)) }
+GOEOF
+  fi
+  if [ -n "$ALLQ" ] && [ -n "$I0PAT_NODE" ]; then
+    cat <<GOEOF
+
+// i0pat_allq (intrep0_utils0): var/any-only pattern?  Tags follow the
+// i0pat_node declaration order in xats2cc/srcgen1/SATS/intrep0.sats:
+// 0=any 1=var 2..6=literals 16=tup0(npf,ps) 17=tup1(k,npf,ps) 18=rcd2(k,npf,lips).
+func ${ALLQ}(p any) bool {
+	n := xatsgo.Xats_as_con(${I0PAT_NODE}(p))
+	switch n.Tag {
+	case 0, 1:
+		return true
+	case 16:
+		return xats2goI0patAllqList(n.Args[1])
+	case 17:
+		return xats2goI0patAllqList(n.Args[2])
+	case 18:
+		return xats2goI0patAllqLips(n.Args[2])
+	}
+	return false
+}
+func xats2goI0patAllqList(ps any) bool {
+	for p := xatsgo.Xats_as_con(ps); p != nil && p.Tag == 1; p = xatsgo.Xats_as_con(p.Args[1]) {
+		if !${ALLQ}(p.Args[0]) {
+			return false
+		}
+	}
+	return true
+}
+func xats2goI0patAllqLips(lips any) bool {
+	for p := xatsgo.Xats_as_con(lips); p != nil && p.Tag == 1; p = xatsgo.Xats_as_con(p.Args[1]) {
+		lab := xatsgo.Xats_as_con(p.Args[0]) // I0LAB(l0, i0p)
+		if !${ALLQ}(lab.Args[1]) {
+			return false
+		}
+	}
+	return true
+}
+GOEOF
+  fi
 } > "$OUT/src/zz_shims.go"
 
 # 3. go module

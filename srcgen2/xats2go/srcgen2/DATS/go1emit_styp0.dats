@@ -1915,6 +1915,14 @@ case+ icmp of
       case+ ival.node() of
       |I1Vtnm(rtnm) =>
          gotype_of_tnm_in_lets(i1tnm_stmp$get(rtnm), ilts, bnds)
+      // a branch whose RESULT is a datacon-field projection types from the
+      // field ([goty_of_p1cn]) -- the block-hoist var then declares the
+      // CONCRETE (e.g. struct) type instead of `any`, so a downstream
+      // `.F<lab>` on the hoist resolves (the assign boundary self-asserts
+      // an `any`-emitted branch value into the declared type).
+      |I1Vp1cn(ipat, _, pind) =>
+         (let val g1 = goty_of_p1cn(ipat, pind) in
+          if (strn_length(g1) = 0) then "any" else g1 end)
       | _(*else*) => "any")
     else t0)
   in

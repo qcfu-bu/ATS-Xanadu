@@ -656,9 +656,9 @@ field has type `a`, but the subpattern still knows the instantiated type.  If
 the carried pattern is only the constructor head, fall back to the constructor
 static type.
 *)
-fun
+#implfun
 goty_of_p1cn
-(ipat: i0pat, pind: sint): strn =
+(ipat, pind) =
 let
   val gt0 = goty_of_p1cn_subpat(ipat, pind)
 in
@@ -4865,6 +4865,13 @@ in//let
     (case+ ival.node() of
      |I1Vtnm(vtnm) =>
        (if (goemit_ty_get(i1tnm_stmp$get(vtnm)) = "any")
+        then (strnfpr(filr, ".("); strnfpr(filr, tgt); strnfpr(filr, ")")) else ())
+     // an `any`-emitted datacon-field projection (bare `.Args[i]`) assigned
+     // into a CONCRETELY-declared hoist var (e.g. the [gotype_of_cmp2]
+     // p1cn-typed struct hoist) needs the same assert; a concretely-typed
+     // p1cn already self-asserts at its own emission.
+     |I1Vp1cn(ipat2, _, pind2) =>
+       (if (goty_of_p1cn(ipat2, pind2) = "any")
         then (strnfpr(filr, ".("); strnfpr(filr, tgt); strnfpr(filr, ")")) else ())
      | _(*non-tnm*) => ()))
   end);

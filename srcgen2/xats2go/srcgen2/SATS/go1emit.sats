@@ -121,6 +121,18 @@ fun
 gotrcd_of_styp
 (t2p0: s2typ): optn(@(bool, strn))
 //
+// goty_of_p1cn: the Go FIELD type of an [I1Vp1cn(i0pat, _, pind)] datacon
+// projection -- from the applied parent pattern's [pind]-th value subpattern
+// when preserved (the polymorphic-constructor case), else from the
+// constructor's static field type; "any" when unrecoverable.  Declared here
+// so the branch-result typing ([gotype_of_cmp2], go1emit_styp0) can type a
+// branch whose result IS a p1cn projection (the block-hoist `.F<lab>`-on-any
+// class); implemented in go1emit_dynexp.
+//
+fun
+goty_of_p1cn
+(ipat: i0pat, pind: sint): strn
+//
 // i1binop_of_dapp: given an I1INSdapp's callee + args + the enclosing cmp
 // (op-resolution scope), return the native Go binary operator string
 // ("+","-","<","==",...) iff the call should be emitted as native infix

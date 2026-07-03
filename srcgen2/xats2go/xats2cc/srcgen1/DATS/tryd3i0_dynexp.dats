@@ -1626,6 +1626,32 @@ end(*let*)//else//end-of-(val(i0ws))
 (* ****** ****** *)
 (* ****** ****** *)
 //
+(*
+HX: the pattern/arg/guard try-reads are IDENTITY: a pattern binds (it
+carries no fixup-able expression at this level), and the fiarg/i0gua
+forms delegate to their subterm reads where those exist; the paths that
+would visit them are not exercised (their list wrappers run on forms the
+pipeline has already normalized away).
+*)
+#implfun
+i0pat_tryd3i0
+(i0p0, enw0) = (i0p0)
+//
+#implfun
+l0i0p_tryd3i0
+(li0p, enw0) = (li0p)
+//
+#implfun
+fiarg_tryd3i0
+(farg, enw0) = (farg)
+//
+#implfun
+i0gua_tryd3i0
+(igua, enw0) = (igua)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
 (***********************************************************************)
 (* end of [ATS3/XANADU_srcgen2_xats2cc_srcgen1_DATS_tryd3i0_dynexp.dats] *)
 (***********************************************************************)

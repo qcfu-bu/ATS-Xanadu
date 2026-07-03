@@ -1993,6 +1993,16 @@ func Xats_XATSOPT_argv_get() []any {
 func Xats_XATS2JS_jsa1sz_length(a any) int        { return len(a.([]any)) }
 func Xats_XATS2JS_jsa1sz_get_at(a any, i any) any { return a.([]any)[i.(int)] }
 
+// streams are EAGER cons-lists in the Go floor (strm_vt_listize0 is identity):
+// list_make_lstrm (stream -> list) is the same identity.
+func Xats_list_make_lstrm(s any) *XatsCon { return Xats_as_con(s) }
+
+// strm_vt_print0: a DEBUG stream printer (i0varfst_fprint's path) never
+// exercised on the compile pipeline; keep it honest.
+func Xats_strm_vt_print0(s any) any {
+	panic("xatsgo: Xats_strm_vt_print0: debug stream print reached")
+}
+
 // file I/O leaves (the compiler's source reading).
 func Xats_XATSOPT_fpath_rexists(path any) bool {
 	_, err := os.Stat(path.(string))
