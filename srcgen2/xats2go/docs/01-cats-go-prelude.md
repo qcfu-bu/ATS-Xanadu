@@ -1295,3 +1295,29 @@ leaf-errck decls (i1vardclist_go1emit) remain for follow-up.  Both byte-equal
 gates pass on the rebuilt frontend: go-arm rungs 1-12 and the JS oracle suite
 75/75.  A diagnostic caveat for future sessions: a "TIMQ: 0" measured while the
 pipeline CRASHES downstream is vacuous -- always check the emit rc first.
+
+## The TIMQ chain CLOSED: trans2a's errck skip was the last link (16 -> 2)
+
+The remaining question from the root fix -- why resolved queries still left
+TIMQs -- is answered and fixed.  The last diagnostic sequence, each step one
+targeted probe:
+1. The clean build (instrumentation-free) showed ALL 32 trtmp3b queries failing
+   (the earlier partial success was an artifact of the since-removed seeds).
+2. Registration was fine (1852 stacked impls, list_map(3287) among them, EXACT
+   stamp match with the query) -- yet the search test never fired a name match
+   on DIMPLone2... because the prelude impls arrived as **DIMPLone1**: the
+   dcst without its template vars.
+3. The one1 -> one2 upgrade (trans2a_d2cst_inst attaching the impl's template
+   variables) lives in trans2a's f0_implmnt0 -- and trans2a SKIPPED errck-
+   wrapped decls (`|D2Cerrck _ => d2cl`), the same missing-case pattern one
+   pass earlier than trans23.  tmpmatch_d3cl_t2js only matches DIMPLone2, so
+   every found-but-one1 impl was filtered out.
+Fix: trans2a processes errck-wrapped CONTAINER payloads (include/staload),
+keeping the wrapper; broken leaves stay skipped (same recipe as trans23).
+
+Result: staexp2 TIMQ 16 -> 2; list_map RESOLVES; and the go-arm emission now
+INLINES the compiled-from-ATS list000.dats body (the destination-passing
+loop_* with its byref accumulator) with ZERO worker-forwarding wrappers --
+the Task-#8 bridge auto-retires exactly as designed, replaced by code compiled
+and emitted by the ATS compiler itself.  Gates on the rebuilt frontend:
+go-arm rungs 1-12 byte-equal, JS oracle suite 75/75 byte-equal.

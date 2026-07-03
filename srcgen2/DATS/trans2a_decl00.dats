@@ -145,7 +145,28 @@ d2cl.node() of
 //
 |D2Cnone0 _ => d2cl
 |D2Cd1ecl _ => d2cl
-|D2Cerrck _ => d2cl
+//
+(*
+HX-late/CLAUDE-2026-07:
+an errck-WRAPPED CONTAINER decl (the `#include "xatsopt_dpre.hats"` chain,
+wrapped by tread12 because ONE leaf inside errored) was previously skipped
+wholesale, so the healthy template impls inside never received their
+DIMPLone2 upgrade (trans2a_d2cst_inst attaching the template vars) -- leaving
+them DIMPLone1, which tmpmatch_d3cl_t2js cannot match (the F3PERR0-TIMQ1
+class).  Process container payloads, keep the wrapper; broken LEAF decls stay
+skipped as before.
+*)
+|D2Cerrck
+(lvl0, d2cl1) =>
+(
+case+ d2cl1.node() of
+|D2Cinclude _ =>
+  d2ecl_make_node
+  (d2cl.lctn(), D2Cerrck(lvl0, trans2a_d2ecl(env0, d2cl1)))
+|D2Cstaload _ =>
+  d2ecl_make_node
+  (d2cl.lctn(), D2Cerrck(lvl0, trans2a_d2ecl(env0, d2cl1)))
+| _(*leaf*) => d2cl)
 //
 |D2Cthen0 _ =>
 (
