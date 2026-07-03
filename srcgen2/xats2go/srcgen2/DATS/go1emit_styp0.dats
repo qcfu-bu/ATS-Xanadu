@@ -845,7 +845,14 @@ let
   // function's definition emits with.
   |T2Parg1(knd, t2p1) =>
     (if (knd < 0)
-     then strn_append("*", argchase(t2p1))
+     then
+     let val g1 = argchase(t2p1) in
+       // by-ref of a boxed/erased inner -> `*any` (see [gotype_of_arg]).
+       if (strn_length(g1) = 0) then "*any" else
+       if (g1 = "any") then "*any" else
+       if (strn_get$at(g1, 0) = '*') then "*any" else
+       strn_append("*", g1)
+     end
      else argchase(t2p1))
   |T2Patx2(t2p1, _) => argchase(t2p1)
   | _(*else*) => gotype_of_styp(t2p0))
@@ -2565,7 +2572,17 @@ case+ t2p0.node() of
   // ([byref_register_params]) so the read/write/call emitters can deref it.
   (
   if (knd < 0)
-  then strn_append("*", gotype_of_arg(t2p1))
+  then
+  let val g1 = gotype_of_arg(t2p1) in
+    // by-ref of a BOXED/erased inner (a con pointer or `any`): the mutable
+    // cell is a plain `any` slot in the uniform representation (a datacon
+    // field IS an `any` slot — the destination-passing tail-cell pattern
+    // takes `&con.Args[i]`, a `*any`), so the image is `*any`, NOT `**T`.
+    if (strn_length(g1) = 0) then "*any" else
+    if (g1 = "any") then "*any" else
+    if (strn_get$at(g1, 0) = '*') then "*any" else
+    strn_append("*", g1)
+  end
   else gotype_of_arg(t2p1))
 |T2Patx2(t2p1, _) => gotype_of_arg(t2p1)
 | _(*otherwise*) => gotype_of_styp(t2p0)

@@ -276,7 +276,13 @@ case+ s2typ_get_node(t2p0) of
 // `func(any, int)` where the target is `func(any, *int)`.
 |T2Parg1(knd, t2p1) =>
   (if (knd < 0)
-   then GOTptr(gtx_argchase(t2p1))
+   then
+   (
+   // by-ref of a boxed/erased inner -> pointer-to-ANY (see gotype_of_arg).
+   case+ gtx_argchase(t2p1) of
+   |GOTptr(_) => GOTptr(GOTany())
+   |GOTany() => GOTptr(GOTany())
+   |g1 => GOTptr(g1))
    else gtx_argchase(t2p1))
 |T2Patx2(t2p1, _) => gtx_argchase(t2p1)
 | _(*else*) => gotyp_of_styp(t2p0)
