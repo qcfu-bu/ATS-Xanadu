@@ -270,7 +270,14 @@ gtx_argchase
 (t2p0: s2typ): gotyp =
 (
 case+ s2typ_get_node(t2p0) of
-|T2Parg1(_, t2p1) => gtx_argchase(t2p1)
+// knd < 0 = by-REFERENCE (`&T` -> Go `*T`), matching [gotype_of_arg]
+// (go1emit_styp0) — a func-TYPED value's param list must carry the same
+// pointer image its definition emits with, else adapters/call sites see
+// `func(any, int)` where the target is `func(any, *int)`.
+|T2Parg1(knd, t2p1) =>
+  (if (knd < 0)
+   then GOTptr(gtx_argchase(t2p1))
+   else gtx_argchase(t2p1))
 |T2Patx2(t2p1, _) => gtx_argchase(t2p1)
 | _(*else*) => gotyp_of_styp(t2p0)
 )
