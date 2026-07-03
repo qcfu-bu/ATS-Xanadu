@@ -2540,8 +2540,21 @@ case+ i1f0.node() of
     (
     case+ i1vs of
     |list_nil() =>
-      // 0-arg application: the generic thunk-invocation form `tmp()`.
-      (i1valgo1(filr, i1f0); strnfpr(filr, "()"))
+      // 0-arg application: the generic thunk-invocation form `tmp()`.  For a
+      // NULLARY-instance temp whose recorded result is itself a nullary FUNC
+      // (`val m = mydict_make_nil<k><i>()` -- the thunk returns the runtime
+      // function, not the result), peel each `func()` layer so the function
+      // is APPLIED: `tmp()()`.  A value-like instance (non-func result) peels
+      // nothing and keeps the plain `tmp()`.
+      if nullary_inst_has(i1tnm_stmp$get(tnm))
+      then
+        let
+          val restype = inst_retty_get(i1tnm_stmp$get(tnm))
+          val () = i1valgo1(filr, i1f0)
+          val () = strnfpr(filr, "()")
+          val _final = go_peel_thunks(filr, restype)
+        in ((*void*)) end
+      else (i1valgo1(filr, i1f0); strnfpr(filr, "()"))
     |list_cons(a1, ar1) =>
       if nullary_inst_has(i1tnm_stmp$get(tnm))
       then
