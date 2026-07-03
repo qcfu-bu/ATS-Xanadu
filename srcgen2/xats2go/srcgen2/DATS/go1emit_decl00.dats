@@ -420,6 +420,11 @@ in//let
       strnfpr(filr, " {"); strnfpr(filr, "\n"))
       //
       // body: return mode, TCO-loop when it has a reachable tail self-call.
+      // RETURN-BOUNDARY SCOPE: pin THIS closure's return type while its body
+      // is emitted (same as the top-level i1fundcl path), else a `return`
+      // inside coerces to whatever enclosing scope last set.
+      val saved_cfr = cur_funretty_get()
+      val () = cur_funretty_set(retty)
       val () =
       (
       case+ tdxp of
@@ -452,6 +457,7 @@ in//let
           i1cmp_go1emit_ret(icmp, list_nil(), bnds, env0);
           envx2go_decnind(env0, 1(*--*)))
         end)
+      val () = cur_funretty_set(saved_cfr)
       //
       // closing `}` of the func literal.
       val () = (nindfpr(filr, nind); strnfpr(filr, "}"); strnfpr(filr, "\n"))
@@ -567,7 +573,11 @@ in
   strnfpr(filr, retty);
   strnfpr(filr, " {\n");
   envx2go_incnind(env0, 1(*++*));
-  i1cmp_go1emit_ret(icmp, list_nil(), bnds, env0);
+  // RETURN-BOUNDARY SCOPE: pin this worker closure's return type.
+  let val saved_cfr = cur_funretty_get()
+      val () = cur_funretty_set(retty)
+      val () = i1cmp_go1emit_ret(icmp, list_nil(), bnds, env0)
+  in cur_funretty_set(saved_cfr) end;
   envx2go_decnind(env0, 1(*--*));
   nindfpr(filr, env0.nind());
   strnfpr(filr, "}\n")
@@ -591,6 +601,7 @@ if (iname = "map$e1nv$fopr") then "map_e1nv_fopr" else
 if (iname = "foritm$e1nv$work") then "foritm_e1nv_work" else
 if (iname = "foldl$fopr") then "foldl_fopr" else
 if (iname = "forall$test") then "forall_test" else
+if (iname = "filter$test") then "filter_test" else
 ""
 )//endof[tmpw_hook_suffix(iname)]
 //
@@ -648,7 +659,11 @@ in
   strnfpr(filr, retty);
   strnfpr(filr, " {\n");
   envx2go_incnind(env0, 1(*++*));
-  i1cmp_go1emit_ret(icmp, list_nil(), bnds, env0);
+  // RETURN-BOUNDARY SCOPE: pin this worker closure's return type.
+  let val saved_cfr = cur_funretty_get()
+      val () = cur_funretty_set(retty)
+      val () = i1cmp_go1emit_ret(icmp, list_nil(), bnds, env0)
+  in cur_funretty_set(saved_cfr) end;
   envx2go_decnind(env0, 1(*--*));
   nindfpr(filr, env0.nind());
   strnfpr(filr, "}\n");

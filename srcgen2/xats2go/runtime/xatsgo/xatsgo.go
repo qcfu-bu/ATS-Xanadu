@@ -1463,3 +1463,70 @@ func Xats_a0ptr2ref(a0 any) any       { return a0 }
 func Xats_a0ref2ptr(a0 any) any       { return a0 }
 func Xats_a0ref_dtget(a0 any) any     { return a0.(*XatsA0Ref).val }
 func Xats_a0ref_dtset(a0, x0 any) any { a0.(*XatsA0Ref).val = x0; return XATSNIL() }
+
+// -- self-hosting floor, round 2 ---------------------------------------------
+
+// gs_println_n<N>: the `printsln` overload family (synoug0's gs_println_n<N> =
+// gs_fproc_n<N> where g_fproc = g_print, then a newline) — print each arg to
+// the stdout store, then "\n" (same shape as gs_println_a<N> above).
+var Xats_gs_println_n6 = func(x0, x1, x2, x3, x4, x5 any) any {
+	gsPrintOne(x0)
+	gsPrintOne(x1)
+	gsPrintOne(x2)
+	gsPrintOne(x3)
+	gsPrintOne(x4)
+	gsPrintOne(x5)
+	XATS2JS_strn_print("\n")
+	return XATSNIL()
+}
+
+// cast10 — representation-identity cast (same as castlin10).
+func Xats_cast10(x any) any { return x }
+
+// XATSOPT_XATSHOME_get: the compiler's XATSHOME root (JS arm reads the env).
+func Xats_XATSOPT_XATSHOME_get() any { return os.Getenv("XATSHOME") }
+
+// NODE gint fprint (NODE/basics0.cats sint_fprint): decimal int to the writer.
+var Xats_XATS2JS_NODE_gint_fprint_sint = func(obj any, out any) any {
+	if w, ok := out.(interface{ Write([]byte) (int, error) }); ok {
+		_, _ = w.Write([]byte(strconv.Itoa(obj.(int))))
+	}
+	return XATSNIL()
+}
+
+// list_filter worker-forwarding wrapper (Task-#8 family `filter$test`): keep
+// the elements the predicate accepts, preserving order.
+func Xats_list_filter_w(f func(any) any) func(*XatsCon) *XatsCon {
+	return func(xs *XatsCon) *XatsCon {
+		var kept []any
+		for c := xs; c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
+			if f(c.Args[0]).(bool) {
+				kept = append(kept, c.Args[0])
+			}
+		}
+		acc := &XatsCon{Tag: 0}
+		for i := len(kept) - 1; i >= 0; i-- {
+			acc = &XatsCon{Tag: 1, Args: []any{kept[i], acc}}
+		}
+		return acc
+	}
+}
+
+// -- idempotent scalar coercions (Task-#10 arg boundary) ----------------------
+//
+// Like Xats_as_con/Xats_as_fun1: take `any`, return the concrete type.  A call
+// site can wrap ANY argument expression — already-concrete (auto-boxed, then
+// unboxed: compiles and is exact) or interface-typed (asserted) — so the
+// emitter never needs to prove the arg's static Go type at a typed boundary.
+func Xats_as_str(x any) string { return x.(string) }
+func Xats_as_int(x any) int    { return x.(int) }
+func Xats_as_bool(x any) bool  { return x.(bool) }
+func Xats_as_rune(x any) rune {
+	switch v := x.(type) {
+	case rune:
+		return v
+	case int:
+		return rune(v)
+	}
+	return x.(rune)
+}

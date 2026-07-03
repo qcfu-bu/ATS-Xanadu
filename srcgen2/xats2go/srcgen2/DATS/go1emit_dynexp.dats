@@ -553,6 +553,23 @@ callee d2var's styp); when it is shorter / empty the extra args emit untyped (th
 fallback that preserves the prior behavior for callees with no recoverable
 signature).
 *)
+(*
+[go_coerfn_of]: the runtime idempotent-coercion helper for a concrete Go type
+("" when none exists).  Xats_as_* take `any` and return the concrete type, so
+wrapping compiles whether the wrapped expression is interface-typed or already
+concrete (auto-boxed then unboxed) — the Task-#10 boundary primitive.
+*)
+fun
+go_coerfn_of
+(pty: strn): strn =
+(
+if (pty = "*xatsgo.XatsCon") then "xatsgo.Xats_as_con" else
+if (pty = "string") then "xatsgo.Xats_as_str" else
+if (pty = "int") then "xatsgo.Xats_as_int" else
+if (pty = "rune") then "xatsgo.Xats_as_rune" else
+if (pty = "bool") then "xatsgo.Xats_as_bool" else
+"")
+//
 fun
 i1valgo1_list_argtyped
 ( filr: FILR
@@ -573,13 +590,31 @@ let
       case+ ptys of
       |list_cons(p1, ps1) => @(p1, ps1)
       |list_nil() => @("", list_nil<strn>()))
+      // IDEMPOTENT COERCION: for the common concrete param shapes, wrap the
+      // arg in the runtime Xats_as_* helper (takes `any`, returns the concrete
+      // type).  Unlike a bare `.(T)` assert this compiles whether the emitted
+      // arg is interface-typed OR already concrete (auto-boxed then unboxed),
+      // so a bare temp with an UNRECORDED emitted type can no longer under-
+      // assert (the goemit_ty gap) or over-assert (invalid non-interface
+      // assert).  Param shapes with no helper keep the prior recorded-`any`
+      // assert path.
+      val coerfn = go_coerfn_of(pty)
     in
+      (
+      if (strn_length(coerfn) > 0)
+      then
+      (
+      strnfpr(filr, coerfn); strnfpr(filr, "(");
+      i1valgo1(filr, iv1);
+      strnfpr(filr, ")"))
+      else
+      (
       i1valgo1(filr, iv1);
       (if (strn_length(pty) = 0) then ((*void*)) else
        if (pty = "any") then ((*void*)) else
        if i1val_emitted_anyq(iv1)
        then (strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")"))
-       else ((*void*)));
+       else ((*void*)))));
       loop(ivs1, ptys1, false)
     end)
 in//let
@@ -1382,9 +1417,15 @@ case+ t1imp_i1dclq(timp) of
       strnfpr(filr, ") ");
       strnfpr(filr, retty);
       strnfpr(filr, " {\n"))
+      // RETURN-BOUNDARY SCOPE: the body's `return` coerces to THIS literal's
+      // return type, not the enclosing function's (else `return Xats_as_int(x)`
+      // appears inside a `func(..) bool` — the rung-02 regression).
+      val saved_cfr = cur_funretty_get()
+      val () = cur_funretty_set(retty)
       val () = envx2go_incnind(env0, 1(*++*))
       val () = i1cmp_go1emit_ret(icmp, list_nil(), bnds, env0)
       val () = envx2go_decnind(env0, 1(*--*))
+      val () = cur_funretty_set(saved_cfr)
       val () =
       (
       nindfpr(filr, envx2go_nind$get(env0));
@@ -1674,6 +1715,7 @@ if (snm = "optn_map$e1nv") then "map$e1nv$fopr" else
 if (snm = "list_foritm$e1nv") then "foritm$e1nv$work" else
 if (snm = "strn_foldl") then "foldl$fopr" else
 if (snm = "list_forall") then "forall$test" else
+if (snm = "list_filter") then "filter$test" else
 "")
 val wsfx =
 (
@@ -1684,6 +1726,7 @@ if (snm = "optn_map$e1nv") then "map_e1nv_fopr" else
 if (snm = "list_foritm$e1nv") then "foritm_e1nv_work" else
 if (snm = "strn_foldl") then "foldl_fopr" else
 if (snm = "list_forall") then "forall_test" else
+if (snm = "list_filter") then "filter_test" else
 "")
 // the runtime wrapper name (Go-safe: the `$` in these prim names must not reach
 // the emitted identifier) and the worker/call arity (false = worker (x), call
@@ -1945,8 +1988,25 @@ case+ i1f0.node() of
         end
     )
   | _(*non-tnm callee*) =>
-    (i1valgo1(filr, i1f0);
-     strnfpr(filr, "("); i1valgo1_list(filr, i1vs); strnfpr(filr, ")"))
+    (
+    case+ i1f0.node() of
+    // ARG BOUNDARY (d2cst callee): a package-routed frontend/emitter function
+    // call — recover the callee's Go param types from ITS d2cst styp (same
+    // [gotypes_of_funstyp] its own definition emits with, so call site and
+    // signature agree by construction) and emit each arg through the
+    // idempotent-coercion argtyped path.
+    |I1Vcst(dcst) =>
+      (
+      i1valgo1(filr, i1f0);
+      strnfpr(filr, "(");
+      (
+      let val (ptys, _) = gotypes_of_funstyp(d2cst_get_styp(dcst)) in
+        i1valgo1_list_argtyped(filr, i1vs, ptys)
+      end);
+      strnfpr(filr, ")"))
+    | _(*else*) =>
+      (i1valgo1(filr, i1f0);
+       strnfpr(filr, "("); i1valgo1_list(filr, i1vs); strnfpr(filr, ")")))
   )(*otherwise-arm*)
 )(*else callee_strn_foritm_q*))(*else binop*)
 end(*let val gop*)//let
@@ -3164,8 +3224,12 @@ case+ iins of
     fjarglst_go1emit_typed_params(filr, fjas, argtys);
     strnfpr(filr, ") "); strnfpr(filr, retty);
     strnfpr(filr, " {"); strnfpr(filr, "\n"))
-    // <body in return mode> + closing `}`
+    // <body in return mode> + closing `}` — with the RETURN-BOUNDARY scope
+    // pinned to THIS lambda's return type (see t1imp_func_literal_go1emit).
+    val saved_cfr = cur_funretty_get()
+    val () = cur_funretty_set(retty)
     val () = emit_lam_body(body, bnds1, env0)
+    val () = cur_funretty_set(saved_cfr)
   in
     ((*void*))
   end
@@ -3207,8 +3271,12 @@ case+ iins of
     fjarglst_go1emit_typed_params(filr, fjas, argtys);
     strnfpr(filr, ") "); strnfpr(filr, retty);
     strnfpr(filr, " {"); strnfpr(filr, "\n"))
-    // <body in return mode; self-call I1Vfenv(fvar) -> <fname>> + `}`
+    // <body in return mode; self-call I1Vfenv(fvar) -> <fname>> + `}` — the
+    // RETURN-BOUNDARY scope pinned to THIS closure's return type.
+    val saved_cfr = cur_funretty_get()
+    val () = cur_funretty_set(retty)
     val () = emit_lam_body(body, bnds1, env0)
+    val () = cur_funretty_set(saved_cfr)
     // bind the OUTER temp to the closure value, so a later I1Vtnm(itnm) use
     // (e.g. the application `(i,1)`) resolves to the same Go func.
     val live = i1tnm_used_in_cmp(itnm, scp)
@@ -3717,6 +3785,10 @@ case+ ilet of
            case+ i1f0.node() of
            |I1Vtnm(ftnm) => (inst_retty_get(i1tnm_stmp$get(ftnm)) = "any")
            |I1Vfenv(fdvar, _) => (funretty_get(d2var_get_stmp(fdvar)) = "any")
+           // a package-routed d2cst callee: its Go return type comes from the
+           // SAME [gotypes_of_funstyp] signature its definition emits with.
+           |I1Vcst(dcst) =>
+             (let val (_, rt) = gotypes_of_funstyp(d2cst_get_styp(dcst)) in (rt = "any") end)
            | _(*other callee*) => false)
          in
            if retany
@@ -3928,21 +4000,35 @@ in//let
   (
   nindfpr(filr, nind);
   strnfpr(filr, "return ");
-  i1valgo1(filr, ival1);
-  // RETURN BOUNDARY: the function returns a CONCRETE type ([cur_funretty]) but the
-  // returned value is a temp recorded emitted-`any` (an any-returning call result
-  // whose own gotyp was also `any`) -- assert `return <r>.(T)`.  Disabled when the
-  // current retty is "" / "any" (e.g. inside a lambda whose retty is not pinned),
-  // so a genuine `any` return is never mis-asserted.
+  // RETURN BOUNDARY: the function returns a CONCRETE type ([cur_funretty]).
+  // For the common shapes, wrap the returned value in the IDEMPOTENT runtime
+  // coercion (`return xatsgo.Xats_as_con(<r>)`) — compiles whether the value
+  // is interface-typed or already concrete, closing the unrecorded-goemit_ty
+  // gap of the old assert-on-recorded-`any` logic (kept as the fallback for
+  // shapes with no helper).  Disabled when the current retty is "" / "any".
   (
-  let val cfr = cur_funretty_get() in
+  let
+    val cfr = cur_funretty_get()
+    val coerfn =
+      (if (cfr = "") then "" else
+       if (cfr = "any") then "" else go_coerfn_of(cfr))
+  in
+    if (strn_length(coerfn) > 0)
+    then
+    (
+    strnfpr(filr, coerfn); strnfpr(filr, "(");
+    i1valgo1(filr, ival1);
+    strnfpr(filr, ")"))
+    else
+    (
+    i1valgo1(filr, ival1);
     if (cfr = "") then ((*void*)) else
     if (cfr = "any") then ((*void*)) else
     (case+ ival1.node() of
      |I1Vtnm(rtnm) =>
        (if (goemit_ty_get(i1tnm_stmp$get(rtnm)) = "any")
         then (strnfpr(filr, ".("); strnfpr(filr, cfr); strnfpr(filr, ")")) else ())
-     | _(*non-tnm*) => ())
+     | _(*non-tnm*) => ()))
   end);
   strnfpr(filr, "\n"))
 end//let//endof[emit_ret_plain(icmp,params,bnds,env0)]
