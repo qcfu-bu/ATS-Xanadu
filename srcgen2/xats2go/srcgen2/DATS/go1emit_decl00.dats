@@ -636,6 +636,8 @@ if (iname = "foldl$fopr") then "foldl_fopr" else
 if (iname = "forall$test") then "forall_test" else
 if (iname = "filter$test") then "filter_test" else
 if (iname = "group$test") then "group_test" else
+if (iname = "map$fopr0") then "map_fopr0" else
+if (iname = "iforitm$work") then "iforitm_work" else
 ""
 )//endof[tmpw_hook_suffix(iname)]
 //

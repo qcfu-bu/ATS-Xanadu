@@ -1485,6 +1485,8 @@ if (snm = "list_filter") then "filter$test" else
 if (snm = "gseq_group_lstrm_llist") then "group$test" else
 if (snm = "list_foritm") then "foritm$work" else
 if (snm = "optn_foritm") then "foritm$work" else
+if (snm = "strx_vt_map0") then "map$fopr0" else
+if (snm = "list_iforitm") then "iforitm$work" else
 "")
 val wsfx =
 (
@@ -1502,6 +1504,8 @@ if (snm = "list_filter") then "filter_test" else
 if (snm = "gseq_group_lstrm_llist") then "group_test" else
 if (snm = "list_foritm") then "foritm_work" else
 if (snm = "optn_foritm") then "foritm_work" else
+if (snm = "strx_vt_map0") then "map_fopr0" else
+if (snm = "list_iforitm") then "iforitm_work" else
 "")
 // the runtime wrapper name (Go-safe: the `$` in these prim names must not reach
 // the emitted identifier) and the worker/call arity (false = worker (x), call
@@ -1521,6 +1525,8 @@ if (snm = "optn_map$e1nv") then true else
 if (snm = "list_foritm$e1nv") then true else
 if (snm = "strn_foldl") then true else
 if (snm = "gseq_foldl") then true else
+// iforitm: worker (i, x) -- arity-2 wrapper (the runtime passes index+item).
+if (snm = "list_iforitm") then true else
 false)
 in//let
 if (snm = "strn_foritm")

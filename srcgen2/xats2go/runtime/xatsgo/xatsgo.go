@@ -2043,11 +2043,51 @@ func Xats_list_maprev_w(f func(any) any) func(any) any {
 func Xats_strx_vt_map0(xs any) any {
 	panic("xatsgo: Xats_strx_vt_map0: worker-less fallback")
 }
-func Xats_list_make_fwork(n any) any {
-	panic("xatsgo: Xats_list_make_fwork: worker-less fallback")
+// bridged strx_vt_map0: map the worker over a char sequence -> cons list
+// (the lexbuf `map$fopr0` rune->code path).
+func Xats_strx_vt_map0_w(f func(any) any) func(any) *XatsCon {
+	return func(s any) *XatsCon {
+		items := xatsSeqItems(s)
+		r := &XatsCon{Tag: 0}
+		for i := len(items) - 1; i >= 0; i-- {
+			r = &XatsCon{Tag: 1, Args: []any{f(items[i]), r}}
+		}
+		return r
+	}
+}
+
+// list_make_fwork(fwork): REAL semantics — [fwork] drives construction by
+// calling the supplied per-element emitter; collect in call order.
+func Xats_list_make_fwork(fwork any) *XatsCon {
+	var elems []any
+	emitfn := func(x any) any { elems = append(elems, x); return XATSNIL() }
+	switch f := fwork.(type) {
+	case func(func(any) any) any:
+		f(emitfn)
+	case func(any) any:
+		f(emitfn)
+	default:
+		panic("xatsgo: Xats_list_make_fwork: unsupported fwork shape")
+	}
+	r := &XatsCon{Tag: 0}
+	for i := len(elems) - 1; i >= 0; i-- {
+		r = &XatsCon{Tag: 1, Args: []any{elems[i], r}}
+	}
+	return r
 }
 func Xats_list_iforitm(xs any) any {
 	panic("xatsgo: Xats_list_iforitm: worker-less fallback")
+}
+// bridged list_iforitm: worker (index, item) over a cons list.
+func Xats_list_iforitm_w(f func(any, any) any) func(any) any {
+	return func(xsa any) any {
+		i := 0
+		for c := Xats_as_con(xsa); c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
+			f(i, c.Args[0])
+			i++
+		}
+		return XATSNIL()
+	}
 }
 
 // -- self-hosting floor, round 6 ----------------------------------------------
