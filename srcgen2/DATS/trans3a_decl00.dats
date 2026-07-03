@@ -138,7 +138,23 @@ d3cl.node() of
 //
 |D3Cnone0 _ => d3cl
 |D3Cd2ecl _ => d3cl
-|D3Cerrck _ => d3cl
+|D3Cerrck
+(lvl0, d3cl1) =>
+(*
+HX-late/CLAUDE-2026-07:
+an errck-WRAPPED decl was previously passed through UNPROCESSED, so any
+template impl inside was never INSERTED into the t3penv topmap that
+[static_search_dcst] consults when this module is STALOADED (the residual
+F3PERR0-TIMQ1 class: xatsopt_tmplib/xlibext_jsemit impls).  Recurse into
+the payload (inserting impls) while KEEPING the errck wrapper.
+*)
+let
+val
+d3cl1 = trans3a_d3ecl(env0, d3cl1)
+in//let
+d3ecl_make_node
+(d3cl.lctn(), D3Cerrck(lvl0, d3cl1))
+end//let//end-of-[D3Cerrck(...)]
 //
 |D3Cstatic _ => d3cl
 |D3Cextern _ => d3cl
