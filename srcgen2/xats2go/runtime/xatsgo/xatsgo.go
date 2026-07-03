@@ -1989,6 +1989,10 @@ func Xats_XATSOPT_argv_get() []any {
 	return out
 }
 
+// jsa1sz (the JS-arm array) ops the driver's argv loop uses.
+func Xats_XATS2JS_jsa1sz_length(a any) int        { return len(a.([]any)) }
+func Xats_XATS2JS_jsa1sz_get_at(a any, i any) any { return a.([]any)[i.(int)] }
+
 // file I/O leaves (the compiler's source reading).
 func Xats_XATSOPT_fpath_rexists(path any) bool {
 	_, err := os.Stat(path.(string))

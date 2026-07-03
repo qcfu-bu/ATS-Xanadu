@@ -888,6 +888,26 @@ case+ ipat.node() of
         goemit_ty_add(i1tnm_stmp$get(itnm), gofunctype_of_fjarglst(fptys, frt))
       |list_nil() => ((*void*))
       end)
+    // a same-file top-level `fun` referenced as a VALUE surfaces as
+    // I1Vfenv(d2var, envs) (the M2.2 lowering) -- same signature recovery.
+    |I1Vfenv(dv2, _) =>
+      (
+      let val (fptys, frt) = gotypes_of_funstyp(d2var_get_styp(dv2)) in
+      case+ fptys of
+      |list_cons _ =>
+        goemit_ty_add(i1tnm_stmp$get(itnm), gofunctype_of_fjarglst(fptys, frt))
+      |list_nil() => ((*void*))
+      end)
+    // COPY-PROPAGATION: `val y = x` binds y with EXACTLY x's Go type (a
+    // bare `:=`); carry x's recorded emitted type over so downstream
+    // boundaries (projection re-asserts, adapters, coercions) see through
+    // the copy chain.
+    |I1Vtnm(vt2) =>
+      (
+      let val vty = goemit_ty_get(i1tnm_stmp$get(vt2)) in
+      if (strn_length(vty) > 0)
+      then goemit_ty_add(i1tnm_stmp$get(itnm), vty)
+      else ((*void*)) end)
     | _(*else*) => ((*void*)))
   in
     // not already-returning (a val initializer is a value), so always bind.

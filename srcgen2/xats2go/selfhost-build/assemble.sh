@@ -60,8 +60,33 @@ for m in $FRONTEND; do
   fn=$((fn+1))
 done
 
+# 1c. the xats2cc D3->intrep0 lowering modules (the driver runs trxd3i0 +
+#     tryd3i0).  With go1emit_package_pathq treating xats2cc as package
+#     source, every intrep0 accessor/constructor reference is a stamped name
+#     defined by intrep0.dats's own emission here.  xats2cc's intrep1* are
+#     EXCLUDED -- xats2go's own srcgen2/DATS/intrep1.dats already owns the
+#     emit/intrep1.go slot (same basename).
+CCMODS="intrep0 intrep0_print0 intrep0_utils0 trxd3i0 trxd3i0_decl00 trxd3i0_dynexp trxd3i0_myenv0 trxd3i0_print0 trxd3i0_statyp tryd3i0 tryd3i0_decl00 tryd3i0_dynexp tryd3i0_myenv0 xats2cc_tmplib"
+cn=0
+for m in $CCMODS; do
+  f="$X/srcgen2/xats2go/xats2cc/srcgen1/DATS/$m.dats"
+  if [ ! -s "$EMIT/$m.go" ] || [ "$f" -nt "$EMIT/$m.go" ] || [ "$GOPATCHED" -nt "$EMIT/$m.go" ]; then
+    node --stack-size=8801 "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
+    awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
+  fi
+  awk 'BEGIN{started=0}
+       /^func main\(\) \{/{inmain=1}
+       inmain{next}
+       /^func /{started=1}
+       /^var [^_]/{started=1}
+       started{print}' "$EMIT/$m.go" \
+    | sed "s/goxtnm/goc${cn}tnm/g" >> "$OUT/src/emitter_all.go"
+  printf "\n" >> "$OUT/src/emitter_all.go"
+  cn=$((cn+1))
+done
+
 printf '\nfunc main() { xatsgo.XATS2GO_flush_pending() }\n' >> "$OUT/src/emitter_all.go"
-echo ">> assembled $n emitter + $fn frontend modules -> $OUT/src/emitter_all.go ($(wc -l < "$OUT/src/emitter_all.go") lines)"
+echo ">> assembled $n emitter + $fn frontend + $cn xats2cc modules -> $OUT/src/emitter_all.go ($(wc -l < "$OUT/src/emitter_all.go") lines)"
 
 # 2. the CATS/GO prelude floor (typed XATS2GO_* leaves), $->_ mangled, exactly
 #    as run-goarm.sh splices it for the rungs.

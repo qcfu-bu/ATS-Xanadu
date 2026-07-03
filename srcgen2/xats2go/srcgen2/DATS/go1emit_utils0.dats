@@ -122,6 +122,10 @@ go1emit_package_pathq
 if go1emit_strn_contains(path, "prelude/") then false else
 if go1emit_strn_contains(path, "xatslib/") then false else
 if go1emit_strn_contains(path, "srcgen2/xats2go/srcgen2/") then true else
+// the xats2cc D3->intrep0 lowering modules are part of the assembled
+// package (the driver runs trxd3i0/tryd3i0), so their symbols are
+// package-stamped names, not xatsgo runtime hooks.
+if go1emit_strn_contains(path, "srcgen2/xats2go/xats2cc/") then true else
 if go1emit_strn_contains(path, "srcgen2/SATS/") then true else
 if go1emit_strn_contains(path, "srcgen2/DATS/") then true else false)
 //
