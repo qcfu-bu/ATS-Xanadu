@@ -2734,9 +2734,18 @@ addressable-Go-lvalue assignment.
     // I1Vaddr (mirrors the JS backend's XATS000_assgn(XATSADDR(v), .) writing
     // the box vs passing XATSADDR(v)).
     |I1Vtnm(itnm) =>
-      (
-      i1tnmgo1(filr, itnm);
-      strnfpr(filr, " = "); i1valgo1_varrhs(filr, irgt))
+      let
+        // MUTATION BOUNDARY: coerce the RHS into the var's DECLARED type
+        // (recorded at its decl) — idempotent when they already agree.
+        val coerfn = go_coerfn_of(goemit_ty_get(i1tnm_stmp$get(itnm)))
+      in
+        i1tnmgo1(filr, itnm);
+        strnfpr(filr, " = ");
+        (if (strn_length(coerfn) > 0)
+         then (strnfpr(filr, coerfn); strnfpr(filr, "(");
+               i1valgo1_varrhs(filr, irgt); strnfpr(filr, ")"))
+         else i1valgo1_varrhs(filr, irgt))
+      end
     // any other I1Vaddr inner (an lvalue PATH -- I1Vlpft/I1Vlpbx already
     // emit `<root>.F<lab>`, addressable in Go) -> emit the inner lvalue.
     | _(*else*) =>

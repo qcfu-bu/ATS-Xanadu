@@ -972,7 +972,8 @@ case+ tdxp of
     (
     nindfpr(filr, nind);
     strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
-    strnfpr(filr, " *"); strnfpr(filr, body); strnfpr(filr, "\n"))
+    strnfpr(filr, " *"); strnfpr(filr, body); strnfpr(filr, "\n");
+    goemit_ty_add(i1tnm_stmp$get(itnm), strn_append("*", body)))
   |optn_nil() =>
     let
       val goty0 = goty_of_dpid(dpid)
@@ -987,7 +988,9 @@ case+ tdxp of
       nindfpr(filr, nind);
       strnfpr(filr, "var "); i1tnmgo1(filr, itnm);
       strnfpr(filr, " "); strnfpr(filr, goty); strnfpr(filr, "\n");
-      ((*void*))
+      // EMITTED-TYPE: the mutation boundary (I1INSassgn) coerces its RHS
+      // into this declared type.
+      goemit_ty_add(i1tnm_stmp$get(itnm), goty)
     end)
 //
 // `var x = init` -> emit the init cmp's lets, then

@@ -648,8 +648,34 @@ case- tchr.node() of
 |T_CHAR3_blsh(rep) =>
   // rep is "'\\?'" -- emit the recognized Go escapes; ATS and Go share
   // \n \t \r \b \f \v \\ \' so the source rep is Go-compatible verbatim,
-  // EXCEPT \" which is invalid in a Go rune literal (Go wants '"', not '\"').
-  if rep = "'\\\"'" then strnfpr(filr, "'\"'") else strnfpr(filr, rep)
+  // EXCEPT \" (Go wants '"') and the ATS-ONLY escapes (\( \) \[ \] \{ \}
+  // ...) whose backslash Go rejects -- those emit the bare character.
+  if rep = "'\\\"'" then strnfpr(filr, "'\"'") else
+  let
+    val c = strn_get$at(rep, 2)
+    val gokq =
+      (if (c = 'n') then true else
+       if (c = 't') then true else
+       if (c = 'r') then true else
+       if (c = 'b') then true else
+       if (c = 'f') then true else
+       if (c = 'v') then true else
+       if (c = 'a') then true else
+       if (c = '\\') then true else
+       if (c = '\'') then true else
+       if (c = 'x') then true else
+       if (c = 'u') then true else
+       if (c = 'U') then true else
+       if (c >= '0') then (c <= '7') else false)
+  in
+    if gokq
+    then strnfpr(filr, rep)
+    else
+    (
+    strnfpr(filr, "'");
+    strnfpr(filr, strn_make_list(list_cons(c, list_nil())));
+    strnfpr(filr, "'"))
+  end
 )
 //endof[i0chrgo1(filr,tchr)]
 //
