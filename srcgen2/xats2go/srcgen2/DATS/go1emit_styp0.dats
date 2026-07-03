@@ -840,7 +840,13 @@ let
   (t2p0: s2typ): strn =
   (
   case+ t2p0.node() of
-  |T2Parg1(_, t2p1) => argchase(t2p1)
+  // knd < 0 = by-REFERENCE (`&T` -> Go `*T`), same as [gotype_of_arg] — a
+  // higher-order value's param list must carry the pointer image its target
+  // function's definition emits with.
+  |T2Parg1(knd, t2p1) =>
+    (if (knd < 0)
+     then strn_append("*", argchase(t2p1))
+     else argchase(t2p1))
   |T2Patx2(t2p1, _) => argchase(t2p1)
   | _(*else*) => gotype_of_styp(t2p0))
   //
