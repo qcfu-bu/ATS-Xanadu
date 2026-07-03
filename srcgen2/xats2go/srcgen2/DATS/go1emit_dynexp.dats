@@ -599,8 +599,31 @@ let
       // assert).  Param shapes with no helper keep the prior recorded-`any`
       // assert path.
       val coerfn = go_coerfn_of(pty)
+      // BY-REF PARAM (`*T` pty, e.g. the Go image of a `&`-param / `!field`
+      // viewtype unfold): the callee needs the ADDRESS of the arg's lvalue.
+      // An I1Vaddr arg already emits the pointer (raw pass-through or `&var`);
+      // any other arg emits as an addressable Go lvalue (a var, `*p`, or a
+      // projection through a *XatsCon) and takes a prepended `&` (Go's `&*p`
+      // is the pointer itself, so a deref-emitted by-ref temp stays correct).
+      // ONLY the erased by-ref image `*any` — value-pointer types like
+      // `*xatsgo.XatsCon` are ordinary BY-VALUE args and must not take `&`.
+      val ptrq = (pty = "*any")
     in
       (
+      if ptrq
+      then
+      (
+      case+ iv1.node() of
+      // I1Vaddr(tnm): emits the raw pointer (by-ref pass-through) or `&var` —
+      // already the address.  I1Vaddr(<lvalue path>): i1valgo1 emits the inner
+      // lvalue IDENTITY (root.F<lab> / Args[i]) — prepend the missing `&`.
+      |I1Vaddr(iv_inner) =>
+        (
+        case+ iv_inner.node() of
+        |I1Vtnm _ => i1valgo1(filr, iv1)
+        | _(*lvalue path*) => (strnfpr(filr, "&"); i1valgo1(filr, iv1)))
+      | _(*lvalue*) => (strnfpr(filr, "&"); i1valgo1(filr, iv1)))
+      else
       if (strn_length(coerfn) > 0)
       then
       (
@@ -2001,6 +2024,17 @@ case+ i1f0.node() of
       strnfpr(filr, "(");
       (
       let val (ptys, _) = gotypes_of_funstyp(d2cst_get_styp(dcst)) in
+        i1valgo1_list_argtyped(filr, i1vs, ptys)
+      end);
+      strnfpr(filr, ")"))
+    // a function-id value callee (I1Vfid wraps the d2var): same recovery,
+    // from the d2var's static type.
+    |I1Vfid(fdvar) =>
+      (
+      i1valgo1(filr, i1f0);
+      strnfpr(filr, "(");
+      (
+      let val (ptys, _) = gotypes_of_funstyp(d2var_get_styp(fdvar)) in
         i1valgo1_list_argtyped(filr, i1vs, ptys)
       end);
       strnfpr(filr, ")"))
@@ -3866,6 +3900,11 @@ case+ ilet of
   else
   (
   nindfpr(filr, nind);
+  // a VALUE-emitting ins (I1INSfold emits just its value) in STATEMENT
+  // position is not a legal Go statement -- discard it explicitly.
+  (case+ iins of
+   |I1INSfold _ => strnfpr(filr, "_ = ")
+   | _(*call-shaped*) => ((*void*)));
   i1insgo1(filr, scp, iins); strnfpr(filr, "\n"))))
 //
 end//let//endof[i1let_go1emit_p(ilet,scp,params,env0)]
