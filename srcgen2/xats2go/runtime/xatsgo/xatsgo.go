@@ -1063,8 +1063,9 @@ func Xats_strn_fprint(s any, filr any) any {
 // take the adapted worker (canonical func(any) any) and return the function of
 // the arity the downstream application expects. Lists are Tag 0 nil / Tag 1
 // cons with Args[0]=head, Args[1]=tail.
-func Xats_list_map_w(f func(any) any) func(*XatsCon) *XatsCon {
-	return func(xs *XatsCon) *XatsCon {
+func Xats_list_map_w(f func(any) any) func(any) any {
+	return func(xsa any) any {
+		xs := xsa.(*XatsCon)
 		var items []any
 		for c := xs; c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
 			items = append(items, f(c.Args[0]))
@@ -1077,8 +1078,9 @@ func Xats_list_map_w(f func(any) any) func(*XatsCon) *XatsCon {
 	}
 }
 
-func Xats_list_exists_w(f func(any) any) func(*XatsCon) bool {
-	return func(xs *XatsCon) bool {
+func Xats_list_exists_w(f func(any) any) func(any) any {
+	return func(xsa any) any {
+		xs := xsa.(*XatsCon)
 		for c := xs; c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
 			if f(c.Args[0]).(bool) {
 				return true
@@ -1096,8 +1098,9 @@ func Xats_as_fun1(f any) func(any) any      { return f.(func(any) any) }
 func Xats_as_fun2(f any) func(any, any) any { return f.(func(any, any) any) }
 
 // e1nv family: the worker takes (element, env); the call takes (xs, env).
-func Xats_list_map_e1nv_w(f func(any, any) any) func(*XatsCon, any) *XatsCon {
-	return func(xs *XatsCon, env any) *XatsCon {
+func Xats_list_map_e1nv_w(f func(any, any) any) func(any, any) any {
+	return func(xsa any, env any) any {
+		xs := xsa.(*XatsCon)
 		var items []any
 		for c := xs; c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
 			items = append(items, f(c.Args[0], env))
@@ -1110,8 +1113,9 @@ func Xats_list_map_e1nv_w(f func(any, any) any) func(*XatsCon, any) *XatsCon {
 	}
 }
 
-func Xats_list_foritm_e1nv_w(f func(any, any) any) func(*XatsCon, any) any {
-	return func(xs *XatsCon, env any) any {
+func Xats_list_foritm_e1nv_w(f func(any, any) any) func(any, any) any {
+	return func(xsa any, env any) any {
+		xs := xsa.(*XatsCon)
 		for c := xs; c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
 			_ = f(c.Args[0], env)
 		}
@@ -1120,8 +1124,9 @@ func Xats_list_foritm_e1nv_w(f func(any, any) any) func(*XatsCon, any) any {
 }
 
 // optn is Tag 0 none / Tag 1 some with Args[0] the payload.
-func Xats_optn_map_e1nv_w(f func(any, any) any) func(*XatsCon, any) *XatsCon {
-	return func(ox *XatsCon, env any) *XatsCon {
+func Xats_optn_map_e1nv_w(f func(any, any) any) func(any, any) any {
+	return func(oxa any, env any) any {
+		ox := oxa.(*XatsCon)
 		if ox == nil || ox.Tag == 0 {
 			return &XatsCon{Tag: 0, Args: nil}
 		}
@@ -1144,8 +1149,9 @@ func Xats_strn_foldl_w(f func(any, any) any) func(any, any) any {
 }
 
 // list_forall over a cons list; the worker returns bool (boxed any).
-func Xats_list_forall_w(f func(any) any) func(*XatsCon) bool {
-	return func(xs *XatsCon) bool {
+func Xats_list_forall_w(f func(any) any) func(any) any {
+	return func(xsa any) any {
+		xs := xsa.(*XatsCon)
 		for c := xs; c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
 			if !f(c.Args[0]).(bool) {
 				return false
@@ -1499,8 +1505,9 @@ var Xats_XATS2JS_NODE_gint_fprint_sint = func(obj any, out any) any {
 
 // list_filter worker-forwarding wrapper (Task-#8 family `filter$test`): keep
 // the elements the predicate accepts, preserving order.
-func Xats_list_filter_w(f func(any) any) func(*XatsCon) *XatsCon {
-	return func(xs *XatsCon) *XatsCon {
+func Xats_list_filter_w(f func(any) any) func(any) any {
+	return func(xsa any) any {
+		xs := xsa.(*XatsCon)
 		var kept []any
 		for c := xs; c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
 			if f(c.Args[0]).(bool) {
@@ -1759,16 +1766,18 @@ func Xats_XATSOPT_a0ref_get(a0 any) any { return a0.(*XatsA0Ref).val }
 
 // foritm worker wrappers (bridge family `foritm$work` — the plain, env-less
 // foritm): apply the worker to each element for its effect.
-func Xats_list_foritm_w(f func(any) any) func(*XatsCon) any {
-	return func(xs *XatsCon) any {
+func Xats_list_foritm_w(f func(any) any) func(any) any {
+	return func(xsa any) any {
+		xs := xsa.(*XatsCon)
 		for c := xs; c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
 			f(c.Args[0])
 		}
 		return XATSNIL()
 	}
 }
-func Xats_optn_foritm_w(f func(any) any) func(*XatsCon) any {
-	return func(xs *XatsCon) any {
+func Xats_optn_foritm_w(f func(any) any) func(any) any {
+	return func(xsa any) any {
+		xs := xsa.(*XatsCon)
 		if xs != nil && xs.Tag == 1 {
 			f(xs.Args[0])
 		}
@@ -1778,6 +1787,6 @@ func Xats_optn_foritm_w(f func(any) any) func(*XatsCon) any {
 
 // list_map$e1nv_vt — the linear (list_vt) variant of list_map$e1nv; the
 // runtime list representation is identical (cons Tag 0/1).
-func Xats_list_map_e1nv_vt_w(f func(any, any) any) func(*XatsCon, any) *XatsCon {
+func Xats_list_map_e1nv_vt_w(f func(any, any) any) func(any, any) any {
 	return Xats_list_map_e1nv_w(f)
 }
