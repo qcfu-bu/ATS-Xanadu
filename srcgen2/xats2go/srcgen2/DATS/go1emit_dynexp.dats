@@ -1091,7 +1091,12 @@ let
       if (if fnq then
            (case+ iv1.node() of
             |I1Vcst _ => true |I1Vfid _ => true
-            |I1Vfenv _ => true | _ => false) else false)
+            |I1Vfenv _ => true
+            // a TEMP holding a func value (`val f = <named fun>`, recorded at
+            // the binding) also adapts -- Go func types are invariant, so a
+            // concretely-typed func temp cannot pass as an erased-hook param.
+            |I1Vtnm(tnm2) => go_funq(goemit_ty_get(i1tnm_stmp$get(tnm2)))
+            | _ => false) else false)
       then
       (
       case+ iv1.node() of
@@ -1104,6 +1109,13 @@ let
       |I1Vfenv(fdvar2, _) =>
         (let val (fptys, frt) = gotypes_of_funstyp(d2var_get_styp(fdvar2)) in
            go_funarg_adapter_emit(filr, iv1, fptys, frt, pty) end)
+      |I1Vtnm(tnm2) =>
+        (let
+           val fty2 = goemit_ty_get(i1tnm_stmp$get(tnm2))
+         in
+           go_funarg_adapter_emit
+           (filr, iv1, go_params_of_functype(fty2), go_return_type(fty2), pty)
+         end)
       | _(*unreachable*) => i1valgo1(filr, iv1))
       else
       if ptrq

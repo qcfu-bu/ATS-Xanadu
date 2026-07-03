@@ -852,6 +852,33 @@ case+ ipat.node() of
   let
     val-I1CMPcons(ilts, ival) = icmp
     val () = i1letlst_go1emit(ilts, icmp, env0)
+    // FUNC-VALUE BINDING: `val f = <named fun>` binds a Go func VALUE with a
+    // CONCRETE signature; record the temp's full Go func type so a later
+    // `f(args)` (I1Vtnm callee) takes the FULL-SIGNATURE argtyped path and a
+    // later `g(.., f, ..)` emits a signature ADAPTER (Go func types are
+    // invariant).  Only a NON-NULLARY recoverable signature is recorded --
+    // (nil, "any") is ALSO [gotypes_of_funstyp]'s non-function fallback, so
+    // a nullary result is ambiguous and stays unrecorded.
+    val () =
+    (
+    case+ ival.node() of
+    |I1Vcst(dc2) =>
+      (
+      let val (fptys, frt) = gotypes_of_funstyp(d2cst_get_styp(dc2)) in
+      case+ fptys of
+      |list_cons _ =>
+        goemit_ty_add(i1tnm_stmp$get(itnm), gofunctype_of_fjarglst(fptys, frt))
+      |list_nil() => ((*void*))
+      end)
+    |I1Vfid(dv2) =>
+      (
+      let val (fptys, frt) = gotypes_of_funstyp(d2var_get_styp(dv2)) in
+      case+ fptys of
+      |list_cons _ =>
+        goemit_ty_add(i1tnm_stmp$get(itnm), gofunctype_of_fjarglst(fptys, frt))
+      |list_nil() => ((*void*))
+      end)
+    | _(*else*) => ((*void*)))
   in
     // not already-returning (a val initializer is a value), so always bind.
     nindfpr(filr, nind);

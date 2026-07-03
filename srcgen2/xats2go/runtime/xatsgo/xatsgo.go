@@ -1974,6 +1974,17 @@ func Xats_g_parse(s any) any {
 // `func(any) float64` value (token2sflt's parse hook).
 func Xats_XATSOPT_strn_dflt_parse_exn(s any) float64 { return Xats_g_parse(s).(float64) }
 
+// XATSOPT_argv$get: the driver's argv, shaped like the JS arm's
+// (argv[0]=node, argv[1]=script, argv[2]=source, flags from 3) — two dummy
+// slots are prepended so the emitted index arithmetic works unchanged.
+func Xats_XATSOPT_argv_get() []any {
+	out := []any{"xats2go", "goemit"}
+	for _, a := range os.Args[1:] {
+		out = append(out, a)
+	}
+	return out
+}
+
 // file I/O leaves (the compiler's source reading).
 func Xats_XATSOPT_fpath_rexists(path any) bool {
 	_, err := os.Stat(path.(string))
