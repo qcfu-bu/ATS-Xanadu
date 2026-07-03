@@ -3045,7 +3045,16 @@ case+ iins of
     val () =
     (
     nindfpr(filr, nind); strnfpr(filr, "if ");
-    i1valgo1(filr, itst); strnfpr(filr, " {"); strnfpr(filr, "\n"))
+    // CONDITION BOUNDARY: a test value not PROVABLY emitted `bool` (e.g. a bare
+    // `any` projection) goes through the idempotent Xats_as_bool.
+    (if (gotype_of_ival(itst) = "bool")
+     then i1valgo1(filr, itst)
+     else
+     (
+     strnfpr(filr, "xatsgo.Xats_as_bool(");
+     i1valgo1(filr, itst);
+     strnfpr(filr, ")")));
+    strnfpr(filr, " {"); strnfpr(filr, "\n"))
     //
     val () = envx2go_incnind(env0, 1)
     val () = f0_branch(retq, live, itnm, othn, params, bnds, env0)
@@ -4052,22 +4061,34 @@ in//let
   (
   nindfpr(filr, nind);
   i1tnmgo1(filr, itnm); strnfpr(filr, " = ");
-  i1valgo1(filr, ival);
-  // ASSIGN BOUNDARY: a value EMITTED as `any` (an inner if/case/let-in result
-  // temp recorded "any" in goemit_ty) assigned to a result temp [itnm] DECLARED
-  // with a CONCRETE Go type needs `<ival>.(T)`.  BOTH the target [T] and the
-  // arg-is-`any` test read the EMITTED type table (goemit_ty -- the same type
-  // the var was DECLARED with), so a concretely-emitted value is never
-  // mis-asserted and the declared/asserted types always agree.
+  // ASSIGN BOUNDARY: the result temp [itnm] was DECLARED with a Go type
+  // (goemit_ty).  For the common concrete shapes wrap the assigned value in
+  // the IDEMPOTENT runtime coercion (compiles for interface-typed AND already-
+  // concrete values alike — closes the unrecorded-goemit_ty under-assert);
+  // other shapes keep the recorded-`any` assert fallback.
   (
-  let val tgt = goemit_ty_get(i1tnm_stmp$get(itnm)) in
+  let
+    val tgt = goemit_ty_get(i1tnm_stmp$get(itnm))
+    val coerfn =
+      (if (tgt = "") then "" else
+       if (tgt = "any") then "" else go_coerfn_of(tgt))
+  in
+    if (strn_length(coerfn) > 0)
+    then
+    (
+    strnfpr(filr, coerfn); strnfpr(filr, "(");
+    i1valgo1(filr, ival);
+    strnfpr(filr, ")"))
+    else
+    (
+    i1valgo1(filr, ival);
     if (tgt = "") then ((*void*)) else
     if (tgt = "any") then ((*void*)) else
     (case+ ival.node() of
      |I1Vtnm(vtnm) =>
        (if (goemit_ty_get(i1tnm_stmp$get(vtnm)) = "any")
         then (strnfpr(filr, ".("); strnfpr(filr, tgt); strnfpr(filr, ")")) else ())
-     | _(*non-tnm*) => ())
+     | _(*non-tnm*) => ()))
   end);
   strnfpr(filr, "\n"))
 end//let//endof[i1cmp_go1emit_tnm(itnm,icmp,env0)]
