@@ -2008,3 +2008,44 @@ func Xats_list_make_fwork(n any) any {
 func Xats_list_iforitm(xs any) any {
 	panic("xatsgo: Xats_list_iforitm: worker-less fallback")
 }
+
+// -- self-hosting floor, round 6 ----------------------------------------------
+
+// strn head/tail (prelude strn000): head_opt as optn_vt, tail as the rest.
+func Xats_strn_head_opt(s any) *XatsCon {
+	rs := []rune(s.(string))
+	if len(rs) == 0 {
+		return &XatsCon{Tag: 0}
+	}
+	return &XatsCon{Tag: 1, Args: []any{rs[0]}}
+}
+func Xats_strn_tail_raw(s any) any {
+	rs := []rune(s.(string))
+	if len(rs) == 0 {
+		return ""
+	}
+	return string(rs[1:])
+}
+
+// strm_vt basics over the eager cons-list stream representation.
+func Xats_strmcon_vt_sing(x any) *XatsCon {
+	return &XatsCon{Tag: 1, Args: []any{x, &XatsCon{Tag: 0}}}
+}
+func Xats_strm_vt_listize0(xs any) any { return xs } // identical representation
+
+// gseq_foritm: worker-less fallback — the bridged family covers the live
+// call shapes; loud stub for the rest.
+func Xats_gseq_foritm(xs any) any {
+	panic("xatsgo: Xats_gseq_foritm: worker-less fallback")
+}
+func Xats_foritm_e1nv_work(x any, env any) any {
+	panic("xatsgo: Xats_foritm_e1nv_work: unresolved default hook")
+}
+
+// datacopy: shallow copy of a con cell (linear copy — fresh cell, shared args).
+func Xats_datacopy(x any) any {
+	c := x.(*XatsCon)
+	args := make([]any, len(c.Args))
+	copy(args, c.Args)
+	return &XatsCon{Tag: c.Tag, Args: args, Name: c.Name}
+}

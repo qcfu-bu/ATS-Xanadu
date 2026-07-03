@@ -1378,6 +1378,40 @@ case+ d3exp_get_node(d3e) of
 )//endof[d3exp_head_name(d3e)]
 //
 (*
+[d3exp_none_lit_emitq]/[i0exp_none_lit_emitq]: an ERASED payload that bottoms
+at a plain LITERAL (a read error wraps anything — `D3Ei00(10)` under none
+wrappers).  Emit the literal's Go form and return true; false when the
+payload is not literal-shaped (caller keeps the loud UNHANDLED).
+*)
+fun
+d3exp_none_lit_emitq
+(filr: FILR, d3e: d3exp): bool =
+(
+case+ d3exp_get_node(d3e) of
+|D3Ei00(i0) => (i0i00go1(filr, i0); true)
+|D3Eb00(b0) =>
+  (strnfpr(filr, (if b0 then "true" else "false")); true)
+|D3Es00(s0) =>
+  (strnfpr(filr, "xatsgo.XATSSTRN("); i0s00go1(filr, s0); strnfpr(filr, ")"); true)
+|D3Ec00(c0) => (i0c00go1(filr, c0); true)
+|D3Eerrck(_, d3e1) => d3exp_none_lit_emitq(filr, d3e1)
+|D3Et2ped(d3e1, _) => d3exp_none_lit_emitq(filr, d3e1)
+|D3Et2pck(d3e1, _) => d3exp_none_lit_emitq(filr, d3e1)
+|D3Enone2(d3e1) => d3exp_none_lit_emitq(filr, d3e1)
+| _(*else*) => false
+)//endof[d3exp_none_lit_emitq(filr,d3e)]
+//
+fun
+i0exp_none_lit_emitq
+(filr: FILR, e0: i0exp): bool =
+(
+case+ e0.node() of
+|I0Enone1(d3e) => d3exp_none_lit_emitq(filr, d3e)
+|I0Enone2(e1) => i0exp_none_lit_emitq(filr, e1)
+| _(*else*) => false
+)//endof[i0exp_none_lit_emitq(filr,e0)]
+//
+(*
 [i0exp_head_name]: the i0-level entry — chase tapq/tapp/sapq/sapp/timp and
 the erased wrappers down to the head constant's NAME.
 *)
@@ -1776,8 +1810,9 @@ is specific.
   |optn_nil() => unhandled_val(filr, "I1Vaexp(flat-expr lvalue)", ival))
 //
 // an ERASED/errck'd expression value (I1Vnone1 carries the original i0exp):
-// same story as I1Vaexp — an unresolved template application whose in-scope
-// worker the forwarding re-attaches.
+// an unresolved template application (the forwarding re-attaches the
+// in-scope worker) or — read errors wrap ANYTHING — a plain LITERAL whose
+// value survives in the D3 payload and emits directly.
 |I1Vnone1(iexp) =>
   (
   case+ i0exp_head_name(iexp) of
@@ -1786,7 +1821,11 @@ is specific.
     if tmpw_forward_emitq(filr, snm)
     then ((*emitted*))
     else unhandled_val(filr, "I1Vnone1(erased)", ival))
-  |optn_nil() => unhandled_val(filr, "I1Vnone1(erased)", ival))
+  |optn_nil() =>
+    (
+    if i0exp_none_lit_emitq(filr, iexp)
+    then ((*emitted*))
+    else unhandled_val(filr, "I1Vnone1(erased)", ival)))
 |I1Vnone0() => unhandled_val(filr, "I1Vnone0(erased)", ival)
 //
 (*
