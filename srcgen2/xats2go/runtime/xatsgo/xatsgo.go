@@ -1474,6 +1474,19 @@ func Xats_strm_vt_map0(xs any) any {
 	panic("xatsgo: Xats_strm_vt_map0: worker-less fallback (no live caller in xatsopt)")
 }
 
+// bridged strm_vt_map0: map the worker over a FINITE (lazy or eager) stream,
+// yielding the lazy stream of results (the gmap_strmize key->(key,itm) path).
+func Xats_strm_vt_map0_w(f func(any) any) func(any) any {
+	return func(s any) any {
+		items := xatsSeqItems(s)
+		out := make([]any, len(items))
+		for i, it := range items {
+			out[i] = f(it)
+		}
+		return xatsStrmFrom(out, 0)
+	}
+}
+
 // -- a0ref/a0ptr boxes (basics2.cats) ----------------------------------------
 //
 // The JS arm's 1-cell box (A0=[x0]) — same representation as the existing
@@ -2142,12 +2155,15 @@ func Xats_list_iforitm_w(f func(any, any) any) func(any) any {
 // -- self-hosting floor, round 6 ----------------------------------------------
 
 // strn head/tail (prelude strn000): head_opt as optn_vt, tail as the rest.
-func Xats_strn_head_opt(s any) *XatsCon {
+// strn_head$opt: every emitted use compares the result DIRECTLY as a char
+// (`strn_head$opt(sym) = '?'`), so return the head rune; NUL for the empty
+// string (equal to no real compared char).
+func Xats_strn_head_opt(s any) rune {
 	rs := []rune(s.(string))
 	if len(rs) == 0 {
-		return &XatsCon{Tag: 0}
+		return rune(0)
 	}
-	return &XatsCon{Tag: 1, Args: []any{rs[0]}}
+	return rs[0]
 }
 func Xats_strn_tail_raw(s any) any {
 	rs := []rune(s.(string))

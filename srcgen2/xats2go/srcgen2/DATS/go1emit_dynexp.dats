@@ -1524,6 +1524,7 @@ if (snm = "list_foritm") then "foritm$work" else
 if (snm = "optn_foritm") then "foritm$work" else
 if (snm = "gseq_foritm") then "foritm$work" else
 if (snm = "strx_vt_map0") then "map$fopr0" else
+if (snm = "strm_vt_map0") then "map$fopr0" else
 if (snm = "list_iforitm") then "iforitm$work" else
 "")
 val wsfx =
@@ -1544,6 +1545,7 @@ if (snm = "list_foritm") then "foritm_work" else
 if (snm = "optn_foritm") then "foritm_work" else
 if (snm = "gseq_foritm") then "foritm_work" else
 if (snm = "strx_vt_map0") then "map_fopr0" else
+if (snm = "strm_vt_map0") then "map_fopr0" else
 if (snm = "list_iforitm") then "iforitm_work" else
 "")
 // the runtime wrapper name (Go-safe: the `$` in these prim names must not reach
