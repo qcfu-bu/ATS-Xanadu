@@ -1448,6 +1448,43 @@ case+ e0.node() of
 )//endof[i0exp_head_name(e0)]
 //
 (*
+[tmpw_forward_e1nvdef_emitq]: the UNRESOLVED prelude default hook
+`foritm$e1nv$work<x><e>(x, env)` inside an inlined genv000 g_foritm body:
+the USER e1nv worker closure (XATS_tmpw_foritm_e1nv_work) is emitted IN
+SCOPE just above -- forward the reference to it through an `any`-param
+adapter (the closure params are concretely typed; asserts from the
+recorded hook types).  Emits a VALUE; callers apply it with the args.
+*)
+fun
+tmpw_forward_e1nvdef_emitq
+(filr: FILR, snm: strn): bool =
+(
+if (snm = "foritm$e1nv$work")
+then
+(
+if tmpworker_pendingq("foritm$e1nv$work")
+then
+let
+  val p0ty = tmpworker_p0ty("foritm$e1nv$work")
+  val p1ty = tmpworker_p0ty("foritm$e1nv$work@1")
+  fun asrt(filr: FILR, pty: strn): void =
+  (
+  if (if (strn_length(pty) > 0) then not(pty = "any") else false)
+  then (strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")"))
+  else ((*void*)))
+in
+  strnfpr(filr, "func(goxtwa any, goxtwe any) any { return XATS_tmpw_foritm_e1nv_work(goxtwa");
+  asrt(filr, p0ty);
+  strnfpr(filr, ", goxtwe");
+  asrt(filr, p1ty);
+  strnfpr(filr, ") }");
+  true
+end
+else false)
+else false
+)//endof[tmpw_forward_e1nvdef_emitq(filr,snm)]
+//
+(*
 [tmpw_forward_emitq]: the Task-#8 worker-forwarding emission for a template-
 method d2cst whose instance the frontend failed to resolve.  Shared by the
 I1INStimp binding (the op-temp value) and the I1Vaexp fallback (an unresolved
@@ -1534,34 +1571,9 @@ in//let
 if (snm = "strn_foritm")
 then (strnfpr(filr, "xatsgo.XATSNIL"); true)
 else
-// the UNRESOLVED prelude default hook `foritm$e1nv$work<x><e>(x, env)`
-// inside an inlined genv000 g_foritm body: the USER e1nv worker closure
-// (XATS_tmpw_foritm_e1nv_work) is emitted IN SCOPE just above -- forward
-// the call to it through an `any`-param adapter (the closure's params are
-// concretely typed; asserts from the recorded hook types).
-if (snm = "foritm$e1nv$work")
-then
-(
-if tmpworker_pendingq("foritm$e1nv$work")
-then
-let
-  val p0ty = tmpworker_p0ty("foritm$e1nv$work")
-  val p1ty = tmpworker_p0ty("foritm$e1nv$work@1")
-  fun asrt(filr: FILR, pty: strn): void =
-  (
-  if (if (strn_length(pty) > 0) then not(pty = "any") else false)
-  then (strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")"))
-  else ((*void*)))
-in
-  strnfpr(filr, "func(goxtwa any, goxtwe any) any { return XATS_tmpw_foritm_e1nv_work(goxtwa");
-  asrt(filr, p0ty);
-  strnfpr(filr, ", goxtwe");
-  asrt(filr, p1ty);
-  strnfpr(filr, ") }");
-  true
-end
-else false)
-else
+// (the foritm$e1nv$work DEFAULT-hook forward lives in
+// [tmpw_forward_e1nvdef_emitq]; also consulted at the I1Vcst dapp arm.)
+if tmpw_forward_e1nvdef_emitq(filr, snm) then true else
 if (if (strn_length(whook) > 0) then tmpworker_pendingq(whook) else false)
 then
 let
@@ -2710,6 +2722,15 @@ case+ i1f0.node() of
     // signature agree by construction) and emit each arg through the
     // idempotent-coercion argtyped path.
     |I1Vcst(dcst) =>
+      // e1nv DEFAULT-hook callee: forward to the in-scope worker adapter,
+      // then apply the args (the adapter is a VALUE).
+      if tmpw_forward_e1nvdef_emitq(filr, symbl_get_name(d2cst_get_name(dcst)))
+      then
+      (
+      strnfpr(filr, "(");
+      i1valgo1_list(filr, i1vs);
+      strnfpr(filr, ")"))
+      else
       // CASTFN callee: an `fcast` (e.g. fpath_encode) is IDENTITY at runtime
       // (the JS backend emits XATSCAST("<name>", [arg]) -- return the arg),
       // so a cast that would emit as a PACKAGE-STAMPED name (compiler-source
