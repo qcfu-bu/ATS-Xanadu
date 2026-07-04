@@ -70,6 +70,26 @@ application** node (`D3Edapp`=tag21 / `D3Edap0`=tag20), at a **synthetic /
 lost location** (line 3 — the file's comment header — with zero-width
 offsets, i.e. the default location assigned when the real origin is lost).
 
+### Traced through the pass chain
+
+`nerror` is a **field** on the parsed structure, read by
+`d3parsed_get_nerror`, and each later pass **preserves** it:
+
+- `d3parsed_of_trans3a`/`tread3a`/`trtmp3b`/`trtmp3c`/`t3read0` all carry
+  `nerror` forward unchanged (verified: none of the D3-level
+  `d3exp_errck`/`dapp_errck`/`dap0_errck` builder copies — in
+  `tread3a`/`tread23`/`trans3a` — fire during the run; the only Tag-63
+  `D3Eerrck` node constructions in the assembly are those 3 builders,
+  and they are never called).
+- So the count is already 86 when `d3parsed_of_fildats` returns, carried
+  through `trans23` (D2->D3) from the `d2parsed`'s `nerror`, which comes
+  from **`trans2a` (D1->D2)**.
+
+The 86 is therefore the **D1->D2 type-checking error count**: `trans2a`
+increments it while elaborating the go-arm application/template
+instantiations, and it rides the field verbatim to the end where
+`f3perr0` walks the tree and prints the errck-wrapped application nodes.
+
 ### Interpretation
 
 The Go-compiled **application-elaboration** path (overload resolution /
@@ -88,11 +108,17 @@ elaboration functions was compiled.
 
 ## Next step
 
-Instrument the D2->D3 application-elaboration path (start at the
-`D3Edapp`/`D3Edap0` errck **builders** as called from `trans2a`/`trsym2b`/
-`t2read0`/`trans3a` — note each module has its own stamped copy, so all
-copies must be covered) to find the exact elaboration function whose
-Go compilation diverges from JS, then fix at the source and re-gate.
-The binary rebuilds locally in ~1 min (`go build` in `selfhost-build/src`,
-no bundle/reassembly), so instrumentation iterates fast; only an emitter
-source change needs the ~95-min bundle+reassembly cycle.
+The origin is **`trans2a` (D1->D2 type-checking)** — it increments the
+`nerror` field 86 times while elaborating the go-arm applications. Find
+where `trans2a` bumps the error count (the D1->D2 overload/application
+type-inference that fails in Go but resolves in JS) and fix the diverging
+function at the ATS source.
+
+Fast-iteration setup: the binary rebuilds locally in ~1 min (`go build`
+in `selfhost-build/src`, no bundle/reassembly), so instrument the
+generated `emitter_all.go` directly to probe. Confirmed-useful probes:
+`d3parsed_get_nerror` after each driver pass (localizes the pass);
+reflection-dumping `D3Eerrck` nodes (the generic runtime formatter renders
+XatsCon as `list(...)`, so a Tag/arg dump is needed to read them). Only an
+**emitter** source change needs the ~95-min bundle+reassembly cycle; a
+runtime-only fix is a ~1-min binary rebuild.
