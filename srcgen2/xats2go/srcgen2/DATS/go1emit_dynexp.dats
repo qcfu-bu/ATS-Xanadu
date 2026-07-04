@@ -2397,6 +2397,24 @@ then (strnfpr(filr, "()"); go_peel_thunks(filr, go_return_type(s)))
 else s
 )//endof[go_peel_thunks(filr,s)]
 //
+// PURE (non-printing) companions: the FINAL non-thunk type and the LAYER
+// COUNT, so a caller can decide the emission shape (e.g. wrapping in
+// Xats_applyN) BEFORE printing the thunk invocations.
+fun
+go_peel_thunks_ty
+(s: strn): strn =
+(if go_is_nullary_thunk(s) then go_peel_thunks_ty(go_return_type(s)) else s)
+fun
+go_peel_thunks_n
+(s: strn): sint =
+(if go_is_nullary_thunk(s) then 1 + go_peel_thunks_n(go_return_type(s)) else 0)
+//
+// emit N invocation `()`s (peel N thunk layers).
+fun
+go_emit_thunk_invokes
+(filr: FILR, n: sint): void =
+(if (n > 0) then (strnfpr(filr, "()"); go_emit_thunk_invokes(filr, n-1)) else ())
+//
 (*
 [t1imp_hook_paramty]: the Go type of the FIRST param of a value-like instance's
 RESULT function.  Computed from the SAME [gotype_of_lam_ret] string the emitter
@@ -2615,52 +2633,49 @@ case+ i1f0.node() of
         // param of the final (non-thunk) hook -- assert a single `any` arg to it.
         let
           val restype = inst_retty_get(i1tnm_stmp$get(tnm))
-          val () = i1valgo1(filr, i1f0)
-          val () = strnfpr(filr, "()")           // invoke the instance's own thunk
-          val finaltype = go_peel_thunks(filr, restype)  // peel nested thunk layers
-          // an `any`-typed thunk result (the literal's return type could not be
-          // recovered) is still APPLIED here — assert it to the generic n-ary
-          // func type `func(any,..,any) any` first (`tmp().(func(..) any)(args)`),
-          // else Go rejects calling a value of interface type.
-          val () =
-          (
+          // PURE peel first, so the emission shape is decided BEFORE printing.
+          val nlayers = go_peel_thunks_n(restype)
+          val finaltype = go_peel_thunks_ty(restype)
+        in
           if (finaltype = "any")
           then
-          let
-            fun
-            f0_anys(vs: i1valist): void =
-            (
-            case+ vs of
-            |list_nil() => ()
-            |list_cons(_, vs1) =>
-              (
-              strnfpr(filr, "any");
-              case+ vs1 of
-              |list_nil() => ()
-              |list_cons _ => (strnfpr(filr, ", "); f0_anys(vs1))))
-          in
-            strnfpr(filr, ".(func(");
-            f0_anys(i1vs);
-            strnfpr(filr, ") any)")
-          end)
-          val pty = go_first_param(finaltype)
-        in
-          strnfpr(filr, "(");
-          // assert a single `any`-typed arg to the hook's concrete param type.
+          // ANY-result application: the final hook's Go func type is not
+          // recoverable, and it MAY return a concrete scalar (e.g. cmp_prcdv :
+          // func(any,any) int in fixity resolution), which a `.(func(..) any)`
+          // assertion would reject.  Route through the reflection-tolerant
+          // runtime apply: `Xats_applyN(tmp()...(), arg0, arg1, ..)`.
           (
-          case+ ar1 of
-          |list_nil() =>
-            (if (strn_length(pty) > 0)
-             then
-               (if not(pty = "any")
-                then
-                  (if (gotype_of_ival(a1) = "any")
-                   then (i1valgo1(filr, a1); strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")"))
-                   else i1valgo1_list(filr, i1vs))
-                else i1valgo1_list(filr, i1vs))
-             else i1valgo1_list(filr, i1vs))
-          | _(*many*) => i1valgo1_list(filr, i1vs));
-          strnfpr(filr, ")")
+          strnfpr(filr, "xatsgo.Xats_applyN(");
+          i1valgo1(filr, i1f0);
+          strnfpr(filr, "()");                 // invoke the instance's own thunk
+          go_emit_thunk_invokes(filr, nlayers); // peel nested thunk layers
+          (if list_consq(i1vs) then strnfpr(filr, ", "));
+          i1valgo1_list(filr, i1vs);
+          strnfpr(filr, ")"))
+          else
+          // CONCRETE final func type: assert it exactly, then apply.
+          let
+            val pty = go_first_param(finaltype)
+          in
+            i1valgo1(filr, i1f0);
+            strnfpr(filr, "()");
+            go_emit_thunk_invokes(filr, nlayers);
+            strnfpr(filr, "(");
+            (
+            case+ ar1 of
+            |list_nil() =>
+              (if (strn_length(pty) > 0)
+               then
+                 (if not(pty = "any")
+                  then
+                    (if (gotype_of_ival(a1) = "any")
+                     then (i1valgo1(filr, a1); strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")"))
+                     else i1valgo1_list(filr, i1vs))
+                  else i1valgo1_list(filr, i1vs))
+               else i1valgo1_list(filr, i1vs))
+            | _(*many*) => i1valgo1_list(filr, i1vs));
+            strnfpr(filr, ")")
+          end
         end
       else
         // generic call `tmp(args)`.  ARG BOUNDARY: a single arg EMITTED as `any`

@@ -1222,6 +1222,24 @@ func xatsGcmp(a any, b any) int {
 			return 1
 		}
 		return 0
+	case *XatsCon:
+		// the only STRUCTURED value the frontend compares via g_cmp/g_min/g_max
+		// is a `postn` = POSTN(ntot, nrow, ncol) (location arithmetic:
+		// add_loctn_loctn's g_min(pbeg)/g_max(pend)), which orders by ntot
+		// (postn_cmp).  Compare the leading int field.
+		if y, ok := b.(*XatsCon); ok && len(x.Args) > 0 && len(y.Args) > 0 {
+			if xi, ok1 := x.Args[0].(int); ok1 {
+				if yi, ok2 := y.Args[0].(int); ok2 {
+					if xi < yi {
+						return -1
+					}
+					if xi > yi {
+						return 1
+					}
+					return 0
+				}
+			}
+		}
 	}
 	panic("xatsgo: Xats_g_cmp: unsupported operand")
 }
@@ -1237,6 +1255,45 @@ func Xats_g_min(a any, b any) any {
 		return a
 	}
 	return b
+}
+
+// Xats_applyN: call a func VALUE whose concrete Go signature is not statically
+// known at the call site (a value-like template instance whose result func
+// returns a CONCRETE scalar, e.g. cmp_prcdv : func(any,any) int used in fixity
+// resolution).  The emitter's generic `.(func(..) any)` assertion fails when
+// the real return type is not `any`; this dispatches the common shapes and
+// falls back to reflection, always returning `any` (box the result).
+func Xats_applyN(f any, args ...any) any {
+	switch fn := f.(type) {
+	case func(any) any:
+		return fn(args[0])
+	case func(any, any) any:
+		return fn(args[0], args[1])
+	case func(any, any, any) any:
+		return fn(args[0], args[1], args[2])
+	case func(any) int:
+		return fn(args[0])
+	case func(any, any) int:
+		return fn(args[0], args[1])
+	case func(any) bool:
+		return fn(args[0])
+	case func(any, any) bool:
+		return fn(args[0], args[1])
+	}
+	rv := reflect.ValueOf(f)
+	in := make([]reflect.Value, len(args))
+	for i, a := range args {
+		if a == nil {
+			in[i] = reflect.New(rv.Type().In(i)).Elem()
+		} else {
+			in[i] = reflect.ValueOf(a)
+		}
+	}
+	out := rv.Call(in)
+	if len(out) == 0 {
+		return XATSNIL()
+	}
+	return out[0].Interface()
 }
 func Xats_gint_cmp_sint_sint(a any, b any) int { return xatsGcmp(a, b) }
 func Xats_gint_asrn_sint(a any, n any) any     { return a.(int) >> uint(n.(int)) }
@@ -2208,10 +2265,11 @@ func Xats_foritm_e1nv_work(x any, env any) any {
 	panic("xatsgo: Xats_foritm_e1nv_work: unresolved default hook")
 }
 
-// datacopy: shallow copy of a con cell (linear copy — fresh cell, shared args).
-func Xats_datacopy(x any) any {
-	c := x.(*XatsCon)
-	args := make([]any, len(c.Args))
-	copy(args, c.Args)
-	return &XatsCon{Tag: c.Tag, Args: args, Name: c.Name}
-}
+// datacopy: IDENTITY (matches the JS backend, where datacopy is an fcast ->
+// XATSCAST -> returns its argument unchanged).  A real copy breaks shared
+// mutable state threaded through linear values — e.g. the lexer's position
+// cell in genv000's g_foritm$e1nv, where the worker mutates the pstn IN
+// PLACE; a fresh copy silently drops every position update, corrupting token
+// locations and desyncing the declaration parser (the self-host D0Ctkerr
+// storm).
+func Xats_datacopy(x any) any { return x }

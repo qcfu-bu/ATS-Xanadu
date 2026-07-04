@@ -17,6 +17,16 @@ EMIT="$OUT/emit"; mkdir -p "$EMIT"
 #    in the concatenated package.
 : > "$OUT/src/emitter_all.go"
 printf 'package main\n\nimport "xatsgo"\n\nvar _ = xatsgo.XATSNIL\n\n' > "$OUT/src/emitter_all.go"
+# MODULE-INIT PRESERVATION: each module's top-level effect initializers (e.g.
+# lexing_kword_init that populates the keyword table, or dynexp2's stamp
+# counters) live in that module's `func main`.  Stripping main dropped them,
+# so directives never resolved and the self-hosted parser rejected every
+# declaration.  Instead RENAME each module's main to a unique zzmodinit_<MI>
+# and register it; a generated `func init()` runs them all (in assembly order)
+# before the driver's main — matching the JS backend, which runs every
+# module's top-level effects at load.
+MI=0
+: > "$OUT/src/.modinits"
 n=0
 for f in "$X"/srcgen2/xats2go/srcgen2/DATS/*.dats; do
   m="$(basename "$f" .dats)"
@@ -24,14 +34,16 @@ for f in "$X"/srcgen2/xats2go/srcgen2/DATS/*.dats; do
     node --stack-size=8801 "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
     awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
   fi
-  # strip header (package/import/keepalive — up to first `func `) and the final main.
+  # strip header (up to first `func`/`var`); RENAME the module's main to a
+  # per-module init so its top-level effects survive.
   awk 'BEGIN{started=0}
-       /^func main\(\) \{/{inmain=1}
-       inmain{next}
        /^func /{started=1}
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
-    | sed "s/goxtnm/go${n}tnm/g" >> "$OUT/src/emitter_all.go"
+    | sed "s/goxtnm/go${n}tnm/g" \
+    | sed "s/^func main() {\$/func zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
+  echo "zzmodinit_${MI}" >> "$OUT/src/.modinits"
+  MI=$((MI+1))
   printf "\n" >> "$OUT/src/emitter_all.go"
   n=$((n+1))
 done
@@ -50,12 +62,13 @@ for m in $FRONTEND; do
     awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
   fi
   awk 'BEGIN{started=0}
-       /^func main\(\) \{/{inmain=1}
-       inmain{next}
        /^func /{started=1}
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
-    | sed "s/goxtnm/gof${fn}tnm/g" >> "$OUT/src/emitter_all.go"
+    | sed "s/goxtnm/gof${fn}tnm/g" \
+    | sed "s/^func main() {\$/func zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
+  echo "zzmodinit_${MI}" >> "$OUT/src/.modinits"
+  MI=$((MI+1))
   printf "\n" >> "$OUT/src/emitter_all.go"
   fn=$((fn+1))
 done
@@ -79,15 +92,25 @@ for m in $CCMODS; do
     awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
   fi
   awk 'BEGIN{started=0}
-       /^func main\(\) \{/{inmain=1}
-       inmain{next}
        /^func /{started=1}
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
-    | sed "s/goxtnm/goc${cn}tnm/g" >> "$OUT/src/emitter_all.go"
+    | sed "s/goxtnm/goc${cn}tnm/g" \
+    | sed "s/^func main() {\$/func zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
+  echo "zzmodinit_${MI}" >> "$OUT/src/.modinits"
+  MI=$((MI+1))
   printf "\n" >> "$OUT/src/emitter_all.go"
   cn=$((cn+1))
 done
+
+# generated master init(): run every module's preserved top-level effects, in
+# assembly order, before the driver's main (Go runs func init() after all var
+# initializers, so IIFE-var globals like the keyword map are already built).
+{
+  printf '\nfunc init() {\n'
+  while IFS= read -r nm; do printf '\t%s()\n' "$nm"; done < "$OUT/src/.modinits"
+  printf '}\n'
+} >> "$OUT/src/emitter_all.go"
 
 printf '\nfunc main() { xatsgo.XATS2GO_flush_pending() }\n' >> "$OUT/src/emitter_all.go"
 echo ">> assembled $n emitter + $fn frontend + $cn xats2cc modules -> $OUT/src/emitter_all.go ($(wc -l < "$OUT/src/emitter_all.go") lines)"
