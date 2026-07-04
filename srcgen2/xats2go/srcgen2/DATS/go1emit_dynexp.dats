@@ -3223,13 +3223,58 @@ case+ ipat.node() of
     strnfpr(filr, "false /* UNHANDLED I0Pdapp (non-con head) */");
     prerrsln("[go1emit] UNHANDLED I0Pdapp with non-con head")))
 //
-// any OTHER structural pattern (tuple/record pattern in a case -- the M2.6
-// surface uses `val`-pattern destructuring, not case) -> deferred.
+// TUPLE patterns in a case (`case+ (x1,x2) of |(C(a),D(b)) => ..` — the
+// pervasive comparison-function shape, e.g. lte_t2bas_t2bas).  The scrutinee
+// is a tuple value; test each element sub-pattern against its field
+// projection `<scrut>.F<i>` (I1Vlpft), AND-joined.  Both FLAT (I0Ptup0) and
+// BOXED (I0Ptup1) tuples project with `.F<i>` (Go auto-derefs the pointer).
+|I0Ptup0(npf, i0ps) =>
+  i0pck_tup(filr, casval, npf, i0ps)
+|I0Ptup1(_, npf, i0ps) =>
+  i0pck_tup(filr, casval, npf, i0ps)
+//
+// any OTHER structural pattern (record pattern in a case) -> deferred.
 | _(*deferred*) =>
   (
   strnfpr(filr, "false /* UNHANDLED pat: non-datacon structural -> later */");
   prerrsln("[go1emit] UNHANDLED case pattern (non-datacon structural)"))
 )//endof[i0pckgo1(filr,casval,ipat)]
+//
+(*
+[i0pck_tup]: a TUPLE case-pattern condition.  Drop the [npf] proof
+sub-patterns, then AND each VALUE element's sub-test against its field
+projection `<scrut>.F<i>` (an I1Vlpft(LABint(i), casval)).  A trivial element
+(var/wildcard) contributes nothing; an all-trivial tuple pattern is `true`.
+*)
+and
+i0pck_tup
+( filr: FILR
+, casval: i1val
+, npf: sint
+, i0ps: i0patlst): void =
+let
+  val loc0 = i1val_lctn$get(casval)
+  fun
+  loop(i0: sint, ips: i0patlst, first: bool): void =
+  (
+  case+ ips of
+  |list_nil() => (if first then strnfpr(filr, "true") else ((*void*)))
+  |list_cons(ip1, ips1) =>
+    if i0pat_allq(ip1)
+    then loop(i0+1, ips1, first)
+    else
+      let
+        val fld = i1val_make_node(loc0, I1Vlpft(LABint(i0), casval))
+        val () = (if first then ((*void*)) else strnfpr(filr, " && "))
+        val () = strnfpr(filr, "(")
+        val () = i0pckgo1(filr, fld, ip1)
+        val () = strnfpr(filr, ")")
+      in
+        loop(i0+1, ips1, false)
+      end)
+in
+  loop(0, drop_pf_i0ps_for_proj(npf, i0ps), true)
+end//endof[i0pck_tup(...)]
 //
 (*
 [i0pck_args]: recursively AND-in each VALUE sub-pattern's test.  A trivial

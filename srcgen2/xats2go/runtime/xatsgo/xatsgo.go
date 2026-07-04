@@ -1111,8 +1111,20 @@ func Xats_list_exists_w(f func(any) any) func(any) any {
 // pattern). A nullary (eta-contracted) worker thunk may return its function
 // EITHER as an `any` (needs the assert) OR as a concrete func type (a bare
 // `.()` assert would be invalid Go); the `any` parameter accepts both.
-func Xats_as_fun1(f any) func(any) any      { return f.(func(any) any) }
-func Xats_as_fun2(f any) func(any, any) any { return f.(func(any, any) any) }
+func Xats_as_fun1(f any) func(any) any {
+	if fn, ok := f.(func(any) any); ok {
+		return fn
+	}
+	// concrete return type (e.g. a list/map worker `func(any) *XatsCon`):
+	// adapt through the reflection-tolerant apply so the result boxes to any.
+	return func(a any) any { return Xats_applyN(f, a) }
+}
+func Xats_as_fun2(f any) func(any, any) any {
+	if fn, ok := f.(func(any, any) any); ok {
+		return fn
+	}
+	return func(a any, b any) any { return Xats_applyN(f, a, b) }
+}
 
 // e1nv family: the worker takes (element, env); the call takes (xs, env).
 func Xats_list_map_e1nv_w(f func(any, any) any) func(any, any) any {
