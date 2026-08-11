@@ -5,7 +5,8 @@
 # synthetic trivial `func main` is removed so the driver's main links.
 # Run AFTER assemble.sh (assemble regenerates the synthetic main each time).
 set -uo pipefail
-X=/home/user/ATS-Xanadu
+# repo root: three levels up from this script (srcgen2/xats2go/selfhost-build)
+X="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 export XATSHOME=$X
 GOPATCHED=$X/srcgen2/xats2go/srcgen2/BUILD/xats2go-bundle.patched.js
 OUT=$X/srcgen2/xats2go/selfhost-build
@@ -29,6 +30,8 @@ fi
 } > "$OUT/src/zz_driver.go"
 
 # drop the assembled package's synthetic main (the driver now provides main).
-sed -i '/^func main() { xatsgo\.XATS2GO_flush_pending() }$/d' "$OUT/src/emitter_all.go"
+# portable in-place edit (GNU and BSD sed both accept an attached -i suffix)
+sed -i.bak '/^func main() { xatsgo\.XATS2GO_flush_pending() }$/d' "$OUT/src/emitter_all.go"
+rm -f "$OUT/src/emitter_all.go.bak"
 
 echo ">> driver wired: src/zz_driver.go ($(wc -l < "$OUT/src/zz_driver.go") lines), synthetic main removed"

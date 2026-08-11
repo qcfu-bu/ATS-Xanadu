@@ -2,7 +2,8 @@
 # assemble.sh — emit all emitter modules to Go and assemble them into one
 # package, to drive a multi-module `go build` toward self-hosting.
 set -uo pipefail
-X=/home/user/ATS-Xanadu
+# repo root: three levels up from this script (srcgen2/xats2go/selfhost-build)
+X="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 export XATSHOME=$X
 GOPATCHED=$X/srcgen2/xats2go/srcgen2/BUILD/xats2go-bundle.patched.js
 OUT=$X/srcgen2/xats2go/selfhost-build
