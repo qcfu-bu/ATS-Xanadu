@@ -404,6 +404,66 @@ if (strn_get$at(s, 5) = 't') then
 (strn_get$at(s, 6) = '{')
 else false else false else false else false else false else false
 )//endof[go_structq(s)]
+//
+(*
+[go_tup_repack_any_emit]: pass an `any`-EMITTED value where the target type is
+an anonymous FLAT-STRUCT tuple.  A bare `.(struct{..})` assert needs EXACT
+runtime identity, but producer and consumer recover each field independently
+(`F0 any` at construction vs `F0 int` at the param) -- identity mismatch
+panics even though the values agree.  A static field-wise repack
+([go_struct_repack_emit]) cannot apply either: selecting `.F0` on an `any`
+expression does not compile.  So emit the runtime REFLECTIVE repack
+`xatsgo.Xats_as_tup<N>[T0, ..](v)` (idempotent when identities agree).
+Arity outside 1..6 keeps the prior bare assert (not expected in practice).
+*)
+fun
+go_tup_repack_any_emit
+( filr: FILR
+, pty: strn
+, iv1: i1val): void =
+let
+  val ftys = go_struct_field_types(pty)
+  fun
+  len(ts: list(strn)): sint =
+  (
+  case+ ts of
+  |list_nil() => 0 |list_cons(_, ts1) => 1 + len(ts1))
+  fun
+  emit_tys
+  (ts: list(strn), i0: sint): void =
+  (
+  case+ ts of
+  |list_nil() => ((*void*))
+  |list_cons(t1, ts1) =>
+    (
+    (if (i0 >= 1) then strnfpr(filr, ", "));
+    strnfpr(filr, t1);
+    emit_tys(ts1, i0+1))
+  )
+  val n = len(ftys)
+in
+  if (n >= 1)
+  then
+  (
+  if (n <= 6)
+  then
+  (
+  strnfpr(filr, "xatsgo.Xats_as_tup");
+  i0i00go1(filr, n);
+  strnfpr(filr, "[");
+  emit_tys(ftys, 0);
+  strnfpr(filr, "](");
+  i1valgo1(filr, iv1);
+  strnfpr(filr, ")"))
+  else
+  (
+  i1valgo1(filr, iv1);
+  strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")")))
+  else
+  (
+  i1valgo1(filr, iv1);
+  strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")"))
+end//endof[go_tup_repack_any_emit(filr,pty,iv1)]
 
 //
 fun
@@ -1138,6 +1198,12 @@ let
       strnfpr(filr, coerfn); strnfpr(filr, "(");
       i1valgo1(filr, iv1);
       strnfpr(filr, ")"))
+      else
+      // FLAT-TUPLE param + `any`-emitted arg: reflective field-wise repack
+      // (a bare `.(struct{..})` assert needs exact anonymous-struct identity
+      // the producer cannot guarantee -- see [go_tup_repack_any_emit]).
+      if (if go_structq(pty) then i1val_emitted_anyq(iv1) else false)
+      then go_tup_repack_any_emit(filr, pty, iv1)
       else
       (
       i1valgo1(filr, iv1);

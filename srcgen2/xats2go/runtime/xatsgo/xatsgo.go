@@ -1634,6 +1634,113 @@ func Xats_as_rune(x any) rune {
 	return x.(rune)
 }
 
+// -- flat-tuple repack (arg boundary, anonymous-struct identity) --------------
+//
+// A flat ATS tuple emits as an ANONYMOUS Go struct; producer and consumer
+// recover the field types independently, so the same logical tuple can be
+// built as struct{F0 any; F1 any} yet consumed as struct{F0 int; F1 *XatsCon}.
+// Go type-asserts on anonymous structs need EXACT identity, so an `any`-typed
+// tuple crossing a concretely-typed param boundary repacks field-by-field via
+// reflection instead (idempotent when the identities already agree).
+func xatsTupField[T any](v reflect.Value, i int) T {
+	f := v.Field(i).Interface()
+	if t, ok := f.(T); ok {
+		return t
+	}
+	var zero T
+	switch any(zero).(type) {
+	case rune: // int-carried char (the Xats_as_rune leniency)
+		if n, ok := f.(int); ok {
+			return any(rune(n)).(T)
+		}
+	case int:
+		if r, ok := f.(rune); ok {
+			return any(int(r)).(T)
+		}
+	}
+	return f.(T)
+}
+
+func Xats_as_tup1[A any](x any) struct{ F0 A } {
+	v := reflect.ValueOf(x)
+	return struct{ F0 A }{xatsTupField[A](v, 0)}
+}
+
+func Xats_as_tup2[A, B any](x any) struct {
+	F0 A
+	F1 B
+} {
+	v := reflect.ValueOf(x)
+	return struct {
+		F0 A
+		F1 B
+	}{xatsTupField[A](v, 0), xatsTupField[B](v, 1)}
+}
+
+func Xats_as_tup3[A, B, C any](x any) struct {
+	F0 A
+	F1 B
+	F2 C
+} {
+	v := reflect.ValueOf(x)
+	return struct {
+		F0 A
+		F1 B
+		F2 C
+	}{xatsTupField[A](v, 0), xatsTupField[B](v, 1), xatsTupField[C](v, 2)}
+}
+
+func Xats_as_tup4[A, B, C, D any](x any) struct {
+	F0 A
+	F1 B
+	F2 C
+	F3 D
+} {
+	v := reflect.ValueOf(x)
+	return struct {
+		F0 A
+		F1 B
+		F2 C
+		F3 D
+	}{xatsTupField[A](v, 0), xatsTupField[B](v, 1), xatsTupField[C](v, 2), xatsTupField[D](v, 3)}
+}
+
+func Xats_as_tup5[A, B, C, D, E any](x any) struct {
+	F0 A
+	F1 B
+	F2 C
+	F3 D
+	F4 E
+} {
+	v := reflect.ValueOf(x)
+	return struct {
+		F0 A
+		F1 B
+		F2 C
+		F3 D
+		F4 E
+	}{xatsTupField[A](v, 0), xatsTupField[B](v, 1), xatsTupField[C](v, 2), xatsTupField[D](v, 3), xatsTupField[E](v, 4)}
+}
+
+func Xats_as_tup6[A, B, C, D, E, F any](x any) struct {
+	F0 A
+	F1 B
+	F2 C
+	F3 D
+	F4 E
+	F5 F
+} {
+	v := reflect.ValueOf(x)
+	return struct {
+		F0 A
+		F1 B
+		F2 C
+		F3 D
+		F4 E
+		F5 F
+	}{xatsTupField[A](v, 0), xatsTupField[B](v, 1), xatsTupField[C](v, 2), xatsTupField[D](v, 3), xatsTupField[E](v, 4), xatsTupField[F](v, 5)}
+}
+
 // -- self-hosting floor, round 3 (filpath / string-builder leaves) -----------
 
 // strtmp_vt: the JS arm's mutable char buffer (basics1.cats: an Array with a
