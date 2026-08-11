@@ -205,6 +205,24 @@ GOEOF
     fi
   done
 
+  # sort2 g_lte hook: the frontend's `#impltmp g_lte<sort2> = lte_sort2_sort2`
+  # reaches the emitter UNRESOLVED (a prelude-cst dapp) and bridges to
+  # xatsgo.Xats_g_lte; EVERY such site in the assembly compares sort2 values
+  # (s2explst_stck / l2s2elst_stck / the trans12_decl00 sort filter), so
+  # register the package's real stamped lte_sort2_sort2 as the runtime's
+  # constructor-operand `<=` hook (see XatsGlteConHook in the runtime).
+  LTES2=$(grep -ohE 'func lte_sort2_sort2_[0-9]+' "$OUT/src/emitter_all.go" | head -1 | sed 's/func //')
+  if [ -n "$LTES2" ]; then
+    cat <<GOEOF
+
+func init() {
+	xatsgo.XatsGlteConHook = func(a any, b any) any {
+		return ${LTES2}(xatsgo.Xats_as_con(a), xatsgo.Xats_as_con(b))
+	}
+}
+GOEOF
+  fi
+
   # i0varfst funset shims (the Go port of runtime/jsshim/gen-i0varfst-shim.sh):
   # intrep0_utils0.dats cannot be lowered by the prebuilt lib2xats2cc, so the
   # 6 i0varfst_* helpers + i0pat_allq it implements are supplied here.  The

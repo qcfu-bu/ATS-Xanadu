@@ -379,7 +379,7 @@ var Xats_XATS2GO_chrfpr = func(filr any, c0 any) any {
 		}
 		r = rs[0]
 	}
-	if w, ok := filr.(interface{ Write([]byte) (int, error) }); ok {
+	if w, ok := xatsWriter(filr); ok {
 		_, _ = w.Write([]byte(string(r)))
 	}
 	return XATSNIL()
@@ -634,6 +634,18 @@ func xatsValueString(x any) string {
 }
 
 func xatsListString(xs *XatsCon) string {
+	// NOT every Tag-1 con is a cons cell: a 1-arg con (LCSRCsome1) or a
+	// multi-field record-con (postn) reaching the generic printer via an
+	// UNRESOLVED print$ bridge must not be walked as a list (index panic on
+	// Args[1] / wrong shape).  Print those as C<tag>(args...) instead.
+	if xs != nil && xs.Tag != 0 {
+		if len(xs.Args) != 2 {
+			return xatsConString(xs)
+		}
+		if _, tailIsCon := xs.Args[1].(*XatsCon); !tailIsCon {
+			return xatsConString(xs)
+		}
+	}
 	name := "list"
 	if xs != nil && xs.Name == "list_vt" {
 		name = "list_vt"
@@ -649,7 +661,29 @@ func xatsListString(xs *XatsCon) string {
 		}
 		first = false
 		b.WriteString(xatsValueString(xs.Args[0]))
-		xs = xs.Args[1].(*XatsCon)
+		nxt, ok := xs.Args[1].(*XatsCon)
+		if !ok {
+			break
+		}
+		xs = nxt
+	}
+	b.WriteString(")")
+	return b.String()
+}
+
+// xatsConString: generic constructor print `C<tag>(arg0,arg1,...)` for a con
+// value with no faithful print$ instance (diagnostic shape; the emitted-code
+// byte-fidelity path resolves the real fprint instances instead).
+func xatsConString(xs *XatsCon) string {
+	var b strings.Builder
+	b.WriteString("C")
+	b.WriteString(strconv.Itoa(xs.Tag))
+	b.WriteString("(")
+	for i, a := range xs.Args {
+		if i >= 1 {
+			b.WriteString(",")
+		}
+		b.WriteString(xatsValueString(a))
 	}
 	b.WriteString(")")
 	return b.String()
@@ -1060,11 +1094,31 @@ func Xats_i0parsed_nerror_get(p any) any { return xatsIRfield(p, 1) }
 func Xats_i0parsed_source_get(p any) any { return xatsIRfield(p, 2) }
 func Xats_i0parsed_parsed_get(p any) any { return xatsIRfield(p, 3) }
 
+// xatsWriter: resolve a FILR-like value to its io.Writer.  A value-like
+// stdout/stderr instance can arrive UNPEELED — `val filr = g_stdout<>()`
+// binds the runtime FUNC value without the final application (the
+// nullary-instance thunk gap, driver zz_driver wiring) — so call through
+// func layers until a writer emerges.  Silently-dropping a func-valued filr
+// is what made the self-hosted emitter produce ZERO output with exit 0.
+func xatsWriter(out any) (interface{ Write([]byte) (int, error) }, bool) {
+	for i := 0; i < 4; i++ {
+		if w, ok := out.(interface{ Write([]byte) (int, error) }); ok {
+			return w, true
+		}
+		if f, ok := out.(func() any); ok {
+			out = f()
+			continue
+		}
+		break
+	}
+	return nil, false
+}
+
 // strn_fprint(s, filr): write the string body s to a FILR-like writer (mirrors
 // Xats_XATS2GO_chrfpr's writer handling). The emitter's strnfpr lowers to this.
 func Xats_strn_fprint(s any, filr any) any {
 	str, _ := s.(string)
-	if w, ok := filr.(interface{ Write([]byte) (int, error) }); ok {
+	if w, ok := xatsWriter(filr); ok {
 		_, _ = w.Write([]byte(str))
 	}
 	return XATSNIL()
@@ -1340,7 +1394,7 @@ var Xats_XATS2JS_NODE_strn_fprint = func(obj any, out any) any {
 	if !ok {
 		s = xatsValueString(obj)
 	}
-	if w, ok := out.(interface{ Write([]byte) (int, error) }); ok {
+	if w, ok := xatsWriter(out); ok {
 		_, _ = w.Write([]byte(s))
 	}
 	return XATSNIL()
@@ -1361,7 +1415,27 @@ var Xats_gs_fproc_n2 = func(x0 any, x1 any) any {
 }
 
 // -- generic ordering --------------------------------------------------------
-func Xats_g_lte(a any, b any) bool { return xatsGcmp(a, b) <= 0 }
+//
+// XatsGlteConHook: package-registered `<=` for CONSTRUCTOR operands.  Every
+// bridged g_lte site in the self-host assembly compares sort2 values (the
+// frontend's `#impltmp g_lte<sort2> = lte_sort2_sort2` reaches the emitter
+// UNRESOLVED as a prelude-cst dapp and bridges here by name; the sort2
+// subsort logic -- t2bas lattice, S2Tint EQUALITY, structural recursion --
+// cannot be mirrored by a generic shape compare, so zz_shims.go registers
+// the package's real stamped lte_sort2_sort2 at init).  nil = no frontend
+// hook (rung/suite programs): plain xatsGcmp ordering as before.
+var XatsGlteConHook func(a any, b any) any
+
+func Xats_g_lte(a any, b any) bool {
+	if _, ok := a.(*XatsCon); ok {
+		if _, ok2 := b.(*XatsCon); ok2 {
+			if XatsGlteConHook != nil {
+				return XatsGlteConHook(a, b).(bool)
+			}
+		}
+	}
+	return xatsGcmp(a, b) <= 0
+}
 func Xats_g_gte(a any, b any) bool { return xatsGcmp(a, b) >= 0 }
 
 // -- labeled-list sortedq/mergesort ------------------------------------------
@@ -1590,7 +1664,7 @@ func Xats_XATSOPT_XATSHOME_get() any { return os.Getenv("XATSHOME") }
 
 // NODE gint fprint (NODE/basics0.cats sint_fprint): decimal int to the writer.
 var Xats_XATS2JS_NODE_gint_fprint_sint = func(obj any, out any) any {
-	if w, ok := out.(interface{ Write([]byte) (int, error) }); ok {
+	if w, ok := xatsWriter(out); ok {
 		_, _ = w.Write([]byte(strconv.Itoa(obj.(int))))
 	}
 	return XATSNIL()
@@ -1833,9 +1907,13 @@ func Xats_gseq_z2cmp11(x1 any, x2 any) int {
 
 // gseq_group_lstrm_llist worker wrapper (bridge family `group$test`): split a
 // char sequence (a string here — the <strn><cgtz> instances in filpath) into
-// an EAGER stream of char cons-list groups.  Prelude strm_vt_group0 semantics:
+// a strm_vt of char cons-list groups.  Prelude strm_vt_group0 semantics:
 // a char failing the test CLOSES the current group and is DISCARDED; the final
 // group is always emitted (so "a//b" -> ["a","","b"], "/x" -> ["","x"]).
+// The RESULT is the CALL-BY-NAME thunk stream (Xats_strm_of_items): emitted
+// consumers force each cell as `nms.(func() any)()` (the prelude's `!nms` in
+// fpath_normize's fmain), so an eager cons list here panics the force's
+// `func() any` assert.
 func Xats_gseq_group_lstrm_llist_w(f func(any) any) func(any) any {
 	return func(xs any) any {
 		var runes []rune
@@ -1863,11 +1941,11 @@ func Xats_gseq_group_lstrm_llist_w(f func(any) any) func(any) any {
 			}
 		}
 		groups = append(groups, xatsRunesToList(cur))
-		acc := &XatsCon{Tag: 0}
-		for i := len(groups) - 1; i >= 0; i-- {
-			acc = &XatsCon{Tag: 1, Args: []any{groups[i], acc}}
+		items := make([]any, len(groups))
+		for i, g := range groups {
+			items[i] = g
 		}
-		return acc
+		return Xats_strm_of_items(items)
 	}
 }
 
@@ -2034,7 +2112,7 @@ func Xats_a1ptr_make_llist(xs any) any {
 
 // NODE char/uint fprint (NODE/basics0.cats).
 var Xats_XATS2JS_NODE_char_fprint = func(obj any, out any) any {
-	if w, ok := out.(interface{ Write([]byte) (int, error) }); ok {
+	if w, ok := xatsWriter(out); ok {
 		_, _ = w.Write([]byte(string(xatsRuneOf(obj))))
 	}
 	return XATSNIL()
@@ -2201,16 +2279,37 @@ func Xats_stropt_nilq(x any) bool   { return x == nil }
 func Xats_stropt_unsome(x any) any  { return x.(string) }
 
 // g_parse / XATSOPT_strn_dflt_parse_exn: string -> float.
+// Xats_g_parse mirrors the JS bundle's Number(s) hook, EXCEPT an integer
+// string yields a Go int: the JS float64-for-everything convention breaks
+// int consumers (staexp0's `LABint(g_parse(tok))` is asserted `.(int)` by
+// label_cmp).  JS-observable behavior is unchanged -- "42" compares/prints
+// as 42 either way, "0x10" -> 16 (base-detected like Number) -- and a
+// non-integer string still parses as float64.
 func Xats_g_parse(s any) any {
-	f, err := strconv.ParseFloat(s.(string), 64)
+	str := s.(string)
+	if i, err := strconv.Atoi(str); err == nil {
+		return i
+	}
+	if i, err := strconv.ParseInt(str, 0, 64); err == nil {
+		return int(i)
+	}
+	f, err := strconv.ParseFloat(str, 64)
 	if err != nil {
-		panic("xatsgo: Xats_g_parse: " + s.(string))
+		panic("xatsgo: Xats_g_parse: " + str)
 	}
 	return f
 }
 // typed dflt return: the emitted reference site returns it as a
 // `func(any) float64` value (token2sflt's parse hook).
-func Xats_XATSOPT_strn_dflt_parse_exn(s any) float64 { return Xats_g_parse(s).(float64) }
+func Xats_XATSOPT_strn_dflt_parse_exn(s any) float64 {
+	switch v := Xats_g_parse(s).(type) {
+	case float64:
+		return v
+	case int:
+		return float64(v)
+	}
+	panic("xatsgo: strn_dflt_parse_exn")
+}
 
 // XATSOPT_argv$get: the driver's argv, shaped like the JS arm's
 // (argv[0]=node, argv[1]=script, argv[2]=source, flags from 3) — two dummy
