@@ -464,6 +464,68 @@ in
   i1valgo1(filr, iv1);
   strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")"))
 end//endof[go_tup_repack_any_emit(filr,pty,iv1)]
+//
+(*
+[go_tup_proj_repack_emit]: the datacon-FIELD-projection variant of
+[go_tup_repack_any_emit].  The Args slot is `any` and the recovered field
+type [gty] is a flat-struct tuple: emit
+`xatsgo.Xats_as_tup<N>[T0, ..](xatsgo.Xats_as_con(<root>).Args[<idx>])`
+(reflective field-wise repack) instead of the identity-fragile
+`.Args[<idx>].(struct{..})` assert.  Arity outside 1..6 keeps the assert.
+*)
+fun
+go_tup_proj_repack_emit
+( filr: FILR
+, gty: strn
+, iroot: i1val
+, idx: sint): void =
+let
+  val ftys = go_struct_field_types(gty)
+  fun
+  len(ts: list(strn)): sint =
+  (
+  case+ ts of
+  |list_nil() => 0 |list_cons(_, ts1) => 1 + len(ts1))
+  fun
+  emit_tys
+  (ts: list(strn), i0: sint): void =
+  (
+  case+ ts of
+  |list_nil() => ((*void*))
+  |list_cons(t1, ts1) =>
+    (
+    (if (i0 >= 1) then strnfpr(filr, ", "));
+    strnfpr(filr, t1);
+    emit_tys(ts1, i0+1))
+  )
+  val n = len(ftys)
+in
+  if (n >= 1)
+  then
+  (
+  if (n <= 6)
+  then
+  (
+  strnfpr(filr, "xatsgo.Xats_as_tup");
+  i0i00go1(filr, n);
+  strnfpr(filr, "[");
+  emit_tys(ftys, 0);
+  strnfpr(filr, "](xatsgo.Xats_as_con(");
+  i1valgo1(filr, iroot);
+  strnfpr(filr, ").Args["); i0i00go1(filr, idx); strnfpr(filr, "])"))
+  else
+  (
+  strnfpr(filr, "xatsgo.Xats_as_con(");
+  i1valgo1(filr, iroot);
+  strnfpr(filr, ").Args["); i0i00go1(filr, idx); strnfpr(filr, "]");
+  strnfpr(filr, ".("); strnfpr(filr, gty); strnfpr(filr, ")")))
+  else
+  (
+  strnfpr(filr, "xatsgo.Xats_as_con(");
+  i1valgo1(filr, iroot);
+  strnfpr(filr, ").Args["); i0i00go1(filr, idx); strnfpr(filr, "]");
+  strnfpr(filr, ".("); strnfpr(filr, gty); strnfpr(filr, ")"))
+end//endof[go_tup_proj_repack_emit(filr,gty,iroot,idx)]
 
 //
 fun
@@ -616,12 +678,21 @@ i1con_proj_go1emit
 , idx: sint
 , gty: strn): void =
 (
+// FLAT-TUPLE field: the Args slot is `any` and the producer chose the
+// tuple's anonymous-struct identity independently (`F0 any` vs `F0 int`),
+// so a bare `.(struct{..})` assert panics on identity mismatch even when
+// the values agree -- REPACK reflectively instead (idempotent when the
+// identities already match).  See [go_tup_repack_any_emit].
+if go_structq(gty)
+then go_tup_proj_repack_emit(filr, gty, iroot, idx)
+else
+(
 strnfpr(filr, "xatsgo.Xats_as_con(");
 i1valgo1(filr, iroot);
 strnfpr(filr, ").Args["); i0i00go1(filr, idx); strnfpr(filr, "]");
 (
 if (gty = "any") then ()
-else (strnfpr(filr, ".("); strnfpr(filr, gty); strnfpr(filr, ")"))))
+else (strnfpr(filr, ".("); strnfpr(filr, gty); strnfpr(filr, ")")))))
 //endof[i1con_proj_go1emit(filr,iroot,idx,gty)]
 //
 (*
