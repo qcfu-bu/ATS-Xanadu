@@ -183,6 +183,21 @@ fun
 byref_register_params
 (fjas: fjarglst, styp: s2typ): void
 //
+// byref_overlay_argtys (self-emission): OVERLAY the by-REFERENCE pointer
+// image onto a param Go-type list recovered from the param d2vars
+// (gotypes_of_fjarglst), which do NOT carry the `&` arg wrapper -- only the
+// d2cst styp does.  Without it, an instance emitted INLINE as a func literal
+// types its `&sint` param BY-VALUE `int`, and the call boundary wraps the
+// caller's address arg in a scalar coercion (`Xats_as_int(&x)` -- a
+// *int-vs-int panic).  For each (proof-dropped) styp arg position that is
+// byref (styp_arg_is_byref), substitute the SAME pointer image a named
+// function gets from gotypes_of_funstyp (`*int`, `*any`, ...); every other
+// position keeps its [argtys] entry.  Desync-safe: either list running out
+// keeps the remaining [argtys] unchanged.
+fun
+byref_overlay_argtys
+(styp: s2typ, argtys: list(strn)): list(strn)
+//
 // gotype_of_dcon_field (M2.7): the Go type of a datacon's [idx]-th VALUE field
 // (0-based), recovered from the constructor's static type (d2con_get_styp = a
 // function type `fields -> datatype`).  Proof fields (nprg) are already dropped

@@ -2254,10 +2254,31 @@ case+ t1imp_i1dclq(timp) of
   else
   (
   case+ idcl.node() of
-  |I1Dimplmnt0(_, _, _, _, fjas, icmp) =>
+  |I1Dimplmnt0(_, _, _, dimp, fjas, icmp) =>
     let
       val bnds = binds_of_fjarglst(fjas)
       val argtys = gotypes_of_fjarglst(fjas)
+      // BYREF OVERLAY + REGISTRATION (self-emission): an instance emitted
+      // INLINE as a func literal must give its `&T` params the SAME Go
+      // pointer image (`*int`, ...) a named instance gets from the d2cst
+      // styp -- the fjas param d2vars do not carry the `&` wrapper, so
+      // without this the param went BY-VALUE and the caller's address arg
+      // was scalar-coerced (`Xats_as_int(&x)`: *int-vs-int panic, hit by
+      // s2typ_subst0_e1nv's `var flag` threaded through s2typ_substx).
+      // Register the byref stamps BEFORE the body emit so its reads deref
+      // (`*p`) and a byref-to-byref forward passes the pointer through.
+      val argtys =
+      (
+      case+ dimpl_get_node(dimp) of
+      |DIMPLone1(dcst) => byref_overlay_argtys(d2cst_get_styp(dcst), argtys)
+      |DIMPLone2(dcst, _) => byref_overlay_argtys(d2cst_get_styp(dcst), argtys)
+      |DIMPLnon1(_) => argtys)
+      val () =
+      (
+      case+ dimpl_get_node(dimp) of
+      |DIMPLone1(dcst) => byref_register_params(fjas, d2cst_get_styp(dcst))
+      |DIMPLone2(dcst, _) => byref_register_params(fjas, d2cst_get_styp(dcst))
+      |DIMPLnon1(_) => ((*void*)))
       val retty = gotype_of_lam_ret(icmp, bnds)
       // RESULT BOUNDARY: record this instance func's EMITTED return type keyed
       // by its bound temp, so an application whose result temp is concretely

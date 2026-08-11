@@ -5,6 +5,12 @@ set -uo pipefail
 # repo root: three levels up from this script (srcgen2/xats2go/selfhost-build)
 X="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 export XATSHOME=$X
+# deep-recursion headroom: go1emit_dynexp.dats overflows an 8MB OS stack
+# (SIGSEGV with an EMPTY emit, no error text) — raise the OS limit where
+# allowed and keep V8's limit under it.  Stack size never changes emitted
+# bytes, only the crash threshold.
+ulimit -s 65520 2>/dev/null || true
+NODESTK="${NODESTK:-50000}"
 GOPATCHED=$X/srcgen2/xats2go/srcgen2/BUILD/xats2go-bundle.patched.js
 OUT=$X/srcgen2/xats2go/selfhost-build
 RUNTIME=$X/srcgen2/xats2go/runtime/xatsgo
@@ -32,7 +38,7 @@ n=0
 for f in "$X"/srcgen2/xats2go/srcgen2/DATS/*.dats; do
   m="$(basename "$f" .dats)"
   if [ ! -s "$EMIT/$m.go" ] || [ "$f" -nt "$EMIT/$m.go" ] || [ "$GOPATCHED" -nt "$EMIT/$m.go" ]; then
-    node --stack-size=8801 "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
+    node --stack-size=$NODESTK "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
     awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
   fi
   # strip header (up to first `func`/`var`); RENAME the module's main to a
@@ -59,7 +65,7 @@ fn=0
 for m in $FRONTEND; do
   f="$X/srcgen2/DATS/$m.dats"
   if [ ! -s "$EMIT/$m.go" ] || [ "$f" -nt "$EMIT/$m.go" ] || [ "$GOPATCHED" -nt "$EMIT/$m.go" ]; then
-    node --stack-size=8801 "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
+    node --stack-size=$NODESTK "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
     awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
   fi
   awk 'BEGIN{started=0}
@@ -89,7 +95,7 @@ cn=0
 for m in $CCMODS; do
   f="$X/srcgen2/xats2go/xats2cc/srcgen1/DATS/$m.dats"
   if [ ! -s "$EMIT/$m.go" ] || [ "$f" -nt "$EMIT/$m.go" ] || [ "$GOPATCHED" -nt "$EMIT/$m.go" ]; then
-    node --stack-size=8801 "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
+    node --stack-size=$NODESTK "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
     awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
   fi
   awk 'BEGIN{started=0}

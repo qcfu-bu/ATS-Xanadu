@@ -1791,9 +1791,18 @@ case+ iins of
   |optn_cons(idcl) =>
     (
     case+ idcl.node() of
-    |I1Dimplmnt0(_, _, _, _, fjas, icmp) =>
+    |I1Dimplmnt0(_, _, _, dimp, fjas, icmp) =>
       let
         val argtys = gotypes_of_fjarglst(fjas)
+        // BYREF OVERLAY: type the instance value EXACTLY as its literal is
+        // emitted (t1imp_func_literal_go1emit applies the same overlay), so
+        // an enclosing func returning it keeps an invariance-consistent type.
+        val argtys =
+        (
+        case+ dimpl_get_node(dimp) of
+        |DIMPLone1(dcst) => byref_overlay_argtys(d2cst_get_styp(dcst), argtys)
+        |DIMPLone2(dcst, _) => byref_overlay_argtys(d2cst_get_styp(dcst), argtys)
+        |DIMPLnon1(_) => argtys)
         val bnds1  = list_append(binds_of_fjarglst(fjas), bnds)
         val retty  = gotype_of_lam_ret2(icmp, bnds1)
       in
@@ -2744,6 +2753,45 @@ case+ chase_fun(styp) of
 |optn_cons(@(npf, args, _res)) =>
   byref_register_fjarglst(fjas, drop_pf(npf, args))
 )//endof[byref_register_params(fjas,styp)]
+//
+(*
+[byref_overlay_argtys]: see go1emit.sats.  The walk pairs the (proof-dropped)
+styp args positionally with [argtys] -- the SAME pairing byref_register_binds
+uses (argtys is one entry per bind, in bind order), so registration and
+overlay always agree on WHICH positions are byref.  A byref position takes
+[gotype_of_arg]'s pointer image (the canonical named-function mapping), so
+the inline literal's signature matches a toplevel emission of the same
+instance and the call boundary passes the `&x` address raw.
+*)
+#implfun
+byref_overlay_argtys
+(styp, argtys) =
+let
+//
+fun
+loop
+(args: s2typlst, ptys: list(strn)): list(strn) =
+(
+case+ ptys of
+|list_nil() => list_nil()
+|list_cons(p1, ptys1) =>
+  (
+  case+ args of
+  |list_nil() => ptys
+  |list_cons(a1, args1) =>
+    list_cons
+    ( (if styp_arg_is_byref(a1) then gotype_of_arg(a1) else p1)
+    , loop(args1, ptys1))
+  )
+)
+//
+in//let
+//
+case+ chase_fun(styp) of
+|optn_nil() => argtys
+|optn_cons(@(npf, args, _res)) => loop(drop_pf(npf, args), argtys)
+//
+end//endof[byref_overlay_argtys(styp,argtys)]
 //
 (* ****** ****** *)
 //
