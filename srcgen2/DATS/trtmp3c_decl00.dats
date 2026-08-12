@@ -474,11 +474,42 @@ if
 dimpl_tempq(dimp)
 then (* if-then *)
 (
+case+ tqas of
+|
+list_cons _ =>
+(
   d3cl ) where // tmp
 {
 val () =
 tr3cenv_insert_decl(env0, d3cl)
 }
+|
+list_nil() =>
+(*
+CLAUDE-2026-08:
+a fully-CONCRETE instance impl (no template quantifiers): resolve
+the body IN PLACE and register the RESOLVED decl -- the frontend-
+compile flow consumes the registered body directly via the backend's
+worker-forwarding, with no later instantiation to resolve it.  See
+the trtmp3b_decl00 counterpart for the full rationale.
+*)
+let
+val
+dexp = trtmp3c_d3exp(env0, dexp)
+val
+d3cl =
+d3ecl
+(
+loc0,
+D3Cimplmnt0
+( tknd,stmp
+, sqas,tqas,dimp,tias,f3as,sres,dexp) )
+val () =
+tr3cenv_insert_decl(env0, d3cl)
+in//let
+  d3cl
+end(*let*)//end-of-[list_nil()]
+)
 else (* if-else *)
 let
 val

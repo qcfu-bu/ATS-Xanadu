@@ -1100,8 +1100,26 @@ func Xats_i0parsed_parsed_get(p any) any { return xatsIRfield(p, 3) }
 // nullary-instance thunk gap, driver zz_driver wiring) — so call through
 // func layers until a writer emerges.  Silently-dropping a func-valued filr
 // is what made the self-hosted emitter produce ZERO output with exit 0.
+// xatsStoreWriter routes stdout-destined FILR writes through thePrintStore.
+// The self-hosted emitter interleaves TWO output paths on stdout: direct
+// strnfpr writes (the emitted Go text) and store-appending prints (the
+// bridged print$ instances + the F3PERR d3exp debug lines).  If the direct
+// path wrote immediately while the store flushed at exit, the store text
+// would land AFTER the sentinels as one blob (observed).  Appending both to
+// the store keeps everything in chronological append order, flushed once by
+// XATS2GO_flush_pending — matching the JS bundle's single ordered stream.
+type xatsStoreWriter struct{}
+
+func (xatsStoreWriter) Write(p []byte) (int, error) {
+	thePrintStore = append(thePrintStore, string(p))
+	return len(p), nil
+}
+
 func xatsWriter(out any) (interface{ Write([]byte) (int, error) }, bool) {
 	for i := 0; i < 4; i++ {
+		if f, ok := out.(*os.File); ok && f == os.Stdout {
+			return xatsStoreWriter{}, true
+		}
 		if w, ok := out.(interface{ Write([]byte) (int, error) }); ok {
 			return w, true
 		}
@@ -2118,6 +2136,32 @@ var Xats_XATS2JS_NODE_char_fprint = func(obj any, out any) any {
 	return XATSNIL()
 }
 var Xats_XATS2JS_NODE_gint_fprint_uint = Xats_XATS2JS_NODE_gint_fprint_sint
+
+// -- resolved-print-chain leaves (post concrete-instance resolution) ---------
+//
+// With trtmp3b/c resolving concrete-instance impl BODIES, the frontend's own
+// print chains reach these prelude leaves by name (previously hidden behind
+// the generic gs_print_n bridges).
+var Xats_g_stderr = func() any { return os.Stderr }
+
+// fprint_ref(out, x): write x to the FILR-like out (arg order OUT, VALUE).
+var Xats_fprint_ref = func(out any, x any) any {
+	s, ok := x.(string)
+	if !ok {
+		s = xatsValueString(x)
+	}
+	if w, ok := xatsWriter(out); ok {
+		_, _ = w.Write([]byte(s))
+	}
+	return XATSNIL()
+}
+
+// gint_fprint_{sint,uint}(i, out): the non-NODE prelude names (VALUE, OUT).
+var Xats_gint_fprint_sint = Xats_XATS2JS_NODE_gint_fprint_sint
+var Xats_gint_fprint_uint = Xats_XATS2JS_NODE_gint_fprint_sint
+
+// char_fprint(c, out): the non-NODE prelude name (VALUE, OUT).
+var Xats_char_fprint = Xats_XATS2JS_NODE_char_fprint
 
 // list basics.
 func Xats_list_vt_length1(xs any) int { return Xats_list_length(xs.(*XatsCon)) }

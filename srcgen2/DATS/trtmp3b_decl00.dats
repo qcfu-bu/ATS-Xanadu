@@ -501,11 +501,49 @@ if
 dimpl_tempq(dimp)
 then (* if-then *)
 (
+case+ tqas of
+|
+list_cons _ =>
+(
   d3cl ) where // tmp
 {
 val () =
 tr3benv_insert_decl(env0, d3cl)
 }
+|
+list_nil() =>
+(*
+CLAUDE-2026-08:
+a template impl with NO template quantifiers is a fully-CONCRETE
+instance (g_lte<sort2>, forall$test<s2exp>, g_print<postn>): its
+body has no free template variables, and the frontend-compile flow
+(no prelude template bodies loaded) CONSUMES the registered body
+DIRECTLY via the backend's worker-forwarding, with no instantiation
+step to resolve it later.  Resolve the body IN PLACE and register
+the RESOLVED decl -- else every instance inside it reaches the
+backend unresolved (the Xats_g_lte / gs_print_n6 runtime-bridge
+class).  Generic impls (tqas non-nil) keep the register-only path
+(free template vars resolve at instantiation).  Mirrors the tqas
+dispatch [f0_fundclst] already does for fundecl bodies.
+*)
+let
+val
+dexp =
+trtmp3b_d3exp(env0, dexp)
+val
+d3cl =
+d3ecl
+(
+loc0,
+D3Cimplmnt0
+( tknd,stmp
+, sqas,tqas,dimp,tias,f3as,sres,dexp))
+val () =
+tr3benv_insert_decl(env0, d3cl)
+in//let
+  d3cl
+end(*let*)//end-of-[list_nil()]
+)
 else (* if-else *)
 let
 val

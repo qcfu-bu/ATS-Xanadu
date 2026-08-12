@@ -60,15 +60,27 @@ lcsrc_fprint
 g_print$out<>() = out
 //
 in//let
+(*
+CLAUDE-2026-08:
+the multi-arg [prints] lowers to the gs_print_n<N> ALIAS-form default
+(`gs_print_nN = gs_fproc_nN<..> where { #impltmp {a0:t0} g_fproc<a0> =
+g_print<a0> }`), which the srcgen2 template resolver cannot instantiate
+(quantified hook impl under an alias-form impl) -- the call reaches the
+backend as an UNRESOLVED prelude cst carrying RAW values.  SEQUENCED
+single-arg [print] resolves per-value through g_print<T> to the leaves;
+the printed BYTES are identical.
+*)
 case+ src of
 |
 LCSRCnone0() => print("()")
 |
 LCSRCfpath(fpx) =>
-prints("LCSRCfpath(", fpx, ")")
+(
+print("LCSRCfpath("); print(fpx); print(")"))
 |
 LCSRCsome1(txt) =>
-prints("LCSRCsome1(", txt, ")")
+(
+print("LCSRCsome1("); print(txt); print(")"))
 end (*let*) // end of [lcsrc_fprint]
 //
 (* ****** ****** *)
@@ -82,10 +94,13 @@ val nrow = pos.nrow()
 val ncol = pos.ncol()
 //
 in//let
-prints
-( (ntot+1)
-, "(line=", nrow+1
-, ",offs=", ncol+1, ")") where
+(*
+CLAUDE-2026-08: single-arg [print] sequence -- see [lcsrc_fprint].
+*)
+(
+print(ntot+1);
+print("(line="); print(nrow+1);
+print(",offs="); print(ncol+1); print(")")) where
 {
   #impltmp g_print$out<>() = out
 }
@@ -104,9 +119,15 @@ val pend = loc.pend()
 #impltmp g_print$out<>() = out
 //
 in//let
+(*
+CLAUDE-2026-08: single-arg [print] sequence -- see [lcsrc_fprint].
+print(lsrc)/print(pbeg) resolve through the xatsopt_tmplib instances
+g_print<lcsrc>/g_print<postn> to lcsrc_fprint/postn_fprint.
+*)
 (
-prints
-(lsrc, "@(", pbeg, "--", pend, ")"))
+print(lsrc); print("@(");
+print(pbeg); print("--");
+print(pend); print(")"))
 end(*let*)//end of [loctn_fprint(loc,out)]
 
 (* ****** ****** *)

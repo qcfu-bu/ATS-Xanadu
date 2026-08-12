@@ -619,8 +619,13 @@ let
   val nm = d2con_get_name(dcon)
   #impltmp g_print$out<>() = filr
 in
+  // CLAUDE-2026-08: single-arg [print] (not [prints]): the gs_print_nN
+  // alias-form default cannot be instantiated by the srcgen2 resolver, so
+  // under self-hosting [prints(nm)] bridged to the generic printer and the
+  // excptcon Name emitted as "list()".  [print] resolves via g_print<symbl>
+  // (xatsopt_tmplib) to symbl_fprint -- same bytes on the jsemit00 path.
   strnfpr(filr, ", Name: ");
-  prints('"'); prints(nm); prints('"')
+  print('"'); print(nm); print('"')
 end
 else ((*ordinary datatype con -- no Name*))
 )//endof[i1con_emit_name(filr,dcon)]
@@ -3291,7 +3296,8 @@ in
   strnfpr(filr, " && xatsgo.Xats_as_con(");
   i1valgo1(filr, casval);
   strnfpr(filr, ").Name == ");
-  prints('"'); prints(nm); prints('"')
+  // CLAUDE-2026-08: single-arg [print] (see [i1con_emit_name]).
+  print('"'); print(nm); print('"')
 end
 else ((*ordinary datatype con -- tag suffices*))))
 //

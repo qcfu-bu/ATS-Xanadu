@@ -47,7 +47,7 @@ for f in "$X"/srcgen2/xats2go/srcgen2/DATS/*.dats; do
        /^func /{started=1}
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
-    | sed "s/goxtnm/go${n}tnm/g" \
+    | sed -E "s/goxtnm([0-9])/go${n}tnm\\1/g" \
     | sed "s/^func main() {\$/func zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
   echo "zzmodinit_${MI}" >> "$OUT/src/.modinits"
   MI=$((MI+1))
@@ -72,7 +72,7 @@ for m in $FRONTEND; do
        /^func /{started=1}
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
-    | sed "s/goxtnm/gof${fn}tnm/g" \
+    | sed -E "s/goxtnm([0-9])/gof${fn}tnm\\1/g" \
     | sed "s/^func main() {\$/func zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
   echo "zzmodinit_${MI}" >> "$OUT/src/.modinits"
   MI=$((MI+1))
@@ -102,7 +102,7 @@ for m in $CCMODS; do
        /^func /{started=1}
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
-    | sed "s/goxtnm/goc${cn}tnm/g" \
+    | sed -E "s/goxtnm([0-9])/goc${cn}tnm\\1/g" \
     | sed "s/^func main() {\$/func zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
   echo "zzmodinit_${MI}" >> "$OUT/src/.modinits"
   MI=$((MI+1))
