@@ -295,9 +295,15 @@ if
 then ((*void*)) else
 let
 val loc0 = dcl0.lctn() in
+(*
+CLAUDE-2026-08: single-arg [print] sequence (see locinfo_print0's
+lcsrc_fprint note): multi-arg [printsln] cannot be instantiated by the
+srcgen2 resolver, so under self-hosting loc0/dcl0 printed as "list()"
+-- the diagnostics were MUTE.  Same bytes on the jsemit00 path.
+*)
 printsln();
-printsln("\
-F3PERR0-ERROR:", loc0, ":", dcl0)
+print("\
+F3PERR0-ERROR:"); print(loc0); print(":"); print(dcl0); printsln()
 end
 )
 //

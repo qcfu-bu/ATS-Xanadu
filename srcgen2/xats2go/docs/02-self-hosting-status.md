@@ -1,124 +1,75 @@
-# Self-hosting status: binary runs; one elaborator-fidelity bug remains
+# Self-hosting status: Go-hosted, rung-verified; self-compile NOT yet reached
 
-## Milestone reached (build48)
+_Updated 2026-08-12.  Supersedes the nerror=86 investigation this file
+previously documented (that bug — module-init effects stripped by
+assemble.sh — and its successors are fixed; see the branch log)._
 
-The full ATS2/Xanadu compiler, transpiled to Go through `xats2go`, now
-**compiles cleanly and runs end-to-end**:
+## What is PROVEN
 
-- `selfhost-build/assemble.sh` + `wire-driver.sh` assemble **194 modules**
-  (18 emitter + 162 frontend + 13 xats2cc D3->intrep0 + the CLI driver)
-  into one Go package.
-- `go build` produces a working **11.8 MB `xats2go-selfhost` binary**
-  with **zero build errors** (down from 2,383 error lines at the start).
-- The binary runs the **complete frontend pipeline** on real input —
-  lexing, parsing, fixity resolution, the trans12 preload, the whole
-  D0->D1->D2->D3 elaboration, and the tread/trtmp template-resolution
-  passes — to completion (exit 0), reaching `i1parsed_go1emit`.
+The full compiler pipeline (frontend + go1emit, 194 modules: 18 emitter +
+162 frontend + 13 xats2cc + the CLI driver), compiled to Go by the
+JS-bootstrapped bundle, builds into a working native binary
+(`selfhost-build/src/xats2go-selfhost`) that compiles ATS3 **user
+programs** with output **byte-identical** to the bundle:
 
-Every fix stayed **gated**: 12/12 go-arm rungs byte-equal against goldens
-and the 75-test JS-oracle psuite green.
+- **All 12 go-arm rungs byte-equal** to the bundle's emission, invoked
+  identically (same relative test path — the path text is embedded in
+  location comments).  Since the gate compiles + runs each reference
+  emission against its golden, byte-equality transitively proves the
+  self-emitted Go builds and runs correctly.
+- Every fix that got here stayed gated: 12/12 rungs + psuite 75/75.
 
-Reaching this took ~9 runtime-gap iterations after the build hit zero:
-Go initialization order (module globals emitted as IIFE var initializers,
-not `func init()`), nullary-instance thunk peeling, lazy call-by-name
-streams (`strn_strmize`/`strx_vt_map0`/`strm_vt_map0`), `strn_head$opt`
-returning the head rune, and worker-forwarding bridges
-(`map$fopr0`, `iforitm$work`, `gseq_foritm`, the `foritm$e1nv$work`
-default hook, `list_make_fwork`).
+The closing fixes (see commit c75fc09d7 and its predecessors): byref
+params for inline template-instance literals, reflective flat-tuple
+repack (arg boundary + datacon-field projections), lazy group streams,
+int-aware `g_parse`, the sort2 `g_lte` hook, stdout write/print channel
+unification (`xatsStoreWriter`), the digit-guarded namespace sed, the
+trtmp3b/c concrete-instance body resolution, and the single-arg `print`
+rewrites in `locinfo_print0` + the two excptcon-Name emitter sites.
 
-## The remaining bug (blocks byte-matching emission)
+## What is NOT yet reached: the self-compile fixpoint
 
-Running the binary on `test_goarm01_xats2go.dats --go-arm`:
+**The binary cannot yet compile its own sources.**  Sweeping all 194
+assemble.sh modules through it (2026-08-12): the frontend raises
+`F3PERR0-ERROR`s on most compiler-scale modules and the erroring decls
+are errck-erased, so the emissions collapse to header stubs
+(`trans2a_utils0`: 10 lines vs the bundle's 9,856).  Failing-module
+error counts range from 1 (`xsynoug`, a 46-line staload-only module —
+the best entry probe) to ~43 (`trans2a_utils0`).  These are fidelity
+bugs in the binary (the same ATS3 frontend compiled via jsemit00
+compiles every module clean) on paths that rung-scale programs never
+exercise.  Prime suspects: the ~81 bridged `g_eq` sites (runtime
+`reflect.DeepEqual` vs the frontend's semantic/identity equality;
+DeepEqual over closure-bearing payloads is always-false) and other
+unexercised runtime bridges.
 
-- **JS bootstrap bundle** (same driver, same input): `nerror = 0`, emits
-  valid Go between the `//==XATS2GO-BEGIN==` sentinels (150 lines).
-- **Self-hosted Go binary**: `nerror = 86`, emits **no** sentinels — the
-  86 errors degrade the intrep0 lowering so `i1parsed_go1emit` produces
-  nothing.
+Benchmark note (P=3, warm NODE_COMPILE_CACHE): the bundle's real
+self-compile cost is 834s for the 194-module sweep; the binary's 24s is
+NOT comparable (it bailed early on the errors).  On the verified-equal
+rung workload both are ~1s/compile (startup-dominated).
 
-### Precisely localized
+## Known resolver limitation (worked around, not fixed)
 
-Instrumenting `d3parsed_get_nerror` after each driver pass:
+srcgen1-prelude's `gs_print_nN` defaults are ALIAS-form template impls
+with a QUANTIFIED hook impl (`gs_print_nN = gs_fproc_nN<..> where {
+#impltmp {a0:t0} g_fproc<a0> = g_print<a0> }`), which trtmp3b/c cannot
+instantiate.  Multi-arg `prints(...)` therefore bridges to the runtime —
+fine for scalar args, WRONG for constructor args (generic printer).
+Workaround pattern (byte-identical output): rewrite as SEQUENCED
+single-arg `print(x)`, which resolves per-value through the
+`xatsopt_tmplib` `g_print<T>` instances.  Applied so far:
+`locinfo_print0` (lcsrc/postn/loctn_fprint), go1emit's two excptcon-Name
+sites, and the three `F3PERR0-ERROR` reporters (f3perr0_decl00 :300,
+f3perr0_dynexp :258/:1056) — the reporters previously printed their
+location + payload as `list()`, leaving the diagnostics MUTE.
 
-```
-NERR fildats 86      <- all 86 created here
-NERR tread3a 86      <- adds none
-NERR trtmp3b 86      <- adds none
-NERR trtmp3c 86      <- adds none
-NERR t3read0 86      <- adds none
-```
+## The campaign to the fixpoint
 
-So **every one of the 86 errors is created inside `d3parsed_of_fildats`**
-(the core parse + D0->D1->D2->D3 elaboration). None of the post-processing
-tread/trtmp passes contribute — confirmed separately by instrumenting the
-tread3a errck constructors (`d3exp_errck`/`d3pat_errck`/`d3ecl_errck`),
-none of which fire.
-
-### What the errors are
-
-Decoding the `D3Eerrck` nodes (the generic runtime formatter renders any
-XatsCon as `list(...)`, so this needed a reflection dump):
-
-```
-F3PERR0-ERROR:
-  #0(#1("...test_goarm01_xats2go.dats"),#0(3,3,0),#0(3,3,0))   <- location
-  :#0(...,#21(1,#0(#0(loc,#20(...)))))                          <- errck node
-```
-
-All 86 are **identical**: a **level-1** `D3Eerrck` wrapping a **dynamic
-application** node (`D3Edapp`=tag21 / `D3Edap0`=tag20), at a **synthetic /
-lost location** (line 3 — the file's comment header — with zero-width
-offsets, i.e. the default location assigned when the real origin is lost).
-
-### Traced through the pass chain
-
-`nerror` is a **field** on the parsed structure, read by
-`d3parsed_get_nerror`, and each later pass **preserves** it:
-
-- `d3parsed_of_trans3a`/`tread3a`/`trtmp3b`/`trtmp3c`/`t3read0` all carry
-  `nerror` forward unchanged (verified: none of the D3-level
-  `d3exp_errck`/`dapp_errck`/`dap0_errck` builder copies — in
-  `tread3a`/`tread23`/`trans3a` — fire during the run; the only Tag-63
-  `D3Eerrck` node constructions in the assembly are those 3 builders,
-  and they are never called).
-- So the count is already 86 when `d3parsed_of_fildats` returns, carried
-  through `trans23` (D2->D3) from the `d2parsed`'s `nerror`, which comes
-  from **`trans2a` (D1->D2)**.
-
-The 86 is therefore the **D1->D2 type-checking error count**: `trans2a`
-increments it while elaborating the go-arm application/template
-instantiations, and it rides the field verbatim to the end where
-`f3perr0` walks the tree and prints the errck-wrapped application nodes.
-
-### Interpretation
-
-The Go-compiled **application-elaboration** path (overload resolution /
-template instantiation / application type-inference in the D2->D3 stage:
-`trans2a` / `trsym2b` / `t2read0` / `trans3a`) produces level-1 errck-
-wrapped dynamic-application nodes that the JS-interpreted elaborator
-resolves cleanly. The go-arm test's applications are exactly
-`sint_print(42)`, `the_print_store_log()`, `sint_add$sint(100,23)` — the
-prelude template calls that go-arm is meant to emit; JS elaborates them to
-resolved D3Edapp, Go leaves them errck'd.
-
-This is the same *class* as the F3PERR0-TIMQ template-resolution work
-(tasks #12/#13) but now surfacing **inside the self-hosted binary's own
-elaborator**, i.e. a Go-vs-JS fidelity gap in how one of the D2->D3
-elaboration functions was compiled.
-
-## Next step
-
-The origin is **`trans2a` (D1->D2 type-checking)** — it increments the
-`nerror` field 86 times while elaborating the go-arm applications. Find
-where `trans2a` bumps the error count (the D1->D2 overload/application
-type-inference that fails in Go but resolves in JS) and fix the diverging
-function at the ATS source.
-
-Fast-iteration setup: the binary rebuilds locally in ~1 min (`go build`
-in `selfhost-build/src`, no bundle/reassembly), so instrument the
-generated `emitter_all.go` directly to probe. Confirmed-useful probes:
-`d3parsed_get_nerror` after each driver pass (localizes the pass);
-reflection-dumping `D3Eerrck` nodes (the generic runtime formatter renders
-XatsCon as `list(...)`, so a Tag/arg dump is needed to read them). Only an
-**emitter** source change needs the ~95-min bundle+reassembly cycle; a
-runtime-only fix is a ~1-min binary rebuild.
+1. Un-mute diagnostics (the reporter rewrite above) — DONE in source.
+2. Probe `xsynoug` (1 error), read the real error text, fix the runtime/
+   emitter/frontend gap it names; regate (12 rungs + psuite).
+3. March up the failing-module list; finish line = all 194 modules emit
+   with 0 F3PERR errors AND byte-match the bundle's `emit/*.go`
+   (invoked with the same paths assemble.sh uses).
+4. Then generation 2: assemble from self-produced sources, `go build`,
+   verify the gen-2 binary reproduces gen-1's outputs.

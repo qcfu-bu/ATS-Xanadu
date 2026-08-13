@@ -253,9 +253,12 @@ let
 val
 loc0 = d3p0.lctn((*0*))
 in//let
+(*
+CLAUDE-2026-08: single-arg [print] sequence -- see f3perr0_decl00.
+*)
 printsln();
-printsln("\
-F3PERR0-ERROR:", loc0, ":", d3p0)
+print("\
+F3PERR0-ERROR:"); print(loc0); print(":"); print(d3p0); printsln()
 end//let
 )
 | _(* otherwise *) => (  (* skipped *)  )
@@ -1051,9 +1054,13 @@ g_print
 <d3exp>(d3e) = auxdexp(out, d3e)
 //
 in//let
+(*
+CLAUDE-2026-08: single-arg [print] sequence -- see f3perr0_decl00.
+print(d3e0) resolves to the LOCAL g_print<d3exp> hook (auxdexp) above.
+*)
 printsln();
-printsln("\
-F3PERR0-ERROR:", loc0, ":", d3e0)
+print("\
+F3PERR0-ERROR:"); print(loc0); print(":"); print(d3e0); printsln()
 end//let
 )
 | _(* otherwise *) => (  (* skipped *)  )

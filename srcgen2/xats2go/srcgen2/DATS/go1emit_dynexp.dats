@@ -5000,11 +5000,19 @@ in//let
 end//let//endof[i1cmp_go1emit_ret(icmp,params,bnds,env0)]
 //
 (*
-emit_param_reassign: emit `goxtnm<p_i> = <arg_i>` for each (param, newarg)
-pair, in order.  The args are the tail call's argument i1vals -- pre-bound
-ANF temps (or literals), so reading them does NOT depend on the assignment
-order (the simultaneity guarantee).  [params] and [args] are positional and
-equal-length (the IR builds the self-call with one arg per parameter).
+emit_param_reassign: emit the tail self-call's parameter reassignment as a
+PARALLEL assignment.
+//
+CLAUDE-2026-08: the old single-pass emission assumed every arg is a
+pre-bound ANF temp ("simultaneity guarantee"), but an arg that is a BARE
+reference to one of the params being reassigned gets NO temp of its own —
+sequential `p1 = ...; p2 = p1` then reads the CLOBBERED p1.  (fpath_dpart's
+`loop(i0+1, i0)` returned a corrupted directory part this way, failing
+every module-relative #staload under self-hosting.)  Pass 1 stages each
+such arg into a block-local `goxtco<k>` scratch (a SELF-assignment `p = p`
+needs no stage); pass 2 assigns.  [stageq] is recomputed in pass 2, so no
+state threads between the passes.  [params]/[args] are positional and
+equal-length.
 *)
 #implfun
 emit_param_reassign
@@ -5012,26 +5020,94 @@ emit_param_reassign
 let
   val filr = env0.filr()
   val nind = envx2go_nind$get(env0)
-in//let
-  case+ (params, args) of
-  |(list_cons(p1, ps1), list_cons(a1, as1)) =>
-    let
-      // TCO-REASSIGN BOUNDARY: coerce the new value into the param's
-      // recorded emitted type (a concrete int param taking an any-returning
-      // call result) — idempotent when they already agree.
-      val coerfn = go_coerfn_of(goemit_ty_get(i1tnm_stmp$get(p1)))
-    in
+//
+fun
+stmp_eq0
+(s1: stamp, s2: stamp): bool = (s1 = s2)
+//
+fun
+tnm_in_params
+(s1: stamp, ps: i1tnmlst): bool =
+(
+case+ ps of
+|list_nil() => false
+|list_cons(p1, ps1) =>
+  if stmp_eq0(s1, i1tnm_stmp$get(p1))
+  then true else tnm_in_params(s1, ps1)
+)
+//
+fun
+stageq
+(p1: i1tnm, a1: i1val): bool =
+(
+case+ a1.node() of
+|I1Vtnm(t1) =>
+  let
+    val s1 = i1tnm_stmp$get(t1)
+  in
+    if stmp_eq0(s1, i1tnm_stmp$get(p1))
+    then false else tnm_in_params(s1, params)
+  end
+| _(*else*) => false
+)
+//
+fun
+pass1
+(ps: i1tnmlst, as0: i1valist, k0: sint): void =
+(
+case+ (ps, as0) of
+|(list_cons(p1, ps1), list_cons(a1, as1)) =>
+  let
+    val () =
+    (
+    if stageq(p1, a1)
+    then
+    (
+    nindfpr(filr, nind);
+    strnfpr(filr, "goxtco"); i0i00go1(filr, k0);
+    strnfpr(filr, " := ");
+    i1valgo1(filr, a1);
+    strnfpr(filr, "\n"))
+    else ((*void*)))
+  in
+    pass1(ps1, as1, k0+1)
+  end
+| _(*exhausted*) => ((*void*))
+)
+//
+fun
+pass2
+(ps: i1tnmlst, as0: i1valist, k0: sint): void =
+(
+case+ (ps, as0) of
+|(list_cons(p1, ps1), list_cons(a1, as1)) =>
+  let
+    // TCO-REASSIGN BOUNDARY: coerce the new value into the param's
+    // recorded emitted type (a concrete int param taking an any-returning
+    // call result) — idempotent when they already agree.
+    val coerfn = go_coerfn_of(goemit_ty_get(i1tnm_stmp$get(p1)))
+    val () =
     (
     nindfpr(filr, nind);
     i1tnmgo1(filr, p1); strnfpr(filr, " = ");
     (if (strn_length(coerfn) > 0)
-     then (strnfpr(filr, coerfn); strnfpr(filr, "(");
-           i1valgo1(filr, a1); strnfpr(filr, ")"))
+     then (strnfpr(filr, coerfn); strnfpr(filr, "(")) else ());
+    (if stageq(p1, a1)
+     then (strnfpr(filr, "goxtco"); i0i00go1(filr, k0))
      else i1valgo1(filr, a1));
-    strnfpr(filr, "\n");
-    emit_param_reassign(ps1, as1, env0))
-    end
-  | _(*exhausted*) => ((*void*))
+    (if (strn_length(coerfn) > 0)
+     then strnfpr(filr, ")") else ());
+    strnfpr(filr, "\n"))
+  in
+    pass2(ps1, as1, k0+1)
+  end
+| _(*exhausted*) => ((*void*))
+)
+//
+in//let
+(
+  pass1(params, args, 0);
+  pass2(params, args, 0) )
 end//let//endof[emit_param_reassign(...)]
 //
 (*

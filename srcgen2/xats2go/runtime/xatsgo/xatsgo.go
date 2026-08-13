@@ -553,6 +553,12 @@ var Xats_g_eq = func(x1 any, x2 any) bool {
 	if x1 == nil || x2 == nil {
 		return x1 == x2
 	}
+	// NB (self-hosting): for CONSTRUCTOR operands this is POINTER identity.
+	// The frontend's `=` on its entity types means STAMP equality (the
+	// g_eq<T> -> g_cmp<T> = stmp() cmp stmp() chain); a structural
+	// DeepEqual fallback was tried and is UNSOUND (distinct unlinked
+	// metavars are field-identical), so the real fix is RESOLVING those
+	// instances in the pipeline, not approximating here.
 	t1 := reflect.TypeOf(x1)
 	t2 := reflect.TypeOf(x2)
 	if t1 == t2 && t1.Comparable() {
