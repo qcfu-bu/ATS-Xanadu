@@ -2166,6 +2166,18 @@ var Xats_fprint_ref = func(out any, x any) any {
 var Xats_gint_fprint_sint = Xats_XATS2JS_NODE_gint_fprint_sint
 var Xats_gint_fprint_uint = Xats_XATS2JS_NODE_gint_fprint_sint
 
+// bool_fprint(b, out): the non-NODE prelude name (VALUE, OUT).
+var Xats_bool_fprint = func(b any, out any) any {
+	s := "false"
+	if b.(bool) {
+		s = "true"
+	}
+	if w, ok := xatsWriter(out); ok {
+		_, _ = w.Write([]byte(s))
+	}
+	return XATSNIL()
+}
+
 // char_fprint(c, out): the non-NODE prelude name (VALUE, OUT).
 var Xats_char_fprint = Xats_XATS2JS_NODE_char_fprint
 
