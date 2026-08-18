@@ -212,7 +212,7 @@ sweep)
   cat "$SW"/*.verdict | sort > "$SW/RESULTS"
   p=$(grep -c '^PASS' "$SW/RESULTS"); d=$(grep -c '^DIFF' "$SW/RESULTS"); e=$(grep -c '^ERR' "$SW/RESULTS")
   echo ">> SWEEP: $p PASS / $d DIFF / $e ERR of $((p+d+e))  (details: $SW/RESULTS)"
-  grep -v '^PASS' "$SW/RESULTS" | head -20
+  grep -v '^PASS' "$SW/RESULTS" | head -20 || true
   ;;
 *)
   sed -n '2,40p' "$0"; exit 2

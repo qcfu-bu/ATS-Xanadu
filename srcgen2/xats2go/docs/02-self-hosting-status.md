@@ -1,75 +1,93 @@
-# Self-hosting status: Go-hosted, rung-verified; self-compile NOT yet reached
+# Self-hosting status: SELF-COMPILE FIXPOINT REACHED (194/194 byte-equal)
 
-_Updated 2026-08-12.  Supersedes the nerror=86 investigation this file
-previously documented (that bug — module-init effects stripped by
-assemble.sh — and its successors are fixed; see the branch log)._
+_Updated 2026-08-18.  Supersedes the 2026-08-12 "self-compile NOT yet
+reached" status: the failing-module collapse documented there had ONE
+root cause (unifier stamp-equality miscompiled to pointer identity),
+fixed in commit 8651612b2._
 
 ## What is PROVEN
 
-The full compiler pipeline (frontend + go1emit, 194 modules: 18 emitter +
-162 frontend + 13 xats2cc + the CLI driver), compiled to Go by the
-JS-bootstrapped bundle, builds into a working native binary
-(`selfhost-build/src/xats2go-selfhost`) that compiles ATS3 **user
-programs** with output **byte-identical** to the bundle:
+The full compiler pipeline (frontend + go1emit, 194 units: 18 emitter +
+162 frontend + 13 xats2cc modules + the CLI driver), compiled to Go by
+the JS-bootstrapped bundle, builds into a native binary
+(`selfhost-build/src/xats2go-selfhost`) that:
 
-- **All 12 go-arm rungs byte-equal** to the bundle's emission, invoked
-  identically (same relative test path — the path text is embedded in
-  location comments).  Since the gate compiles + runs each reference
-  emission against its golden, byte-equality transitively proves the
-  self-emitted Go builds and runs correctly.
-- Every fix that got here stayed gated: 12/12 rungs + psuite 75/75.
+- **Compiles ATS3 user programs byte-identically to the bundle**: all 12
+  go-arm rungs byte-equal (and the bundle side holds golden), psuite
+  75/75.  Gate: `selfhost-build/iterate.sh gate`.
+- **Compiles its OWN COMPLETE SOURCE byte-identically to the bundle**:
+  all 193 assemble.sh modules PLUS the CLI driver emit byte-equal to the
+  bundle's `emit/*.go` references, with the IDENTICAL diagnostic surface
+  (e.g. `xsymmap_stkmap`: the same 79,067 recoverable
+  unresolved-prelude-instance reports on both sides).  Sweep:
+  `selfhost-build/iterate.sh sweep` — 193 PASS / 0 DIFF / 0 ERR, plus
+  the driver checked separately (invoke with the same ABSOLUTE paths
+  assemble.sh uses; path text embeds in location comments).
 
-The closing fixes (see commit c75fc09d7 and its predecessors): byref
-params for inline template-instance literals, reflective flat-tuple
-repack (arg boundary + datacon-field projections), lazy group streams,
-int-aware `g_parse`, the sort2 `g_lte` hook, stdout write/print channel
-unification (`xatsStoreWriter`), the digit-guarded namespace sed, the
-trtmp3b/c concrete-instance body resolution, and the single-arg `print`
-rewrites in `locinfo_print0` + the two excptcon-Name emitter sites.
+**The fixpoint follows by construction**: generation-2 assembly consumes
+exactly those 194 emissions (concat + deterministic seds + shims/floor,
+which are static inputs).  Byte-equal inputs ⇒ byte-identical gen-2 Go
+source ⇒ the gen-2 binary is compiled from the same source as gen-1 and
+reproduces the same emissions.  ATS3GO is self-hosting.
 
-## What is NOT yet reached: the self-compile fixpoint
+## The closing root cause (2026-08-18)
 
-**The binary cannot yet compile its own sources.**  Sweeping all 194
-assemble.sh modules through it (2026-08-12): the frontend raises
-`F3PERR0-ERROR`s on most compiler-scale modules and the erroring decls
-are errck-erased, so the emissions collapse to header stubs
-(`trans2a_utils0`: 10 lines vs the bundle's 9,856).  Failing-module
-error counts range from 1 (`xsynoug`, a 46-line staload-only module —
-the best entry probe) to ~43 (`trans2a_utils0`).  These are fidelity
-bugs in the binary (the same ATS3 frontend compiled via jsemit00
-compiles every module clean) on paths that rung-scale programs never
-exercise.  Prime suspects: the ~81 bridged `g_eq` sites (runtime
-`reflect.DeepEqual` vs the frontend's semantic/identity equality;
-DeepEqual over closure-bearing payloads is always-false) and other
-unexercised runtime bridges.
+The binary manufactured `D3Cerrck` failures on inputs the JS-hosted
+bundle checks clean.  Root cause: `unify00_s2typ` / `match00_s2typ`
+(`srcgen2/DATS/statyp2_tmplib.dats`) compared s2cst/s2var/x2t2p/label
+entities with generic `=`/`!=`, which resolve through g_eq<T> defaults
+the srcgen2 resolver cannot instantiate — the emitted Go bridged them to
+runtime POINTER identity, wrong for rebuilt (non-interned) cells.  Four
+of the srcgen1 prelude's `gseq000` declarations failed exactly there in
+EVERY compile, poisoning the `xatsopt_dpre.hats` includes that carry the
+prelude template bodies — hence the previous "header-stub collapse" on
+most compiler-scale modules.
 
-Benchmark note (P=3, warm NODE_COMPILE_CACHE): the bundle's real
-self-compile cost is 834s for the 194-module sweep; the binary's 24s is
-NOT comparable (it bailed early on the errors).  On the verified-equal
-rung workload both are ~1s/compile (startup-dominated).
+Fix: spell the concrete semantics (which `xatsopt_tmplib` defines
+anyway: `g_cmp<T>` = stamp compare, `g_cmp<label> = label_cmp`) at the
+four comparison sites: `stamp_cmp(x.stmp(), y.stmp()) = 0` and
+`label_cmp(l1, l2) != 0`.
 
-## Known resolver limitation (worked around, not fixed)
+Found by the `XATSGO_GEQ_DEBUG=1` runtime instrument (report con-pair
+g_eq FALSEs whose scalar fields agree to depth 2 — the
+pointer-unequal-but-stamp-equal miscompare shape, with stacks): on the
+minimal probe it flagged exactly 2 call sites, both in the unifiers.
 
-srcgen1-prelude's `gs_print_nN` defaults are ALIAS-form template impls
-with a QUANTIFIED hook impl (`gs_print_nN = gs_fproc_nN<..> where {
-#impltmp {a0:t0} g_fproc<a0> = g_print<a0> }`), which trtmp3b/c cannot
-instantiate.  Multi-arg `prints(...)` therefore bridges to the runtime —
-fine for scalar args, WRONG for constructor args (generic printer).
-Workaround pattern (byte-identical output): rewrite as SEQUENCED
-single-arg `print(x)`, which resolves per-value through the
-`xatsopt_tmplib` `g_print<T>` instances.  Applied so far:
-`locinfo_print0` (lcsrc/postn/loctn_fprint), go1emit's two excptcon-Name
-sites, and the three `F3PERR0-ERROR` reporters (f3perr0_decl00 :300,
-f3perr0_dynexp :258/:1056) — the reporters previously printed their
-location + payload as `list()`, leaving the diagnostics MUTE.
+## Method notes (why this closed in one day after a week of loops)
 
-## The campaign to the fixpoint
+- **Differential-first rule.**  A repro is only valid if it DIVERGES:
+  binary-vs-bundle on the same input.  The earlier `zzprobe9`
+  "vt-signature failure" errored on BOTH sides (its distillation dropped
+  the `strm_vt_istrmize0` wrapper) — a probe campaign chased a
+  non-divergence.  `zzprobe10` (gseq000's `gseq_istrmize` VERBATIM) is
+  the validated pattern; `iterate.sh probe` uses it by default.
+- **Tiered harness** (`selfhost-build/iterate.sh`): `probe` ~3s;
+  `runtime` ~10s (go build is content-hash cached, 4.4s on real
+  changes); `frontend` ~60s (the OLD bundle re-emits changed frontend
+  .dats — a bundle rebuild is only needed when EMISSION behavior
+  changes); `bridges` ~20s (per-module count of semantic runtime
+  bridges); `bundle`; `gate`; `sweep`.  The old monolithic loop
+  (lib2xatsopt + bundle + 194 re-emits + assemble + build) cost ~12 min
+  per iteration and is almost never required.
+- **Template-dependency trap**: editing a template BODY changes the
+  instantiation copies embedded in every USING module while their .dats
+  mtimes stay unchanged — and shifts char-offset-derived name stamps.
+  Find embedders via the location comments
+  (`grep -l <srcfile> emit/*.go`) and force their re-emit.
 
-1. Un-mute diagnostics (the reporter rewrite above) — DONE in source.
-2. Probe `xsynoug` (1 error), read the real error text, fix the runtime/
-   emitter/frontend gap it names; regate (12 rungs + psuite).
-3. March up the failing-module list; finish line = all 194 modules emit
-   with 0 F3PERR errors AND byte-match the bundle's `emit/*.go`
-   (invoked with the same paths assemble.sh uses).
-4. Then generation 2: assemble from self-produced sources, `go build`,
-   verify the gen-2 binary reproduces gen-1's outputs.
+## Remaining known gaps (quality, not fixpoint)
+
+- ~75 other bridged `Xats_g_eq`/`Xats_g_neq` sites remain binary-wide
+  (`trans12_dynexp` 22, `dynexp3_utils0` 10, `trans12_staexp` 9, ...) —
+  the same stamp-vs-pointer hazard class.  They do not affect the 194
+  emissions (byte-proven) but could bite unexercised inputs; fix on
+  GEQ-SUSPECT evidence or root-fix the resolver's generic-default
+  instantiation (g_eq<T> -> g_cmp<T> with an inner free-tvar instance).
+- `gs_print_nN` alias-form defaults still bridge multi-arg `prints` of
+  CONSTRUCTOR args to the runtime generic printer, so some diagnostics
+  print payloads as `list()` (cosmetic; error COUNTS and control flow
+  match the JS side exactly).  Workaround stays: sequenced single-arg
+  `print(x)` rewrites where readability matters.
+- The srcgen1 prelude bridge-farm (~79k recoverable TIMPLall1 reports
+  per compiler-module compile, on BOTH sides) is inherited from the
+  frontend/prelude template story, not a Go-backend defect.
