@@ -26,6 +26,7 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -562,9 +563,82 @@ var Xats_g_eq = func(x1 any, x2 any) bool {
 	t1 := reflect.TypeOf(x1)
 	t2 := reflect.TypeOf(x2)
 	if t1 == t2 && t1.Comparable() {
-		return x1 == x2
+		eq := x1 == x2
+		if xatsGeqDebug && !eq {
+			xatsGeqSuspect(x1, x2)
+		}
+		return eq
 	}
 	return reflect.DeepEqual(x1, x2)
+}
+
+// XATSGO_GEQ_DEBUG=1: report con-pair g_eq FALSEs whose scalar fields all
+// agree (pointer-unequal but possibly stamp-equal cells — the miscompare
+// shape the bridged pointer-identity g_eq gets wrong).  Histogram by caller;
+// full stacks for the first few.
+var xatsGeqDebug = os.Getenv("XATSGO_GEQ_DEBUG") != ""
+var xatsGeqStacks = 0
+
+func xatsGeqScalarsAgree(c1, c2 *XatsCon, depth int) bool {
+	if c1.Tag != c2.Tag || len(c1.Args) != len(c2.Args) {
+		return false
+	}
+	for i := range c1.Args {
+		a1, a2 := c1.Args[i], c2.Args[i]
+		switch v1 := a1.(type) {
+		case int:
+			if v2, ok := a2.(int); !ok || v1 != v2 {
+				return false
+			}
+		case int32:
+			if v2, ok := a2.(int32); !ok || v1 != v2 {
+				return false
+			}
+		case string:
+			if v2, ok := a2.(string); !ok || v1 != v2 {
+				return false
+			}
+		case bool:
+			if v2, ok := a2.(bool); !ok || v1 != v2 {
+				return false
+			}
+		case *XatsCon:
+			if depth > 0 {
+				if v2, ok := a2.(*XatsCon); !ok || !xatsGeqScalarsAgree(v1, v2, depth-1) {
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
+
+func xatsGeqSuspect(x1, x2 any) {
+	c1, ok1 := x1.(*XatsCon)
+	c2, ok2 := x2.(*XatsCon)
+	if !ok1 || !ok2 {
+		return
+	}
+	if !xatsGeqScalarsAgree(c1, c2, 2) {
+		return
+	}
+	buf := make([]byte, 4096)
+	n := runtime.Stack(buf, false)
+	frames := strings.Split(string(buf[:n]), "\n")
+	caller := "?"
+	for i := 0; i+1 < len(frames); i += 2 {
+		f := frames[i]
+		if strings.HasPrefix(f, "goroutine") || strings.Contains(f, "xatsgo.") {
+			continue
+		}
+		caller = strings.TrimSpace(f)
+		break
+	}
+	fmt.Fprintf(os.Stderr, "GEQ-SUSPECT tag=%d nargs=%d caller=%s\n", c1.Tag, len(c1.Args), caller)
+	if xatsGeqStacks < 5 {
+		xatsGeqStacks++
+		fmt.Fprintf(os.Stderr, "GEQ-STACK:\n%s\n", string(buf[:n]))
+	}
 }
 
 // -- float (dflt) arithmetic / compare (any-typed fallback) ------------------

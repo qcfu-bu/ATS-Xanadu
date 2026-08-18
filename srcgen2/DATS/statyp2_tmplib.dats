@@ -57,6 +57,8 @@ ATS_PACKNAME
 (* ****** ****** *)
 (* ****** ****** *)
 #staload "./../SATS/xbasics.sats"
+//
+#staload "./../SATS/xstamp0.sats"
 (* ****** ****** *)
 #staload "./../SATS/xlabel0.sats"
 #staload "./../SATS/xsymbol.sats"
@@ -1535,7 +1537,14 @@ case+
 t2p2.node() of
 |
 T2Pcst(s2c2) =>
-(s2c1 = s2c2) | _ => false)
+(*
+HX/CLAUDE-2026-08: stamp equality SPELLED OUT (was s2c1 = s2c2): the
+generic g_eq<s2cst> route needs the resolver to instantiate the
+g_eq<a>=g_cmp<a> default, which the srcgen2 backend bridges to a runtime
+pointer-identity compare — WRONG for rebuilt (non-interned) cells.  The
+concrete stamp_cmp call is the same semantics with no template in the way.
+*)
+(stamp_cmp(s2c1.stmp(), s2c2.stmp()) = 0) | _ => false)
 //
 |
 T2Pvar(s2v1) =>
@@ -1544,7 +1553,7 @@ case+
 t2p2.node() of
 |
 T2Pvar(s2v2) =>
-(s2v1 = s2v2) | _ => false)
+(stamp_cmp(s2v1.stmp(), s2v2.stmp()) = 0) | _ => false)
 //
 |
 T2Pf2cl(fcl1) =>
@@ -1647,7 +1656,11 @@ case+
 t2p2.node() of
 |T2Pxtv(xtp2) =>
 if
-(xtp1 = xtp2)
+(*
+HX/CLAUDE-2026-08: stamp equality
+spelled out; see the T2Pcst arm note.
+*)
+(stamp_cmp(xtp1.stmp(), xtp2.stmp()) = 0)
 then true else
 (f1_xset(xtp1, t2p2); true)//endof(IF)
 |_(*non-T2Pxtv*) =>
@@ -1957,7 +1970,11 @@ val+S2LAB(l1, t2p1) = ltp1
 val+S2LAB(l2, t2p2) = ltp2
 in//let
 if
-(l1 != l2)
+(*
+HX/CLAUDE-2026-08: concrete label_eq
+(was l1 != l2); see the T2Pcst arm note.
+*)
+(label_cmp(l1, l2) != 0)
 then false
 else f1_labck(lts1, lts2) endlet
 )
@@ -1994,7 +2011,7 @@ val
 btf1 =
 (
 if
-l1 != l2 then false else
+(label_cmp(l1, l2) != 0) then false else
 unify00_s2typ(e1nv,t2p1,t2p2))
 val
 btf2 = f1_unify(e1nv,lts1,lts2) }
