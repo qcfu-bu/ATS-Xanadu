@@ -268,6 +268,35 @@ D3Etimp
 ( d3f0
 , timp ) = d3e0.node()
 //
+(*
+HX/CLAUDE-2026-08: RE-RESOLVE in the CURRENT scope.  The timp's
+candidate list was computed by trtmp3b at the DEFINITION site of the
+enclosing template body; inside an INSTANTIATION that list is stale —
+it neither sees the where-scoped hook impls pushed for this body nor
+the instantiation's svts substitutions (which t3apq_resolve applies
+via the env's composed svts frames).  An unprocessed TIMPLall1 is
+therefore re-queried fresh; a processed TIMPLallx passes through.
+*)
+val timp =
+(
+case+
+timp.node() of
+|
+TIMPLall1
+(d2c0, t2js, _) =>
+tr3cenv_t3apq_resolve(env0, d2c0, t2js)
+|
+(*
+NB: TIMPLallx too — a registered CONCRETE instance's body is resolved
+once at its definition site, so hook-sensitive inner instances arrive
+here already PROCESSED against the definition scope's (global) hooks.
+Per-use-site hook semantics require the fresh query; termination is
+the existing NIMP ceiling + impltmprec stamp guard.
+*)
+TIMPLallx
+(d2c0, t2js, _) =>
+tr3cenv_t3apq_resolve(env0, d2c0, t2js))
+//
 val timp =
 tr3cenv_timpl_process(env0, timp)
 //

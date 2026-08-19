@@ -2023,6 +2023,23 @@ DIMPLone2
   f0_targmat
   (svts, t2js, sqas, tqas))
 //
+(*
+HX/CLAUDE-2026-08: an ALIAS-FORM template impl (`#impltmp <a0> name =
+body`) writes NO instance arguments on its left-hand side and lands here
+as DIMPLone1 — it means "for every a0, name<a0> is body".  Match it by
+pairing its quantifier variables POSITIONALLY with the query's type
+arguments (the same f0_tqagmat the D3Cfundclst arm uses).  Guarded to
+genuinely QUANTIFIED impls: an unquantified DIMPLone1 must not become a
+universal match.
+*)
+|
+DIMPLone1
+(_(*dcst*)) =>
+(
+case+ tqas of
+|list_nil() => optn_nil((*void*))
+|list_cons _ => f0_tqagmat(tqas, t2js))
+//
 |
 _(*otherwise*) => optn_nil((*void*))
 //
