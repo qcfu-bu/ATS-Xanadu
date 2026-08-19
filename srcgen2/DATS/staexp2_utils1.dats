@@ -54,6 +54,7 @@ ATS_PACKNAME
 #staload "./../SATS/xbasics.sats"
 (* ****** ****** *)
 #staload "./../SATS/xlabel0.sats"
+#staload "./../SATS/xstamp0.sats"
 #staload "./../SATS/xsymbol.sats"
 (* ****** ****** *)
 #staload "./../SATS/staexp2.sats"
@@ -76,7 +77,7 @@ case+ s2t0 of
 (
 case+ tbas of
 | T2Bpred(name) =>
-  (name = INT0_symbl)
+  (symbl_cmp(name, INT0_symbl) = 0)
 | _(*non-T2Bpred*) => false
 ) // end of [S2RTbas]
 | _ (* non-S2Tbas *) => false
@@ -174,7 +175,7 @@ case+ s2t0 of
 (
 case+ tbas of
 | T2Bpred(name) =>
-  (name = ADDR_symbl)
+  (symbl_cmp(name, ADDR_symbl) = 0)
 | _(*non-T2Bpred*) => false
 ) // end of [S2RTbas]
 | _ (* non-S2Tbas *) => false
@@ -191,7 +192,7 @@ case+ s2t0 of
 (
 case+ tbas of
 | T2Bpred(name) =>
-  (name = BOOL_symbl)
+  (symbl_cmp(name, BOOL_symbl) = 0)
 | _(*non-T2Bpred*) => false
 ) // end of [S2RTbas]
 | _ (* non-S2Tbas *) => false
@@ -208,7 +209,7 @@ case+ s2t0 of
 (
 case+ tbas of
 | T2Bpred(name) =>
-  (name = CHAR_symbl)
+  (symbl_cmp(name, CHAR_symbl) = 0)
 | _ (* non-T2Bpred *) => false
 ) // end of [S2RTbas]
 | _ (* non-S2Tbas *) => false
@@ -314,12 +315,12 @@ _ (*non-T2Bimpr(...)*) => s2t0
 #implfun
 t2abs_equal
 (x1, x2) =
-(x1.stmp() = x2.stmp())
+(stamp_cmp(x1.stmp(), x2.stmp()) = 0)
 (* ****** ****** *)
 #implfun
 t2dat_equal
 (x1, x2) =
-(x1.stmp() = x2.stmp())
+(stamp_cmp(x1.stmp(), x2.stmp()) = 0)
 (* ****** ****** *)
 #impltmp
 g_lte<t2bas> = lte_t2bas_t2bas
@@ -394,7 +395,7 @@ case+
 (x1, x2) of
 |
 ( T2Bpred(nm1)
-, T2Bpred(nm2)) => (nm1 = nm2)
+, T2Bpred(nm2)) => (symbl_cmp(nm1, nm2) = 0)
 |
 ( T2Btabs(ta1)
 , T2Btabs(ta2)) => t2abs_equal(ta1, ta2)
@@ -433,7 +434,7 @@ S2Tid0
 case+ x2 of
 |
 S2Tid0
-(tid2) => (tid1 = tid2) | _ => false
+(tid2) => (symbl_cmp(tid1, tid2) = 0) | _ => false
 )
 //
 |

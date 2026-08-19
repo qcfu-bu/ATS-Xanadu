@@ -55,6 +55,7 @@ ATS3.XANADU.xatsopt-20220500"
 //
 (* ****** ****** *)
 (* ****** ****** *)
+#staload "./../SATS/xstamp0.sats"
 #staload "./../SATS/locinfo.sats"
 (* ****** ****** *)
 #staload "./../SATS/xsymmap.sats"
@@ -315,7 +316,7 @@ optn_vt_nil((*void*))
 |
 list_cons(s2c1, s2cs) =>
 if
-(s2c0 = s2c1)
+(stamp_cmp(s2c0.stmp(), s2c1.stmp()) = 0)
 then
 s2abs_get_styp(s2c0) else f0_s2cs(s2cs))
 }

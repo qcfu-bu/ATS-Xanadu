@@ -855,8 +855,7 @@ case+ opt1 of
 | ~
 optn_vt_nil() =>
 (
-name =
-s2cst_get_name(s2c1))
+symbl_cmp(name, s2cst_get_name(s2c1)) = 0)
 | ~
 optn_vt_cons(s2f1) =>
 (

@@ -54,6 +54,7 @@ ATS_PACKNAME
 #staload "./../SATS/xbasics.sats"
 (* ****** ****** *)
 #staload "./../SATS/xlabel0.sats"
+#staload "./../SATS/xstamp0.sats"
 #staload "./../SATS/xsymbol.sats"
 (* ****** ****** *)
 #staload "./../SATS/staexp2.sats"
@@ -242,7 +243,7 @@ list_nil() => optn_vt_nil()
 |
 list_cons(svt1, svts) =>
 if
-(s2v0 = svt1.0)
+(stamp_cmp(s2v0.stmp(), s2var_get_stmp(svt1.0)) = 0)
 then
 optn_vt_cons(svt1.1) else auxmain(svts)
 )
@@ -329,11 +330,11 @@ local
 fun
 isP1TR
 (s2c0: s2cst): bool =
-(s2c0.name() = P1TR_TBOX_symbl)
+(symbl_cmp(s2c0.name(), P1TR_TBOX_symbl) = 0)
 fun
 isP2TR
 (s2c0: s2cst): bool =
-(s2c0.name() = P2TR_TBOX_symbl)
+(symbl_cmp(s2c0.name(), P2TR_TBOX_symbl) = 0)
 //
 in//local
 //
@@ -376,11 +377,11 @@ local
 fun
 isL0AZY
 (s2c0: s2cst): bool =
-(s2c0.name() = L0AZY_TBOX_symbl)
+(symbl_cmp(s2c0.name(), L0AZY_TBOX_symbl) = 0)
 fun
 isL1AZY
 (s2c0: s2cst): bool =
-(s2c0.name() = L1AZY_VTBX_symbl)
+(symbl_cmp(s2c0.name(), L1AZY_VTBX_symbl) = 0)
 //
 in//local
 //
@@ -450,7 +451,7 @@ t2p0.node() of
 //
 |T2Pxtv(xtp1) =>
 if
-xtp0 = xtp1
+stamp_cmp(xtp0.stmp(), xtp1.stmp()) = 0
 then true else
 let
 val t2p1 = xtp1.styp()

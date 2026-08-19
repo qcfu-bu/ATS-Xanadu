@@ -78,11 +78,9 @@ case+
 t2p0.node() of
 |
 T2Pnone0() =>
-prints
-("[", xt2p.stmp(), "]")
+(print("["); print(xt2p.stmp()); print("]"))
 | _(*non-T2Pnone0*) =>
-prints
-("[", xt2p.styp(), "]")
+(print("["); print(xt2p.styp()); print("]"))
 end where
 {
   #impltmp g_print$out<>() = out
@@ -109,59 +107,55 @@ prints("T2Pbas(", sym1, ")")
 //
 |
 T2Pcst(s2c1) =>
-prints("T2Pcst(", s2c1, ")")
+(print("T2Pcst("); print(s2c1); print(")"))
 |
 T2Pvar(s2v1) =>
-prints("T2Pvar(", s2v1, ")")
+(print("T2Pvar("); print(s2v1); print(")"))
 //
 |
 T2Plft(t2p1) =>
-prints("T2Plft(", t2p1, ")")
+(print("T2Plft("); print(t2p1); print(")"))
 //
 |
 T2Pxtv(xtp1) =>
-prints("T2Pxtv(", xtp1, ")")
+(print("T2Pxtv("); print(xtp1); print(")"))
 //
 (* ****** ****** *)
 |
 T2Ptop0(t2p1) =>
-prints("T2Ptop0(", t2p1, ")")
+(print("T2Ptop0("); print(t2p1); print(")"))
 |
 T2Ptop1(t2p1) =>
-prints("T2Ptop1(", t2p1, ")")
+(print("T2Ptop1("); print(t2p1); print(")"))
 //
 (* ****** ****** *)
 //
 |
 T2Parg1
 (knd0, t2p1) =>
-prints
-("T2Parg1(", knd0, ";", t2p1, ")")
+(print("T2Parg1("); print(knd0); print(";"); print(t2p1); print(")"))
 |
 T2Patx2
 (tbef, taft) =>
-prints
-("T2Patx2(", tbef, ";", taft, ")")
+(print("T2Patx2("); print(tbef); print(";"); print(taft); print(")"))
 //
 (* ****** ****** *)
 //
 |
 T2Papps
 (tfun, t2ps) =>
-prints
-("T2Papps(", tfun, ";", t2ps, ")")
+(print("T2Papps("); print(tfun); print(";"); print(t2ps); print(")"))
 |
 T2Plam1
 (s2vs, tres) =>
-prints
-("T2Plam1(", s2vs, ";", tres, ")")
+(print("T2Plam1("); print(s2vs); print(";"); print(tres); print(")"))
 //
 (* ****** ****** *)
 //
 |
 T2Pf2cl(f2cl) =>
 (
-  prints("T2Pf2cl(" , f2cl , ")") )
+  (print("T2Pf2cl("); print(f2cl); print(")")) )
 |
 T2Pfun1
 ( f2cl
@@ -174,37 +168,35 @@ in//let
 prints
 ("T2Pfun1(", f2cl, ";");
 *)
-prints(
-"T2Pfun1(", s2t0, ";", f2cl, ";");
-prints(npf1, ";", t2ps, ";", tres, ")")
+(print("T2Pfun1("); print(s2t0); print(";"); print(f2cl); print(";"));
+(print(npf1); print(";"); print(t2ps); print(";"); print(tres); print(")"))
 end//let//endof[T1Pfun1(f2cl,npf1,...)]
 //
 |
 T2Ptext(name, t2ps) =>
-prints("T2Ptext(", name, ";", t2ps, ")")
+(print("T2Ptext("); print(name); print(";"); print(t2ps); print(")"))
 //
 |
 T2Pexi0(s2vs, t2p1) =>
-prints("T2Pexi0(", s2vs, ";", t2p1, ")")
+(print("T2Pexi0("); print(s2vs); print(";"); print(t2p1); print(")"))
 |
 T2Puni0(s2vs, t2p1) =>
-prints("T2Puni0(", s2vs, ";", t2p1, ")")
+(print("T2Puni0("); print(s2vs); print(";"); print(t2p1); print(")"))
 //
 |
 T2Ptrcd
 (knd0, npf1, lses) =>
-prints
-("T2Ptrcd(", knd0, ";", npf1, ";", lses, ")")
+(print("T2Ptrcd("); print(knd0); print(";"); print(npf1); print(";"); print(lses); print(")"))
 //
 |
-T2Pnone0() => prints("T2Pnone0(",")")
+T2Pnone0() => (print("T2Pnone0("); print(")"))
 |
-T2Pnone1(t2p1) => prints("T2Pnone1(",t2p1,")")
+T2Pnone1(t2p1) => (print("T2Pnone1("); print(t2p1); print(")"))
 |
-T2Ps2exp(s2e1) => prints("T2Ps2exp(",s2e1,")")
+T2Ps2exp(s2e1) => (print("T2Ps2exp("); print(s2e1); print(")"))
 //
 |T2Perrck // HX: tread-error
-(lvl0,t2p1) => prints("T2Perrck(",lvl0,";",t2p1,")")
+(lvl0,t2p1) => (print("T2Perrck("); print(lvl0); print(";"); print(t2p1); print(")"))
 //
 end (*let*) // end of [s2typ_fprint(t2p0,out)]
 //

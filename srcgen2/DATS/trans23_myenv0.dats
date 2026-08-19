@@ -55,6 +55,7 @@ ATS_PACKNAME
 //
 (* ****** ****** *)
 (* ****** ****** *)
+#staload "./../SATS/xstamp0.sats"
 #staload "./../SATS/locinfo.sats"
 (* ****** ****** *)
 #staload "./../SATS/xsymmap.sats"
@@ -322,7 +323,7 @@ optn_vt_nil((* 0 *)))
 |list_cons
 (s2c1, s2cs) =>
 if // if
-(s2c0 = s2c1) then//then
+(stamp_cmp(s2c0.stmp(), s2c1.stmp()) = 0) then//then
 s2abs_get_styp(s2c0) else f0_s2cs(s2cs))}
 //
 end(*let*) // end-of-[tr23env_evstyp_cst(...)]

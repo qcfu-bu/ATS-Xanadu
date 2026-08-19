@@ -103,7 +103,7 @@ isPLUS
 case+
 s1t0.node() of
 | S1Tid0(tid0) =>
-  (tid0 = ADD_symbl)
+  (symbl_cmp(tid0, ADD_symbl) = 0)
 | _(*non-S1Tid0*) => false
 )
 fun
@@ -114,7 +114,7 @@ isMNUS
 case+
 s1t0.node() of
 | S1Tid0(tid0) =>
-  (tid0 = SUB_symbl)
+  (symbl_cmp(tid0, SUB_symbl) = 0)
 | _(*non-S1Tid0*) => false
 )
 fun
@@ -125,7 +125,7 @@ isARRW
 case+
 s1t0.node() of
 | S1Tid0(tid0) =>
-  (tid0 = MSGT_symbl)
+  (symbl_cmp(tid0, MSGT_symbl) = 0)
 | _(*non-S1Tid0*) => false
 )
 //
@@ -583,7 +583,7 @@ isANY
 case+
 s1e0.node() of
 |S1Eid0(sid1) =>
- (sid1 = WCARD_symbl)
+ (symbl_cmp(sid1, WCARD_symbl) = 0)
 |_(*non-S1Eid0*) => false)
 (* ****** ****** *)
 fun
@@ -810,11 +810,9 @@ s1e0.node() of
 | S1Eid0(sid1) =>
 (
 if//if
-(sid1 =
- DLR_EXTBOX_symbl)
+(symbl_cmp(sid1, DLR_EXTBOX_symbl) = 0)
 then true else
-(sid1 =
- DLR_EXTYPE_symbl) )
+(symbl_cmp(sid1, DLR_EXTYPE_symbl) = 0) )
 | _(*non-S1Eid0*) => false
 )(*case+*) // end-of-(isEXTP)
 //
@@ -1004,9 +1002,7 @@ val-
 S1Eid0(sid1) = s1f0.node()
 in//let
 if // if
-(
-sid1 =
-DLR_EXTBOX_symbl)
+(symbl_cmp(sid1, DLR_EXTBOX_symbl) = 0)
 then the_sort2_tbox
 else the_sort2_type end : sort2
 //
@@ -1241,7 +1237,7 @@ s1e0.node() of
 (*
 HX: MSGT="->"
 *)
-(sid1 = MSGT_symbl)
+(symbl_cmp(sid1, MSGT_symbl) = 0)
 |S1Earrw(s1es) => (true)
 //
 |_(*non-S1Eid0*) => false)
@@ -1258,7 +1254,7 @@ s1e0.node() of
 HX: AXCG=">>"
 *)
 |S1Eid0(sid1) =>
-(sid1 = AXCG_symbl)
+(symbl_cmp(sid1, AXCG_symbl) = 0)
 //
 |_(*non-S1Eid0*) => false )
 //

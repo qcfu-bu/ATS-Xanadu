@@ -1220,8 +1220,7 @@ simp.node() of
 case+ scs2 of
 |
 list_nil() =>
-printsln
-("TREAD12-ERROR:", simp)
+(print("TREAD12-ERROR:"); print(simp); printsln())
 |
 list_cons(s2c1, scs2) => ()
 )

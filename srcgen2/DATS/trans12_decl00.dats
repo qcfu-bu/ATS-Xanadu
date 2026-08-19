@@ -315,7 +315,7 @@ iseq0
 case+
 x0.node() of
 | G1Eid0(sym) =>
-  (sym = $SYM.EQ0_symbl)
+  (symbl_cmp(sym, $SYM.EQ0_symbl) = 0)
 | _(*non-G1Eid0*) => false)
 //
 (* ****** ****** *)
@@ -2379,8 +2379,7 @@ HX-2024-08-14:
 For symload promotion
 *)
 if(
-gsym =
-$SYM.DLRDT_symbl) then
+symbl_cmp(gsym, $SYM.DLRDT_symbl) = 0) then
 (
   f0_staload_aft(env0, dpar))
 //
@@ -2414,7 +2413,7 @@ g1f0.node() of
 |
 G1Eid0(id0) =>
 if
-(id0 != EQ0_symbl)
+(symbl_cmp(id0, EQ0_symbl) != 0)
 then optn_nil(*0*) else
 (
 case+
@@ -4657,10 +4656,7 @@ list_cons
 (s2v1, s2vs) =>
 (
 if
-(
-s2v1.name()
-=
-the_symbl_nil)
+symbl_nilq(s2v1.name())
 then f1_s2vs(s2vs)
 else list_cons(s2v1, f1_s2vs(s2vs)))
 ) (*case+*) // end-of-[f1_s2vs(s2vs)]

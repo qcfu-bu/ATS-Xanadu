@@ -159,7 +159,7 @@ list_cons
 ((x1, v1), genv) =>
 (
 if
-(gid0 = x1)
+(symbl_cmp(gid0, x1) = 0)
 then
 optn_vt_cons(v1)
 else

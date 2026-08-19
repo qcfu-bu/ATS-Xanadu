@@ -214,6 +214,107 @@ sweep)
   echo ">> SWEEP: $p PASS / $d DIFF / $e ERR of $((p+d+e))  (details: $SW/RESULTS)"
   grep -v '^PASS' "$SW/RESULTS" | head -20 || true
   ;;
+prewarm)
+  # Parallel re-emit of ALL module references via the bundle (default P=3 —
+  # node bundle processes are memory-heavy; P6 has produced silent empty
+  # emits on 48GB).  Writes emit/<m>.raw + emit/<m>.go so a following
+  # assemble.sh run's mtime check skips re-emitting.  Needed after a bundle
+  # rebuild (GOPATCHED newer than every emit/<m>.go) or template-source edits.
+  PAR="${2:-3}"
+  eval "$(grep '^FRONTEND=' "$OUT/assemble.sh")"
+  eval "$(grep '^CCMODS=' "$OUT/assemble.sh")"
+  JOBS="$PROBEDIR/prewarm.jobs"; : > "$JOBS"
+  for f in "$X"/srcgen2/xats2go/srcgen2/DATS/*.dats; do
+    echo "$(basename "$f" .dats) $f" >> "$JOBS"; done
+  for m in $FRONTEND; do echo "$m $X/srcgen2/DATS/$m.dats" >> "$JOBS"; done
+  for m in $CCMODS; do echo "$m $X/srcgen2/xats2go/xats2cc/srcgen1/DATS/$m.dats" >> "$JOBS"; done
+  emit_one() {
+    m="$1"; f="$2"
+    node --stack-size=$NODESTK "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
+    awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
+    [ -s "$EMIT/$m.go" ] || echo "!! EMPTY EMIT: $m" >&2
+  }
+  n=0
+  while read -r m f; do
+    emit_one "$m" "$f" &
+    n=$((n+1)); [ $((n % PAR)) -eq 0 ] && wait
+  done < "$JOBS"
+  wait
+  empty=$(for g in "$EMIT"/*.go; do [ -s "$g" ] || basename "$g"; done | wc -l | tr -d ' ')
+  echo ">> PREWARM: $n modules re-emitted (P=$PAR); empty emissions: $empty"
+  [ "$empty" = 0 ] || exit 1
+  ;;
+census)
+  # Equality-bridge census over the emitted modules: every xatsgo.Xats_g_eq /
+  # Xats_g_neq call is a frontend `=`/`!=` the resolver bridged to POINTER
+  # identity — a stamp-vs-pointer hazard (see docs/02).  The ratchet file
+  # tests/bridge-census.max pins the allowed count; the campaign drives it to
+  # 0 and any NEW bridge fails the check.  Reports per-module counts + the
+  # source sites (nearest location comment).
+  MAX=$(cat "$OUT/tests/bridge-census.max" 2>/dev/null || echo 999)
+  total=0
+  for f in "$EMIT"/*.go; do
+    n=$(grep -c "xatsgo\.Xats_g_eq\|xatsgo\.Xats_g_neq" "$f"); total=$((total+n))
+    [ "$n" -gt 0 ] && echo "  $n $(basename "$f" .go)"
+  done
+  echo ">> CENSUS: $total equality bridges (ratchet max: $MAX)"
+  if [ "$total" -gt "$MAX" ]; then echo "!! CENSUS RED: $total > $MAX"; exit 1; fi
+  echo ">> CENSUS GREEN"
+  ;;
+regress)
+  # DIFFERENTIAL REGRESSION SUITE — pins the closed gaps:
+  #  * tests/ok*.dats  : must compile CLEAN on BOTH sides (F3PERR=0) with
+  #                      BYTE-EQUAL emitted Go (pins checking-layer fidelity,
+  #                      e.g. the unifier stamp-equality fix).
+  #  * tests/err*.dats : must error IDENTICALLY on both sides — equal F3PERR
+  #                      counts AND byte-equal stdout+stderr after path
+  #                      normalization (pins the diagnostic-printer fidelity).
+  #  * census ratchet  : no NEW pointer-identity equality bridges.
+  # Probes are compiled from srcgen2/DATS (staload-relative paths), copied in.
+  R="$PROBEDIR/regress"; rm -rf "$R"; mkdir -p "$R"
+  rfail=0
+  for t in "$OUT"/tests/ok*.dats "$OUT"/tests/err*.dats; do
+    [ -f "$t" ] || continue
+    nm="$(basename "$t" .dats)"
+    cp "$t" "$X/srcgen2/DATS/zz_$nm.dats"
+    rel="srcgen2/DATS/zz_$nm.dats"
+    ( cd "$X" && "$BIN" "$rel" ) > "$R/$nm.go.out" 2> "$R/$nm.go.err"
+    ( cd "$X" && node --stack-size=$NODESTK "$GOPATCHED" "$rel" ) > "$R/$nm.js.out" 2> "$R/$nm.js.err"
+    rm -f "$X/srcgen2/DATS/zz_$nm.dats"
+    gof=$(cat "$R/$nm.go.out" "$R/$nm.go.err" | grep -c 'F3PERR0-ERROR')
+    jsf=$(cat "$R/$nm.js.out" "$R/$nm.js.err" | grep -c 'F3PERR0-ERROR')
+    for s in out err; do
+      sed "s|$X/||g" "$R/$nm.go.$s" > "$R/$nm.go.$s.n"
+      sed "s|$X/||g" "$R/$nm.js.$s" > "$R/$nm.js.$s.n"
+    done
+    case "$nm" in
+    ok*)
+      if [ "$gof" = 0 ] && [ "$jsf" = 0 ] && cmp -s "$R/$nm.go.out.n" "$R/$nm.js.out.n"; then
+        echo ">> REGRESS OK: $nm (clean both sides, byte-equal emission)"
+      else echo "!! REGRESS FAIL: $nm (goF3PERR=$gof jsF3PERR=$jsf; diff $R/$nm.go.out.n $R/$nm.js.out.n)"; rfail=1; fi
+      ;;
+    err*)
+      if [ "$gof" = "$jsf" ] && [ "$gof" -gt 0 ] \
+         && cmp -s "$R/$nm.go.out.n" "$R/$nm.js.out.n" \
+         && cmp -s "$R/$nm.go.err.n" "$R/$nm.js.err.n"; then
+        echo ">> REGRESS OK: $nm (F3PERR=$gof both sides, identical diagnostics)"
+      else echo "!! REGRESS FAIL: $nm (goF3PERR=$gof jsF3PERR=$jsf; diff $R/$nm.go.out.n $R/$nm.js.out.n; diff $R/$nm.go.err.n $R/$nm.js.err.n)"; rfail=1; fi
+      ;;
+    esac
+  done
+  "$0" census | tail -2 | grep -q "CENSUS GREEN" && echo ">> REGRESS census: GREEN" || { echo "!! REGRESS census: RED"; rfail=1; }
+  [ "$rfail" = 0 ] && echo ">> REGRESS GREEN" || { echo "!! REGRESS RED"; exit 1; }
+  ;;
+sites)
+  # Map every bridged equality call to its SOURCE declaration via the
+  # location comments — the work-list for the closure campaign.
+  for f in "$EMIT"/*.go; do
+    awk -v M=$(basename "$f" .go) '/LCSRCsome1/{loc=$0}
+      /xatsgo\.Xats_g_eq|xatsgo\.Xats_g_neq/{
+        match(loc, /[A-Za-z0-9_\/.-]*\.(dats|sats|hats)\)@\([0-9]*\(line=[0-9]*/);
+        print M"|"substr(loc,RSTART,RLENGTH)}' "$f"
+  done | sed 's|/Users/[A-Za-z0-9_/.-]*/ATS-Xanadu/||;s/)@(/@/;s/(line=/:L/' | sort | uniq -c | sort -k2
+  ;;
 *)
   sed -n '2,40p' "$0"; exit 2
   ;;

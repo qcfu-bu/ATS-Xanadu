@@ -157,9 +157,28 @@ val () =
 let
 val
 drpth0 = the_drpth_get()
+(*
+CLAUDE-2026-08: the drpth payload prints via the CONCRETE drpth_fprint
+(the generic prerr route bridges to the runtime printer under
+self-hosting, which cannot render constructors), BRACKETED by the
+report-channel window: under self-hosting the printer internals write
+to the DEFAULT channel, so the window points it at stderr for the call
+(no-ops on the jsemit00 path, where the resolved hooks already honor
+the g_stderr argument).  Bytes identical on both paths.
+*)
+#extern
+fun
+XATS2GO_report_begin((*void*)): void = $extnam()
+#extern
+fun
+XATS2GO_report_end((*void*)): void = $extnam()
 in//let
-prerrsln("\
-d0parsed_from_fpath: MYCDIR = ", drpth0)
+prerrs("\
+d0parsed_from_fpath: MYCDIR = ");
+XATS2GO_report_begin();
+drpth_fprint(drpth0, g_stderr());
+XATS2GO_report_end();
+prerrsln()
 end//let
 val () =
 prerrsln("\

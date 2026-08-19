@@ -56,8 +56,7 @@ ATS_PACKNAME
 drpth_fprint
 ( dpx, out ) =
 (
-prints
-("DRPTH(", dpx.name(), ")")
+(print("DRPTH("); print(dpx.name()); print(")"))
 ) where
 {
   #impltmp g_print$out<>() = out
@@ -69,8 +68,7 @@ prints
 fpath_fprint
 ( fpx, out ) =
 (
-prints
-("FPATH(", fpx.fnm1(), ")")
+(print("FPATH("); print(fpx.fnm1()); print(")"))
 ) where
 {
   #impltmp g_print$out<>() = out
@@ -85,7 +83,7 @@ fname_fprint
 case+ fnm of
 |
 FNMbase(name) =>
-prints("FNMbase(", name, ")")
+(print("FNMbase("); print(name); print(")"))
 ) where
 {
   #impltmp g_print$out<>() = out

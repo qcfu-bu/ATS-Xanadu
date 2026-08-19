@@ -120,11 +120,11 @@ case+ xnam of
 |
 X2NAMnone() =>
 (
-  prints("X2NAMnone(", ")"))
+  (print("X2NAMnone("); print(")")))
 |
 X2NAMsome(dexp) =>
 (
-  prints("X2NAMsome(", dexp, ")"))
+  (print("X2NAMsome("); print(dexp); print(")")))
 end(*let*)//end-of-[x2nam_fprint(xnam,out0)]
 //
 (* ****** ****** *)
@@ -144,7 +144,7 @@ stmp = d2con_get_stmp(d2c0)
 //
 in//let
 (
-  prints(sym0, "(", stmp, ")"))
+  (print(sym0); print("("); print(stmp); print(")")))
 end(*let*)//end-of-[d2con_fprint(d2c0,out0)]
 //
 (* ****** ****** *)
@@ -164,7 +164,7 @@ stmp = d2cst_get_stmp(d2c0)
 //
 in//let
 (
-  prints(sym0, "(", stmp, ")"))
+  (print(sym0); print("("); print(stmp); print(")")))
 end(*let*)//end-of-[d2cst_fprint(d2c0,out0)]
 //
 (* ****** ****** *)
@@ -184,7 +184,7 @@ stmp = d2var_get_stmp(d2v0)
 //
 in//let
 (
-  prints(sym0, "(", stmp, ")"))
+  (print(sym0); print("("); print(stmp); print(")")))
 end(*let*)//end-of-[d2var_fprint(d2v0,out0)]
 //
 (* ****** ****** *)
@@ -201,46 +201,46 @@ case+
 d2p0.node() of
 //
 |D2Pnil() =>
-prints("D2Pnil(",")")
+(print("D2Pnil("); print(")"))
 |D2Pany() =>
-prints("D2Pany(",")")
+(print("D2Pany("); print(")"))
 |D2Parg() =>
-prints("D2Parg(",")")
+(print("D2Parg("); print(")"))
 //
 |D2Pvar(d2v) =>
-prints("D2Pvar(",d2v,")")
+(print("D2Pvar("); print(d2v); print(")"))
 //
 |D2Pint(tok) =>
-prints("D2Pint(",tok,")")
+(print("D2Pint("); print(tok); print(")"))
 |D2Pbtf(sym) =>
-prints("D2Pbtf(",sym,")")
+(print("D2Pbtf("); print(sym); print(")"))
 |D2Pchr(tok) =>
-prints("D2Pchr(",tok,")")
+(print("D2Pchr("); print(tok); print(")"))
 |D2Pflt(tok) =>
-prints("D2Pflt(",tok,")")
+(print("D2Pflt("); print(tok); print(")"))
 |D2Pstr(tok) =>
-prints("D2Pstr(",tok,")")
+(print("D2Pstr("); print(tok); print(")"))
 //
 |D2Pi00(int) =>
-prints("D2Pi00(",int,")")
+(print("D2Pi00("); print(int); print(")"))
 |D2Pb00(btf) =>
-prints("D2Pb00(",btf,")")
+(print("D2Pb00("); print(btf); print(")"))
 |D2Pc00(chr) =>
-prints("D2Pc00(",chr,")")
+(print("D2Pc00("); print(chr); print(")"))
 |D2Pf00(flt) =>
-prints("D2Pf00(",flt,")")
+(print("D2Pf00("); print(flt); print(")"))
 |D2Ps00(str) =>
-prints("D2Ps00(",str,")")
+(print("D2Ps00("); print(str); print(")"))
 //
 |D2Pcon(d2c) =>
-prints("D2Pcon(",d2c,")")
+(print("D2Pcon("); print(d2c); print(")"))
 //
 |D2Pbang(d2p1) =>
-prints("D2Pbang(",d2p1,")")
+(print("D2Pbang("); print(d2p1); print(")"))
 |D2Pflat(d2p1) =>
-prints("D2Pflat(",d2p1,")")
+(print("D2Pflat("); print(d2p1); print(")"))
 |D2Pfree(d2p1) =>
-prints("D2Pfree(",d2p1,")")
+(print("D2Pfree("); print(d2p1); print(")"))
 //
 (*
 |
@@ -255,21 +255,19 @@ prints
 |
 D2Pcons
 (drpt, d2cs) =>
-prints
-("D2Pcons(",drpt,";",d2cs,")")
+(print("D2Pcons("); print(drpt); print(";"); print(d2cs); print(")"))
 //
 |
 D2Psapp
 (d2f0, s2vs) =>
-prints
-("D2Psapp(",d2f0,";",s2vs,")")
+(print("D2Psapp("); print(d2f0); print(";"); print(s2vs); print(")"))
 //
 |
 D2Pdap0(d1p1) =>
-(prints("D2Pdap0(", d1p1, ")"))
+((print("D2Pdap0("); print(d1p1); print(")")))
 |
 D2Pdap1(d1p1) =>
-(prints("D2Pdap1(", d1p1, ")"))
+((print("D2Pdap1("); print(d1p1); print(")")))
 //
 |
 D2Pdapp
@@ -277,7 +275,7 @@ D2Pdapp
 , npf1, d2ps) =>
 (
 print("D2Pdapp(");
-prints(d2f0,";",npf1,";",d2ps,")"))
+(print(d2f0); print(";"); print(npf1); print(";"); print(d2ps); print(")")))
 //
 |
 D2Prfpt
@@ -285,41 +283,41 @@ D2Prfpt
 , tknd, d2p2) =>
 (
 print("D2Prfpt(");
-prints(d2p1,";",tknd,";",d2p2,")"))
+(print(d2p1); print(";"); print(tknd); print(";"); print(d2p2); print(")")))
 //
 |
 D2Ptup0
 ( npf1, d2ps) =>
-prints("D2Ptup0(",npf1,";",d2ps,")")
+(print("D2Ptup0("); print(npf1); print(";"); print(d2ps); print(")"))
 |
 D2Ptup1
 ( tknd
 , npf1, d2ps) =>
 ( print("D2Ptup1(")
-; prints(tknd,";",npf1,";",d2ps,")"))
+; (print(tknd); print(";"); print(npf1); print(";"); print(d2ps); print(")")))
 |
 D2Prcd2
 ( tknd
 , npf1, ldps) =>
 ( print("D2Prcd2(")
-; prints(tknd,";",npf1,";",ldps,")"))
+; (print(tknd); print(";"); print(npf1); print(";"); print(ldps); print(")")))
 //
 |
 D2Pargtp
 ( d2p1, t2p2) =>
 (
-prints("D2Pargtp(",d2p1,";",t2p2,")"))
+(print("D2Pargtp("); print(d2p1); print(";"); print(t2p2); print(")")))
 |
 D2Pannot
 ( d2p1
 , s1e2, s2e2) =>
 ( print("D2Pannot(")
-; prints( d2p1,";",s1e2,";",s2e2,")"))
+; (print(d2p1); print(";"); print(s1e2); print(";"); print(s2e2); print(")")))
 //
 |D2Pg1mac
  (   g1m1   ) =>
 (
- prints("D2Pg1mac(",g1m1,")"))//D2Pg1mac
+ (print("D2Pg1mac("); print(g1m1); print(")")))//D2Pg1mac
 //
 |D2Pt2pck
 ( d2p1 , t2p2 ) =>
@@ -327,7 +325,7 @@ let
 val
 t2p1 = d2p1.styp() in
 ( print("D2Pt2pck(")
-; prints( d2p1,";",t2p1,";",t2p2,")"))
+; (print(d2p1); print(";"); print(t2p1); print(";"); print(t2p2); print(")")))
 endlet // end of [ D2Pt2pck(d2p1, t2p2) ]
 //
 |D2Pt2pkc
@@ -336,12 +334,12 @@ let
 val
 t2p1 = d2p1.styp() in
 ( print("D2Pt2pkc(")
-; prints( d2p1,";",t2p1,";",t2p2,")"))
+; (print(d2p1); print(";"); print(t2p1); print(";"); print(t2p2); print(")")))
 endlet // end of [ D2Pt2pkc(d2p1, t2p2) ]
 //
-|D2Pnone0() => prints( "D2Pnone0(",")" )
-|D2Pnone1(d1p1) => prints("D2Pnone1(",d1p1,")")
-|D2Pnone2(d2p1) => prints("D2Pnone2(",d2p1,")")
+|D2Pnone0() => (print("D2Pnone0("); print(")"))
+|D2Pnone1(d1p1) => (print("D2Pnone1("); print(d1p1); print(")"))
+|D2Pnone2(d2p1) => (print("D2Pnone2("); print(d2p1); print(")"))
 //
 (* ****** ****** *)
 //
@@ -357,12 +355,12 @@ if // if
 (lvl1 >= 2)
 then
 (
-  prints("D2Perrck(",lvl1,";",d2p2,")"))
+  (print("D2Perrck("); print(lvl1); print(";"); print(d2p2); print(")")))
 else // (lvl1<=1)
 let
 val loc0 = d2p0.lctn() in//let
 (
-  prints("D2Perrck(",loc0,";",lvl1,";",d2p2,")"))
+  (print("D2Perrck("); print(loc0); print(";"); print(lvl1); print(";"); print(d2p2); print(")")))
 end (*let*) // end-of-[ D2Perrck(lvl1,d2p2) ]
 //
 end (*let*) // end-of-[ d2pat_fprint(d2p0,out0) ]
@@ -376,7 +374,7 @@ let
 #impltmp
 g_print$out<>() = out0
 in//let
-  prints("D2RPT(", drpt.dpat(), ")")
+  (print("D2RPT("); print(drpt.dpat()); print(")"))
 end (*let*) // end of [ d2rpt_fprint(drpt,out0) ]
 //
 (* ****** ****** *)
@@ -393,64 +391,60 @@ case+
 d2e0.node() of
 //
 |D2Eint(tok) =>
-prints("D2Eint(",tok,")")
+(print("D2Eint("); print(tok); print(")"))
 |D2Ebtf(sym) =>
-prints("D2Ebtf(",sym,")")
+(print("D2Ebtf("); print(sym); print(")"))
 |D2Echr(tok) =>
-prints("D2Echr(",tok,")")
+(print("D2Echr("); print(tok); print(")"))
 |D2Eflt(tok) =>
-prints("D2Eflt(",tok,")")
+(print("D2Eflt("); print(tok); print(")"))
 |D2Estr(tok) =>
-prints("D2Estr(",tok,")")
+(print("D2Estr("); print(tok); print(")"))
 //
 |D2Ei00(int) =>
-prints("D2Ei00(",int,")")
+(print("D2Ei00("); print(int); print(")"))
 |D2Eb00(btf) =>
-prints("D2Eb00(",btf,")")
+(print("D2Eb00("); print(btf); print(")"))
 |D2Ec00(chr) =>
-prints("D2Ec00(",chr,")")
+(print("D2Ec00("); print(chr); print(")"))
 |D2Ef00(flt) =>
-prints("D2Ef00(",flt,")")
+(print("D2Ef00("); print(flt); print(")"))
 |D2Es00(str) =>
-prints("D2Es00(",str,")")
+(print("D2Es00("); print(str); print(")"))
 //
 |D2Etop(sym) =>
-prints("D2Etop(", sym, ")")
+(print("D2Etop("); print(sym); print(")"))
 //
 (* ****** ****** *)
 //
 |D2Evar(d2v) =>
-prints("D2Evar(", d2v, ")")
+(print("D2Evar("); print(d2v); print(")"))
 //
 |D2Econ(d2c) =>
-prints("D2Econ(", d2c, ")")
+(print("D2Econ("); print(d2c); print(")"))
 |D2Ecst(d2c) =>
-prints("D2Ecst(", d2c, ")")
+(print("D2Ecst("); print(d2c); print(")"))
 //
 (* ****** ****** *)
 //
 |
 D2Econs(d2cs) =>
 (
-prints
-("D2Econs(", d2cs, ")"))
+(print("D2Econs("); print(d2cs); print(")")))
 where
 {
 #impltmp
 g_print<d2con>(x) =
-prints
-(x.name(),"(",x.lctn(),")") }
+(print(x.name()); print("("); print(x.lctn()); print(")")) }
 |
 D2Ecsts(d2cs) =>
 (
-prints
-("D2Ecsts(", d2cs, ")"))
+(print("D2Ecsts("); print(d2cs); print(")")))
 where
 {
 #impltmp
 g_print<d2cst>(x) =
-prints
-(x.name(),"(",x.lctn(),")") }
+(print(x.name()); print("("); print(x.lctn()); print(")")) }
 //
 (* ****** ****** *)
 //
@@ -458,32 +452,30 @@ prints
 D2Esym0
 ( drxp
 , d1e1, dpis) =>
-prints
-( "D2Esym0("
-, drxp,";",d1e1,";",dpis,")")
+(print("D2Esym0("); print(drxp); print(";"); print(d1e1); print(";"); print(dpis); print(")"))
 //
 (* ****** ****** *)
 //
 |
 D2Esapp
 ( d2e1, s2es) =>
-prints("D2Esapp(",d2e1,";",s2es,")")
+(print("D2Esapp("); print(d2e1); print(";"); print(s2es); print(")"))
 |
 D2Etapp
 ( d2e1, s2es) =>
-prints("D2Etapp(",d2e1,";",s2es,")")
+(print("D2Etapp("); print(d2e1); print(";"); print(s2es); print(")"))
 //
 (* ****** ****** *)
 //
 |
 D2Edap0(d2f0) =>
-prints( "D2Edap0(", d2f0, ")" )
+(print("D2Edap0("); print(d2f0); print(")"))
 |
 D2Edapp
 ( d2f0
 , npf1, d2es) =>
 ( print("D2Edapp(")
-; prints(d2f0,";",npf1,";",d2es,")"))
+; (print(d2f0); print(";"); print(npf1); print(";"); print(d2es); print(")")))
 //
 (* ****** ****** *)
 //
@@ -492,9 +484,8 @@ D2Eproj
 ( tknd
 , drxp
 , dlab, dtup) =>
-( prints
-  ("D2Eproj(",tknd,";")
-; prints(drxp,";",dlab,";",dtup,")"))
+( (print("D2Eproj("); print(tknd); print(";"))
+; (print(drxp); print(";"); print(dlab); print(";"); print(dtup); print(")")))
 //
 (* ****** ****** *)
 //
@@ -502,7 +493,7 @@ D2Eproj
 D2Elet0
 ( dcls, d2e1) =>
 (
-prints("D2Elet0(",dcls,";",d2e1,")"))
+(print("D2Elet0("); print(dcls); print(";"); print(d2e1); print(")")))
 //
 (* ****** ****** *)
 //
@@ -510,28 +501,28 @@ prints("D2Elet0(",dcls,";",d2e1,")"))
 ( d2e1
 , dthn, dels) =>
 ( print("D2Eift0(")
-; prints(d2e1,";",dthn,";",dels,")"))
+; (print(d2e1); print(";"); print(dthn); print(";"); print(dels); print(")")))
 //
 |
 D2Ecas0
 ( tknd
 , d2e1, d2cs) =>
 ( print("D2Ecas0(");
-  prints(tknd,";",d2e1,";",d2cs,")"))
+  (print(tknd); print(";"); print(d2e1); print(";"); print(d2cs); print(")")))
 //
 (* ****** ****** *)
 //
 |D2Eseqn
 ( d2es, d2e1) =>
 (
-prints("D2Eseqn(",d2es,";",d2e1,")"))
+(print("D2Eseqn("); print(d2es); print(";"); print(d2e1); print(")")))
 //
 (* ****** ****** *)
 //
 |D2Etup0
 ( npf1, d2es) =>
 (
-prints("D2Etup0(",npf1,";",d2es,")"))
+(print("D2Etup0("); print(npf1); print(";"); print(d2es); print(")")))
 (*
 |D2Ercd0
 (npf1, ldes) =>
@@ -544,13 +535,13 @@ D2Etup1
 ( tknd
 , npf1, d2es) =>
 ( print("D2Etup1(")
-; prints(tknd,";",npf1,";",d2es,")") )
+; (print(tknd); print(";"); print(npf1); print(";"); print(d2es); print(")")) )
 |
 D2Ercd2
 ( tknd
 , npf1, ldes) =>
 ( print("D2Ercd2(")
-; prints(tknd,";",npf1,";",ldes,")") )
+; (print(tknd); print(";"); print(npf1); print(";"); print(ldes); print(")")) )
 //
 (* ****** ****** *)
 //
@@ -560,10 +551,8 @@ D2Elam0
 , f2as, sres
 , arrw, body) =>
 (
-prints
-("D2Elam0(",tknd,";");
-prints
-(f2as,";",sres,";",arrw,";",body,")"))
+(print("D2Elam0("); print(tknd); print(";"));
+(print(f2as); print(";"); print(sres); print(";"); print(arrw); print(";"); print(body); print(")")))
 //
 |
 D2Efix0
@@ -572,10 +561,8 @@ D2Efix0
 , f2as, sres
 , arrw, body) =>
 (
-prints
-("D2Efix0(",tknd,";",dpid,";");
-prints
-(f2as,";",sres,";",arrw,";",body,")"))
+(print("D2Efix0("); print(tknd); print(";"); print(dpid); print(";"));
+(print(f2as); print(";"); print(sres); print(";"); print(arrw); print(";"); print(body); print(")")))
 //
 (* ****** ****** *)
 //
@@ -585,62 +572,61 @@ D2Etry0
 , d2e1, dcls) =>
 (
 print("D2Etry0(");
-prints
-(tknd, ";", d2e1, ";",dcls,")"))
+(print(tknd); print(";"); print(d2e1); print(";"); print(dcls); print(")")))
 //
 (* ****** ****** *)
 //
 |
 D2Eaddr(d2e1) =>
 (
-  prints("D2Eaddr(", d2e1, ")"))
+  (print("D2Eaddr("); print(d2e1); print(")")))
 |
 D2Eview(d2e1) =>
 (
-  prints("D2Eview(", d2e1, ")"))
+  (print("D2Eview("); print(d2e1); print(")")))
 |
 D2Elval(d2e1) =>
 (
-  prints("D2Elval(", d2e1, ")"))
+  (print("D2Elval("); print(d2e1); print(")")))
 //
 |
 D2Eeval(d2e1) =>
 (
-  prints("D2Eeval(", d2e1, ")"))
+  (print("D2Eeval("); print(d2e1); print(")")))
 //
 |
 D2Efold(d2e1) =>
 (
-  prints("D2Efold(", d2e1, ")"))
+  (print("D2Efold("); print(d2e1); print(")")))
 |
 D2Efree(d2e1) =>
 (
-  prints("D2Efree(", d2e1, ")"))
+  (print("D2Efree("); print(d2e1); print(")")))
 //
 |
 D2Ewhere
 ( d2e1, dcls) =>
 (
-prints("D2Ewhere(",d2e1,";",dcls,")"))
+(print("D2Ewhere("); print(d2e1); print(";"); print(dcls); print(")")))
 //
 (* ****** ****** *)
 |
 D2Eassgn
 ( d2el, d2er) =>
 (
-prints("D2Eassgn(",d2el,";",d2er,")"))
+(print("D2Eassgn("); print(d2el); print(";"); print(d2er); print(")")))
 //
 |
 D2Exazgn
 ( d2el, d2er) =>
 (
-prints("D2Exazgn(",d2el,";",d2er,")"))
+(print("D2Exazgn("); print(d2el); print(";"); print(d2er); print(")")))
 //
 |
 D2Exchng
 ( d2el, d2er) =>
 (
-prints("D2Exchng(",d2el,";",d2er,")"))
+(print("D2Exchng("); print(d2el); print(";"); print(d2er); print(")")))
 //
 (* ****** ****** *)
 //
@@ -648,12 +634,12 @@ prints("D2Exchng(",d2el,";",d2er,")"))
 D2Ebrget
 ( dpis, d2es) =>
 (
-prints("D2Ebrget(",dpis,";",d2es,")"))
+(print("D2Ebrget("); print(dpis); print(";"); print(d2es); print(")")))
 |
 D2Ebrset
 ( dpis, d2es) =>
 (
-prints("D2Ebrset(",dpis,";",d2es,")"))
+(print("D2Ebrset("); print(dpis); print(";"); print(d2es); print(")")))
 //
 (* ****** ****** *)
 |
@@ -663,8 +649,8 @@ D2Edtsel
 , npf1, opt2) =>
 (
 print("D2Edtsel(");
-prints(tknd,";", lab1,";");
-prints(dpis, ";",npf1, ";",opt2, ")"))
+(print(tknd); print(";"); print(lab1); print(";"));
+(print(dpis); print(";"); print(npf1); print(";"); print(opt2); print(")")))
 //
 (* ****** ****** *)
 //
@@ -672,7 +658,7 @@ prints(dpis, ";",npf1, ";",opt2, ")"))
 D2Eraise
 ( tknd, d2e1) =>
 (
-prints("D2Eraise(",tknd,";",d2e1,")"))
+(print("D2Eraise("); print(tknd); print(";"); print(d2e1); print(")")))
 //
 (* ****** ****** *)
 //
@@ -680,21 +666,21 @@ prints("D2Eraise(",tknd,";",d2e1,")"))
 D2El0azy
 ( dsym, d2e1) =>
 (
-prints("D2El0azy(",dsym,";",d2e1,")"))
+(print("D2El0azy("); print(dsym); print(";"); print(d2e1); print(")")))
 |
 D2El1azy
 ( dsym
 , d2e1, d2es) =>
 (
 print("D2El1azy(");
-prints(dsym, ";",d2e1, ";",d2es, ")"))
+(print(dsym); print(";"); print(d2e1); print(";"); print(d2es); print(")")))
 |
 D2Eelazy
 ( dsym
 , d2e1, d2es) =>
 (
 print("D2Eelazy(");
-prints(dsym, ";",d2e1, ";",d2es, ")"))
+(print(dsym); print(";"); print(d2e1); print(";"); print(d2es); print(")")))
 //
 (* ****** ****** *)
 //
@@ -704,14 +690,14 @@ D2Eannot
 , s1e2, s2e2) =>
 (
 print("D2Eannot(");
-prints(d2e1, ";",s1e2, ";",s2e2, ")"))
+(print(d2e1); print(";"); print(s1e2); print(";"); print(s2e2); print(")")))
 //
 (* ****** ****** *)
 //
 |D2Eg1mac
 (    g1m1    ) =>
 (
-prints("D2Eg1mac(",g1m1,")"))//D2Eg1mac
+(print("D2Eg1mac("); print(g1m1); print(")")))//D2Eg1mac
 //
 (* ****** ****** *)
 //
@@ -722,7 +708,7 @@ val
 t2p1 = d2e1.styp() in
 (
 print("D2Elabck(");
-prints(d2e1, ";",t2p1, ";",lab2, ")"))
+(print(d2e1); print(";"); print(t2p1); print(";"); print(lab2); print(")")))
 endlet // end of [D2Elabck(d2e1, lab2)]
 //
 |D2Et2pck
@@ -732,7 +718,7 @@ val
 t2p1 = d2e1.styp() in
 (
 print("D2Et2pck(");
-prints(d2e1, ";",t2p1, ";",t2p2, ")"))
+(print(d2e1); print(";"); print(t2p1); print(";"); print(t2p2); print(")")))
 endlet // end of [D2Et2pck(d2e1, t2p2)]
 |D2Et2ped
 ( d2e1, t2p2 ) =>
@@ -741,7 +727,7 @@ val
 t2p1 = d2e1.styp() in
 (
 print("D2Et2ped(");
-prints(d2e1, ";",t2p1, ";",t2p2, ")"))
+(print(d2e1); print(";"); print(t2p1); print(";"); print(t2p2); print(")")))
 endlet // end of [D2Et2ped(d2e1, t2p2)]
 //
 (* ****** ****** *)
@@ -750,7 +736,7 @@ endlet // end of [D2Et2ped(d2e1, t2p2)]
 D2Eexists
 ( s2es, d2e1) =>
 (
-prints("D2Eexists(",s2es,";",d2e1,")"))
+(print("D2Eexists("); print(s2es); print(";"); print(d2e1); print(")")))
 //
 (* ****** ****** *)
 //
@@ -758,19 +744,19 @@ prints("D2Eexists(",s2es,";",d2e1,")"))
 D2Eextnam
 ( tknd, gnam) =>
 (
-prints("D2Eextnam(",tknd,";",gnam,")"))
+(print("D2Eextnam("); print(tknd); print(";"); print(gnam); print(")")))
 //
 |
 D2Esynext
 ( tknd, gexp) =>
 (
-prints("D2Esynext(",tknd,";",gexp,")"))
+(print("D2Esynext("); print(tknd); print(";"); print(gexp); print(")")))
 //
 (* ****** ****** *)
 //
-|D2Enone0() => prints( "D2Enone0(",")" )
-|D2Enone1(d1e1) => prints("D2Enone1(",d1e1,")")
-|D2Enone2(d2e1) => prints("D2Enone2(",d2e1,")")
+|D2Enone0() => (print("D2Enone0("); print(")"))
+|D2Enone1(d1e1) => (print("D2Enone1("); print(d1e1); print(")"))
+|D2Enone2(d2e1) => (print("D2Enone2("); print(d2e1); print(")"))
 //
 (* ****** ****** *)
 //
@@ -785,12 +771,12 @@ D2Eerrck // HX: generated
 if // if
 (lvl1 >= 2)
 then
-prints("D2Eerrck(",lvl1,";",d2e2,")")
+(print("D2Eerrck("); print(lvl1); print(";"); print(d2e2); print(")"))
 else // (lvl1<=1)
 let
 val loc0 = d2e0.lctn() in//let
 (
-  prints("D2Eerrck(",loc0,";",lvl1,";",d2e2,")"))
+  (print("D2Eerrck("); print(loc0); print(";"); print(lvl1); print(";"); print(d2e2); print(")")))
 end (*let*) // end-of-[D2Eerrck(lvl1,d2e2)]
 //
 (* ****** ****** *)
@@ -807,7 +793,7 @@ let
 g_print$out<>() = out0
 in//let
 (
-  prints("D2RXP(", drxp.dexp(), ")"))
+  (print("D2RXP("); print(drxp.dexp()); print(")")))
 end (*let*) // end of [ d2rxp_fprint(drxp,out0) ]
 //
 (* ****** ****** *)
@@ -826,17 +812,15 @@ farg.node() of
 |
 F2ARGdapp
 (npf1, d2ps) =>
-prints
-("F2ARGdapp(",npf1,";",d2ps,")")
+(print("F2ARGdapp("); print(npf1); print(";"); print(d2ps); print(")"))
 //
 |
 F2ARGsapp
 (s2vs, s2ps) =>
-prints
-("F2ARGsapp(",s2vs,";",s2ps,")")
+(print("F2ARGsapp("); print(s2vs); print(";"); print(s2ps); print(")"))
 |
 F2ARGmets
-(   s2es   ) => prints("F2ARGmets(",s2es,")")
+(   s2es   ) => (print("F2ARGmets("); print(s2es); print(")"))
 //
 end (*let*) // end of [ f2arg_fprint(farg,out0) ]
 //
@@ -854,10 +838,10 @@ case+
 dgua.node() of
 |
 D2GUAexp(d2e1) =>
-prints("D2GUAexp(",d2e1,")")
+(print("D2GUAexp("); print(d2e1); print(")"))
 |
 D2GUAmat(d2e1,d2p2) =>
-prints("D2GUAmat(",d2e1,";",d2p2,")")
+(print("D2GUAmat("); print(d2e1); print(";"); print(d2p2); print(")"))
 //
 end (*let*) // end of [ d2gua_fprint(dgua,out0) ]
 //
@@ -874,10 +858,10 @@ case+
 dgpt.node() of
 |
 D2GPTpat(d2p1) =>
-prints("D2GPTpat(",d2p1,")")
+(print("D2GPTpat("); print(d2p1); print(")"))
 |
 D2GPTgua(d2p1,d2gs) =>
-prints("D2GPTgua(",d2p1,";",d2gs,")")
+(print("D2GPTgua("); print(d2p1); print(";"); print(d2gs); print(")"))
 end (*let*) // end of [ d2gpt_fprint(dgpt,out0) ]
 //
 #implfun
@@ -891,10 +875,10 @@ case+
 dcls.node() of
 |
 D2CLSgpt(dgpt) =>
-prints("D2CLSgpt(",dgpt,")")
+(print("D2CLSgpt("); print(dgpt); print(")"))
 |
 D2CLScls(d2g1,d2e2) =>
-prints("D2CLScls(",d2g1,";",d2e2,")")
+(print("D2CLScls("); print(d2g1); print(";"); print(d2e2); print(")"))
 end (*let*) // end of [ d2cls_fprint(dcls,out0) ]
 //
 (* ****** ****** *)
@@ -911,16 +895,16 @@ case+ d2i0 of
 //
 |
 D2ITMvar(d2v1) =>
-prints("D2ITMvar(", d2v1, ")")
+(print("D2ITMvar("); print(d2v1); print(")"))
 |
 D2ITMcon(d2cs) =>
-prints("D2ITMcon(", d2cs, ")")
+(print("D2ITMcon("); print(d2cs); print(")"))
 |
 D2ITMcst(d2cs) =>
-prints("D2ITMcst(", d2cs, ")")
+(print("D2ITMcst("); print(d2cs); print(")"))
 |
 D2ITMsym(sym1, d2ps) =>
-prints("D2ITMsym(", sym1, ";", d2ps, ")")
+(print("D2ITMsym("); print(sym1); print(";"); print(d2ps); print(")"))
 //
 end (*let*) // end of [ d2itm_fprint(d2i0,out0) ]
 //
@@ -937,10 +921,10 @@ in//let
 case+ dptm of
 |
 D2PTMnone(dqid) =>
-prints("D2PTMnone(", dqid, ")")
+(print("D2PTMnone("); print(dqid); print(")"))
 |
 D2PTMsome(pval, d2i1) =>
-prints("D2PTMsome(", pval, ";", d2i1, ")")
+(print("D2PTMsome("); print(pval); print(";"); print(d2i1); print(")"))
 //
 end (*let*) // end of [ d2ptm_fprint(dptm,out0) ]
 //
@@ -961,65 +945,65 @@ dcl0.node() of
 //
 |D2Cd1ecl
 (  d1cl  ) =>
-prints("D2Cd1ecl(",d1cl,")")
+(print("D2Cd1ecl("); print(d1cl); print(")"))
 //
 (* ****** ****** *)
 |
 D2Cstatic
 ( tknd , dcl1 ) =>
-prints("D2Cstatic(",tknd,";",dcl1,")")
+(print("D2Cstatic("); print(tknd); print(";"); print(dcl1); print(")"))
 |
 D2Cextern
 ( tknd , dcl1 ) =>
-prints("D2Cextern(",tknd,";",dcl1,")")
+(print("D2Cextern("); print(tknd); print(";"); print(dcl1); print(")"))
 //
 (* ****** ****** *)
 //
 |
 D2Clocal0
 ( head , body ) =>
-prints( "D2Clocal(",head,";",body,")" )
+(print("D2Clocal("); print(head); print(";"); print(body); print(")"))
 //
 |
 D2Cabssort
 (  tid0  ) =>
-prints("D2Cabssort(",tid0,")")
+(print("D2Cabssort("); print(tid0); print(")"))
 //
 |
 D2Cstacst0
 ( s2c1 , s2t2 ) =>
-prints("D2Cstacst0(",s2c1,";",s2t2,")")
+(print("D2Cstacst0("); print(s2c1); print(";"); print(s2t2); print(")"))
 //
 |
 D2Csortdef
 ( tid1 , s2tx ) =>
-prints("D2Csortdef(",tid1,";",s2tx,")")
+(print("D2Csortdef("); print(tid1); print(";"); print(s2tx); print(")"))
 //
 |
 D2Csexpdef
 ( s2c1 , s2e2 ) =>
-prints("D2Csexpdef(",s2c1,";",s2e2,")")
+(print("D2Csexpdef("); print(s2c1); print(";"); print(s2e2); print(")"))
 //
 |
 D2Cabstype
 ( s2c1 , atdf ) =>
-prints("D2Cabstype(",s2c1,";",atdf,")")
+(print("D2Cabstype("); print(s2c1); print(";"); print(atdf); print(")"))
 //
 |
 D2Cabsopen
 ( tknd , simp ) =>
-prints("D2Cabsopen(",tknd,";",simp,")")
+(print("D2Cabsopen("); print(tknd); print(";"); print(simp); print(")"))
 |
 D2Cabsimpl
 (tknd,simp,sdef) =>
 ( print("D2Cabsimpl(")
-; prints( tknd,";", simp,";",sdef,")"))
+; (print(tknd); print(";"); print(simp); print(";"); print(sdef); print(")")))
 //
 |
 D2Csymload
 (tknd,sym0,dptm) =>
 ( print("D2Csymload(")
-; prints( tknd,";",sym0,";",dptm,")" ))
+; (print(tknd); print(";"); print(sym0); print(";"); print(dptm); print(")")))
 //
 |
 D2Cinclude
@@ -1027,9 +1011,7 @@ D2Cinclude
 ,gsrc,fopt,dopt) =>
 (
 print("D2Cinclude(");
-prints
-(knd0,";"
-,tknd,";",gsrc,";",fopt,";",dopt,")"))
+(print(knd0); print(";"); print(tknd); print(";"); print(gsrc); print(";"); print(fopt); print(";"); print(dopt); print(")")))
 //
 |
 D2Cstaload
@@ -1037,9 +1019,7 @@ D2Cstaload
 ,gsrc,fopt,dopt) =>
 (
 print("D2Cstaload(");
-prints
-(knd0,";"
-,tknd,";",gsrc,";",fopt,";","...",")"))
+(print(knd0); print(";"); print(tknd); print(";"); print(gsrc); print(";"); print(fopt); print(";"); print("..."); print(")")))
 //
 (* ****** ****** *)
 //
@@ -1051,27 +1031,27 @@ Sat 20 Jul 2024 01:33:42 PM EDT
 |
 D2Cdyninit(tknd,g1e1) =>
 (
-prints("D2Cdyninit(",tknd,";",g1e1,")"))
+(print("D2Cdyninit("); print(tknd); print(";"); print(g1e1); print(")")))
 |
 D2Cextcode(tknd,g1e1) =>
 (
-prints("D2Cextcode(",tknd,";",g1e1,")"))
+(print("D2Cextcode("); print(tknd); print(";"); print(g1e1); print(")")))
 //
 (* ****** ****** *)
 //
 |
 D2Cdatasort
 ( d1cl , s2cs ) =>
-prints("D2Cdatasort(",d1cl,";",s2cs,")")
+(print("D2Cdatasort("); print(d1cl); print(";"); print(s2cs); print(")"))
 //
 |
 D2Cvaldclst
 ( tknd , d2vs ) =>
-prints("D2Cvaldclst(",tknd,";",d2vs,")")
+(print("D2Cvaldclst("); print(tknd); print(";"); print(d2vs); print(")"))
 |
 D2Cvardclst
 ( tknd , d2vs ) =>
-prints("D2Cvardclst(",tknd,";",d2vs,")")
+(print("D2Cvardclst("); print(tknd); print(";"); print(d2vs); print(")"))
 //
 |
 D2Cfundclst
@@ -1079,7 +1059,7 @@ D2Cfundclst
 ,tqas,d2cs,d2fs) =>
 (
 print("D2Cfundclst(");
-prints(tknd,";",tqas,";",d2cs,";",d2fs,")"))
+(print(tknd); print(";"); print(tqas); print(";"); print(d2cs); print(";"); print(d2fs); print(")")))
 //
 |
 D2Cimplmnt0
@@ -1089,8 +1069,8 @@ D2Cimplmnt0
 ,farg,sres,body) =>
 (
 print("D2Cimplmnt0(");
-prints(tknd,";",sqas,";",tqas,";");
-prints(dqid,";",tias,";",farg,";",sres,";",body,")"))
+(print(tknd); print(";"); print(sqas); print(";"); print(tqas); print(";"));
+(print(dqid); print(";"); print(tias); print(";"); print(farg); print(";"); print(sres); print(";"); print(body); print(")")))
 (*
 |
 D2Cimplmnt1
@@ -1107,33 +1087,32 @@ prints(dqid,";",tias,";",farg,";",sres,";",body,")"))
 |
 D2Cexcptcon
 ( d1cl , d2cs ) =>
-prints("D2Cexcptcon(",d1cl,";",d2cs,")")
+(print("D2Cexcptcon("); print(d1cl); print(";"); print(d2cs); print(")"))
 |
 D2Cdatatype
 ( d1cl , s2cs ) =>
-prints("D2Cdatatype(",d1cl,";",s2cs,")")
+(print("D2Cdatatype("); print(d1cl); print(";"); print(s2cs); print(")"))
 //
 |
 D2Cdynconst
 (tknd,tqas,d2cs) =>
-prints
-("D2Cdynconst(",tknd,";",tqas,";",d2cs,")")
+(print("D2Cdynconst("); print(tknd); print(";"); print(tqas); print(";"); print(d2cs); print(")"))
 //
 (* ****** ****** *)
 //
 |
-D2Cnone0((*0*)) => prints("D2Cnone0(", ")")
+D2Cnone0((*0*)) => (print("D2Cnone0("); print(")"))
 //
-|D2Cnone1(d1cl) => prints("D2Cnone1(", d1cl, ")")
-|D2Cnone2(d2cl) => prints("D2Cnone2(", d2cl, ")")
+|D2Cnone1(d1cl) => (print("D2Cnone1("); print(d1cl); print(")"))
+|D2Cnone2(d2cl) => (print("D2Cnone2("); print(d2cl); print(")"))
 //
 (* ****** ****** *)
 //
 (*
 HX-2025-04-20: for if-guarded declarations!
 *)
-|D2Cthen0(dcls) => prints("D2Cthen0(", dcls, ")")
-|D2Celse1(dcls) => prints("D2Celse1(", dcls, ")")
+|D2Cthen0(dcls) => (print("D2Cthen0("); print(dcls); print(")"))
+|D2Celse1(dcls) => (print("D2Celse1("); print(dcls); print(")"))
 //
 (* ****** ****** *)
 //
@@ -1149,12 +1128,12 @@ if // if
 (lvl1 >= 2)
 then
 (
-  prints("D2Cerrck(",lvl1,";",d2cl,")"))
+  (print("D2Cerrck("); print(lvl1); print(";"); print(d2cl); print(")")))
 else // (lvl1<=1)
 let
 val loc0 = dcl0.lctn() in//let
 (
-  prints("D2Cerrck(",loc0,";",lvl1,";",d2cl,")"))
+  (print("D2Cerrck("); print(loc0); print(";"); print(lvl1); print(";"); print(d2cl); print(")")))
 end (*let*) // end-of-[ D2Cerrck(lvl1,d2cl) ]
 //
 end (*let*) // end of [ d2ecl_fprint(dcl0,out0) ]
@@ -1168,7 +1147,7 @@ let
 #impltmp
 g_print$out<>() = out0
 in//in-of-let
-  prints("S2QAG(", sqag.s2vs(), ")")
+  (print("S2QAG("); print(sqag.s2vs()); print(")"))
 end (*let*) // end of [ s2qag_fprint(sqag,out0) ]
 //
 (* ****** ****** *)
@@ -1180,7 +1159,7 @@ let
 #impltmp
 g_print$out<>() = out0
 in//in-of-let
-  prints("T2QAG(", tqag.s2vs(), ")")
+  (print("T2QAG("); print(tqag.s2vs()); print(")"))
 end (*let*) // end of [ t2qag_fprint(tqag,out0) ]
 //
 (* ****** ****** *)
@@ -1192,7 +1171,7 @@ let
 #impltmp
 g_print$out<>() = out0
 in//in-of-let
-  prints("T2IAG(", tiag.s2es(), ")")
+  (print("T2IAG("); print(tiag.s2es()); print(")"))
 end (*let*) // end of [ t2iag_fprint(tiag,out0) ]
 //
 (* ****** ****** *)
@@ -1204,7 +1183,7 @@ let
 #impltmp
 g_print$out<>() = out0
 in//in-of-let
-  prints("T2JAG(", tjag.t2ps(), ")")
+  (print("T2JAG("); print(tjag.t2ps()); print(")"))
 end (*let*) // end of [ t2jag_fprint(tjag,out0) ]
 //
 (* ****** ****** *)
@@ -1221,16 +1200,16 @@ in//let
 case+ atdf of
 |
 A2TDFsome() =>
-prints("A2TDFsome(", ")")
+(print("A2TDFsome("); print(")"))
 |
 A2TDFlteq(s2e1) =>
-prints("A2TDFlteq(",s2e1,")")
+(print("A2TDFlteq("); print(s2e1); print(")"))
 |
 A2TDFeqeq(s2e1) =>
-prints("A2TDFeqeq(",s2e1,")")
+(print("A2TDFeqeq("); print(s2e1); print(")"))
 |
 A2TDFdefn(s2e1) =>
-prints("A2TDFdefn(",s2e1,")")
+(print("A2TDFdefn("); print(s2e1); print(")"))
 //
 end (*let*) // end-of-[ a2tdf_fprint(atdf,out0) ]
 //
@@ -1248,11 +1227,11 @@ case+ seff of
 |
 S2EFFnone() =>
 (
-  prints("S2EFFnone(", ")"))
+  (print("S2EFFnone("); print(")")))
 |
 S2EFFsome(s2fs) =>
 (
-  prints("S2EFFsome(",s2fs,")"))
+  (print("S2EFFsome("); print(s2fs); print(")")))
 end (*let*) // end-of-[ s2eff_fprint(seff,out0) ]
 //
 (* ****** ****** *)
@@ -1267,11 +1246,10 @@ in//let
 case+ sres of
 |
 S2RESnone() =>
-prints("S2RESnone(",")")
+(print("S2RESnone("); print(")"))
 |
 S2RESsome(seff, s2e1) =>
-prints
-("S2RESsome(",seff,";",s2e1,")")
+(print("S2RESsome("); print(seff); print(";"); print(s2e1); print(")"))
 end (*let*) // end-of-[ s2res_fprint(sres,out0) ]
 //
 (* ****** ****** *)
@@ -1288,17 +1266,15 @@ case+
 simp.node() of
 |
 SIMPLone1(s2c1) =>
-prints("SIMPLone1(",s2c1,")")
+(print("SIMPLone1("); print(s2c1); print(")"))
 |
 SIMPLall1
 (sqid,s2cs) =>
-prints
-("SIMPLall1(",sqid,";",s2cs,")")
+(print("SIMPLall1("); print(sqid); print(";"); print(s2cs); print(")"))
 |
 SIMPLopt2
 (sqid,scs1,scs2) =>
-prints
-("SIMPLopt2(",sqid,";",scs1,";",scs2,")")
+(print("SIMPLopt2("); print(sqid); print(";"); print(scs1); print(";"); print(scs2); print(")"))
 end (*let*) // end of [ simpl_fprint(simp,out0) ]
 //
 (* ****** ****** *)
@@ -1318,16 +1294,15 @@ dimp.node() of
 |DIMPLnon1
 (  dqid  ) =>
 (
-  prints("DIMPLnon1(",dqid,")"))
+  (print("DIMPLnon1("); print(dqid); print(")")))
 |DIMPLone1
 (  d2c1  ) =>
 (
-  prints("DIMPLone1(",d2c1,")"))
+  (print("DIMPLone1("); print(d2c1); print(")")))
 |
 DIMPLone2
 (d2c1, svts) =>
-( prints
-  ("DIMPLone2(",d2c1,";",svts,")"))
+( (print("DIMPLone2("); print(d2c1); print(";"); print(svts); print(")")))
 //
 end (*let*) // end-of-[ dimpl_fprint(dimp,out0) ]
 //
@@ -1347,16 +1322,16 @@ darg.node() of
 | // dpid:s2exp
 D2ARGdyn1
 (   dpid   ) =>
-prints("D2ARGdyn1(",dpid,")")
+(print("D2ARGdyn1("); print(dpid); print(")"))
 |
 D2ARGdyn2
 (npf1, s2es) =>
-prints("D2ARGdyn2(",npf1,";",s2es,")")
+(print("D2ARGdyn2("); print(npf1); print(";"); print(s2es); print(")"))
 //
 |
 D2ARGsta0
 (s2vs, s2ps) =>
-prints("D2ARGsta0(",s2vs,";",s2ps,")")
+(print("D2ARGsta0("); print(s2vs); print(";"); print(s2ps); print(")"))
 //
 end (*let*) // end-of-[ d2arg_fprint(darg,out0) ]
 //
@@ -1379,8 +1354,7 @@ g_print$out<>() = (  out0  )
 //
 in//let
 (
-prints
-("D2VALDCL(",dpat,";",tdxp,";",wsxp,")"))
+(print("D2VALDCL("); print(dpat); print(";"); print(tdxp); print(";"); print(wsxp); print(")")))
 end (*let*) // end-of-[d2valdcl_fprint(dval,out0)]
 //
 (* ****** ****** *)
@@ -1404,8 +1378,7 @@ g_print$out<>() = (  out0  )
 in//let
 (
 print("D2VARDCL(");
-prints
-(dpid,";",vpid,";",sres,";",dini,")"))
+(print(dpid); print(";"); print(vpid); print(";"); print(sres); print(";"); print(dini); print(")")))
 end (*let*) // end-of-[d2vardcl_fprint(dvar,out0)]
 //
 (* ****** ****** *)
@@ -1431,9 +1404,8 @@ g_print$out<>() = (  out0 )
 //
 in//let
 (
-prints("D2FUNDCL(",dpid,";");
-prints
-(farg,";",sres,";",tdxp,";",wsxp,")"))
+(print("D2FUNDCL("); print(dpid); print(";"));
+(print(farg); print(";"); print(sres); print(";"); print(tdxp); print(";"); print(wsxp); print(")")))
 end (*let*) // end-of-[d2fundcl_fprint(dfun,out0)]
 //
 (* ****** ****** *)
@@ -1458,8 +1430,7 @@ g_print$out<>() = (  out0  )
 in//let
 (
 print("D2CSTDCL(");
-prints
-(dpid,";",darg,";",sres,";",dres,")"))
+(print(dpid); print(";"); print(darg); print(";"); print(sres); print(";"); print(dres); print(")")))
 end (*let*) // end-of-[d2cstdcl_fprint(dcst,out0)]
 //
 (* ****** ****** *)
@@ -1488,8 +1459,7 @@ g_print$out<>() = (  out0  )
 in//let
 (
 print("D2PARSED(");
-prints
-(stadyn,";",nerror,";",source,";",parsed,")"))
+(print(stadyn); print(";"); print(nerror); print(";"); print(source); print(";"); print(parsed); print(")")))
 end (*let*) // end-of-[d2parsed_fprint(dpar,out0)]
 //
 (* ****** ****** *)

@@ -225,7 +225,7 @@ F2CLfun() =>
 |
 F2CLclo(knd) =>
 (
-  prints( "F2CLclo(", knd, ")" ))
+  (print("F2CLclo("); print(knd); print(")")))
 //
 end(*let*)//end-of(f2clknd_fprint)
 //

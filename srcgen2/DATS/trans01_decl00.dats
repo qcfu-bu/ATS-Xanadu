@@ -1633,7 +1633,7 @@ g1f0.node() of
 |
 G1Eid0(id0) =>
 if
-(id0 != EQ0_symbl)
+(symbl_cmp(id0, EQ0_symbl) != 0)
 then optn_nil(*0*) else
 (
 case+

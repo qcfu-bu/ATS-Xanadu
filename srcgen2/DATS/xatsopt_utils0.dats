@@ -586,6 +586,536 @@ defq(_XATS2PY_)
 (* ****** ****** *)
 (* ****** ****** *)
 //
+//
+(* ****** ****** *)
+(*
+CLAUDE-2026-08: CONCRETE printers for DIAGNOSTIC list/pair payloads;
+declared at the end of SATS/xatsopt.sats.  The bodies follow the
+lcsrc_fprint pattern (out-hook + sequenced single-arg print) -- the ONLY
+print idiom that survives BOTH template pipelines; see the SATS note.
+*)
+(* ****** ****** *)
+//
+#implfun
+zzel_fprint_l2t2p
+(ltp, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+in//let
+case+ ltp of
+|
+S2LAB(l0, t2p) =>
+(
+print("S2LAB("); print(l0); print(";"); print(t2p); print(")"))
+end//let//end-of-[zzel_fprint_l2t2p]
+//
+#implfun
+zzel_fprint_s2vtp
+(svt, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+in//let
+(
+print("@("); print(svt.0); print(","); print(svt.1); print(")"))
+end//let//end-of-[zzel_fprint_s2vtp]
+//
+
+#implfun
+zzlp_fprint_t2iaglst
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: t2iaglst, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+print(x1); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_t2iaglst]
+//
+#implfun
+zzlp_fprint_s2qaglst
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: s2qaglst, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+print(x1); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_s2qaglst]
+//
+#implfun
+zzlp_fprint_d2valdclist
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: d2valdclist, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+print(x1); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_d2valdclist]
+//
+
+#implfun
+zzlp_fprint_d3valdclist
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: d3valdclist, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+print(x1); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_d3valdclist]
+//
+
+#implfun
+zzlp_fprint_d2eclist
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: d2eclist, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+print(x1); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_d2eclist]
+//
+
+#implfun
+zzlp_fprint_d3eclist
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: d3eclist, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+print(x1); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_d3eclist]
+//
+
+#implfun
+zzlp_fprint_s2explst
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: s2explst, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+print(x1); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_s2explst]
+//
+
+#implfun
+zzlp_fprint_s2typlst
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: s2typlst, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+print(x1); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_s2typlst]
+//
+
+#implfun
+zzlp_fprint_s2varlst
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: s2varlst, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+print(x1); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_s2varlst]
+//
+
+#implfun
+zzlp_fprint_sort2lst
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: sort2lst, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+print(x1); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_sort2lst]
+//
+
+#implfun
+zzlp_fprint_t2qaglst
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: t2qaglst, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+print(x1); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_t2qaglst]
+//
+
+#implfun
+zzlp_fprint_t2jaglst
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: t2jaglst, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+print(x1); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_t2jaglst]
+//
+
+#implfun
+zzlp_fprint_f3arglst
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: f3arglst, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+print(x1); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_f3arglst]
+//
+
+#implfun
+zzlp_fprint_d3explst
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: d3explst, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+print(x1); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_d3explst]
+//
+
+#implfun
+zzlp_fprint_d2explst
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: d2explst, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+print(x1); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_d2explst]
+//
+
+#implfun
+zzlp_fprint_d3patlst
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: d3patlst, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+print(x1); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_d3patlst]
+//
+
+#implfun
+zzlp_fprint_d2patlst
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: d2patlst, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+print(x1); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_d2patlst]
+//
+
+#implfun
+zzlp_fprint_l2t2plst
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: l2t2plst, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+zzel_fprint_l2t2p(x1, out); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_l2t2plst]
+//
+
+#implfun
+zzlp_fprint_s2vtplst
+(xs, out) = let
+//
+#impltmp
+g_print$out<>() = out
+//
+fun
+loop
+(xs: s2vtplst, i0: sint): void =
+(
+case+ xs of
+|list_nil() => ()
+|list_cons(x1, xs) =>
+(
+(
+if (i0 > 0)
+then print(",") else ());
+zzel_fprint_s2vtp(x1, out); loop(xs, i0+1)))
+//
+in//let
+(
+print("$list("); loop(xs, 0); print(")"))
+end//let//end-of-[zzlp_fprint_s2vtplst]
+//
+
 (***********************************************************************)
 (* end of [ATS3/XATSOPT_srcgen2_DATS_xatsopt_utils0.dats] *)
 (***********************************************************************)

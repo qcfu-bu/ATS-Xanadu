@@ -188,6 +188,62 @@ xatsopt_args$filxats_d3parsdz
 (* ****** ****** *)
 (* ****** ****** *)
 //
+//
+(* ****** ****** *)
+(*
+CLAUDE-2026-08: CONCRETE printers for DIAGNOSTIC list/pair payloads (the
+quantified prelude list/tuple print defaults are not instantiable by the
+srcgen2 resolver; see DATS/xatsopt_utils0.dats for the implementations
+and DATS/xatsopt_tmplib.dats for the g_print instances that route to
+these).  Same bytes as the resolved generics on the jsemit00 path:
+$list(e1,e2,...) and @(a,b) and S2LAB(l;t).
+*)
+(* ****** ****** *)
+//
+fun
+zzel_fprint_l2t2p($T2P.l2t2p, FILR): void
+fun
+zzel_fprint_s2vtp($T2P.s2vtp, FILR): void
+//
+fun
+zzlp_fprint_s2qaglst($D2E.s2qaglst, FILR): void
+fun
+zzlp_fprint_t2iaglst($D2E.t2iaglst, FILR): void
+fun
+zzlp_fprint_d2valdclist($D2E.d2valdclist, FILR): void
+fun
+zzlp_fprint_d3valdclist($D3E.d3valdclist, FILR): void
+fun
+zzlp_fprint_d2eclist($D2E.d2eclist, FILR): void
+fun
+zzlp_fprint_d3eclist($D3E.d3eclist, FILR): void
+fun
+zzlp_fprint_s2explst($S2E.s2explst, FILR): void
+fun
+zzlp_fprint_s2typlst($T2P.s2typlst, FILR): void
+fun
+zzlp_fprint_s2varlst($S2E.s2varlst, FILR): void
+fun
+zzlp_fprint_sort2lst($S2E.sort2lst, FILR): void
+fun
+zzlp_fprint_t2qaglst($D2E.t2qaglst, FILR): void
+fun
+zzlp_fprint_t2jaglst($D2E.t2jaglst, FILR): void
+fun
+zzlp_fprint_f3arglst($D3E.f3arglst, FILR): void
+fun
+zzlp_fprint_d3explst($D3E.d3explst, FILR): void
+fun
+zzlp_fprint_d2explst($D2E.d2explst, FILR): void
+fun
+zzlp_fprint_d3patlst($D3E.d3patlst, FILR): void
+fun
+zzlp_fprint_d2patlst($D2E.d2patlst, FILR): void
+fun
+zzlp_fprint_l2t2plst($T2P.l2t2plst, FILR): void
+fun
+zzlp_fprint_s2vtplst($T2P.s2vtplst, FILR): void
+//
 (***********************************************************************)
 (* end of [ATS3/XATSOPT_srcgen2_SATS_xatsopt.sats] *)
 (***********************************************************************)

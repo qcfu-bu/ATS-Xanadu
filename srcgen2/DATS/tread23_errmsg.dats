@@ -214,8 +214,7 @@ if
 let
 val
 loc0 = d3p0.lctn() in // let
-printsln
-("TREAD23-ERROR:",loc0,":",d3p0)
+(print("TREAD23-ERROR:"); print(loc0); print(":"); print(d3p0); printsln())
 end // let // else // end-of-[if]
 ) (* end-of-[ D3Perrck(lvl,d2p1) ] *)
 | // non-D3Perrck // ... // ... // ...
@@ -577,8 +576,7 @@ if
 let
 val
 loc0 = d3e0.lctn() in // let
-printsln
-("TREAD23-ERROR:",loc0,":",d3e0)
+(print("TREAD23-ERROR:"); print(loc0); print(":"); print(d3e0); printsln())
 end // let // else // end-of-[if]
 ) (* end-of-[ D3Eerrck(lvl,d2e1) ] *)
 | // non-D3Eerrck // ... // ... // ...
@@ -851,8 +849,7 @@ if
 let
 val
 loc0 = dcl0.lctn() in // let
-printsln
-("TREAD23-ERROR:",loc0,":",dcl0)
+(print("TREAD23-ERROR:"); print(loc0); print(":"); print(dcl0); printsln())
 end // let // else // end-of-[if]
 ) (* end-of-[ D3Cerrck(lvl,dcl0) ] *)
 | // non-D3Cerrck // ... // ... // ...

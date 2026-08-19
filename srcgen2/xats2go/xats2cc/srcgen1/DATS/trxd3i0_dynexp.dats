@@ -820,17 +820,20 @@ let
 // (*
 val loc0 = d3e0.lctn()
 val t2p0 = d3e0.styp()
+(*
+HX/CLAUDE-2026-08: SEQUENCED single-arg prints (was a multi-arg printsln
+with con args): the srcgen2 resolver cannot instantiate the gs_print_nN
+alias defaults, so multi-arg prints bridge to the runtime generic printer,
+which cannot render frontend constructors (Go cons carry no names).
+Single-arg print(x) resolves per-value via the tmplib g_print instances.
+*)
+val (  ) = print("d3exp(")
+val (  ) = print(loc0)
+val (  ) = print("): ")
 val (  ) =
-printsln
-("d3exp(",loc0,"): ", t2p0)
-where
-{
-#impltmp
-g_print
-<s2typ>
-( styp ) =
 s2typ_fpprnt
-(styp, g_print$out<>((*0*)))}
+(t2p0, g_print$out<>((*0*)))
+val (  ) = printsln((*void*))
 // *)
 (*
 val (  ) =

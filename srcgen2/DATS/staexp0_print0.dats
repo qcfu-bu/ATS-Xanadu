@@ -67,10 +67,10 @@ in//let
 case+ int of
 |
 T0INTnone(tok) =>
-prints("T0INTnone(", tok, ")")
+(print("T0INTnone("); print(tok); print(")"))
 |
 T0INTsome(tok) =>
-prints("T0INTsome(", tok, ")")
+(print("T0INTsome("); print(tok); print(")"))
 end (*let*) // end of [t0int_fprint]
 
 (* ****** ****** *)
@@ -85,10 +85,10 @@ in//let
 case+ chr of
 |
 T0CHRnone(tok) =>
-prints("T0CHRnone(", tok, ")")
+(print("T0CHRnone("); print(tok); print(")"))
 |
 T0CHRsome(tok) =>
-prints("T0CHRsome(", tok, ")")
+(print("T0CHRsome("); print(tok); print(")"))
 end (*let*) // end of [t0chr_fprint]
 
 (* ****** ****** *)
@@ -103,10 +103,10 @@ in//let
 case+ flt of
 |
 T0FLTnone(tok) =>
-prints("T0FLTnone(", tok, ")")
+(print("T0FLTnone("); print(tok); print(")"))
 |
 T0FLTsome(tok) =>
-prints("T0FLTsome(", tok, ")")
+(print("T0FLTsome("); print(tok); print(")"))
 end (*let*) // end of [t0flt_fprint]
 
 (* ****** ****** *)
@@ -121,10 +121,10 @@ in//let
 case+ str of
 |
 T0STRnone(tok) =>
-prints("T0STRnone(", tok, ")")
+(print("T0STRnone("); print(tok); print(")"))
 |
 T0STRsome(tok) =>
-prints("T0STRsome(", tok, ")")
+(print("T0STRsome("); print(tok); print(")"))
 end (*let*) // end of [t0str_fprint]
 
 (* ****** ****** *)
@@ -140,10 +140,10 @@ case+
 id0.node() of
 |
 I0DNTnone(tok) =>
-prints("I0DNTnone(", tok, ")")
+(print("I0DNTnone("); print(tok); print(")"))
 |
 I0DNTsome(tok) =>
-prints("I0DNTsome(", tok, ")")
+(print("I0DNTsome("); print(tok); print(")"))
 end (*let*) // end of [i0dnt_fprint]
 
 (* ****** ****** *)
@@ -159,10 +159,10 @@ case+
 lab.node() of
 |
 L0ABLnone(tok) =>
-prints("L0ABLnone(", tok, ")")
+(print("L0ABLnone("); print(tok); print(")"))
 |
 L0ABLsome(lab) =>
-prints("L0ABLsome(", lab, ")")
+(print("L0ABLsome("); print(lab); print(")"))
 end (*let*) // end of [l0abl_fprint]
 
 (* ****** ****** *)
@@ -178,15 +178,14 @@ case+
 sym.node() of
 |
 S0YMBi0dnt(id0) =>
-prints("S0YMBi0dnt(", id0, ")")
+(print("S0YMBi0dnt("); print(id0); print(")"))
 (*
 |
 S0YMBdtlab of (token, l0abl)
 *)
 |
 S0YMBbrckt(tk1, tk2) =>
-prints
-("S0YMBbrckt(", tk1, ";", tk2, ")")
+(print("S0YMBbrckt("); print(tk1); print(";"); print(tk2); print(")"))
 end (*let*) // end of [s0ymb_fprint]
 
 (* ****** ****** *)
@@ -210,11 +209,10 @@ in//let
 case+ qid of
 |
 S0QIDnone(id0) =>
-prints("S0QIDnone(", id0, ")")
+(print("S0QIDnone("); print(id0); print(")"))
 |
 S0QIDsome(tok, id0) =>
-prints
-("S0QIDsome(", tok, ";", id0, ")")
+(print("S0QIDsome("); print(tok); print(";"); print(id0); print(")"))
 end (*let*) // end of [s0qid_fprint]
 //
 #implfun
@@ -227,11 +225,10 @@ in//let
 case+ qid of
 |
 D0QIDnone(id0) =>
-prints("D0QIDnone(", id0, ")")
+(print("D0QIDnone("); print(id0); print(")"))
 |
 D0QIDsome(tok, id0) =>
-prints
-("D0QIDsome(", tok, ";", id0, ")")
+(print("D0QIDsome("); print(tok); print(";"); print(id0); print(")"))
 end (*let*) // end of [d0qid_fprint]
 //
 (* ****** ****** *)
@@ -249,26 +246,26 @@ g0n.node() of
 //
 |
 G0Nid0(id0) =>
-prints("G0Nid0(", id0, ")")
+(print("G0Nid0("); print(id0); print(")"))
 //
 |
 G0Nint(tok) =>
-prints("G0Nint(", tok, ")")
+(print("G0Nint("); print(tok); print(")"))
 |
 G0Nchr(tok) =>
-prints("G0Nchr(", tok, ")")
+(print("G0Nchr("); print(tok); print(")"))
 |
 G0Nflt(tok) =>
-prints("G0Nflt(", tok, ")")
+(print("G0Nflt("); print(tok); print(")"))
 |
 G0Nstr(tok) =>
-prints("G0Nstr(", tok, ")")
+(print("G0Nstr("); print(tok); print(")"))
 //
 |
 G0Nlist(tk1, gns, tk2) =>
 (
 print("G0Nlist(");
-prints(tk1, ";", gns, ";", tk2, ")"))
+(print(tk1); print(";"); print(gns); print(";"); print(tk2); print(")")))
 //
 (*
 |
@@ -277,7 +274,7 @@ G0Nnone0(   ) => prints("G0Nnone0(", ")")
 |
 G0Ntkerr(tok) =>
 (
-  prints("G0Ntkerr(", tok, ")"))//G0Ntkerr
+  (print("G0Ntkerr("); print(tok); print(")")))//G0Ntkerr
 //
 end (*let*) // end of [g0nam_fprint(g0n,out)]
 
@@ -295,49 +292,47 @@ case+
 g0e.node() of
 |
 G0Eid0(id0) =>
-prints("G0Eid0(", id0, ")")
+(print("G0Eid0("); print(id0); print(")"))
 //
 |
 G0Eint(tok) =>
-prints("G0Eint(", tok, ")")
+(print("G0Eint("); print(tok); print(")"))
 |
 G0Echr(tok) =>
-prints("G0Echr(", tok, ")")
+(print("G0Echr("); print(tok); print(")"))
 |
 G0Eflt(tok) =>
-prints("G0Eflt(", tok, ")")
+(print("G0Eflt("); print(tok); print(")"))
 |
 G0Estr(tok) =>
-prints("G0Estr(", tok, ")")
+(print("G0Estr("); print(tok); print(")"))
 //
 |
 G0Eapps(ges) =>
-prints("G0Eapps(", ges, ")")
+(print("G0Eapps("); print(ges); print(")"))
 |
 G0Elpar(tkb, ges, tke) =>
 (
 print("G0Elpar(");
-prints(tkb, ";", ges, ",", tke, ")"))
+(print(tkb); print(";"); print(ges); print(","); print(tke); print(")")))
 //
 |
 G0Eift0
 (tknd,g0e1,g0e2,g0e3,topt) =>
 (
-prints
-("G0Eift0(",tknd,";");
-prints
-(g0e1,";",g0e2,";",g0e3,";",topt,")"))
+(print("G0Eift0("); print(tknd); print(";"));
+(print(g0e1); print(";"); print(g0e2); print(";"); print(g0e3); print(";"); print(topt); print(")")))
 //
 |
 G0Etkerr(tok) =>
 (
-  prints("G0Etkerr(", tok, ")"))//tkerr
+  (print("G0Etkerr("); print(tok); print(")")))//tkerr
 //
 |
 G0Eerrck
 (lvl(*err*),ge1) =>
 (
-prints("G0Eerrck(",lvl,";",ge1,")"))//errck
+(print("G0Eerrck("); print(lvl); print(";"); print(ge1); print(")")))//errck
 //
 end (*let*) // end of [g0exp_fprint(g0e,out)]
 
@@ -351,19 +346,15 @@ case+
 gma.node() of
 |
 G0MAGnone(tok) =>
-prints("G0MAGnone(",tok,")")
+(print("G0MAGnone("); print(tok); print(")"))
 |
 G0MAGsarg
 (tbeg,g0as,tend) =>
-prints
-("G0MAGsarg("
-,tbeg,";",g0as,";",tend,")")
+(print("G0MAGsarg("); print(tbeg); print(";"); print(g0as); print(";"); print(tend); print(")"))
 |
 G0MAGdarg
 (tbeg,g0as,tend) =>
-prints
-("G0MAGdarg("
-,tbeg,";",g0as,";",tend,")")
+(print("G0MAGdarg("); print(tbeg); print(";"); print(g0as); print(";"); print(tend); print(")"))
 ) where
 {
   #impltmp g_print$out<>() = out
@@ -383,25 +374,24 @@ case+
 s0t.node() of
 |
 S0Tid0(id0) =>
-prints("S0Tid0(",id0,")")
+(print("S0Tid0("); print(id0); print(")"))
 //
 |
 S0Tint(int) =>
-prints("S0Tint(",int,")")
+(print("S0Tint("); print(int); print(")"))
 //
 // HX: qualified
 |
 S0Tqid(tk1,st2) =>
-prints("S0Tqid(",tk1,";",st2,")")
+(print("S0Tqid("); print(tk1); print(";"); print(st2); print(")"))
 //
 |
 S0Tapps(sts) =>
-prints("S0Tapps(",sts,")")
+(print("S0Tapps("); print(sts); print(")"))
 //
 |
 S0Tlpar(tkb,sts,tke) =>
-prints
-("S0Tlpar(",tkb,";",sts,";",tke,")")
+(print("S0Tlpar("); print(tkb); print(";"); print(sts); print(";"); print(tke); print(")"))
 //
 (*
 |
@@ -411,12 +401,12 @@ S0Ttype of int(*kind*)
 |
 S0Ttkerr(tok) =>
 (
-  prints("S0Ttkerr(",tok,")"))
+  (print("S0Ttkerr("); print(tok); print(")")))
 |
 S0Terrck
 (lvl(*err*),st1) =>
 (
-  prints("S0Terrck(",lvl,";",st1,")"))
+  (print("S0Terrck("); print(lvl); print(";"); print(st1); print(")")))
 //
 end (*let*)//end-of-[sort0_fprint(s0t,out)]
 
@@ -434,7 +424,7 @@ case+
 stcn.node() of
 |
 S0TCNnode(id0, stq) =>
-prints("S0TCNnode(",id0,";",stq,")")
+(print("S0TCNnode("); print(id0); print(";"); print(stq); print(")"))
 end (*let*) // end of [s0tcn_fprint(...)]
 
 (* ****** ****** *)
@@ -452,8 +442,8 @@ dtst.node() of
 |
 D0TSTnode(tid0,teq1,topt,stcs) =>
 (
-prints("D0TSTnode(",tid0);
-prints(";",teq1,";",topt,";",stcs,")"))
+(print("D0TSTnode("); print(tid0));
+(print(";"); print(teq1); print(";"); print(topt); print(";"); print(stcs); print(")")))
 end (*let*) // end of [d0tst_fprint(...)]
 
 (* ****** ****** *)
@@ -470,10 +460,10 @@ case+
 s0a.node() of
 |
 S0ARGnone(tok) =>
-prints("S0ARGnone(", tok, ")")
+(print("S0ARGnone("); print(tok); print(")"))
 |
 S0ARGsome(id0, tres) =>
-prints("S0ARGsome(",id0,";",tres,")")
+(print("S0ARGsome("); print(id0); print(";"); print(tres); print(")"))
 //
 end (*let*) // end of [s0arg_fprint]
 
@@ -491,10 +481,10 @@ case+
 t0a.node() of
 |
 T0ARGnone(tok) =>
-prints("T0ARGnone(", tok, ")")
+(print("T0ARGnone("); print(tok); print(")"))
 |
 T0ARGsome(s0t1, topt) =>
-prints("T0ARGsome(",s0t1,";",topt,")")
+(print("T0ARGsome("); print(s0t1); print(";"); print(topt); print(")"))
 //
 end (*let*) // end of [t0arg_fprint(out,t0a)]
 
@@ -512,14 +502,13 @@ case+
 s0m.node() of
 |
 S0MAGnone(tok) =>
-prints("S0MAGnone(", tok, ")")
+(print("S0MAGnone("); print(tok); print(")"))
 |
 S0MAGsing(id0) =>
-prints("S0MAGsing(", id0, ")")
+(print("S0MAGsing("); print(id0); print(")"))
 |
 S0MAGlist(tbeg, s0as, tend) =>
-prints
-("S0MAGlist(",tbeg,";",s0as,";",tend,")")
+(print("S0MAGlist("); print(tbeg); print(";"); print(s0as); print(";"); print(tend); print(")"))
 //
 end (*let*)//end of [s0mag_fprint(s0m,out)]
 
@@ -537,7 +526,7 @@ case+
 t0m.node() of
 |
 T0MAGnone(tok) =>
-prints("T0MAGnone(", tok, ")")
+(print("T0MAGnone("); print(tok); print(")"))
 (*
 |
 T0MAGsing(id0) =>
@@ -545,8 +534,7 @@ prints("T0MAGsing(", id0, ")")
 *)
 |
 T0MAGlist(tbeg, t0as, tend) =>
-prints
-("T0MAGlist(",tbeg,";",t0as,";",tend,")")
+(print("T0MAGlist("); print(tbeg); print(";"); print(t0as); print(";"); print(tend); print(")"))
 //
 end (*let*)//end of [t0mag_fprint(t0m,out)]
 
@@ -564,10 +552,10 @@ case+
 s0q.node() of
 |
 S0QUAprop(s0e) =>
-prints("S0QUAprop(", s0e, ")")
+(print("S0QUAprop("); print(s0e); print(")"))
 |
 S0QUAvars(ids, tres) =>
-prints("S0QUAvars(", ids, ";", tres, ")")
+(print("S0QUAvars("); print(ids); print(";"); print(tres); print(")"))
 //
 end (*let*)//end of [s0qua_fprint(s0q,out)]
 
@@ -587,12 +575,10 @@ case+
 s0u.node() of
 |S0UNInone(tok) =>
 (
-prints
-("S0UNInone(", tok, ")"))
+(print("S0UNInone("); print(tok); print(")")))
 |S0UNIsome(tbeg, s0qs, tend) =>
 (
-prints
-("S0UNIsome(",tbeg,";",s0qs,";",tend,")"))
+(print("S0UNIsome("); print(tbeg); print(";"); print(s0qs); print(";"); print(tend); print(")")))
 //
 end (*let*) // end of [s0uni_fprint(s0u,out)]
 //
@@ -610,59 +596,56 @@ case+
 s0e.node() of
 |
 S0Eid0(id0) =>
-prints("S0Eid0(",id0,")")
+(print("S0Eid0("); print(id0); print(")"))
 //
 |
 S0Eop1(tok) =>
-prints("S0Eop1(",tok,")")
+(print("S0Eop1("); print(tok); print(")"))
 |
 S0Eop2(tok) =>
-prints("S0Eop2(",tok,")")
+(print("S0Eop2("); print(tok); print(")"))
 |
 S0Eop3(tkb,id0,tke) =>
 (
-prints
-("S0Eop3(",tkb,";",id0,";",tke,")"))
+(print("S0Eop3("); print(tkb); print(";"); print(id0); print(";"); print(tke); print(")")))
 //
 |
-S0Eint(int) => prints("S0Eint(",int,")")
+S0Eint(int) => (print("S0Eint("); print(int); print(")"))
 |
-S0Echr(chr) => prints("S0Echr(",chr,")")
+S0Echr(chr) => (print("S0Echr("); print(chr); print(")"))
 |
-S0Eflt(flt) => prints("S0Eflt(",flt,")")
+S0Eflt(flt) => (print("S0Eflt("); print(flt); print(")"))
 |
-S0Estr(str) => prints("S0Estr(",str,")")
+S0Estr(str) => (print("S0Estr("); print(str); print(")"))
 //
 |
-S0Eapps(ses) => prints("S0Eapps(",ses,")")
+S0Eapps(ses) => (print("S0Eapps("); print(ses); print(")"))
 //
 |
 S0Efimp
 (tkb,ses,tke) =>
 (
-prints
-("S0Efimp(",tkb,";",ses,";",tke,")"))
+(print("S0Efimp("); print(tkb); print(";"); print(ses); print(";"); print(tke); print(")")))
 //
 |
 S0Elpar
 (tkb,ses,srp) =>
 (
-prints
-("S0Elist(",tkb,";",ses,";",srp,")"))
+(print("S0Elist("); print(tkb); print(";"); print(ses); print(";"); print(srp); print(")")))
 //
 |
 S0Etup1
 (tkb,opt,ses,srp) =>
 (
 print("S0Etup1(");
-prints(tkb,";",opt,";",ses,";",srp,")"))
+(print(tkb); print(";"); print(opt); print(";"); print(ses); print(";"); print(srp); print(")")))
 //
 |
 S0Ercd2
 (tkb,opt,lses,lsrb) =>
 (
 print("S0Ercd2(");
-prints(tkb,";",opt,";",lses,";",lsrb,")"))
+(print(tkb); print(";"); print(opt); print(";"); print(lses); print(";"); print(lsrb); print(")")))
 //
 |
 S0Elams
@@ -670,34 +653,32 @@ S0Elams
 ,tres,arrw,body,tend) =>
 (
 print("S0Elams(");
-prints(tlam,";",s0ms,";");
-prints(tres,";",arrw,";",body,";",tend,")"))
+(print(tlam); print(";"); print(s0ms); print(";"));
+(print(tres); print(";"); print(arrw); print(";"); print(body); print(";"); print(tend); print(")")))
 //
 |
 S0Euni0(tkb,sqs,tbe) =>
 (
-prints
-("S0Euni0(",tkb,";",sqs,";",tbe,")"))
+(print("S0Euni0("); print(tkb); print(";"); print(sqs); print(";"); print(tbe); print(")")))
 |
 S0Eexi0(tkb,sqs,tbe) =>
 (
-prints
-("S0Eexi0(",tkb,";",sqs,";",tbe,")"))
+(print("S0Eexi0("); print(tkb); print(";"); print(sqs); print(";"); print(tbe); print(")")))
 |
 S0Eannot(se1,st2) =>
 (
 // HX: annotation
-  prints("S0Eannot(", se1, ";", st2,")"))
+  (print("S0Eannot("); print(se1); print(";"); print(st2); print(")")))
 |
 S0Equal0(tok,se1) =>
 (
 // HX: qual-s0exp
-  prints("S0Equal0(", tok, ";", se1,")"))
+  (print("S0Equal0("); print(tok); print(";"); print(se1); print(")")))
 //
 |
 S0Etkerr(tok) =>
 (
-  prints("S0Etkerr(", tok(*error*), ")"))
+  (print("S0Etkerr("); print(tok(*error*)); print(")")))
 |
 //
 // HX: [S0Eerrck]:
@@ -706,7 +687,7 @@ S0Etkerr(tok) =>
 S0Eerrck
 (lvl(*err-level*),se1) =>
 (
-  prints("S0Eerrck(", lvl, ";", se1,")"))
+  (print("S0Eerrck("); print(lvl); print(";"); print(se1); print(")")))
 //
 end (*let*) // end-of-[ s0exp_fprint(s0e,out) ]
 //
@@ -725,16 +706,15 @@ stdf.node() of
 |
 S0TDFsort(s0t1) =>
 (
-prints
-("S0TDFsort(", s0t1, ")"))
+(print("S0TDFsort("); print(s0t1); print(")")))
 |
 S0TDFtsub
 (tbeg,s0a1
 ,tbar,s0es,tend) =>
 (
 print("S0TDFtsub(");
-prints(tbeg, ";", s0a1, ";");
-prints(tbar, ";", s0es, ";", tend, ")") )
+(print(tbeg); print(";"); print(s0a1); print(";"));
+(print(tbar); print(";"); print(s0es); print(";"); print(tend); print(")")) )
 //
 end (*let*) // end of [s0tdf_fprint(stdf,out)]
 //
@@ -747,7 +727,7 @@ g0exp_THEN_fprint
 case+ gthn of
 |
 g0exp_THEN(tok, g0e) =>
-prints("g0exp_THEN(", tok, ";", g0e, ")")
+(print("g0exp_THEN("); print(tok); print(";"); print(g0e); print(")"))
 ) where
 {
   #impltmp g_print$out<>() = out
@@ -759,7 +739,7 @@ g0exp_ELSE_fprint
 case+ gels of
 |
 g0exp_ELSE(tok, g0e) =>
-prints("g0exp_ELSE(", tok, ";", g0e, ")")
+(print("g0exp_ELSE("); print(tok); print(";"); print(g0e); print(")"))
 ) where
 {
   #impltmp g_print$out<>() = out
@@ -777,10 +757,10 @@ in//let
 case+ srp of
 |s0exp_RPAREN_cons0(tbar) =>
 (
- prints("s0exp_RPAREN_cons0(",tbar,")"))
+ (print("s0exp_RPAREN_cons0("); print(tbar); print(")")))
 |s0exp_RPAREN_cons1(tok1, s0es, tok2) =>
 (
- prints("s0exp_RPAREN_cons1(",tok1,";",s0es,";",tok2,")"))
+ (print("s0exp_RPAREN_cons1("); print(tok1); print(";"); print(s0es); print(";"); print(tok2); print(")")))
 end (*let*) // end of [s0exp_RPAREN_fprint(srp,out)]
 //
 (* ****** ****** *)
@@ -797,10 +777,10 @@ in//let
 case+ lsrb of
 |l0s0e_RBRACE_cons0(tbar) =>
 (
- prints("l0s0e_RBRACE_cons0(",tbar,")"))
+ (print("l0s0e_RBRACE_cons0("); print(tbar); print(")")))
 |l0s0e_RBRACE_cons1(tok1, lses, tok2) =>
 (
- prints("l0s0e_RBRACE_cons1(",tok1,";",lses,";",tok2,")"))
+ (print("l0s0e_RBRACE_cons1("); print(tok1); print(";"); print(lses); print(";"); print(tok2); print(")")))
 end (*let*) // end of [l0s0e_RBRACE_fprint(lsrb,out)]
 //
 (* ****** ****** *)
@@ -819,7 +799,7 @@ dtcn.node() of
 (s0us, deid, s0is, tres) =>
 (
 print("D0TCNnode(");
-prints(s0us,";",deid,";",s0is,";",tres,")"))
+(print(s0us); print(";"); print(deid); print(";"); print(s0is); print(";"); print(tres); print(")")))
 end (*let*) // end of [d0tcn_fprint(dtcn,out)]
 //
 (* ****** ****** *)
@@ -837,8 +817,8 @@ dtyp.node() of
 |D0TYPnode
 (deid, tmas, tres, teq1, dtcs) =>
 (
-prints("D0TYPnode(",deid,";");
-prints(tmas,";",tres,";",teq1,";",dtcs,")"))
+(print("D0TYPnode("); print(deid); print(";"));
+(print(tmas); print(";"); print(tres); print(";"); print(teq1); print(";"); print(dtcs); print(")")))
 end (*let*) // end of [d0typ_fprint(dtyp,out)]
 //
 (* ****** ****** *)

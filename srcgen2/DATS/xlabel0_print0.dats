@@ -66,11 +66,11 @@ case+ lab of
 |
 LABint(int) =>
 (
-prints("LABint(", int, ")"))
+(print("LABint("); print(int); print(")")))
 |
 LABsym(sym) =>
 (
-prints("LABsym(", sym, ")")))
+(print("LABsym("); print(sym); print(")"))))
 where
 {
 #impltmp g_print$out<>() = out

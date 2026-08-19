@@ -700,11 +700,11 @@ isBTF
 : sym_t): bool =
 (
 if
-(sym=TRUE_symbl)
+(symbl_cmp(sym, TRUE_symbl) = 0)
 then true else
 (
 if
-(sym=FALSE_symbl)
+(symbl_cmp(sym, FALSE_symbl) = 0)
 then true else false)
 ) where
 {
@@ -717,7 +717,7 @@ isANY
 : sym_t): bool =
 (
 if
-(sym=WCARD_symbl)
+(symbl_cmp(sym, WCARD_symbl) = 0)
 then true else false
 ) where
 {
@@ -735,7 +735,7 @@ d1p.node() of
 |
 D1Pid0(sym) =>
 if
-(sym=BANG_symbl)
+(symbl_cmp(sym, BANG_symbl) = 0)
 then true else false
 |
 _(* non-D1Pid0 *) => false
@@ -750,7 +750,7 @@ d1p.node() of
 |
 D1Pid0(sym) =>
 if
-(sym=PFLAT_symbl)
+(symbl_cmp(sym, PFLAT_symbl) = 0)
 then true else false
 |
 _(* non-D1Pid0 *) => false
@@ -765,7 +765,7 @@ d1p.node() of
 |
 D1Pid0(sym) =>
 if
-(sym=PFREE_symbl)
+(symbl_cmp(sym, PFREE_symbl) = 0)
 then true else false
 |
 _(* non-D1Pid0 *) => false
@@ -1890,11 +1890,11 @@ isBTF
 : sym_t): bool =
 (
 if
-(sym=TRUE_symbl)
+(symbl_cmp(sym, TRUE_symbl) = 0)
 then true else
 (
 if
-(sym=FALSE_symbl)
+(symbl_cmp(sym, FALSE_symbl) = 0)
 then true else false)
 ) where
 {
@@ -1907,7 +1907,7 @@ isTOP
 : sym_t): bool =
 (
 if
-(sym=WCARD_symbl)
+(symbl_cmp(sym, WCARD_symbl) = 0)
 then true else false
 ) where
 {
@@ -2128,7 +2128,7 @@ d1e.node() of
 |
 D1Eid0(sym) =>
 if
-(sym=AMP_symbl)
+(symbl_cmp(sym, AMP_symbl) = 0)
 then true else false
 |
 _(* non-D1Eid0 *) => false
@@ -2142,7 +2142,7 @@ d1e.node() of
 |
 D1Eid0(sym) =>
 if
-(sym=BANG_symbl)
+(symbl_cmp(sym, BANG_symbl) = 0)
 then true else false
 |
 _(* non-D1Eid0 *) => false
@@ -2156,7 +2156,7 @@ d1e.node() of
 |
 D1Eid0(sym) =>
 if
-(sym=DADDR_symbl)
+(symbl_cmp(sym, DADDR_symbl) = 0)
 then true else false
 |
 _(* non-D1Eid0 *) => false
@@ -2170,7 +2170,7 @@ d1e.node() of
 |
 D1Eid0(sym) =>
 if
-(sym=DVIEW_symbl)
+(symbl_cmp(sym, DVIEW_symbl) = 0)
 then true else false
 |
 _(* non-D1Eid0 *) => false
@@ -2184,7 +2184,7 @@ d1e.node() of
 |
 D1Eid0(sym) =>
 if
-(sym=DEVAL_symbl)
+(symbl_cmp(sym, DEVAL_symbl) = 0)
 then true else false
 |
 _(* non-D1Eid0 *) => false
@@ -2198,7 +2198,7 @@ d1e.node() of
 |
 D1Eid0(sym) =>
 if
-(sym=DFOLD_symbl)
+(symbl_cmp(sym, DFOLD_symbl) = 0)
 then true else false
 |
 _(* non-D1Eid0 *) => false
@@ -2212,7 +2212,7 @@ d1e.node() of
 |
 D1Eid0(sym) =>
 if
-(sym=DFREE_symbl)
+(symbl_cmp(sym, DFREE_symbl) = 0)
 then true else false
 |
 _(* non-D1Eid0 *) => false
@@ -2226,7 +2226,7 @@ d1e.node() of
 |
 D1Eid0(sym) =>
 if
-(sym=DLAZY_symbl)
+(symbl_cmp(sym, DLAZY_symbl) = 0)
 then true else false
 |
 _(* non-D1Eid0 *) => false
@@ -2240,7 +2240,7 @@ d1e.node() of
 |
 D1Eid0(sym) =>
 if
-(sym=DLLAZY_symbl)
+(symbl_cmp(sym, DLLAZY_symbl) = 0)
 then true else false
 |
 _(* non-D1Eid0 *) => false
@@ -2254,7 +2254,7 @@ d1e.node() of
 |
 D1Eid0(sym) =>
 if
-(sym=DELAZY_symbl)
+(symbl_cmp(sym, DELAZY_symbl) = 0)
 then true else false
 |
 _(* non-D1Eid0 *) => false
@@ -2744,7 +2744,7 @@ ASSGNq
 case+
 d1f.node() of
 | D1Eid0(sym) =>
-( sym = ASSGN_symbl )
+( symbl_cmp(sym, ASSGN_symbl) = 0 )
 | _(*non-D1Eid0*) => false)//endof(fun)
 //
 fun
@@ -2754,7 +2754,7 @@ XAZGNq
 case+
 d1f.node() of
 | D1Eid0(sym) =>
-( sym = XAZGN_symbl )
+( symbl_cmp(sym, XAZGN_symbl) = 0 )
 | _(*non-D1Eid0*) => false)//endof(fun)
 //
 fun
@@ -2764,7 +2764,7 @@ XCHNGq
 case+
 d1f.node() of
 | D1Eid0(sym) =>
-( sym = XCHNG_symbl )
+( symbl_cmp(sym, XCHNG_symbl) = 0 )
 | _(*non-D1Eid0*) => false)//endof(fun)
 //
 } (*where*) // end of [f0_a2pp(env0,d1e0)]

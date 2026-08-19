@@ -36,10 +36,23 @@ import (
 // strn_print appends to and the_print_store_flush drains.
 var thePrintStore []string
 
+// xatsStorePut is the single choke point for DEFAULT-channel print-store
+// appends.  During the diagnostics window (Xats_XATS2GO_report_begin/end)
+// the default channel is STDERR and text is written through immediately —
+// matching the srcgen1/JS-compiled side, where the reporters' resolved
+// hooks write to stderr directly while stdout text stays in the store.
+func xatsStorePut(cs string) {
+	if f, ok := xatsDefaultOut.(*os.File); ok && f == os.Stderr {
+		fmt.Fprint(os.Stderr, cs)
+		return
+	}
+	thePrintStore = append(thePrintStore, cs)
+}
+
 // XATS2JS_strn_print pushes cs onto the print store (no output yet).
 // Mirrors srcgen2_prelude.js: XATS2JS_strn_print(cs){ store.push(cs) }.
 func XATS2JS_strn_print(cs string) {
-	thePrintStore = append(thePrintStore, cs)
+	xatsStorePut(cs)
 }
 
 // XATS2JS_the_print_store_flush joins + clears the store, returning the text.
@@ -322,16 +335,16 @@ func Xats_cfail() any {
 
 // Xats_sint_print mirrors XATS2JS_sint_print: i0.toString() pushed.
 var Xats_sint_print = func(i0 any) any {
-	thePrintStore = append(thePrintStore, strconv.Itoa(i0.(int)))
+	xatsStorePut(strconv.Itoa(i0.(int)))
 	return XATSNIL()
 }
 
 // Xats_bool_print mirrors the prelude bool_print: "true"/"false" pushed.
 var Xats_bool_print = func(b0 any) any {
 	if b0.(bool) {
-		thePrintStore = append(thePrintStore, "true")
+		xatsStorePut("true")
 	} else {
-		thePrintStore = append(thePrintStore, "false")
+		xatsStorePut("false")
 	}
 	return XATSNIL()
 }
@@ -339,7 +352,7 @@ var Xats_bool_print = func(b0 any) any {
 // Xats_char_print mirrors XATS2JS_char_print: String.fromCharCode(c0) pushed.
 // The emitted char literal is a Go rune; print its single character.
 var Xats_char_print = func(c0 any) any {
-	thePrintStore = append(thePrintStore, string(rune(c0.(int32))))
+	xatsStorePut(string(rune(c0.(int32))))
 	return XATSNIL()
 }
 
@@ -389,7 +402,7 @@ var Xats_XATS2GO_chrfpr = func(filr any, c0 any) any {
 // Xats_dflt_print mirrors XATS2JS_dflt_print: f0.toString() pushed, where
 // .toString() is JS Number formatting -> see XatsFloatToString (JS-compatible).
 var Xats_dflt_print = func(f0 any) any {
-	thePrintStore = append(thePrintStore, XatsFloatToString(f0.(float64)))
+	xatsStorePut(XatsFloatToString(f0.(float64)))
 	return XATSNIL()
 }
 
@@ -770,7 +783,7 @@ func xatsConString(xs *XatsCon) string {
 }
 
 func gsPrintOne(x any) {
-	thePrintStore = append(thePrintStore, xatsValueString(x))
+	xatsStorePut(xatsValueString(x))
 }
 
 func gsPrerrOne(x any) {
@@ -1191,7 +1204,7 @@ func Xats_i0parsed_parsed_get(p any) any { return xatsIRfield(p, 3) }
 type xatsStoreWriter struct{}
 
 func (xatsStoreWriter) Write(p []byte) (int, error) {
-	thePrintStore = append(thePrintStore, string(p))
+	xatsStorePut(string(p))
 	return len(p), nil
 }
 
@@ -1483,7 +1496,18 @@ func Xats_list_pair(x1 any, x2 any) *XatsCon {
 // The JS arm's file handles are process.stdout/stderr; here the analogous
 // io.Writer values. Every *_fprint below writes via the same duck-typed
 // Write([]byte) the existing FILR helpers use.
-var Xats_XATS2JS_NODE_g_stdout = func() any { return os.Stdout }
+var Xats_XATS2JS_NODE_g_stdout = func() any { return xatsDefaultOut }
+
+// REPORT-CHANNEL OVERRIDE.  The srcgen2 resolver does not apply local
+// `g_print$out<>() = out` hooks, so the print family in srcgen2-emitted code
+// always writes to the DEFAULT channel.  The compiler's diagnostics window
+// (driver: f3perr0_d3parsed with out0 = g_stderr) is stderr on the
+// srcgen1/JS-compiled side; the driver brackets that window with these two
+// leaves so the self-hosted binary's report lands on stderr identically.
+var xatsDefaultOut any = os.Stdout
+
+func Xats_XATS2GO_report_begin() any { xatsDefaultOut = os.Stderr; return nil }
+func Xats_XATS2GO_report_end() any   { xatsDefaultOut = os.Stdout; return nil }
 var Xats_XATS2JS_NODE_g_stderr = func() any { return os.Stderr }
 
 // XATS2JS_NODE_strn_fprint(obj, out): out.write(obj) — arg order (obj, out).
@@ -1497,6 +1521,21 @@ var Xats_XATS2JS_NODE_strn_fprint = func(obj any, out any) any {
 	}
 	return XATSNIL()
 }
+
+// bool/float fprint leaves (same (value, out) order as strn_fprint): the
+// tmplib g_print<bool>/g_print<dflt> instances lower to these.
+var Xats_XATS2JS_NODE_bool_fprint = func(b any, out any) any {
+	s := "false"
+	if v, ok := b.(bool); ok && v {
+		s = "true"
+	}
+	return Xats_XATS2JS_NODE_strn_fprint(s, out)
+}
+var Xats_XATS2JS_NODE_gflt_fprint_dflt = func(f any, out any) any {
+	v, _ := f.(float64)
+	return Xats_XATS2JS_NODE_strn_fprint(XatsFloatToString(v), out)
+}
+var Xats_gflt_fprint_dflt = Xats_XATS2JS_NODE_gflt_fprint_dflt
 
 // -- stderr print family (synoug0's gs_prerr chain) --------------------------
 //

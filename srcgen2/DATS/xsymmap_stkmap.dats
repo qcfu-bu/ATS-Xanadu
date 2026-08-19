@@ -447,7 +447,7 @@ optn_vt_nil((*void*))
 stkmap_cons(k1, x1, kxs) =>
 (
 if
-(k0 = k1)
+(symbl_cmp(k0, k1) = 0)
 then
 optn_vt_cons(x1) else loop(kxs,k0))
 //

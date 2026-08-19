@@ -54,6 +54,7 @@ ATS_PACKNAME
 #staload "./../SATS/xbasics.sats"
 (* ****** ****** *)
 #staload "./../SATS/xlabel0.sats"
+#staload "./../SATS/xstamp0.sats"
 #staload "./../SATS/xsymbol.sats"
 (* ****** ****** *)
 #staload "./../SATS/staexp2.sats"
@@ -140,7 +141,7 @@ s2e0.node() of
 (
 if
 not(
-svar=s2v0)
+stamp_cmp(svar.stmp(), s2v0.stmp()) = 0)
 then s2e0 else
 (
 flag := flag+1;

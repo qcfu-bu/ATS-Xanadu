@@ -91,13 +91,13 @@ FALSE with $SYM.FALSE_symbl
 symbl2sbtf(sym) =
 (
 if
-sym=TRUE
+$SYM.symbl_cmp(sym, TRUE) = 0
 then true else false)//impl
 #implfun
 symbl2dbtf(sym) =
 (
 if
-sym=TRUE
+$SYM.symbl_cmp(sym, TRUE) = 0
 then true else false)//impl
 //
 (* ****** ****** *)

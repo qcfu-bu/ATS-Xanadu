@@ -151,6 +151,12 @@ function XATS2GO_gochar_esc(c0) {
 function XATS2GO_chrfpr(filr, c0) {
   return XATS2JS_NODE_char_fprint(c0, filr);
 }
+// diagnostics-window channel brackets: NO-OPS on the JS side — the
+// srcgen1-compiled reporters thread their out-channel through RESOLVED
+// print hooks, so the JS bundle's report already lands on stderr.  Only
+// the srcgen2-compiled (self-hosted Go) side needs the runtime override.
+function XATS2GO_report_begin() { return [/*XATSNIL*/]; }
+function XATS2GO_report_end() { return [/*XATSNIL*/]; }
 //==XATS2GO-JSSHIM-END==
 EOF
 

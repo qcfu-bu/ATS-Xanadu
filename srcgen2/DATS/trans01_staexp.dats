@@ -1168,14 +1168,14 @@ val opt1 =
 (
 if
 (
-sym0=ADD_symbl)
+symbl_cmp(sym0, ADD_symbl) = 0)
 then
 optn_vt_cons
 (postplus_fixty) else
 (
 if
 (
-sym0=SUB_symbl)
+symbl_cmp(sym0, SUB_symbl) = 0)
 then
 optn_vt_cons
 (postmnus_fixty) else

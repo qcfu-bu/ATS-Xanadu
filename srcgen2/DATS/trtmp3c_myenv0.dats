@@ -611,7 +611,19 @@ tmqstk_nil
 | // !
 tmqstk_svts
 ( nimp
-, svts, stk1) => (svts)
+, svts, stk1) =>
+(*
+HX/CLAUDE-2026-08: COMPOSE the svts of ALL stacked frames (was: return
+the TOPMOST frame only).  Nested template instantiation pushes one svts
+frame per level; an inner instance query can mention tvars bound by ANY
+enclosing frame, and resolving it against just the innermost frame left
+those tvars FREE — the query then matched nothing and the instance fell
+back to a runtime bridge (the "unresolved prelude instance" farm).
+Frame tvar stamps are unique, so append order cannot shadow anything.
+*)
+(
+list_append
+(svts, tmqstk_getsvts(stk1)))
 //
 | // !
 tmqstk_timp

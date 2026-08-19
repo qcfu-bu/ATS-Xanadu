@@ -412,9 +412,9 @@ d2var_tailq
 (
 case+ ical of
 |I0CALfix
-(   dfix   ) => (d2v0 = dfix)
+(   dfix   ) => (stamp_cmp(d2var_get_stmp(d2v0), d2var_get_stmp(dfix)) = 0)
 |I0CALfun
-(dfix, d2vs) => (d2v0 = dfix) 
+(dfix, d2vs) => (stamp_cmp(d2var_get_stmp(d2v0), d2var_get_stmp(dfix)) = 0) 
 |_(*otherwise*) => (   false   )
 )(*case+*)//end-of-[d2var_tailq(...)]
 //
@@ -463,7 +463,7 @@ case+
 ival.node() of
 |I1Vtnm(tnm1) =>
 (
-tnm0.stmp() = tnm1.stmp())
+stamp_cmp(tnm0.stmp(), tnm1.stmp()) = 0)
 |
 _(*otherwise*) => ( false )
 //

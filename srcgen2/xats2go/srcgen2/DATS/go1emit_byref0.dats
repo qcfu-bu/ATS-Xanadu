@@ -56,7 +56,7 @@ fun
 stmp_eqb
 (s1: stamp, s2: stamp): bool =
 (
-  s1 = s2)
+  stamp_cmp(s1, s2) = 0)
 //
 fun
 stmp_mem

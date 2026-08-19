@@ -80,11 +80,10 @@ in//let
 case+ ilet of
 |I1LETnew0(iins) =>
 (
-prints("I1LETnew0(", iins, ")"))
+(print("I1LETnew0("); print(iins); print(")")))
 |I1LETnew1(itnm, iins) =>
 (
-prints
-("I1LETnew1(", itnm, ";", iins, ")"))
+(print("I1LETnew1("); print(itnm); print(";"); print(iins); print(")")))
 //
 end(*let*)//end-of-[i1let_fprint(ilet,out0)]
 //
@@ -112,7 +111,7 @@ case+ ibnd of
 (itnm, ipat, dsub) =>
 (
 print("I1BNDcons(");
-prints(itnm, ";", ipat, ";", dsub, ")"))
+(print(itnm); print(";"); print(ipat); print(";"); print(dsub); print(")")))
 //
 end(*let*)//end-of-[i1bnd_fprint(ibnd,out0)]
 //
@@ -128,7 +127,7 @@ in//let
 //
 case+ icmp of
 |I1CMPcons(ilts, ival) =>
-prints("I1CMPcons(", ilts, ";", ival, ")")
+(print("I1CMPcons("); print(ilts); print(";"); print(ival); print(")"))
 //
 end(*let*)//end-of-[i1cmp_fprint(icmp,out0)]
 //
@@ -150,38 +149,38 @@ i1v0.node() of
 //
 |I1Vnil() =>
 (
-prints("I1Vnil(",")"))
+(print("I1Vnil("); print(")")))
 //
 (* ****** ****** *)
 //
 |I1Vint(int) =>
-prints("I1Vint(",int,")")
+(print("I1Vint("); print(int); print(")"))
 |I1Vbtf(btf) =>
-prints("I1Vbtf(",btf,")")
+(print("I1Vbtf("); print(btf); print(")"))
 |I1Vchr(chr) =>
-prints("I1Vchr(",chr,")")
+(print("I1Vchr("); print(chr); print(")"))
 |I1Vflt(flt) =>
-prints("I1Vflt(",flt,")")
+(print("I1Vflt("); print(flt); print(")"))
 |I1Vstr(str) =>
-prints("I1Vstr(",str,")")
+(print("I1Vstr("); print(str); print(")"))
 //
 (* ****** ****** *)
 //
 |I1Vi00(i00) =>
-prints("I1Vi00(",i00,")")
+(print("I1Vi00("); print(i00); print(")"))
 |I1Vb00(b00) =>
-prints("I1Vb00(",b00,")")
+(print("I1Vb00("); print(b00); print(")"))
 |I1Vc00(c00) =>
-prints("I1Vc00(",c00,")")
+(print("I1Vc00("); print(c00); print(")"))
 |I1Vf00(f00) =>
-prints("I1Vf00(",f00,")")
+(print("I1Vf00("); print(f00); print(")"))
 |I1Vs00(s00) =>
-prints("I1Vs00(",s00,")")
+(print("I1Vs00("); print(s00); print(")"))
 //
 (* ****** ****** *)
 //
 |I1Vtop(sym) =>
-prints("I1Vtop(",sym,")")
+(print("I1Vtop("); print(sym); print(")"))
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -192,26 +191,26 @@ prints("I1Varg(",iarg,")")
 *)
 //
 |I1Venv(ienv) =>
-prints("I1Venv(",ienv,")")
+(print("I1Venv("); print(ienv); print(")"))
 //
 (* ****** ****** *)
 //
 |I1Vtnm(itnm) =>
-prints("I1Vtnm(",itnm,")")
+(print("I1Vtnm("); print(itnm); print(")"))
 //
 (* ****** ****** *)
 (* ****** ****** *)
 //
 |I1Vcon(dcon) =>
-prints("I1Vcon(",dcon,")")
+(print("I1Vcon("); print(dcon); print(")"))
 |I1Vcst(dcst) =>
-prints("I1Vcst(",dcst,")")
+(print("I1Vcst("); print(dcst); print(")"))
 //
 (* ****** ****** *)
 //
 |
 I1Vfid(dvar) =>
-prints("I1Vfid(",dvar,")")
+(print("I1Vfid("); print(dvar); print(")"))
 (*
 |
 I1Vfid(dvar) =>
@@ -226,10 +225,10 @@ end//let//end-[I1Vfid(dvar)]
 (* ****** ****** *)
 |
 I1Vaexp(iexp) =>
-prints("I1Vaexp(", iexp, ")")
+(print("I1Vaexp("); print(iexp); print(")"))
 |
 I1Vaddr(ival) =>
-prints("I1Vaddr(", ival, ")")
+(print("I1Vaddr("); print(ival); print(")"))
 (* ****** ****** *)
 (* ****** ****** *)
 //
@@ -237,7 +236,7 @@ prints("I1Vaddr(", ival, ")")
 (d2v1, i1vs) =>
 (
 print("I1Vfenv(");
-prints(d2v1, ";", i1vs, ")"))
+(print(d2v1); print(";"); print(i1vs); print(")")))
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -246,31 +245,28 @@ prints(d2v1, ";", i1vs, ")"))
 (i1v1, idx2) =>
 (
 print("I1Vp0rj(");
-prints(i1v1, ";", idx2, ")"))
+(print(i1v1); print(";"); print(idx2); print(")")))
 //
 |I1Vp1cn
 (i0f0
 ,i1v1, idx2) =>
 (
 print("I1Vp1cn(");
-prints(
-i0f0, ";", i1v1, ";", idx2, ")"))
+(print(i0f0); print(";"); print(i1v1); print(";"); print(idx2); print(")")))
 //
 |I1Vp1rj
 (tknd
 ,i1v1, idx2) =>
 (
 print("I1Vp1rj(");
-prints(
-tknd, ";", i1v1, ";", idx2, ")"))
+(print(tknd); print(";"); print(i1v1); print(";"); print(idx2); print(")")))
 //
 |I1Vp2rj
 (tknd
 ,i1v1, lab2) =>
 (
 print("I1Vp2rj(");
-prints(
-tknd, ";", i1v1, ";", lab2, ")"))
+(print(tknd); print(";"); print(i1v1); print(";"); print(lab2); print(")")))
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -279,13 +275,13 @@ tknd, ";", i1v1, ";", lab2, ")"))
 (tknd
 ,i1v1, g1ns) =>
 ( print("I1Vextnam(")
-; prints(tknd, ";", i1v1, ";", g1ns, ")"))
+; (print(tknd); print(";"); print(i1v1); print(";"); print(g1ns); print(")")))
 //
 (* ****** ****** *)
 (* ****** ****** *)
 //
-|I1Vnone0() => prints( "I1Vnone0(",")" )
-|I1Vnone1(i0e1) => prints("I1Vnone1(", i0e1, ")")
+|I1Vnone0() => (print("I1Vnone0("); print(")"))
+|I1Vnone1(i0e1) => (print("I1Vnone1("); print(i0e1); print(")"))
 //
 (* ****** ****** *)
 //
@@ -310,7 +306,7 @@ case+ iins of
 ( iopr, i1vs) =>
 (
 print("I1INSopr(");
-prints(iopr, ";", i1vs, ")"))
+(print(iopr); print(";"); print(i1vs); print(")")))
 //
 (* ****** ****** *)
 //
@@ -318,7 +314,7 @@ prints(iopr, ";", i1vs, ")"))
 ( i1f0, i1vs) =>
 (
 print("I1INSdapp(");
-prints(i1f0, ";", i1vs, ")"))
+(print(i1f0); print(";"); print(i1vs); print(")")))
 //
 (* ****** ****** *)
 //
@@ -326,8 +322,7 @@ prints(i1f0, ";", i1vs, ")"))
 ( i0e1,timp ) =>
 (
 print("I1INStimp(");
-prints
-(i0e1, ";", "...", ")"))
+(print(i0e1); print(";"); print("..."); print(")")))
 where
 {
 val
@@ -354,42 +349,41 @@ _(*otherwise*) => ( i0e1 ))}
 |I1INStup0
 (   i1vs   ) =>
 (
-prints
-("I1INStup0(", i1vs, ")"))
+(print("I1INStup0("); print(i1vs); print(")")))
 //
 |I1INStup1
 (tknd, i1vs) =>
 ( print("I1INStup1(")
-; prints(tknd, ";", i1vs, ")"))
+; (print(tknd); print(";"); print(i1vs); print(")")))
 //
 |I1INSrcd2
 (tknd, livs) =>
 ( print("I1INSrcd2(")
-; prints(tknd, ";", livs, ")"))
+; (print(tknd); print(";"); print(livs); print(")")))
 //
 (* ****** ****** *)
 //
 |I1INSpcon
 (dlab, icon) =>
 ( print("I1INSpcon(")
-; prints(dlab, ";", icon, ")"))
+; (print(dlab); print(";"); print(icon); print(")")))
 //
 |I1INSpflt
 (dlab, itup) =>
 ( print("I1INSpflt(")
-; prints(dlab, ";", itup, ")"))
+; (print(dlab); print(";"); print(itup); print(")")))
 //
 |I1INSproj
 (dlab, itup) =>
 ( print("I1INSproj(")
-; prints(dlab, ";", itup, ")"))
+; (print(dlab); print(";"); print(itup); print(")")))
 //
 (* ****** ****** *)
 //
 |I1INSlet0
 (dcls, icmp) =>
 ( print("I1INSlet0(")
-; prints(dcls, ";", icmp, ")"))
+; (print(dcls); print(";"); print(icmp); print(")")))
 //
 (* ****** ****** *)
 //
@@ -398,16 +392,14 @@ prints
 ,ithn, iels) =>
 (
 print("I1INSift0(");
-prints(
-test,";", ithn,";", iels,")"))
+(print(test); print(";"); print(ithn); print(";"); print(iels); print(")")))
 //
 |I1INScas0
 (cask
 ,i1v1, icls) =>
 (
 print("I1INScas0(");
-prints(
-cask,";", i1v1,";", icls,")"))
+(print(cask); print(";"); print(i1v1); print(";"); print(icls); print(")")))
 //
 (* ****** ****** *)
 //
@@ -416,17 +408,14 @@ cask,";", i1v1,";", icls,")"))
 ,fjas, icmp) =>
 ( print
 ( "I1INSlam0(" )
-; prints
-( tknd,";",fjas,";",icmp,")"))
+; (print(tknd); print(";"); print(fjas); print(";"); print(icmp); print(")")))
 //
 |I1INSfix0
 (tknd, dvar
 ,fjas, icmp) =>
 ( print
 ( "I1INSfix0(" )
-; prints
-( tknd,";"
-, dvar,";",fjas,";",icmp,")"))
+; (print(tknd); print(";"); print(dvar); print(";"); print(fjas); print(";"); print(icmp); print(")")))
 //
 (* ****** ****** *)
 //
@@ -436,79 +425,75 @@ cask,";", i1v1,";", icls,")"))
 ,iexn, icls) =>
 ( print
 ( "I1INStry0(" )
-; prints
-( tknd,";"
-, icmp,";",iexn,";",icls,")"))
+; (print(tknd); print(";"); print(icmp); print(";"); print(iexn); print(";"); print(icls); print(")")))
 //
 (* ****** ****** *)
 //
 |I1INSflat
 (   i1v0   ) =>
-(prints("I1INSflat(",i1v0,")"))
+((print("I1INSflat("); print(i1v0); print(")")))
 //
 (* ****** ****** *)
 //
 |I1INSfold
 (   i1v0   ) =>
-(prints("I1INSfold(",i1v0,")"))
+((print("I1INSfold("); print(i1v0); print(")")))
 //
 |I1INSfree
 (   i1v0   ) =>
-(prints("I1INSfree(",i1v0,")"))
+((print("I1INSfree("); print(i1v0); print(")")))
 //
 (* ****** ****** *)
 //
 |I1INSrturn
 (ical, icmp) =>
 ( print("I1INSrturn(")
-; prints(ical, ";", icmp, ")"))
+; (print(ical); print(";"); print(icmp); print(")")))
 //
 (* ****** ****** *)
 //
 |I1INSdp2tr
 (   iptr   ) =>
 (
-prints("I1INSdp2tr(",iptr,")"))
+(print("I1INSdp2tr("); print(iptr); print(")")))
 //
 (* ****** ****** *)
 //
 |I1INSdl0az
 (   i1f0   ) =>
 (
-prints("I1INSdl0az(",i1f0,")"))
+(print("I1INSdl0az("); print(i1f0); print(")")))
 |I1INSdl1az
 (   i1f0   ) =>
 (
-prints("I1INSdl1az(",i1f0,")"))
+(print("I1INSdl1az("); print(i1f0); print(")")))
 //
 (* ****** ****** *)
 //
 |I1INSl0azy
 (dknd, icmp) =>
 ( print("I1INSl0azy(")
-; prints(dknd, ";", icmp, ")"))
+; (print(dknd); print(";"); print(icmp); print(")")))
 //
 |I1INSl1azy
 (dknd, icmp, i1fs) =>
 (
 print("I1INSl1azy(");
-prints
-(dknd, ";", icmp, ";", i1fs, ")"))
+(print(dknd); print(";"); print(icmp); print(";"); print(i1fs); print(")")))
 //
 (* ****** ****** *)
 //
 |I1INSraise
 (tknd, iexn) => // iexp: i1val
 (
- prints("I1INSraise(", iexn, ")"))
+ (print("I1INSraise("); print(iexn); print(")")))
 //
 (* ****** ****** *)
 //
 |I1INSassgn
 (i1vl, i1vr) =>
 (
-prints
-("I1INSassgn(", i1vl, ";", i1vr, ")"))
+(print("I1INSassgn("); print(i1vl); print(";"); print(i1vr); print(")")))
 //
 (* ****** ****** *)
 //
@@ -529,7 +514,7 @@ case+
 farg.node() of
 |FJARGdarg(i1bs) =>
 (
-  prints("FJARGdarg(", i1bs, ")"))
+  (print("FJARGdarg("); print(i1bs); print(")")))
 //
 end(*let*)//end-of-[fjarg_fprint(farg,out0)]
 //
@@ -548,10 +533,10 @@ case+
 igua.node() of
 |I1GUAexp(icmp) =>
 (
-prints("I1GUAexp(",icmp,")"))
+(print("I1GUAexp("); print(icmp); print(")")))
 |I1GUAmat(icmp,ibnd) =>
 (
-prints("I1GUAmat(", icmp,";", ibnd,")"))
+(print("I1GUAmat("); print(icmp); print(";"); print(ibnd); print(")")))
 //
 end(*let*)//end-of-[i1gua_fprint(igua,out0)]
 //
@@ -569,10 +554,10 @@ case+
 igpt.node() of
 |I1GPTpat(ibnd) =>
 (
-prints("I1GPTpat(", ibnd, ")"))
+(print("I1GPTpat("); print(ibnd); print(")")))
 |I1GPTgua(ibnd,i1gs) =>
 (
-prints("I1GPTgua(", ibnd,";", i1gs,")"))
+(print("I1GPTgua("); print(ibnd); print(";"); print(i1gs); print(")")))
 //
 end(*let*)//end-of-[i1gpt_fprint(igpt,out0)]
 //
@@ -588,10 +573,10 @@ case+
 icls.node() of
 |I1CLSgpt(igpt) =>
 (
-prints("I1CLSgpt(", igpt, ")"))
+(print("I1CLSgpt("); print(igpt); print(")")))
 |I1CLScls(igpt,icmp) =>
 (
-prints("I1CLScls(", igpt,";", icmp,")"))
+(print("I1CLScls("); print(igpt); print(";"); print(icmp); print(")")))
 //
 end(*let*)//end-of-[i1cls_fprint(icls,out0)]
 //
@@ -617,14 +602,12 @@ prints("T1IMPone1(", dcl1 ,")")
 |T1IMPall1
 (d2c1
 ,t2js, dopt) =>
-prints
-("T1IMPall1(",d2c1,";",t2js,";",dopt,")")
+(print("T1IMPall1("); print(d2c1); print(";"); print(t2js); print(";"); print(dopt); print(")"))
 //
 |T1IMPallx
 (d2c1
 ,t2js, dopt) =>
-prints
-("T1IMPallx(",d2c1,";",t2js,";",dopt,")")
+(print("T1IMPallx("); print(d2c1); print(";"); print(t2js); print(";"); print(dopt); print(")"))
 //
 end(*let*)//end-of-[t1imp_fprint(timp,out0)]
 //
@@ -647,42 +630,37 @@ dcl0.node() of
 |I1Di0dcl
 (  dcl1  ) =>
 (
-prints("I1Di0dcl(", dcl1, ")"))
+(print("I1Di0dcl("); print(dcl1); print(")")))
 //
 (* ****** ****** *)
 //
 |I1Dextern
 (tknd, dcl1) =>
-prints
-("I1Dextern(", tknd, ";", dcl1, ")")
+(print("I1Dextern("); print(tknd); print(";"); print(dcl1); print(")"))
 |I1Dstatic
 (tknd, dcl1) =>
-prints
-("I1Dstatic(", tknd, ";", dcl1, ")")
+(print("I1Dstatic("); print(tknd); print(";"); print(dcl1); print(")"))
 //
 (* ****** ****** *)
 //
 |I1Ddclst0
 (   dcls   ) =>
 (
-  prints("I1Ddclst0(", dcls, ")"))
+  (print("I1Ddclst0("); print(dcls); print(")")))
 //
 |I1Dlocal0
 (head, body) =>
-prints
-("I1Dlocal0(", head, ";", body, ")")
+(print("I1Dlocal0("); print(head); print(";"); print(body); print(")"))
 //
 (* ****** ****** *)
 //
 |I1Ddclenv
 (idcl, i0ws) =>
-prints
-("I1Ddclenv(", idcl, ";", i0ws, ")")
+(print("I1Ddclenv("); print(idcl); print(";"); print(i0ws); print(")"))
 //
 |I1Dtmpsub
 (svts, idcl) =>
-prints
-("I1Dtmpsub(", svts, ";", idcl, ")")
+(print("I1Dtmpsub("); print(svts); print(";"); print(idcl); print(")"))
 //
 (* ****** ****** *)
 //
@@ -691,23 +669,18 @@ prints
 , gsrc, fopt, dopt ) =>
 (
 print("I1Dinclude(");
-prints
-(
-knd0,";",
-tknd,";",gsrc,";",fopt,";","...",")"))
+(print(knd0); print(";"); print(tknd); print(";"); print(gsrc); print(";"); print(fopt); print(";"); print("..."); print(")")))
 //
 (* ****** ****** *)
 //
 |
 I1Dvaldclst
 (tknd, i1vs) =>
-prints
-("I1Dvaldclst(", tknd, ";", i1vs, ")")
+(print("I1Dvaldclst("); print(tknd); print(";"); print(i1vs); print(")"))
 |
 I1Dvardclst
 (tknd, i1vs) =>
-prints
-("I1Dvardclst(", tknd, ";", i1vs, ")")
+(print("I1Dvardclst("); print(tknd); print(";"); print(i1vs); print(")"))
 //
 |
 I1Dfundclst
@@ -716,8 +689,8 @@ I1Dfundclst
 , d2cs, i1fs) =>
 (
 print("I1Dfundclst(");
-prints(tknd, ";", lvl0, ";");
-prints(tqas, ";", d2cs, ";", i1fs,")"))
+(print(tknd); print(";"); print(lvl0); print(";"));
+(print(tqas); print(";"); print(d2cs); print(";"); print(i1fs); print(")")))
 //
 (* ****** ****** *)
 //
@@ -728,13 +701,13 @@ I1Dimplmnt0
 ,stmp, dimp
 ,farg, body) =>
 ( print("I1Dimplmnt0(")
-; prints(tknd, ";", lvl0, ";", stmp, ";")
-; prints(dimp, ";", farg, ";", body, ")"))
+; (print(tknd); print(";"); print(lvl0); print(";"); print(stmp); print(";"))
+; (print(dimp); print(";"); print(farg); print(";"); print(body); print(")")))
 //
 (* ****** ****** *)
 //
-|I1Dnone0() => prints( "I1Dnone0(",")" )
-|I1Dnone1(dcl1) => prints("I1Dnone1(", dcl1, ")")
+|I1Dnone0() => (print("I1Dnone0("); print(")"))
+|I1Dnone1(dcl1) => (print("I1Dnone1("); print(dcl1); print(")"))
 //
 (* ****** ****** *)
 //
@@ -756,7 +729,7 @@ i1valdcl_tdxp$get(ival)
 //
 in//let
 (
-prints("I1VALDCL(", dpat, ";", tdxp, ")"))
+(print("I1VALDCL("); print(dpat); print(";"); print(tdxp); print(")")))
 end(*let*)//end-of-[i1valdcl_fprint(ival,out0)]
 //
 (* ****** ****** *)
@@ -774,7 +747,7 @@ i1vardcl_dini$get(ivar)
 //
 in//let
 (
-prints("I1VARDCL(", dpid, ";", dini, ")"))
+(print("I1VARDCL("); print(dpid); print(";"); print(dini); print(")")))
 end(*let*)//end-of-[i1vardcl_fprint(ivar,out0)]
 //
 (* ****** ****** *)
@@ -795,8 +768,7 @@ i1fundcl_tdxp$get(ifun)
 //
 in//let
 (
-prints
-("I1FUNDCL(",dpid,";",farg,";",tdxp,")"))
+(print("I1FUNDCL("); print(dpid); print(";"); print(farg); print(";"); print(tdxp); print(")")))
 end(*let*)//end-of-[i1fundcl_fprint(ifun,out0)]
 //
 (* ****** ****** *)
@@ -824,8 +796,7 @@ i1parsed_parsed$get(ipar)
 in//let
 (
 print("I1PARSED(");
-prints
-(stadyn,";",nerror,";",source,";",parsed,")"))
+(print(stadyn); print(";"); print(nerror); print(";"); print(source); print(";"); print(parsed); print(")")))
 end(*let*)//end-of-[i1parsed_fprint(ipar,out0)]
 //
 (* ****** ****** *)

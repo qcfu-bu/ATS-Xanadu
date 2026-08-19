@@ -189,6 +189,10 @@ func XATS2GO_gochar_esc(c0 rune) string {
 func XATS2GO_chrfpr(filr any, c0 rune) any {
 	return xatsgo.Xats_XATS2GO_chrfpr(filr, c0)
 }
+
+// diagnostics-window channel brackets (see runtime + xats2go_goemit01.dats).
+func XATS2GO_report_begin() any { return xatsgo.Xats_XATS2GO_report_begin() }
+func XATS2GO_report_end() any   { return xatsgo.Xats_XATS2GO_report_end() }
 GOEOF
   # stamped s2lab_get_itm shims: S2LAB(l0, x0) => x0 (Args[1])
   grep -ohE '\bs2lab_get_itm_[0-9]+' "$OUT/src/emitter_all.go" | sort -u | while read -r nm; do

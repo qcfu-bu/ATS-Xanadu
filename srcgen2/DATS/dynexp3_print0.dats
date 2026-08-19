@@ -107,66 +107,63 @@ case+
 d3p0.node() of
 //
 |D3Pany() =>
-prints("D3Pany(",")")
+(print("D3Pany("); print(")"))
 //
 |D3Pvar(d2v) =>
-prints("D3Pvar(",d2v,")")
+(print("D3Pvar("); print(d2v); print(")"))
 //
 (* ****** ****** *)
 //
 |D3Pint(tok) =>
-prints("D3Pint(",tok,")")
+(print("D3Pint("); print(tok); print(")"))
 |D3Pbtf(sym) =>
-prints("D3Pbtf(",sym,")")
+(print("D3Pbtf("); print(sym); print(")"))
 |D3Pchr(tok) =>
-prints("D3Pchr(",tok,")")
+(print("D3Pchr("); print(tok); print(")"))
 |D3Pflt(tok) =>
-prints("D3Pflt(",tok,")")
+(print("D3Pflt("); print(tok); print(")"))
 |D3Pstr(tok) =>
-prints("D3Pstr(",tok,")")
+(print("D3Pstr("); print(tok); print(")"))
 //
 (* ****** ****** *)
 //
 |D3Pcon(d2c) =>
-prints("D3Pcon(",d2c,")")
+(print("D3Pcon("); print(d2c); print(")"))
 //
 (* ****** ****** *)
 //
 |
 D3Pbang(d3p1) =>
-prints("D3Pbang(",d3p1,")")
+(print("D3Pbang("); print(d3p1); print(")"))
 |
 D3Pflat(d3p1) =>
-prints("D3Pflat(",d3p1,")")
+(print("D3Pflat("); print(d3p1); print(")"))
 |
 D3Pfree(d3p1) =>
-prints("D3Pfree(",d3p1,")")
+(print("D3Pfree("); print(d3p1); print(")"))
 //
 (* ****** ****** *)
 //
 |
 D3Psapp
 (d3f0, s2vs) =>
-prints
-("D3Psapp(",d3f0,";",s2vs,")")
+(print("D3Psapp("); print(d3f0); print(";"); print(s2vs); print(")"))
 |
 D3Psapq
 (d3f0, s2as) =>
-prints
-("D3Psapq(",d3f0,";",s2as,")")
+(print("D3Psapq("); print(d3f0); print(";"); print(s2as); print(")"))
 //
 |
 D3Ptapq
 (d3p1, tjas) =>
-prints
-("D3Ptapq(",d3p1,";",tjas,")")
+(print("D3Ptapq("); print(d3p1); print(";"); print(tjas); print(")"))
 //
 (* ****** ****** *)
 //
 |
 D3Pdap1(d3f0) =>
 (
-  prints("D3Pdap1(", d3f0, ")"))
+  (print("D3Pdap1("); print(d3f0); print(")")))
 //
 |
 D3Pdapp
@@ -174,7 +171,7 @@ D3Pdapp
 , npf1, d3ps) =>
 (
 print("D3Pdapp(");
-prints(d3f0,";",npf1,";",d3ps,")"))
+(print(d3f0); print(";"); print(npf1); print(";"); print(d3ps); print(")")))
 //
 (* ****** ****** *)
 //
@@ -184,52 +181,51 @@ D3Prfpt
 , tkas, d3p2) =>
 (
 print("D3Prfpt(");
-prints(d3p1,";",tkas,";",d3p2,")"))
+(print(d3p1); print(";"); print(tkas); print(";"); print(d3p2); print(")")))
 //
 (* ****** ****** *)
 //
 |
 D3Ptup0
 ( npf1, d3ps) =>
-prints("D3Ptup0(",npf1,";",d3ps,")")
+(print("D3Ptup0("); print(npf1); print(";"); print(d3ps); print(")"))
 |
 D3Ptup1
 ( tknd
 , npf1, d3ps ) =>
 ( print("D3Ptup1(")
-; prints(tknd,";",npf1,";",d3ps,")"))
+; (print(tknd); print(";"); print(npf1); print(";"); print(d3ps); print(")")))
 |
 D3Prcd2
 ( tknd
 , npf1, ldps ) =>
 ( print("D3Prcd2(")
-; prints(tknd,";",npf1,";",ldps,")"))
+; (print(tknd); print(";"); print(npf1); print(";"); print(ldps); print(")")))
 //
 (* ****** ****** *)
 //
 |D3Pargtp
 ( d3p1, t2p2) =>
 (
-prints("D3Pargtp(",d3p1,";",t2p2,")"))
+(print("D3Pargtp("); print(d3p1); print(";"); print(t2p2); print(")")))
 //
 |D3Pannot
 ( d3p1
 , s1e2, s2e2) =>
-prints
-("D3Pannot(",d3p1,";",s1e2,";",s2e2,")")
+(print("D3Pannot("); print(d3p1); print(";"); print(s1e2); print(";"); print(s2e2); print(")"))
 //
 (* ****** ****** *)
 //
 |D3Pt2pck
 ( d3p1, t2p2) =>
 (
-  prints("D3Pt2pck(",d3p1,";",t2p2,")"))
+  (print("D3Pt2pck("); print(d3p1); print(";"); print(t2p2); print(")")))
 //
 (* ****** ****** *)
 //
-|D3Pnone0() => prints( "D3Pnone0(",")" )
-|D3Pnone1(d2p1) => prints("D3Pnone1(",d2p1,")")
-|D3Pnone2(d3p1) => prints("D3Pnone2(",d3p1,")")
+|D3Pnone0() => (print("D3Pnone0("); print(")"))
+|D3Pnone1(d2p1) => (print("D3Pnone1("); print(d2p1); print(")"))
+|D3Pnone2(d3p1) => (print("D3Pnone2("); print(d3p1); print(")"))
 //
 (* ****** ****** *)
 //
@@ -244,12 +240,12 @@ if // if
 (lvl1 >= 2)
 then
 (
-  prints("D3Perrck(",lvl1,";",d3p2,")"))
+  (print("D3Perrck("); print(lvl1); print(";"); print(d3p2); print(")")))
 else // (lvl1<=1)
 let
 val loc0 = d3p0.lctn() in//let
 (
-  prints("D3Perrck(",loc0,";",lvl1,";",d3p2,")"))
+  (print("D3Perrck("); print(loc0); print(";"); print(lvl1); print(";"); print(d3p2); print(")")))
 end (*let*) // end-of-[ D3Perrck(lvl1,d3p2) ]
 //
 (* ****** ****** *)
@@ -273,92 +269,91 @@ d3e0.node() of
 (* ****** ****** *)
 //
 |D3Eint(tok) =>
-prints("D3Eint(",tok,")")
+(print("D3Eint("); print(tok); print(")"))
 |D3Ebtf(sym) =>
-prints("D3Ebtf(",sym,")")
+(print("D3Ebtf("); print(sym); print(")"))
 |D3Echr(tok) =>
-prints("D3Echr(",tok,")")
+(print("D3Echr("); print(tok); print(")"))
 |D3Eflt(tok) =>
-prints("D3Eflt(",tok,")")
+(print("D3Eflt("); print(tok); print(")"))
 |D3Estr(tok) =>
-prints("D3Estr(",tok,")")
+(print("D3Estr("); print(tok); print(")"))
 //
 (* ****** ****** *)
 //
 |D3Ei00(int) =>
-prints("D3Ei00(",int,")")
+(print("D3Ei00("); print(int); print(")"))
 |D3Eb00(btf) =>
-prints("D3Eb00(",btf,")")
+(print("D3Eb00("); print(btf); print(")"))
 |D3Ec00(chr) =>
-prints("D3Ec00(",chr,")")
+(print("D3Ec00("); print(chr); print(")"))
 |D3Ef00(flt) =>
-prints("D3Ef00(",flt,")")
+(print("D3Ef00("); print(flt); print(")"))
 |D3Es00(str) =>
-prints("D3Es00(",str,")")
+(print("D3Es00("); print(str); print(")"))
 //
 (* ****** ****** *)
 //
 |D3Etop(sym) =>
-prints("D3Etop(", sym, ")")
+(print("D3Etop("); print(sym); print(")"))
 //
 (* ****** ****** *)
 //
 |D3Evar(d2v) =>
-prints("D3Evar(", d2v, ")")
+(print("D3Evar("); print(d2v); print(")"))
 //
 (* ****** ****** *)
 //
 |D3Econ(d2c) =>
-prints("D3Econ(", d2c, ")")
+(print("D3Econ("); print(d2c); print(")"))
 |D3Ecst(d2c) =>
-prints("D3Ecst(", d2c, ")")
+(print("D3Ecst("); print(d2c); print(")"))
 //
 (* ****** ****** *)
 //
 |D3Etimp
 (d2e1, timp) =>
 (
-prints
-("D3Etimp(",d2e1,";",timp,")"))
+(print("D3Etimp("); print(d2e1); print(";"); print(timp); print(")")))
 //
 |D3Etimq
 (d2e1
 ,timp, tmps) =>
 (print("D3Etimq(")
-;prints(d2e1,";",timp,";",tmps,")"))
+;(print(d2e1); print(";"); print(timp); print(";"); print(tmps); print(")")))
 //
 (* ****** ****** *)
 //
 |
 D3Esapp
 (d3e1, s2es) =>
-prints("D3Esapp(",d3e1,";",s2es,")")
+(print("D3Esapp("); print(d3e1); print(";"); print(s2es); print(")"))
 |
 D3Esapq
 (d3e1, t2ps) =>
-prints("D3Esapq(",d3e1,";",t2ps,")")
+(print("D3Esapq("); print(d3e1); print(";"); print(t2ps); print(")"))
 //
 (* ****** ****** *)
 //
 |
 D3Etapp
 (d3e1, s2es) =>
-prints("D3Etapp(",d3e1,";",s2es,")")
+(print("D3Etapp("); print(d3e1); print(";"); print(s2es); print(")"))
 |
 D3Etapq
 (d3e1, tjas) =>
-prints("D3Etapq(",d3e1,";",tjas,")")
+(print("D3Etapq("); print(d3e1); print(";"); print(tjas); print(")"))
 //
 (* ****** ****** *)
 //
 |
 D3Edap0(d3f0) =>
-prints( "D3Edap0(", d3f0, ")" )
+(print("D3Edap0("); print(d3f0); print(")"))
 |
 D3Edapp
 (d3f0,npf1,d3es) =>
 ( print("D3Edapp(")
-; prints(d3f0,";",npf1,";",d3es,")"))
+; (print(d3f0); print(";"); print(npf1); print(";"); print(d3es); print(")")))
 //
 (* ****** ****** *)
 //
@@ -366,12 +361,12 @@ D3Edapp
 D3Epcon
 (tknd,dlab,dtup) =>
 ( print("D3Epcon(")
-; prints(tknd,";",dlab,";",dtup,")"))
+; (print(tknd); print(";"); print(dlab); print(";"); print(dtup); print(")")))
 |
 D3Eproj
 (tknd,dlab,dtup) =>
 ( print("D3Eproj(")
-; prints(tknd,";",dlab,";",dtup,")"))
+; (print(tknd); print(";"); print(dlab); print(";"); print(dtup); print(")")))
 //
 (* ****** ****** *)
 //
@@ -379,43 +374,43 @@ D3Eproj
 D3Elet0
 (dcls, d3e1) =>
 (
-prints("D3Elet0(",dcls,";",d3e1,")"))
+(print("D3Elet0("); print(dcls); print(";"); print(d3e1); print(")")))
 //
 (* ****** ****** *)
 //
 |D3Eift0
 (d3e1,dthn,dels) =>
 ( print("D3Eift0(")
-; prints(d3e1,";",dthn,";",dels,")"))
+; (print(d3e1); print(";"); print(dthn); print(";"); print(dels); print(")")))
 //
 |D3Ecas0
 (tknd,d3e1,dcls) =>
 ( print("D3Ecas0(");
-  prints(tknd,";",d3e1,";",dcls,")"))
+  (print(tknd); print(";"); print(d3e1); print(";"); print(dcls); print(")")))
 //
 (* ****** ****** *)
 //
 |D3Eseqn
 (d3es, d3e1) =>
 (
-prints("D3Eseqn(",d3es,";",d3e1,")"))
+(print("D3Eseqn("); print(d3es); print(";"); print(d3e1); print(")")))
 //
 (* ****** ****** *)
 //
 |D3Etup0
 (npf1, d3es) =>
 (
-prints("D3Etup0(",npf1,";",d3es,")"))
+(print("D3Etup0("); print(npf1); print(";"); print(d3es); print(")")))
 |
 D3Etup1
 (tknd,npf1,d3es) =>
 ( print("D3Etup1(")
-; prints(tknd,";",npf1,";",d3es,")"))
+; (print(tknd); print(";"); print(npf1); print(";"); print(d3es); print(")")))
 |
 D3Ercd2
 (tknd,npf1,ldes) =>
 ( print("D3Ercd2(")
-; prints(tknd,";",npf1,";",ldes,")"))
+; (print(tknd); print(";"); print(npf1); print(";"); print(ldes); print(")")))
 //
 (* ****** ****** *)
 //
@@ -424,20 +419,16 @@ D3Elam0
 (tknd,f3as
 ,sres,arrw,body) =>
 (
-prints
-("D3Elam0(",tknd,";");
-prints
-(f3as,";",sres,";",arrw,";",body,")"))
+(print("D3Elam0("); print(tknd); print(";"));
+(print(f3as); print(";"); print(sres); print(";"); print(arrw); print(";"); print(body); print(")")))
 //
 |
 D3Efix0
 (tknd,dpid,f3as
 ,sres,arrw,body) =>
 (
-prints
-("D3Efix0(",tknd,";",dpid,";");
-prints
-(f3as,";",sres,";",arrw,";",body,")"))
+(print("D3Efix0("); print(tknd); print(";"); print(dpid); print(";"));
+(print(f3as); print(";"); print(sres); print(";"); print(arrw); print(";"); print(body); print(")")))
 //
 (* ****** ****** *)
 //
@@ -447,102 +438,102 @@ D3Etry0
 , d3e1, dcls) =>
 (
 print("D3Etry0(");
-prints( tknd, ";",d3e1, ";",dcls,")"))
+(print(tknd); print(";"); print(d3e1); print(";"); print(dcls); print(")")))
 //
 (* ****** ****** *)
 //
 |D3Eaddr
 (   d3e1   ) =>
-prints("D3Eaddr(",d3e1,")")//lval:addr
+(print("D3Eaddr("); print(d3e1); print(")"))//lval:addr
 |D3Eview
 (   d3e1   ) =>
-prints("D3Eview(",d3e1,")")//lval:view
+(print("D3Eview("); print(d3e1); print(")"))//lval:view
 |D3Elval
 (   d3e1   ) =>
-prints("D3Elval(",d3e1,")")//lval:both
+(print("D3Elval("); print(d3e1); print(")"))//lval:both
 //
 |D3Eflat
 (   d3e1   ) =>
-prints("D3Eflat(",d3e1,")") // left-val
+(print("D3Eflat("); print(d3e1); print(")")) // left-val
 //
 (* ****** ****** *)
 //
 |D3Eeval
 (   d3e1   ) =>
-prints("D3Eeval(",d3e1,")") // eval-fun
+(print("D3Eeval("); print(d3e1); print(")")) // eval-fun
 //
 (* ****** ****** *)
 //
 |D3Efold
 (   d3e1   ) =>
-prints("D3Efold(",d3e1,")") // open-con
+(print("D3Efold("); print(d3e1); print(")")) // open-con
 |D3Efree
 (   d3e1   ) =>
-prints("D3Efree(",d3e1,")") // free-con
+(print("D3Efree("); print(d3e1); print(")")) // free-con
 //
 (* ****** ****** *)
 //
 |D3Edp2tr
 (   d3e1   ) =>
-prints("D3Edp2tr(",d3e1,")") // de-p2tr
+(print("D3Edp2tr("); print(d3e1); print(")")) // de-p2tr
 //
 |D3Edl0az
 (   d3e1   ) =>
-prints("D3Edl0az(",d3e1,")") // de-l0az
+(print("D3Edl0az("); print(d3e1); print(")")) // de-l0az
 |D3Edl1az
 (   d3e1   ) =>
-prints("D3Edl1az(",d3e1,")") // de-l1az
+(print("D3Edl1az("); print(d3e1); print(")")) // de-l1az
 |D3Edelaz
 (   d3e1   ) =>
-prints("D3Edelaz(",d3e1,")") // de-elaz
+(print("D3Edelaz("); print(d3e1); print(")")) // de-elaz
 //
 (* ****** ****** *)
 //
 |D3Ewhere
 (d3e1, dcls) =>
 (
- prints("D3Ewhere(",d3e1,";",dcls,")"))
+ (print("D3Ewhere("); print(d3e1); print(";"); print(dcls); print(")")))
 //
 (* ****** ****** *)
 //
 |D3Eassgn
 (d3el, d3er) =>
 (
- prints("D3Eassgn(",d3el,";",d3er,")"))
+ (print("D3Eassgn("); print(d3el); print(";"); print(d3er); print(")")))
 |D3Exazgn
 (d3el, d3er) =>
 (
- prints("D3Exazgn(",d3el,";",d3er,")"))
+ (print("D3Exazgn("); print(d3el); print(";"); print(d3er); print(")")))
 |D3Exchng
 (d3el, d3er) =>
 (
- prints("D3Exchng(",d3el,";",d3er,")"))
+ (print("D3Exchng("); print(d3el); print(";"); print(d3er); print(")")))
 //
 (* ****** ****** *)
 //
 |D3Eraise
 (tknd, d3e1) =>
 (
- prints("D3Eraise(",tknd,";",d3e1,")"))
+ (print("D3Eraise("); print(tknd); print(";"); print(d3e1); print(")")))
 //
 (* ****** ****** *)
 //
 |D3El0azy
 (dsym, d3e1) =>
 (
- prints("D3El0azy(",dsym,";",d3e1,")"))
+ (print("D3El0azy("); print(dsym); print(";"); print(d3e1); print(")")))
 |D3El1azy
 (dsym
 ,d3e1, d3es) =>
 (
   print("D3El1azy(")
-; prints( dsym, ";",d3e1, ";",d3es,")"))
+; (print(dsym); print(";"); print(d3e1); print(";"); print(d3es); print(")")))
 |D3Eelazy
 (dsym
 ,d3e1, d3es) =>
 (
   print("D3Eelazy(")
-; prints( dsym, ";",d3e1, ";",d3es,")"))
+; (print(dsym); print(";"); print(d3e1); print(";"); print(d3es); print(")")))
 //
 (* ****** ****** *)
 //
@@ -551,7 +542,7 @@ prints("D3Edelaz(",d3e1,")") // de-elaz
 ,s1e2, s2e2) =>
 (
   print("D3Eannot(")
-; prints( d3e1, ";",s1e2, ";",s2e2,")"))
+; (print(d3e1); print(";"); print(s1e2); print(";"); print(s2e2); print(")")))
 //
 (* ****** ****** *)
 //
@@ -562,7 +553,7 @@ val
 t2p1 = d3e1.styp() in
 (
 print("D3Elabck(");
-prints(d3e1, "(", t2p1, ");", lab2,")"))
+(print(d3e1); print("("); print(t2p1); print(");"); print(lab2); print(")")))
 end(*let*)//end-of-[D3Elabck(d3e1, lab2)]
 //
 |D3Et2pck
@@ -572,7 +563,7 @@ val
 t2p1 = d3e1.styp() in
 (
 print("D3Et2pck(");
-prints(d3e1, "(", t2p1, ");", t2p2,")"))
+(print(d3e1); print("("); print(t2p1); print(");"); print(t2p2); print(")")))
 end(*let*)//end-of-[D3Et2pck(d3e1, t2p2)]
 |D3Et2ped
 (d3e1, t2p2) =>
@@ -581,7 +572,7 @@ val
 t2p1 = d3e1.styp() in
 (
 print("D3Et2ped(");
-prints(d3e1, "(", t2p1, ");", t2p2,")"))
+(print(d3e1); print("("); print(t2p1); print(");"); print(t2p2); print(")")))
 end(*let*)//end-of-[D3Et2ped(d3e1, t2p2)]
 //
 (* ****** ****** *)
@@ -589,25 +580,25 @@ end(*let*)//end-of-[D3Et2ped(d3e1, t2p2)]
 |D3Eexists
 (s2es, d3e1) =>
 (
-  prints("D3Eexists(",s2es,";",d3e1,")"))
+  (print("D3Eexists("); print(s2es); print(";"); print(d3e1); print(")")))
 //
 (* ****** ****** *)
 //
 |D3Eextnam
 (tknd, gnam) =>
 (
-  prints("D3Eextnam(",tknd,";",gnam,")"))
+  (print("D3Eextnam("); print(tknd); print(";"); print(gnam); print(")")))
 //
 |D3Esynext
 (tknd, gexp) =>
 (
-  prints("D3Esynext(",tknd,";",gexp,")"))
+  (print("D3Esynext("); print(tknd); print(";"); print(gexp); print(")")))
 //
 (* ****** ****** *)
 //
-|D3Enone0() => prints(  "D3Enone0(", ")"  )
-|D3Enone1(d2e1) => prints("D3Enone1(", d2e1, ")")
-|D3Enone2(d3e1) => prints("D3Enone2(", d3e1, ")")
+|D3Enone0() => (print("D3Enone0("); print(")"))
+|D3Enone1(d2e1) => (print("D3Enone1("); print(d2e1); print(")"))
+|D3Enone2(d3e1) => (print("D3Enone2("); print(d3e1); print(")"))
 //
 (* ****** ****** *)
 //
@@ -623,12 +614,12 @@ if // if
 (lvl1 >= 2)
 then
 (
-  prints("D3Eerrck(",lvl1,";",d3e2,")"))
+  (print("D3Eerrck("); print(lvl1); print(";"); print(d3e2); print(")")))
 else // (lvl1<=1)
 let
 val loc0 = d3e0.lctn() in//let
 (
-  prints("D3Eerrck(",loc0,";",lvl1,";",d3e2,")"))
+  (print("D3Eerrck("); print(loc0); print(";"); print(lvl1); print(";"); print(d3e2); print(")")))
 end (*let*) // end-of-[ D3Eerrck(lvl1,d3e2) ]
 //
 end (*let*) // end of [ d3exp_fprint(d3e0,out0) ]
@@ -649,16 +640,14 @@ farg.node() of
 |
 F3ARGdapp
 (npf1,d3ps) =>
-prints
-("F3ARGdapp(",npf1,";",d3ps,")")
+(print("F3ARGdapp("); print(npf1); print(";"); print(d3ps); print(")"))
 |
 F3ARGsapp
 (s2vs,s2ps) =>
-prints
-("F3ARGsapp(",s2vs,";",s2ps,")")
+(print("F3ARGsapp("); print(s2vs); print(";"); print(s2ps); print(")"))
 |
 F3ARGmets
-(   s2es   ) => prints("F3ARGmets(",s2es,")")
+(   s2es   ) => (print("F3ARGmets("); print(s2es); print(")"))
 (*
 |
 F3ARGsapq
@@ -683,11 +672,11 @@ dgua.node() of
 |
 D3GUAexp(d3e1) =>
 (
-  prints("D3GUAexp(",d3e1,")"))
+  (print("D3GUAexp("); print(d3e1); print(")")))
 |
 D3GUAmat(d3e1,d3p2) =>
 (
-  prints("D3GUAmat(",d3e1,";",d3p2,")"))
+  (print("D3GUAmat("); print(d3e1); print(";"); print(d3p2); print(")")))
 //
 end (*let*) // end of [ d3gua_fprint(dgua,out0) ]
 //
@@ -705,11 +694,11 @@ dgpt.node() of
 |
 D3GPTpat(d3p1) =>
 (
-  prints("D3GPTpat(",d3p1,")"))
+  (print("D3GPTpat("); print(d3p1); print(")")))
 |
 D3GPTgua(d3p1,d3gs) =>
 (
-  prints("D3GPTgua(",d3p1,";",d3gs,")"))
+  (print("D3GPTgua("); print(d3p1); print(";"); print(d3gs); print(")")))
 end (*let*) // end of [ d3gpt_fprint(dgpt,out0) ]
 //
 #implfun
@@ -724,11 +713,11 @@ dcls.node() of
 |
 D3CLSgpt(dgpt) =>
 (
-  prints("D3CLSgpt(",dgpt,")"))
+  (print("D3CLSgpt("); print(dgpt); print(")")))
 |
 D3CLScls(d3g1,d3e2) =>
 (
-  prints("D3CLScls(",d3g1,";",d3e2,")"))
+  (print("D3CLScls("); print(d3g1); print(";"); print(d3e2); print(")")))
 end (*let*) // end of [ d3cls_fprint(dcls,out0) ]
 //
 (* ****** ****** *)
@@ -756,8 +745,7 @@ prints("TIMPLone1(", dcl1 ,")")
 prints
 ("TIMPLall1(",d2c1,";",t2js,";",dcls,")")
 *)
-prints
-("TIMPLall1(",d2c1,";",t2js,";","...",")")
+(print("TIMPLall1("); print(d2c1); print(";"); print(t2js); print(";"); print("..."); print(")"))
 //
 |TIMPLallx
 (d2c1, t2js, dcls) =>
@@ -765,8 +753,7 @@ prints
 prints
 ("TIMPLallx(",d2c1,";",t2js,";",dcls,")")
 *)
-prints
-("TIMPLallx(",d2c1,";",t2js,";","...",")")
+(print("TIMPLallx("); print(d2c1); print(";"); print(t2js); print(";"); print("..."); print(")"))
 //
 end (*let*) // end of [ timpl_fprint(dimp,out0) ]
 //
@@ -788,45 +775,44 @@ dcl0.node() of
 //
 |D3Cd2ecl(d2cl) =>
 (
-  prints("D3Cd2ecl(",d2cl,")"))
+  (print("D3Cd2ecl("); print(d2cl); print(")")))
 //
 (* ****** ****** *)
 //
 |
 D3Cstatic(tknd,dcl1) =>
-prints("D3Cstatic(",tknd,";",dcl1,")")
+(print("D3Cstatic("); print(tknd); print(";"); print(dcl1); print(")"))
 |
 D3Cextern(tknd,dcl1) =>
-prints("D3Cextern(",tknd,";",dcl1,")")
+(print("D3Cextern("); print(tknd); print(";"); print(dcl1); print(")"))
 //
 (* ****** ****** *)
 //
 |
 D3Ctmpsub(svts,dcl1) =>
-prints("D3Ctmpsub(",svts,";",dcl1,")")
+(print("D3Ctmpsub("); print(svts); print(";"); print(dcl1); print(")"))
 //
 (* ****** ****** *)
 //
 |D3Cdclst0(  dcls  ) =>
 (
-prints("D3Cdclst0(", dcls, ")"))
+(print("D3Cdclst0("); print(dcls); print(")")))
 |
 D3Clocal0(head,body) =>
-prints("D3Clocal0(",head,";",body,")")
+(print("D3Clocal0("); print(head); print(";"); print(body); print(")"))
 //
 (* ****** ****** *)
 //
 |
 D3Cabsopen
 ( tknd , simp ) =>
-prints
-("D3Cabsopen(",tknd,";",simp,")")
+(print("D3Cabsopen("); print(tknd); print(";"); print(simp); print(")"))
 |
 D3Cabsimpl
 (tknd,simp,sdef) =>
 (
 print("D3Cabsimpl(");
-prints(tknd, ";", simp, ";", sdef, ")")
+(print(tknd); print(";"); print(simp); print(";"); print(sdef); print(")"))
 )
 //
 (* ****** ****** *)
@@ -837,9 +823,7 @@ D3Cinclude
 ,gsrc,fopt,dopt) =>
 (
 print("D3Cinclude(");
-prints
-(knd0,";"
-,tknd,";",gsrc,";",fopt,";","...",")"))
+(print(knd0); print(";"); print(tknd); print(";"); print(gsrc); print(";"); print(fopt); print(";"); print("..."); print(")")))
 //
 |
 D3Cstaload
@@ -847,9 +831,7 @@ D3Cstaload
 ,gsrc,fopt,dopt) =>
 (
 print("D3Cstaload(");
-prints
-(knd0,";"
-,tknd,";",gsrc,";",fopt,";","...",")"))
+(print(knd0); print(";"); print(tknd); print(";"); print(gsrc); print(";"); print(fopt); print(";"); print("..."); print(")")))
 //
 (* ****** ****** *)
 //
@@ -861,11 +843,11 @@ Sat 20 Jul 2024 02:18:49 PM EDT
 |
 D3Cdyninit(tknd,g1e1) =>
 (
-prints("D3Cdyninit(",tknd,";",g1e1,")"))
+(print("D3Cdyninit("); print(tknd); print(";"); print(g1e1); print(")")))
 |
 D3Cextcode(tknd,g1e1) =>
 (
-prints("D3Cextcode(",tknd,";",g1e1,")"))
+(print("D3Cextcode("); print(tknd); print(";"); print(g1e1); print(")")))
 //
 (* ****** ****** *)
 //
@@ -873,12 +855,12 @@ prints("D3Cextcode(",tknd,";",g1e1,")"))
 D3Cvaldclst
 (  tknd, d3vs  ) =>
 (
-prints("D3Cvaldclst(",tknd,";",d3vs,")"))
+(print("D3Cvaldclst("); print(tknd); print(";"); print(d3vs); print(")")))
 |
 D3Cvardclst
 (  tknd, d3vs  ) =>
 (
-prints("D3Cvardclst(",tknd,";",d3vs,")"))
+(print("D3Cvardclst("); print(tknd); print(";"); print(d3vs); print(")")))
 //
 |
 D3Cfundclst
@@ -886,7 +868,7 @@ D3Cfundclst
 ,tqas,d2cs,d3fs) =>
 (
 print("D3Cfundclst(");
-prints(tknd,";",tqas,";",d2cs,";",d3fs,")"))
+(print(tknd); print(";"); print(tqas); print(";"); print(d2cs); print(";"); print(d3fs); print(")")))
 //
 |
 D3Cimplmnt0
@@ -897,24 +879,24 @@ D3Cimplmnt0
 ,farg,sres,body) =>
 (
 print("D3Cimplmnt0(");
-prints(tknd,";",stmp,";");
-prints(sqas,";",tqas,";");
-prints(dqid,";",tias,";",farg,";",sres,";",body,")"))
+(print(tknd); print(";"); print(stmp); print(";"));
+(print(sqas); print(";"); print(tqas); print(";"));
+(print(dqid); print(";"); print(tias); print(";"); print(farg); print(";"); print(sres); print(";"); print(body); print(")")))
 //
 |
 D3Ctmplocal
 (  dtmp, dcls ) =>
 (
-prints("D3Ctmplocal(",dtmp,";",dcls,")"))
+(print("D3Ctmplocal("); print(dtmp); print(";"); print(dcls); print(")")))
 //
 |
 D3Cimpltmpr(dcl1,t2js) =>
 (
-prints("D3Cimpltmpr(",dcl1,";",t2js,")"))
+(print("D3Cimpltmpr("); print(dcl1); print(";"); print(t2js); print(")")))
 //
-|D3Cnone0() => prints( "D3Cnone0(", ")" )
-|D3Cnone1(d2cl) => prints( "D3Cnone1(",d2cl,")" )
-|D3Cnone2(d3cl) => prints( "D3Cnone2(",d3cl,")" )
+|D3Cnone0() => (print("D3Cnone0("); print(")"))
+|D3Cnone1(d2cl) => (print("D3Cnone1("); print(d2cl); print(")"))
+|D3Cnone2(d3cl) => (print("D3Cnone2("); print(d3cl); print(")"))
 //
 |
 D3Cerrck // HX: generated
@@ -923,12 +905,12 @@ if // if
 (lvl1 >= 2)
 then
 (
-  prints("D3Cerrck(",lvl1,";",d3cl,")"))
+  (print("D3Cerrck("); print(lvl1); print(";"); print(d3cl); print(")")))
 else // (lvl1<=1)
 let
 val loc0 = dcl0.lctn() in//let
 (
-  prints("D3Cerrck(",loc0,";",lvl1,";",d3cl,")"))
+  (print("D3Cerrck("); print(loc0); print(";"); print(lvl1); print(";"); print(d3cl); print(")")))
 end (*let*) // end-of-[ D3Cerrck(lvl1,d3cl) ]
 //
 end (*let*) // end of [ d3ecl_fprint(dcl0,out0) ]
@@ -951,8 +933,7 @@ d3valdcl_get_wsxp(dval)
 //
 in//let
 (
-prints
-("D3VALDCL(",dpat,";",tdxp,";",wsxp,")"))
+(print("D3VALDCL("); print(dpat); print(";"); print(tdxp); print(";"); print(wsxp); print(")")))
 end(*let*)//end-of-[d3valdcl_fprint(dval,out0)]
 //
 (* ****** ****** *)
@@ -975,7 +956,7 @@ d3vardcl_get_dini(dvar)
 in//let
 (
 print("D3VARDCL(");
-prints(dpid,";",vpid,";",sres,";",dini,")"))
+(print(dpid); print(";"); print(vpid); print(";"); print(sres); print(";"); print(dini); print(")")))
 end(*let*)//end-of-[d3vardcl_fprint(dvar,out0)]
 //
 (* ****** ****** *)
@@ -999,8 +980,8 @@ d3fundcl_get_wsxp(dfun)
 //
 in//let
 (
-prints("D3FUNDCL(",dpid,";");
-prints(farg,";",sres,";",tdxp,";",wsxp,")"))
+(print("D3FUNDCL("); print(dpid); print(";"));
+(print(farg); print(";"); print(sres); print(";"); print(tdxp); print(";"); print(wsxp); print(")")))
 end(*let*)//end-of-[d3fundcl_fprint(dfun,out0)]
 
 (* ****** ****** *)
@@ -1028,8 +1009,7 @@ d3parsed_get_parsed(dpar)
 in//let
 (
 print("D3PARSED(");
-prints
-(stadyn,";",nerror,";",source,";",parsed,")"))
+(print(stadyn); print(";"); print(nerror); print(";"); print(source); print(";"); print(parsed); print(")")))
 end (*let*) // end-of-[d3parsed_fprint(dpar,out0)]
 
 (* ****** ****** *)

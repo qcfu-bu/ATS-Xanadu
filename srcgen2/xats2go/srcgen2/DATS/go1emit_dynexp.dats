@@ -5023,7 +5023,7 @@ let
 //
 fun
 stmp_eq0
-(s1: stamp, s2: stamp): bool = (s1 = s2)
+(s1: stamp, s2: stamp): bool = (stamp_cmp(s1, s2) = 0)
 //
 fun
 tnm_in_params

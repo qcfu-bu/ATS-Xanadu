@@ -67,6 +67,7 @@ ATS_PACKNAME
 #staload "./../SATS/dynexp2.sats"
 (* ****** ****** *)
 #staload "./../SATS/dynexp3.sats"
+#staload "./../SATS/xatsopt.sats"
 (* ****** ****** *)
 (* ****** ****** *)
 #symload stmp with s2cst_get_stmp
@@ -283,7 +284,7 @@ in//let
 case+ lab of
 |
 S0LAB(l01,t02,x03) =>
-prints("S0LAB(",l01,";",x03,")")
+(print("S0LAB("); print(l01); print(";"); print(x03); print(")"))
 end(*let*)//end-of-[s0lab_fprint]
 //
 #impltmp
@@ -326,7 +327,7 @@ in//let
 case+ lab of
 |
 D0LAB(l01,t02,x03) =>
-prints("D0LAB(",l01,";",x03,")")
+(print("D0LAB("); print(l01); print(";"); print(x03); print(")"))
 end(*let*)//end-of-[d0lab_fprint]
 //
 #impltmp
@@ -593,11 +594,10 @@ g_print
 case+ tdxp of
 |
 TEQD0EXPnone() =>
-prints("TEQD0EXPnone(", ")")
+(print("TEQD0EXPnone("); print(")"))
 |
 TEQD0EXPsome(tok, d0e) =>
-prints
-("TEQD0EXPsome(", tok, ";", d0e, ")"))
+(print("TEQD0EXPsome("); print(tok); print(";"); print(d0e); print(")")))
 //
 #impltmp
 g_print
@@ -606,10 +606,10 @@ g_print
 case+ wsxp of
 |
 WTHS0EXPnone() =>
-prints("WTHS0EXPnone(", ")")
+(print("WTHS0EXPnone("); print(")"))
 |
 WTHS0EXPsome(tok, s0e) =>
-prints("WTHS0EXPsome(", tok, ";", s0e, ")"))
+(print("WTHS0EXPsome("); print(tok); print(";"); print(s0e); print(")")))
 //
 (* ****** ****** *)
 
@@ -651,7 +651,7 @@ in//let
 case+ lab of
 |
 S1LAB(l01, x02) =>
-prints("S1LAB(",l01,";",x02,")")
+(print("S1LAB("); print(l01); print(";"); print(x02); print(")"))
 end(*let*)//end-of-[s1lab_fprint]
 //
 #impltmp
@@ -694,7 +694,7 @@ in//let
 case+ lab of
 |
 D1LAB(l01, x02) =>
-prints("D1LAB(",l01,";",x02,")")
+(print("D1LAB("); print(l01); print(";"); print(x02); print(")"))
 end(*let*)//end-of-[d1lab_fprint]
 //
 #impltmp
@@ -941,11 +941,10 @@ g_print
 case+ tdxp of
 |
 TEQD1EXPnone() =>
-prints("TEQD1EXPnone(", ")")
+(print("TEQD1EXPnone("); print(")"))
 |
 TEQD1EXPsome(tok1, d1e2) =>
-prints
-("TEQD1EXPsome(", tok1, ";", d1e2, ")"))
+(print("TEQD1EXPsome("); print(tok1); print(";"); print(d1e2); print(")")))
 //
 #impltmp
 g_print
@@ -954,10 +953,10 @@ g_print
 case+ wsxp of
 |
 WTHS1EXPnone() =>
-prints("WTHS1EXPnone(", ")")
+(print("WTHS1EXPnone("); print(")"))
 |
 WTHS1EXPsome(tok1, s1e2) =>
-prints("WTHS1EXPsome(", tok1, ";", s1e2, ")"))
+(print("WTHS1EXPsome("); print(tok1); print(";"); print(s1e2); print(")")))
 //
 (* ****** ****** *)
 (*
@@ -1095,7 +1094,7 @@ in//let
 case+ lab of
 |
 S2LAB(l01, x02) =>
-prints("S2LAB(",l01,";",x02,")")
+(print("S2LAB("); print(l01); print(";"); print(x02); print(")"))
 end(*let*)//end-of-[s2lab_fprint]
 //
 #impltmp
@@ -1137,7 +1136,7 @@ in//let
 case+ lab of
 |
 D2LAB(l01, x02) =>
-prints("D2LAB(",l01,";",x02,")")
+(print("D2LAB("); print(l01); print(";"); print(x02); print(")"))
 end(*let*)//end-of-[d2lab_fprint]
 //
 #impltmp
@@ -1336,10 +1335,10 @@ g_print
 case+ tdxp of
 |
 TEQD2EXPnone() =>
-prints("TEQD2EXPnone(", ")")
+(print("TEQD2EXPnone("); print(")"))
 |
 TEQD2EXPsome(tok0, d2e1) =>
-prints("TEQD2EXPsome(", tok0, ";", d2e1, ")"))
+(print("TEQD2EXPsome("); print(tok0); print(";"); print(d2e1); print(")")))
 //
 #impltmp
 g_print
@@ -1348,10 +1347,10 @@ g_print
 case+ wsxp of
 |
 WTHS2EXPnone() =>
-prints("WTHS2EXPnone(", ")")
+(print("WTHS2EXPnone("); print(")"))
 |
 WTHS2EXPsome(tok0, s2e1) =>
-prints("WTHS2EXPsome(", tok0, ";", s2e1, ")"))
+(print("WTHS2EXPsome("); print(tok0); print(";"); print(s2e1); print(")")))
 //
 (* ****** ****** *)
 //
@@ -1368,13 +1367,13 @@ g_print
 case+ dopt of
 |S2TALOADnone() =>
 (
- prints("S2TALOADnone(", ")"))
+ (print("S2TALOADnone("); print(")")))
 |S2TALOADfenv(fenv) =>
 (
- prints("S2TALOADfenv(", fenv, ")"))
+ (print("S2TALOADfenv("); print(fenv); print(")")))
 |S2TALOADdpar(knd0, dpar) =>
 (
- prints("S2TALOADdpar(", knd0, ";", dpar, ")")))
+ (print("S2TALOADdpar("); print(knd0); print(";"); print(dpar); print(")"))))
 //
 (* ****** ****** *)
 (*
@@ -1416,7 +1415,7 @@ in//let
 case+ lab of
 |
 D3LAB(l01, x02) =>
-prints("D3LAB(",l01,";",x02,")")
+(print("D3LAB("); print(l01); print(";"); print(x02); print(")"))
 end(*let*)//end-of-[d3lab_fprint]
 //
 #impltmp
@@ -1493,10 +1492,10 @@ in//let
 case+ tenv of
 |
 D3TOPENVnone() =>
-prints("D3TOPENVnone(", ")")
+(print("D3TOPENVnone("); print(")"))
 |
 D3TOPENVsome(tmap) =>
-prints("D3TOPENVsome(", tmap, ")"))end
+(print("D3TOPENVsome("); print(tmap); print(")")))end
 //
 (* ****** ****** *)
 //
@@ -1519,10 +1518,10 @@ in//let
 case+ tdxp of
 |
 TEQD3EXPnone() =>
-prints("TEQD3EXPnone(", ")")
+(print("TEQD3EXPnone("); print(")"))
 |
 TEQD3EXPsome(tok0, d3e1) =>
-prints("TEQD3EXPsome(",tok0,";",d3e1,")"))
+(print("TEQD3EXPsome("); print(tok0); print(";"); print(d3e1); print(")")))
 endlet // end-of-[g_print<teqd3exp>(tdxp)]
 //
 (* ****** ****** *)
@@ -1534,10 +1533,10 @@ g_print
 case+ dopt of
 |S3TALOADnone(dopt) =>
 (
- prints("S3TALOADnone(", dopt, ")"))
+ (print("S3TALOADnone("); print(dopt); print(")")))
 |S3TALOADdpar(knd0, dpar) =>
 (
- prints("S3TALOADdpar(", knd0, ";", dpar, ")")))
+ (print("S3TALOADdpar("); print(knd0); print(";"); print(dpar); print(")"))))
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -1642,6 +1641,72 @@ end (*let*) // end of [g_print<d2exp>(d2e0)]
 //
 (* ****** ****** *)
 (* ****** ****** *)
+//
+//
+(* ****** ****** *)
+(*
+CLAUDE-2026-08: route the DIAGNOSTIC list/pair payload instances to the
+CONCRETE printers (SATS/xatsopt.sats zzlp_fprint_XX); see the SATS note.
+*)
+(* ****** ****** *)
+//
+#impltmp
+g_print<t2iaglst>(xs) =
+zzlp_fprint_t2iaglst(xs, g_print$out<>())
+#impltmp
+g_print<s2qaglst>(xs) =
+zzlp_fprint_s2qaglst(xs, g_print$out<>())
+#impltmp
+g_print<d2valdclist>(xs) =
+zzlp_fprint_d2valdclist(xs, g_print$out<>())
+#impltmp
+g_print<d3valdclist>(xs) =
+zzlp_fprint_d3valdclist(xs, g_print$out<>())
+#impltmp
+g_print<d2eclist>(xs) =
+zzlp_fprint_d2eclist(xs, g_print$out<>())
+#impltmp
+g_print<d3eclist>(xs) =
+zzlp_fprint_d3eclist(xs, g_print$out<>())
+#impltmp
+g_print<s2explst>(xs) =
+zzlp_fprint_s2explst(xs, g_print$out<>())
+#impltmp
+g_print<s2typlst>(xs) =
+zzlp_fprint_s2typlst(xs, g_print$out<>())
+#impltmp
+g_print<s2varlst>(xs) =
+zzlp_fprint_s2varlst(xs, g_print$out<>())
+#impltmp
+g_print<sort2lst>(xs) =
+zzlp_fprint_sort2lst(xs, g_print$out<>())
+#impltmp
+g_print<t2qaglst>(xs) =
+zzlp_fprint_t2qaglst(xs, g_print$out<>())
+#impltmp
+g_print<t2jaglst>(xs) =
+zzlp_fprint_t2jaglst(xs, g_print$out<>())
+#impltmp
+g_print<f3arglst>(xs) =
+zzlp_fprint_f3arglst(xs, g_print$out<>())
+#impltmp
+g_print<d3explst>(xs) =
+zzlp_fprint_d3explst(xs, g_print$out<>())
+#impltmp
+g_print<d2explst>(xs) =
+zzlp_fprint_d2explst(xs, g_print$out<>())
+#impltmp
+g_print<d3patlst>(xs) =
+zzlp_fprint_d3patlst(xs, g_print$out<>())
+#impltmp
+g_print<d2patlst>(xs) =
+zzlp_fprint_d2patlst(xs, g_print$out<>())
+#impltmp
+g_print<l2t2plst>(xs) =
+zzlp_fprint_l2t2plst(xs, g_print$out<>())
+#impltmp
+g_print<s2vtplst>(xs) =
+zzlp_fprint_s2vtplst(xs, g_print$out<>())
 //
 (***********************************************************************)
 (* end of [ATS3/XATSOPT_srcgen2_DATS_xatsopt_tmplib.dats] *)

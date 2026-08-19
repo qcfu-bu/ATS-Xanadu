@@ -110,10 +110,25 @@ val (  ) =
 let
 val
 out0 = g_stderr((*0*))
+(*
+CLAUDE-2026-08: the srcgen2 resolver does not apply the reporters'
+local `g_print$out<>() = out` hooks, so their print-family calls land
+on the DEFAULT channel.  Bracket the diagnostics window so the runtime
+default is STDERR for its duration — matching the srcgen1/JS-compiled
+reference byte-for-byte on both streams.
+*)
+#extern
+fun
+XATS2GO_report_begin((*void*)): void = $extnam()
+#extern
+fun
+XATS2GO_report_end((*void*)): void = $extnam()
 in//let
 prerrsln
 ("F3PERR0_D3PARSED:");
-f3perr0_d3parsed(out0,dpar)
+XATS2GO_report_begin();
+f3perr0_d3parsed(out0,dpar);
+XATS2GO_report_end()
 end//let//end-of-(val(...))
 //
 val ipar =

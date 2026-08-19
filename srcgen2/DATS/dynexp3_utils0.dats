@@ -55,6 +55,7 @@ ATS_PACKNAME
 (* ****** ****** *)
 #staload "./../SATS/xstamp0.sats"
 (* ****** ****** *)
+#staload "./../SATS/xsymbol.sats"
 #staload "./../SATS/xsymmap.sats"
 (* ****** ****** *)
 #staload "./../SATS/lexing0.sats"
@@ -304,7 +305,7 @@ list_exists(d2cs)
 {
 #impltmp
 exists$test
-<  d2cst  >(d2c1) = (d2c0 = d2c1)
+<  d2cst  >(d2c1) = (stamp_cmp(d2c0.stmp(), d2c1.stmp()) = 0)
 }
 end (*let*) // end of [f0_fundclst(...)]
 //
@@ -328,10 +329,17 @@ in//let
 //
 case+
 dimp.node() of
+(*
+NB: the local `stmp(*unicity*)` pattern binding SHADOWS the
+#symload stmp accessor, so the d2cst stamps are fetched by the
+DIRECT accessor name here.
+*)
 |DIMPLone1
-(   d2c1   ) => (d2c0 = d2c1)
+(   d2c1   ) =>
+(stamp_cmp(d2cst_get_stmp(d2c0), d2cst_get_stmp(d2c1)) = 0)
 |DIMPLone2
-(d2c1, svts) => (d2c0 = d2c1)
+(d2c1, svts) =>
+(stamp_cmp(d2cst_get_stmp(d2c0), d2cst_get_stmp(d2c1)) = 0)
 | _(* otherwise *) => (   false   )
 //
 end (*let*) // end of [f0_implmnt0(...)]
@@ -377,7 +385,7 @@ D3Cimplmnt0
 //
 in//let
 //
-if tmp0 = tmp1 then true else false
+if stamp_cmp(tmp0, tmp1) = 0 then true else false
 //
 end (*let*) // end of [f0_implmnt0(...)]
 //
@@ -751,12 +759,43 @@ in//let
 case+
 tjp1.node() of
 |
-T2Pvar(s2vj) => (s2vi = s2vj)
+T2Pvar(s2vj) => (stamp_cmp(s2vi.stmp(), s2vj.stmp()) = 0)
 |
 _(*non-T2Pvar*) => (   false   )
 end//let//end-of-[g2_svar_tjp1(...)]
 //
 (* ****** ****** *)
+//
+fun
+g2_scst_unfold
+( s2ci: s2cst
+, tjp1: s2typ): bool =
+(
+case+
+s2cst_get_styp(s2ci) of
+| ~
+optn_vt_nil() => false
+| ~
+optn_vt_cons(t2pi) => f2_tip1_tjp1(t2pi, tjp1))
+//
+fun
+g2_tjp1_unfold
+( tip1: s2typ
+, tjp1: s2typ): bool =
+(
+case+
+tjp1.node() of
+|
+T2Pcst(s2cj) =>
+(
+case+
+s2cst_get_styp(s2cj) of
+| ~
+optn_vt_nil() => false
+| ~
+optn_vt_cons(t2pj) => f2_tip1_tjp1(tip1, t2pj))
+|
+_(*non-T2Pcst*) => false)
 //
 fun
 g2_scst_tjp1
@@ -769,9 +808,18 @@ in//let
 case+
 tjp1.node() of
 |
-T2Pcst(s2cj) => (s2ci = s2cj)
+T2Pcst(s2cj) =>
+if
+(stamp_cmp(s2ci.stmp(), s2cj.stmp()) = 0)
+then true else g2_scst_unfold(s2ci, tjp1)
 |
-_(*non-T2Pvar*) => (    false    )
+(*
+HX/CLAUDE-2026-08: a TYPEDEF-named instance type registers as a BARE
+T2Pcst alias while the query side arrives EXPANDED — UNFOLD the alias
+(s2cst_get_styp) and rematch, else concrete instances at typedef-named
+types (d2valdclist, s2typlst, ...) can never be selected.
+*)
+_(*non-T2Pcst*) => g2_scst_unfold(s2ci, tjp1)
 end(*let*)//end of [g2_scst_tjp1(...)]
 //
 (* ****** ****** *)
@@ -1117,7 +1165,7 @@ list_nil() => false
 |
 list_cons(s2v1, s2vs) =>
 if
-s2v0 = s2v1
+stamp_cmp(s2v0.stmp(), s2v1.stmp()) = 0
 then true
 else f1_s2extq(s2v0, s2vs))
 //
@@ -1363,7 +1411,7 @@ tjp1.node() of
 |
 T2Pvar(s2vj) =>
 if
-(s2vi = s2vj)
+(stamp_cmp(s2vi.stmp(), s2vj.stmp()) = 0)
 then optn_vt_cons(tsub)
 else (free(tsub); optn_vt_nil())
 |
@@ -1475,7 +1523,7 @@ list_vt_cons
 (svt1, svts) =>
 (
 if
-(s2vi != svt1.0)
+(stamp_cmp(s2vi.stmp(), s2var_get_stmp(svt1.0)) != 0)
 then h2_search(svts)
 else optn_vt_cons(svt1.1)))
 //
@@ -1509,7 +1557,7 @@ tjp1.node() of
 |
 T2Pvar(s2vj) =>
 if
-(s2vi = s2vj) then true else false
+(stamp_cmp(s2vi.stmp(), s2vj.stmp()) = 0) then true else false
 //
 |_(*non-T2Pvar*) => (    false    ))
 //
@@ -1536,7 +1584,7 @@ tjp1.node() of
 |
 T2Pcst(s2cj) =>
 if
-(s2ci = s2cj) then true else false
+(stamp_cmp(s2ci.stmp(), s2cj.stmp()) = 0) then true else false
 //
 |
 _(*non-T2Pcst*) => (    false    ))

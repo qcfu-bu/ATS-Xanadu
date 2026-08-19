@@ -181,8 +181,8 @@ if
 let
 val loc0 = g1e0.lctn() in
 printsln();
-printsln("\
-TREAD01-ERROR:",loc0,":",g1e0)
+(print("\
+TREAD01-ERROR:"); print(loc0); print(":"); print(g1e0); printsln())
 end
 )
 | _(* otherwise *) => (  (*skipped*)  )
@@ -259,8 +259,7 @@ if
  FPEMSG_ERRLVL) then () else
 let
 val loc0 = s1t0.lctn() in
-printsln
-("TREAD01-ERROR:",loc0,":",s1t0)
+(print("TREAD01-ERROR:"); print(loc0); print(":"); print(s1t0); printsln())
 end
 )
 | _(* otherwise *) => (  (* skipped *)  )
@@ -421,8 +420,7 @@ if
  FPEMSG_ERRLVL) then () else
 let
 val loc0 = s1e0.lctn() in
-printsln
-("TREAD01-ERROR:",loc0,":",s1e0)
+(print("TREAD01-ERROR:"); print(loc0); print(":"); print(s1e0); printsln())
 end
 )
 | _(* otherwise *) => (  (* skipped *)  )
@@ -791,8 +789,7 @@ if
  FPEMSG_ERRLVL) then () else
 let
 val loc0 = d1p0.lctn() in
-printsln
-("TREAD01-ERROR:",loc0,":",d1p0)
+(print("TREAD01-ERROR:"); print(loc0); print(":"); print(d1p0); printsln())
 end
 )
 | _(* otherwise *) => (  (* skipped *)  )
@@ -1047,8 +1044,7 @@ if
  FPEMSG_ERRLVL) then () else
 let
 val loc0 = d1e0.lctn() in
-printsln
-("TREAD01-ERROR:",loc0,":",d1e0)
+(print("TREAD01-ERROR:"); print(loc0); print(":"); print(d1e0); printsln())
 end
 )
 | _(* otherwise *) => (  (* skipped *)  )
@@ -1313,12 +1309,8 @@ val
 loc0 = dcl.lctn()
 val
 loc1 = g1e1.lctn() in
-printsln(
-"TREAD01-ERROR:",
-loc0,":","D1Cinclude(...)");
-printsln(
-"TREAD01-ERROR:",loc1,":",g1e1
-)(*printsln*)
+(print("TREAD01-ERROR:"); print(loc0); print(":"); print("D1Cinclude(...)"); printsln());
+(print("TREAD01-ERROR:"); print(loc1); print(":"); print(g1e1); printsln())(*printsln*)
 end//let//end-of-[optn_nil()]
 |
 optn_cons(dcls) =>
@@ -1344,12 +1336,8 @@ val
 loc0 = dcl.lctn()
 val
 loc1 = g1e1.lctn() in
-printsln(
-"TREAD01-ERROR:",
-loc0,":","D1Cstaload(...)");
-printsln(
-"TREAD01-ERROR:",loc1,":",g1e1
-)(*printsln*)
+(print("TREAD01-ERROR:"); print(loc0); print(":"); print("D1Cstaload(...)"); printsln());
+(print("TREAD01-ERROR:"); print(loc1); print(":"); print(g1e1); printsln())(*printsln*)
 end//let//end-of-[optn_nil()]
 |
 optn_cons@(shrd, dpar) =>
@@ -1572,8 +1560,8 @@ if
 let
 val loc0 = dcl0.lctn() in//let
 printsln();
-printsln("\
-TREAD01-ERROR:",loc0,":",dcl0) end)
+(print("\
+TREAD01-ERROR:"); print(loc0); print(":"); print(dcl0); printsln()) end)
 //
 | _(*otherwise*) => (   (*skipped*)   )
 //

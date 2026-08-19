@@ -1543,8 +1543,13 @@ generic g_eq<s2cst> route needs the resolver to instantiate the
 g_eq<a>=g_cmp<a> default, which the srcgen2 backend bridges to a runtime
 pointer-identity compare — WRONG for rebuilt (non-interned) cells.  The
 concrete stamp_cmp call is the same semantics with no template in the way.
+On stamp MISMATCH, unfold a DEFINED cst (typedef transparency) and retry
+— a typedef-named type must unify with its expansion, as on srcgen1.
 *)
-(stamp_cmp(s2c1.stmp(), s2c2.stmp()) = 0) | _ => false)
+if
+(stamp_cmp(s2c1.stmp(), s2c2.stmp()) = 0)
+then true else zzcst_unf1(e1nv, s2c1, t2p2)
+| _(*non-T2Pcst*) => zzcst_unf1(e1nv, s2c1, t2p2))
 //
 |
 T2Pvar(s2v1) =>
@@ -1619,6 +1624,46 @@ t2p2.node() of
 //
 (* ****** ****** *)
 (* ****** ****** *)
+//
+(*
+HX/CLAUDE-2026-08: typedef transparency for unify00 — unfold a DEFINED
+s2cst (s2cst_get_styp) and retry the unification.  unf1: t2p1's head is
+the cst; unf2: t2p1 is structural and t2p2 may be the folded alias.
+*)
+fun
+zzcst_unf1
+( e1nv: !e1nv
+, s2c1: s2cst
+, t2p2: s2typ): bool =
+(
+case+
+s2cst_get_styp(s2c1) of
+| ~
+optn_vt_nil() => false
+| ~
+optn_vt_cons(t2p1) =>
+unify00_s2typ(e1nv, t2p1, t2p2))
+//
+fun
+zzcst_unf2
+( e1nv: !e1nv
+, t2p1: s2typ
+, t2p2: s2typ): bool =
+(
+case+
+t2p2.node() of
+|
+T2Pcst(s2c2) =>
+(
+case+
+s2cst_get_styp(s2c2) of
+| ~
+optn_vt_nil() => false
+| ~
+optn_vt_cons(t2p2) =>
+unify00_s2typ(e1nv, t2p1, t2p2))
+|
+_(*non-T2Pcst*) => false)
 //
 fun
 f1_xset
@@ -1766,7 +1811,7 @@ then
 unify00_s2typlst
 (e1nv, tps1, tps2) else false
 end (*let*) // end-of-[T2Papps(...)]
-| _ (* non-T2Papps *) => (  false  )
+| _ (* non-T2Papps *) => zzcst_unf2(e1nv, t2p1, t2p2)
 //
 end (*let*) // end-of-[f0_apps(e1nv,...)]
 //
