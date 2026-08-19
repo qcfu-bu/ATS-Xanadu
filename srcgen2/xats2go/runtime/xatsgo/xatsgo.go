@@ -142,6 +142,46 @@ var Xats_a0ref_make_1val = func(x any) any {
 	return &XatsA0Ref{val: x}
 }
 
+// p2tr pointer primitives: EXACT typed semantics over real Go pointers
+// (`$addr(x)` emits `&x`).  Used when a pointer flows through an `any`-typed
+// generic-instance parameter, where native `*p` syntax cannot compile.
+var Xats_p2tr_get = func(p any) any {
+	switch q := p.(type) {
+	case *any:
+		return *q
+	case *int:
+		return *q
+	case *bool:
+		return *q
+	case *string:
+		return *q
+	case *int32:
+		return *q
+	case *float64:
+		return *q
+	}
+	return reflect.ValueOf(p).Elem().Interface()
+}
+var Xats_p2tr_set = func(p any, v any) any {
+	switch q := p.(type) {
+	case *any:
+		*q = v
+	case *int:
+		*q = v.(int)
+	case *bool:
+		*q = v.(bool)
+	case *string:
+		*q = v.(string)
+	case *int32:
+		*q = v.(int32)
+	case *float64:
+		*q = v.(float64)
+	default:
+		reflect.ValueOf(p).Elem().Set(reflect.ValueOf(v))
+	}
+	return XATSNIL()
+}
+
 var Xats_a0ref_get = func(r any) any {
 	return r.(*XatsA0Ref).val
 }
@@ -1536,6 +1576,20 @@ var Xats_XATS2JS_NODE_gflt_fprint_dflt = func(f any, out any) any {
 	return Xats_XATS2JS_NODE_strn_fprint(XatsFloatToString(v), out)
 }
 var Xats_gflt_fprint_dflt = Xats_XATS2JS_NODE_gflt_fprint_dflt
+
+// prelude JS-CATS scalar leaves (srcgen1/prelude/DATS/CATS/JS/basics3.dats
+// extern names) reached by the resolved prelude bodies under --go-arm.
+var Xats_XATS2JS_gint_suc_sint = func(x any) any { return x.(int) + 1 }
+var Xats_XATS2JS_gint_pred_sint = func(x any) any { return x.(int) - 1 }
+var Xats_XATS2JS_gint_gt_sint_sint = func(a any, b any) any { return a.(int) > b.(int) }
+var Xats_XATS2JS_gint_gte_sint_sint = func(a any, b any) any { return a.(int) >= b.(int) }
+var Xats_XATS2JS_gint_lt_sint_sint = func(a any, b any) any { return a.(int) < b.(int) }
+var Xats_XATS2JS_gint_lte_sint_sint = func(a any, b any) any { return a.(int) <= b.(int) }
+var Xats_XATS2JS_gint_eq_sint_sint = func(a any, b any) any { return a.(int) == b.(int) }
+var Xats_XATS2JS_gint_neq_sint_sint = func(a any, b any) any { return a.(int) != b.(int) }
+var Xats_XATS2JS_gint_add_sint_sint = func(a any, b any) any { return a.(int) + b.(int) }
+var Xats_XATS2JS_gint_sub_sint_sint = func(a any, b any) any { return a.(int) - b.(int) }
+var Xats_XATS2JS_gint_mul_sint_sint = func(a any, b any) any { return a.(int) * b.(int) }
 
 // -- stderr print family (synoug0's gs_prerr chain) --------------------------
 //

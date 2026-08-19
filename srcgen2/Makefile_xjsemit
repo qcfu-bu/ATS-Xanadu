@@ -257,7 +257,18 @@ $(patsubst %.dats, \
 BUILD/JS/%_sats_out0.js: SATS/%.sats; \
 $(NODE) --stack-size=8801 $(XATSOPT_TCHECK00) $< > $@
 #
-BUILD/JS/%_dats_out0.js: DATS/%.dats; \
+# CLAUDE-2026-08: TEMPLATE DEPENDENCIES.  Every module compile EMBEDS
+# instantiation copies of the template-library bodies (and their stamps are
+# char-offset-derived), so an edit to a tmplib/hats file silently STALES every
+# module's compiled JS -- without these prerequisites an incremental rebuild
+# produced dangling stamped references / stale instantiations, forcing clean
+# rebuilds of the whole library after each resolver/tmplib edit.
+TMPLDEPS=\
+DATS/xatsopt_tmplib.dats DATS/statyp2_tmplib.dats \
+DATS/dynexp2_tmplib.dats DATS/dynexp3_tmplib.dats \
+HATS/xatsopt_dpre.hats HATS/xatsopt_sats.hats
+#
+BUILD/JS/%_dats_out0.js: DATS/%.dats $(TMPLDEPS); \
 $(NODE) --stack-size=8801 $(XATS2JS_JSEMIT00) $< > $@
 #
 ########################################################################

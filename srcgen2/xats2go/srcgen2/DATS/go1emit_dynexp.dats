@@ -2832,7 +2832,16 @@ case+ i1f0.node() of
                  (if not(pty = "any")
                   then
                     (if (gotype_of_ival(a1) = "any")
-                     then (i1valgo1(filr, a1); strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")"))
+                     then
+                       // IDEMPOTENT COERCION preferred over a raw `.(pty)`
+                       // assert: the arg temp's recorded type can be stale-
+                       // `any` while Go inferred it CONCRETE (assert on a
+                       // non-interface is invalid); the runtime helper
+                       // compiles for both.
+                       (let val cf = go_coerfn_of(pty) in
+                        if (strn_length(cf) > 0)
+                        then (strnfpr(filr, cf); strnfpr(filr, "("); i1valgo1(filr, a1); strnfpr(filr, ")"))
+                        else (i1valgo1(filr, a1); strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")")) end)
                      else i1valgo1_list(filr, i1vs))
                   else i1valgo1_list(filr, i1vs))
                else i1valgo1_list(filr, i1vs))
@@ -3148,9 +3157,22 @@ addressable-Go-lvalue assignment.
   // marks it as a `$eval` pointer, so we deref on the LHS (NOT overwrite the
   // pointer).  The deref READ already emits `*p` structurally (I1INSdp2tr).
   |I1Vtnm(itnm) when dp2tr_ptr_has(i1tnm_stmp$get(itnm)) =>
-    (
-    strnfpr(filr, "*"); i1tnmgo1(filr, itnm);
-    strnfpr(filr, " = "); i1valgo1(filr, irgt))
+    let
+      val pty = goemit_ty_get(i1tnm_stmp$get(itnm))
+      val ptrp =
+      (if (strn_length(pty) > 0) then (pty[0] = '*') else false)
+    in
+      if ptrp
+      then
+      (
+      strnfpr(filr, "*"); i1tnmgo1(filr, itnm);
+      strnfpr(filr, " = "); i1valgo1(filr, irgt))
+      else
+      (
+      strnfpr(filr, "xatsgo.Xats_p2tr_set(");
+      i1tnmgo1(filr, itnm); strnfpr(filr, ", ");
+      i1valgo1(filr, irgt); strnfpr(filr, ")"))
+    end
   | _(*else*) =>
     (
     i1valgo1(filr, ilft);
@@ -3211,8 +3233,20 @@ Produced by the VALUE-path [f0_dp2tr_v] -> [i1val_dp2tr]; the prelude's gseq
 counter (`$UN.p2tr_get(p0)`) is the first surface use.
 *)
 |I1INSdp2tr(iv1) =>
-  (
-  strnfpr(filr, "*"); i1valgo1(filr, iv1))
+  // native `*p` needs a CONCRETE pointer type; a pointer flowing through an
+  // `any`-typed generic-instance param routes through the exact p2tr leaf.
+  let
+    val pty = gotype_of_ival(iv1)
+    val ptrp =
+    (if (strn_length(pty) > 0) then (pty[0] = '*') else false)
+  in
+    if ptrp
+    then (strnfpr(filr, "*"); i1valgo1(filr, iv1))
+    else
+    (
+    strnfpr(filr, "xatsgo.Xats_p2tr_get(");
+    i1valgo1(filr, iv1); strnfpr(filr, ")"))
+  end
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -4821,9 +4855,16 @@ case+ ilet of
       // provably "any" (so a natively-typed call / infix op is never mis-asserted,
       // which Go would reject as an assertion on a non-interface value).
       (case+ iins of
-       |I1INSdapp(i1f0, _) =>
+       |I1INSdapp(i1f0, i1vs) =>
          let
            val goty = gotyp_emit(i1tnm_gotyp$get(itnm))
+           // NATIVE-INFIX GUARD: when the dapp emitted as a native Go
+           // operator `(a OP b)` (M2.1 primop rule), the RHS is a concrete
+           // native value — asserting it (`.(bool)`) is invalid Go even if
+           // the callee THUNK's recorded return type is `any` (the thunk is
+           // dead-coded on the native path).
+           val nativep =
+           (strn_length(i1binop_of_dapp(i1f0, i1vs, scp)) > 0)
            // does the callee's emitted Go signature return `any`?  An instance-func
            // value temp (inst_retty) or a DIRECT call to a d2cst-less helper `fun`
            // whose signature defaults to `func(..) any` (funretty, keyed by the
@@ -4838,6 +4879,7 @@ case+ ilet of
            |I1Vcst(dcst) =>
              (let val (_, rt) = gotypes_of_funstyp(d2cst_get_styp(dcst)) in (rt = "any") end)
            | _(*other callee*) => false)
+           val retany = (if nativep then false else retany)
          in
            if retany
            then
@@ -5170,6 +5212,92 @@ in//let
     strnfpr(filr, ")"))
     else
     (
+    let
+      // FUNC-ADAPTER: Go func types are INVARIANT, so returning a lambda
+      // whose emitted func type differs from the declared return type is a
+      // compile error even when every position is `any`-compatible.  When
+      // BOTH types are known func types with the same arity, synthesize the
+      // eta-expansion `func(zza_i P_i) Rc { return <coerce>(v(<coerce>(zza_i)..)) }`.
+      val rty =
+      (case+ ival1.node() of
+       |I1Vtnm(rtnm) => goemit_ty_get(i1tnm_stmp$get(rtnm))
+       | _(*non-tnm*) => "")
+      fun isfunty(s: strn): bool =
+      (
+      if (strn_length(s) < 5) then false else
+      if s[0] != 'f' then false else
+      if s[1] != 'u' then false else
+      if s[2] != 'n' then false else
+      if s[3] != 'c' then false else (s[4] = '('))
+      fun len(ts: list(strn)): sint =
+      (case+ ts of list_nil() => 0 | list_cons(_, ts1) => 1 + len(ts1))
+      val adaptq =
+      (if isfunty(cfr)
+       then (if isfunty(rty) then not(rty = cfr) else false)
+       else false)
+    in
+    if adaptq
+    then
+    let
+      val cps = go_params_of_functype(cfr)
+      val vps = go_params_of_functype(rty)
+      val crt = go_return_type(cfr)
+      val vrt = go_return_type(rty)
+      fun
+      emit_params
+      (ts: list(strn), i0: sint): void =
+      (
+      case+ ts of
+      |list_nil() => ((*void*))
+      |list_cons(t1, ts1) =>
+        (
+        (if (i0 >= 1) then strnfpr(filr, ", "));
+        strnfpr(filr, "zza"); i0i00go1(filr, i0);
+        strnfpr(filr, " "); strnfpr(filr, t1);
+        emit_params(ts1, i0+1)))
+      fun
+      emit_args
+      (cs: list(strn), vs: list(strn), i0: sint): void =
+      (
+      case+ vs of
+      |list_nil() => ((*void*))
+      |list_cons(v1, vs1) =>
+        let
+          val c1 = (case+ cs of list_cons(c1, _) => c1 | list_nil() => "any")
+          val cs1 = (case+ cs of list_cons(_, cs1) => cs1 | list_nil() => list_nil())
+          val cf = (if (v1 = "any") then "" else if (v1 = c1) then "" else go_coerfn_of(v1))
+        in
+          (if (i0 >= 1) then strnfpr(filr, ", "));
+          (if (strn_length(cf) > 0)
+           then (strnfpr(filr, cf); strnfpr(filr, "(");
+                 strnfpr(filr, "zza"); i0i00go1(filr, i0); strnfpr(filr, ")"))
+           else (strnfpr(filr, "zza"); i0i00go1(filr, i0)));
+          emit_args(cs1, vs1, i0+1)
+        end)
+    in
+      if (len(cps) = len(vps))
+      then
+      (
+      strnfpr(filr, "func(");
+      emit_params(cps, 0);
+      strnfpr(filr, ") "); strnfpr(filr, crt);
+      strnfpr(filr, " { return ");
+      (
+      let
+        val rcf = (if (crt = vrt) then "" else if (crt = "any") then "" else go_coerfn_of(crt))
+      in
+        (if (strn_length(rcf) > 0) then (strnfpr(filr, rcf); strnfpr(filr, "(")));
+        i1valgo1(filr, ival1);
+        strnfpr(filr, "(");
+        emit_args(cps, vps, 0);
+        strnfpr(filr, ")");
+        (if (strn_length(rcf) > 0) then strnfpr(filr, ")"))
+      end);
+      strnfpr(filr, " }"))
+      else i1valgo1(filr, ival1)
+    end
+    else
+    (
     i1valgo1(filr, ival1);
     if (cfr = "") then ((*void*)) else
     if (cfr = "any") then ((*void*)) else
@@ -5178,6 +5306,7 @@ in//let
        (if (goemit_ty_get(i1tnm_stmp$get(rtnm)) = "any")
         then (strnfpr(filr, ".("); strnfpr(filr, cfr); strnfpr(filr, ")")) else ())
      | _(*non-tnm*) => ()))
+    end)
   end);
   strnfpr(filr, "\n"))
 end//let//endof[emit_ret_plain(icmp,params,bnds,env0)]

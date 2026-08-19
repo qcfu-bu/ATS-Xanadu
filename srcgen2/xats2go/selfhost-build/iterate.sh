@@ -160,9 +160,17 @@ gate)
   XGO="$X/srcgen2/xats2go"
   G="$PROBEDIR/gate"; mkdir -p "$G"
   fail=0
+  # bundle-side rungs in PARALLEL (P3 -- each holds a 216MB node bundle);
+  # each run-goarm has its own goarm_<name> work dir so they don't collide.
+  n=0
   for t in "$XGO"/srcgen2/TEST/test_goarm*_xats2go.dats; do
     nm="$(basename "$t" .dats)"
-    ( cd "$XGO" && bash run-goarm.sh "srcgen2/TEST/$nm.dats" ) > "$G/$nm.log" 2>&1
+    ( cd "$XGO" && bash run-goarm.sh "srcgen2/TEST/$nm.dats" ) > "$G/$nm.log" 2>&1 &
+    n=$((n+1)); [ $((n % 3)) -eq 0 ] && wait
+  done
+  wait
+  for t in "$XGO"/srcgen2/TEST/test_goarm*_xats2go.dats; do
+    nm="$(basename "$t" .dats)"
     if ! grep -q "GOARM PASS" "$G/$nm.log"; then echo "!! RUNG FAIL(bundle): $nm (see $G/$nm.log)"; fail=1; continue; fi
     ( cd "$XGO" && "$BIN" "srcgen2/TEST/$nm.dats" --go-arm ) > "$G/$nm.self.raw" 2> "$G/$nm.self.err"
     awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$G/$nm.self.raw" > "$G/$nm.self.go"

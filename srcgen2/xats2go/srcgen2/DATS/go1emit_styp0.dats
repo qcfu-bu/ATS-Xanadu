@@ -2755,6 +2755,30 @@ case+ chase_fun(styp) of
 )//endof[byref_register_params(fjas,styp)]
 //
 (*
+[styp_is_datatype]: is this field [s2typ] a DATATYPE application?  Its head is a
+[T2Pcst] (bare datatype like `intlist`) or [T2Papps(T2Pcst, _)] (parameterized,
+like `mylist(sint)`) whose [s2cst] has constructors or is a known prelude boxed
+datatype head.  Chases the trivial wrappers the front-end leaves on a field type.
+*)
+fun
+styp_is_datatype
+(t2p0: s2typ): bool =
+(
+case+ t2p0.node() of
+|T2Pcst(s2c0) => go_s2cst_is_boxed_datatype(s2c0)
+|T2Papps(t2hd, _) => styp_is_datatype(t2hd)
+|T2Ptop0(t1) => styp_is_datatype(t1)
+|T2Ptop1(t1) => styp_is_datatype(t1)
+|T2Plft (t1) => styp_is_datatype(t1)
+|T2Pnone1(t1) => styp_is_datatype(t1)
+|T2Parg1(_, t1) => styp_is_datatype(t1)
+|T2Pexi0(_, t1) => styp_is_datatype(t1)
+|T2Puni0(_, t1) => styp_is_datatype(t1)
+|T2Plam1(_, t1) => styp_is_datatype(t1)
+| _(*else*) => false
+)
+//
+(*
 [byref_overlay_argtys]: see go1emit.sats.  The walk pairs the (proof-dropped)
 styp args positionally with [argtys] -- the SAME pairing byref_register_binds
 uses (argtys is one entry per bind, in bind order), so registration and
@@ -2780,7 +2804,27 @@ case+ ptys of
   |list_nil() => ptys
   |list_cons(a1, args1) =>
     list_cons
-    ( (if styp_arg_is_byref(a1) then gotype_of_arg(a1) else p1)
+    ( (if styp_arg_is_byref(a1)
+       then gotype_of_arg(a1)
+       else
+       (*
+       CLAUDE-2026-08: STYP OVERLAY for generic params.  An inline
+       instance literal's param whose finalized gotyp is `any` (a
+       template-variable-typed bind) takes the CONCRETE Go image of the
+       declared styp arg when one exists (datatype fields, scalars) —
+       the same source a toplevel named emission of this instance types
+       its params from, so the literal's signature and every computed
+       func-type string agree (Go func types are invariant).
+       *)
+       (if (p1 = "any")
+        then
+        (if styp_is_datatype(a1)
+         then "*xatsgo.XatsCon"
+         else
+         (let val g1 = gotype_of_styp(a1) in
+          (if (if (strn_length(g1) > 0) then not(g1 = "any") else false)
+           then g1 else p1) end))
+        else p1))
     , loop(args1, ptys1))
   )
 )
@@ -2824,30 +2868,6 @@ case+ xs of
 |list_nil() => optn_nil()
 |list_cons(x1, xs1) =>
   (if (n <= 0) then optn_cons(x1) else list_nth_styp(xs1, n-1))
-)
-//
-(*
-[styp_is_datatype]: is this field [s2typ] a DATATYPE application?  Its head is a
-[T2Pcst] (bare datatype like `intlist`) or [T2Papps(T2Pcst, _)] (parameterized,
-like `mylist(sint)`) whose [s2cst] has constructors or is a known prelude boxed
-datatype head.  Chases the trivial wrappers the front-end leaves on a field type.
-*)
-fun
-styp_is_datatype
-(t2p0: s2typ): bool =
-(
-case+ t2p0.node() of
-|T2Pcst(s2c0) => go_s2cst_is_boxed_datatype(s2c0)
-|T2Papps(t2hd, _) => styp_is_datatype(t2hd)
-|T2Ptop0(t1) => styp_is_datatype(t1)
-|T2Ptop1(t1) => styp_is_datatype(t1)
-|T2Plft (t1) => styp_is_datatype(t1)
-|T2Pnone1(t1) => styp_is_datatype(t1)
-|T2Parg1(_, t1) => styp_is_datatype(t1)
-|T2Pexi0(_, t1) => styp_is_datatype(t1)
-|T2Puni0(_, t1) => styp_is_datatype(t1)
-|T2Plam1(_, t1) => styp_is_datatype(t1)
-| _(*else*) => false
 )
 //
 (*
