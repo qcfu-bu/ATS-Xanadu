@@ -29,6 +29,7 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
+	"unicode/utf16"
 	"strings"
 )
 
@@ -603,28 +604,6 @@ var Xats_strn_strmize = func(s any) any {
 	return xatsStrmFrom(items, 0)
 }
 
-var Xats_g_eq = func(x1 any, x2 any) bool {
-	if x1 == nil || x2 == nil {
-		return x1 == x2
-	}
-	// NB (self-hosting): for CONSTRUCTOR operands this is POINTER identity.
-	// The frontend's `=` on its entity types means STAMP equality (the
-	// g_eq<T> -> g_cmp<T> = stmp() cmp stmp() chain); a structural
-	// DeepEqual fallback was tried and is UNSOUND (distinct unlinked
-	// metavars are field-identical), so the real fix is RESOLVING those
-	// instances in the pipeline, not approximating here.
-	t1 := reflect.TypeOf(x1)
-	t2 := reflect.TypeOf(x2)
-	if t1 == t2 && t1.Comparable() {
-		eq := x1 == x2
-		if xatsGeqDebug && !eq {
-			xatsGeqSuspect(x1, x2)
-		}
-		return eq
-	}
-	return reflect.DeepEqual(x1, x2)
-}
-
 // XATSGO_GEQ_DEBUG=1: report con-pair g_eq FALSEs whose scalar fields all
 // agree (pointer-unequal but possibly stamp-equal cells — the miscompare
 // shape the bridged pointer-identity g_eq gets wrong).  Histogram by caller;
@@ -722,266 +701,6 @@ var Xats_char_neq = func(c1 any, c2 any) any { return c1.(int32) != c2.(int32) }
 var Xats_bool_eq = func(b1 any, b2 any) any { return b1.(bool) == b2.(bool) }
 var Xats_bool_neq = func(b1 any, b2 any) any { return b1.(bool) != b2.(bool) }
 
-// -- variadic prints / gs_print_aN ------------------------------------------
-//
-// `prints(x0, ..)` resolves (prelude/SATS/gsyn000.sats) to gs_print_aN, whose
-// template BODY (prelude/DATS/gsyn000.dats) is
-//
-//	gs_print$beg(); g_print<x0>(x0); gs_print$sep(); g_print<x1>(x1); ...
-//	                ...; gs_print$end()
-//
-// where the DEFAULT gs_print$beg/$sep/$end are NO-OPS, and each g_print<T> is
-// the per-type print (strn_print / sint_print / ...) that PUSHES onto the
-// print store.  The JS backend INLINES this template per call (each arg's
-// static type picks g_print<T> at compile time).  The Go backend resolves the
-// whole call to ONE runtime function (the M1 timp->named-runtime pattern), so
-// the per-arg type dispatch happens HERE, at run time, on the arg's dynamic Go
-// type -- producing the SAME pushed bytes (the differential oracle confirms).
-//
-// gsPrintOne mirrors g_print<T> for the scalar/string types the prelude default
-// `print` covers: a Go string (from XATSSTRN/XATSSTR0) -> push verbatim (==
-// strn_print); int -> Itoa (== sint_print); bool -> "true"/"false"; float64 ->
-// XatsFloatToString; rune/int32 (a char) -> its single character.  An unknown
-// type falls back to Go's default formatting (defensive; not on the test
-// surface).
-func xatsValueString(x any) string {
-	switch v := x.(type) {
-	case string:
-		return v
-	case int:
-		return strconv.Itoa(v)
-	case bool:
-		if v {
-			return "true"
-		}
-		return "false"
-	case float64:
-		return XatsFloatToString(v)
-	case int32:
-		return string(rune(v))
-	case *XatsCon:
-		return xatsListString(v)
-	default:
-		return fmt.Sprintf("%v", v)
-	}
-}
-
-func xatsListString(xs *XatsCon) string {
-	// NOT every Tag-1 con is a cons cell: a 1-arg con (LCSRCsome1) or a
-	// multi-field record-con (postn) reaching the generic printer via an
-	// UNRESOLVED print$ bridge must not be walked as a list (index panic on
-	// Args[1] / wrong shape).  Print those as C<tag>(args...) instead.
-	if xs != nil && xs.Tag != 0 {
-		if len(xs.Args) != 2 {
-			return xatsConString(xs)
-		}
-		if _, tailIsCon := xs.Args[1].(*XatsCon); !tailIsCon {
-			return xatsConString(xs)
-		}
-	}
-	name := "list"
-	if xs != nil && xs.Name == "list_vt" {
-		name = "list_vt"
-	}
-
-	var b strings.Builder
-	b.WriteString(name)
-	b.WriteString("(")
-	first := true
-	for xs != nil && xs.Tag != 0 {
-		if !first {
-			b.WriteString(",")
-		}
-		first = false
-		b.WriteString(xatsValueString(xs.Args[0]))
-		nxt, ok := xs.Args[1].(*XatsCon)
-		if !ok {
-			break
-		}
-		xs = nxt
-	}
-	b.WriteString(")")
-	return b.String()
-}
-
-// xatsConString: generic constructor print `C<tag>(arg0,arg1,...)` for a con
-// value with no faithful print$ instance (diagnostic shape; the emitted-code
-// byte-fidelity path resolves the real fprint instances instead).
-func xatsConString(xs *XatsCon) string {
-	var b strings.Builder
-	b.WriteString("C")
-	b.WriteString(strconv.Itoa(xs.Tag))
-	b.WriteString("(")
-	for i, a := range xs.Args {
-		if i >= 1 {
-			b.WriteString(",")
-		}
-		b.WriteString(xatsValueString(a))
-	}
-	b.WriteString(")")
-	return b.String()
-}
-
-func gsPrintOne(x any) {
-	xatsStorePut(xatsValueString(x))
-}
-
-func gsPrerrOne(x any) {
-	fmt.Fprint(os.Stderr, xatsValueString(x))
-}
-
-var Xats_gs_print_a0 = func() any { return XATSNIL() }
-var Xats_gs_print_a1 = func(x0 any) any { gsPrintOne(x0); return XATSNIL() }
-var Xats_gs_print_a2 = func(x0 any, x1 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	return XATSNIL()
-}
-var Xats_gs_print_a3 = func(x0 any, x1 any, x2 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	gsPrintOne(x2)
-	return XATSNIL()
-}
-var Xats_gs_print_a4 = func(x0 any, x1 any, x2 any, x3 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	gsPrintOne(x2)
-	gsPrintOne(x3)
-	return XATSNIL()
-}
-
-// gs_print_n<N> is the `prints` overload family from prelude synoug0
-// (gs_print_n<N> = gs_fproc_n<N> where g_fproc = g_print). Observably
-// IDENTICAL to gs_print_a<N> above -- each arg printed via g_print, no
-// separator -- so these mirror the (oracle-validated) _a twins exactly. The
-// real (generic) compiler sources resolve `prints(...)` to this `_n` family.
-var Xats_gs_print_n1 = func(x0 any) any { gsPrintOne(x0); return XATSNIL() }
-var Xats_gs_print_n2 = func(x0, x1 any) any { gsPrintOne(x0); gsPrintOne(x1); return XATSNIL() }
-var Xats_gs_print_n3 = func(x0, x1, x2 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	gsPrintOne(x2)
-	return XATSNIL()
-}
-var Xats_gs_print_n4 = func(x0, x1, x2, x3 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	gsPrintOne(x2)
-	gsPrintOne(x3)
-	return XATSNIL()
-}
-var Xats_gs_print_n5 = func(x0, x1, x2, x3, x4 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	gsPrintOne(x2)
-	gsPrintOne(x3)
-	gsPrintOne(x4)
-	return XATSNIL()
-}
-var Xats_gs_print_n6 = func(x0, x1, x2, x3, x4, x5 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	gsPrintOne(x2)
-	gsPrintOne(x3)
-	gsPrintOne(x4)
-	gsPrintOne(x5)
-	return XATSNIL()
-}
-var Xats_gs_print_n7 = func(x0, x1, x2, x3, x4, x5, x6 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	gsPrintOne(x2)
-	gsPrintOne(x3)
-	gsPrintOne(x4)
-	gsPrintOne(x5)
-	gsPrintOne(x6)
-	return XATSNIL()
-}
-var Xats_gs_print_n8 = func(x0, x1, x2, x3, x4, x5, x6, x7 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	gsPrintOne(x2)
-	gsPrintOne(x3)
-	gsPrintOne(x4)
-	gsPrintOne(x5)
-	gsPrintOne(x6)
-	gsPrintOne(x7)
-	return XATSNIL()
-}
-var Xats_gs_print_n9 = func(x0, x1, x2, x3, x4, x5, x6, x7, x8 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	gsPrintOne(x2)
-	gsPrintOne(x3)
-	gsPrintOne(x4)
-	gsPrintOne(x5)
-	gsPrintOne(x6)
-	gsPrintOne(x7)
-	gsPrintOne(x8)
-	return XATSNIL()
-}
-var Xats_gs_print_n10 = func(x0, x1, x2, x3, x4, x5, x6, x7, x8, x9 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	gsPrintOne(x2)
-	gsPrintOne(x3)
-	gsPrintOne(x4)
-	gsPrintOne(x5)
-	gsPrintOne(x6)
-	gsPrintOne(x7)
-	gsPrintOne(x8)
-	gsPrintOne(x9)
-	return XATSNIL()
-}
-
-var Xats_gs_println_a0 = func() any {
-	XATS2JS_strn_print("\n")
-	return XATSNIL()
-}
-var Xats_gs_println_a1 = func(x0 any) any {
-	gsPrintOne(x0)
-	XATS2JS_strn_print("\n")
-	return XATSNIL()
-}
-var Xats_gs_println_a2 = func(x0 any, x1 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	XATS2JS_strn_print("\n")
-	return XATSNIL()
-}
-var Xats_gs_println_a3 = func(x0 any, x1 any, x2 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	gsPrintOne(x2)
-	XATS2JS_strn_print("\n")
-	return XATSNIL()
-}
-var Xats_gs_println_a4 = func(x0 any, x1 any, x2 any, x3 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	gsPrintOne(x2)
-	gsPrintOne(x3)
-	XATS2JS_strn_print("\n")
-	return XATSNIL()
-}
-
-var Xats_gs_prerrln_n0 = func() any {
-	fmt.Fprint(os.Stderr, "\n")
-	return XATSNIL()
-}
-var Xats_gs_prerrln_n1 = func(x0 any) any {
-	gsPrerrOne(x0)
-	fmt.Fprint(os.Stderr, "\n")
-	return XATSNIL()
-}
-var Xats_gs_prerrln_n2 = func(x0 any, x1 any) any {
-	gsPrerrOne(x0)
-	gsPrerrOne(x1)
-	fmt.Fprint(os.Stderr, "\n")
-	return XATSNIL()
-}
-
 // ===========================================================================
 // SELF-HOSTING prim leaves — the COMPILER-prelude primitives the EMITTER's own
 // sources reference via xatsgo.Xats_* (the d2cstgo1 routing) that the runtime
@@ -1018,26 +737,17 @@ var Xats_symbl_cmp = func(s1 any, s2 any) any {
 	return strings.Compare(s1.(string), s2.(string))
 }
 
-// g_print<T>(x): the per-type print that PUSHES onto the print store; the
-// generic dispatch is xatsValueString (same surface as gsPrintOne / prints).
-var Xats_g_print = func(x any) any { gsPrintOne(x); return XATSNIL() }
-
-// gs_print1_n<N>: the `print1s` family. prelude gbas000 has g_print1<a> =
-// g_print<a>, so this is observably identical to gs_print_n<N> (each arg via
-// g_print, no separator).
-var Xats_gs_print1_n2 = func(x0, x1 any) any { gsPrintOne(x0); gsPrintOne(x1); return XATSNIL() }
-var Xats_gs_print1_n3 = func(x0, x1, x2 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	gsPrintOne(x2)
-	return XATSNIL()
-}
-var Xats_gs_print1_n5 = func(x0, x1, x2, x3, x4 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	gsPrintOne(x2)
-	gsPrintOne(x3)
-	gsPrintOne(x4)
+// g_print: the STRINGS-ONLY residue of the old generic printer.  The
+// resolved prelude prints everything through compiled ATS bodies down to the
+// typed fprint leaves; the only remaining g_print references are the tmplib
+// diagnostic printers' string-literal calls.  A non-string reaching here is
+// a resolver regression -- fail loudly instead of approximating.
+var Xats_g_print = func(x any) any {
+	s, ok := x.(string)
+	if !ok {
+		panic(fmt.Sprintf("xatsgo: Xats_g_print: non-string %T reached the strings-only residue", x))
+	}
+	xatsStorePut(s)
 	return XATSNIL()
 }
 
@@ -1460,7 +1170,6 @@ func xatsGcmp(a any, b any) int {
 	}
 	panic("xatsgo: Xats_g_cmp: unsupported operand")
 }
-func Xats_g_cmp(a any, b any) int { return xatsGcmp(a, b) }
 func Xats_g_max(a any, b any) any {
 	if xatsGcmp(a, b) >= 0 {
 		return a
@@ -1554,7 +1263,9 @@ var Xats_XATS2JS_NODE_g_stderr = func() any { return os.Stderr }
 var Xats_XATS2JS_NODE_strn_fprint = func(obj any, out any) any {
 	s, ok := obj.(string)
 	if !ok {
-		s = xatsValueString(obj)
+		// a non-string here means a print chain resolved to the WRONG leaf
+		// (strn_fprint takes a strn) -- fail loudly, never approximate.
+		panic(fmt.Sprintf("xatsgo: XATS2JS_NODE_strn_fprint: non-string %T", obj))
 	}
 	if w, ok := xatsWriter(out); ok {
 		_, _ = w.Write([]byte(s))
@@ -1582,7 +1293,7 @@ var Xats_gflt_fprint_dflt = Xats_XATS2JS_NODE_gflt_fprint_dflt
 var Xats_XATS2JS_gint_suc_sint = func(x any) any { return x.(int) + 1 }
 var Xats_XATS2JS_gint_pred_sint = func(x any) any { return x.(int) - 1 }
 var Xats_XATS2JS_gint_gt_sint_sint = func(a any, b any) any { return a.(int) > b.(int) }
-var Xats_XATS2JS_gint_gte_sint_sint = func(a any, b any) any { return a.(int) >= b.(int) }
+var Xats_XATS2JS_gint_gte_sint_sint = func(a int, b int) bool { return a >= b }
 var Xats_XATS2JS_gint_lt_sint_sint = func(a any, b any) any { return a.(int) < b.(int) }
 var Xats_XATS2JS_gint_lte_sint_sint = func(a any, b any) any { return a.(int) <= b.(int) }
 var Xats_XATS2JS_gint_eq_sint_sint = func(a any, b any) any { return a.(int) == b.(int) }
@@ -1590,20 +1301,6 @@ var Xats_XATS2JS_gint_neq_sint_sint = func(a any, b any) any { return a.(int) !=
 var Xats_XATS2JS_gint_add_sint_sint = func(a any, b any) any { return a.(int) + b.(int) }
 var Xats_XATS2JS_gint_sub_sint_sint = func(a any, b any) any { return a.(int) - b.(int) }
 var Xats_XATS2JS_gint_mul_sint_sint = func(a any, b any) any { return a.(int) * b.(int) }
-
-// -- stderr print family (synoug0's gs_prerr chain) --------------------------
-//
-// Every emitted call to the generic gs_fproc_n1/n2 hooks originates from
-// gs_prerr_n1/n2 (synoug0.dats lines 478/489 — verified: ALL call-site source
-// locations in the assembled output point there), whose local `#impltmp
-// g_fproc = g_prerr` makes the observable behavior "print each arg to stderr".
-var Xats_g_prerr = func(x any) any { gsPrerrOne(x); return XATSNIL() }
-var Xats_gs_fproc_n1 = func(x0 any) any { gsPrerrOne(x0); return XATSNIL() }
-var Xats_gs_fproc_n2 = func(x0 any, x1 any) any {
-	gsPrerrOne(x0)
-	gsPrerrOne(x1)
-	return XATSNIL()
-}
 
 // -- generic ordering --------------------------------------------------------
 //
@@ -1616,18 +1313,6 @@ var Xats_gs_fproc_n2 = func(x0 any, x1 any) any {
 // the package's real stamped lte_sort2_sort2 at init).  nil = no frontend
 // hook (rung/suite programs): plain xatsGcmp ordering as before.
 var XatsGlteConHook func(a any, b any) any
-
-func Xats_g_lte(a any, b any) bool {
-	if _, ok := a.(*XatsCon); ok {
-		if _, ok2 := b.(*XatsCon); ok2 {
-			if XatsGlteConHook != nil {
-				return XatsGlteConHook(a, b).(bool)
-			}
-		}
-	}
-	return xatsGcmp(a, b) <= 0
-}
-func Xats_g_gte(a any, b any) bool { return xatsGcmp(a, b) >= 0 }
 
 // -- labeled-list sortedq/mergesort ------------------------------------------
 //
@@ -1660,21 +1345,6 @@ func xatsLabelCmp(l1 any, l2 any) int {
 // element = CON(label, item) — Args[0] is the label in both l2t2p and l1i1v.
 func xatsLabItemCmp(a any, b any) int {
 	return xatsLabelCmp(a.(*XatsCon).Args[0], b.(*XatsCon).Args[0])
-}
-
-func Xats_list_sortedq(xs any) bool {
-	c := xs.(*XatsCon)
-	for c.Tag != 0 {
-		next := c.Args[1].(*XatsCon)
-		if next.Tag == 0 {
-			break
-		}
-		if xatsLabItemCmp(c.Args[0], next.Args[0]) > 0 {
-			return false
-		}
-		c = next
-	}
-	return true
 }
 
 // stable merge sort over a cons-list (prelude list_mergesort semantics: the
@@ -1833,20 +1503,6 @@ func Xats_a0ref_dtset(a0, x0 any) any { a0.(*XatsA0Ref).val = x0; return XATSNIL
 
 // -- self-hosting floor, round 2 ---------------------------------------------
 
-// gs_println_n<N>: the `printsln` overload family (synoug0's gs_println_n<N> =
-// gs_fproc_n<N> where g_fproc = g_print, then a newline) — print each arg to
-// the stdout store, then "\n" (same shape as gs_println_a<N> above).
-var Xats_gs_println_n6 = func(x0, x1, x2, x3, x4, x5 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	gsPrintOne(x2)
-	gsPrintOne(x3)
-	gsPrintOne(x4)
-	gsPrintOne(x5)
-	XATS2JS_strn_print("\n")
-	return XATSNIL()
-}
-
 // cast10 — representation-identity cast (same as castlin10).
 func Xats_cast10(x any) any { return x }
 
@@ -1887,7 +1543,17 @@ func Xats_list_filter_w(f func(any) any) func(any) any {
 // unboxed: compiles and is exact) or interface-typed (asserted) — so the
 // emitter never needs to prove the arg's static Go type at a typed boundary.
 func Xats_as_str(x any) string { return x.(string) }
-func Xats_as_int(x any) int    { return x.(int) }
+func Xats_as_int(x any) int {
+	switch v := x.(type) {
+	case int:
+		return v
+	case rune:
+		// JS-numeric parity: a char is its code (one number type in JS);
+		// the Go image splits int/rune, so the int boundary converts.
+		return int(v)
+	}
+	return x.(int)
+}
 func Xats_as_bool(x any) bool  { return x.(bool) }
 func Xats_as_rune(x any) rune {
 	switch v := x.(type) {
@@ -2163,35 +1829,6 @@ func Xats_gs_min_n3(x1, x2, x3 any) any {
 	return Xats_g_min(Xats_g_min(x1, x2), x3)
 }
 
-// gs_println_n<N>: print each arg + newline (stdout store).
-var Xats_gs_println_n0 = func() any {
-	XATS2JS_strn_print("\n")
-	return XATSNIL()
-}
-var Xats_gs_println_n2 = func(x0, x1 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	XATS2JS_strn_print("\n")
-	return XATSNIL()
-}
-var Xats_gs_println_n4 = func(x0, x1, x2, x3 any) any {
-	gsPrintOne(x0)
-	gsPrintOne(x1)
-	gsPrintOne(x2)
-	gsPrintOne(x3)
-	XATS2JS_strn_print("\n")
-	return XATSNIL()
-}
-
-// gs_fproc_n3: like n1/n2 — every assembled call site originates from
-// synoug0's gs_prerr_n3 (verified) — print each arg to stderr.
-var Xats_gs_fproc_n3 = func(x0, x1, x2 any) any {
-	gsPrerrOne(x0)
-	gsPrerrOne(x1)
-	gsPrerrOne(x2)
-	return XATSNIL()
-}
-
 // char/code conversions (int <-> char; chars are rune/int32 or int at runtime).
 func Xats_char_make_code(c any) any {
 	switch v := c.(type) {
@@ -2219,8 +1856,6 @@ func Xats_list_last(xs any) any {
 	}
 	return c.Args[0]
 }
-
-func Xats_g_neq(a any, b any) bool { return !Xats_g_eq(a, b) }
 
 // linearity casts — representation identity.
 func Xats_enlinear(x any) any { return x }
@@ -2317,18 +1952,6 @@ var Xats_XATS2JS_NODE_gint_fprint_uint = Xats_XATS2JS_NODE_gint_fprint_sint
 // the generic gs_print_n bridges).
 var Xats_g_stderr = func() any { return os.Stderr }
 
-// fprint_ref(out, x): write x to the FILR-like out (arg order OUT, VALUE).
-var Xats_fprint_ref = func(out any, x any) any {
-	s, ok := x.(string)
-	if !ok {
-		s = xatsValueString(x)
-	}
-	if w, ok := xatsWriter(out); ok {
-		_, _ = w.Write([]byte(s))
-	}
-	return XATSNIL()
-}
-
 // gint_fprint_{sint,uint}(i, out): the non-NODE prelude names (VALUE, OUT).
 var Xats_gint_fprint_sint = Xats_XATS2JS_NODE_gint_fprint_sint
 var Xats_gint_fprint_uint = Xats_XATS2JS_NODE_gint_fprint_sint
@@ -2419,14 +2042,6 @@ func xatsSeqItems(xs any) []any {
 	}
 	return nil
 }
-func Xats_gseq_memberq(xs any, x0 any) bool {
-	for _, it := range xatsSeqItems(xs) {
-		if Xats_g_eq(it, x0) {
-			return true
-		}
-	}
-	return false
-}
 // gseq_last_ini(xs) / gseq_last_ini(xs, ini): last item, or [ini] when the
 // sequence is empty (the 2-arg form is what the frontend emits).
 func Xats_gseq_last_ini(xs any, ini ...any) any {
@@ -2446,36 +2061,6 @@ func Xats_gseq_get_at_opt(xs any, i any) *XatsCon {
 		return &XatsCon{Tag: 1, Args: []any{items[k]}}
 	}
 	return &XatsCon{Tag: 0}
-}
-// gseq_prefixq(xs, ys): is xs a prefix of ys?
-func Xats_gseq_prefixq(xs any, ys any) bool {
-	a := xatsSeqItems(xs)
-	b := xatsSeqItems(ys)
-	if len(a) > len(b) {
-		return false
-	}
-	for i := range a {
-		if !Xats_g_eq(a[i], b[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-// gs_println n7/n8.
-var Xats_gs_println_n7 = func(x0, x1, x2, x3, x4, x5, x6 any) any {
-	for _, x := range []any{x0, x1, x2, x3, x4, x5, x6} {
-		gsPrintOne(x)
-	}
-	XATS2JS_strn_print("\n")
-	return XATSNIL()
-}
-var Xats_gs_println_n8 = func(x0, x1, x2, x3, x4, x5, x6, x7 any) any {
-	for _, x := range []any{x0, x1, x2, x3, x4, x5, x6, x7} {
-		gsPrintOne(x)
-	}
-	XATS2JS_strn_print("\n")
-	return XATSNIL()
 }
 
 func Xats_gflt_eq_dflt_dflt(a any, b any) bool { return a.(float64) == b.(float64) }
@@ -2720,3 +2305,234 @@ func Xats_foritm_e1nv_work(x any, env any) any {
 // locations and desyncing the declaration parser (the self-host D0Ctkerr
 // storm).
 func Xats_datacopy(x any) any { return x }
+
+// ////////////////////////////////////////////////////////////////
+// CATS LEAF BINDINGS -- the XATS2JS extern-name surface.
+//
+// Under universal resolved-prelude emission, every prelude template chain
+// resolves through compiled ATS source down to the per-target `<>` impls of
+// libcats/basics, whose bodies are the XATS2JS_* externs (srcgen1 xatslib
+// CATS/JS/NODE).  Those extern names arrive here via d2cstgo1's bare-name
+// emission (an $extnam with no body has i1dclq optn_nil), so THIS block is
+// the runtime's real semantic surface: exact, typed primitives keyed by the
+// extern names the prelude source binds.  Aliases delegate to the audited
+// helpers above (same Go signature -- so call-shape behavior is unchanged);
+// only the primitives with no prior helper are implemented fresh, against
+// the srcgen1_prelude.js / basics1.cats(PY) reference bodies.
+// ////////////////////////////////////////////////////////////////
+
+// strings (a strn is a Go string; chars are runes/int32 codes)
+// The JS backend's string model is UTF-16: XATS2JS_strn_get_at is
+// charCodeAt (UNIT-indexed) and XATS2JS_strn_length is .length (UNIT count).
+// The Go byte model diverges on any non-ASCII source char (an em-dash in a
+// comment shifted every downstream diagnostic offset by +2), so the CATS
+// leaves index a cached UTF-16 view.  Single-entry cache: the lexer walks one
+// source string at a time, so the conversion amortizes to O(1) per access.
+var xatsU16LastS string
+var xatsU16Last []uint16
+
+func xatsU16Of(s string) []uint16 {
+	if s == xatsU16LastS && xatsU16Last != nil {
+		return xatsU16Last
+	}
+	u := utf16.Encode([]rune(s))
+	xatsU16LastS, xatsU16Last = s, u
+	return u
+}
+
+func Xats_XATS2JS_strn_get_at(s any, i int) rune { return rune(xatsU16Of(s.(string))[i]) }
+func Xats_XATS2JS_strn_length(s any) int { return len(xatsU16Of(s.(string))) }
+func Xats_XATS2JS_strn_eq(s1 any, s2 any) bool { return s1.(string) == s2.(string) }
+func Xats_XATS2JS_strn_neq(s1 any, s2 any) bool { return s1.(string) != s2.(string) }
+var Xats_XATS2JS_strn_vt2t = Xats_strn_vt2t
+var Xats_XATS2JS_strn_head_opt = Xats_strn_head_opt
+var Xats_XATS2JS_strn_tail_raw = Xats_strn_tail_raw
+
+// strn_forall_f1un(cs, test): does [test] pass on EVERY char code of [cs]?
+func Xats_XATS2JS_strn_forall_f1un(cs any, test any) bool {
+	f := Xats_as_fun1(test)
+	for _, r := range cs.(string) {
+		if !Xats_as_bool(f(r)) {
+			return false
+		}
+	}
+	return true
+}
+
+// string builders + string options
+func Xats_XATS2JS_strtmp_vt_alloc(bsz int) any { return Xats_strtmp_vt_alloc(bsz) }
+func Xats_XATS2JS_strtmp_vt_set_at(cs any, i int, c rune) any { return Xats_strtmp_vt_set_at(cs, i, c) }
+var Xats_XATS2JS_stropt_nilq = Xats_stropt_nilq
+
+// strm_vt_forall0_f1un(xs, test): force the stream; [test] on every item.
+func Xats_XATS2JS_strm_vt_forall0_f1un(xs any, test any) bool {
+	f := Xats_as_fun1(test)
+	for _, x := range xatsSeqItems(xs) {
+		if !Xats_as_bool(f(x)) {
+			return false
+		}
+	}
+	return true
+}
+
+// chars
+var Xats_XATS2JS_char_eq = Xats_char_eq
+var Xats_XATS2JS_char_neq = Xats_char_neq
+func Xats_XATS2JS_char_equal(c1 rune, c2 rune) bool { return c1 == c2 }
+var Xats_XATS2JS_char_isdigit = Xats_char_isdigit
+var Xats_XATS2JS_char_isalnum = Xats_char_isalnum
+var Xats_XATS2JS_char_isxdigit = Xats_char_isxdigit
+
+func Xats_XATS2JS_char_eqz(c any) bool { return xatsRuneOf(c) == 0 }
+func Xats_XATS2JS_char_cmp(r1 rune, r2 rune) int {
+	if r1 < r2 {
+		return -1
+	}
+	if r1 > r2 {
+		return 1
+	}
+	return 0
+}
+
+// integers (uints share the int rep, as in the JS backend)
+var Xats_XATS2JS_gint_neg_sint = Xats_gint_neg_sint
+var Xats_XATS2JS_gint_pre_sint = Xats_gint_pre_sint
+var Xats_XATS2JS_gint_suc_uint = Xats_gint_suc_uint
+var Xats_XATS2JS_gint_sint2uint = Xats_gint_sint2uint
+var Xats_XATS2JS_gint_uint2sint = Xats_gint_uint2sint
+var Xats_XATS2JS_gint_land_uint = Xats_gint_land_uint
+var Xats_XATS2JS_gint_asrn_sint = Xats_gint_asrn_sint
+var Xats_XATS2JS_gint_div_sint_sint = Xats_gint_div_sint_sint
+var Xats_XATS2JS_gint_mod_sint_sint = Xats_gint_mod_sint_sint
+func Xats_XATS2JS_gint_cmp_sint_sint(a int, b int) int {
+	if a < b {
+		return -1
+	}
+	if a > b {
+		return 1
+	}
+	return 0
+}
+var Xats_XATS2JS_gint_cmp_uint_uint = Xats_gint_cmp_uint_uint
+var Xats_XATS2JS_gint_eq_uint_uint = Xats_gint_eq_uint_uint
+
+// gint_parse_sint(rep): decimal parse (JS parseInt(rep, 10)).
+func Xats_XATS2JS_gint_parse_sint(rep any) int {
+	n, err := strconv.Atoi(rep.(string))
+	if err != nil {
+		panic("xatsgo: Xats_XATS2JS_gint_parse_sint: " + rep.(string))
+	}
+	return n
+}
+
+// floats + bools
+var Xats_XATS2JS_gflt_eq_dflt_dflt = Xats_gflt_eq_dflt_dflt
+var Xats_XATS2JS_bool_neg = Xats_bool_neg
+var Xats_XATS2JS_bool_mul = Xats_bool_mul
+
+// mutable cells + 1-dim arrays
+var Xats_XATS2JS_a0ref_get = Xats_a0ref_get
+var Xats_XATS2JS_a0ref_set = Xats_a0ref_set
+var Xats_XATS2JS_a0ref_dtget = Xats_a0ref_dtget
+var Xats_XATS2JS_a0ref_dtset = Xats_a0ref_dtset
+var Xats_XATS2JS_a0ptr_make_1val = Xats_a0ptr_make_1val
+var Xats_XATS2JS_a1ptr_get_at1 = Xats_a1ptr_get_at1
+
+func Xats_XATS2JS_a1ptr_alloc(asz any) any { return make([]any, asz.(int)) }
+func Xats_XATS2JS_a1ptr_set_at1(arr any, i any, x any) any {
+	arr.([]any)[i.(int)] = x
+	return XATSNIL()
+}
+
+// casts: representation-identical views (the JS backend's XATSCAST).
+func Xats_cast01(x any) any    { return x }
+func Xats_castlin01(x any) any { return x }
+func Xats_optn_vt2t(x any) any { return x }
+
+// Xats_as_dflt: the float boundary coercion (the Xats_as_int pattern).  An
+// `any` produced by JS-semantics arithmetic may hold an int where a dflt is
+// expected (JS numbers are one type); unbox either.
+func Xats_as_dflt(x any) float64 {
+	switch v := x.(type) {
+	case float64:
+		return v
+	case int:
+		return float64(v)
+	}
+	return x.(float64)
+}
+
+// ////////////////////////////////////////////////////////////////
+// CATS LEAF BINDINGS, part 2 -- the sint/dflt/char/bool scalar families and
+// the print leaves the RESOLVED prelude reaches in USER programs (the psuite
+// exercises simpler prelude chains than the compiler: `print`, sint arith).
+// Print leaves all route through the ONE default channel (xatsStorePut via
+// the un-prefixed helpers) so interleaving matches the JS driver's
+// store-then-flush model byte-for-byte.
+// ////////////////////////////////////////////////////////////////
+
+var Xats_XATS2JS_sint_add_sint = func(a any, b any) any { return a.(int) + b.(int) }
+var Xats_XATS2JS_sint_sub_sint = func(a any, b any) any { return a.(int) - b.(int) }
+var Xats_XATS2JS_sint_mul_sint = func(a any, b any) any { return a.(int) * b.(int) }
+var Xats_XATS2JS_sint_div_sint = func(a any, b any) any { return a.(int) / b.(int) } // trunc toward 0 == JS Math.trunc
+var Xats_XATS2JS_sint_mod_sint = func(a any, b any) any { return a.(int) % b.(int) }
+var Xats_XATS2JS_sint_neg = func(a any) any { return -a.(int) }
+var Xats_XATS2JS_sint_eq_sint = func(a any, b any) any { return a.(int) == b.(int) }
+var Xats_XATS2JS_sint_neq_sint = func(a any, b any) any { return a.(int) != b.(int) }
+var Xats_XATS2JS_sint_lt_sint = func(a any, b any) any { return a.(int) < b.(int) }
+var Xats_XATS2JS_sint_lte_sint = func(a any, b any) any { return a.(int) <= b.(int) }
+var Xats_XATS2JS_sint_gt_sint = func(a any, b any) any { return a.(int) > b.(int) }
+var Xats_XATS2JS_sint_gte_sint = func(a any, b any) any { return a.(int) >= b.(int) }
+
+var Xats_XATS2JS_dflt_add_dflt = func(a any, b any) any { return Xats_as_dflt(a) + Xats_as_dflt(b) }
+var Xats_XATS2JS_dflt_sub_dflt = func(a any, b any) any { return Xats_as_dflt(a) - Xats_as_dflt(b) }
+var Xats_XATS2JS_dflt_mul_dflt = func(a any, b any) any { return Xats_as_dflt(a) * Xats_as_dflt(b) }
+var Xats_XATS2JS_dflt_div_dflt = func(a any, b any) any { return Xats_as_dflt(a) / Xats_as_dflt(b) }
+var Xats_XATS2JS_dflt_lt_dflt = func(a any, b any) any { return Xats_as_dflt(a) < Xats_as_dflt(b) }
+
+var Xats_XATS2JS_char_lt = func(a any, b any) any { return xatsRuneOf(a) < xatsRuneOf(b) }
+var Xats_XATS2JS_char_lte = func(a any, b any) any { return xatsRuneOf(a) <= xatsRuneOf(b) }
+var Xats_XATS2JS_char_gte = func(a any, b any) any { return xatsRuneOf(a) >= xatsRuneOf(b) }
+
+var Xats_XATS2JS_bool_eq = func(a any, b any) any { return a.(bool) == b.(bool) }
+var Xats_XATS2JS_bool_neq = func(a any, b any) any { return a.(bool) != b.(bool) }
+
+// strn_cmp: lexicographic -1/0/1 (the JS reference compares code units;
+// strings.Compare is bytewise -- identical ordering for ASCII sources).
+var Xats_XATS2JS_strn_cmp = func(a any, b any) any { return strings.Compare(a.(string), b.(string)) }
+
+// strn_get_at_raw: the unchecked charCodeAt (same unit model as strn_get_at).
+var Xats_XATS2JS_strn_get_at_raw = Xats_XATS2JS_strn_get_at
+
+// print leaves: one channel (the store choke point), flushed at exit.
+var Xats_XATS2JS_strn_print = Xats_strn_print
+
+func Xats_XATS2JS_NODE_strn_print(cs any) any { return Xats_strn_print(cs) }
+func Xats_XATS2JS_NODE_sint_print(i int) any {
+	XATS2JS_strn_print(strconv.Itoa(i))
+	return XATSNIL()
+}
+
+var Xats_XATS2JS_sint_print = func(i any) any {
+	XATS2JS_strn_print(strconv.Itoa(i.(int)))
+	return XATSNIL()
+}
+var Xats_XATS2JS_dflt_print = func(f any) any {
+	XATS2JS_strn_print(XatsFloatToString(Xats_as_dflt(f)))
+	return XATSNIL()
+}
+var Xats_XATS2JS_char_print = func(c any) any {
+	XATS2JS_strn_print(string(xatsRuneOf(c)))
+	return XATSNIL()
+}
+var Xats_XATS2JS_console_log = func(x any) any {
+	XATS2JS_console_log(x)
+	return XATSNIL()
+}
+var Xats_XATS2JS_the_print_store_flush = func() any {
+	return XATS2JS_the_print_store_flush()
+}
+
+// XATS000_strn_get_at_raw: the srcgen1-core-prefixed alias of the unchecked
+// charCodeAt (test94's foritm chain resolves through the XATS000_ extern).
+var Xats_XATS000_strn_get_at_raw = Xats_XATS2JS_strn_get_at

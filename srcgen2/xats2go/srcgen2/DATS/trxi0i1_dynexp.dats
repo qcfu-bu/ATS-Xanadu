@@ -2644,10 +2644,25 @@ val loc0 = iexp.lctn()
 val-
 I0Eaddr(i0e1) = iexp.node()
 //
+val i1v1 =
+(
+  i0lft_trxi0i1(i0e1, env0))
+//
 in
 //
 (
-  i0lft_trxi0i1(i0e1, env0))
+(*
+CLAUDE-2026-08: PRESERVE the address-of marker over PROJECTION lvalues.
+[i0lft_trxi0i1] wraps only the FLAT `var` path ([I0Eflat] -> [i1val_addr]);
+a field projection (`$addr(r1.1)`, the destination-passing filter/foldl
+accumulator cells of gseq000) came back as the BARE lvalue path (I1Vlpcn),
+which the go-emitter printed as the field's VALUE -- the erased TOP, a nil
+the next p2tr_set dereferenced.  Wrapping the non-addr result restores the
+pointer: the emitter's I1Vaddr arm renders `&Xats_as_con(root).Args[i]`.
+*)
+case+ i1v1.node() of
+|I1Vaddr _ => i1v1
+| _(*bare lvalue path*) => i1val_addr(i1v1))
 //
 end where
 {

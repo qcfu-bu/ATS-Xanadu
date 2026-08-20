@@ -216,6 +216,7 @@ if (pty = "string") then "xatsgo.Xats_as_str" else
 if (pty = "int") then "xatsgo.Xats_as_int" else
 if (pty = "rune") then "xatsgo.Xats_as_rune" else
 if (pty = "bool") then "xatsgo.Xats_as_bool" else
+if (pty = "float64") then "xatsgo.Xats_as_dflt" else
 "")
 //
 fun
@@ -302,6 +303,24 @@ in
   if (strn_length(s) > 7)
   then scan(6, 7, 0) else list_nil()
 end//endof[go_struct_field_types(s)]
+//
+(*
+[go_struct_positionalq]: is this FLAT struct type a POSITIONAL tuple image
+("struct{F0 ..; F1 ..}")?  Tuple labels are ints (LABint -> F0/F1/..), record
+labels are NAMES (LABsym -> Fx/Frr/..), so the char after the first field's
+'F' distinguishes the two: a DIGIT means positional.  The reflective repack
+helper (Xats_as_tup<N>) can only produce the positional image -- a named
+record target must keep the bare emission.
+*)
+fun
+go_struct_positionalq
+(s: strn): bool =
+(
+if (strn_length(s) < 9) then false else
+if (strn_get$at(s, 7) != 'F') then false else
+let val c1 = strn_get$at(s, 8) in
+  (if (c1 >= '0') then (c1 <= '9') else false)
+end)
 //
 (*
 [i1trcd_emit_litvals_typed]: [i1trcd_emit_litvals] with per-field IDEMPOTENT
@@ -1258,14 +1277,10 @@ let
       then
       (
       case+ iv1.node() of
-      // I1Vaddr(tnm): emits the raw pointer (by-ref pass-through) or `&var` —
-      // already the address.  I1Vaddr(<lvalue path>): i1valgo1 emits the inner
-      // lvalue IDENTITY (root.F<lab> / Args[i]) — prepend the missing `&`.
-      |I1Vaddr(iv_inner) =>
-        (
-        case+ iv_inner.node() of
-        |I1Vtnm _ => i1valgo1(filr, iv1)
-        | _(*lvalue path*) => (strnfpr(filr, "&"); i1valgo1(filr, iv1)))
+      // I1Vaddr: i1valgo1's addr arm now emits the COMPLETE address for
+      // every inner shape (raw pointer pass-through, `&var`, or `&` + the
+      // lvalue path) -- no extra prefix here.
+      |I1Vaddr _ => i1valgo1(filr, iv1)
       | _(*lvalue*) => (strnfpr(filr, "&"); i1valgo1(filr, iv1)))
       else
       if (strn_length(coerfn) > 0)
@@ -1275,10 +1290,29 @@ let
       i1valgo1(filr, iv1);
       strnfpr(filr, ")"))
       else
-      // FLAT-TUPLE param + `any`-emitted arg: reflective field-wise repack
-      // (a bare `.(struct{..})` assert needs exact anonymous-struct identity
-      // the producer cannot guarantee -- see [go_tup_repack_any_emit]).
-      if (if go_structq(pty) then i1val_emitted_anyq(iv1) else false)
+      // FLAT-TUPLE param + `any`-emitted OR UNRECORDED arg: reflective
+      // field-wise repack (a bare `.(struct{..})` assert needs exact
+      // anonymous-struct identity the producer cannot guarantee -- see
+      // [go_tup_repack_any_emit]).  An UNRECORDED temp (goemit_ty "") is a
+      // lambda's own erased param -- Go-typed `any` -- and must repack too;
+      // the runtime helper is idempotent, so a concretely-inferred temp
+      // routed through it stays correct.
+      if (if go_structq(pty)
+          then
+            (if i1val_emitted_anyq(iv1) then true
+             else
+             // UNRECORDED temp: only when the target is the POSITIONAL
+             // tuple image -- Xats_as_tup<N> cannot produce a NAMED-field
+             // record (a concretely-typed named-record temp, e.g. the
+             // labeled-loop accumulators of test71/86/87, passes bare).
+             if go_struct_positionalq(pty)
+             then
+             (case+ iv1.node() of
+              |I1Vtnm(t2) =>
+                (strn_length(goemit_ty_get(i1tnm_stmp$get(t2))) = 0)
+              | _(*else*) => false)
+             else false)
+          else false)
       then go_tup_repack_any_emit(filr, pty, iv1)
       else
       (
@@ -1911,7 +1945,14 @@ addressable in Go) we keep the identity behavior (emit the inner).
     if byref_has(i1tnm_stmp$get(itnm))
     then i1tnmgo1(filr, itnm)            // already a pointer -> pass as-is
     else (strnfpr(filr, "&"); i1tnmgo1(filr, itnm)))  // &<addressable var>
-  | _(*else*) => i1valgo1(filr, iv1))
+  // an lvalue PATH (a con-field / record-field projection): the ADDRESS of
+  // the field slot -- `&Xats_as_con(root).Args[i]` (the as_con root is a
+  // pointer, so the slot is addressable).  The old identity fallback emitted
+  // the field's VALUE, so a first-class `$addr(cell.1)` (the destination-
+  // passing filter/map accumulators, gseq000) returned the erased TOP -- a
+  // nil the next p2tr_set dereferenced.  A projection that carries a type
+  // assert would not be addressable -- Go flags that loudly at build time.
+  | _(*else: lvalue path*) => (strnfpr(filr, "&"); i1valgo1(filr, iv1)))
 //
 (*
 M2.7 DATACON PROJECTION (sub-pattern variable read).  A datacon sub-pattern
@@ -2391,7 +2432,14 @@ case+ t1imp_i1dclq(timp) of
   // $extnam with no body, has optn_nil i1dclq -> falls to d2cstgo1's bare-name
   // emission).  Default-off keeps the JS-arm suite byte-identical.
   if
-  (if i1dcl_preludeq(idcl) then (if go_arm_getq() then false else true) else false)
+  (*
+  CLAUDE-2026-08 (fallback removal): the non-go-arm PRELUDE SHORTCUT is
+  DISABLED — resolved prelude bodies emit in ALL modes, so prelude
+  semantics come from compiled ATS source everywhere and the runtime
+  needs only the CATS leaves.  (Previously: shortcut to xatsgo.Xats_*
+  when not in go-arm mode.)
+  *)
+  false
   then false
   else
   (
@@ -2479,7 +2527,13 @@ case+ t1imp_i1dclq(timp) of
 |optn_nil() => false
 |optn_cons(idcl) =>
   if
-  (if i1dcl_preludeq(idcl) then (if go_arm_getq() then false else true) else false)
+  (*
+  CLAUDE-2026-08 (fallback removal): MUST mirror the flipped condition in
+  [t1imp_func_literal_go1emit] above -- the prelude shortcut is disabled in
+  ALL modes, so this predicate answers true for prelude instances too (the
+  nullary-peel registration has to agree with the form actually emitted).
+  *)
+  false
   then false
   else
   (
@@ -2845,7 +2899,13 @@ case+ i1f0.node() of
                      else i1valgo1_list(filr, i1vs))
                   else i1valgo1_list(filr, i1vs))
                else i1valgo1_list(filr, i1vs))
-            | _(*many*) => i1valgo1_list(filr, i1vs));
+            // MULTI-ARG peel-call: the peeled func type carries ALL param
+            // types -- route through the argtyped emitter so each `any` arg
+            // takes its idempotent coercion (`f()(Xats_as_int(a), ..)`); the
+            // untyped list left every arg bare against concrete params.
+            | _(*many*) =>
+              i1valgo1_list_argtyped
+              (filr, i1vs, go_params_of_functype(finaltype)));
             strnfpr(filr, ")")
           end
         end
@@ -4846,53 +4906,69 @@ case+ ilet of
         strnfpr(filr, ".("); strnfpr(filr, goty); strnfpr(filr, ")"))
     end
   | _(*otherwise*) =>
-      (
-      i1insgo1(filr, scp, iins);
       // RESULT BOUNDARY: a call whose Go form returns `any` (a prim/instance
       // whose leaf is `any`-typed -- e.g. XATS2GO_a0rf_get) bound to a temp with
-      // a known CONCRETE gotyp must be asserted, else Go rejects the any->concrete
-      // use downstream.  Assert ONLY when the callee's recovered return type is
-      // provably "any" (so a natively-typed call / infix op is never mis-asserted,
-      // which Go would reject as an assertion on a non-interface value).
-      (case+ iins of
-       |I1INSdapp(i1f0, i1vs) =>
-         let
-           val goty = gotyp_emit(i1tnm_gotyp$get(itnm))
-           // NATIVE-INFIX GUARD: when the dapp emitted as a native Go
-           // operator `(a OP b)` (M2.1 primop rule), the RHS is a concrete
-           // native value — asserting it (`.(bool)`) is invalid Go even if
-           // the callee THUNK's recorded return type is `any` (the thunk is
-           // dead-coded on the native path).
-           val nativep =
-           (strn_length(i1binop_of_dapp(i1f0, i1vs, scp)) > 0)
-           // does the callee's emitted Go signature return `any`?  An instance-func
-           // value temp (inst_retty) or a DIRECT call to a d2cst-less helper `fun`
-           // whose signature defaults to `func(..) any` (funretty, keyed by the
-           // callee d2var stamp, recorded at the function's definition).
-           val retany =
-           (
-           case+ i1f0.node() of
-           |I1Vtnm(ftnm) => (inst_retty_get(i1tnm_stmp$get(ftnm)) = "any")
-           |I1Vfenv(fdvar, _) => (funretty_get(d2var_get_stmp(fdvar)) = "any")
-           // a package-routed d2cst callee: its Go return type comes from the
-           // SAME [gotypes_of_funstyp] signature its definition emits with.
-           |I1Vcst(dcst) =>
-             (let val (_, rt) = gotypes_of_funstyp(d2cst_get_styp(dcst)) in (rt = "any") end)
-           | _(*other callee*) => false)
-           val retany = (if nativep then false else retany)
-         in
-           if retany
-           then
-             // callee returns `any`.  A concretely-typed RESULT temp asserts HERE
-             // (`f(args).(T)`).  An `any` result temp is RECORDED emitted-`any`
-             // (goemit_ty) so a later CONCRETE boundary (e.g. `return <r>` where the
-             // caller returns a concrete type) supplies the target T and asserts.
-             (if not(goty = "any")
-              then (strnfpr(filr, ".("); strnfpr(filr, goty); strnfpr(filr, ")"))
-              else goemit_ty_add(i1tnm_stmp$get(itnm), "any"))
-           else ()
-         end
-       | _(*non-dapp*) => ()));
+      // a known CONCRETE gotyp must be re-concretized, else Go rejects the
+      // any->concrete use downstream.  Only when the callee's recovered return
+      // type is provably "any" (so a natively-typed call / infix op is never
+      // mis-asserted, which Go would reject as an assertion on a non-interface
+      // value).  The analysis runs BEFORE emission so the common shapes WRAP
+      // the call in the IDEMPOTENT runtime coercer (`Xats_as_int(f(args))`)
+      // instead of a bare postfix assert -- the coercers CONVERT across the
+      // JS-numeric reps (a rune-boxed char crossing an `int` boundary out of
+      // $UN.cast01, where a `.(int)` assert panics: the lexer's getc path).
+      // Shapes with no helper keep the postfix assert.
+      let
+        val goty = gotyp_emit(i1tnm_gotyp$get(itnm))
+        // NATIVE-INFIX GUARD: when the dapp emitted as a native Go
+        // operator `(a OP b)` (M2.1 primop rule), the RHS is a concrete
+        // native value — asserting it (`.(bool)`) is invalid Go even if
+        // the callee THUNK's recorded return type is `any` (the thunk is
+        // dead-coded on the native path).
+        // does the callee's emitted Go signature return `any`?  An instance-func
+        // value temp (inst_retty) or a DIRECT call to a d2cst-less helper `fun`
+        // whose signature defaults to `func(..) any` (funretty, keyed by the
+        // callee d2var stamp, recorded at the function's definition).
+        val retany =
+        (
+        case+ iins of
+        |I1INSdapp(i1f0, i1vs) =>
+          if (strn_length(i1binop_of_dapp(i1f0, i1vs, scp)) > 0)
+          then false
+          else
+          (
+          case+ i1f0.node() of
+          |I1Vtnm(ftnm) => (inst_retty_get(i1tnm_stmp$get(ftnm)) = "any")
+          |I1Vfenv(fdvar, _) => (funretty_get(d2var_get_stmp(fdvar)) = "any")
+          // a package-routed d2cst callee: its Go return type comes from the
+          // SAME [gotypes_of_funstyp] signature its definition emits with.
+          |I1Vcst(dcst) =>
+            (let val (_, rt) = gotypes_of_funstyp(d2cst_get_styp(dcst)) in (rt = "any") end)
+          | _(*other callee*) => false)
+        | _(*non-dapp*) => false)
+        val coer =
+          (if retany
+           then (if (goty = "any") then "" else go_coerfn_of(goty))
+           else "")
+      in
+        (if (strn_length(coer) > 0)
+         then (strnfpr(filr, coer); strnfpr(filr, "(")));
+        i1insgo1(filr, scp, iins);
+        (if (strn_length(coer) > 0)
+         then strnfpr(filr, ")")
+         else
+         if retany
+         then
+           // callee returns `any`, no helper for this shape.  A concretely-
+           // typed RESULT temp asserts HERE (`f(args).(T)`).  An `any` result
+           // temp is RECORDED emitted-`any` (goemit_ty) so a later CONCRETE
+           // boundary (e.g. `return <r>` where the caller returns a concrete
+           // type) supplies the target T and asserts.
+           (if not(goty = "any")
+            then (strnfpr(filr, ".("); strnfpr(filr, goty); strnfpr(filr, ")"))
+            else goemit_ty_add(i1tnm_stmp$get(itnm), "any"))
+         else ())
+      end;
   strnfpr(filr, "\n"))
   end)
   )
@@ -5127,18 +5203,41 @@ case+ (ps, as0) of
     // TCO-REASSIGN BOUNDARY: coerce the new value into the param's
     // recorded emitted type (a concrete int param taking an any-returning
     // call result) — idempotent when they already agree.
-    val coerfn = go_coerfn_of(goemit_ty_get(i1tnm_stmp$get(p1)))
+    val pty1 = goemit_ty_get(i1tnm_stmp$get(p1))
+    val coerfn = go_coerfn_of(pty1)
+    // BY-REF PARAM in TCO position: the loop variable holds an ADDRESS
+    // (`*any`, the byref overlay image), so the tail self-call's arg must
+    // rebind it to the address of the NEW lvalue — the same rule as the
+    // normal call path (i1valgo1_list_argtyped): an I1Vaddr-of-temp already
+    // emits the pointer; every other shape emits the lvalue identity (a
+    // projection through a con cell, a var) and takes the prepended `&`.
+    // (mergesort's `split(ys.1, n1-1)`: the rebind is the address of the
+    // cons TAIL FIELD — its value rebound the pointer to a non-pointer.)
+    val ptrq = (pty1 = "*any")
     val () =
     (
     nindfpr(filr, nind);
     i1tnmgo1(filr, p1); strnfpr(filr, " = ");
+    if ptrq
+    then
+    (
+    if stageq(p1, a1)
+    then (strnfpr(filr, "&"); strnfpr(filr, "goxtco"); i0i00go1(filr, k0))
+    else
+    (
+    case+ a1.node() of
+    // I1Vaddr: the addr arm of i1valgo1 emits the complete address itself.
+    |I1Vaddr _ => i1valgo1(filr, a1)
+    | _(*lvalue*) => (strnfpr(filr, "&"); i1valgo1(filr, a1))))
+    else
+    (
     (if (strn_length(coerfn) > 0)
      then (strnfpr(filr, coerfn); strnfpr(filr, "(")) else ());
     (if stageq(p1, a1)
      then (strnfpr(filr, "goxtco"); i0i00go1(filr, k0))
      else i1valgo1(filr, a1));
     (if (strn_length(coerfn) > 0)
-     then strnfpr(filr, ")") else ());
+     then strnfpr(filr, ")") else ()));
     strnfpr(filr, "\n"))
   in
     pass2(ps1, as1, k0+1)
@@ -5231,18 +5330,58 @@ in//let
       if s[3] != 'c' then false else (s[4] = '('))
       fun len(ts: list(strn)): sint =
       (case+ ts of list_nil() => 0 | list_cons(_, ts1) => 1 + len(ts1))
+      // NULLARY-INSTANCE PEEL (return position): a registered nullary
+      // instance temp holds a THUNK `func() Y`; returning it where the
+      // declared type is the RESULT function must invoke the thunk first
+      // (`return tmp()`), peeling nested thunk layers like the call path.
+      // After the peel: Y == declared -> bare; Y == "any" -> assert the
+      // declared func type (belief-consistent leaf signatures make the
+      // dynamic type match); Y concrete-but-different -> the FUNC-ADAPTER
+      // below eta-expands the PEELED callee.
+      val peelq =
+      (case+ ival1.node() of
+       |I1Vtnm(rtnm) =>
+         // no peel when the recorded thunk type IS the declared type --
+         // the caller wants the thunk itself (bare return stays correct).
+         (if (if isfunty(cfr) then not(rty = cfr) else false)
+          then nullary_inst_has(i1tnm_stmp$get(rtnm)) else false)
+       | _(*non-tnm*) => false)
+      val prest =
+      (if peelq
+       then (case+ ival1.node() of
+             |I1Vtnm(rtnm) => inst_retty_get(i1tnm_stmp$get(rtnm))
+             | _ => "")
+       else "")
+      val pnlay = (if peelq then go_peel_thunks_n(prest) else 0)
+      val pfin = (if peelq then go_peel_thunks_ty(prest) else "")
+      // the value's EFFECTIVE func type for the mismatch analysis is the
+      // peeled type when peeling, the recorded temp type otherwise.
+      val srcty = (if peelq then pfin else rty)
       val adaptq =
       (if isfunty(cfr)
-       then (if isfunty(rty) then not(rty = cfr) else false)
+       then (if isfunty(srcty) then not(srcty = cfr) else false)
        else false)
     in
+    if (if peelq then (pfin = cfr) else false)
+    then
+    (
+    i1valgo1(filr, ival1); strnfpr(filr, "()");
+    go_emit_thunk_invokes(filr, pnlay))
+    else
+    if (if peelq then (pfin = "any") else false)
+    then
+    (
+    i1valgo1(filr, ival1); strnfpr(filr, "()");
+    go_emit_thunk_invokes(filr, pnlay);
+    strnfpr(filr, ".("); strnfpr(filr, cfr); strnfpr(filr, ")"))
+    else
     if adaptq
     then
     let
       val cps = go_params_of_functype(cfr)
-      val vps = go_params_of_functype(rty)
+      val vps = go_params_of_functype(srcty)
       val crt = go_return_type(cfr)
-      val vrt = go_return_type(rty)
+      val vrt = go_return_type(srcty)
       fun
       emit_params
       (ts: list(strn), i0: sint): void =
@@ -5288,13 +5427,20 @@ in//let
       in
         (if (strn_length(rcf) > 0) then (strnfpr(filr, rcf); strnfpr(filr, "(")));
         i1valgo1(filr, ival1);
+        // a peeled nullary instance: the adapted callee is the thunk's RESULT.
+        (if peelq
+         then (strnfpr(filr, "()"); go_emit_thunk_invokes(filr, pnlay)));
         strnfpr(filr, "(");
         emit_args(cps, vps, 0);
         strnfpr(filr, ")");
         (if (strn_length(rcf) > 0) then strnfpr(filr, ")"))
       end);
       strnfpr(filr, " }"))
-      else i1valgo1(filr, ival1)
+      else
+      (
+      i1valgo1(filr, ival1);
+      (if peelq
+       then (strnfpr(filr, "()"); go_emit_thunk_invokes(filr, pnlay))))
     end
     else
     (
@@ -5348,6 +5494,22 @@ in//let
       (if go_structq(tgt)
        then (case+ ival.node() of I1Vtnm _ => true | _ => false)
        else false)
+    // FUNC-ASSIGN ADAPTER: a func-typed target var taking a func value of a
+    // DIFFERENT emitted func type (Go func invariance, e.g. a branch var
+    // declared with the instance's styp image `func(*XatsCon) any` assigned
+    // an erased inner lambda `func(any) any`).  Same-arity: eta-adapt via
+    // the arg-position adapter; different arity: emit bare (the go build
+    // flags it loudly rather than silently mis-adapting).
+    val vty =
+      (case+ ival.node() of
+       |I1Vtnm(vtnm) => goemit_ty_get(i1tnm_stmp$get(vtnm))
+       | _(*non-tnm*) => "")
+    val funadaptq =
+      (if go_funq(tgt)
+       then (if go_funq(vty) then not(vty = tgt) else false)
+       else false)
+    fun zzlen(ts: list(strn)): sint =
+      (case+ ts of list_nil() => 0 | list_cons(_, ts1) => 1 + zzlen(ts1))
   in
     if repackq
     then go_struct_repack_emit(filr, tgt, ival)
@@ -5358,6 +5520,13 @@ in//let
     strnfpr(filr, coerfn); strnfpr(filr, "(");
     i1valgo1(filr, ival);
     strnfpr(filr, ")"))
+    else
+    if (if funadaptq
+        then (zzlen(go_params_of_functype(vty)) = zzlen(go_params_of_functype(tgt)))
+        else false)
+    then
+      go_funarg_adapter_emit
+      (filr, ival, go_params_of_functype(vty), go_return_type(vty), tgt)
     else
     (
     i1valgo1(filr, ival);
