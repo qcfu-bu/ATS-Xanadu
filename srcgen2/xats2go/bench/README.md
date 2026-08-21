@@ -32,6 +32,10 @@ Kernels (one checksum print each, sized for ≳0.1 s net on the faster side):
 | b05_tree  | tree alloc + two full traversals (depth 24)        |
 | b06_hof   | closure-through-parameter calls (2e8 applies)      |
 | b07_str   | string char indexing (49 chars × 3e6 scans)        |
+| b08_bst   | persistent BST: 200k path-copying inserts + 10 sums|
+| b09_msort | mergesort a 200k list (split/merge churn)          |
+| b10_queue | two-list functional queue, 2e6 enq/deq rounds      |
+| b11_tup   | flat-tuple make/pass/project, 5e6 rounds           |
 
 Reference results (M-series macOS, 2026-08; chez/go > 1 = Go faster):
 
@@ -44,16 +48,28 @@ Reference results (M-series macOS, 2026-08; chez/go > 1 = Go faster):
     b05_tree            0.966      1.808    1.9x
     b06_hof             0.126      0.589    4.7x
     b07_str             0.092      0.729    7.9x
+    b08_bst             0.232      0.113    0.5x   (Chez faster)
+    b09_msort           0.336      1.248    3.7x
+    b10_queue           0.149      2.562   17.2x
+    b11_tup             0.073      0.034    0.5x   (Chez faster)
 
 Why (verified in the emitted artifacts):
 - Go wins recursion/arith because the typed emission gives real
   `func fib(n int) int` with native operators — Go's optimizer then inlines
   the idempotent `Xats_as_*` coercions away (C-level speed on fib).
-- The b04 blowout is the cz emitter's per-call `call/1cc` return protocol
-  plus vector-tagged cons cells with per-field accessor lambdas — costly in
-  a 120M-node traversal.
-- b07 is arm-sensitive: under the JS arm the Go side ran 1.805s (0.4x —
-  the ONE loss), because each character read went through the JS-model
-  UTF-16-unit leaf (an interface-typed runtime call + cached []uint16
-  view).  The CATS/GO arm's typed floor indexes the host string directly
-  and inlines: 20x faster, flipping the kernel to a 7.9x win.
+- The b04/b10 blowouts are the cz emitter's per-call `call/1cc` return
+  protocol plus vector-tagged cons cells with per-field accessor lambdas —
+  costly wherever `case+` traversal dominates.
+- b07 is arm-sensitive: under the JS arm the Go side ran 1.805s (0.4x),
+  because each character read went through the JS-model UTF-16-unit leaf
+  (an interface-typed runtime call + cached []uint16 view).  The CATS/GO
+  arm's typed floor indexes the host string directly and inlines: 20x
+  faster, flipping the kernel to a 7.9x win.
+- b08/b11 are the honest counter-signal: ALLOCATION-RATE-dominated kernels
+  favor Chez.  A Go con is two heap objects (&XatsCon + its []any Args)
+  with every scalar field boxed through `any`, and a flat tuple crossing a
+  function boundary boxes into an interface; Chez allocates one vector of
+  unboxed fixnums under a generational GC built for exactly this churn.
+  Where traversal/compute dominates (b04, b05, b09, b10) Go still wins —
+  the split is allocation-bound vs compute-bound, and it marks the next
+  Go-emitter optimization target (unboxed scalar con fields).
