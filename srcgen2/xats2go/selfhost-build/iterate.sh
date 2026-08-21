@@ -31,8 +31,21 @@
 #                                        bundle rebuild everything is stale),
 #                                        assemble, build, probe.
 #
-# Pre-commit gate stays unchanged and is NOT this script's job:
-#   run-goarm.sh rungs (12/12 byte-equal) + make -j8 psuite (75/75).
+# ===== THE TWO LOOPS FOR BACKEND (Go-centric emitter) WORK =====
+#   iterate.sh quick [bench]       ~1m   INNER LOOP: bundle relink + psuite
+#                                        (75 programs emit/build/run/byte-cmp
+#                                        vs the JS backend).  No selfhost
+#                                        rebuild — an emitter change is judged
+#                                        by what it EMITS.  `quick bench` adds
+#                                        the perf suite.
+#   iterate.sh full-verify         ~35m  PRE-COMMIT: prewarm-dirty + assemble
+#                                        + build + census + regress + sweep
+#                                        (the binary-vs-BUNDLE self-hosting
+#                                        FIXPOINT proof) + gate.
+# Rule of thumb: iterate in `quick`; run `full-verify` before committing.
+# Do NOT make prewarm binary-hosted: the sweep compares binary emissions
+# against the BUNDLE's, and feeding it binary-produced references would turn
+# the fixpoint proof into a circular self-comparison.
 #
 # CAUTION (mangling): .dats-only edits keep cross-module names stable (they
 # come from the .sats).  After ANY .sats edit, do a CLEAN lib2xatsopt rebuild
@@ -251,6 +264,43 @@ prewarm)
   empty=$(for g in "$EMIT"/*.go; do [ -s "$g" ] || basename "$g"; done | wc -l | tr -d ' ')
   echo ">> PREWARM: $n modules re-emitted (P=$PAR); empty emissions: $empty"
   [ "$empty" = 0 ] || exit 1
+  ;;
+quick)
+  # THE INNER LOOP for BACKEND (emitter) work — ~1 minute, no selfhost rebuild.
+  #   bundle relink (~3s: only the edited emitter module re-transpiles)
+  # + psuite (75 programs: emit -> go build -> run -> byte-compare vs the JS
+  #   backend, -j8, ~50s)
+  # + optional bench (`iterate.sh quick bench`) for perf-sensitive changes.
+  #
+  # WHY this is the right loop: an emitter change is validated by what it
+  # EMITS, and psuite is 75 real programs checked byte-for-byte against the
+  # JS reference.  Re-emitting the 193 compiler modules and rebuilding the
+  # selfhost binary proves something DIFFERENT — that the compiler still
+  # reproduces itself (the fixpoint) — which is a PRE-COMMIT concern, not a
+  # per-edit one.  Run `iterate.sh full-verify` before committing.
+  t0=$(date +%s)
+  ( cd "$X/srcgen2" && make -f Makefile_xjsemit lib2xatsopt ) >/dev/null 2>&1 || die "lib rebuild failed"
+  ( cd "$X/srcgen2/xats2go" && make bundle ) >/dev/null 2>&1 || die "bundle relink failed"
+  echo ">> bundle: $(( $(date +%s) - t0 ))s"
+  ( cd "$X/srcgen2/xats2go" && make -j8 psuite ) 2>&1 | tail -3
+  if [ "${2:-}" = bench ]; then bash "$X/srcgen2/xats2go/bench/run-bench.sh" 3; fi
+  echo ">> QUICK: $(( $(date +%s) - t0 ))s total"
+  ;;
+full-verify)
+  # PRE-COMMIT: the self-hosting fixpoint + everything else.  Uses
+  # prewarm-dirty (safe: the sweep byte-checks every kept emission) and the
+  # BUNDLE as the emission reference, so the sweep stays a real
+  # binary-vs-bundle fixpoint proof rather than a circular self-comparison.
+  "$0" bundle >/dev/null 2>&1 || die "bundle failed"
+  "$0" prewarm-dirty 3 2>&1 | tail -1
+  bash "$OUT/assemble.sh" 2>&1 | tail -1 || die "assemble failed"
+  bash "$OUT/wire-driver.sh" >/dev/null 2>&1 || die "wire-driver failed"
+  ( cd "$OUT/src" && go build -o xats2go-selfhost . ) || die "go build failed"
+  echo ">> BUILD OK"
+  "$0" census 2>&1 | tail -1
+  "$0" regress 2>&1 | tail -1
+  "$0" sweep 8 2>&1 | tail -1
+  "$0" gate 2>&1 | tail -2
   ;;
 prewarm-dirty)
   # DIRTY-ONLY prewarm: re-emit module m ONLY when (a) its own SOURCE is
