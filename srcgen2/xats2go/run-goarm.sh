@@ -4,7 +4,7 @@
 # arm and run it, comparing to a golden.
 #
 # Uses the MAKEFILE's bundle (srcgen2/BUILD/xats2go-bundle.patched.js — the
-# canonical builder with the correct local lib2xats2cc), run with --go-arm,
+# canonical builder with the correct local lib2xats2cc), run with,
 # then splices the self-contained CATS/GO .cats floor into the emitted Go
 # module ($->_ mangled), go build + run, cmp vs golden.
 #
@@ -24,8 +24,8 @@ GO_CATS="xtop000 gint000 bool000 char000 gflt000 axrf000 unsfx00 strn000"
 
 WORK="$X/srcgen2/BUILD/goarm_$NAME"; rm -rf "$WORK"; mkdir -p "$WORK"
 
-echo ">> [1/4] emit Go (--go-arm)"
-node --stack-size=8801 "$BUNDLE" "$SRC" --go-arm > "$WORK/raw.txt" 2>"$WORK/err.txt"
+echo ">> [1/4] emit Go (CATS/GO arm)"
+node --stack-size=8801 "$BUNDLE" "$SRC" > "$WORK/raw.txt" 2>"$WORK/err.txt"
 RC=$?
 awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$WORK/raw.txt" > "$WORK/main.go"
 if [ "$RC" -ne 0 ] || [ ! -s "$WORK/main.go" ]; then

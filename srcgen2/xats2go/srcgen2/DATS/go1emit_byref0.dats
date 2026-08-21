@@ -135,31 +135,6 @@ end(*local*)//endof[local(the_go_byref_ref)]
 //
 local
 //
-// GO-ARM MODE flag (CATS/GO prelude pivot).  Default false; set by the driver
-// for a `--go-arm` build.  See the SATS.
-val
-the_go_arm_ref =
-a0ref_make_1val<bool>(false)
-//
-in//local
-//
-#implfun
-go_arm_set
-((*void*)) =
-  a0ref_set<bool>(the_go_arm_ref, true)
-//
-#implfun
-go_arm_getq
-((*void*)) =
-  a0ref_get<bool>(the_go_arm_ref)
-//
-end(*local*)//endof[local(the_go_arm_ref)]
-//
-(* ****** ****** *)
-(* ****** ****** *)
-//
-local
-//
 // BLOCK-FORM RETURN-MODE GATE.  Default false (genuine-tail behavior); set true
 // by [i1letlst_go1emit_p] around a NON-LAST let.  See the SATS.
 val

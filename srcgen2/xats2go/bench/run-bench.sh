@@ -5,7 +5,7 @@
 #
 #   Go side:   the CATS/GO prelude arm (each backend on its own native arm):
 #              swap prelude_JS_dats.hats -> prelude_GO_dats.hats in the
-#              source, xats2go-selfhost --go-arm -o b.go, splice the CATS/GO
+#              source, xats2go-selfhost -o b.go, splice the CATS/GO
 #              .cats floor into the module ($->_ mangled), go build, run.
 #   Chez side: the JS prelude arm (the surface its runtime implements):
 #              node cz-bundle b.dats -> body.scm; runtime ++ body -> b.scm;
@@ -41,7 +41,7 @@ build_one() { # build_one <name>
   # -- Go side (GO arm) ------------------------------------------------
   if [ ! -x "$d/$m.gobin" ] || [ "$src" -nt "$d/$m.gobin" ] || [ "$GOBIN" -nt "$d/$m.gobin" ]; then
     sed 's/prelude_JS_dats\.hats/prelude_GO_dats.hats/' "$src" > "$d/$m.goarm.dats"
-    "$GOBIN" -o "$d/$m.go" "$d/$m.goarm.dats" --go-arm > /dev/null 2> "$d/$m.go.err" || { echo "!! go-emit $m"; return 1; }
+    "$GOBIN" -o "$d/$m.go" "$d/$m.goarm.dats" > /dev/null 2> "$d/$m.go.err" || { echo "!! go-emit $m"; return 1; }
     grep -q 'ERROR' "$d/$m.go.err" && { echo "!! go-emit diagnostics for $m:"; grep 'ERROR' "$d/$m.go.err" | head -3; return 1; }
     # splice the CATS/GO floor: auto-detect the std imports it references
     # (Go errors on both a missing and an unused import).

@@ -172,7 +172,7 @@ gate)
   for t in "$XGO"/srcgen2/TEST/test_goarm*_xats2go.dats; do
     nm="$(basename "$t" .dats)"
     if ! grep -q "GOARM PASS" "$G/$nm.log"; then echo "!! RUNG FAIL(bundle): $nm (see $G/$nm.log)"; fail=1; continue; fi
-    ( cd "$XGO" && "$BIN" "srcgen2/TEST/$nm.dats" --go-arm ) > "$G/$nm.self.raw" 2> "$G/$nm.self.err"
+    ( cd "$XGO" && "$BIN" "srcgen2/TEST/$nm.dats" ) > "$G/$nm.self.raw" 2> "$G/$nm.self.err"
     awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$G/$nm.self.raw" > "$G/$nm.self.go"
     awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$XGO/srcgen2/BUILD/goarm_$nm/raw.txt" > "$G/$nm.ref.go"
     if cmp -s "$G/$nm.self.go" "$G/$nm.ref.go"; then echo ">> RUNG OK: $nm (bundle golden + binary byte-equal)"

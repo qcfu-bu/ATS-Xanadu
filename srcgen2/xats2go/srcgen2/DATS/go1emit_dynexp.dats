@@ -2293,9 +2293,10 @@ let
       case+ gs of
       |list_nil() => @("any", list_nil())
       |list_cons(g1, gs1) => @(g1, gs1))
-      // go-arm general ARG boundary: record this param's EMITTED Go type so a
-      // CALL passing it (an `any` param into a typed slot) can be asserted.
-      val () = (if go_arm_getq() then goemit_ty_add(i1tnm_stmp$get(p1), goty))
+      // general ARG boundary: record this param's EMITTED Go type so a
+      // CALL passing it (an `any` param into a typed slot) can be coerced.
+      // (Formerly gated to --go-arm; one typing strategy in all modes now.)
+      val () = goemit_ty_add(i1tnm_stmp$get(p1), goty)
       val () =
       (
       if (i0 >= 1) then strnfpr(filr, ", ");
@@ -4881,7 +4882,27 @@ case+ ilet of
     if
     t1imp_func_literal_go1emit(filr, i1tnm_stmp$get(itnm), timp, env0)
     then ((*void*))
-    else i1insgo1(filr, scp, iins);
+    else
+    (
+    // NON-FUNC-LITERAL instance emission -> a bare LEAF/forward reference
+    // (d2cstgo1 / worker-forward).  RECORD the temp's Go type as the leaf
+    // d2cst's OWN (generic) styp image: the typed gotyp carries the
+    // INSTANTIATION's image (one extern serves several images -- the
+    // int-keyed vs erased jshmap uses), so a `return <temp>` where the
+    // enclosing type is the instantiated image needs the recorded ACTUAL
+    // type to trigger the FUNC-ADAPTER (Go func invariance rejects the
+    // bare return otherwise).
+    (let
+       val (ps, rt) =
+         gotypes_of_funstyp(d2cst_get_styp(t1imp_dcst$get(timp)))
+     in
+       case+ ps of
+       |list_cons _ =>
+         goemit_ty_add
+         (i1tnm_stmp$get(itnm), gofunctype_of_fjarglst(ps, rt))
+       |list_nil() => ((*non-function leaf: leave unrecorded*))
+     end);
+    i1insgo1(filr, scp, iins));
     strnfpr(filr, "\n"))
     end
   | _(*ordinary single-expression instruction*) =>
@@ -5320,6 +5341,22 @@ in//let
       val rty =
       (case+ ival1.node() of
        |I1Vtnm(rtnm) => goemit_ty_get(i1tnm_stmp$get(rtnm))
+       // a FUNCTION REFERENCE (an extern leaf / named fun) returned where a
+       // func type is declared: its own Go signature is the styp image of
+       // its d2cst/d2var, so the adapter below can eta-expand a mismatch --
+       // e.g. an INSTANCE-typed `func(any, int) T` returning the ERASED
+       // `func(any, any) T` jshmap leaf (one extern serves instantiations
+       // at DIFFERENT styp images; Go func invariance rejects the bare
+       // return for all but one of them).
+       |I1Vcst(dcst) =>
+         (let val (ps, rt) = gotypes_of_funstyp(d2cst_get_styp(dcst))
+          in gofunctype_of_fjarglst(ps, rt) end)
+       |I1Vfid(fdvar) =>
+         (let val (ps, rt) = gotypes_of_funstyp(d2var_get_styp(fdvar))
+          in gofunctype_of_fjarglst(ps, rt) end)
+       |I1Vfenv(fdvar, _) =>
+         (let val (ps, rt) = gotypes_of_funstyp(d2var_get_styp(fdvar))
+          in gofunctype_of_fjarglst(ps, rt) end)
        | _(*non-tnm*) => "")
       fun isfunty(s: strn): bool =
       (

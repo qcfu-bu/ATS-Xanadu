@@ -1782,10 +1782,11 @@ case+ iins of
 // recorded (generic) gotyp.  This keeps an enclosing func's RETURN type
 // consistent with the instance value it returns, so Go's func INVARIANCE does not
 // reject e.g. a `func() func(int) any` returned where the recorded gotyp said
-// `func(any) any`.  Gated to go-arm: in non-go-arm an instance is shortcut to
-// `xatsgo.Xats_*` (NOT a func literal), so the structural type would mis-describe
-// it -- the recorded-gotyp fallback is correct there.
-|I1INStimp(_, timp) when go_arm_getq() =>
+// `func(any) any`.  (Formerly gated to --go-arm, from the era when a
+// non-go-arm instance was shortcut to `xatsgo.Xats_*` -- instances are func
+// literals in ALL modes now, so the structural type is always the emit-true
+// description and the gate is gone with the flag.)
+|I1INStimp(_, timp) =>
   (
   case+ t1imp_i1dclq(timp) of
   |optn_cons(idcl) =>
@@ -1809,7 +1810,24 @@ case+ iins of
         gofunctype_of_fjarglst(argtys, retty)
       end
     | _(*else*) => "any")
-  | _(*else*) => "any")
+  // BODYLESS instance: resolved to an extern LEAF (i1dclq nil -> d2cstgo1
+  // bare-name emission).  The emitted VALUE is the leaf function, whose Go
+  // signature is the leaf d2cst's OWN (generic) styp image -- NOT the
+  // instantiation's image (one extern serves instantiations at different
+  // images: the int-keyed vs erased jshmap uses; typing the value by the
+  // instantiation made Go's func invariance reject the bare return).
+  | _(*else: leaf*) =>
+    let
+      // ([gotypes_of_funstyp] is an implfun -- usable here; [chase_fun] is a
+      // later plain fun and must not be forward-referenced.)  A non-function
+      // styp comes back as (nil, "any") -- keep the old "any" for that.
+      val (ps, rt) = gotypes_of_funstyp(d2cst_get_styp(timp.dcst()))
+    in
+      case+ ps of
+      |list_cons _ => gofunctype_of_fjarglst(ps, rt)
+      |list_nil() =>
+        (if (rt = "any") then "any" else gofunctype_of_fjarglst(ps, rt))
+    end)
 | _(*else*) => "any"
 )
 //

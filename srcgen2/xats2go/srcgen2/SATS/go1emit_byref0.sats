@@ -83,22 +83,6 @@ byref_reset((*void*)): void
 (* ****** ****** *)
 //
 (*
-GO-ARM MODE (CATS/GO prelude pivot).  A process-global boolean, default
-FALSE.  When the driver is invoked for a program that targets the CATS/GO
-prelude arm (it passes `--go-arm`), it calls [go_arm_set] BEFORE emission; the
-emitter then EMITS prelude template bodies (so they reach the typed
-`XATS2GO_*` leaves of the linked .cats floor) instead of shortcutting them to
-`xatsgo.Xats_*`.  Default-false means a JS-arm program (the existing suite) is
-byte-identical -- the gate is never taken.
-*)
-fun
-go_arm_set((*void*)): void
-fun
-go_arm_getq((*void*)): bool
-//
-(* ****** ****** *)
-//
-(*
 NULLARY-INSTANCE TEMP SET (go-arm higher-order path).  A value-like (nullary,
 no-param) template instance is emitted as a Go THUNK `func() T {..}` bound to
 a temp.  When that temp is later APPLIED WITH ARGS (a g_print/prints hook
