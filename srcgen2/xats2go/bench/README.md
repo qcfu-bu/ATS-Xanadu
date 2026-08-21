@@ -33,7 +33,7 @@ Kernels (one checksum print each, sized for ≳0.1 s net on the faster side):
 | b06_hof   | closure-through-parameter calls (2e8 applies)      |
 | b07_str   | string char indexing (49 chars × 3e6 scans)        |
 | b08_bst   | persistent BST: 200k path-copying inserts + 10 sums|
-| b09_msort | mergesort a 200k list (split/merge churn)          |
+| b09_msort | BOTTOM-UP mergesort, 1M list (runs + pass merging) |
 | b10_queue | two-list functional queue, 2e6 enq/deq rounds      |
 | b11_tup   | flat-tuple make/pass/project, 5e6 rounds           |
 
@@ -49,7 +49,7 @@ Reference results (M-series macOS, 2026-08; chez/go > 1 = Go faster):
     b06_hof             0.126      0.589    4.7x
     b07_str             0.092      0.729    7.9x
     b08_bst             0.232      0.113    0.5x   (Chez faster)
-    b09_msort           0.336      1.248    3.7x
+    b09_msort           1.150      7.014    6.1x
     b10_queue           0.149      2.562   17.2x
     b11_tup             0.073      0.034    0.5x   (Chez faster)
 
