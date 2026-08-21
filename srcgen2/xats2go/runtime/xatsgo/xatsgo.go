@@ -36,12 +36,63 @@ import (
 // strn_print appends to and the_print_store_flush drains.
 var thePrintStore []string
 
+// -- the -o CLI flag: tee the emission window to a file ---------------------
+//
+// `xats2go-selfhost -o out.go file.dats` writes the emitted Go program (the
+// text between the //==XATS2GO-BEGIN==/END sentinels -- exactly what the
+// harness awk extracts) to out.go as a side effect.  The stdout protocol is
+// UNTOUCHED: diagnostics and the marked stream stay byte-identical to the
+// JS-hosted reference, so every differential suite is blind to the flag.
+// The flag is stripped in Xats_XATSOPT_argv_get, so the compiled ATS driver
+// sees the same argv shape as before.  NOTE the compiler's error contract
+// (JS-parity): an ill-typed compile still exits 0 and still emits a window
+// (errored decls erased -- usually the trivial skeleton), with the errors
+// reported as F3PERR0-ERROR/TREAD*-ERROR lines.  So out.go mirrors whatever
+// the window produced -- callers must check the diagnostic lines, exactly
+// as the harness does, not the exit code or the file's existence.
+var xatsEmitTee *os.File
+var xatsEmitTeeIn bool
+
+const xatsEmitBegin = "//==XATS2GO-BEGIN==\n"
+const xatsEmitEnd = "//==XATS2GO-END=="
+
+// xatsEmitTeePut scans default-channel text for the sentinels and mirrors
+// the in-window bytes (markers excluded) to the -o file.  Tolerates a
+// marker embedded mid-chunk; the emitter in fact writes each marker as its
+// own strnfpr call.
+func xatsEmitTeePut(cs string) {
+	for cs != "" {
+		if !xatsEmitTeeIn {
+			i := strings.Index(cs, xatsEmitBegin)
+			if i < 0 {
+				return
+			}
+			xatsEmitTeeIn = true
+			cs = cs[i+len(xatsEmitBegin):]
+			continue
+		}
+		i := strings.Index(cs, xatsEmitEnd)
+		if i < 0 {
+			_, _ = xatsEmitTee.WriteString(cs)
+			return
+		}
+		_, _ = xatsEmitTee.WriteString(cs[:i])
+		xatsEmitTeeIn = false
+		_ = xatsEmitTee.Close()
+		xatsEmitTee = nil
+		return
+	}
+}
+
 // xatsStorePut is the single choke point for DEFAULT-channel print-store
 // appends.  During the diagnostics window (Xats_XATS2GO_report_begin/end)
 // the default channel is STDERR and text is written through immediately —
 // matching the srcgen1/JS-compiled side, where the reporters' resolved
 // hooks write to stderr directly while stdout text stays in the store.
 func xatsStorePut(cs string) {
+	if xatsEmitTee != nil {
+		xatsEmitTeePut(cs)
+	}
 	if f, ok := xatsDefaultOut.(*os.File); ok && f == os.Stderr {
 		fmt.Fprint(os.Stderr, cs)
 		return
@@ -69,6 +120,10 @@ func XATS2JS_the_print_store_flush() string {
 func XATS2GO_flush_pending() {
 	if len(thePrintStore) != 0 {
 		fmt.Print(XATS2JS_the_print_store_flush())
+	}
+	if xatsEmitTee != nil { // emission never ended (failed compile): close
+		_ = xatsEmitTee.Close()
+		xatsEmitTee = nil
 	}
 }
 
@@ -1070,9 +1125,26 @@ func Xats_XATSOPT_strn_dflt_parse_exn(s any) float64 {
 // (argv[0]=node, argv[1]=script, argv[2]=source, flags from 3) — two dummy
 // slots are prepended so the emitted index arithmetic works unchanged.
 func Xats_XATSOPT_argv_get() []any {
+	args := os.Args[1:]
 	out := []any{"xats2go", "goemit"}
-	for _, a := range os.Args[1:] {
-		out = append(out, a)
+	for i := 0; i < len(args); i++ {
+		if args[i] == "-o" {
+			if i+1 >= len(args) {
+				fmt.Fprintln(os.Stderr, "xats2go: -o needs a file argument")
+				os.Exit(1)
+			}
+			if xatsEmitTee == nil {
+				f, err := os.Create(args[i+1])
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "xats2go: -o %s: %v\n", args[i+1], err)
+					os.Exit(1)
+				}
+				xatsEmitTee = f
+			}
+			i++
+			continue
+		}
+		out = append(out, args[i])
 	}
 	return out
 }
