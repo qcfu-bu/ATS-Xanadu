@@ -252,6 +252,43 @@ prewarm)
   echo ">> PREWARM: $n modules re-emitted (P=$PAR); empty emissions: $empty"
   [ "$empty" = 0 ] || exit 1
   ;;
+prewarm-dirty)
+  # DIRTY-ONLY prewarm: re-emit module m ONLY when (a) its own SOURCE is
+  # newer than its emission, or (b) the EMITTER changed (any emitter-module
+  # JS in the bundle's BUILD/JS is newer than the emission — an emitter edit
+  # invalidates every module).  A FRONTEND-only edit therefore re-emits just
+  # the edited modules (seconds, not ~45 min).  SAFETY: the sweep's 193-module
+  # binary-vs-bundle byte-comparison independently verifies every emission
+  # this tier chose to keep — a wrong "unchanged" call turns the sweep red.
+  PAR="${2:-3}"
+  eval "$(grep '^FRONTEND=' "$OUT/assemble.sh")"
+  eval "$(grep '^CCMODS=' "$OUT/assemble.sh")"
+  JOBS="$PROBEDIR/prewarm.jobs"; : > "$JOBS"
+  EMJS_NEWEST=$(ls -t "$X"/srcgen2/xats2go/srcgen2/BUILD/JS/*_dats_out0.js 2>/dev/null | head -1)
+  for f in "$X"/srcgen2/xats2go/srcgen2/DATS/*.dats; do
+    echo "$(basename "$f" .dats) $f" >> "$JOBS"; done
+  for m in $FRONTEND; do echo "$m $X/srcgen2/DATS/$m.dats" >> "$JOBS"; done
+  for m in $CCMODS; do echo "$m $X/srcgen2/xats2go/xats2cc/srcgen1/DATS/$m.dats" >> "$JOBS"; done
+  emit_one() {
+    m="$1"; f="$2"
+    node --stack-size=$NODESTK "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
+    awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
+    [ -s "$EMIT/$m.go" ] || echo "!! EMPTY EMIT: $m" >&2
+  }
+  n=0; skipped=0
+  while read -r m f; do
+    g="$EMIT/$m.go"
+    if [ -s "$g" ] && [ ! "$f" -nt "$g" ] && { [ -z "$EMJS_NEWEST" ] || [ ! "$EMJS_NEWEST" -nt "$g" ]; }; then
+      skipped=$((skipped+1)); continue
+    fi
+    emit_one "$m" "$f" &
+    n=$((n+1)); [ $((n % PAR)) -eq 0 ] && wait
+  done < "$JOBS"
+  wait
+  empty=$(for g in "$EMIT"/*.go; do [ -s "$g" ] || basename "$g"; done | wc -l | tr -d ' ')
+  echo ">> PREWARM-DIRTY: $n re-emitted, $skipped kept (P=$PAR); empty emissions: $empty"
+  [ "$empty" = 0 ] || exit 1
+  ;;
 census)
   # Equality-bridge census over the emitted modules: every xatsgo.Xats_g_eq /
   # Xats_g_neq call is a frontend `=`/`!=` the resolver bridged to POINTER

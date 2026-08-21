@@ -26,6 +26,7 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
@@ -117,6 +118,23 @@ func XATS2JS_the_print_store_flush() string {
 // XATS2GO_flush_pending drains top-level `prints(...)` output at program exit.
 // Unlike console_log(the_print_store_flush()), this does not append its own
 // newline; the source-level print text is written byte-for-byte.
+// -- CPU profiling hook (dev-cycle tooling) ---------------------------------
+// XATSGO_CPUPROFILE=<path> starts a pprof CPU profile at first use of the
+// print machinery... no: profiling must start at process START.  The driver
+// calls XATS2GO_prof_begin from an init below and XATS2GO_flush_pending
+// stops it at exit.
+var xatsProfF *os.File
+
+func init() {
+	if p := os.Getenv("XATSGO_CPUPROFILE"); p != "" {
+		f, err := os.Create(p)
+		if err == nil {
+			xatsProfF = f
+			_ = pprof.StartCPUProfile(f)
+		}
+	}
+}
+
 func XATS2GO_flush_pending() {
 	if len(thePrintStore) != 0 {
 		fmt.Print(XATS2JS_the_print_store_flush())
@@ -124,6 +142,11 @@ func XATS2GO_flush_pending() {
 	if xatsEmitTee != nil { // emission never ended (failed compile): close
 		_ = xatsEmitTee.Close()
 		xatsEmitTee = nil
+	}
+	if xatsProfF != nil {
+		pprof.StopCPUProfile()
+		_ = xatsProfF.Close()
+		xatsProfF = nil
 	}
 }
 
