@@ -29,6 +29,10 @@ GOBIN=$X/srcgen2/xats2go/selfhost-build/src/xats2go-selfhost
 CZBUNDLE=$X/srcgen2/xats2cz/BUILD/xats2cz-bundle.js
 CZRT=$X/srcgen2/xats2cz/runtime/xats2cz_runtime.scm
 RUNTIMEGO=$X/srcgen2/xats2go/runtime/xatsgo
+# JS backend (xats2js): the oracle's reference pipeline (same JS-arm source).
+JSBUNDLE=$X/srcgen2/xats2go/srcgen2/BUILD/xats2js-ref.patched.js
+NS2R=$X/srcgen2/xats2js/srcgen1/xshared/runtime
+S2R=$X/srcgen2/xats2js/srcgenx/xshared/runtime
 
 now() { python3 -c 'import time;print(time.monotonic())'; }
 
@@ -59,6 +63,18 @@ build_one() { # build_one <name>
     ( cd "$d" && gofmt -w . >/dev/null 2>&1; go build -o "$m.gobin" . 2> "$d/$m.build.err" ) \
       || { echo "!! go build $m"; head -5 "$d/$m.build.err"; return 1; }
   fi
+  # -- JS side (xats2js; JS-arm source verbatim) -----------------------
+  # NOTE the emitted JS has NO tail-call elimination: deep tail loops can
+  # only run within the V8 stack; a stack overflow is reported as DNF.
+  if [ ! -s "$d/$m.run.js" ] || [ "$src" -nt "$d/$m.run.js" ]; then
+    node --stack-size=8801 "$JSBUNDLE" "$src" > "$d/$m.emit.js" 2> "$d/$m.js.err" \
+      || { echo "!! js-emit $m"; tail -3 "$d/$m.js.err"; return 1; }
+    awk -v n="$m" 'f||$0 ~ ("^// LCSRCsome1.*"n){f=1; print}' "$d/$m.emit.js" > "$d/$m.user.js"
+    [ -s "$d/$m.user.js" ] || { echo "!! empty js emission for $m"; return 1; }
+    cat "$NS2R/srcgen2_prelude.js" "$NS2R/srcgen2_prelude_node.js" \
+        "$NS2R/srcgen2_precats.js" "$NS2R/srcgen2_xatslib.js" \
+        "$S2R/xats2js_js1emit.js" "$d/$m.user.js" > "$d/$m.run.js"
+  fi
   # -- Chez side -------------------------------------------------------
   if [ ! -s "$d/$m.so" ] || [ "$src" -nt "$d/$m.so" ]; then
     NODE_COMPILE_CACHE= node --stack-size=60000 "$CZBUNDLE" "$src" > "$d/$m.czraw" 2> "$d/$m.cz.err" \
@@ -83,24 +99,34 @@ time_cmd() { # time_cmd <outfile> <cmd...> -> echoes best seconds
 }
 
 # b00_null is the per-backend startup floor; kernel rows report NET time
-# (raw minus that floor) and the chez/go ratio on the net (>1 = Go faster).
-gbase=0; cbase=0
-echo "bench           go-net(s) chez-net(s) chez/go  output"
+# (raw minus that floor) and the <backend>/go ratios on the net (>1 = Go
+# faster).  A JS run that dies (stack overflow: no TCO in emitted JS) or
+# mismatches shows DNF.
+gbase=0; cbase=0; jbase=0
+echo "bench           go-net(s) chez-net(s) js-net(s) chez/go js/go  output"
 fail=0
 for src in "$B"/SRC/b*.dats; do
   m=$(basename "$src" .dats); d=$W/$m
   build_one "$m" || { fail=1; continue; }
   gt=$(time_cmd "$d/$m.go.out"  "$d/$m.gobin")
   ct=$(time_cmd "$d/$m.cz.out"  chez --script "$d/$m.so")
-  if cmp -s "$d/$m.go.out" "$d/$m.cz.out"; then okq=$(head -c 40 "$d/$m.go.out" | tr -d '\n'); else okq='!! OUTPUT MISMATCH'; fail=1; fi
+  jt=$(time_cmd "$d/$m.js.out"  node --stack-size=60000 "$d/$m.run.js")
+  if cmp -s "$d/$m.go.out" "$d/$m.cz.out"; then okq=$(head -c 32 "$d/$m.go.out" | tr -d '\n'); else okq='!! GO/CZ MISMATCH'; fail=1; fi
+  jok=1; cmp -s "$d/$m.go.out" "$d/$m.js.out" || jok=0
   if [ "$m" = b00_null ]; then
-    gbase=$gt; cbase=$ct
-    printf '%-15s %8s %10s %8s  %s\n' "$m(startup)" "$gt" "$ct" "-" "$okq"
+    gbase=$gt; cbase=$ct; jbase=$jt
+    printf '%-15s %8s %10s %9s %7s %5s  %s\n' "$m(startup)" "$gt" "$ct" "$jt" "-" "-" "$okq"
     continue
   fi
   gn=$(python3 -c "print(f'{max($gt-$gbase,0.0):.3f}')")
   cn=$(python3 -c "print(f'{max($ct-$cbase,0.0):.3f}')")
-  ratio=$(python3 -c "print(f'{$cn/$gn:.1f}x' if $gn > 0 else '-')")
-  printf '%-15s %8s %10s %8s  %s\n' "$m" "$gn" "$cn" "$ratio" "$okq"
+  cratio=$(python3 -c "print(f'{$cn/$gn:.1f}x' if $gn > 0 else '-')")
+  if [ "$jok" = 1 ]; then
+    jn=$(python3 -c "print(f'{max($jt-$jbase,0.0):.3f}')")
+    jratio=$(python3 -c "print(f'{$jn/$gn:.1f}x' if $gn > 0 else '-')")
+  else
+    jn=DNF; jratio=-
+  fi
+  printf '%-15s %8s %10s %9s %7s %5s  %s\n' "$m" "$gn" "$cn" "$jn" "$cratio" "$jratio" "$okq"
 done
 exit $fail

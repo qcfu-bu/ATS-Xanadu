@@ -37,21 +37,30 @@ Kernels (one checksum print each, sized for ≳0.1 s net on the faster side):
 | b10_queue | two-list functional queue, 2e6 enq/deq rounds      |
 | b11_tup   | flat-tuple make/pass/project, 5e6 rounds           |
 
-Reference results (M-series macOS, 2026-08; chez/go > 1 = Go faster):
+A third column runs the JS backend (xats2js — the oracle's reference
+pipeline: emit + prelude/runtime concat, run on node).  Reference results
+(M-series macOS, 2026-08; ratios > 1 = Go faster):
 
-    bench           go-net(s) chez-net(s) chez/go
-    b00_null(startup)   0.016      0.040      -
-    b01_fib             0.019      0.077    4.1x
-    b02_tak             0.010      0.033    3.3x
-    b03_loop            0.292      2.311    7.9x
-    b04_list            0.060      1.688   28.1x
-    b05_tree            0.966      1.808    1.9x
-    b06_hof             0.126      0.589    4.7x
-    b07_str             0.092      0.729    7.9x
-    b08_bst             0.232      0.113    0.5x   (Chez faster)
-    b09_msort           1.150      7.014    6.1x
-    b10_queue           0.149      2.562   17.2x
-    b11_tup             0.073      0.034    0.5x   (Chez faster)
+    bench           go-net(s) chez-net(s) js-net(s) chez/go js/go
+    b00_null(startup)   0.018      0.045     0.059       -     -
+    b01_fib             0.020      0.075     0.058    3.8x  2.9x
+    b02_tak             0.011      0.035     0.029    3.2x  2.6x
+    b03_loop            0.302      2.391       DNF    7.9x     -  (js: WRONG SUM)
+    b04_list            0.058      1.771     0.169   30.5x  2.9x
+    b05_tree            0.986      1.856     0.907    1.9x  0.9x
+    b06_hof             0.119      0.588     0.663    4.9x  5.6x
+    b07_str             0.091      0.730     0.175    8.0x  1.9x
+    b08_bst             0.239      0.109     0.107    0.5x  0.4x
+    b09_msort           1.128      7.465       DNF    6.6x     -  (js: RangeError)
+    b10_queue           0.149      2.469     0.038   16.6x  0.3x
+    b11_tup             0.073      0.032     0.027    0.4x  0.4x
+
+JS-column DNFs are ARCHITECTURAL, not tuning:
+- b03: the 1e9-sum accumulator exceeds 2^53 — JS sint is a double, so the
+  result is silently WRONG (Go int64 and Chez fixnums stay exact).  The
+  loop itself runs fine: the current js1emit DOES emit `while(true)` TCO.
+- b09: RangeError at the ~1M-deep non-tail merge — V8's fixed stack cannot
+  grow (Go's goroutine stacks and Chez's segmented stacks both absorb it).
 
 Why (verified in the emitted artifacts):
 - Go wins recursion/arith because the typed emission gives real
@@ -65,8 +74,10 @@ Why (verified in the emitted artifacts):
   (an interface-typed runtime call + cached []uint16 view).  The CATS/GO
   arm's typed floor indexes the host string directly and inlines: 20x
   faster, flipping the kernel to a 7.9x win.
-- b08/b11 are the honest counter-signal: ALLOCATION-RATE-dominated kernels
-  favor Chez.  A Go con is two heap objects (&XatsCon + its []any Args)
+- b08/b10/b11 are the honest counter-signal: ALLOCATION-RATE-dominated
+  kernels favor the GC'd hosts — and V8 is the strongest of all there
+  (best on bst/queue/tup: hidden-class objects + a nursery built for
+  exactly this churn), while Go pays two heap objects per con.  A Go con is two heap objects (&XatsCon + its []any Args)
   with every scalar field boxed through `any`, and a flat tuple crossing a
   function boundary boxes into an interface; Chez allocates one vector of
   unboxed fixnums under a generational GC built for exactly this churn.
