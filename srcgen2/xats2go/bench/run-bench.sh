@@ -3,8 +3,12 @@
 # source compiled by the Go backend (xats2go, self-hosted binary) and by the
 # Chez backend (xats2cz, node-hosted seed bundle), then RUN and timed.
 #
-#   Go side:   xats2go-selfhost -o b.go b.dats; go build; ./b
-#   Chez side: node cz-bundle b.dats -> body.scm; runtime ++ body -> b.scm;
+#   Go side:   the CATS/GO prelude arm (each backend on its own native arm):
+#              swap prelude_JS_dats.hats -> prelude_GO_dats.hats in the
+#              source, xats2go-selfhost --go-arm -o b.go, splice the CATS/GO
+#              .cats floor into the module ($->_ mangled), go build, run.
+#   Chez side: the JS prelude arm (the surface its runtime implements):
+#              node cz-bundle b.dats -> body.scm; runtime ++ body -> b.scm;
 #              chez compile-file -> b.so; chez --script b.so
 #
 # Compile/build time is EXCLUDED on both sides (both run precompiled native
@@ -28,15 +32,32 @@ RUNTIMEGO=$X/srcgen2/xats2go/runtime/xatsgo
 
 now() { python3 -c 'import time;print(time.monotonic())'; }
 
+# the CATS/GO floor modules (mirror run-goarm.sh; extend as modules are added).
+GO_CATS="xtop000 gint000 bool000 char000 gflt000 axrf000 unsfx00 strn000"
+
 build_one() { # build_one <name>
   local m=$1 src=$B/SRC/$1.dats d=$W/$1
   mkdir -p "$d"
-  # -- Go side ---------------------------------------------------------
+  # -- Go side (GO arm) ------------------------------------------------
   if [ ! -x "$d/$m.gobin" ] || [ "$src" -nt "$d/$m.gobin" ] || [ "$GOBIN" -nt "$d/$m.gobin" ]; then
-    "$GOBIN" -o "$d/$m.go" "$src" > /dev/null 2> "$d/$m.go.err" || { echo "!! go-emit $m"; return 1; }
+    sed 's/prelude_JS_dats\.hats/prelude_GO_dats.hats/' "$src" > "$d/$m.goarm.dats"
+    "$GOBIN" -o "$d/$m.go" "$d/$m.goarm.dats" --go-arm > /dev/null 2> "$d/$m.go.err" || { echo "!! go-emit $m"; return 1; }
     grep -q 'ERROR' "$d/$m.go.err" && { echo "!! go-emit diagnostics for $m:"; grep 'ERROR' "$d/$m.go.err" | head -3; return 1; }
+    # splice the CATS/GO floor: auto-detect the std imports it references
+    # (Go errors on both a missing and an unused import).
+    local catspaths="" c p impline=""
+    for c in $GO_CATS; do catspaths="$catspaths $X/prelude/DATS/CATS/GO/$c.cats"; done
+    for p in fmt math reflect strconv strings; do
+      if grep -qhE "\b$p\." $catspaths 2>/dev/null; then impline="$impline \"$p\";"; fi
+    done
+    {
+      echo 'package main'
+      echo "import ($impline )"
+      for c in $GO_CATS; do sed 's/\$/_/g' "$X/prelude/DATS/CATS/GO/$c.cats"; done
+    } > "$d/zz_floor.go"
     printf 'module bench_%s\n\ngo 1.26\n\nrequire xatsgo v0.0.0\nreplace xatsgo => %s\n' "$m" "$RUNTIMEGO" > "$d/go.mod"
-    ( cd "$d" && go build -o "$m.gobin" . ) || { echo "!! go build $m"; return 1; }
+    ( cd "$d" && gofmt -w . >/dev/null 2>&1; go build -o "$m.gobin" . 2> "$d/$m.build.err" ) \
+      || { echo "!! go build $m"; head -5 "$d/$m.build.err"; return 1; }
   fi
   # -- Chez side -------------------------------------------------------
   if [ ! -s "$d/$m.so" ] || [ "$src" -nt "$d/$m.so" ]; then

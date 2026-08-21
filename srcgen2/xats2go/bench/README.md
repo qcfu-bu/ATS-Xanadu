@@ -1,13 +1,18 @@
 # bench — emitted-code micro-benchmarks: Go backend vs Chez backend
 
-Compares the RUNTIME performance of code emitted from the SAME ATS3 source
-by the two backends:
+Compares the RUNTIME performance of code emitted from the same ATS3 kernel
+by the two backends, each on its own native CATS prelude arm:
 
-- **Go**: `xats2go-selfhost -o b.go b.dats` → `go build` → native binary
-  (the post-fallback-removal emitter: typed function signatures, native
-  infix operators, resolved-prelude bodies).
-- **Chez**: node-hosted `xats2cz-bundle` → Scheme body ++ `xats2cz_runtime.scm`
+- **Go** (CATS/GO arm): the runner swaps `prelude_JS_dats.hats` →
+  `prelude_GO_dats.hats`, emits with `xats2go-selfhost --go-arm -o b.go`,
+  splices the typed CATS/GO `.cats` floor into the module, `go build` →
+  native binary (typed signatures, native infix, resolved-prelude bodies).
+- **Chez** (JS arm — the surface its runtime implements): node-hosted
+  `xats2cz-bundle` → Scheme body ++ `xats2cz_runtime.scm`
   → `chez (compile-file ...)` → `chez --script b.so` (precompiled native).
+
+The `SRC/*.dats` keep the JS-arm include as written (they feed the Chez
+side verbatim); the GO-arm variants are derived at build time.
 
 Compile/build time is excluded on both sides; each timed run is a whole
 process. `b00_null` reports the per-backend startup floor and the table
@@ -31,14 +36,14 @@ Kernels (one checksum print each, sized for ≳0.1 s net on the faster side):
 Reference results (M-series macOS, 2026-08; chez/go > 1 = Go faster):
 
     bench           go-net(s) chez-net(s) chez/go
-    b00_null(startup)   0.017      0.041      -
-    b01_fib             0.019      0.076    4.0x
-    b02_tak             0.009      0.034    3.8x
-    b03_loop            0.295      2.384    8.1x
-    b04_list            0.060      1.671   27.9x
-    b05_tree            0.962      1.816    1.9x
-    b06_hof             0.126      0.588    4.7x
-    b07_str             1.805      0.734    0.4x   (Chez faster)
+    b00_null(startup)   0.016      0.040      -
+    b01_fib             0.019      0.077    4.1x
+    b02_tak             0.010      0.033    3.3x
+    b03_loop            0.292      2.311    7.9x
+    b04_list            0.060      1.688   28.1x
+    b05_tree            0.966      1.808    1.9x
+    b06_hof             0.126      0.589    4.7x
+    b07_str             0.092      0.729    7.9x
 
 Why (verified in the emitted artifacts):
 - Go wins recursion/arith because the typed emission gives real
@@ -47,6 +52,8 @@ Why (verified in the emitted artifacts):
 - The b04 blowout is the cz emitter's per-call `call/1cc` return protocol
   plus vector-tagged cons cells with per-field accessor lambdas — costly in
   a 120M-node traversal.
-- b07 is the one Go loss: `strn_get_at` mirrors the JS UTF-16 unit model
-  through the runtime's cached `[]uint16` view, an interface-typed leaf call
-  per character; the cz runtime indexes host strings directly.
+- b07 is arm-sensitive: under the JS arm the Go side ran 1.805s (0.4x —
+  the ONE loss), because each character read went through the JS-model
+  UTF-16-unit leaf (an interface-typed runtime call + cached []uint16
+  view).  The CATS/GO arm's typed floor indexes the host string directly
+  and inlines: 20x faster, flipping the kernel to a 7.9x win.
