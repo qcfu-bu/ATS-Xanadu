@@ -140,9 +140,31 @@ context-sensitive, and there are NO duplicate `d2con` objects — both of the
 obvious hypotheses are refuted.
 
 What the data shows instead: **the module builds these cells with a STREAM
-constructor and reads them with a LIST constructor.** `list_vt_cons` is
-projected 7 times and constructed *never*; the constructions are
-`strxcon_vt_cons` / `strmcon_vt_cons`. The source is
+constructor and reads them with a LIST constructor.**
+
+Counting markers alone does not establish that, since this file also builds
+`strxcon_vt_cons` legitimately (lines 309/319/322).  What settles it is that
+the marker is emitted INLINE at the construction site, so it maps to a source
+span.  All four `cons_vt` sites bind `strmcon_vt_cons`:
+
+```
+line=109      (cons_vt(cc1, buf.1) at :112)   => CON strmcon_vt_cons
+line=159      (cons_vt(cc1, buf.2) at :162)   => CON strmcon_vt_cons
+line=182      (buf.2 := cons_vt(..) at :185)  => CON strmcon_vt_cons
+line=219--221 (buf.1 := cons_vt(..))          => CON strmcon_vt_cons
+```
+
+with `nil_vt()` at :236/:244 correctly emitting `list_vt_nil` as the control.
+The single emitted line for :219--221 carries both halves of the mix-up:
+
+```go
+goxtnm64 := /*ZZDBG-CON name=strmcon_vt_cons stmp=16 lay=zzs_aa f0=any f1=any*/
+            &(&zzs_aa{XatsHdr{Tag: 1},
+              /*ZZDBG-PRJ name=list_vt_cons stmp=11 lay=zzs_aa f0=any f1=*xatsgo.XatsCon*/
+              zzpzzs_aa(Xats_as_con(goxtnm62)).F0.(rune), ...}).XatsHdr
+```
+
+The source is
 
 ```ats
 LXBF1 of (strx_vt(sint), list_vt(char), list_vt(char))   // buf.1, buf.2 are list_vt
