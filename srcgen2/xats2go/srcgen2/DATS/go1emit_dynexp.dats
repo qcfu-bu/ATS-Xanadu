@@ -219,6 +219,36 @@ if (pty = "bool") then "xatsgo.Xats_as_bool" else
 if (pty = "float64") then "xatsgo.Xats_as_dflt" else
 "")
 //
+(*
+[go_ival_goty]: the Go type of the value [i1valgo1] will EMIT for [ival] —
+"" when not provably known.  Strengthens [gotype_of_ival] (which only types
+literals, everything else "any") with the emitted-type side table, so a TEMP
+whose declared Go type is known reports it.
+//
+This is what makes coercion ELISION possible: the idempotent `Xats_as_T(x)`
+wrappers are correct but they BOX a concrete operand into `any` just to
+unbox it again (`convT64` + a type switch per use).  `func fib(n int) int`
+was emitting `Xats_as_int(n) <= 1` on an `n` already declared `int`.
+//
+CONSERVATIVE BY CONSTRUCTION: unknown => "", which equals no target type, so
+the coercion is kept.  A BYREF temp reports "" because its value use emits a
+DEREF (`*p`) while its recorded type is the POINTER — the one case where the
+recorded type does not describe the emitted text.
+*)
+fun
+go_ival_goty
+(ival: i1val): strn =
+(
+case+ ival.node() of
+|I1Vtnm(itnm) =>
+  (
+  if byref_has(i1tnm_stmp$get(itnm))
+  then ""(*emits *p; recorded type is the pointer*)
+  else goemit_ty_get(i1tnm_stmp$get(itnm)))
+| _(*else*) => gotype_of_ival(ival)
+)//endof[go_ival_goty(ival)]
+//
+
 fun
 i1trcd_emit_litvals
 ( filr: FILR
@@ -1228,7 +1258,9 @@ let
       // assert (the goemit_ty gap) or over-assert (invalid non-interface
       // assert).  Param shapes with no helper keep the prior recorded-`any`
       // assert path.
-      val coerfn = go_coerfn_of(pty)
+      // ELISION: an arg already of [pty] passes BARE (no box/unbox).
+      val coerfn =
+        (if (go_ival_goty(iv1) = pty) then "" else go_coerfn_of(pty))
       // BY-REF PARAM (`*T` pty, e.g. the Go image of a `&`-param / `!field`
       // viewtype unfold): the callee needs the ADDRESS of the arg's lvalue.
       // An I1Vaddr arg already emits the pointer (raw pass-through or `&var`);
@@ -2212,8 +2244,11 @@ let
   // PROVABLY [goty] goes through the runtime Xats_as_* helper (compiles for
   // interface-typed and already-concrete operands alike) — closes the
   // `(anyTemp <= 1)` class the pcon-only assert missed.
+  // ELISION (2026-08): [go_ival_goty] also types TEMPS, so an operand already
+  // of [goty] emits BARE — no box, no type switch, and Go can then keep the
+  // whole expression in registers.
   val coerfn =
-    (if (gotype_of_ival(ival) = goty) then "" else go_coerfn_of(goty))
+    (if (go_ival_goty(ival) = goty) then "" else go_coerfn_of(goty))
 in
   if (strn_length(coerfn) > 0)
   then
@@ -2760,8 +2795,11 @@ then
 let
   val-list_cons(a0, ar1) = i1vs
   val-list_cons(a1, _) = ar1
-  val goty0 = gotype_of_ival(a0)
-  val goty1 = gotype_of_ival(a1)
+  // [go_ival_goty]: literals AND typed temps (so `(n <= 1)` on an `int` param
+  // pins int directly instead of falling through to the op-family lookup).
+  // "" (unknown) is normalized to "any" so the existing famty path applies.
+  val goty0 = (let val g = go_ival_goty(a0) in if (strn_length(g) = 0) then "any" else g end)
+  val goty1 = (let val g = go_ival_goty(a1) in if (strn_length(g) = 0) then "any" else g end)
   // when NEITHER operand carries a recoverable type, the resolved op's own
   // FAMILY pins it ("gint_add$sint$sint" -> int) — closes `(any + any)`.
   val famty =
@@ -4176,7 +4214,7 @@ case+ iins of
     nindfpr(filr, nind); strnfpr(filr, "if ");
     // CONDITION BOUNDARY: a test value not PROVABLY emitted `bool` (e.g. a bare
     // `any` projection) goes through the idempotent Xats_as_bool.
-    (if (gotype_of_ival(itst) = "bool")
+    (if (go_ival_goty(itst) = "bool")
      then i1valgo1(filr, itst)
      else
      (
@@ -4971,6 +5009,26 @@ case+ ilet of
           (if retany
            then (if (goty = "any") then "" else go_coerfn_of(goty))
            else "")
+        // NATIVE-INFIX RESULT: `(a OP b)` has a real Go type (bool for a
+        // comparison, the operand type otherwise) — the SAME [gotyp] the
+        // assert logic already trusts.  RECORD it so downstream boundaries
+        // ([go_ival_goty]) can ELIDE their coercions on this temp; without
+        // this an `if` on a comparison temp still emitted Xats_as_bool.
+        val nativep =
+        (
+        case+ iins of
+        |I1INSdapp(i1f0, i1vs) =>
+          (strn_length(i1binop_of_dapp(i1f0, i1vs, scp)) > 0)
+        | _(*non-dapp*) => false)
+        val () =
+        (
+        if (if nativep then not(goty = "any") else false)
+        then goemit_ty_add(i1tnm_stmp$get(itnm), goty))
+        // a COERCED/ASSERTED result is provably [goty] from here on.
+        val () =
+        (
+        if (strn_length(coer) > 0)
+        then goemit_ty_add(i1tnm_stmp$get(itnm), goty))
       in
         (if (strn_length(coer) > 0)
          then (strnfpr(filr, coer); strnfpr(filr, "(")));
@@ -4986,7 +5044,10 @@ case+ ilet of
            // boundary (e.g. `return <r>` where the caller returns a concrete
            // type) supplies the target T and asserts.
            (if not(goty = "any")
-            then (strnfpr(filr, ".("); strnfpr(filr, goty); strnfpr(filr, ")"))
+            then
+              (strnfpr(filr, ".("); strnfpr(filr, goty); strnfpr(filr, ")");
+               // asserted: the temp is [goty] downstream.
+               goemit_ty_add(i1tnm_stmp$get(itnm), goty))
             else goemit_ty_add(i1tnm_stmp$get(itnm), "any"))
          else ())
       end;
@@ -5313,7 +5374,9 @@ in//let
     val cfr = cur_funretty_get()
     val coerfn =
       (if (cfr = "") then "" else
-       if (cfr = "any") then "" else go_coerfn_of(cfr))
+       if (cfr = "any") then "" else
+       // ELISION: returning a value already of the declared type.
+       if (go_ival_goty(ival1) = cfr) then "" else go_coerfn_of(cfr))
     // FLAT-struct return type + temp value -> field-wise repack (see the
     // assign boundary in [i1cmp_go1emit_tnm]).
     val repackq =
@@ -5523,7 +5586,9 @@ in//let
     val tgt = goemit_ty_get(i1tnm_stmp$get(itnm))
     val coerfn =
       (if (tgt = "") then "" else
-       if (tgt = "any") then "" else go_coerfn_of(tgt))
+       if (tgt = "any") then "" else
+       // ELISION: assigning a value already of the target type.
+       if (go_ival_goty(ival) = tgt) then "" else go_coerfn_of(tgt))
     // a FLAT-struct target + a re-referenceable temp value -> FIELD-WISE
     // repack (Go rejects assigning between struct types that differ in any
     // field; per-field coercion converts — idempotent when they agree).
