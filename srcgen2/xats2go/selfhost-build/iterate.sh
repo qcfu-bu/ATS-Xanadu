@@ -74,6 +74,10 @@
 # Never point `sweep` at self-produced emit/ — that silently degrades the JS
 # cross-check into a circular self-comparison.
 #
+# GC: emission runs with GOGC=400 (measured 5% faster at P3: 56s vs 59s per
+# 8 modules; the compiler allocates ~2.9GB per module so a laxer GC trades
+# memory we have for collector work we do not need).  Override with XGOGC.
+#
 # PARALLELISM: 3.  The compiler is MEMORY-BANDWIDTH bound (~850MB RSS/process,
 # continuous allocation): 8 modules take 81s serial, 59s at P3, 111s at P8 —
 # past P3 it is worse than serial.  Real build speedups must come from making
@@ -254,7 +258,7 @@ sweep)
     echo "$m $X/srcgen2/xats2go/xats2cc/srcgen1/DATS/$m.dats" >> "$SW/joblist"; done
   sweep_one() {
     m="$1"; f="$2"
-    "$BIN" "$f" > "$SW/$m.raw" 2> "$SW/$m.err"; rc=$?
+    GOGC=${XGOGC:-400} "$BIN" "$f" > "$SW/$m.raw" 2> "$SW/$m.err"; rc=$?
     awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$SW/$m.raw" > "$SW/$m.go"
     if [ $rc -ne 0 ]; then echo "ERR $m (exit $rc)" > "$SW/$m.verdict"
     elif cmp -s "$SW/$m.go" "$EMIT/$m.go"; then echo "PASS $m" > "$SW/$m.verdict"
@@ -343,7 +347,7 @@ prewarm-touching)
     [ "$f" -nt "$g" ] && hit=1                        # its own source changed
     if [ "$hit" = 0 ] && grep -qE -- "$RE" "$g" 2>/dev/null; then hit=1; fi
     if [ "$hit" = 0 ]; then skipped=$((skipped+1)); continue; fi
-    ( "$BIN" -o "$g" "$f" > /dev/null 2>"$EMIT/$m.err"
+    ( GOGC=${XGOGC:-400} "$BIN" -o "$g" "$f" > /dev/null 2>"$EMIT/$m.err"
       [ -s "$g" ] || echo "!! EMPTY EMIT: $m" >&2 ) &
     n=$((n+1)); [ $((n % PAR)) -eq 0 ] && wait
   done < "$JOBS"
@@ -374,7 +378,7 @@ prewarm-self)
   for m in $CCMODS; do echo "$m $X/srcgen2/xats2go/xats2cc/srcgen1/DATS/$m.dats" >> "$JOBS"; done
   emit_self() {
     m="$1"; f="$2"
-    "$BIN" -o "$EMIT/$m.go" "$f" > /dev/null 2>"$EMIT/$m.err"
+    GOGC=${XGOGC:-400} "$BIN" -o "$EMIT/$m.go" "$f" > /dev/null 2>"$EMIT/$m.err"
     [ -s "$EMIT/$m.go" ] || echo "!! EMPTY EMIT: $m" >&2
   }
   n=0; skipped=0
@@ -415,7 +419,7 @@ fixpoint)
   for m in $CCMODS; do echo "$m $X/srcgen2/xats2go/xats2cc/srcgen1/DATS/$m.dats" >> "$G2/joblist"; done
   gen2_one() {
     m="$1"; f="$2"
-    "$BIN" -o "$G2/$m.go" "$f" > /dev/null 2>"$G2/$m.err"
+    GOGC=${XGOGC:-400} "$BIN" -o "$G2/$m.go" "$f" > /dev/null 2>"$G2/$m.err"
     if [ ! -s "$G2/$m.go" ]; then echo "ERR $m (empty)" > "$G2/$m.verdict"
     elif cmp -s "$G2/$m.go" "$EMIT/$m.go"; then echo "PASS $m" > "$G2/$m.verdict"
     else echo "DIFF $m" > "$G2/$m.verdict"; fi
