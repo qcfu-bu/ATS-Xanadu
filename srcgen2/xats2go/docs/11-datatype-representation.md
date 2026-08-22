@@ -135,6 +135,59 @@ constructor hooks the emitted code registers at init — the same move the JS
 runtime already makes when it calls `XATS2JS_optn_vt_cons` instead of building
 a layout inline.
 
+## BLOCKER found attempting steps 3-4: the IR erases constructor identity
+
+Construction and projection must flip together. Construction is fine
+(`i1con_construct_go1emit` has the `d2con`), and so is the *typed* projection
+`I1Vp1cn(i0pat, root, idx)` — `dcon_of_i0pat` recovers the constructor, hence
+the layout. But **two intrep1 nodes carry only a label**:
+
+    |I1INSpcon of (label, i1val)   // generic/untyped projection
+    |I1Vlpcn   of (label, i1val)   // datacon field as an assignable LVALUE
+
+Without the constructor there is no layout, and without the layout there is no
+field offset — `F1` sits at a different offset in `zzs_ap` (after a 16-byte
+`any`) than in `zzs_ip` (after an 8-byte `int`). No generic accessor can work,
+which is precisely why `Args []any` was uniform.
+
+`I1Vlpcn` is ~88 emitted sites (the destination-passing field mutations);
+`I1INSpcon` is documented as "the generic/untyped projection form kept for
+totality" and may be dead in practice — unverified.
+
+The information exists upstream and is dropped:
+
+- `I1Vlpcn` is built in two places (trxi0i1_dynexp): one converts an
+  `I1Vp1cn(i0pat, root, idx)` and **has the i0pat in hand**; the other comes
+  from `I0Epcon(token, label, i0exp)`, which carries the con *expression*, not
+  the `d2con` — so that path needs tracing back through trxd3i0.
+
+Options, in order of principle:
+
+1. **Thread the constructor through the IR** — give `I1INSpcon`/`I1Vlpcn` the
+   `i0pat` (or `d2con`) the way `I1Vp1cn` already has it. Correct and
+   permanent; touches intrep1.sats (stamp churn — `touch` all emitter DATS
+   after) plus trxi0i1, and possibly intrep0/trxd3i0 for the second path.
+2. **Recover it at the emitter by scope-walking** — the root temp is bound by
+   a pattern, and `tnm_bound_by_pconq` / `i1val_pcon_tempq` already walk the
+   scope for exactly this kind of question. No IR change, but fragile: it
+   fails silently when the binding is not in the walked scope.
+3. **Keep a boxed fallback** for those sites only — reintroduces the uniform
+   `Args` representation and forfeits most of the win.
+
+Recommendation: (1). The frontend knows the constructor at every one of these
+sites; the IR simply forgets it, and every other consumer would benefit from
+it being present.
+
+A runtime prototype of the flip (header alias + layout mirrors + exception
+struct) was built and reverted; it confirmed the runtime side is small —
+`XatsCon` becomes a type ALIAS of the header, so all ~21k emitted
+`*xatsgo.XatsCon` annotations, `Xats_as_con`, and every `v.Tag == N` test keep
+working untouched, and xatsgo needs only layout MIRROR structs (an unsafe cast
+needs the layout to agree, not the type identity — how ATS2's C runtime works
+with generated tysum structs). Liveness check while prototyping: every
+stream/list walker in xatsgo that consumed `.Args` is DEAD except
+`strm_vt_forall0_f1un`; only `jshmap_search_opt` still constructs a con.
+
 ## Work order
 
 1. **Layout key + registry** — `go_dcon_layout_name`, per-module set. *(additive)*
