@@ -47,12 +47,13 @@ for f in "$X"/srcgen2/xats2go/srcgen2/DATS/*.dats; do
   awk 'BEGIN{started=0}
        /^type zzs_[a-z]* struct \{$/{lay=1}
        lay{if($0=="}"){lay=0}; next}
+       /^func zzpzzs_/{next}
        /^func /{started=1}
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
     | sed -E "s/goxtnm([0-9])/go${n}tnm\\1/g" \
     | sed "s/^func main() {\$/func zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
-  awk '/^type zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}}' "$EMIT/$m.go" >> "$OUT/src/.layouts"
+  awk '/^type zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}; next} /^func zzpzzs_/{print}' "$EMIT/$m.go" >> "$OUT/src/.layouts"
   echo "zzmodinit_${MI}" >> "$OUT/src/.modinits"
   MI=$((MI+1))
   printf "\n" >> "$OUT/src/emitter_all.go"
@@ -75,12 +76,13 @@ for m in $FRONTEND; do
   awk 'BEGIN{started=0}
        /^type zzs_[a-z]* struct \{$/{lay=1}
        lay{if($0=="}"){lay=0}; next}
+       /^func zzpzzs_/{next}
        /^func /{started=1}
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
     | sed -E "s/goxtnm([0-9])/gof${fn}tnm\\1/g" \
     | sed "s/^func main() {\$/func zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
-  awk '/^type zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}}' "$EMIT/$m.go" >> "$OUT/src/.layouts"
+  awk '/^type zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}; next} /^func zzpzzs_/{print}' "$EMIT/$m.go" >> "$OUT/src/.layouts"
   echo "zzmodinit_${MI}" >> "$OUT/src/.modinits"
   MI=$((MI+1))
   printf "\n" >> "$OUT/src/emitter_all.go"
@@ -108,12 +110,13 @@ for m in $CCMODS; do
   awk 'BEGIN{started=0}
        /^type zzs_[a-z]* struct \{$/{lay=1}
        lay{if($0=="}"){lay=0}; next}
+       /^func zzpzzs_/{next}
        /^func /{started=1}
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
     | sed -E "s/goxtnm([0-9])/goc${cn}tnm\\1/g" \
     | sed "s/^func main() {\$/func zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
-  awk '/^type zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}}' "$EMIT/$m.go" >> "$OUT/src/.layouts"
+  awk '/^type zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}; next} /^func zzpzzs_/{print}' "$EMIT/$m.go" >> "$OUT/src/.layouts"
   echo "zzmodinit_${MI}" >> "$OUT/src/.modinits"
   MI=$((MI+1))
   printf "\n" >> "$OUT/src/emitter_all.go"
@@ -136,7 +139,8 @@ done
 # docs/11-datatype-representation.md.
 {
   printf '\n// ---- per-layout constructor structs (deduplicated) ----\n'
-  awk '/^type (zzs_[a-z]*) struct \{$/{nm=$2; if(nm in seen){skip=1} else {seen[nm]=1; skip=0}}
+  awk '/^type (zzs_[a-z]*) struct \{$/{nm=$2; if(nm in seen){skip=1} else {seen[nm]=1; skip=0}; if(!skip)print; next}
+       /^func zzpzzs_/{fn=$2; sub(/\(.*/,"",fn); if(fn in seenf)next; seenf[fn]=1; print; next}
        !skip{print}
        /^\}$/{skip=0}' "$OUT/src/.layouts"
 } >> "$OUT/src/emitter_all.go"
@@ -219,7 +223,7 @@ GOEOF
   # stamped s2lab_get_itm shims: S2LAB(l0, x0) => x0 (Args[1])
   grep -ohE '\bs2lab_get_itm_[0-9]+' "$OUT/src/emitter_all.go" | sort -u | while read -r nm; do
     if ! grep -q "^func $nm(" "$OUT/src/emitter_all.go"; then
-      printf '\nfunc %s(slab any) any { return xatsgo.Xats_as_con(slab).Args[1] }\n' "$nm"
+      printf '\nfunc %s(slab any) any { return zzpzzs_aa(xatsgo.Xats_as_con(slab)).F1 }\n' "$nm"
     fi
   done
 
@@ -287,15 +291,17 @@ func xats2goI0varfstIns(s []any, v any) []any {
 	return out
 }
 func xats2goI0varfstFold(s []any, vs any) []any {
-	for p := xatsgo.Xats_as_con(vs); p != nil && p.Tag == 1; p = xatsgo.Xats_as_con(p.Args[1]) {
-		s = xats2goI0varfstIns(s, p.Args[0])
+	for p := xatsgo.Xats_as_con(vs); p != nil && p.Tag == 1; {
+		c := zzpzzs_aa(p)
+		s = xats2goI0varfstIns(s, c.F0)
+		p = xatsgo.Xats_as_con(c.F1)
 	}
 	return s
 }
 func xats2goI0varfstConslist(s []any) *xatsgo.XatsCon {
 	r := &xatsgo.XatsCon{Tag: 0}
 	for i := len(s) - 1; i >= 0; i-- {
-		r = &xatsgo.XatsCon{Tag: 1, Args: []any{s[i], r}}
+		r = &(&zzs_aa{xatsgo.XatsHdr{Tag: 1}, s[i], r}).XatsHdr
 	}
 	return r
 }
@@ -321,28 +327,32 @@ func ${ALLQ}(p any) bool {
 	case 0, 1:
 		return true
 	case 16:
-		return xats2goI0patAllqList(n.Args[1])
+		return xats2goI0patAllqList(zzpzzs_ia(n).F1)
 	case 17:
-		return xats2goI0patAllqList(n.Args[2])
+		return xats2goI0patAllqList(zzpzzs_aia(n).F2)
 	case 18:
-		return xats2goI0patAllqLips(n.Args[2])
+		return xats2goI0patAllqLips(zzpzzs_aia(n).F2)
 	}
 	return false
 }
 func xats2goI0patAllqList(ps any) bool {
-	for p := xatsgo.Xats_as_con(ps); p != nil && p.Tag == 1; p = xatsgo.Xats_as_con(p.Args[1]) {
-		if !${ALLQ}(p.Args[0]) {
+	for p := xatsgo.Xats_as_con(ps); p != nil && p.Tag == 1; {
+		c := zzpzzs_aa(p)
+		if !${ALLQ}(c.F0) {
 			return false
 		}
+		p = xatsgo.Xats_as_con(c.F1)
 	}
 	return true
 }
 func xats2goI0patAllqLips(lips any) bool {
-	for p := xatsgo.Xats_as_con(lips); p != nil && p.Tag == 1; p = xatsgo.Xats_as_con(p.Args[1]) {
-		lab := xatsgo.Xats_as_con(p.Args[0]) // I0LAB(l0, i0p)
-		if !${ALLQ}(lab.Args[1]) {
+	for p := xatsgo.Xats_as_con(lips); p != nil && p.Tag == 1; {
+		c := zzpzzs_aa(p)
+		lab := xatsgo.Xats_as_con(c.F0) // I0LAB(label, i0pat) -> zzs_aa
+		if !${ALLQ}(zzpzzs_aa(lab).F1) {
 			return false
 		}
+		p = xatsgo.Xats_as_con(c.F1)
 	}
 	return true
 }

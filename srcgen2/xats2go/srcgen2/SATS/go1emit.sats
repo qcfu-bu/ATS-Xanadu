@@ -221,6 +221,22 @@ gotype_of_dcon_field
 fun
 go_dcon_layout_name(dcon: d2con): strn
 //
+// go_layout_ftys: the layout's Go field types in order (construction coerces
+// each argument into its slot).
+fun
+go_layout_ftys(lay: strn): list(strn)
+//
+// go_layout_fty: the Go type of one layout slot ("" when out of range).
+fun
+go_layout_fty(lay: strn, ix: sint): strn
+//
+// i1valgo1_list_argtyped: emit an argument list, coercing each value into the
+// callee's / struct slot's Go type.  DECLARED here (not a local `fun`) so it
+// is reachable from the constructor emitter, which precedes its definition.
+fun
+i1valgo1_list_argtyped
+(filr: FILR, ivs: i1valist, ptys: list(strn)): void
+//
 // go_layout_decls_emit: flush the module's registered layouts as Go struct
 // declarations.  Called at END of module emission -- Go ignores package-level
 // declaration order, and assemble.sh dedups by type name across modules.

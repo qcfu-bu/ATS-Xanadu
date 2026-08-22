@@ -2609,10 +2609,11 @@ case+ t2p0.node() of
   if (knd < 0)
   then
   let val g1 = gotype_of_arg(t2p1) in
-    // by-ref of a BOXED/erased inner (a con pointer or `any`): the mutable
-    // cell is a plain `any` slot in the uniform representation (a datacon
-    // field IS an `any` slot — the destination-passing tail-cell pattern
-    // takes `&con.Args[i]`, a `*any`), so the image is `*any`, NOT `**T`.
+    // by-ref of an ERASED inner (a polymorphic field) stays `*any`: the slot
+    // really is an `any`.  A DATATYPE inner is now a TYPED field in the
+    // per-layout struct (`F1 *xatsgo.XatsHdr`), so `&field` is `**XatsHdr` —
+    // under the old uniform `Args []any` representation every datacon field
+    // was an `any` slot and this collapsed to `*any`.
     if (strn_length(g1) = 0) then "*any" else
     if (g1 = "any") then "*any" else
     if (strn_get$at(g1, 0) = '*') then "*any" else
@@ -2948,7 +2949,13 @@ if (gty = "rune") then "r" else
 if (gty = "string") then "s" else
 if (gty = "float64") then "f" else
 if (gty = "any") then "a" else
-if (gty = "*xatsgo.XatsCon") then "p" else "x"
+// DATATYPE fields share the erased `any` slot ("a", not a distinct "p").
+// The exact-size struct is the win (bench/repr: 1.6x build / 3x memory with
+// ALL-any fields); typing the slot `*XatsHdr` instead would make `&field` a
+// `**XatsHdr` while a LOCAL holding a datatype is declared `any`, so the two
+// by-ref call shapes could not agree.  The READ still asserts to the
+// concrete type, exactly as the old Args[i].(T) did.
+if (gty = "*xatsgo.XatsCon") then "a" else "x"
 )//endof[go_layout_code(gty)]
 //
 (*
@@ -3010,6 +3017,38 @@ let
 in
   loop(0, "zzs_")
 end//endof[go_dcon_layout_name(dcon)]
+//
+(*
+[go_layout_ftys]: the layout's Go FIELD TYPES, in order — so a construction
+can coerce each argument into the slot it is stored in (an erased slot takes
+`any`; a scalar slot needs the concrete value).
+*)
+#implfun
+go_layout_ftys
+(  lay  ) =
+let
+  val n0 = strn_length(lay) - 4(*"zzs_"*)
+  fun
+  loop(i0: sint): list(strn) =
+  (
+  if (i0 >= n0) then list_nil()
+  else list_cons(go_layout_type(strn_get$at(lay, i0+4)), loop(i0+1))
+  )
+in
+  (if (n0 <= 0) then list_nil() else loop(0))
+end//endof[go_layout_ftys(lay)]
+//
+(*
+[go_layout_fty]: the Go type of layout slot [ix] ("" when out of range).
+*)
+#implfun
+go_layout_fty
+(lay, ix) =
+(
+if (ix < 0) then "" else
+if (strn_length(lay) > ix+4)
+then go_layout_type(strn_get$at(lay, ix+4)) else ""
+)//endof[go_layout_fty(lay,ix)]
 //
 (*
 [go_layout_decls_emit]: one Go struct per registered layout, regenerated from

@@ -247,6 +247,29 @@ case+ ipat.node() of
 | _(*else*) => optn_nil()
 )
 //
+(*
+[zzdcon_theonly]: the datatype's UNIQUE constructor that has fields.  Sound
+because a field access must be on a constructor that HAS that field: if only
+one constructor has any, the layout is unambiguous even when the datatype has
+several constructors (list/list_vt/optn: a nullary nil plus one cons).  Two
+field-bearing constructors => optn_nil, and the emitter fails loudly rather
+than guessing an offset.
+*)
+fun
+zzdcon_theonly
+( dcs: d2conlst
+, acc: optn(d2con)
+, n: sint): optn(d2con) =
+(
+case+ dcs of
+|list_nil() => (if (n = 1) then acc else optn_nil())
+|list_cons(dc1, dcs1) =>
+  (
+  if (d2con_get_narg(dc1) > 0)
+  then zzdcon_theonly(dcs1, optn_cons(dc1), n+1)
+  else zzdcon_theonly(dcs1, acc, n))
+)
+//
 fun
 zzdcon_of_ityp
 (ity: i0typ): optn(d2con) =
@@ -256,12 +279,15 @@ case+ ity.node() of
   (
   case+ s2cst_get_d2cs(s2c0) of
   | ~optn_vt_nil() => optn_nil()
-  | ~optn_vt_cons(dcs) =>
-    (
-    // exactly ONE constructor => the label alone fixes the layout.
-    case+ dcs of
-    |list_cons(dc1, list_nil()) => optn_cons(dc1)
-    | _(*several / none*) => optn_nil()))
+  | ~optn_vt_cons(dcs) => zzdcon_theonly(dcs, optn_nil(), 0))
+// CHASE the wrappers the frontend leaves around a datatype head: a
+// PARAMETERIZED datatype is an application (`list_vt(a, n)`), an lvalue use
+// adds I0Tlft, and an existential adds I0Texi0.  Missing these left every
+// `xs.1` on a parameterized datatype unresolved (the whole prelude list_vt
+// family), which is what the selfhost build caught after psuite passed.
+|I0Tapps(thd, _) => zzdcon_of_ityp(thd)
+|I0Tlft(it1) => zzdcon_of_ityp(it1)
+|I0Texi0(_, it1) => zzdcon_of_ityp(it1)
 | _(*else*) => optn_nil()
 )
 //

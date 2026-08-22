@@ -527,7 +527,8 @@ go_tup_proj_repack_emit
 ( filr: FILR
 , gty: strn
 , iroot: i1val
-, idx: sint): void =
+, idx: sint
+, lay: strn): void =
 let
   val ftys = go_struct_field_types(gty)
   fun
@@ -559,20 +560,22 @@ in
   i0i00go1(filr, n);
   strnfpr(filr, "[");
   emit_tys(ftys, 0);
-  strnfpr(filr, "](xatsgo.Xats_as_con(");
+  // parens: `](` + `zzpLAY(` + `Xats_as_con(` = 3 open; `))` closes the two
+  // inner calls, then ONE `)` closes the as_tupN application.
+  strnfpr(filr, "](zzp"); strnfpr(filr, lay); strnfpr(filr, "(xatsgo.Xats_as_con(");
   i1valgo1(filr, iroot);
-  strnfpr(filr, ").Args["); i0i00go1(filr, idx); strnfpr(filr, "])"))
+  strnfpr(filr, ")).F"); i0i00go1(filr, idx); strnfpr(filr, ")"))
   else
   (
-  strnfpr(filr, "xatsgo.Xats_as_con(");
+  strnfpr(filr, "zzp"); strnfpr(filr, lay); strnfpr(filr, "(xatsgo.Xats_as_con(");
   i1valgo1(filr, iroot);
-  strnfpr(filr, ").Args["); i0i00go1(filr, idx); strnfpr(filr, "]");
+  strnfpr(filr, ")).F"); i0i00go1(filr, idx);
   strnfpr(filr, ".("); strnfpr(filr, gty); strnfpr(filr, ")")))
   else
   (
-  strnfpr(filr, "xatsgo.Xats_as_con(");
+  strnfpr(filr, "zzp"); strnfpr(filr, lay); strnfpr(filr, "(xatsgo.Xats_as_con(");
   i1valgo1(filr, iroot);
-  strnfpr(filr, ").Args["); i0i00go1(filr, idx); strnfpr(filr, "]");
+  strnfpr(filr, ")).F"); i0i00go1(filr, idx);
   strnfpr(filr, ".("); strnfpr(filr, gty); strnfpr(filr, ")"))
 end//endof[go_tup_proj_repack_emit(filr,gty,iroot,idx)]
 
@@ -723,13 +726,16 @@ in//let
   // PER-LAYOUT CONSTRUCTION: one allocation, exactly sized, typed fields.
   // The handle is the embedded header's address, so every `*xatsgo.XatsCon`
   // annotation and `v.Tag == N` test downstream is unchanged.
-  strnfpr(filr, "&(&"); strnfpr(filr, go_dcon_layout_name(dcon));
+  (let val lay = go_dcon_layout_name(dcon) in
+  strnfpr(filr, "&(&"); strnfpr(filr, lay);
   // KEYED field: `go vet`'s composites check rejects an unkeyed literal for
   // a struct imported from another package.
   strnfpr(filr, "{xatsgo.XatsHdr{Tag: "); i0i00go1(filr, ctag); strnfpr(filr, "}");
   (if (n0 >= 1) then strnfpr(filr, ", "));
-  i1valgo1_list(filr, i1vs);
-  strnfpr(filr, "}).XatsHdr"))
+  // ARG BOUNDARY: a struct literal admits NO implicit conversion, so coerce
+  // each argument into its slot's Go type (erased slots take `any`).
+  i1valgo1_list_argtyped(filr, i1vs, go_layout_ftys(lay));
+  strnfpr(filr, "}).XatsHdr") end))
 end//endof[i1con_construct_go1emit(filr,dcon,i1vs)]
 //
 (*
@@ -774,7 +780,7 @@ i1con_proj_go1emit
 // the values agree -- REPACK reflectively instead (idempotent when the
 // identities already match).  See [go_tup_repack_any_emit].
 if go_structq(gty)
-then go_tup_proj_repack_emit(filr, gty, iroot, idx)
+then go_tup_proj_repack_emit(filr, gty, iroot, idx, lay)
 else
 (
 (
@@ -791,7 +797,18 @@ else
   strnfpr(filr, "zzp"); strnfpr(filr, lay); strnfpr(filr, "(");
   strnfpr(filr, "xatsgo.Xats_as_con(");
   i1valgo1(filr, iroot);
-  strnfpr(filr, ")).F"); i0i00go1(filr, idx)))))
+  strnfpr(filr, ")).F"); i0i00go1(filr, idx);
+  // ERASED slot only ("a" in the layout code): recover the concrete field
+  // type exactly as the old `Args[i].(T)` did.  A SCALAR field is already
+  // its Go type, and asserting on a non-interface is invalid Go.
+  (let
+     val erased =
+     (if (strn_length(lay) > idx+4)
+      then (strn_get$at(lay, idx+4) = 'a') else false)
+   in
+     if (if erased then not(gty = "any") else false)
+     then (strnfpr(filr, ".("); strnfpr(filr, gty); strnfpr(filr, ")"))
+   end)))))
 //endof[i1con_proj_go1emit(filr,iroot,idx,gty)]
 //
 (*
@@ -1275,11 +1292,9 @@ in
 end
 )//endof[go_funarg_adapter_emit(...)]
 //
-fun
+#implfun
 i1valgo1_list_argtyped
-( filr: FILR
-, ivs: i1valist
-, ptys: list(strn)): void =
+( filr, ivs, ptys) =
 let
   fun
   loop
@@ -3219,9 +3234,11 @@ generic/untyped projection form kept for totality.
 *)
 |I1INSpcon(lab0, i1v1) =>
   (
-  strnfpr(filr, "xatsgo.Xats_as_con(");
+  // no constructor evidence on this node (its only builder i1val_pcon has no
+  // callers — see docs/11): fail loudly rather than guess an offset.
+  strnfpr(filr, "xatsgo.Xats_proj_nolayout(");
   i1valgo1(filr, i1v1);
-  strnfpr(filr, ").Args["); i0lab_int_go1(filr, lab0); strnfpr(filr, "]"))
+  strnfpr(filr, ", "); i0lab_int_go1(filr, lab0); strnfpr(filr, ")"))
 //
 (* ****** ****** *)
 //
@@ -3338,7 +3355,22 @@ addressable-Go-lvalue assignment.
     | _(*else*) =>
       (
       i1valgo1(filr, ivin);
-      strnfpr(filr, " = "); i1valgo1(filr, irgt)))
+      strnfpr(filr, " = ");
+      // SLOT BOUNDARY: a datacon field is now a TYPED struct slot, so the
+      // RHS is coerced into it (an `any` value into an `int` slot is not
+      // assignable in Go, unlike the old uniform []any).
+      (case+ ivin.node() of
+       |I1Vlpcn(LABint(ix), _, optn_cons(dcon)) =>
+         (let
+            val fty = go_layout_fty(go_dcon_layout_name(dcon), ix)
+            val cf = go_coerfn_of(fty)
+          in
+            if (strn_length(cf) > 0)
+            then (strnfpr(filr, cf); strnfpr(filr, "(");
+                  i1valgo1(filr, irgt); strnfpr(filr, ")"))
+            else i1valgo1(filr, irgt)
+          end)
+       | _(*else*) => i1valgo1(filr, irgt))))
   // DP2TR deref-assign: `$eval(p) := x` -> Go `*p = x`.  The lvalue forwards to
   // the bare pointer temp [p]; [dp2tr_ptr_has] (populated at trxi0i1 [f0_dp2tr])
   // marks it as a `$eval` pointer, so we deref on the LHS (NOT overwrite the
@@ -3363,7 +3395,22 @@ addressable-Go-lvalue assignment.
   | _(*else*) =>
     (
     i1valgo1(filr, ilft);
-    strnfpr(filr, " = "); i1valgo1(filr, irgt)))
+    strnfpr(filr, " = ");
+    // SLOT BOUNDARY (direct datacon lvalue, no I1Vaddr wrapper): same
+    // coercion as the wrapped path — a typed slot admits no implicit
+    // conversion from `any`.
+    (case+ ilft.node() of
+     |I1Vlpcn(LABint(ix), _, optn_cons(dcon)) =>
+       (let
+          val fty = go_layout_fty(go_dcon_layout_name(dcon), ix)
+          val cf = go_coerfn_of(fty)
+        in
+          if (strn_length(cf) > 0)
+          then (strnfpr(filr, cf); strnfpr(filr, "(");
+                i1valgo1(filr, irgt); strnfpr(filr, ")"))
+          else i1valgo1(filr, irgt)
+        end)
+     | _(*else*) => i1valgo1(filr, irgt))))
 |I1INSflat(iv1) =>
   (
   i1valgo1(filr, iv1))
