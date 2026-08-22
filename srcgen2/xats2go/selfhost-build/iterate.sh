@@ -31,21 +31,53 @@
 #                                        bundle rebuild everything is stale),
 #                                        assemble, build, probe.
 #
-# ===== THE TWO LOOPS FOR BACKEND (Go-centric emitter) WORK =====
+# ===== LOOPS FOR BACKEND (Go-centric emitter) WORK =====
 #   iterate.sh quick [bench]       ~1m   INNER LOOP: bundle relink + psuite
 #                                        (75 programs emit/build/run/byte-cmp
 #                                        vs the JS backend).  No selfhost
 #                                        rebuild — an emitter change is judged
 #                                        by what it EMITS.  `quick bench` adds
 #                                        the perf suite.
-#   iterate.sh full-verify         ~35m  PRE-COMMIT: prewarm-dirty + assemble
-#                                        + build + census + regress + sweep
-#                                        (the binary-vs-BUNDLE self-hosting
-#                                        FIXPOINT proof) + gate.
-# Rule of thumb: iterate in `quick`; run `full-verify` before committing.
-# Do NOT make prewarm binary-hosted: the sweep compares binary emissions
-# against the BUNDLE's, and feeding it binary-produced references would turn
-# the fixpoint proof into a circular self-comparison.
+#   iterate.sh selfcycle           ~55m  NODE-FREE BUILD: the selfhost binary
+#                                        bootstraps ITSELF (prewarm-self ->
+#                                        assemble -> go build), iterating to a
+#                                        `fixpoint`, then census/regress/gate.
+#                                        MEASURED: 193 modules at P3 = 3276s.
+#   iterate.sh full-verify         ~55m  PRE-COMMIT with the JS ORACLE: same,
+#                                        but emissions come from the BUNDLE and
+#                                        `sweep` proves binary == bundle.
+#
+# HONEST NUMBERS (measured 2026-08-21, do not repeat the guesses this replaced):
+#   per-module emit: selfhost binary 8.7s vs node bundle 9.5s (xsymbol).  The
+#   binary is only ~1.1x faster — NOT the ~2x that "native beats node" suggests,
+#   because both run the SAME emitted-Go/JS algorithm and both are dominated by
+#   allocation.  So `selfcycle` is not a speed win over the bundle path; its
+#   value is TOOLCHAIN INDEPENDENCE (no 216MB JS bundle, no jsemit transpile in
+#   the build) as the backend moves away from the JS model.
+#   A full 194-module build is ~55min of essentially IRREDUCIBLE compute at
+#   today's per-module cost.  The levers that actually matter, in order:
+#     1. DON'T rebuild what did not change  -> prewarm-dirty / prewarm-self
+#        (a frontend edit re-emits 1 module, not 193).
+#     2. Make each compile cheaper.  ~3.3s of every compile re-parses the SAME
+#        424 prelude/SATS files (~11min per full build); the rest is
+#        allocation-heavy template resolution.  Interface caching and the
+#        Go-centric backend items (unboxed cons, fewer `any`) attack this — and
+#        the compiler IS emitted Go, so backend wins compound here.
+#     3. NOT -j: see PARALLELISM below.
+#
+# TWO KINDS OF FIXPOINT — keep both, know which you are running:
+#   sweep     binary emissions vs BUNDLE-produced emit/  => "reproduces the JS
+#             reference".  Needs node; run before committing.
+#   fixpoint  binary emissions vs the SELF-produced emit/ it was built from
+#             => "reproduces itself" (the classic bootstrap).  No node.
+# Mechanically identical comparisons; only the PROVENANCE of emit/ differs.
+# Never point `sweep` at self-produced emit/ — that silently degrades the JS
+# cross-check into a circular self-comparison.
+#
+# PARALLELISM: 3.  The compiler is MEMORY-BANDWIDTH bound (~850MB RSS/process,
+# continuous allocation): 8 modules take 81s serial, 59s at P3, 111s at P8 —
+# past P3 it is worse than serial.  Real build speedups must come from making
+# the compiler ALLOCATE LESS (= the Go-centric backend work), not from -j.
 #
 # CAUTION (mangling): .dats-only edits keep cross-module names stable (they
 # come from the .sats).  After ANY .sats edit, do a CLEAN lib2xatsopt rebuild
@@ -200,9 +232,16 @@ sweep)
   # FIXPOINT METRIC: run the SELFHOST BINARY over every assemble.sh module and
   # byte-compare its emission against emit/<m>.go (the bundle's reference,
   # which assemble.sh produced with ABSOLUTE source paths — the binary must be
-  # invoked identically; path text embeds in location comments).  Parallel:
-  # sweep [P] (default 8).  Results in probe/sweep/: PASS/DIFF/ERR per module.
-  PAR="${2:-8}"
+  # invoked identically; path text embeds in location comments).  Results in
+  # probe/sweep/: PASS/DIFF/ERR per module.
+  #
+  # PARALLELISM (measured 2026-08-21, 18 cores / 48GB): the compiler is
+  # MEMORY-BANDWIDTH bound, not CPU bound — peak RSS ~850MB per process with
+  # near-continuous allocation.  8 identical modules: serial 81s, P2 62s,
+  # P3 59s, P4 73s, P8 111s.  Past P3 throughput gets WORSE THAN SERIAL.
+  # The old default of 8 made a full sweep ~2x slower than necessary (~60min
+  # vs ~30min).  Do not raise this without re-measuring.
+  PAR="${2:-3}"
   SW="$PROBEDIR/sweep"; rm -rf "$SW"; mkdir -p "$SW"
   eval "$(grep '^FRONTEND=' "$OUT/assemble.sh")"
   eval "$(grep '^CCMODS=' "$OUT/assemble.sh")"
@@ -265,6 +304,117 @@ prewarm)
   echo ">> PREWARM: $n modules re-emitted (P=$PAR); empty emissions: $empty"
   [ "$empty" = 0 ] || exit 1
   ;;
+prewarm-self)
+  # BINARY-HOSTED prewarm: the SELFHOST BINARY re-emits the modules (dirty-
+  # aware), replacing the node bundle in the build hot path.
+  #   node bundle: ~20s/module, P3 (each process holds a 216MB JS heap) ~21min
+  #   selfhost bin: ~8s/module, P12 (native, ~10x less memory)          ~2min
+  # Safe to bootstrap from TODAY because the sweep is green: the binary's
+  # emissions are byte-identical to the bundle's for all 193 modules.  The
+  # ongoing proof shifts to `fixpoint` (gen-N vs gen-N+1, node-free); `sweep`
+  # remains as the periodic JS-oracle cross-check.
+  PAR="${2:-3}"   # memory-bandwidth bound; see the sweep tier
+  [ -x "$BIN" ] || die "no selfhost binary yet — bootstrap once with: iterate.sh prewarm"
+  eval "$(grep '^FRONTEND=' "$OUT/assemble.sh")"
+  eval "$(grep '^CCMODS=' "$OUT/assemble.sh")"
+  JOBS="$PROBEDIR/prewarm.jobs"; : > "$JOBS"
+  # an EMITTER-source change invalidates every emission; a frontend-source
+  # change invalidates only its own module.  [BIN] itself is the emitter here,
+  # so its mtime is the invalidation stamp.
+  for f in "$X"/srcgen2/xats2go/srcgen2/DATS/*.dats; do
+    echo "$(basename "$f" .dats) $f" >> "$JOBS"; done
+  for m in $FRONTEND; do echo "$m $X/srcgen2/DATS/$m.dats" >> "$JOBS"; done
+  for m in $CCMODS; do echo "$m $X/srcgen2/xats2go/xats2cc/srcgen1/DATS/$m.dats" >> "$JOBS"; done
+  emit_self() {
+    m="$1"; f="$2"
+    "$BIN" -o "$EMIT/$m.go" "$f" > /dev/null 2>"$EMIT/$m.err"
+    [ -s "$EMIT/$m.go" ] || echo "!! EMPTY EMIT: $m" >&2
+  }
+  n=0; skipped=0
+  while read -r m f; do
+    g="$EMIT/$m.go"
+    if [ -s "$g" ] && [ ! "$f" -nt "$g" ] && [ ! "$BIN" -nt "$g" ]; then
+      skipped=$((skipped+1)); continue
+    fi
+    emit_self "$m" "$f" &
+    n=$((n+1)); [ $((n % PAR)) -eq 0 ] && wait
+  done < "$JOBS"
+  wait
+  empty=$(for g in "$EMIT"/*.go; do [ -s "$g" ] || basename "$g"; done | wc -l | tr -d ' ')
+  echo ">> PREWARM-SELF: $n re-emitted, $skipped kept (P=$PAR); empty emissions: $empty"
+  [ "$empty" = 0 ] || exit 1
+  ;;
+fixpoint)
+  # NODE-FREE SELF-HOSTING PROOF.  Compares what the binary EMITS against the
+  # emissions the binary was BUILT FROM (emit/): equal => rebuilding would
+  # yield the identical binary, i.e. a true fixpoint.  (Mechanically the same
+  # comparison as `sweep`; the difference is the PROVENANCE of emit/ — from
+  # the JS bundle it proves "reproduces the JS reference", self-produced it
+  # proves "reproduces itself".)
+  # PRECONDITION: emit/ is what $BIN was built from — run after a
+  # prewarm-self + assemble + build (that is what `selfcycle` does).
+  # NOTE an EMITTER change needs TWO bootstrap rounds to converge: round 1
+  # emits the new emitter SOURCE using the OLD emitter LOGIC, so the binary
+  # built from it emits differently; `selfcycle` iterates until stable.
+  PAR="${2:-3}"   # memory-bandwidth bound; see the sweep tier
+  [ -x "$BIN" ] || die "no selfhost binary"
+  G2="$PROBEDIR/gen2"; rm -rf "$G2"; mkdir -p "$G2"
+  eval "$(grep '^FRONTEND=' "$OUT/assemble.sh")"
+  eval "$(grep '^CCMODS=' "$OUT/assemble.sh")"
+  : > "$G2/joblist"
+  for f in "$X"/srcgen2/xats2go/srcgen2/DATS/*.dats; do
+    echo "$(basename "$f" .dats) $f" >> "$G2/joblist"; done
+  for m in $FRONTEND; do echo "$m $X/srcgen2/DATS/$m.dats" >> "$G2/joblist"; done
+  for m in $CCMODS; do echo "$m $X/srcgen2/xats2go/xats2cc/srcgen1/DATS/$m.dats" >> "$G2/joblist"; done
+  gen2_one() {
+    m="$1"; f="$2"
+    "$BIN" -o "$G2/$m.go" "$f" > /dev/null 2>"$G2/$m.err"
+    if [ ! -s "$G2/$m.go" ]; then echo "ERR $m (empty)" > "$G2/$m.verdict"
+    elif cmp -s "$G2/$m.go" "$EMIT/$m.go"; then echo "PASS $m" > "$G2/$m.verdict"
+    else echo "DIFF $m" > "$G2/$m.verdict"; fi
+  }
+  n=0
+  while read -r m f; do
+    gen2_one "$m" "$f" &
+    n=$((n+1)); [ $((n % PAR)) -eq 0 ] && wait
+  done < "$G2/joblist"
+  wait
+  cat "$G2"/*.verdict | sort > "$G2/RESULTS"
+  p=$(grep -c '^PASS' "$G2/RESULTS"); d=$(grep -c '^DIFF' "$G2/RESULTS"); e=$(grep -c '^ERR' "$G2/RESULTS")
+  echo ">> FIXPOINT: $p PASS / $d DIFF / $e ERR of $((p+d+e))"
+  grep -v '^PASS' "$G2/RESULTS" | head -10 || true
+  [ "$d" = 0 ] && [ "$e" = 0 ] || exit 1
+  ;;
+selfcycle)
+  # THE NODE-FREE BUILD: bootstrap the selfhost binary with ITSELF, iterating
+  # until the emissions stop changing (fixpoint), then run the test tiers.
+  # No node, no 216MB bundle, no JS transpile anywhere in this path.
+  #   round: prewarm-self (P12) -> assemble -> wire -> go build -> fixpoint?
+  # An emitter change converges in 2 rounds (round 1 emits the new emitter
+  # source with the old emitter logic; round 2 re-emits with the new logic).
+  PAR="${2:-3}"   # memory-bandwidth bound; see the sweep tier
+  t0=$(date +%s)
+  for round in 1 2 3; do
+    echo ">> --- selfcycle round $round ---"
+    "$0" prewarm-self "$PAR" 2>&1 | tail -1
+    bash "$OUT/assemble.sh" 2>&1 | tail -1 || die "assemble failed"
+    bash "$OUT/wire-driver.sh" >/dev/null 2>&1 || die "wire-driver failed"
+    ( cd "$OUT/src" && go build -o xats2go-selfhost . ) || die "go build failed"
+    echo ">> BUILD OK ($(( $(date +%s) - t0 ))s elapsed)"
+    if "$0" fixpoint "$PAR" 2>&1 | tail -2 | grep -q 'FIXPOINT: .* 0 DIFF / 0 ERR'; then
+      echo ">> FIXPOINT REACHED in round $round"
+      break
+    fi
+    [ "$round" = 3 ] && die "no fixpoint after 3 rounds — emitter is not converging"
+    # not converged: the new binary emits differently, so force a full re-emit
+    # with it (touch the binary's stamp by re-running prewarm-self, which sees
+    # $BIN newer than every emission).
+  done
+  "$0" census 2>&1 | tail -1
+  "$0" regress 2>&1 | tail -1
+  "$0" gate 2>&1 | tail -2
+  echo ">> SELFCYCLE: $(( $(date +%s) - t0 ))s total"
+  ;;
 quick)
   # THE INNER LOOP for BACKEND (emitter) work — ~1 minute, no selfhost rebuild.
   #   bundle relink (~3s: only the edited emitter module re-transpiles)
@@ -299,7 +449,7 @@ full-verify)
   echo ">> BUILD OK"
   "$0" census 2>&1 | tail -1
   "$0" regress 2>&1 | tail -1
-  "$0" sweep 8 2>&1 | tail -1
+  "$0" sweep 3 2>&1 | tail -1
   "$0" gate 2>&1 | tail -2
   ;;
 prewarm-dirty)
