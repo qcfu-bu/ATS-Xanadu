@@ -5125,23 +5125,54 @@ case+ ilet of
         // value temp (inst_retty) or a DIRECT call to a d2cst-less helper `fun`
         // whose signature defaults to `func(..) any` (funretty, keyed by the
         // callee d2var stamp, recorded at the function's definition).
-        val retany =
+        // [crt]: the CALLEE's emitted Go return type ("" when not a plain
+        // call).  The result temp's Go type IS this, so recording it lets a
+        // downstream boundary ELIDE its coercion -- notably the reflective
+        // `Xats_as_tupN` repack, which fired on every `use(mk(i))` because the
+        // call-result temp had no recorded type even though both sides were
+        // the same anonymous struct (measured: the whole b11_tup gap).
+        val crt =
         (
         case+ iins of
         |I1INSdapp(i1f0, i1vs) =>
           if (strn_length(i1binop_of_dapp(i1f0, i1vs, scp)) > 0)
-          then false
+          then ""(*native infix: typed below by [gotyp]*)
           else
           (
           case+ i1f0.node() of
-          |I1Vtnm(ftnm) => (inst_retty_get(i1tnm_stmp$get(ftnm)) = "any")
-          |I1Vfenv(fdvar, _) => (funretty_get(d2var_get_stmp(fdvar)) = "any")
+          |I1Vtnm(ftnm) => inst_retty_get(i1tnm_stmp$get(ftnm))
+          |I1Vfenv(fdvar, _) => funretty_get(d2var_get_stmp(fdvar))
           // a package-routed d2cst callee: its Go return type comes from the
           // SAME [gotypes_of_funstyp] signature its definition emits with.
           |I1Vcst(dcst) =>
-            (let val (_, rt) = gotypes_of_funstyp(d2cst_get_styp(dcst)) in (rt = "any") end)
-          | _(*other callee*) => false)
+            (let val (_, rt) = gotypes_of_funstyp(d2cst_get_styp(dcst)) in rt end)
+          | _(*other callee*) => "")
+        | _(*non-dapp*) => "")
+        val retany = (crt = "any")
+        // RECORD only where the callee's declared return type really is the
+        // emitted expression's type.  A d2cst/d2var callee emits with exactly
+        // that signature.  An INSTANCE temp (I1Vtnm) does NOT qualify: the
+        // call site peels thunk layers (`tmp()(args)`), so the emitted result
+        // is the PEELED type, not inst_retty — recording it made a `return`
+        // elide a coercion it still needed.
+        // I1Vfenv ONLY: [funretty] is recorded AT THE EMITTED DEFINITION, so
+        // it is the function's real Go signature.  A d2cst callee does NOT
+        // qualify — its styp is the ATS type, and a RUNTIME LEAF's Go
+        // signature can differ (Xats_XATS2JS_sint_add_sint is declared `sint`
+        // in ATS but returns `any`, being an op-fallback), so recording the
+        // styp image made a `return` elide a coercion it still needed.
+        val reliable =
+        (
+        case+ iins of
+        |I1INSdapp(i1f0, _) =>
+          (case+ i1f0.node() of |I1Vfenv _ => true | _(*else*) => false)
         | _(*non-dapp*) => false)
+        val () =
+        (
+        if (if reliable
+            then (if (strn_length(crt) > 0) then not(crt = "any") else false)
+            else false)
+        then goemit_ty_add(i1tnm_stmp$get(itnm), crt))
         val coer =
           (if retany
            then (if (goty = "any") then "" else go_coerfn_of(goty))
