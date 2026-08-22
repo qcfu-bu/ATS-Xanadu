@@ -339,10 +339,74 @@ func Xats_as_con(x any) *XatsCon {
 	return x.(*XatsCon)
 }
 
-func Xats_list_vt2t(xs *XatsCon) *XatsCon {
-	if xs != nil {
-		xs.Name = "list"
+// ---------------------------------------------------------------------------
+// CON CONSTRUCTION — one allocation instead of two, none for nullary.
+//
+// `&XatsCon{Tag: t, Args: []any{a, b}}` costs TWO heap objects: the struct and
+// the slice's backing array.  Measured over the emitted compiler: 5801 con
+// constructions, 26.0% arity 0, 87.2% arity <= 2, 95.5% arity <= 3.
+//
+// So: carry inline storage for arity <= conInline and point Args into it (one
+// allocation), and INTERN the nullary cons (zero allocations for a quarter of
+// all constructions).  Interning is sound because a nullary con has no fields
+// to mutate, nothing mutates Tag, and Name is written only by exception
+// construction — which never takes this path.
+const conInline = 3
+
+type conBuf struct {
+	XatsCon
+	buf [conInline]any
+}
+
+// interned nullary cons, indexed by ctag (ctag -1 = exceptions, excluded).
+var xatsNil [64]XatsCon
+
+func init() {
+	for i := range xatsNil {
+		xatsNil[i].Tag = i
 	}
+}
+
+func XatsCon0(tag int) *XatsCon {
+	if tag >= 0 && tag < len(xatsNil) {
+		return &xatsNil[tag]
+	}
+	return &XatsCon{Tag: tag}
+}
+
+func XatsCon1(tag int, a0 any) *XatsCon {
+	c := &conBuf{}
+	c.Tag = tag
+	c.buf[0] = a0
+	c.Args = c.buf[:1]
+	return &c.XatsCon
+}
+
+func XatsCon2(tag int, a0, a1 any) *XatsCon {
+	c := &conBuf{}
+	c.Tag = tag
+	c.buf[0], c.buf[1] = a0, a1
+	c.Args = c.buf[:2]
+	return &c.XatsCon
+}
+
+func XatsCon3(tag int, a0, a1, a2 any) *XatsCon {
+	c := &conBuf{}
+	c.Tag = tag
+	c.buf[0], c.buf[1], c.buf[2] = a0, a1, a2
+	c.Args = c.buf[:3]
+	return &c.XatsCon
+}
+
+// arity > conInline (4.5% of constructions): the plain two-object form.
+func XatsConN(tag int, args ...any) *XatsCon {
+	return &XatsCon{Tag: tag, Args: args}
+}
+
+func Xats_list_vt2t(xs *XatsCon) *XatsCon {
+	// (formerly stamped xs.Name = "list" for the generic printer; that printer
+	// is gone and nothing reads Name except exception matching, so the write
+	// was dead — and removing it is what makes nullary-con INTERNING safe.)
 	return xs
 }
 

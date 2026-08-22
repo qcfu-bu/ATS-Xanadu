@@ -686,15 +686,40 @@ i1con_construct_go1emit
 , i1vs: i1valist): void =
 let
   val ctag = d2con_get_ctag(dcon)
+  //
+  // ALLOCATION SHAPE (2026-08).  `&XatsCon{Tag:t, Args: []any{..}}` costs TWO
+  // heap objects (struct + slice backing array).  The runtime constructors
+  // carry inline storage for small arities (ONE object) and intern the
+  // nullary cons (ZERO).  Measured over the emitted compiler: 5801 con
+  // constructions — 26.0% arity 0, 87.2% arity <= 2, 95.5% arity <= 3.
+  //
+  // EXCEPTIONS keep the literal form: they also store a Name, and they are
+  // the only writer of that field (which is what keeps interning sound).
+  //
+  fun
+  zzlen(vs: i1valist): sint =
+  (case+ vs of list_nil() => 0 | list_cons(_, vs1) => 1 + zzlen(vs1))
+  val n0 = zzlen(i1vs)
+  val excp = d2con_is_excptn(dcon)
 in//let
+  if excp
+  then
+  (
   strnfpr(filr, "&xatsgo.XatsCon{Tag: ");
   i0i00go1(filr, ctag);
-  // EXCEPTIONS: an excptcon also stores its NAME (so a try/with handler can
-  // distinguish exception types that all share ctag -1).
   i1con_emit_name(filr, dcon);
   strnfpr(filr, ", Args: []any{");
   i1valgo1_list(filr, i1vs);
-  strnfpr(filr, "}}")
+  strnfpr(filr, "}}"))
+  else
+  (
+  strnfpr(filr, "xatsgo.XatsCon");
+  (if (n0 <= 3) then i0i00go1(filr, n0) else strnfpr(filr, "N"));
+  strnfpr(filr, "(");
+  i0i00go1(filr, ctag);
+  (if (n0 >= 1) then strnfpr(filr, ", "));
+  i1valgo1_list(filr, i1vs);
+  strnfpr(filr, ")"))
 end//endof[i1con_construct_go1emit(filr,dcon,i1vs)]
 //
 (*
