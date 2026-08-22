@@ -304,6 +304,53 @@ prewarm)
   echo ">> PREWARM: $n modules re-emitted (P=$PAR); empty emissions: $empty"
   [ "$empty" = 0 ] || exit 1
   ;;
+prewarm-touching)
+  # TARGETED re-emit: `iterate.sh prewarm-touching <regex> [P]`
+  #
+  # WHY: mtime invalidation is CONTENT-BLIND.  Relinking the bundle (any
+  # emitter OR frontend edit) makes all 194 emissions "stale", so we re-emit
+  # 194 modules — but a typical emitter fix changes only a few.  Measured
+  # blast radius of real changes from this campaign (modules whose emission
+  # even CONTAINS the affected construct):
+  #     TCO byref rebind (goxtco)        2/194   1.0%
+  #     jshmap leaf typing               5/194   2.6%
+  #     float64 coercer (Xats_as_dflt)  12/194   6.2%
+  #     return func-adapter (func(zza0) 14/194   7.2%
+  #     addr-of-field (&Xats_as_con)    53/194  27.3%
+  # So the usual over-invalidation is 4x-100x.
+  #
+  # Give a regex matching the construct your emitter change affects; only
+  # modules whose CURRENT emission contains it (plus any module whose own
+  # source changed) are re-emitted.  This is a HEURISTIC fast path: it is
+  # backstopped by `fixpoint`/`sweep`, which re-emit everything and byte-
+  # compare, so a missed module turns the pre-commit verify red rather than
+  # silently shipping.  When in doubt, use plain prewarm-self.
+  RE="${2:-}"; [ -n "$RE" ] || die "usage: iterate.sh prewarm-touching <regex> [P]"
+  PAR="${3:-3}"
+  [ -x "$BIN" ] || die "no selfhost binary"
+  eval "$(grep '^FRONTEND=' "$OUT/assemble.sh")"
+  eval "$(grep '^CCMODS=' "$OUT/assemble.sh")"
+  JOBS="$PROBEDIR/prewarm.jobs"; : > "$JOBS"
+  for f in "$X"/srcgen2/xats2go/srcgen2/DATS/*.dats; do
+    echo "$(basename "$f" .dats) $f" >> "$JOBS"; done
+  for m in $FRONTEND; do echo "$m $X/srcgen2/DATS/$m.dats" >> "$JOBS"; done
+  for m in $CCMODS; do echo "$m $X/srcgen2/xats2go/xats2cc/srcgen1/DATS/$m.dats" >> "$JOBS"; done
+  n=0; skipped=0
+  while read -r m f; do
+    g="$EMIT/$m.go"
+    hit=0
+    [ -s "$g" ] || hit=1                              # never emitted
+    [ "$f" -nt "$g" ] && hit=1                        # its own source changed
+    if [ "$hit" = 0 ] && grep -qE -- "$RE" "$g" 2>/dev/null; then hit=1; fi
+    if [ "$hit" = 0 ]; then skipped=$((skipped+1)); continue; fi
+    ( "$BIN" -o "$g" "$f" > /dev/null 2>"$EMIT/$m.err"
+      [ -s "$g" ] || echo "!! EMPTY EMIT: $m" >&2 ) &
+    n=$((n+1)); [ $((n % PAR)) -eq 0 ] && wait
+  done < "$JOBS"
+  wait
+  echo ">> PREWARM-TOUCHING /$RE/: $n re-emitted, $skipped skipped (P=$PAR)"
+  echo ">> heuristic path — fixpoint/sweep still verify all 194 before commit"
+  ;;
 prewarm-self)
   # BINARY-HOSTED prewarm: the SELFHOST BINARY re-emits the modules (dirty-
   # aware), replacing the node bundle in the build hot path.
