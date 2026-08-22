@@ -794,6 +794,13 @@ then
   strnfpr(filr, ")"))
 else
   (
+  // LAYOUT REGISTRY: a module that only ever PROJECTS a layout (never
+  // constructs one) still needs its struct + cast helper declared.  The
+  // construction path (i1con_construct_go1emit) and the lvalue/assign arms
+  // registered; this read path did not, so a projection-only layout came out
+  // `undefined: zzpzzs_<lay>` at link time -- caught by full-verify on the
+  // whole 194-module assembly, invisible to any single-module build.
+  layout_add(lay);
   strnfpr(filr, "zzp"); strnfpr(filr, lay); strnfpr(filr, "(");
   strnfpr(filr, "xatsgo.Xats_as_con(");
   i1valgo1(filr, iroot);

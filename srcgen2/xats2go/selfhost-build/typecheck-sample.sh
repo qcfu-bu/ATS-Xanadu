@@ -40,6 +40,13 @@ MODS=(
   "$X/srcgen2/DATS/f3perr0_dynexp.dats"
   "$X/srcgen2/xats2go/srcgen2/DATS/go1emit_dynexp.dats"
   "$X/srcgen2/xats2go/xats2cc/srcgen1/DATS/intrep0.dats"
+  # ABSIMPL-BEARING modules: a local `datavwtp` assumed to a SATS `#absvtbx`
+  # gives the SAME value two views -- concrete datatype at a constructor
+  # field, abstract box at a SATS-declared signature.  full-verify caught 36
+  # byref shape errors here that the curated set above could not see.
+  "$X/srcgen2/xats2go/srcgen2/DATS/trxi0i1_myenv0.dats"
+  "$X/srcgen2/DATS/trtmp3b_myenv0.dats"
+  "$X/srcgen2/DATS/trtmp3c_myenv0.dats"
 )
 
 t0=$(date +%s)

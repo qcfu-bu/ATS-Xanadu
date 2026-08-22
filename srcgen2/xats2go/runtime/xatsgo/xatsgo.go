@@ -216,6 +216,12 @@ var Xats_p2tr_get = func(p any) any {
 		return *q
 	case *float64:
 		return *q
+	case **XatsHdr:
+		// a by-ref DATATYPE cell.  Before datatype fields were typed, such a
+		// cell was declared `any` and arrived here as `*any`; it is now
+		// `*xatsgo.XatsCon`, so without this arm every one of the ~928
+		// emitted p2tr sites fell through to reflection.
+		return *q
 	}
 	return reflect.ValueOf(p).Elem().Interface()
 }
@@ -233,6 +239,8 @@ var Xats_p2tr_set = func(p any, v any) any {
 		*q = v.(int32)
 	case *float64:
 		*q = v.(float64)
+	case **XatsHdr:
+		*q = Xats_as_con(v)
 	default:
 		reflect.ValueOf(p).Elem().Set(reflect.ValueOf(v))
 	}

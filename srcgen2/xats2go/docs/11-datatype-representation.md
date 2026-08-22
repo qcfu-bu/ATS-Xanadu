@@ -100,6 +100,105 @@ a struct name: `int`→`i`, `bool`→`b`, `rune`→`r`, `string`→`s`,
 `float64`→`f`, datatype/recursive→`p`, polymorphic→`a`, other→`x`.
 `mycons of (sint, mylist)` → fields `[int, *XatsHdr]` → **`zzs_ip`**.
 
+### Typing datatype fields ("p" instead of "a") — TRIED 2026-08-22, REVERTED
+
+Flipping `go_layout_code` so a datatype field gets its own code `p`
+(`*xatsgo.XatsCon`) instead of sharing the erased `a` slot removes a
+`.(*xatsgo.XatsCon)` unbox on every read (1971 in the emitted compiler, the
+largest assertion class) and halves the slot to 8 bytes. Measured: b08_bst
+24% faster, b05_tree 14%. It passed psuite 75/75 and a 15-module typecheck.
+
+**It does not survive full-verify, and the reason is not the layout rule.**
+
+Construction and projection can derive DIFFERENT layout names for what is at
+runtime the same constructor:
+
+```go
+// lexbuf0_cstrx1.dats:219  -- built as zzs_aa (F1 is a 16-byte any)
+gof30tnm64 := &(&zzs_aa{XatsHdr{Tag: 1}, ...F0.(rune), ...F1}).XatsHdr
+// list000_vt.dats:399, same module -- read as zzs_ap (F1 is an 8-byte pointer)
+gof30tnm83 := zzpzzs_ap(xatsgo.Xats_as_con(gof30tnm79)).F1
+```
+
+**ROOT CAUSE, measured.** Instrumenting `i1con_construct_go1emit` and the
+`I1Vp1cn` arm to print the constructor's name, stamp and computed field types
+gives this for `lexbuf0_cstrx1`:
+
+```
+CON  list_vt_nil      stmp=10  lay=zzs_    f1=any
+CON  strmcon_vt_nil   stmp=15  lay=zzs_    f1=any
+CON  strmcon_vt_cons  stmp=16  lay=zzs_aa  f1=any               <- 5 constructions
+CON  strxcon_vt_cons  stmp=17  lay=zzs_aa  f1=any               <- 6 constructions
+PRJ  list_vt_cons     stmp=11  lay=zzs_aa  f1=*xatsgo.XatsCon   <- 7 projections, ZERO constructions
+PRJ  strmcon_vt_cons  stmp=16  lay=zzs_aa  f1=any
+PRJ  strxcon_vt_cons  stmp=17  lay=zzs_aa  f1=any
+```
+
+Every constructor has a unique stamp, and each one's field types are identical
+at its construction and projection sites. So the layout function is NOT
+context-sensitive, and there are NO duplicate `d2con` objects — both of the
+obvious hypotheses are refuted.
+
+What the data shows instead: **the module builds these cells with a STREAM
+constructor and reads them with a LIST constructor.** `list_vt_cons` is
+projected 7 times and constructed *never*; the constructions are
+`strxcon_vt_cons` / `strmcon_vt_cons`. The source is
+
+```ats
+LXBF1 of (strx_vt(sint), list_vt(char), list_vt(char))   // buf.1, buf.2 are list_vt
+...
+buf.2 := cons_vt(cc1, buf.2)      // resolves to strxcon_vt_cons / strmcon_vt_cons
+...
+val clst = list_vt_reverse0(buf.2)  // consumes them as list_vt_cons
+```
+
+and the field types differ exactly where it matters: a stream cons's tail is
+`streax_vt(a)`/`stream_vt(a)`, a LAZY typedef, so `f1 = any`; a list cons's
+tail is the datatype `list_vt_i0_vx(a, n)`, so `f1 = *xatsgo.XatsCon`.
+
+Under the erased model both render `zzs_aa` and the mix-up is byte-identical
+and harmless. Typed slots make them `zzs_aa` (40 B, F1 a 16-byte interface)
+versus `zzs_ap` (32 B, F1 an 8-byte pointer). Reading the interface's *type*
+word as a pointer makes `.Tag` garbage: `panic: XATS000_cfail` in the
+linear-list reverse loop.
+
+So the blocker is not the layout machinery at all — it is a latent
+type-safety hole in the compiler's own source (or in how `cons_vt` resolves;
+note every `#symload cons_vt` in the build path is commented out, yet it binds
+without a diagnostic). Uniform boxing made two different datatypes'
+constructors interchangeable, and the code depends on that.
+
+Under the erased model this was invisible, because `a` and `p` both mapped to
+`a` — the flip did not create the inconsistency, it exposed one.
+
+**Why `go build` cannot catch this class.** `zzs_aa` and `zzs_ap` are both
+valid Go, and storing a `*XatsCon` into an `any` field is legal. The mismatch
+is semantic, so `typecheck-sample` is structurally blind to it; only running
+the binary (regress/sweep) fails. Any future attempt needs a *layout-agreement
+check* — assert one canonical name per `d2con` across a module — not more
+typechecking.
+
+Prerequisites before re-landing:
+
+1. fix the constructor mix-up first — `cons_vt` must bind `list_vt_cons`
+   where the target is a `list_vt`, or the source must stop relying on
+   stream/list cons cells being interchangeable. A layout-agreement assertion
+   at emission time (one canonical layout per allocation site, checked against
+   the consuming pattern) would turn any remaining case into a hard error
+   instead of a wrong offset;
+2. `&field` and `&local` by-ref shapes must agree — needs the `#absimpl`
+   history (`s2abs_get_styp`) consulted in the BY-REFERENCE position only.
+   Resolving it by value splits signatures across modules: `#absimpl
+   d2cst_tbox = d2cst` makes `d2cst_get_stmp` take a `*XatsCon` inside
+   `dynexp2.dats` while every other module passes `any`;
+3. `assemble.sh`'s hand-written shims hardcode layout names, which the flip
+   renames. A missing name is a loud link error; a surviving name with a
+   different shape is silent corruption. These should be emitter-generated.
+
+Kept from the attempt (correct independently of the flip): `layout_add` at the
+read-projection site, so a module that only PROJECTS a layout still declares
+it; and the `**XatsHdr` arm in the runtime's p2tr type switch.
+
 ### Take from ATS2
 
 - **zero-cost nullary constructors** — ATS2 uses the tag as a pointer; Go
