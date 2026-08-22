@@ -31,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf16"
+	"unsafe"
 )
 
 // thePrintStore mirrors XATS2JS_the_print_store: a growable buffer that
@@ -323,16 +324,68 @@ func Xats_free(v any) any { return nil }
 // Tag test      (case clause)               -> v.Tag == ctag.
 // Projection    I1INSpcon(lab, v)/I1Vp1cn   -> v.Args[lab] (typed via .(T)).
 // Field set     I1Vlpcn(lab, v) = rhs       -> v.Args[lab] = rhs (mutation).
-type XatsCon struct {
-	Tag  int
-	Args []any
-	// Name is the constructor NAME, populated ONLY for EXCEPTION constructors
-	// (excptcon), which the front-end all assigns the sentinel ctag -1 (they are
-	// an OPEN/extensible sum, unlike a closed datatype whose constructors get
-	// distinct ctags 0,1,...). A try/with handler distinguishes two exception
-	// types by Name (mirrors the JS backend's XATSCTAG(name, ctag) which compares
-	// BOTH name and ctag). For ordinary datatype values Name is the zero "".
+// XatsCon is the datatype HANDLE: an ALIAS of the common header, so every
+// emitted `*xatsgo.XatsCon` annotation, `Xats_as_con`, and `v.Tag == N` test
+// keeps working while the PAYLOAD lives in per-layout constructor structs
+// emitted into package main (docs/11-datatype-representation.md).
+// ATS2 equivalent: ATStysum() = struct{ int contag; }.
+type XatsCon = XatsHdr
+
+// LAYOUT MIRRORS: xatsgo cannot name main's `zzs_*` structs (no import
+// cycle), but an unsafe cast only needs the LAYOUT to agree — which is how
+// ATS2's C runtime works with generated tysum structs.  Keep in sync with
+// go_dcon_layout_name's encoding.
+type xatsConA struct {
+	XatsHdr
+	F0 any
+}
+type xatsConAA struct {
+	XatsHdr
+	F0 any
+	F1 any
+}
+type xatsConAP struct {
+	XatsHdr
+	F0 any
+	F1 *XatsHdr
+}
+type xatsConIII struct {
+	XatsHdr
+	F0 int
+	F1 int
+	F2 int
+}
+
+// EXCEPTIONS are an OPEN sum (all ctag -1, distinguished by Name), so they
+// keep a name + boxed args beside the header.  The helpers keep `unsafe`
+// inside xatsgo rather than in every emitted try/with.
+type XatsExn struct {
+	XatsHdr
 	Name string
+	Args []any
+}
+
+func Xats_exn_new(name string, args ...any) *XatsHdr {
+	e := &XatsExn{XatsHdr{-1}, name, args}
+	return &e.XatsHdr
+}
+func Xats_exn_name(v any) string {
+	c, ok := v.(*XatsHdr)
+	if !ok || c == nil || c.Tag != -1 {
+		return ""
+	}
+	return (*XatsExn)(unsafe.Pointer(c)).Name
+}
+func Xats_exn_arg(v any, i int) any {
+	c, ok := v.(*XatsHdr)
+	if !ok || c == nil {
+		return nil
+	}
+	e := (*XatsExn)(unsafe.Pointer(c))
+	if i < 0 || i >= len(e.Args) {
+		return nil
+	}
+	return e.Args[i]
 }
 
 // XatsHdr is the COMMON HEADER of the per-layout constructor structs
@@ -359,58 +412,6 @@ func Xats_as_con(x any) *XatsCon {
 // allocation), and INTERN the nullary cons (zero allocations for a quarter of
 // all constructions).  Interning is sound because a nullary con has no fields
 // to mutate, nothing mutates Tag, and Name is written only by exception
-// construction — which never takes this path.
-const conInline = 3
-
-type conBuf struct {
-	XatsCon
-	buf [conInline]any
-}
-
-// interned nullary cons, indexed by ctag (ctag -1 = exceptions, excluded).
-var xatsNil [64]XatsCon
-
-func init() {
-	for i := range xatsNil {
-		xatsNil[i].Tag = i
-	}
-}
-
-func XatsCon0(tag int) *XatsCon {
-	if tag >= 0 && tag < len(xatsNil) {
-		return &xatsNil[tag]
-	}
-	return &XatsCon{Tag: tag}
-}
-
-func XatsCon1(tag int, a0 any) *XatsCon {
-	c := &conBuf{}
-	c.Tag = tag
-	c.buf[0] = a0
-	c.Args = c.buf[:1]
-	return &c.XatsCon
-}
-
-func XatsCon2(tag int, a0, a1 any) *XatsCon {
-	c := &conBuf{}
-	c.Tag = tag
-	c.buf[0], c.buf[1] = a0, a1
-	c.Args = c.buf[:2]
-	return &c.XatsCon
-}
-
-func XatsCon3(tag int, a0, a1, a2 any) *XatsCon {
-	c := &conBuf{}
-	c.Tag = tag
-	c.buf[0], c.buf[1], c.buf[2] = a0, a1, a2
-	c.Args = c.buf[:3]
-	return &c.XatsCon
-}
-
-// arity > conInline (4.5% of constructions): the plain two-object form.
-func XatsConN(tag int, args ...any) *XatsCon {
-	return &XatsCon{Tag: tag, Args: args}
-}
 
 func Xats_list_vt2t(xs *XatsCon) *XatsCon {
 	// (formerly stamped xs.Name = "list" for the generic printer; that printer
@@ -558,46 +559,13 @@ var Xats_XATSOPT_strn_append_uint = func(name any, stmp any) any {
 func xatsStrmFrom(items []any, i int) func() any {
 	return func() any {
 		if i >= len(items) {
-			return &XatsCon{Tag: 0}
+			return &XatsHdr{Tag: 0}
 		}
-		return &XatsCon{Tag: 1, Args: []any{items[i], xatsStrmFrom(items, i+1)}}
+		c := &xatsConAA{XatsHdr{1}, items[i], xatsStrmFrom(items, i+1)}
+		return &c.XatsHdr
 	}
 }
 func Xats_strm_of_items(items []any) func() any { return xatsStrmFrom(items, 0) }
-
-func xatsGeqScalarsAgree(c1, c2 *XatsCon, depth int) bool {
-	if c1.Tag != c2.Tag || len(c1.Args) != len(c2.Args) {
-		return false
-	}
-	for i := range c1.Args {
-		a1, a2 := c1.Args[i], c2.Args[i]
-		switch v1 := a1.(type) {
-		case int:
-			if v2, ok := a2.(int); !ok || v1 != v2 {
-				return false
-			}
-		case int32:
-			if v2, ok := a2.(int32); !ok || v1 != v2 {
-				return false
-			}
-		case string:
-			if v2, ok := a2.(string); !ok || v1 != v2 {
-				return false
-			}
-		case bool:
-			if v2, ok := a2.(bool); !ok || v1 != v2 {
-				return false
-			}
-		case *XatsCon:
-			if depth > 0 {
-				if v2, ok := a2.(*XatsCon); !ok || !xatsGeqScalarsAgree(v1, v2, depth-1) {
-					return false
-				}
-			}
-		}
-	}
-	return true
-}
 
 // -- float (dflt) arithmetic / compare (any-typed fallback) ------------------
 
@@ -758,9 +726,11 @@ func xatsGcmp(a any, b any) int {
 		// is a `postn` = POSTN(ntot, nrow, ncol) (location arithmetic:
 		// add_loctn_loctn's g_min(pbeg)/g_max(pend)), which orders by ntot
 		// (postn_cmp).  Compare the leading int field.
-		if y, ok := b.(*XatsCon); ok && len(x.Args) > 0 && len(y.Args) > 0 {
-			if xi, ok1 := x.Args[0].(int); ok1 {
-				if yi, ok2 := y.Args[0].(int); ok2 {
+		if y, ok := b.(*XatsCon); ok {
+			{
+				{
+					xi := (*xatsConIII)(unsafe.Pointer(x)).F0
+					yi := (*xatsConIII)(unsafe.Pointer(y)).F0
 					if xi < yi {
 						return -1
 					}
@@ -923,9 +893,10 @@ func Xats_XATS2JS_jshmap_insert_any(mp any, key any, itm any) any {
 func Xats_XATS2JS_jshmap_search_opt(mp any, key any) *XatsCon {
 	h := mp.(*xatsJSHMap)
 	if itm, ok := h.m[key]; ok {
-		return &XatsCon{Tag: 1, Args: []any{itm}}
+		c := &xatsConA{XatsHdr{1}, itm}
+		return &c.XatsHdr
 	}
-	return &XatsCon{Tag: 0}
+	return &XatsHdr{Tag: 0}
 }
 
 // get_keys: a jsa1sz (JS array) of the keys — []any, JS enumeration order
@@ -1147,12 +1118,15 @@ func xatsSeqItems(xs any) []any {
 			if c == nil || c.Tag != 1 {
 				break
 			}
-			out = append(out, c.Args[0])
-			nxt, ok := c.Args[1].(func() any)
+			cc := (*xatsConAA)(unsafe.Pointer(c))
+			out = append(out, cc.F0)
+			nxt, ok := cc.F1.(func() any)
 			if !ok {
 				// eager tail (mixed producer): fall back to the con walk.
-				for t := Xats_as_con(c.Args[1]); t != nil && t.Tag == 1; t = t.Args[1].(*XatsCon) {
-					out = append(out, t.Args[0])
+				for t := Xats_as_con(cc.F1); t != nil && t.Tag == 1; {
+					tc := (*xatsConAP)(unsafe.Pointer(t))
+					out = append(out, tc.F0)
+					t = tc.F1
 				}
 				break
 			}
@@ -1169,8 +1143,10 @@ func xatsSeqItems(xs any) []any {
 		return v
 	case *XatsCon:
 		var out []any
-		for c := v; c != nil && c.Tag == 1; c = c.Args[1].(*XatsCon) {
-			out = append(out, c.Args[0])
+		for c := v; c != nil && c.Tag == 1; {
+			cc := (*xatsConAP)(unsafe.Pointer(c))
+			out = append(out, cc.F0)
+			c = cc.F1
 		}
 		return out
 	}
@@ -1528,3 +1504,15 @@ var Xats_XATS2JS_the_print_store_flush = func() any {
 // XATS000_strn_get_at_raw: the srcgen1-core-prefixed alias of the unchecked
 // charCodeAt (test94's foritm chain resolves through the XATS000_ extern).
 var Xats_XATS000_strn_get_at_raw = Xats_XATS2JS_strn_get_at
+
+// LOUD FAILURES for datacon access with no constructor evidence.  A layout is
+// what fixes a field's OFFSET (F1 sits after a 16-byte `any` in one layout and
+// after an 8-byte int in another), so guessing would read the wrong bytes
+// silently.  If either of these is ever reached, the emitter lost the
+// constructor somewhere upstream — see docs/11-datatype-representation.md.
+func Xats_proj_nolayout(v any, i int) any {
+	panic(fmt.Sprintf("xatsgo: datacon projection with no layout (field %d of %T)", i, v))
+}
+func Xats_lvalue_nolayout(v any) *any {
+	panic(fmt.Sprintf("xatsgo: datacon lvalue with no layout (%T)", v))
+}

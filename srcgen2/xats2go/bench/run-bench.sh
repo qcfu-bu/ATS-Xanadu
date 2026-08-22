@@ -26,6 +26,7 @@ W=$B/BUILD
 REPS="${1:-3}"
 
 GOBIN=$X/srcgen2/xats2go/selfhost-build/src/xats2go-selfhost
+GOBUNDLE=$X/srcgen2/xats2go/srcgen2/BUILD/xats2go-bundle.patched.js
 CZBUNDLE=$X/srcgen2/xats2cz/BUILD/xats2cz-bundle.js
 CZRT=$X/srcgen2/xats2cz/runtime/xats2cz_runtime.scm
 RUNTIMEGO=$X/srcgen2/xats2go/runtime/xatsgo
@@ -43,9 +44,15 @@ build_one() { # build_one <name>
   local m=$1 src=$B/SRC/$1.dats d=$W/$1
   mkdir -p "$d"
   # -- Go side (GO arm) ------------------------------------------------
-  if [ ! -x "$d/$m.gobin" ] || [ "$src" -nt "$d/$m.gobin" ] || [ "$GOBIN" -nt "$d/$m.gobin" ]; then
+  if [ ! -x "$d/$m.gobin" ] || [ "$src" -nt "$d/$m.gobin" ] || [ "$GOBUNDLE" -nt "$d/$m.gobin" ]; then
     sed 's/prelude_JS_dats\.hats/prelude_GO_dats.hats/' "$src" > "$d/$m.goarm.dats"
-    "$GOBIN" -o "$d/$m.go" "$d/$m.goarm.dats" > /dev/null 2> "$d/$m.go.err" || { echo "!! go-emit $m"; return 1; }
+    # emit with the BUNDLE, not the selfhost binary: the bundle is rebuilt from
+    # emitter sources on every `iterate.sh quick`, whereas the binary is only
+    # refreshed by a full selfcycle — benching the binary silently measures an
+    # OLD emitter (it hid a 2.6x datatype-representation win until caught).
+    node --stack-size=50000 "$GOBUNDLE" "$d/$m.goarm.dats" 2> "$d/$m.go.err" \
+      | awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' > "$d/$m.go"
+    [ -s "$d/$m.go" ] || { echo "!! go-emit $m"; return 1; }
     grep -q 'ERROR' "$d/$m.go.err" && { echo "!! go-emit diagnostics for $m:"; grep 'ERROR' "$d/$m.go.err" | head -3; return 1; }
     # splice the CATS/GO floor: auto-detect the std imports it references
     # (Go errors on both a missing and an unused import).

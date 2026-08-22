@@ -199,6 +199,10 @@ val () = strnfpr(filr, "//==XATS2GO-BEGIN==\n")
 val () = strnfpr(filr, "package main\n")
 val () = strnfpr(filr, "\n")
 val () = strnfpr(filr, "import \"xatsgo\"\n")
+// `unsafe` backs the per-layout cast helpers (ATS2's ATSSELcon).  The blank
+// var keeps the import used even in a module that declares no layouts.
+val () = strnfpr(filr, "import \"unsafe\"\n")
+val () = strnfpr(filr, "var _ unsafe.Pointer\n")
 val () = strnfpr(filr, "\n")
 val () =
 strnfpr

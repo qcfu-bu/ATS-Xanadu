@@ -3053,7 +3053,17 @@ case+ nms of
     strnfpr(filr, " struct {\n");
     strnfpr(filr, "\txatsgo.XatsHdr\n");
     loop1(nm, 0, n0);
-    strnfpr(filr, "}\n"))
+    strnfpr(filr, "}\n");
+    // CAST HELPER: the handle is the common header; recovering the
+    // constructor's own struct is ATS2's ATSSELcon (`((tysum*)pmv)->lab`).
+    // Emitting it once per layout keeps `unsafe` out of every access site.
+    strnfpr(filr, "func zzp"); strnfpr(filr, nm);
+    strnfpr(filr, "(v *xatsgo.XatsHdr) *"); strnfpr(filr, nm);
+    strnfpr(filr, " { return (*"); strnfpr(filr, nm);
+    strnfpr(filr, ")(unsafe.Pointer(v)) }\n");
+    // NULLARY layout: a shared singleton (ATS2 encodes the tag as the
+    // pointer; Go cannot forge pointers, so share one instance per tag).
+    ((*only the header, no fields*)))
   in
     loop0(nms1)
   end

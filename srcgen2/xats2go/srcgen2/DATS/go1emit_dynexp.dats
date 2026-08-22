@@ -658,7 +658,7 @@ to M2.7).  [d2con_get_name] is a sym_t whose [prints] is its textual name (the
 same the JS backend quotes).
 *)
 fun
-i1con_emit_name
+i1con_emit_excname
 ( filr: FILR
 , dcon: d2con): void =
 (
@@ -673,11 +673,10 @@ in
   // under self-hosting [prints(nm)] bridged to the generic printer and the
   // excptcon Name emitted as "list()".  [print] resolves via g_print<symbl>
   // (xatsopt_tmplib) to symbl_fprint -- same bytes on the jsemit00 path.
-  strnfpr(filr, ", Name: ");
   print('"'); print(nm); print('"')
 end
 else ((*ordinary datatype con -- no Name*))
-)//endof[i1con_emit_name(filr,dcon)]
+)//endof[i1con_emit_excname(filr,dcon)]
 //
 fun
 i1con_construct_go1emit
@@ -713,21 +712,24 @@ in//let
   if excp
   then
   (
-  strnfpr(filr, "&xatsgo.XatsCon{Tag: ");
-  i0i00go1(filr, ctag);
-  i1con_emit_name(filr, dcon);
-  strnfpr(filr, ", Args: []any{");
-  i1valgo1_list(filr, i1vs);
-  strnfpr(filr, "}}"))
-  else
-  (
-  strnfpr(filr, "xatsgo.XatsCon");
-  (if (n0 <= 3) then i0i00go1(filr, n0) else strnfpr(filr, "N"));
-  strnfpr(filr, "(");
-  i0i00go1(filr, ctag);
+  // EXCEPTIONS are an open sum (ctag -1 + a Name); xatsgo owns their struct.
+  strnfpr(filr, "xatsgo.Xats_exn_new(");
+  i1con_emit_excname(filr, dcon);
   (if (n0 >= 1) then strnfpr(filr, ", "));
   i1valgo1_list(filr, i1vs);
   strnfpr(filr, ")"))
+  else
+  (
+  // PER-LAYOUT CONSTRUCTION: one allocation, exactly sized, typed fields.
+  // The handle is the embedded header's address, so every `*xatsgo.XatsCon`
+  // annotation and `v.Tag == N` test downstream is unchanged.
+  strnfpr(filr, "&(&"); strnfpr(filr, go_dcon_layout_name(dcon));
+  // KEYED field: `go vet`'s composites check rejects an unkeyed literal for
+  // a struct imported from another package.
+  strnfpr(filr, "{xatsgo.XatsHdr{Tag: "); i0i00go1(filr, ctag); strnfpr(filr, "}");
+  (if (n0 >= 1) then strnfpr(filr, ", "));
+  i1valgo1_list(filr, i1vs);
+  strnfpr(filr, "}).XatsHdr"))
 end//endof[i1con_construct_go1emit(filr,dcon,i1vs)]
 //
 (*
@@ -763,7 +765,8 @@ i1con_proj_go1emit
 ( filr: FILR
 , iroot: i1val
 , idx: sint
-, gty: strn): void =
+, gty: strn
+, lay: strn): void =
 (
 // FLAT-TUPLE field: the Args slot is `any` and the producer chose the
 // tuple's anonymous-struct identity independently (`F0 any` vs `F0 int`),
@@ -774,12 +777,21 @@ if go_structq(gty)
 then go_tup_proj_repack_emit(filr, gty, iroot, idx)
 else
 (
-strnfpr(filr, "xatsgo.Xats_as_con(");
-i1valgo1(filr, iroot);
-strnfpr(filr, ").Args["); i0i00go1(filr, idx); strnfpr(filr, "]");
 (
-if (gty = "any") then ()
-else (strnfpr(filr, ".("); strnfpr(filr, gty); strnfpr(filr, ")")))))
+if (strn_length(lay) = 0)
+then
+  (
+  // no constructor evidence at this projection: fail LOUDLY (guessing an
+  // offset would read the wrong bytes silently).
+  strnfpr(filr, "xatsgo.Xats_proj_nolayout(");
+  i1valgo1(filr, iroot); strnfpr(filr, ", "); i0i00go1(filr, idx);
+  strnfpr(filr, ")"))
+else
+  (
+  strnfpr(filr, "zzp"); strnfpr(filr, lay); strnfpr(filr, "(");
+  strnfpr(filr, "xatsgo.Xats_as_con(");
+  i1valgo1(filr, iroot);
+  strnfpr(filr, ")).F"); i0i00go1(filr, idx)))))
 //endof[i1con_proj_go1emit(filr,iroot,idx,gty)]
 //
 (*
@@ -2031,7 +2043,33 @@ asserts to its concrete type, a datatype field asserts to `*xatsgo.XatsCon` (the
 recursion case), a polymorphic field stays `any` (no assertion).
 *)
 |I1Vp1cn(ipat, iroot, pind) =>
-  i1con_proj_go1emit(filr, iroot, pind, goty_of_p1cn(ipat, pind))
+  (let
+     // EXCEPTIONS do not use a layout struct: xatsgo owns XatsExn, whose Name
+     // sits between the header and the payload, so a layout cast would read
+     // the wrong field (it bound the handler variable to the exception NAME).
+     val excp =
+     (case+ dcon_of_i0pat(ipat) of
+      |optn_cons(dcon) => d2con_is_excptn(dcon)
+      |optn_nil() => false)
+     val lay =
+     (if excp then "" else
+      case+ dcon_of_i0pat(ipat) of
+      |optn_cons(dcon) => go_dcon_layout_name(dcon)
+      |optn_nil() => "")
+     val () = (if (strn_length(lay) > 0) then layout_add(lay))
+   in
+     if excp
+     then
+     (
+     strnfpr(filr, "xatsgo.Xats_exn_arg(");
+     i1valgo1(filr, iroot); strnfpr(filr, ", "); i0i00go1(filr, pind);
+     strnfpr(filr, ")");
+     (let val gt = goty_of_p1cn(ipat, pind) in
+      if (gt = "any") then ()
+      else (strnfpr(filr, ".("); strnfpr(filr, gt); strnfpr(filr, ")")) end))
+     else
+       i1con_proj_go1emit(filr, iroot, pind, goty_of_p1cn(ipat, pind), lay)
+   end)
 //
 (*
 GAP A2 (tuple-PATTERN function params).  A tuple-pattern parameter
@@ -2070,12 +2108,16 @@ assertion is emitted on the LVALUE side (a `.(T)` is not addressable in Go).
        val lay = go_dcon_layout_name(dcon)
      in
        layout_add(lay);
-       strnfpr(filr, "/*lay:"); strnfpr(filr, lay); strnfpr(filr, "*/")
+       strnfpr(filr, "zzp"); strnfpr(filr, lay); strnfpr(filr, "(");
+       strnfpr(filr, "xatsgo.Xats_as_con(");
+       i1valgo1(filr, iroot);
+       strnfpr(filr, ")).F"); i0lab_int_go1(filr, lab0)
      end
-   |optn_nil() => strnfpr(filr, "/*lay:?*/"));
-  strnfpr(filr, "xatsgo.Xats_as_con(");
-  i1valgo1(filr, iroot);
-  strnfpr(filr, ").Args["); i0lab_int_go1(filr, lab0); strnfpr(filr, "]"))
+   // no constructor evidence: fail LOUDLY rather than guess an offset.
+   |optn_nil() =>
+     (
+     strnfpr(filr, "xatsgo.Xats_lvalue_nolayout(");
+     i1valgo1(filr, iroot); strnfpr(filr, ")"))))
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -3472,9 +3514,11 @@ let
   val nm = d2con_get_name(dcon)
   #impltmp g_print$out<>() = filr
 in
-  strnfpr(filr, " && xatsgo.Xats_as_con(");
+  // exception identity now lives in xatsgo's XatsExn (the header carries only
+  // the tag), so read it through the accessor rather than a field.
+  strnfpr(filr, " && xatsgo.Xats_exn_name(");
   i1valgo1(filr, casval);
-  strnfpr(filr, ").Name == ");
+  strnfpr(filr, ") == ");
   // CLAUDE-2026-08: single-arg [print] (see [i1con_emit_name]).
   print('"'); print(nm); print('"')
 end

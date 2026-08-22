@@ -23,7 +23,7 @@ EMIT="$OUT/emit"; mkdir -p "$EMIT"
 #    does with jsxtnm -> jsx<N>tnm) so module-level `var` temps cannot collide
 #    in the concatenated package.
 : > "$OUT/src/emitter_all.go"
-printf 'package main\n\nimport "xatsgo"\n\nvar _ = xatsgo.XATSNIL\n\n' > "$OUT/src/emitter_all.go"
+printf 'package main\n\nimport "xatsgo"\nimport "unsafe"\n\nvar _ = xatsgo.XATSNIL\nvar _ unsafe.Pointer\n\n' > "$OUT/src/emitter_all.go"
 # MODULE-INIT PRESERVATION: each module's top-level effect initializers (e.g.
 # lexing_kword_init that populates the keyword table, or dynexp2's stamp
 # counters) live in that module's `func main`.  Stripping main dropped them,
