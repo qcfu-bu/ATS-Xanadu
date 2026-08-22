@@ -432,7 +432,7 @@ ival.node() of
 //
 |I1Vlpft(_, iv1) => used_in_val(stmp, scp, iv1)
 |I1Vlpbx(_, iv1) => used_in_val(stmp, scp, iv1)
-|I1Vlpcn(_, iv1) => used_in_val(stmp, scp, iv1)
+|I1Vlpcn(_, iv1, _) => used_in_val(stmp, scp, iv1)
 //
 |I1Vextnam(_, iv1, _) => used_in_val(stmp, scp, iv1)
 //

@@ -62,6 +62,10 @@ XATSOPT "./../../.."
 /../../xats2cc\
 /srcgen1/SATS/intrep0.sats"//...
 //
+#staload // D2E: s2cst_get_d2cs (a datatype's constructor list) — needed to
+         // resolve the CONSTRUCTOR at an I0Epcon lvalue, where only the
+         // intrep0 TYPE is available (docs/11-datatype-representation.md).
+"./../../../SATS/dynexp2.sats"
 #staload "./../SATS/intrep1.sats"
 #staload "./../SATS/trxi0i1.sats"
 //
@@ -214,6 +218,52 @@ i1val_make_node(loc0,I1Vtnm(itnm)))
 //
 (* ****** ****** *)
 (* ****** ****** *)
+//
+(*
+CLAUDE-2026-08 (layout propagation, docs/11-datatype-representation.md).
+[I1Vlpcn] must carry the CONSTRUCTOR so the emitter knows the field offset in
+the per-layout struct.  Two lowering paths reach it, with different evidence:
+//
+ - from an [I1Vp1cn] whose i0pat IS the constructor pattern -> [zzdcon_of_i0pat];
+ - from [I0Epcon] on a value whose intrep0 TYPE is a datatype -> [zzdcon_of_ityp],
+   which resolves the constructor when the datatype has exactly ONE (records
+   and single-constructor datatypes -- the shapes field MUTATION actually uses).
+//
+Both yield optn_nil when the evidence is absent; the emitter then falls back
+(and says so loudly rather than guessing an offset).
+*)
+fun
+zzdcon_of_i0pat
+(ipat: i0pat): optn(d2con) =
+(
+case+ ipat.node() of
+|I0Pcon(dcon) => optn_cons(dcon)
+|I0Pdap1(ip1) => zzdcon_of_i0pat(ip1)
+|I0Pdapp(ip1, _, _) => zzdcon_of_i0pat(ip1)
+|I0Ptapq(ip1, _) => zzdcon_of_i0pat(ip1)
+|I0Pbang(ip1) => zzdcon_of_i0pat(ip1)
+|I0Pflat(ip1) => zzdcon_of_i0pat(ip1)
+|I0Pfree(ip1) => zzdcon_of_i0pat(ip1)
+| _(*else*) => optn_nil()
+)
+//
+fun
+zzdcon_of_ityp
+(ity: i0typ): optn(d2con) =
+(
+case+ ity.node() of
+|I0Tcst(s2c0) =>
+  (
+  case+ s2cst_get_d2cs(s2c0) of
+  | ~optn_vt_nil() => optn_nil()
+  | ~optn_vt_cons(dcs) =>
+    (
+    // exactly ONE constructor => the label alone fixes the layout.
+    case+ dcs of
+    |list_cons(dc1, list_nil()) => optn_cons(dc1)
+    | _(*several / none*) => optn_nil()))
+| _(*else*) => optn_nil()
+)
 //
 fun
 i1val_addr
@@ -1200,7 +1250,7 @@ case+
 ival.node() of
 //
 |I1Vp1cn
-(_, i1v0, idx1) =>
+(ipat1, i1v0, idx1) =>
 let
 //
 val lctn = ival.lctn()
@@ -1209,7 +1259,7 @@ val lab1 = LABint(idx1)
 in//let
 (
   i1val_make_node
-  (lctn, I1Vlpcn(lab1, i1v0)))
+  (lctn, I1Vlpcn(lab1, i1v0, zzdcon_of_i0pat(ipat1))))
 end//let
 //
 |I1Vp1rj
@@ -3294,7 +3344,7 @@ in//let
 //
 i1val_make_node
 (
-loc0, I1Vlpcn(lab0, i1v1))
+loc0, I1Vlpcn(lab0, i1v1, zzdcon_of_ityp(i0e1.ityp())))
 where{
 val
 i1v1 = i0exp_trxi0i1(i0e1, env0) }

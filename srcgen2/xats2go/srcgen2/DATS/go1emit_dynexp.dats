@@ -2058,8 +2058,21 @@ assignment target; the value is stored as `any` (the slot type), so NO type
 assertion is emitted on the LVALUE side (a `.(T)` is not addressable in Go).
 [lab] is a LABint(i) -- the value-field index.
 *)
-|I1Vlpcn(lab0, iroot) =>
+|I1Vlpcn(lab0, iroot, dcopt) =>
   (
+  // LAYOUT PROPAGATION (docs/11): trxi0i1 now carries the CONSTRUCTOR here,
+  // so the per-layout field offset is known at a MUTATION site.  Registered
+  // and annotated for now; the typed form replaces Args[] once construction
+  // and projection flip together.
+  (case+ dcopt of
+   |optn_cons(dcon) =>
+     let
+       val lay = go_dcon_layout_name(dcon)
+     in
+       layout_add(lay);
+       strnfpr(filr, "/*lay:"); strnfpr(filr, lay); strnfpr(filr, "*/")
+     end
+   |optn_nil() => strnfpr(filr, "/*lay:?*/"));
   strnfpr(filr, "xatsgo.Xats_as_con(");
   i1valgo1(filr, iroot);
   strnfpr(filr, ").Args["); i0lab_int_go1(filr, lab0); strnfpr(filr, "]"))
@@ -2182,7 +2195,7 @@ case+ ilts of
       |I1INSflat(iv1) =>
         (
         case+ iv1.node() of
-        |I1Vlpcn(_, _) => true
+        |I1Vlpcn(_, _, _) => true
         | _(*else*) => false)
       | _(*else*) => false)
     else tnm_bound_by_pconq(stmp, ilts1))

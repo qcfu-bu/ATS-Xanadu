@@ -469,7 +469,16 @@ For flat/boxed left-values
 HX-2024-07-18:
 For data-consed left-values
 *)
-|I1Vlpcn of (label, i1val)//consd
+(*
+CLAUDE-2026-08: the third field carries the CONSTRUCTOR whose field this is.
+The per-layout constructor structs (docs/11-datatype-representation.md) need
+it to know the field OFFSET -- F1 sits after a 16-byte `any` in one layout and
+after an 8-byte int in another, so no generic accessor can replace `Args[i]`.
+trxi0i1 resolves it while the intrep0 TYPE is still present (i1val carries no
+type); optn_nil only when the datatype has several constructors and the label
+alone cannot disambiguate.
+*)
+|I1Vlpcn of (label, i1val, optn(d2con))//consd
 //
 (* ****** ****** *)
 (* ****** ****** *)
