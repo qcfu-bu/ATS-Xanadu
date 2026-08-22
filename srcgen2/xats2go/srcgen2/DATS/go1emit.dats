@@ -236,6 +236,13 @@ val () = envx2go_decnind(env0, 1(*--*))
 //
 val () = strnfpr(filr, "}\n")
 //
+// --- per-layout constructor structs -------------------------------------
+// Emitted LAST: Go ignores package-level declaration order, and the set is
+// only known after the whole module has been walked (intrep1 has no
+// datatype-declaration node to drive this from).  assemble.sh dedups by
+// type name across modules.
+val () = go_layout_decls_emit(filr)
+//
 val () = strnfpr(filr, "//==XATS2GO-END==\n")
 //
 }(*where*)

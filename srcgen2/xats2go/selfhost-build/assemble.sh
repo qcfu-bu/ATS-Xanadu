@@ -34,6 +34,7 @@ printf 'package main\n\nimport "xatsgo"\n\nvar _ = xatsgo.XATSNIL\n\n' > "$OUT/s
 # module's top-level effects at load.
 MI=0
 : > "$OUT/src/.modinits"
+: > "$OUT/src/.layouts"
 n=0
 for f in "$X"/srcgen2/xats2go/srcgen2/DATS/*.dats; do
   m="$(basename "$f" .dats)"
@@ -44,11 +45,14 @@ for f in "$X"/srcgen2/xats2go/srcgen2/DATS/*.dats; do
   # strip header (up to first `func`/`var`); RENAME the module's main to a
   # per-module init so its top-level effects survive.
   awk 'BEGIN{started=0}
+       /^type zzs_[a-z]* struct \{$/{lay=1}
+       lay{if($0=="}"){lay=0}; next}
        /^func /{started=1}
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
     | sed -E "s/goxtnm([0-9])/go${n}tnm\\1/g" \
     | sed "s/^func main() {\$/func zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
+  awk '/^type zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}}' "$EMIT/$m.go" >> "$OUT/src/.layouts"
   echo "zzmodinit_${MI}" >> "$OUT/src/.modinits"
   MI=$((MI+1))
   printf "\n" >> "$OUT/src/emitter_all.go"
@@ -69,11 +73,14 @@ for m in $FRONTEND; do
     awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
   fi
   awk 'BEGIN{started=0}
+       /^type zzs_[a-z]* struct \{$/{lay=1}
+       lay{if($0=="}"){lay=0}; next}
        /^func /{started=1}
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
     | sed -E "s/goxtnm([0-9])/gof${fn}tnm\\1/g" \
     | sed "s/^func main() {\$/func zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
+  awk '/^type zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}}' "$EMIT/$m.go" >> "$OUT/src/.layouts"
   echo "zzmodinit_${MI}" >> "$OUT/src/.modinits"
   MI=$((MI+1))
   printf "\n" >> "$OUT/src/emitter_all.go"
@@ -99,11 +106,14 @@ for m in $CCMODS; do
     awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
   fi
   awk 'BEGIN{started=0}
+       /^type zzs_[a-z]* struct \{$/{lay=1}
+       lay{if($0=="}"){lay=0}; next}
        /^func /{started=1}
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
     | sed -E "s/goxtnm([0-9])/goc${cn}tnm\\1/g" \
     | sed "s/^func main() {\$/func zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
+  awk '/^type zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}}' "$EMIT/$m.go" >> "$OUT/src/.layouts"
   echo "zzmodinit_${MI}" >> "$OUT/src/.modinits"
   MI=$((MI+1))
   printf "\n" >> "$OUT/src/emitter_all.go"
@@ -117,6 +127,18 @@ done
   printf '\nfunc init() {\n'
   while IFS= read -r nm; do printf '\t%s()\n' "$nm"; done < "$OUT/src/.modinits"
   printf '}\n'
+} >> "$OUT/src/emitter_all.go"
+
+# PER-LAYOUT CONSTRUCTOR STRUCTS: every module emits declarations for the
+# layouts it touched, so the same struct arrives many times.  Emit the UNION
+# once, deduplicated by type name (identical layouts SHARE a struct — that is
+# what keeps ATS's representation casts free).  See
+# docs/11-datatype-representation.md.
+{
+  printf '\n// ---- per-layout constructor structs (deduplicated) ----\n'
+  awk '/^type (zzs_[a-z]*) struct \{$/{nm=$2; if(nm in seen){skip=1} else {seen[nm]=1; skip=0}}
+       !skip{print}
+       /^\}$/{skip=0}' "$OUT/src/.layouts"
 } >> "$OUT/src/emitter_all.go"
 
 printf '\nfunc main() { xatsgo.XATS2GO_flush_pending() }\n' >> "$OUT/src/emitter_all.go"

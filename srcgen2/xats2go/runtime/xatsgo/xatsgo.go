@@ -335,6 +335,15 @@ type XatsCon struct {
 	Name string
 }
 
+// XatsHdr is the COMMON HEADER of the per-layout constructor structs
+// (docs/11-datatype-representation.md).  Every datatype handle points at one
+// of these; each constructor struct embeds it FIRST, so a handle can be cast
+// to the constructor's own struct for typed field access — ATS2's
+// `ATStysum(){int contag;}` + `ATSSELcon` model.  Keeping the handle common
+// is what makes ATS's representation casts (list_vt <-> list, 620 sites, all
+// identities today) free.
+type XatsHdr struct{ Tag int }
+
 func Xats_as_con(x any) *XatsCon {
 	return x.(*XatsCon)
 }

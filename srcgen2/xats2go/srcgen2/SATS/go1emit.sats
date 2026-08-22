@@ -209,6 +209,25 @@ fun
 gotype_of_dcon_field
 (dcon: d2con, idx: sint): strn
 //
+// --- datatype LAYOUT (per-layout constructor structs) ---------------------
+//
+// go_dcon_layout_name: the shared struct name for a constructor's field-type
+// SHAPE ("zzs_" ++ one code per value field, e.g. `mycons of (sint, mylist)`
+// -> "zzs_ip").  Identical shapes share one struct, which is what keeps ATS's
+// representation casts free (list_vt <-> list is the same layout).  The name
+// is self-describing so the declaration can be regenerated from it; see
+// docs/11-datatype-representation.md.
+//
+fun
+go_dcon_layout_name(dcon: d2con): strn
+//
+// go_layout_decls_emit: flush the module's registered layouts as Go struct
+// declarations.  Called at END of module emission -- Go ignores package-level
+// declaration order, and assemble.sh dedups by type name across modules.
+//
+fun
+go_layout_decls_emit(filr: FILR): void
+//
 // --- control-flow helpers (M2.3) -----------------------------------------
 //
 // gotype_of_ift0type: the Go type to give a VALUE-position if/case/let

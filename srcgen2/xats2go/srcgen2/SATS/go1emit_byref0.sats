@@ -241,6 +241,30 @@ fun
 block_force_value_get((*void*)): bool
 //
 (* ****** ****** *)
+//
+(*
+=======================================================================
+== DATATYPE LAYOUT REGISTRY (per-layout constructor structs)         ==
+=======================================================================
+//
+The per-module set of constructor LAYOUTS the emission touched.  A layout is
+a constructor's field-type shape; identical shapes SHARE one Go struct, which
+is what keeps ATS's representation casts free (list_vt <-> list is the same
+layout, so the cast is nothing).  Mirrors ATS2's structural `postiats_tysum`
+hashing (see docs/11-datatype-representation.md).
+//
+Registered as constructors are encountered (intrep1 has NO datatype-declaration
+node -- declarations are erased into I1Dnone1 before the emitter runs), and
+flushed as Go type declarations at the END of the module: Go does not care
+about package-level declaration order, and assemble.sh dedups by type name
+across modules.
+*)
+fun
+layout_add(nm: strn): void
+fun
+layout_all((*void*)): list(strn)
+//
+(* ****** ****** *)
 (* ****** ****** *)
 //
 (***********************************************************************)

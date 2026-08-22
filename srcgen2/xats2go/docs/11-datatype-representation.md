@@ -1,141 +1,157 @@
-# Datatype representation: one Go interface per datatype
+# Datatype representation: per-layout structs over a common header
 
-**Decision (2026-08-21, chief architect):** emit one Go interface per datatype
-and one struct per constructor, with statically-sized typed fields. Replaces
-the singular `XatsCon{Tag int; Args []any}`.
+**Decision (2026-08-21):** replace the singular
+`XatsCon{Tag int; Args []any; Name string}` with ATS2's model — a common
+header, one struct per constructor *layout*, typed exact-sized fields, tag
+dispatch, and a cast on projection.
 
-## Why the current representation exists, and why it goes
+An earlier draft of this document proposed one Go interface per datatype.
+**That was wrong**, for the reason recorded under "Why not interfaces" below.
 
-`XatsCon` is a transliteration of the JS backend's value model. The JS emitter
-emits `XATSCAPP("mycons", [1, x, xs])` — a tagged array — because JavaScript
-has one aggregate and no static types. The Go backend was built as a
-*differential twin* of the JS backend (every emitted program's stdout is
-byte-compared against it), so mirroring that model was the fastest way to make
-the byte-equality oracle meaningful. That was sound bootstrapping; it is not a
-sound endpoint. Everything wrong downstream follows from that one decision:
+## Why the current shape goes
 
-- `[]any` fields, so every scalar payload is heap-boxed;
-- positional `Args[i]` + a type assertion at ~17k emitted sites;
-- one uniform size (96 B) whether the constructor holds 0 fields or 3;
-- `Xats_as_con` coercions everywhere, because the handle is universal;
-- **Go's typechecker is inert** — it cannot tell a `mylist` from a `mytree`,
-  so no emitter bug is ever caught by `go build`.
+`XatsCon` is a transliteration of the JS backend's tagged array
+(`XATSCAPP("mycons",[1,x,xs])`). JS has one aggregate and no static types; the
+Go backend copied the model so the byte-equality oracle against the JS backend
+would hold during bootstrap. Sound bootstrapping, wrong endpoint. It costs:
+boxed scalars, positional `Args[i]` + assert at ~17k sites, a uniform 96-byte
+value whatever the arity, and a Go typechecker that cannot tell a `mylist`
+from a `mytree`.
 
-The frontend always had the information to do better; the JS-shaped target
-discarded it.
+## Why not interfaces: no-op representation casts
 
-## The representation
+ATS depends on layout-compatible types casting for free — `list_vt` (linear)
+to `list` (non-linear) is *nothing at all* at runtime. Measured in the emitted
+compiler, **620 such cast sites, every one an identity**:
 
-For `datatype mylist = mynil of () | mycons of (sint, mylist)`:
+    Xats_list_vt2t 302   Xats_UN_strn_vt_cast 124   Xats_cast01 79
+    Xats_castlin10 47    Xats_optn_vt2t 31          Xats_castlin01 21
+    Xats_cast10 10       Xats_datacopy 6
 
-```go
-type zzt_mylist interface{ zzi_mylist() }        // the datatype IS the interface
+Under per-datatype interfaces, `list_vt_cons` and `list_cons` are distinct Go
+types with distinct method sets, so the cast becomes either a per-cell rebuild
+or an interface→interface assertion (itab lookup, can fail). Turning 620
+free operations into runtime work is disqualifying.
 
-type zzc_mynil struct{}                          // 0 bytes
-func (*zzc_mynil) zzi_mylist() {}
+A common handle makes every such cast free by construction. That is exactly
+why ATS2 does it this way.
 
-type zzc_mycons struct {                         // 24 bytes, 1 alloc
-    F0 int                                       // unboxed scalar
-    F1 zzt_mylist                                // recursive: same interface
-}
-func (*zzc_mycons) zzi_mylist() {}
-```
+## What ATS2's C backend does (verified in ATS-Postiats)
 
-| | today | per-datatype interface |
-|---|---|---|
-| `mycons` | 96 B, scalar boxed | 24 B, unboxed |
-| `mynil` | 96 B | 0 B (Go shares empty-struct addresses) |
-| construct | `XatsCon2(1,x,xs)` | `&zzc_mycons{x, xs}` |
-| match | `v.Tag == 1` | `case *zzc_mycons:` (itab compare) |
-| project | `v.Args[1].(*XatsCon)` | `vv.F1` (typed, Go-checked) |
-| wrong tag | reads garbage / panics | **compile error** |
+    typedef void* atstype_boxed ;        // no universal struct at all
+    typedef void* atstype_datconptr ;
 
-A `mytree` cannot be passed where a `mylist` is expected — Go rejects it.
+    #define ATStysum() struct{ int contag; }
+    #define ATSSELcon(pmv, tysum, lab)  (((tysum*)pmv)->lab)
+    #define ATSCKpat_con1(pmv, tag) \
+      ((pmv)>=(void*)ATS_DATACONMAX && ((ATStysum()*)(pmv))->contag==tag)
 
-## Everything needed already exists in the frontend
+    #define ATS_DATACONMAX 1024
+    #define ATSINSmove_con0(tmp, tag)  (tmp = ((void*)tag))   // NULLARY = the tag
+    #define ATSCKpat_con0(pmv, tag)    ((pmv)==(void*)tag)
 
-| need | source |
-|---|---|
-| a datatype's constructors | `s2cst_get_d2cs(s2c0)` (returns `optn_vt` of the d2con list) |
-| constructor field types | `gotype_of_dcon_field(dcon, idx)` — already used to synthesise projection asserts |
-| constructor ctag / excptn-ness | `d2con_get_ctag`, `d2con_is_excptn` |
-| the parent datatype of a con | result type of `d2con_get_styp(dcon)` |
-| is this styp a datatype | `styp_is_datatype` / `go_s2cst_is_boxed_datatype` |
+- handle is an untyped pointer; every access casts to the constructor's struct;
+- constructor structs are named by a **structural hash** (`postiats_tysum_<h>`),
+  so identical layouts SHARE a type — this is what makes the casts free;
+- `contag` sits inside `#if(tgd)`: a single-constructor datatype carries no tag;
+- **nullary constructors are the tag itself as a pointer** — zero allocation,
+  zero memory, guarded by the `>= ATS_DATACONMAX` test;
+- **polymorphism is uniform boxing, not monomorphization**: a type variable is
+  `atstype_var` (a zero-length array of a huge struct, unusable by value), and
+  polymorphic fields are `void*`.
 
-Arity is fixed at declaration and never grows, so every struct is statically
-sized.
+That last point matters for expectations: our 51.4% `any` fields are faithful
+to the reference implementation, not a Go-backend deficiency.
 
-## The two structural problems and their solutions
-
-### 1. Where do type declarations get emitted?
-
-intrep1 has **no** `I1Ddatatype` node — datatype declarations are erased into
-`I1Dnone1` before the emitter sees them. So do not drive emission from
-declarations. Instead: whenever the emitter encounters a `d2con` (at a
-construction or a pattern), register its **parent datatype**; emit the
-interface + all constructor structs for every registered datatype, keyed by a
-stamp-derived mangled name.
-
-Modules are emitted by independent processes and concatenated by
-`assemble.sh`, so the same datatype will be emitted by several modules.
-**Deduplicate at assembly time** by type name, keeping the first occurrence.
-This also covers prelude datatypes, whose declarations no module owns.
-
-### 2. The xatsgo package constructs two datatypes
-
-`xatsgo` (our support package — *not* Go's runtime) builds cons in exactly two
-places, because two CATS leaves return structured data instead of primitives:
-
-- `Xats_XATS2JS_jshmap_search_opt` → an `optn_vt`
-- `xatsStrmFrom` → `strmcon_vt` cells
-
-Emitted types live in `package main`; `xatsgo` cannot import `main`, so it
-cannot name them. **Invert the dependency** — exactly what the JS runtime
-already does when it calls `XATS2JS_optn_vt_cons(itm)` rather than building a
-layout inline:
+## The Go design
 
 ```go
-// xatsgo — never names a main type
-var XatsMkOptnCons func(any) any
-var XatsMkOptnNil  func() any
+// common header — what every handle points at
+type XatsHdr struct{ Tag int }
 
-// emitted main — registers its own structs at init
-func init() {
-    xatsgo.XatsMkOptnCons = func(x any) any { return &zzc_optn_vt_cons{x} }
-    xatsgo.XatsMkOptnNil  = func() any { return &zzc_optn_vt_nil{} }
+// per-LAYOUT constructor struct: header first, typed exact fields
+type zzs_ap struct {
+    XatsHdr
+    F0 any          // polymorphic payload
+    F1 *XatsHdr     // datatype/recursive field
 }
+
+// per-datatype NAMED handle types, all over *XatsHdr
+type zzt_list    *XatsHdr
+type zzt_list_vt *XatsHdr
 ```
 
-No import cycle, no `unsafe`, no curated type-name table. (ATS2's C backend
-solves the same acyclic constraint the same way: generated code owns the
-layouts, the runtime stays generic over them.)
+- **casts are free**: `zzt_list(x)` converts between named types with the same
+  underlying type — compile-time only, zero instructions;
+- **layout sharing** is automatic from the layout key, so `list_cons` and
+  `list_vt_cons` are the same struct and the cast is free all the way down;
+- **Go still catches accidental mixing** — a `zzt_mytree` where `zzt_list` is
+  expected is a compile error unless the conversion is written;
+- **tag dispatch is unchanged**, so all ~12.7k emitted tag tests keep working
+  and this is far cheaper to land than an interface rewrite;
+- **projection** is `(*zzs_ap)(unsafe.Pointer(v)).F1`. That `unsafe` buys the
+  free casts and is exactly what ATS2 does — C's cast is the same operation
+  without the keyword. Only the emitter writes it.
 
-## Emitter work, in dependency order
+### Layout key
 
-1. **Mangling + registry** — stable `zzt_`/`zzc_` names from datatype/con
-   stamps; a per-module set of datatypes touched.
-2. **Declaration emission** — interface, structs, marker methods; assemble.sh
-   dedup by name.
-3. **Construction** — `&zzc_x{...}` replacing `XatsCon<n>(tag, ...)`.
-4. **Match** — tag tests become type switches / assertions (~12k sites).
-5. **Projection + field set** — `vv.F<i>` replacing `Args[i]` + assert.
-6. **Constructor hooks** — for `optn_vt` and `strmcon_vt`; delete the two
-   `xatsgo` construction sites.
-7. **Retire** `XatsCon`, `Xats_as_con`, `XatsCon0..N`, the interning table.
+Encode the constructor's Go field types compactly, so identical layouts share
+a struct name: `int`→`i`, `bool`→`b`, `rune`→`r`, `string`→`s`,
+`float64`→`f`, datatype/recursive→`p`, polymorphic→`a`, other→`x`.
+`mycons of (sint, mylist)` → fields `[int, *XatsHdr]` → **`zzs_ip`**.
 
-## Open questions (measure before deciding)
+### Take from ATS2
 
-- **How many constructor fields are statically scalar?** Decides how much
-  unboxing is actually on the table. Polymorphic fields (`list(a)`) stay `any`
-  under any representation.
-- **Do per-datatype interfaces reach erased/polymorphic code?** A generic
-  `list_map` takes `any`; values cross that boundary and must come back with
-  an assertion to the datatype interface.
-- **Cost of interface indirection** for this workload — expected small (itab
-  compare), but unmeasured. Prototype one datatype and run `b04`/`b08`.
+- **zero-cost nullary constructors** — ATS2 uses the tag as a pointer; Go
+  can't forge pointers, but a shared singleton per tag gives the same result
+  (0 bytes, no allocation) and retires the interning table;
+- **no tag word for single-constructor datatypes** (`#if(tgd)`).
+
+## Expected payoff (measured — see `bench/repr/`)
+
+300k-cons list, per-layout structs vs today:
+
+| payload | build | traverse | memory |
+|---|---|---|---|
+| scalar | **2.0x**, half the allocs | **2.3x** | 4.3x less |
+| polymorphic (dominant) | **1.6x** | **1.9x** | 3x less |
+
+The win is the *container* — dropping the `Args` slice header and `Name`, and
+exact sizing — not scalar unboxing, which reaches only 6.6% of field accesses.
+
+## Structural constraints
+
+**intrep1 has no datatype-declaration node.** Declarations are erased into
+`I1Dnone1` before the emitter runs. So drive emission from encountered
+`d2con`s: register each one's layout, and emit the struct declarations at the
+END of the module (Go does not care about package-level declaration order).
+`assemble.sh` dedups by type name across modules — which also covers prelude
+datatypes, whose declarations no module owns.
+
+**The xatsgo package constructs two datatypes.** `jshmap_search$opt` builds an
+`optn_vt` and `xatsStrmFrom` builds `strmcon_vt` cells. Emitted types live in
+`package main`, which `xatsgo` cannot import. **Invert the dependency** with
+constructor hooks the emitted code registers at init — the same move the JS
+runtime already makes when it calls `XATS2JS_optn_vt_cons` instead of building
+a layout inline.
+
+## Work order
+
+1. **Layout key + registry** — `go_dcon_layout_name`, per-module set. *(additive)*
+2. **Declaration emission** + assemble dedup. *(additive: unused Go types are legal)*
+3. **Construction** — `&zzs_ip{XatsHdr{1}, x, xs}` replacing `XatsCon<n>(...)`.
+4. **Projection / field set** — cast + `F<i>` replacing `Args[i]` + assert.
+5. **Handle types** — per-datatype named types; cast sites become conversions.
+6. **Nullary singletons**; drop the tag for single-constructor datatypes.
+7. **Constructor hooks** for `optn_vt`/`strmcon_vt`; delete the two xatsgo sites.
+8. **Retire** `XatsCon`, `Args`, `Xats_as_con`, `XatsCon0..N`, interning.
+
+Steps 1-2 are additive and land green on their own; 3-4 must land together per
+layout, since construction and projection must agree.
 
 ## Verification
 
-`iterate.sh quick` (~55s, psuite 75/75 byte-equal vs the JS backend) is the
-per-edit gate; `bench` (`b04`/`b05`/`b08`/`b11`) is the allocation scoreboard;
-`iterate.sh full-verify` before any commit that changes emission shape.
+`iterate.sh quick` (~55s, psuite 75/75 byte-equal vs the JS backend) per edit;
+`bench` (`b04`/`b05`/`b08`/`b11`) as the allocation scoreboard; `bench/repr`
+for representation-level questions; `iterate.sh full-verify` before committing
+anything that changes emission shape.

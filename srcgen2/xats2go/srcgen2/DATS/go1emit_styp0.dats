@@ -2924,6 +2924,145 @@ case+ chase_fun(d2con_get_styp(dcon)) of
 )//endof[gotype_of_dcon_field(dcon,idx)]
 //
 (* ****** ****** *)
+//
+(*
+=======================================================================
+== DATATYPE LAYOUT KEY (per-layout constructor structs)              ==
+=======================================================================
+//
+[go_layout_code]: one character per Go field type, so a constructor's LAYOUT
+is a short self-describing string.  Identical layouts share one struct, which
+is what keeps ATS's representation casts free -- `list_cons` and
+`list_vt_cons` have the same shape, so `list_vt2t` is nothing at all.  This
+mirrors ATS2's structural `postiats_tysum_<hash>` naming; we encode the shape
+directly instead of hashing it so the declaration can be REGENERATED from the
+name (the registry stores names only) and so emitted Go stays readable.
+*)
+fun
+go_layout_code
+(gty: strn): strn =
+(
+if (gty = "int") then "i" else
+if (gty = "bool") then "b" else
+if (gty = "rune") then "r" else
+if (gty = "string") then "s" else
+if (gty = "float64") then "f" else
+if (gty = "any") then "a" else
+if (gty = "*xatsgo.XatsCon") then "p" else "x"
+)//endof[go_layout_code(gty)]
+//
+(*
+[go_layout_type]: the inverse -- the Go field type for a layout code.  A
+datatype/recursive field ("p") is the COMMON HANDLE `*xatsgo.XatsHdr`; "x"
+(an unmapped shape) degrades to `any`, which is always storable.
+*)
+fun
+go_layout_type
+(c0: cgtz): strn =
+(
+if (c0 = 'i') then "int" else
+if (c0 = 'b') then "bool" else
+if (c0 = 'r') then "rune" else
+if (c0 = 's') then "string" else
+if (c0 = 'f') then "float64" else
+if (c0 = 'p') then "*xatsgo.XatsHdr" else "any"
+)//endof[go_layout_type(c0)]
+//
+(*
+[go_dcon_nargs]: the constructor's VALUE-field count, computed the SAME way
+[gotype_of_dcon_field] indexes (chase the fun type, drop the proof prefix), so
+arity and field indices cannot disagree.
+*)
+fun
+go_styplst_len
+(xs: s2typlst): sint =
+(
+case+ xs of
+|list_nil() => 0
+|list_cons(_, xs1) => 1 + go_styplst_len(xs1)
+)
+//
+fun
+go_dcon_nargs
+(dcon: d2con): sint =
+(
+case+ chase_fun(d2con_get_styp(dcon)) of
+|optn_nil() => 0
+|optn_cons(@(npf, args, _res)) => go_styplst_len(drop_pf(npf, args))
+)//endof[go_dcon_nargs(dcon)]
+//
+(*
+[go_dcon_layout_name]: "zzs_" ++ one code per value field.  A NULLARY
+constructor is "zzs_" (no fields) -- a header-only struct.
+*)
+#implfun
+go_dcon_layout_name
+(dcon) =
+let
+  val n0 = go_dcon_nargs(dcon)
+  fun
+  loop(i0: sint, acc: strn): strn =
+  (
+  if (i0 >= n0) then acc
+  else
+    loop(i0+1, strn_append(acc, go_layout_code(gotype_of_dcon_field(dcon, i0))))
+  )
+in
+  loop(0, "zzs_")
+end//endof[go_dcon_layout_name(dcon)]
+//
+(*
+[go_layout_decls_emit]: one Go struct per registered layout, regenerated from
+the self-describing name.  The header is embedded FIRST so a handle
+(`*xatsgo.XatsHdr`) can be cast to the constructor struct for typed field
+access (ATS2's ATSSELcon).  Fields are `F0..F<n-1>`, exactly sized -- no
+`[]any`, no slice header.
+*)
+#implfun
+go_layout_decls_emit
+(  filr  ) =
+let
+fun
+loop1
+(nm: strn, i0: sint, n0: sint): void =
+(
+if (i0 >= n0) then ((*done*))
+else
+let
+  val () =
+  (
+  strnfpr(filr, "\tF"); i0i00go1(filr, i0);
+  strnfpr(filr, " "); strnfpr(filr, go_layout_type(strn_get$at(nm, i0+4)));
+  strnfpr(filr, "\n"))
+in
+  loop1(nm, i0+1, n0)
+end
+)
+fun
+loop0
+(nms: list(strn)): void =
+(
+case+ nms of
+|list_nil() => ((*void*))
+|list_cons(nm, nms1) =>
+  let
+    val n0 = strn_length(nm) - 4(*"zzs_"*)
+    val () =
+    (
+    strnfpr(filr, "type "); strnfpr(filr, nm);
+    strnfpr(filr, " struct {\n");
+    strnfpr(filr, "\txatsgo.XatsHdr\n");
+    loop1(nm, 0, n0);
+    strnfpr(filr, "}\n"))
+  in
+    loop0(nms1)
+  end
+)
+in
+  loop0(layout_all())
+end//endof[go_layout_decls_emit(filr)]
+//
+(* ****** ****** *)
 (* ****** ****** *)
 //
 (*

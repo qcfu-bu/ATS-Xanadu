@@ -701,6 +701,14 @@ let
   (case+ vs of list_nil() => 0 | list_cons(_, vs1) => 1 + zzlen(vs1))
   val n0 = zzlen(i1vs)
   val excp = d2con_is_excptn(dcon)
+  // LAYOUT REGISTRY: record this constructor's field-type SHAPE so the
+  // module flushes a struct declaration for it (step 1-2 of
+  // docs/11-datatype-representation.md -- additive: the structs are emitted
+  // but not yet used, so nothing changes semantically).
+  val () =
+  (
+  if excp then ((*exceptions keep the literal form*))
+  else layout_add(go_dcon_layout_name(dcon)))
 in//let
   if excp
   then

@@ -389,6 +389,46 @@ end(*local*)//endof[local(the_dp2tr_ptr_ref)]
 (* ****** ****** *)
 (* ****** ****** *)
 //
+local
+//
+// the per-module constructor-LAYOUT set (see the SATS).  Insertion-ordered,
+// deduplicated; flushed as Go struct declarations at end of module.
+val
+the_layout_ref =
+a0ref_make_1val<list(strn)>(list_nil(*void*))
+//
+fun
+strn_mem
+(xs: list(strn), x0: strn): bool =
+(
+case+ xs of
+|list_nil() => false
+|list_cons(x1, xs1) =>
+  (if (x1 = x0) then true else strn_mem(xs1, x0))
+)
+//
+in//local
+//
+#implfun
+layout_add
+(  nm  ) =
+let
+  val xs = a0ref_get<list(strn)>(the_layout_ref)
+in
+  if strn_mem(xs, nm)
+  then ((*already registered*))
+  else a0ref_set<list(strn)>(the_layout_ref, list_cons(nm, xs))
+end
+//
+#implfun
+layout_all
+((*void*)) = a0ref_get<list(strn)>(the_layout_ref)
+//
+end(*local*)//endof[local(the_layout_ref)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
 (***********************************************************************)
 (* end of [ATS3/XANADU_srcgen2_xats2go_srcgen2_DATS_go1emit_byref0.dats] *)
 (***********************************************************************)
