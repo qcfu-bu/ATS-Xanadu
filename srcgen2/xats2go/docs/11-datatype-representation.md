@@ -184,6 +184,26 @@ versus `zzs_ap` (32 B, F1 an 8-byte pointer). Reading the interface's *type*
 word as a pointer makes `.Tag` garbage: `panic: XATS000_cfail` in the
 linear-list reverse loop.
 
+THE CONSUMERS come from two places, and only one was instrumented:
+
+1. **hand-written, in-file** -- `case+ buf.N of | list_vt_cons(cc1, ccs)` at
+   lexbuf0_cstrx1.dats:121 / :171 / :212 (lxbf1_getc0 / getc1 / unget).  The
+   d2con is carried by the pattern; these produced the 7 PRJ markers.
+2. **the prelude, instantiated** -- `lxbf1_take_clst` calls
+   `list_vt_reverse0(buf.2)`, inlining list000_vt.dats:393-402 at `char`.  It
+   reads via `xs0.1`, a LABEL projection, which lowers to I1Vlpcn -- a
+   different emitter arm than the I1Vp1cn path the experiment hooked, so it
+   emitted no markers.  **This is the path that panics.**
+
+Path 2 matters for the fix.  A label projection has no pattern to carry the
+constructor, so it is RECOVERED from the root's static type by
+`zzdcon_of_i0pat` / `zzdcon_theonly` / `zzdcon_of_ityp`.  `zzdcon_theonly`
+returns the datatype's unique field-bearing constructor, and the root is
+declared `list_vt(char)` -- so it answers `list_vt_cons` BY CONSTRUCTION,
+whatever actually allocated the cell.  It structurally cannot observe that a
+`strmcon_vt_cons` built it.  Uniform boxing made that blindness free; typed
+layouts turn it into a wrong offset.
+
 So the blocker is not the layout machinery at all — it is a latent
 type-safety hole in the compiler's own source (or in how `cons_vt` resolves;
 note every `#symload cons_vt` in the build path is commented out, yet it binds
