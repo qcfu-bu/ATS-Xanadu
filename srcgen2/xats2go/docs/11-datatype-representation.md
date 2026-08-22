@@ -204,11 +204,45 @@ whatever actually allocated the cell.  It structurally cannot observe that a
 `strmcon_vt_cons` built it.  Uniform boxing made that blindness free; typed
 layouts turn it into a wrong offset.
 
-So the blocker is not the layout machinery at all — it is a latent
-type-safety hole in the compiler's own source (or in how `cons_vt` resolves;
-note every `#symload cons_vt` in the build path is commented out, yet it binds
-without a diagnostic). Uniform boxing made two different datatypes'
-constructors interchangeable, and the code depends on that.
+WHERE THE MIS-BINDING COMES FROM (measured; corrects two earlier guesses).
+
+`cons_vt` IS legitimately overloaded — both symloads are ACTIVE, spelled
+across two lines, which is why `grep '#symload cons_vt'` misses them:
+
+    srcgen1/prelude/SATS/VT/list000_vt.sats:503-504   cons_vt with list_vt_cons
+    srcgen1/prelude/SATS/VT/strm000_vt.sats:576-577   cons_vt with strmcon_vt_cons
+
+Neither carries a precedence (`of N`).  But overloading alone is not the bug.
+A minimal probe
+
+    fun zzmk(c0: char, xs: list_vt(char)): list_vt(char) = cons_vt(c0, xs)
+
+resolves CORRECTLY to `list_vt_cons` (d3exp `T2Papps(T2Pcst(list_vt_i0_vx)..)`),
+with or without an explicit result annotation.  The declared target type does
+constrain the overload in ordinary contexts.
+
+The failure is specific to ASSIGNMENT INTO A LINEAR RECORD FIELD.  d3exp for
+the lvalue at three sites in lexbuf0_cstrx1, all the same LXBF1 field declared
+`list_vt(char)`:
+
+    :184  buf.1 := ccs                  lvalue : list_vt_i0_vx(char,..)  CORRECT
+    :111  buf.1 := cons_vt(cc1, buf.1)  lvalue : strmcon_vt(char)        WRONG
+    :161  buf.2 := cons_vt(cc1, buf.2)  lvalue : strmcon_vt(char)        WRONG
+
+Where the RHS has a known type (`ccs`, bound by a `list_vt_cons` pattern) the
+field types correctly; where the RHS is the overloaded `cons_vt`, the
+overload's choice appears to determine the field's type rather than the
+reverse.  The declared field type is not constraining the resolution.
+
+That is a FRONT-END inference/overload defect, not a backend one: d3exp is
+printed by the shared front end before any emitter runs, so the Go backend is
+reporting the d3 layer faithfully.  (The xats2js reference bundle cannot serve
+as a second oracle here — it resolves a different prelude root and recurses
+unboundedly on this module at any stack size; it is CC_JS2_OLD in the
+Makefile.)
+
+Uniform boxing made two different datatypes' constructors interchangeable, so
+this has been latent and harmless; typed slots turn it into a wrong offset.
 
 Under the erased model this was invisible, because `a` and `p` both mapped to
 `a` — the flip did not create the inconsistency, it exposed one.
