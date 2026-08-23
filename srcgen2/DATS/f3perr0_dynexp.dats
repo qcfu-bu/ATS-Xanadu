@@ -1191,6 +1191,26 @@ loc0, ":TIMPLall1(",
 dcst, "(", lcst, ");", t2js, ")")
 end(*let*)//end-of-[TIMPLall1(...)]
 //
+(*
+CLAUDE-2026-08: do NOT walk into a RESOLVED template instance's body.
+//
+This arm printed an "F3PERR0-ERROR: ..TIMPLallx(..)" BREADCRUMB whenever the
+instance had candidates -- before knowing whether the body contained an error
+-- and then recursed into that body.  Once trtmp3c re-resolves at
+INSTANTIATION scope (trtmp3c_dynexp f0_timp), far more bodies are attached and
+walked, so on a file containing NOTHING but the compiler prelude includes this
+produced 97618 reports: 53458 breadcrumbs plus 39864 errck nodes found inside
+prelude template bodies.  The JS reference reports 0 on the same input.
+//
+Those inner reports are not actionable: a resolved prelude body already
+typechecked at its definition site, and anything genuinely unusable fails
+LOUDLY at emission (unresolved non-leaf instances break the go build; the
+census pins equality bridges at 0).  Emission is unaffected -- 0 bridges,
+0 XATS000_undef, sweep 193/193 byte-equal.
+//
+Cost removed: ~9s per module (6.68s stderr->/dev/null vs 15.65s ->file, 62MB),
+on every module of a 193-module build.
+*)
 |TIMPLallx
 ( dcst
 , t2js, dcls) =>
@@ -1201,15 +1221,12 @@ list_nil() => ()
 |
 list_cons(dcl1, _) =>
 (
-f3perr0_d3ecl(out0, dcl1)
+((*resolved body: not walked -- see above*))
 ) where
 {
-val (  ) =
-prints("F3PERR0-ERROR:")
-val (  ) =
-prints(loc0, ":TIMPLallx(")
-val (  ) =
-printsln(dcst,"(...);",t2js,")")
+val (  ) = ((*no breadcrumb*))
+val (  ) = ((*..*))
+val (  ) = ((*..*))
 (*
 val lcst = dcst.lctn((*void*))
 val (  ) =

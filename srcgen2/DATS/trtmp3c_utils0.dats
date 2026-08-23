@@ -70,74 +70,6 @@ ATS_PACKNAME
 #symload stmp with timpl_get_stmp
 #symload node with timpl_get_node
 (* ****** ****** *)
-(* ****** ****** *)
-//
-(*
-HX/CLAUDE-2026-08: SPECIFICITY ordering.  A template query can match BOTH
-a CONCRETE instance impl (every t2qag quantifier list empty) and a
-QUANTIFIED generic default; instantiation takes the FIRST candidate, and
-registration order puts the prelude generics first — so a concrete
-instance added for exactly the queried type never won.  zzprefer0 stably
-moves concrete matches to the front before the first candidate is chosen.
-*)
-fun
-zzconcq
-(dcl1: d3ecl): bool =
-(
-case+
-dcl1.node() of
-|
-D3Ctmpsub
-(_, dcl2) => zzconcq(dcl2)
-|
-D3Cimplmnt0
-( tknd, stmp
-, sqas, tqas
-, dimp
-, tias, f3as
-, sres, dexp) =>
-(
-(*
-NB: the {a0:t0}-style quantifiers land in SQAS — a generic default has
-EMPTY tqas-vars but non-nil sqas, so BOTH must be empty for CONCRETE.
-*)
-case+ sqas of
-|list_cons _ => false
-|list_nil() =>
-list_forall(tqas) where
-{
-#impltmp
-forall$test<t2qag>(t2q1) =
-(
-case+
-t2qag_get_s2vs(t2q1) of
-|list_nil() => true
-|list_cons _ => false)
-}(*where*))
-|
-_(*non-implmnt0*) => false)
-//
-fun
-zztake0
-( xs: d3eclist
-, want: bool): d3eclist =
-(
-case+ xs of
-|
-list_nil() => list_nil()
-|
-list_cons(dcl1, xs) =>
-if
-(zzconcq(dcl1) = want)
-then list_cons(dcl1, zztake0(xs, want))
-else zztake0(xs, want))
-//
-fun
-zzprefer0
-(xs: d3eclist): d3eclist =
-list_append(zztake0(xs, true), zztake0(xs, false))
-//
-(* ****** ****** *)
 //
 #implfun
 tr3cenv_timpl_process
@@ -189,8 +121,6 @@ val-
 TIMPLall1
 (d2c0
 ,t2js, dcls) = timp.node()
-//
-val dcls = zzprefer0(dcls)
 //
 in//in
 case+ dcls of
@@ -446,10 +376,6 @@ end//let
 end//let // end-of-[list_vt_cons(...)]
 //
 )(*case+*) // end of [implfilter(dcls)]
-//
-(* ****** ****** *)
-//
-
 //
 (* ****** ****** *)
 //
