@@ -184,6 +184,19 @@ tmqstk_pshsvts
 let
 val
 nimp = tmqstk_getnimp(stk0)
+(*
+HX/CLAUDE-2026-08 (PERF): store the frame's svts ALREADY COMPOSED with
+every deeper frame's (one list_append per PUSH).  [tmqstk_getsvts] used
+to recompose the whole stack on EVERY query -- the profile showed that
+walk + its allocation churn as the single hottest entry of the trtmp3c
+pass (~7k of ~40k samples on a module compile, plus most of the GC
+load).  Frame tvar stamps are unique, so the composition is the same
+list the per-query walk produced.
+*)
+val
+svts =
+list_append
+(svts, tmqstk_getsvts(stk0))
 in//let
 (
 stk0 :=
@@ -611,7 +624,16 @@ tmqstk_nil
 | // !
 tmqstk_svts
 ( nimp
-, svts, stk1) => (svts)
+, svts, stk1) =>
+(*
+HX/CLAUDE-2026-08: an svts frame carries its list ALREADY COMPOSED with
+every deeper frame's (see [tmqstk_pshsvts]) -- the first frame found IS
+the whole composition.  (History: the composition itself fixed the
+"resolve against just the innermost frame" bug that farmed unresolved
+prelude instances; the push-time precomposition then removed the
+per-query recompose walk the profile flagged.)
+*)
+(     svts     )
 //
 | // !
 tmqstk_timp
