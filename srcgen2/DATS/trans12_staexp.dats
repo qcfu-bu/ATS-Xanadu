@@ -1004,8 +1004,9 @@ S1Eid0(sid1) = s1f0.node()
 in//let
 if // if
 (symbl_cmp(sid1, DLR_EXTBOX_symbl) = 0)
-then the_sort2_tbox
-else the_sort2_type end : sort2
+  then the_sort2_tbox
+  else the_sort2_type end
+) : sort2//end-of-[val(tres)]
 //
 val s1es =
 (

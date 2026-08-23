@@ -47,12 +47,27 @@ BUNDLE="$1"; OUT="$2"
 # resolve a stamped name `name_NNN(` referenced in the bundle (first hit)
 ref() { grep -a -m1 -oE "$1"'_[0-9]+' "$BUNDLE"; }
 
-MKNIL=$(ref 'i0varfst_mknil')
-MKLST=$(ref 'i0varfst_mklst')
-ADDVAR=$(ref 'i0varfst_addvar')
-ADDLST=$(ref 'i0varfst_addlst')
-LISTIZE=$(ref 'i0varfst_listize')
-STRMIZE=$(ref 'i0varfst_strmize')
+# COLLISION GUARD: the six impls are missing only when the scanned cc lib was
+# built with them errck'd out.  Rebuilding lib2xats2cc.js against a frontend
+# where funset/funmap template resolution SUCCEEDS makes them REAL, and then a
+# stub here is a fatal `Identifier already declared`.  So when a name is
+# already defined, emit the stub under a dead alias instead: the rest of this
+# shim (XATS2GO_chrfpr, the report-window brackets) is still required and must
+# keep being emitted.
+zzalias() { # $1 = discovered stamped name; echoes the name to DEFINE
+  if [ -n "$1" ] && grep -aq "$1 = function" "$BUNDLE"; then
+    echo "$1_zzshimdup_unused"
+  else
+    echo "$1"
+  fi
+}
+
+MKNIL=$(zzalias "$(ref 'i0varfst_mknil')")
+MKLST=$(zzalias "$(ref 'i0varfst_mklst')")
+ADDVAR=$(zzalias "$(ref 'i0varfst_addvar')")
+ADDLST=$(zzalias "$(ref 'i0varfst_addlst')")
+LISTIZE=$(zzalias "$(ref 'i0varfst_listize')")
+STRMIZE=$(zzalias "$(ref 'i0varfst_strmize')")
 
 # defined helpers we call into (these ARE defined in the bundle)
 I0VAR_DVAR=$(grep -a -m1 -oE 'i0var_dvar\$get_[0-9]+' "$BUNDLE")
