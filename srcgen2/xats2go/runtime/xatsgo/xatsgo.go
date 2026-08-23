@@ -406,6 +406,15 @@ func Xats_exn_arg(v any, i int) any {
 type XatsHdr struct{ Tag int }
 
 func Xats_as_con(x any) *XatsCon {
+	if x == nil {
+		// XATSTOP0() -- the type checker's uninitialized placeholder -- is an
+		// untyped nil `any` (266 emitted sites).  Under ERASED datatype fields
+		// it was stored into an `any` slot bare, with no coercion; a typed "p"
+		// slot coerces its argument, and a bare assertion panics on nil.
+		// A nil datatype handle is the faithful image, and matches what the
+		// erased model stored.  A later deref still panics, just at the read.
+		return nil
+	}
 	return x.(*XatsCon)
 }
 

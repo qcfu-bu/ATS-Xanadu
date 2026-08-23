@@ -292,16 +292,19 @@ func xats2goI0varfstIns(s []any, v any) []any {
 }
 func xats2goI0varfstFold(s []any, vs any) []any {
 	for p := xatsgo.Xats_as_con(vs); p != nil && p.Tag == 1; {
-		c := zzpzzs_aa(p)
+		c := zzpzzs_ap(p)
 		s = xats2goI0varfstIns(s, c.F0)
-		p = xatsgo.Xats_as_con(c.F1)
+		p = c.F1
 	}
 	return s
 }
 func xats2goI0varfstConslist(s []any) *xatsgo.XatsCon {
 	r := &xatsgo.XatsCon{Tag: 0}
 	for i := len(s) - 1; i >= 0; i-- {
-		r = &(&zzs_aa{xatsgo.XatsHdr{Tag: 1}, s[i], r}).XatsHdr
+		// MUST match the emitted list_cons layout (zzs_ap): emitted code reads
+		// these cells back through zzpzzs_ap, so building them as zzs_aa would
+		// put a 16-byte "any" where it expects an 8-byte pointer.
+		r = &(&zzs_ap{xatsgo.XatsHdr{Tag: 1}, s[i], r}).XatsHdr
 	}
 	return r
 }
@@ -327,32 +330,32 @@ func ${ALLQ}(p any) bool {
 	case 0, 1:
 		return true
 	case 16:
-		return xats2goI0patAllqList(zzpzzs_ia(n).F1)
+		return xats2goI0patAllqList(zzpzzs_ip(n).F1)
 	case 17:
-		return xats2goI0patAllqList(zzpzzs_aia(n).F2)
+		return xats2goI0patAllqList(zzpzzs_aip(n).F2)
 	case 18:
-		return xats2goI0patAllqLips(zzpzzs_aia(n).F2)
+		return xats2goI0patAllqLips(zzpzzs_aip(n).F2)
 	}
 	return false
 }
 func xats2goI0patAllqList(ps any) bool {
 	for p := xatsgo.Xats_as_con(ps); p != nil && p.Tag == 1; {
-		c := zzpzzs_aa(p)
+		c := zzpzzs_ap(p)
 		if !${ALLQ}(c.F0) {
 			return false
 		}
-		p = xatsgo.Xats_as_con(c.F1)
+		p = c.F1
 	}
 	return true
 }
 func xats2goI0patAllqLips(lips any) bool {
 	for p := xatsgo.Xats_as_con(lips); p != nil && p.Tag == 1; {
-		c := zzpzzs_aa(p)
-		lab := xatsgo.Xats_as_con(c.F0) // I0LAB(label, i0pat) -> zzs_aa
+		c := zzpzzs_ap(p)
+		lab := xatsgo.Xats_as_con(c.F0) // I0LAB(label, x0) -> zzs_aa (both erased)
 		if !${ALLQ}(zzpzzs_aa(lab).F1) {
 			return false
 		}
-		p = xatsgo.Xats_as_con(c.F1)
+		p = c.F1
 	}
 	return true
 }

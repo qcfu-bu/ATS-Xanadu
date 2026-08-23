@@ -849,6 +849,11 @@ let
      let val g1 = argchase(t2p1) in
        // by-ref of a boxed/erased inner -> `*any` (see [gotype_of_arg]).
        if (strn_length(g1) = 0) then "*any" else
+       // a DATATYPE inner keeps its shape, matching [gotype_of_arg].  The
+       // #absimpl arm is NOT mirrored here: styp_absimpl_datatypeq is defined
+       // later in this file and ATS requires definition-before-use.  Abstract
+       // by-ref inners in HIGHER-ORDER position would need it moved earlier.
+       if (g1 = "*xatsgo.XatsCon") then "**xatsgo.XatsCon" else
        if (g1 = "any") then "*any" else
        if (strn_get$at(g1, 0) = '*') then "*any" else
        strn_append("*", g1)
@@ -2594,6 +2599,71 @@ case+ args of
 the call-by-value/ref arg wrappers (T2Parg1/T2Patx2) down to the carried
 type first.
 *)
+(*
+[styp_absimpl_datatypeq]: is [t2p0] an ABSTRACT type that THIS module assumes
+to a datatype?  BY-REFERENCE POSITION ONLY.
+//
+Inside the module that assumes an abstract box, one value has two views: a
+constructor FIELD holding it types from the LOCAL datatype (-> *xatsgo.XatsCon)
+while a SATS-declared signature types from the `#absvtbx` (-> "any").  Under
+erased fields both landed on `any`; with typed "p" slots `&field` is a
+**XatsCon meeting a `*any` parameter.
+//
+Deliberately NOT applied by value: resolving the assumption for value
+positions splits signatures across modules -- `#absimpl d2cst_tbox = d2cst`
+would make d2cst_get_stmp take a *XatsCon inside dynexp2.dats while every
+other module, seeing only the SATS, passes `any`.  [s2abs_get_styp] is set
+only where the #absimpl is in scope, so a type assumed to a NON-datatype
+(topmap/mydict -> a Go map) is never promoted.
+*)
+fun
+styp_absimpl_datatypeq
+(t2p0: s2typ): bool =
+(
+case+ t2p0.node() of
+|T2Pcst(s2c0) =>
+  (
+  let
+    val nm0 = symbl_get_name(s2c0.name())
+  in
+    case+ s2cst_get_styp(s2c0) of
+    // a TYPEDEF over the abstract box (`#vwtpdef iltstk = iltstk_vtbx`):
+    // chase one link, then ask the same question of the box itself.
+    | ~optn_vt_cons(t2p1) =>
+      (
+      case+ t2p1.node() of
+      |T2Pcst(s2c1) =>
+        (let val nm1 = symbl_get_name(s2c1.name()) in
+         if (nm0 = nm1) then false else styp_absimpl_datatypeq(t2p1) end)
+      | _(*else*) => styp_absimpl_datatypeq(t2p1))
+    | ~optn_vt_nil() =>
+      (
+      case+ s2abs_get_styp(s2c0) of
+      | ~optn_vt_nil() => false
+      | ~optn_vt_cons(t2pa) =>
+        (
+        case+ t2pa.node() of
+        |T2Pcst(s2ca) => go_s2cst_is_boxed_datatype(s2ca)
+        |T2Papps(t2hd, _) =>
+          (case+ t2hd.node() of
+           |T2Pcst(s2ca) => go_s2cst_is_boxed_datatype(s2ca)
+           | _(*else*) => false)
+        | _(*else*) => false))
+  end)
+|T2Ptop0(t1) => styp_absimpl_datatypeq(t1)
+|T2Ptop1(t1) => styp_absimpl_datatypeq(t1)
+|T2Plft (t1) => styp_absimpl_datatypeq(t1)
+|T2Pnone1(t1) => styp_absimpl_datatypeq(t1)
+|T2Parg1(_, t1) => styp_absimpl_datatypeq(t1)
+// `&tmpstk >> _` -- the CONSUMPTION wrapper.  [gotype_of_arg] unwraps T2Parg1
+// and hands the inner straight here, so without this arm every `>>`-annotated
+// by-ref param answered false.
+|T2Patx2(t1, _) => styp_absimpl_datatypeq(t1)
+|T2Pexi0(_, t1) => styp_absimpl_datatypeq(t1)
+|T2Puni0(_, t1) => styp_absimpl_datatypeq(t1)
+| _(*else*) => false
+)
+//
 fun
 gotype_of_arg
 (t2p0: s2typ): strn =
@@ -2615,6 +2685,14 @@ case+ t2p0.node() of
     // under the old uniform `Args []any` representation every datacon field
     // was an `any` slot and this collapsed to `*any`.
     if (strn_length(g1) = 0) then "*any" else
+    // a DATATYPE inner keeps its shape: `&field` on a typed "p" slot is a
+    // `**xatsgo.XatsCon`, so the parameter must be one too.
+    if (g1 = "*xatsgo.XatsCon") then "**xatsgo.XatsCon" else
+    // an ABSTRACT inner this module assumes to a datatype has the SAME runtime
+    // shape.  MUST be tested BEFORE the `g1 = "any"` arm below, which would
+    // otherwise answer `*any` first.
+    if (if (g1 = "any") then styp_absimpl_datatypeq(t2p1) else false)
+      then "**xatsgo.XatsCon" else
     if (g1 = "any") then "*any" else
     if (strn_get$at(g1, 0) = '*') then "*any" else
     strn_append("*", g1)
@@ -2949,13 +3027,15 @@ if (gty = "rune") then "r" else
 if (gty = "string") then "s" else
 if (gty = "float64") then "f" else
 if (gty = "any") then "a" else
-// DATATYPE fields share the erased `any` slot ("a", not a distinct "p").
-// The exact-size struct is the win (bench/repr: 1.6x build / 3x memory with
-// ALL-any fields); typing the slot `*XatsHdr` instead would make `&field` a
-// `**XatsHdr` while a LOCAL holding a datatype is declared `any`, so the two
-// by-ref call shapes could not agree.  The READ still asserts to the
-// concrete type, exactly as the old Args[i].(T) did.
-if (gty = "*xatsgo.XatsCon") then "a" else "x"
+// A DATATYPE field gets its OWN code "p", not the erased "a": 8 bytes rather
+// than a 16-byte interface, and no `.(*xatsgo.XatsCon)` unbox on read (1971
+// of them in the emitted compiler, the largest assertion class).
+// This requires the by-ref shapes to agree -- see [gotype_of_arg] and
+// [styp_absimpl_datatypeq] -- and it is only SOUND once every allocation of a
+// datatype cell uses that datatype's own constructor.  See docs/11: an
+// earlier attempt corrupted because lexbuf0_cstrx1 built list cells with a
+// STREAM constructor, which is invisible while both render "zzs_aa".
+if (gty = "*xatsgo.XatsCon") then "p" else "x"
 )//endof[go_layout_code(gty)]
 //
 (*
@@ -2972,7 +3052,10 @@ if (c0 = 'b') then "bool" else
 if (c0 = 'r') then "rune" else
 if (c0 = 's') then "string" else
 if (c0 = 'f') then "float64" else
-if (c0 = 'p') then "*xatsgo.XatsHdr" else "any"
+// SPELLED "*xatsgo.XatsCon", not "*xatsgo.XatsHdr": the same Go type (XatsCon
+// is a type ALIAS of XatsHdr) but the spelling [go_coerfn_of], the elision
+// comparisons and the recorded-type table all match on.
+if (c0 = 'p') then "*xatsgo.XatsCon" else "any"
 )//endof[go_layout_type(c0)]
 //
 (*

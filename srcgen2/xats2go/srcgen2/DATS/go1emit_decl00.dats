@@ -1059,11 +1059,13 @@ case+ tdxp of
     let
       val goty0 = goty_of_dpid(dpid)
       // an uninitialized BOXED-typed var (`var res: List`) exists to be
-      // &-passed (the destination-passing pattern); its by-ref image is
-      // `*any` (see gotype_of_arg), so the cell must be `any` — reads are
-      // re-concretized at the consumption boundaries.
+      // &-passed (the destination-passing pattern), so the cell type must be
+      // whatever [gotype_of_arg] makes `&`-of-it.  A DATATYPE keeps its
+      // pointer type (`&cell` is `**XatsCon`, the by-ref image); any OTHER
+      // pointer shape still collapses to `any`/`*any`.
       val goty =
         (if (strn_length(goty0) = 0) then "any" else
+         if (goty0 = "*xatsgo.XatsCon") then goty0 else
          if (strn_get$at(goty0, 0) = '*') then "any" else goty0)
     in
       nindfpr(filr, nind);
@@ -1133,12 +1135,12 @@ case+ tdxp of
       let
         val goty0 = gotype_of_init_cmp(icmp)
         // an INITIALIZED BOXED-typed var (`var res = <datatype value>`):
-        // same rule as the uninitialized branch -- its by-ref image is
-        // `*any` (gotype_of_arg), so the cell must be `any`, else a later
-        // `&res` is `**XatsCon` where the callee wants `*any`.  Reads are
-        // re-concretized at the consumption boundaries (Xats_as_con).
+        // same rule as the uninitialized branch -- a DATATYPE cell keeps its
+        // pointer type so `&res` is `**XatsCon`, matching the by-ref image;
+        // any other pointer shape still collapses to `any`.
         val goty =
           (if (strn_length(goty0) = 0) then goty0 else
+           if (goty0 = "*xatsgo.XatsCon") then goty0 else
            if (strn_get$at(goty0, 0) = '*') then "any" else goty0)
       in
         nindfpr(filr, nind);
