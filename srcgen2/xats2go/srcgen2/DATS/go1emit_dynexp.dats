@@ -5085,7 +5085,29 @@ case+ ilet of
       (
       if t1imp_anyret_accessorq(timp)
       then inst_retty_add(i1tnm_stmp$get(itnm), "any"))
+      // STAGE-1 DEAD-INSTANCE SKIP: when the temp is NOT live and the
+      // func-literal form is what would be emitted, the whole instance body
+      // is emitted and then thrown away as `_ = func(..){..}` -- 3884 such
+      // sites, ~20k lines of the 446k emitted compiler.  The native-infix
+      // path has already superseded it (b04_list: `g_lte<sint>` emitted in
+      // full, discarded, and `(n <= 0)` used instead).  Skip the text.
+      //
+      // [t1imp_func_literalq] exists to MIRROR [t1imp_func_literal_go1emit]'s
+      // decision, so it is the right predicate here; keeping the two in step
+      // is a standing requirement (a desync previously mis-registered the
+      // nullary peel).
+      //
+      // The recordings [t1imp_func_literal_go1emit] would have made
+      // (inst_retty_add / goemit_ty_add, both keyed on the temp's stamp) are
+      // dropped with it.  That is sound only because a temp the liveness walk
+      // calls dead is never read back -- the same judgement the `_ = ` prefix
+      // already relies on.  [nullary_inst_add] above is unaffected: it runs
+      // before this point.
+      val deadinstq =
+        (if live then false else t1imp_func_literalq(timp))
     in
+    (
+    if deadinstq then ((*skip: emitted then discarded*)) else
     (
     nindfpr(filr, nind);
     if live
@@ -5115,7 +5137,7 @@ case+ ilet of
        |list_nil() => ((*non-function leaf: leave unrecorded*))
      end);
     i1insgo1(filr, scp, iins));
-    strnfpr(filr, "\n"))
+    strnfpr(filr, "\n")))
     end
   | _(*ordinary single-expression instruction*) =>
   let
