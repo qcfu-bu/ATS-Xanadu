@@ -261,6 +261,8 @@ val dpar =
 d0parsed_from_fpath(0(*sta*), fpth)
 }
 //
+(* ****** ****** *)
+//
 #implfun
 d2parsed_of_fildats
   ( fpth ) =
@@ -321,6 +323,27 @@ d0parsed_from_fpath(1(*dyn*), fpth)
 in//let
 prerrsln("\
 d3parsed_of_fildats: dpar = ", dpar); dpar
+end//let
+*)
+//
+#implfun
+d3parsdx_of_fildats
+  ( fpth ) =
+(*
+let
+val dpar =
+*)
+d3parsdx_of_trans03
+(
+d0parsed_of_pread00(dpar)) where
+{
+val dpar =
+d0parsed_from_fpath(1(*dyn*), fpth)
+}(*where*)//end-of-[d2parsdx_of_fildats]
+(*
+in//let
+prerrsln("\
+d3parsdx_of_fildats: dpar = ", dpar); dpar
 end//let
 *)
 //
@@ -395,7 +418,7 @@ end (*let*) // end of [d3parsed_of_trans03(dpar)]
 (* ****** ****** *)
 //
 #implfun
-d3parsdz_of_trans03(dpar) =
+d3parsdx_of_trans03(dpar) =
 let
 //
 val dpar = d3parsed_of_trans03(dpar)
@@ -403,7 +426,7 @@ val dpar = d3parsed_of_trtmp3b(dpar)
 val dpar = d3parsed_of_trtmp3c(dpar)
 val dpar = d3parsed_of_t3read0(dpar) in dpar
 //
-end (*let*) // end of [d3parsdz_of_trans03(dpar)]
+end (*let*) // end of [d3parsdx_of_trans03(dpar)]
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -556,6 +579,74 @@ prerrsln("// XATSHOME = ", the_XATSHOME())
 }(*where*)//end-of-[xatsopt_args$filxats_d3parsed(...)]
 //
 (* ****** ****** *)
+//
+#implfun
+xatsopt_args$filxats_d3parsdx
+  (args, xats, fpth) =
+let
+//
+fun
+f0_args
+(
+args:
+list(strn)): void =
+(
+case+ args of
+|
+list_nil() => ((*0*))
+|
+list_cons(arg1, args) =>
+(
+  f0_args(args)) where
+{
+val () =
+xatsopt_flag$pvsadd0(arg1)
+}
+)(*case+*)//end(f0_args())
+//
+val ret1 =
+the_fxtyenv_pvsl00d((*0*))
+val (  ) =
+if // if
+(ret1 > 0)
+then
+prerrsln("\
+// The fixity-defs loaded!")
+val ret2 =
+the_tr12env_pvsl01d((*nil*))
+val (  ) =
+if // if
+(ret2 > 0)
+then prerrsln("\
+// The trans12-defs loaded!")
+in//let
+//
+let
+val () = f0_args(args)
+in//let
+(
+if
+(xats >= 1)
+then
+(
+  d3parsdx_of_fildats( fpth ))
+else
+(
+// HX: no d3parsdx version:
+  d3parsed_of_filsats( fpth )))//endof(if)
+end(*let*)//end-of-[d3parsed_of_filxats(fpth)]
+//
+end where
+{
+//
+val (  ) =
+prerrsln("// Welcome from ATS3/Xanadu!")
+val (  ) =
+prerrsln("// XATSHOME = ", the_XATSHOME())
+//
+}(*where*)//end-of-[xatsopt_args$filxats_d3parsed(...)]
+//
+(* ****** ****** *)
 (* ****** ****** *)
 //
 fun
@@ -569,18 +660,30 @@ fwork:
 (* ****** ****** *)
 (* ****** ****** *)
 //
+(*
 #if
 defq(_XATS2JS_)
 #then
-#include "./CATS/JS/xatsopt_utils0.dats"//HX: ATS3_JSDEV
+#include "./CATS/JS/xatsopt_utils0.dats"//ATS3_JSDEV
 #endif//if(__XATS2JS__)
+*)
+//
+(* ****** ****** *)
+//
+(*
+#if
+defq(_XATS2CM_)
+#then
+#include "./CATS/CM/xatsopt_utils0.dats"//ATS3_CMDEV
+#endif//if(__XATS2CM__)
+*)
 //
 (* ****** ****** *)
 //
 #if
 defq(_XATS2PY_)
 #then
-#include "./CATS/PY/xatsopt_utils0.dats"//HX: ATS3_PYDEV
+#include "./CATS/PY/xatsopt_utils0.dats"//ATS3_PYDEV
 #endif//if(__XATS2PY__)
 //
 (* ****** ****** *)

@@ -14,11 +14,13 @@ all:: lib2xats2py
 ########################################################################
 ########################################################################
 clean:: ; rm -f *~
-cleanall:: ; rm -f *~
 ########################################################################
-cleanall:: ; rm -f BUILD/*_sats_out0.py
-cleanall:: ; rm -f BUILD/*_dats_out0.py
-cleanall:: ; rm -f BUILD/*_dats_out1.py
+cleanall:: ; rm -f *~
+cleanall:: ; rm -f lib/lib2xats2py.py
+cleanall:: ; rm -f BUILD/PY/*_sats_out0.py
+cleanall:: ; rm -f BUILD/PY/*_dats_out?.py
+cleanall:: ; $(MAKE) -C UTIL -f Makefile_xpyemit cleanall
+cleanall:: ; $(MAKE) -C TEST -f Makefile_xpyemit cleanall
 ########################################################################
 ########################################################################
 SRCGEN2=./../../../../../srcgen2
@@ -44,13 +46,13 @@ py1emit_decl00.dats \
 ########################################################################
 OUT0SATS := \
 $(patsubst %.sats, \
-  BUILD/%_sats_out0.py, $(SRCSATS))
+  BUILD/PY/%_sats_out0.py, $(SRCSATS))
 OUT0DATS := \
 $(patsubst %.dats, \
-  BUILD/%_dats_out0.py, $(SRCDATS))
+  BUILD/PY/%_dats_out0.py, $(SRCDATS))
 OUT1DATS := \
 $(patsubst %.dats, \
-  BUILD/%_dats_out1.py, $(SRCDATS))
+  BUILD/PY/%_dats_out1.py, $(SRCDATS))
 ########################################################################
 ########################################################################
 boot:: \
@@ -62,17 +64,15 @@ boot_dats
 boot_dats:: $(OUT0DATS)
 ########################################################################
 ########################################################################
-BUILD/%_sats_out0.py: \
+BUILD/PY/%_sats_out0.py: \
 $(XATS2PY)/srcgen1/SATS/%.sats; \
 $(NODE) --stack-size=8800 $(XATSOPT_TCHECK00) $< > $@
-BUILD/%_dats_out0.py: \
+BUILD/PY/%_dats_out0.py: \
 $(XATS2PY)/srcgen1/DATS/%.dats; \
 $(NODE) --stack-size=8800 $(XATS2PY_PYEMIT00) $< > $@
 ########################################################################
 ########################################################################
-SRCGEN2_XSHARED=$(SRCGEN2)/xats2js/srcgenx/xshared/runtime
-########################################################################
-XATSOPT_TCHECK00=$(SRCGEN2)/UTIL/xatsopt_tcheck00_dats.js
+XATSOPT_TCHECK00=$(SRCGEN2)/UTIL/xatsopt_tcheck00_ats3.js
 XATS2PY_PYEMIT00=$(XATS2PY)/srcgen1/UTIL/xats2py_pyemit00_ats3.js
 ########################################################################
 ########################################################################
@@ -88,10 +88,10 @@ N256=$(N128) $(N128)
 N512=$(N256) $(N256)
 NFILE=$(N064) $(N032) $(N004) # 100=064+032+004
 ##################################################################
-BUILD/%_dats_out1.py: \
-BUILD/%_dats_out0.py; \
+BUILD/PY/%_dats_out1.py: \
+BUILD/PY/%_dats_out0.py; \
 $(eval NFILE=$(NFILE) X) \
-$(SED) -e 's/jsxtnm/jsx$(words $(NFILE))tnm/g' $< > $@
+$(SED) -e 's/pyxtnm/pyx$(words $(NFILE))tnm/g' $< > $@
 ##################################################################
 lib2xats2py: $(OUT1DATS); $(CAT) $(OUT1DATS) > lib/lib2xats2py.py
 ########################################################################

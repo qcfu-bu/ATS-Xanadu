@@ -153,7 +153,6 @@ loctnfpr
 loctn_fprint(loc0,filr))//endfun
 //
 (* ****** ****** *)
-(* ****** ****** *)
 //
 fun
 i0expfpr
@@ -287,6 +286,7 @@ if
 then print(" && ") else ()
 //
 (* ****** ****** *)
+(* ****** ****** *)
 //
 fun
 proj
@@ -326,9 +326,9 @@ f0_ipat
 case+
 ipat.node() of
 //
+(* ****** ****** *)
 |I0Pany _ => ((*void*))
 |I0Pvar _ => ((*void*))
-//
 (* ****** ****** *)
 //
 |I0Pint _ =>
@@ -529,6 +529,7 @@ in//let
 end(*let*)//end-of-[f0_str0(...)]
 //
 (* ****** ****** *)
+(* ****** ****** *)
 //
 and
 f0_dap1
@@ -553,6 +554,8 @@ in//let
 ;print("XATS000_ctgeq(")
 ;prints(ival, ", ", i0f0, ")"))
 end(*let*)//end-of-[f0_dap1(...)]
+//
+(* ****** ****** *)
 //
 and
 f0_dapp
@@ -580,6 +583,7 @@ prints(ival,", ",i0f0, ")");
 f0_ipatlst(b0+1,0,ival,ipat,i0ps))
 end(*let*)//end-of-[f0_dapp(...)]
 //
+(* ****** ****** *)
 (* ****** ****** *)
 //
 and
@@ -763,7 +767,7 @@ symbl_get_name(sym) in//let
 ) where
 {
 //
-  #impltmp g_print$out<>() = filr
+#impltmp g_print$out<>((*0*)) = filr
 //
 }(*where*)//end-of-[labeljs1(filr,lab0)]
 //
@@ -1014,8 +1018,8 @@ case+
 ival.node() of
 (* ****** ****** *)
 (* ****** ****** *)
-|I1Vnil
-((*0*)) => prints("[", "]")
+|I1V000
+((*0*)) => prints("XATSVOID")
 (* ****** ****** *)
 (* ****** ****** *)
 |I1Vint
@@ -1292,7 +1296,7 @@ i1valjs1_list(filr,i1vs);strnfpr(filr,"))"))
 |I1INSpcon
 (lab0, i1v1) =>
 (
-prints("XATSPCON(", i1v1, ",", lab0, ")"))
+prints("XATSPCON(", i1v1, ", ", lab0, ")"))
 //
 |I1INSpflt
 (lab0, i1v1) =>
@@ -1742,13 +1746,23 @@ in//let
 //
 case+
 icl0.node() of
-|
-I1CLScls(igpt, icmp) =>
+//
+|I1CLSgpt
+(   igpt   ) =>
 let
 val () =
 (
-nindfpr(filr, nind);
-strnfpr(filr, "// { // cls\n"))
+nindstrnfpr(filr,
+nind, "// I1CLSgpt(...)\n"))
+end//let//end(I1CLSigpt(igpt))
+//
+|I1CLScls
+(igpt, icmp) =>
+let
+val () =
+(
+nindstrnfpr(
+filr, nind, "// { // cls\n"))
 //
 val () =
 (
@@ -2108,7 +2122,6 @@ let
 //
 val
 loc1 = i0f1.lctn((*0*))
-//
 val
 iopt = t1imp_i1cmpq(timp)
 //
@@ -2140,7 +2153,8 @@ strnfpr(filr, " = ");f0_t1imp(env0, timp);fprintln(filr))
 |
 optn_cons(icmp) =>
 (
-f0_i1tnmcmp(env0, itnm, icmp)) where
+f0_i1tnmcmp
+(env0, itnm, icmp)) where
 {
 val () =
 (
@@ -2307,7 +2321,7 @@ nindstrnfpr
 (filr, nind, "let ");
 i1tnmjs1(filr, itnm);
 strnfpr(filr," = function ");
-d2varfpr(filr, dvar); //fvar
+d2varfpr(filr, dvar); //fnam
 fjas1js1(filr, fjas); //farg
 strnfpr(filr, " { // fix0(");
 tokenfpr(filr, tknd);strnfpr(filr, ")\n");
@@ -2437,8 +2451,8 @@ js1emit_i1letlst
 js1emit_fjarglst
   (env0, fjas) =
 (
-  loop1(1(*i0*), fjas)
-) where
+loop1(1(*i0*), fjas))
+where
 {
 //
 val filr =
@@ -2491,9 +2505,11 @@ list_cons(ibnd, i1bs) =>
 {
 //
 #impltmp
-g_print$out<>() = filr
+g_print$out
+<(*0*)>(    ) = filr
 //
-#impltmp g_print
+#impltmp
+g_print
 <i1tnm>(itnm) = i1tnmjs1(filr, itnm)
 //
 val () =

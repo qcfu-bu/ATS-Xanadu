@@ -1,0 +1,22 @@
+##################################################################
+##################################################################
+(*
+Sat Aug  8 04:16:34 PM EDT 2026
+*)
+##################################################################
+##################################################################
+Bootstrapping for ATS3 can be demonstrated as follows:
+##################################################################
+Makefile_xcmemit:
+This Makefile uses a boostrapped [xats2cm_cmemit00_dats.cm]
+(stored in ./../UTIL) to generate [lib/libxatsopt2js2cm] from
+the source and then uses it to generate another version of the
+compiler [xats2cm_cmemit00_dats.cm].
+##################################################################
+Makefile_testall:
+This Makefile uses the generated [xats2cm_cmemit00_dats.cm]
+(stored here) to generate [OUTS/libxatsopt2js2cm] from the source
+which should be identical to [lib/libxatsopt2js2cm], demonstrating
+a successful boostrapping for ATS3 (via Scheme).
+##################################################################
+##################################################################

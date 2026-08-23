@@ -357,12 +357,13 @@ if // if
 (lvl1 >= 2)
 then
 (
-  prints("D2Perrck(",lvl1,";",d2p2,")"))
+prints("D2Perrck(",lvl1,";",d2p2,")"))
 else // (lvl1<=1)
 let
 val loc0 = d2p0.lctn() in//let
 (
-  prints("D2Perrck(",loc0,";",lvl1,";",d2p2,")"))
+prints
+("D2Perrck(",lvl1,";",d2p2,")@(",loc0,")"))
 end (*let*) // end-of-[ D2Perrck(lvl1,d2p2) ]
 //
 end (*let*) // end-of-[ d2pat_fprint(d2p0,out0) ]
@@ -790,8 +791,9 @@ else // (lvl1<=1)
 let
 val loc0 = d2e0.lctn() in//let
 (
-  prints("D2Eerrck(",loc0,";",lvl1,";",d2e2,")"))
-end (*let*) // end-of-[D2Eerrck(lvl1,d2e2)]
+prints
+("D2Eerrck(",lvl1,";",d2e2,")@(",loc0,")"))
+end (*let*) // end-of-[ D2Eerrck(lvl1,d2e2) ]
 //
 (* ****** ****** *)
 //
@@ -995,6 +997,8 @@ D2Csortdef
 ( tid1 , s2tx ) =>
 prints("D2Csortdef(",tid1,";",s2tx,")")
 //
+(* ****** ****** *)
+//
 |
 D2Csexpdef
 ( s2c1 , s2e2 ) =>
@@ -1004,6 +1008,8 @@ prints("D2Csexpdef(",s2c1,";",s2e2,")")
 D2Cabstype
 ( s2c1 , atdf ) =>
 prints("D2Cabstype(",s2c1,";",atdf,")")
+//
+(* ****** ****** *)
 //
 |
 D2Cabsopen
@@ -1015,11 +1021,15 @@ D2Cabsimpl
 ( print("D2Cabsimpl(")
 ; prints( tknd,";", simp,";",sdef,")"))
 //
+(* ****** ****** *)
+//
 |
 D2Csymload
 (tknd,sym0,dptm) =>
 ( print("D2Csymload(")
 ; prints( tknd,";",sym0,";",dptm,")" ))
+//
+(* ****** ****** *)
 //
 |
 D2Cinclude
@@ -1149,12 +1159,13 @@ if // if
 (lvl1 >= 2)
 then
 (
-  prints("D2Cerrck(",lvl1,";",d2cl,")"))
+prints("D2Cerrck(",lvl1,";",d2cl,")"))
 else // (lvl1<=1)
 let
 val loc0 = dcl0.lctn() in//let
 (
-  prints("D2Cerrck(",loc0,";",lvl1,";",d2cl,")"))
+prints
+("D2Cerrck(",lvl1,";",d2cl,")@(",loc0,")"))
 end (*let*) // end-of-[ D2Cerrck(lvl1,d2cl) ]
 //
 end (*let*) // end of [ d2ecl_fprint(dcl0,out0) ]

@@ -224,9 +224,11 @@ and i1cmp =
 //
 and i1ins =
 //
+(*
 |I1INSopr of
 (i1opr(*opnm*)
 ,i1valist(*args*))//primopr
+*)
 //
 |I1INSdapp of
 (i1val(*fun0*)
@@ -332,7 +334,7 @@ and
 i1val_node =
 //
 (* ****** ****** *)
-|I1Vnil of ()
+|I1V000 of ()
 (* ****** ****** *)
 //
 |I1Vint of token

@@ -12,6 +12,7 @@ xbasics_print0.dats \
 xlibext.dats \
 xlibext_tmplib.dats \
 xlibext_jsemit.dats \
+xlibext_cmemit.dats \
 xlibext_pyemit.dats \
 xsynoug.dats \
 xerrory.dats \
@@ -28,6 +29,7 @@ xsymmap.dats \
 xsymmap_topmap.dats \
 xsymmap_stkmap.dats \
 xglobal.dats \
+xglobal_ext000.dats \
 filpath.dats \
 filpath_print0.dats \
 filpath_drpth0.dats \
@@ -45,6 +47,7 @@ lexing0_kword0.dats \
 lexing0_token0.dats \
 lexing0_utils1.dats \
 lexing0_utils2.dats \
+lexing0_ext000.dats \
 staexp0.dats \
 staexp0_print0.dats \
 dynexp0.dats \
@@ -93,6 +96,7 @@ statyp2_tmplib.dats \
 dynexp2.dats \
 dynexp2_print0.dats \
 dynexp2_utils0.dats \
+dynexp2_tmplib.dats \
 nmspace.dats \
 trans12.dats \
 trans11_myenv0.dats \
@@ -117,15 +121,17 @@ trsym2b.dats \
 trsym2b_utils0.dats \
 trsym2b_dynexp.dats \
 trsym2b_decl00.dats \
-tread20.dats \
-tread20_dynexp.dats \
-tread20_decl00.dats \
-fperr20.dats \
-fperr20_dynexp.dats \
-fperr20_decl00.dats \
+t2read0.dats \
+t2read0_dynexp.dats \
+t2read0_decl00.dats \
+f2perr0.dats \
+f2perr0_staexp.dats \
+f2perr0_dynexp.dats \
+f2perr0_decl00.dats \
 dynexp3.dats \
 dynexp3_print0.dats \
 dynexp3_utils0.dats \
+dynexp3_tmplib.dats \
 trans23.dats \
 trans23_myenv0.dats \
 trans23_utils0.dats \
@@ -154,9 +160,13 @@ trtmp3c_myenv0.dats \
 trtmp3c_utils0.dats \
 trtmp3c_dynexp.dats \
 trtmp3c_decl00.dats \
-fperr30.dats \
-fperr30_dynexp.dats \
-fperr30_decl00.dats \
+t3read0.dats \
+t3read0_myenv0.dats \
+t3read0_dynexp.dats \
+t3read0_decl00.dats \
+f3perr0.dats \
+f3perr0_dynexp.dats \
+f3perr0_decl00.dats \
 xatsopt.dats \
 xatsopt_tmplib.dats \
 xatsopt_utils0.dats \
@@ -200,6 +210,9 @@ py1emit_decl00.dats \
 SRCGEN1=./../../../../../../srcgen1
 SRCGEN2=./../../../../../../srcgen2
 ########################################################################
+########################################################################
+all::
+########################################################################
 OUT0DATS := \
 $(patsubst %.dats, \
   OUTS/%_dats_out0.py, $(SRCDATS))
@@ -207,17 +220,14 @@ OUT1DATS := \
 $(patsubst %.dats, \
   OUTS/%_dats_out1.py, $(SRCDATS))
 ########################################################################
-########################################################################
-all:: all_dats
-all_dats:: $(OUT0DATS)
-########################################################################
 clean:: ; rm -f *~
 ########################################################################
 cleanall:: ; rm -f *~
 cleanall:: ; rm -f OUTS/*_dats_out0.py
 cleanall:: ; rm -f OUTS/*_dats_out1.py
 cleanall:: ; rm -f xats2py_pyemit00_ats3.py
-cleanall:: ; rm -f xats2py_pyemit01_ats3.py
+cleanall:: ; rm -f lib/lib2xatsopt2js2py.py
+cleanall:: ; rm -f OUTS/lib2xatsopt2js2py.py
 ########################################################################
 ########################################################################
 #
@@ -247,8 +257,6 @@ XATS2PY_PYEMIT00=./../UTIL/xats2py_pyemit00_ats3.py
 # The [S1XSHRD] is used here as
 # the code in [srcgen1/prelude] requires it.
 #
-all:: \
-xats2py_pyemit00
 xats2py_pyemit00: ; \
 printf "\
 ## %s\n%s\n%s\n%s\n%s\n" \
@@ -269,28 +277,6 @@ $(PYTHON) \
 $(XATS2PY_PYEMIT00) __void__ \
 $(SRCGEN2)/xats2py/srcgen1/UTIL/xats2py_pyemit00.dats >> $@_ats3.py
 #
-all:: \
-xats2py_pyemit01
-xats2py_pyemit01: ; \
-printf "\
-## %s\n%s\n%s\n%s\n%s\n" \
-"`date`" \
-"import os" \
-"import sys" \
-"import math" \
-"sys.setrecursionlimit(66000)" \
-> $@_ats3.py && \
-$(CAT) \
-$(S2XSHRD)/xats2py_py1emit.py >> $@_ats3.py && \
-$(CAT) \
-$(S2XSHRD)/srcgen1_prelude.py >> $@_ats3.py && \
-$(CAT) \
-$(S2XSHRD)/srcgen1_xatslib.py >> $@_ats3.py && \
-$(CAT) lib/lib2xatsopt2js2py.py >> $@_ats3.py && \
-$(PYTHON) \
-$(XATS2PY_PYEMIT00) __void__ \
-$(SRCGEN2)/xats2py/srcgen1/UTIL/xats2py_pyemit01.dats >> $@_ats3.py
-#
 ########################################################################
 ########################################################################
 N001="X"
@@ -305,12 +291,17 @@ N256=$(N128) $(N128)
 N512=$(N256) $(N256)
 NFILE=$(N064) $(N032) $(N004) # 100=064+032+004
 ########################################################################
+########################################################################
+all:: $(OUT0DATS)
+########################################################################
 OUTS/%_dats_out1.py: \
 OUTS/%_dats_out0.py; \
 $(eval NFILE=$(NFILE) X) \
 $(SED) -e 's/pyxtnm/pyx$(words $(NFILE))tnm/g' $< > $@
 ########################################################################
-lib/lib2xatsopt2js2py.py: \
+all:: \
+lib_lib2xatsopt2js2py
+lib_lib2xatsopt2js2py: \
 $(OUT1DATS); $(CAT) $(OUT1DATS) > lib/lib2xatsopt2js2py.py
 ########################################################################
 ########################################################################

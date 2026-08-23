@@ -152,6 +152,9 @@ ATS_PACKNAME
 #typedef simpl = $D2E.simpl
 #typedef dimpl = $D2E.dimpl
 (* ****** ****** *)
+#typedef a2tdf = $D2E.a2tdf
+(* ****** ****** *)
+(* ****** ****** *)
 #abstbox d3pat_tbox // p0tr
 #typedef d3pat = d3pat_tbox
 (* ****** ****** *)
@@ -882,6 +885,13 @@ d3ecl_node =
 //
 (* ****** ****** *)
 //
+|D3Csexpdef of
+(s2cst, s2exp(*defined*))
+|D3Cabstype of
+(s2cst, a2tdf(*erasure*))
+//
+(* ****** ****** *)
+//
 |D3Cabsopen of
 (token(*ABSOPEN*), simpl)
 |D3Cabsimpl of
@@ -910,21 +920,17 @@ d3ecl_node =
 HX-2024-07-20:
 Sat 20 Jul 2024 02:17:15 PM EDT
 *)
-|
-D3Cdyninit of
-( token
-(*DYNLOAD*), g1exp(*fpath*) )
-//
-(* ****** ****** *)
+|D3Cdyninit of
+(
+token(*DYNLOAD*),g1exp(*fpath*))
 //
 (*
 HX-2024-07-20:
 Sat 20 Jul 2024 02:17:15 PM EDT
 *)
-|
-D3Cextcode of
-( token
-(*EXTCODE*), g1exp(*srcode*) )
+|D3Cextcode of
+(
+token(*EXTCODE*),g1exp(*xcode*))
 //
 (* ****** ****** *)
 //
@@ -973,13 +979,17 @@ D3Ctmplocal of
 D3Cimpltmpr of
 ( stamp(*unicity*), d3ecl(*impltmpr*) )
 //
-|
-D3Cnone0 of ((*nil*))
-|
-D3Cnone1 of ( d2ecl ) | D3Cnone2 of ( d3ecl )
+(* ****** ****** *)
+//
+|D3Cnone0 of ((*nil*))
+|D3Cnone1 of ( d2ecl ) | D3Cnone2 of ( d3ecl )
+//
+(* ****** ****** *)
 //
 |
 D3Cerrck of (sint(*lvl*), d3ecl)//tread23-error
+//
+(* ****** ****** *)
 //
 //HX-2023-??-??: end-of-[datatype( d3ecl_node )]
 //

@@ -146,14 +146,32 @@ end//let
 end where
 {
 //
-val
-dpar = d3parsed_of_fildats(fpth)
+val fknd =
+fname_stadyn(fpth):sint
+//
+(*
+val (  ) =
+(
+prerrsln("\
+mymain_work: fknd = ", fknd))
+*)
+//
+val dpar =
+(
+case+ fknd of
+| 0 => (
+d3parsed_of_filsats(fpth))//SATS
+| 1 => (
+d3parsed_of_fildats(fpth))//DATS
+| _ => ( // HX: default
+d3parsed_of_fildats(fpth))):d3parsed
 //
 (*
 val (  ) =
 prerrsln("mymain_work(allist):")
 val (  ) = the_gmacenv_allist_prerr()
 *)
+//
 }(*where*)//end-of-[mymain_work(fpth)]
 //
 (* ****** ****** *)

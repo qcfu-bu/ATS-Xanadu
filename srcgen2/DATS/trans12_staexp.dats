@@ -983,7 +983,7 @@ end(*let*) // end of [f0_a1pp_cbv1(...)]
 *)
 //
 (* ****** ****** *)
-
+//
 and
 f0_a1pp_extp
 ( env0:
@@ -999,6 +999,7 @@ val
 targ = the_sort2_type
 //
 val tres =
+(
 let
 val-
 S1Eid0(sid1) = s1f0.node()
@@ -1007,8 +1008,9 @@ if // if
 (
 sid1 =
 DLR_EXTBOX_symbl)
-then the_sort2_tbox
-else the_sort2_type end : sort2
+  then the_sort2_tbox
+  else the_sort2_type end
+) : sort2//end-of-[val(tres)]
 //
 val s1es =
 (
@@ -1017,8 +1019,8 @@ s1e1.node() of
 |
 S1El1st(s1es) => s1es
 |
-_(*non-list*) => list_sing(s1e1)
-) : s1explst // end [ val(s1es) ]
+_(*non-l1st*) => list_sing(s1e1)
+) : s1explst//end-of-[val(s1es)]
 //
 val
 tnm1 =
@@ -1040,11 +1042,9 @@ val
 s2es =
 (
 case+ s1es of
-|
-list_nil() =>
-list_nil()
-|
-list_cons
+|list_nil
+( (*void*) ) => list_nil(*void*)
+|list_cons
 (s1nm, s1es) =>
 trans12_s1explst_stck1(env0,s1es,targ))
 : s2explst // end of [ val(s2es) ]
@@ -1052,9 +1052,9 @@ trans12_s1explst_stck1(env0,s1es,targ))
 in//let
 s2exp_make_node(tres,S2Etext(tnm1,s2es))
 end(*let*) // end of [f0_a1pp_extp(...)]
-
+//
 (* ****** ****** *)
-
+//
 and
 f0_a1pp_else
 ( env0:
@@ -1104,7 +1104,7 @@ else
 )(* end of [else] *)
 )
 end(*let*) // end of [f0_a1pp_else(env0,s1e0)]
-
+//
 and
 f0_a1pp_els0
 ( env0:
@@ -1122,7 +1122,7 @@ val s2f0 =
 in//let
   f0_a1pp_els1(env0, s1e0, s2f0)
 end(*let*) // end of [f0_a1pp_els0(...)]
-
+//
 and
 f0_a1pp_els1
 ( env0:
@@ -1226,7 +1226,7 @@ f0_a1pp_els0(env0, s1e0)
 f0_a1pp_els1(env0,s1e0,s2exp_csts(scs1))
 //
 end(*let*) // end of [f0_a1pp_els2(...)]
-
+//
 (* ****** ****** *)
 //
 fun
@@ -1774,13 +1774,14 @@ in//let
 //
 if // if
 (
-lte_sort2_sort2(
-  s2t0, the_sort2_view))
+lte_sort2_sort2
+( s2t0
+, the_sort2_view))
 then s2e0 else
 (
 case+
 s2e0.node() of
-|S2Eany _ => s2e0
+|S2Eany _ => ( s2e0 )
 |_(*other*) =>
 (
 s2exp_impr(s1e0.lctn(), s2e0)))
@@ -1845,6 +1846,7 @@ trans12_s1exp_prgm(env0, s1e0)
 trans12_s1exp_stck
 (env0, s1e1, s2t2) =
 let
+//
 val
 s2e1 =
 trans12_s1exp(env0, s1e1)
@@ -1857,7 +1859,26 @@ in//let
 if subq
 then s2e1 else
 s2exp_cast(s1e1.lctn(), s2e1, s2t2)
-end(*let*)//end-of[trans12_s1exp_stck(env0,...)]
+end where
+{
+//
+(*
+val (  ) =
+let
+val lctn = s1e1.lctn()
+in//let
+prerrsln
+("trans12_s1exp_stck: lctn = ", lctn)
+end//let
+val (  ) =
+prerrsln
+("trans12_s1exp_stck: s1e1 = ", s1e1)
+val (  ) =
+prerrsln
+("trans12_s1exp_stck: s2t2 = ", s2t2)
+*)
+//
+}(*where*)//end-of[trans12_s1exp_stck(env0,...)]
 //
 (* ****** ****** *)
 //

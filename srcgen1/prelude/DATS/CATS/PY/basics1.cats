@@ -104,7 +104,7 @@ def XATS2PY_char_uphexq(ch):
   A = 65
   F = 70
   return ((A <= ch) and (ch <= F))
-def XATS2PY_sint_lohexq(ch):
+def XATS2PY_sint_uphexq(ch):
   A = 65
   F = 70
   return ((A <= ch) and (ch <= F))
@@ -384,7 +384,8 @@ def XATS2PY_strtmp_vt_set_at(cs, i0, c0):
 ##
 ##################################################################.
 ##
-def XATS2PY_strn_forall_f1un(cs, test):
+def \
+XATS2PY_strn_forall_f1un(cs, test):
   c0 = 0
   i0 = 0
   ln = len(cs)
@@ -393,7 +394,8 @@ def XATS2PY_strn_forall_f1un(cs, test):
     if not(test(c0)): return False
   return True ## test passes for every c0
 ##
-def XATS2PY_strn_rforall_f1un(cs, test):
+def \
+XATS2PY_strn_rforall_f1un(cs, test):
   c0 = 0
   i0 = len(cs)
   while (i0 > 0):
@@ -403,7 +405,8 @@ def XATS2PY_strn_rforall_f1un(cs, test):
 ##
 ##################################################################.
 ##
-def XATS2PY_strn_vt_forall_f1un(cs, test):
+def \
+XATS2PY_strn_vt_forall_f1un(cs, test):
   c0 = 0
   i0 = 0
   ln1 = len(cs)-1
@@ -412,7 +415,8 @@ def XATS2PY_strn_vt_forall_f1un(cs, test):
     if not(test(c0)): return False
   return True ## test passes for every c0
 ##
-def XATS2PY_strn_vt_rforall_f1un(cs, test):
+def \
+XATS2PY_strn_vt_rforall_f1un(cs, test):
   c0 = 0
   ln = len(cs)
   i0 = ln - 1
@@ -420,6 +424,20 @@ def XATS2PY_strn_vt_rforall_f1un(cs, test):
     i0 = i0 - 1; c0 = cs[i0]
     if not(test(c0)): return False
   return True ## test passes for every c0
+##
+def \
+XATS2PY_strn_vt_forall0_f1un(cs, test):
+  return XATS2PY_strn_vt_forall_f1un(cs, test)
+def \
+XATS2PY_strn_vt_forall1_f1un(cs, test):
+  return XATS2PY_strn_vt_forall_f1un(cs, test)
+##
+def \
+XATS2PY_strn_vt_rforall0_f1un(cs, test):
+  return XATS2PY_strn_vt_rforall_f1un(cs, test)
+def \
+XATS2PY_strn_vt_rforall1_f1un(cs, test):
+  return XATS2PY_strn_vt_rforall_f1un(cs, test)
 ##
 ##################################################################.
 ##################################################################.
@@ -429,6 +447,7 @@ def XATS2PY_strn_vt_rforall_f1un(cs, test):
 ##
 ##################################################################.
 ##################################################################.
+##
 def XATS2PY_sint_neg(x0):
   return XATS2PY_gint_neg_sint(x0)
 def XATS2PY_sint_abs(x0):

@@ -397,18 +397,19 @@ print("XATSCHR2('\\f')")
 print("XATSCHR2('\\v')")
 //
 | '\'' =>
-print("XATSCHR2('\\\'')")
+(
+print("XATSCHR2('\\'')"))
 | '\\' =>
-print("XATSCHR2('\\\\')")
+(
+print("XATSCHR2('\\\\')"))
 //
 | _(*otherwise*) =>
 (
-print("XATSCHR3('\\\\");
-f2_rep(2(*i0*)); print("')")
+print("XATSCHR3('\\\\");f2_loop(2(*i0*));print("')")
 ) where
 {
 fun
-f2_rep
+f2_loop
 (i0: sint): void =
 if
 (i0 < n0) then
@@ -416,7 +417,9 @@ let
 val c0 = rep[i0]
 in//let
 (
-if c0 != '\'' then print(c0))
+if // if
+(c0 != '\'')
+then(print(c0);f2_loop(i0+1)))
 end//let
 }
 //

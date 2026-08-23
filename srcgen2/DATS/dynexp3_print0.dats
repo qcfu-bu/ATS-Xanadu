@@ -244,12 +244,13 @@ if // if
 (lvl1 >= 2)
 then
 (
-  prints("D3Perrck(",lvl1,";",d3p2,")"))
+prints("D3Perrck(",lvl1,";",d3p2,")"))
 else // (lvl1<=1)
 let
 val loc0 = d3p0.lctn() in//let
 (
-  prints("D3Perrck(",loc0,";",lvl1,";",d3p2,")"))
+prints
+("D3Perrck(",lvl1,";",d3p2,")@(",loc0,")"))
 end (*let*) // end-of-[ D3Perrck(lvl1,d3p2) ]
 //
 (* ****** ****** *)
@@ -623,12 +624,13 @@ if // if
 (lvl1 >= 2)
 then
 (
-  prints("D3Eerrck(",lvl1,";",d3e2,")"))
+prints("D3Eerrck(",lvl1,";",d3e2,")"))
 else // (lvl1<=1)
 let
 val loc0 = d3e0.lctn() in//let
 (
-  prints("D3Eerrck(",loc0,";",lvl1,";",d3e2,")"))
+prints
+("D3Eerrck(",lvl1,";",d3e2,")@(",loc0,")"))
 end (*let*) // end-of-[ D3Eerrck(lvl1,d3e2) ]
 //
 end (*let*) // end of [ d3exp_fprint(d3e0,out0) ]
@@ -786,33 +788,48 @@ dcl0.node() of
 //
 (* ****** ****** *)
 //
-|D3Cd2ecl(d2cl) =>
+|D3Cd2ecl
+(   d2cl   ) =>
 (
   prints("D3Cd2ecl(",d2cl,")"))
 //
 (* ****** ****** *)
 //
-|
-D3Cstatic(tknd,dcl1) =>
+|D3Cstatic
+(tknd, dcl1) =>
 prints("D3Cstatic(",tknd,";",dcl1,")")
-|
-D3Cextern(tknd,dcl1) =>
+|D3Cextern
+(tknd, dcl1) =>
 prints("D3Cextern(",tknd,";",dcl1,")")
 //
 (* ****** ****** *)
 //
-|
-D3Ctmpsub(svts,dcl1) =>
+|D3Ctmpsub
+(svts, dcl1) =>
 prints("D3Ctmpsub(",svts,";",dcl1,")")
 //
 (* ****** ****** *)
 //
-|D3Cdclst0(  dcls  ) =>
+|D3Cdclst0
+(   dcls   ) =>
 (
 prints("D3Cdclst0(", dcls, ")"))
-|
-D3Clocal0(head,body) =>
+//
+|D3Clocal0
+(head, body) =>
 prints("D3Clocal0(",head,";",body,")")
+//
+(* ****** ****** *)
+//
+|
+D3Csexpdef
+( s2c1 , s2e2 ) =>
+prints("D3Csexpdef(",s2c1,";",s2e2,")")
+//
+|
+D3Cabstype
+( s2c1 , atdf ) =>
+prints("D3Cabstype(",s2c1,";",atdf,")")
 //
 (* ****** ****** *)
 //
@@ -923,12 +940,13 @@ if // if
 (lvl1 >= 2)
 then
 (
-  prints("D3Cerrck(",lvl1,";",d3cl,")"))
+prints("D3Cerrck(",lvl1,";",d3cl,")"))
 else // (lvl1<=1)
 let
 val loc0 = dcl0.lctn() in//let
 (
-  prints("D3Cerrck(",loc0,";",lvl1,";",d3cl,")"))
+prints
+("D3Cerrck(",lvl1,";",d3cl,")@(",loc0,")"))
 end (*let*) // end-of-[ D3Cerrck(lvl1,d3cl) ]
 //
 end (*let*) // end of [ d3ecl_fprint(dcl0,out0) ]

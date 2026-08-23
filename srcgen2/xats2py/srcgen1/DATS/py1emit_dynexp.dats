@@ -138,7 +138,6 @@ loctnfpr
 loctn_fprint(loc0,filr))//endfun
 //
 (* ****** ****** *)
-(* ****** ****** *)
 //
 fun
 i0expfpr
@@ -988,8 +987,8 @@ ival.node() of
 //
 (* ****** ****** *)
 (* ****** ****** *)
-|I1Vnil
-((*0*)) => prints("[", "]")
+|I1V000
+((*0*)) => prints("XATSVOID")
 (* ****** ****** *)
 (* ****** ****** *)
 |I1Vint
@@ -1742,13 +1741,23 @@ in//let
 //
 case+
 icl0.node() of
-|
-I1CLScls(igpt, icmp) =>
+//
+|I1CLSgpt
+(   igpt   ) =>
 let
 val () =
 (
-nindfpr(filr, nind);
-strnfpr(filr, "## { // cls\n"))
+nindstrnfpr(filr,
+nind, "## I1CLSgpt(...)\n"))
+end//let//end(I1CLSigpt(igpt))
+//
+|I1CLScls
+(igpt, icmp) =>
+let
+val () =
+(
+nindstrnfpr(
+filr, nind, "## { // cls\n"))
 //
 val () =
 (
@@ -2107,7 +2116,6 @@ let
 //
 val
 loc1 = i0f1.lctn((*0*))
-//
 val
 iopt = t1imp_i1cmpq(timp)
 //
@@ -2261,7 +2269,7 @@ envx2js_incnind(env0,2(*++*))
 //
 val () =
 f0_i1tnmvalclslst
-( env0,itnm,i1v1,icls(*list*) )
+(env0,itnm,i1v1,icls(*clslst*))
 //
 val () =
 (
@@ -2516,9 +2524,11 @@ list_cons(ibnd, i1bs) =>
 {
 //
 #impltmp
-g_print$out<>() = filr
+g_print$out
+<(*0*)>(    ) = filr
 //
-#impltmp g_print
+#impltmp
+g_print
 <i1tnm>(itnm) = i1tnmpy1(filr, itnm)
 //
 val () =
