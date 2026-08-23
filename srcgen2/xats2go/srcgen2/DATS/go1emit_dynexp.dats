@@ -245,8 +245,26 @@ case+ ival.node() of
   if byref_has(i1tnm_stmp$get(itnm))
   then ""(*emits *p; recorded type is the pointer*)
   else goemit_ty_get(i1tnm_stmp$get(itnm)))
+// a CONSTRUCTOR-FIELD projection emits exactly [goty_of_p1cn]: on an erased
+// "a" slot [i1con_proj_go1emit] appends `.(gty)`, and on a typed "p" slot the
+// field ALREADY has that Go type.  Reporting it lets a nested projection skip
+// the `Xats_as_con` re-coercion of its root.
+|I1Vp1cn(ipat, _, pind) => goty_of_p1cn(ipat, pind)
 | _(*else*) => gotype_of_ival(ival)
 )//endof[go_ival_goty(ival)]
+//
+(*
+[go_root_conq]: does [ival] ALREADY emit as a `*xatsgo.XatsCon`?  Then wrapping
+it in `Xats_as_con` is a pointer->interface conversion plus a type switch that
+cannot fail.  Measured on the emitted compiler: 15719 of 47872 Xats_as_con
+calls are provably redundant this way -- 9261 temps bound by a coercion or a
+construction, 5039 wrapping a zzp projection, 1332 params already typed, 87
+var cells.
+*)
+fun
+go_root_conq
+(ival: i1val): bool =
+(go_ival_goty(ival) = "*xatsgo.XatsCon")
 //
 
 fun
@@ -379,7 +397,10 @@ case+ i1vs of
    |list_cons(f1, fs1) => @(f1, fs1)
    |list_nil() => @("", list_nil<strn>()))
    val coerfn =
-     (if (gotype_of_ival(i1v) = fty) then "" else go_coerfn_of(fty))
+     // [go_ival_goty], not [gotype_of_ival]: the latter types only LITERALS,
+     // so a temp whose emitted type is known was re-coerced.  Every other
+     // boundary in this file already uses the strong one; this was the holdout.
+     (if (go_ival_goty(i1v) = fty) then "" else go_coerfn_of(fty))
  in
  (
  if (i0 >= 1) then strnfpr(filr, ", ");
@@ -802,9 +823,12 @@ else
   // whole 194-module assembly, invisible to any single-module build.
   layout_add(lay);
   strnfpr(filr, "zzp"); strnfpr(filr, lay); strnfpr(filr, "(");
-  strnfpr(filr, "xatsgo.Xats_as_con(");
-  i1valgo1(filr, iroot);
-  strnfpr(filr, ")).F"); i0i00go1(filr, idx);
+  (if go_root_conq(iroot)
+   then i1valgo1(filr, iroot)
+   else
+     (strnfpr(filr, "xatsgo.Xats_as_con(");
+      i1valgo1(filr, iroot); strnfpr(filr, ")")));
+  strnfpr(filr, ").F"); i0i00go1(filr, idx);
   // ERASED slot only ("a" in the layout code): recover the concrete field
   // type exactly as the old `Args[i].(T)` did.  A SCALAR field is already
   // its Go type, and asserting on a non-interface is invalid Go.
@@ -2131,9 +2155,12 @@ assertion is emitted on the LVALUE side (a `.(T)` is not addressable in Go).
      in
        layout_add(lay);
        strnfpr(filr, "zzp"); strnfpr(filr, lay); strnfpr(filr, "(");
-       strnfpr(filr, "xatsgo.Xats_as_con(");
-       i1valgo1(filr, iroot);
-       strnfpr(filr, ")).F"); i0lab_int_go1(filr, lab0)
+       (if go_root_conq(iroot)
+        then i1valgo1(filr, iroot)
+        else
+          (strnfpr(filr, "xatsgo.Xats_as_con(");
+           i1valgo1(filr, iroot); strnfpr(filr, ")")));
+       strnfpr(filr, ").F"); i0lab_int_go1(filr, lab0)
      end
    // no constructor evidence: fail LOUDLY rather than guess an offset.
    |optn_nil() =>
@@ -3552,9 +3579,12 @@ i0pck_con_tag
 , casval: i1val
 , dcon: d2con): void =
 (
-strnfpr(filr, "xatsgo.Xats_as_con(");
-i1valgo1(filr, casval);
-strnfpr(filr, ").Tag == ");
+(if go_root_conq(casval)
+ then i1valgo1(filr, casval)
+ else
+   (strnfpr(filr, "xatsgo.Xats_as_con(");
+    i1valgo1(filr, casval); strnfpr(filr, ")")));
+strnfpr(filr, ".Tag == ");
 i0i00go1(filr, d2con_get_ctag(dcon));
 // EXCEPTIONS: an excptcon's ctag is the shared sentinel -1, so the tag test
 // alone is ambiguous between exception types -- AND in the NAME to disambiguate

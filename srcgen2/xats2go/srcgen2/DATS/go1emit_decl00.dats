@@ -942,6 +942,23 @@ case+ ipat.node() of
     // (the concrete value auto-boxes to the `any` param), so the coercion is
     // idempotent.  Same runtime value either way -> program output unchanged.
     val wrapq = (if dcq then (gty = "any") else false)
+    // EMITTED-TYPE: record what this bind actually emits.  When [wrapq] the
+    // text is `xatsgo.Xats_as_con(..)`, so the temp IS *xatsgo.XatsCon
+    // whatever [ival]'s own recovered type was; when [dcq] holds without the
+    // wrap, [gty] is already the concrete handle.  Without this the
+    // copy-propagation branch above records the SOURCE's type ("any" for an
+    // `any` parameter), contradicting the text just emitted -- so every
+    // projection and tag test rooted here re-coerced.  9261 temps.
+    val () =
+    (
+    if dcq
+    then
+      (if wrapq
+       then goemit_ty_add(i1tnm_stmp$get(itnm), "*xatsgo.XatsCon")
+       else
+         (if (gty = "*xatsgo.XatsCon")
+          then goemit_ty_add(i1tnm_stmp$get(itnm), gty)))
+    )
   in
     nindfpr(filr, nind);
     i1tnmgo1(filr, itnm); strnfpr(filr, " := ");
