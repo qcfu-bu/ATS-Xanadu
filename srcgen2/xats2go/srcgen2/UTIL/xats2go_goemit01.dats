@@ -63,6 +63,13 @@ program between //==XATS2GO-BEGIN==/ //==XATS2GO-END== sentinels.
 /../../xats2cc\
 /srcgen1/SATS/tryd3i0.sats"//...
 //
+(*
+CLAUDE-2026-08: [pread00] is not in libxatsopt.hats; the driver needs it
+for [d0parsed_of_pread00] and [d0parsed_fpemsg].  Staloaded HERE rather
+than in the shared .hats so only this module's stamps move.
+*)
+#staload "./../../../SATS/pread00.sats"
+//
 #staload "./../SATS/intrep1.sats"
 #staload "./../SATS/trxi0i1.sats"
 #staload "./../SATS/xats2go.sats"
@@ -89,6 +96,17 @@ XATSOPT_argv$get
 //
 (* ****** ****** *)
 (* ****** ****** *)
+//
+(*
+CLAUDE-2026-08: hoisted to module scope -- the diagnostics window must also
+bracket the PARSE phase (see the where-clause below), not just f3perr0.
+*)
+#extern
+fun
+XATS2GO_report_begin((*void*)): void = $extnam()
+#extern
+fun
+XATS2GO_report_end((*void*)): void = $extnam()
 //
 fun
 mymain_work
@@ -117,12 +135,6 @@ on the DEFAULT channel.  Bracket the diagnostics window so the runtime
 default is STDERR for its duration — matching the srcgen1/JS-compiled
 reference byte-for-byte on both streams.
 *)
-#extern
-fun
-XATS2GO_report_begin((*void*)): void = $extnam()
-#extern
-fun
-XATS2GO_report_end((*void*)): void = $extnam()
 in//let
 prerrsln
 ("F3PERR0_D3PARSED:");
@@ -155,8 +167,46 @@ end//let
 end where
 {
 //
+(*
+CLAUDE-2026-08: report the PARSE-level diagnostics.
+//
+[d3parsed_of_fildats(fpth)] is exactly
+//
+  d3parsed_of_trans03(d0parsed_of_pread00(d0parsed_from_fpath(1, fpth)))
+//
+(xatsopt_utils0.dats:308).  The [d0parsed] threaded through it carries the
+parse-error count -- [d0parsed_get_nerror] -- and pread00 populates the
+[D0Cerrck]/[D0Perrck] nodes that [d0parsed_fpemsg] prints as PREAD00-ERROR.
+But NOTHING in srcgen2 ever calls [d0parsed_fpemsg]: it is declared in
+pread00.sats:515, defined at pread00.dats:141, and has no caller in the
+tree.  So the value is built, consumed by trans03, and the parse-level
+report is never produced -- by ANY srcgen2 driver, ours or xats2js's.
+//
+So we expand the chain here and report [d0par] between the two halves.
+This is a DRIVER-local fix: it does not touch the shared frontend, so no
+other backend's stamps move.
+//
+Note this is a REPORTING gap, not a detection gap: a parse error still
+reaches level 3 as a [D3Cerrck] node, so [f3perr0_d3parsed] below already
+flags it (on the malformed-pattern probe both this compiler and the JS
+reference print the same 17 F3PERR0-ERROR lines).  What was missing is the
+earlier, finer-grained PREAD00 report -- which is what an LSP wants, since
+it names the offending token rather than the enclosing declaration.
+*)
+val ( ) = XATS2GO_report_begin()
+//
 val
-dpar = d3parsed_of_fildats(fpth)
+d0par =
+d0parsed_of_pread00
+  (d0parsed_from_fpath(1(*dyn*), fpth))
+//
+val ( ) =
+d0parsed_fpemsg(g_stderr((*0*)), d0par)
+//
+val
+dpar = d3parsed_of_trans03(d0par)
+//
+val ( ) = XATS2GO_report_end()
 //
 }(*where*)//end-of-[mymain_work(fpth)]
 //

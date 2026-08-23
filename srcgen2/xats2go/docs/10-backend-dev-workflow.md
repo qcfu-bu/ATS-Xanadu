@@ -101,3 +101,47 @@ are the allocation-dominated ones — the direct scoreboard for the
 representation work. Today V8 beats Go on exactly those (bst 2.2x, tup 2.7x,
 queue 3.9x) while Go wins compute kernels 2.6-5.6x; closing that gap is the
 measurable goal.
+
+## Harness blind spot: `regress` compares us against ourselves
+
+`iterate.sh regress` runs each `tests/*.dats` probe through **the selfhost
+binary and our own patched bundle**, then demands byte-equal output. That
+pins binary-vs-bundle *fixpoint* fidelity — but both sides are built from the
+same sources, so a behaviour missing from **both** is invisible to it.
+
+That is exactly how the parse-error gap survived: `xats2go_goemit01.dats`
+called `d3parsed_of_fildats(fpth)`, which is
+
+    d3parsed_of_trans03(d0parsed_of_pread00(d0parsed_from_fpath(1, fpth)))
+
+The `d0parsed` threaded through it carries the parse-error count, and
+`d0parsed_fpemsg` (pread00.sats:515, defined pread00.dats:141) prints those
+as `PREAD00-ERROR`. **Nothing in srcgen2 calls it** — not our driver, not
+xats2js's. So the value was built, consumed by trans03, and the parse-level
+report was never produced. Both sides agreed, and regress stayed green.
+
+The only oracle that caught it is the prebuilt **xats2js asset**:
+
+    xassets/JS/xats2js/xats2js_jsemit01_ats3_opt1.js
+
+It predates this tree and still calls all four reporters. On a
+malformed-pattern probe it prints PREAD00 / TREAD01 / F2PERR0 / F3PERR0;
+we printed F3PERR0 alone.
+
+**Rule of thumb: when the question is "do we report X at all?", regress
+cannot answer it — diff against the xassets JS reference instead.**
+
+Two things worth knowing about the four reporters:
+
+- They are **not** four independent error sets. On a malformed-pattern probe
+  TREAD01/F2PERR0/F3PERR0 flag the *same three spans*, at 2x/4x/6x
+  multiplicity — the same errors re-reported as the tree is lowered. So
+  F3PERR0 alone loses no *location*; what it loses is the **classification**
+  (parse error vs type error), which is precisely what an LSP needs.
+- A parse error still reaches level 3 as a `D3Cerrck` node, so this was a
+  *reporting* gap, not a *detection* gap. Nothing was ever silently accepted.
+
+`tests/err04_badpat.dats` is the probe that goes red if the parse-level
+reporter is unwired again. Note it can only catch a *divergence* between
+binary and bundle — re-check against the xassets asset when touching the
+driver's phase sequencing.

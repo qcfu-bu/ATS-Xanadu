@@ -824,8 +824,31 @@ var Xats_XATS2JS_NODE_g_stdout = func() any { return xatsDefaultOut }
 // leaves so the self-hosted binary's report lands on stderr identically.
 var xatsDefaultOut any = os.Stdout
 
-func Xats_XATS2GO_report_begin() any { xatsDefaultOut = os.Stderr; return nil }
-func Xats_XATS2GO_report_end() any   { xatsDefaultOut = os.Stdout; return nil }
+// The window NESTS.  parsing.dats brackets its own MYCDIR trace, and that
+// fires once per loaded file (219 of them); with a boolean window the first
+// inner report_end restored stdout, closing the OUTER window early and
+// sending every later diagnostic to the print store.  Count the depth and
+// restore stdout only when the outermost window closes.
+//
+// NB: this is not what caused the missing PREAD00-ERROR lines -- that was
+// [d0parsed_fpemsg] never being called at all (see xats2go_goemit01.dats).
+// The depth counter is an independent correctness fix for the bracketing.
+var xatsReportDepth int
+
+func Xats_XATS2GO_report_begin() any {
+	xatsReportDepth++
+	xatsDefaultOut = os.Stderr
+	return nil
+}
+func Xats_XATS2GO_report_end() any {
+	if xatsReportDepth > 0 {
+		xatsReportDepth--
+	}
+	if xatsReportDepth == 0 {
+		xatsDefaultOut = os.Stdout
+	}
+	return nil
+}
 
 var Xats_XATS2JS_NODE_g_stderr = func() any { return os.Stderr }
 
