@@ -1252,7 +1252,7 @@ in//let
 if
 (err = e00)
 then
-loop(buf, err, cons_vt(dcl, res))
+loop(buf, err, list_vt_cons(dcl, res))
 else
 (err := e00; list_vt_reverse0(res))
 end(*let*)//end-of[loop(buf,err,res)]
@@ -1346,7 +1346,7 @@ skip the current token and continue
   d0ecl(tok.lctn(), D0Ctkskp(tok))
 in
   loop
-  (buf, e00, err, cons_vt(dcl, res))
+  (buf, e00, err, list_vt_cons(dcl, res))
 end(*let*)//end-of[(*non-T_EOF*)]
 end(*let*)//end-of[else]//end-of(if)
 //

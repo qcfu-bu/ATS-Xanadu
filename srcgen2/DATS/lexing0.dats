@@ -113,7 +113,7 @@ let
 //
 val tnd =
 lxbf1_lexing_tnode(buf)
-val res = cons_vt(tnd, res)
+val res = list_vt_cons(tnd, res)
 //
 in//let
 //

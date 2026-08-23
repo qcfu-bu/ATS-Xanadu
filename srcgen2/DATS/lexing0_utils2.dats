@@ -493,7 +493,7 @@ let
   token_make_node(loc, T_GT0())
 in//let
 loop1
-(x1, xs, cons_vt(y2,cons_vt(y1,res)))
+(x1, xs, list_vt_cons(y2,list_vt_cons(y1,res)))
 end (* let *) // end of [ T_LTGT() ]
 *)
 |
@@ -506,7 +506,7 @@ let
   token_make_node(loc, T_LT0())
 in//let
 loop1
-(x1, xs, cons_vt(y2,cons_vt(y1,res)))
+(x1, xs, list_vt_cons(y2,list_vt_cons(y1,res)))
 end (* let *) // end of [ T_GTLT() ]
 //
 |
@@ -562,7 +562,7 @@ val loc =
 x0.lctn()+x1.lctn()
 in//let
 loop0
-(xs, cons_vt(xx2, res)) where
+(xs, list_vt_cons(xx2, res)) where
 {
 val xx2 =
 token_make_node(loc,T_TRCD10(0))
@@ -575,7 +575,7 @@ val loc =
 x0.lctn()+x1.lctn()
 in//let
 loop0
-(xs, cons_vt(xx2, res)) where
+(xs, list_vt_cons(xx2, res)) where
 {
 val xx2 =
 token_make_node(loc,T_TRCD20(0))
@@ -642,7 +642,7 @@ val loc =
 x0.lctn()+x1.lctn()
 in
 loop0
-(xs, cons_vt(xx2, res)) where
+(xs, list_vt_cons(xx2, res)) where
 {
 val xx2 =
 token_make_node(loc, T_EXISTS(1))
@@ -672,7 +672,7 @@ val loc =
 x0.lctn()+x1.lctn()
 in
 loop0
-(xs, cons_vt(xx2, res)) where
+(xs, list_vt_cons(xx2, res)) where
 {
 val xx2 =
 token_make_node(loc,T_TRCD10(1))
@@ -685,7 +685,7 @@ val loc =
 x0.lctn()+x1.lctn()
 in
 loop0
-(xs, cons_vt(xx2, res)) where
+(xs, list_vt_cons(xx2, res)) where
 {
 val xx2 =
 token_make_node(loc,T_TRCD20(1))
@@ -719,7 +719,7 @@ T_AT0() => let
   x0.lctn()+x1.lctn()
 in//let
 loop0
-(xs, cons_vt(xx2, res)) where
+(xs, list_vt_cons(xx2, res)) where
 {
 val xx2 = // k0 = 0
 token_make_node(loc, T_LAM(k0+1))
@@ -754,7 +754,7 @@ T_AT0() => let
   x0.lctn()+x1.lctn()
 in//let
 loop0
-(xs, cons_vt(xx2, res)) where
+(xs, list_vt_cons(xx2, res)) where
 {
 val xx2 = // k0 = 0
 token_make_node(loc, T_FIX(k0+1))
@@ -815,7 +815,7 @@ val xx2 =
 token_make_node
 (loc, T_VAL(VLKvlp))
 in//let
-loop0(xs, cons_vt(xx2, res))
+loop0(xs, list_vt_cons(xx2, res))
 end(*let*)//end-of(T_IDSYM("+"))
 //
 |
@@ -827,7 +827,7 @@ val xx2 =
 token_make_node
 (loc, T_VAL(VLKvln))
 in//let
-loop0(xs, cons_vt(xx2, res))
+loop0(xs, list_vt_cons(xx2, res))
 end(*let*)//end-of(T_IDSYM("-"))
 //
 |
@@ -845,7 +845,7 @@ val sym =
 in//let
 loop1
 ( x1
-, xs, cons_vt(xx2, res)) where
+, xs, list_vt_cons(xx2, res)) where
 {
 val x1 =
 token_make_node(lc1, tnd) where
@@ -869,7 +869,7 @@ val sym =
 in//let
 loop1
 ( x1
-, xs, cons_vt(xx2, res)) where
+, xs, list_vt_cons(xx2, res)) where
 {
 val x1 =
 token_make_node(lc1, tnd) where
@@ -885,18 +885,18 @@ end(*let*)// end-of-[T_IDSYM(-...)]
 |
 _(*non-plus-mnus*) =>
 (
-  loop1(x1, xs, cons_vt(x0, res))
+  loop1(x1, xs, list_vt_cons(x0, res))
 )
 )
 |
 _(*rest-of-tnode*) =>
 (
-  loop1(x1, xs, cons_vt(x0, res))
+  loop1(x1, xs, list_vt_cons(x0, res))
 )
 )
 | _(* non-VLKval *) =>
 (
-  loop1(x1, xs, cons_vt(x0, res))
+  loop1(x1, xs, list_vt_cons(x0, res))
 )
 end (*let*) // end of [f0_VAL(......)]
 
@@ -923,7 +923,7 @@ val xx2 =
 token_make_node
 (loc, T_CASE(CSKcasp))
 in
-loop0(xs, cons_vt(xx2, res))
+loop0(xs, list_vt_cons(xx2, res))
 endlet // end of-(T_IDSYM("+"))
 //
 | T_IDSYM("-") =>
@@ -934,13 +934,13 @@ val xx2 =
 token_make_node
 (loc, T_CASE(CSKcasn))
 in
-loop0(xs, cons_vt(xx2, res))
+loop0(xs, list_vt_cons(xx2, res))
 endlet // end of-(T_IDSYM("-"))
 //
 |
 _(*rest-of-tnode*) =>
 (
-  loop1(x1, xs, cons_vt(x0, res))
+  loop1(x1, xs, list_vt_cons(x0, res))
 )
 end (*let*) // end-of-[f0_CASE(...)]
 
@@ -973,16 +973,16 @@ val xx2 =
 token_make_node
 ( loc, T_IDALP(id1) )
 in//let
-loop0(xs, cons_vt(xx2, res))
+loop0(xs, list_vt_cons(xx2, res))
 end // [then] // T_IDSYM(?...)
 else
 (
-loop1(x1, xs, cons_vt(x0, res)))
+loop1(x1, xs, list_vt_cons(x0, res)))
 // end of [if]
 |
 _(*rest-of-tnode*) =>
 (
-loop1(x1, xs, cons_vt(x0, res)))
+loop1(x1, xs, list_vt_cons(x0, res)))
 //
 end where
 {

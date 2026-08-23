@@ -190,7 +190,7 @@ then
 let
 val cc1 = char(ci1)
 in
-buf.3 := cons_vt(cc1, buf.3); ci1
+buf.3 := list_vt_cons(cc1, buf.3); ci1
 end else ci1 // end-of(if)
 )
 ) where
@@ -235,7 +235,7 @@ then
 let
 val cc1 = char(ci1)
 in//let
-  buf.4 := cons_vt(cc1, buf.4)
+  buf.4 := list_vt_cons(cc1, buf.4)
 ; pstn1_incby_char(buf.1, cc1); ci1
 end else ci1 // end-of(if)
 )
@@ -251,7 +251,7 @@ let
 val ci1 = char_code(cc1)
 in//let
   buf.3 := ccs
-; buf.4 := cons_vt(cc1, buf.4)
+; buf.4 := list_vt_cons(cc1, buf.4)
 ; pstn1_incby_char(buf.1, cc1); ci1
 end
 )
@@ -332,7 +332,7 @@ list_vt_cons
 (
 buf.4 := ccs;
 buf.3 :=
-cons_vt(cc1, buf.3);
+list_vt_cons(cc1, buf.3);
 buf_decby
 (buf.0,buf.1,buf.4); char_code(cc1)
 ) (* end of [list_vt_cons] *)

@@ -896,7 +896,7 @@ in//let
 if
 (err = e00)
 then
-loop(buf, err, cons_vt(x0, res))
+loop(buf, err, list_vt_cons(x0, res))
 else
 (err := e00; list_vt_reverse0(res))
 //
@@ -952,7 +952,7 @@ let
   val x0 = pfn(buf, err)
 in//let
 loop
-(buf, err, cons_vt(x0, res))
+(buf, err, list_vt_cons(x0, res))
 end (*let*) // end of [else]
 //
 end (*let*) // end of [loop]
