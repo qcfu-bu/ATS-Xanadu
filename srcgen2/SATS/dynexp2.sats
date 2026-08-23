@@ -624,11 +624,14 @@ where
 }(*where*) // end-of-(  d2ptm  )
 //
 (* ****** ****** *)
+//
 fun
 d2itm_fprint:(d2itm, FILR)->void
 fun
 d2ptm_fprint:(d2ptm, FILR)->void
+//
 (* ****** ****** *)
+//
 fun
 s2qag_fprint:(s2qag, FILR)->void
 fun
@@ -637,6 +640,7 @@ fun
 t2iag_fprint:(t2iag, FILR)->void
 fun
 t2jag_fprint:(t2jag, FILR)->void
+//
 (* ****** ****** *)
 //
 fun
@@ -686,6 +690,7 @@ t2jag_set_t2ps
 #symload t2ps with t2jag_set_t2ps
 //
 (* ****** ****** *)
+//
 fun
 s2qag_make_s2vs
 (loc0:loc_t,s2vs:s2varlst):s2qag
@@ -702,6 +707,7 @@ fun
 t2jag_make_t2ps
 (loc0:loc_t,t2ps:s2typlst):t2jag
 #symload t2jag with t2jag_make_t2ps
+//
 (* ****** ****** *)
 (* ****** ****** *)
 //
@@ -1462,15 +1468,21 @@ d2ecl_node =
  ( d2eclist(*local-head*)
  , d2eclist(*local-body*))
 //
+(* ****** ****** *)
+//
 |D2Cabssort of (sym_t)
 //
 |D2Cstacst0 of (s2cst, sort2)
 //
 |D2Csortdef of (sym_t, s2tex)
 //
+(* ****** ****** *)
+//
 |D2Csexpdef of (s2cst, s2exp)
 //
 |D2Cabstype of (s2cst, a2tdf)
+//
+(* ****** ****** *)
 //
 |D2Cabsopen of
  ( token(*absopen*) , simpl )
@@ -1478,9 +1490,13 @@ d2ecl_node =
  ( token(*abskind*)
  , simpl, s2exp(*definition*))
 //
+(* ****** ****** *)
+//
 |
 D2Csymload of
 (token, sym_t(*loaded*), d2ptm)
+//
+(* ****** ****** *)
 //
 |
 D2Cinclude of
@@ -1504,22 +1520,24 @@ D2Cstaload of
 HX-2024-07-20:
 Sat 20 Jul 2024 01:40:24 PM EDT
 *)
-|
-D2Cdyninit of
-(token(*DYNLOAD*), g1exp(*fpath*))
+|D2Cdyninit of
+(
+token(*DYNLOAD*),g1exp(*fpath*))
 //
 (*
 HX-2024-07-20:
 Sat 20 Jul 2024 01:40:24 PM EDT
 *)
-|
-D2Cextcode of
-(token(*EXTCODE*), g1exp(*xcode*))
+|D2Cextcode of
+(
+token(*EXTCODE*),g1exp(*xcode*))
 //
 (* ****** ****** *)
 //
 |
 D2Cdatasort of (d1ecl, sort2lst)
+//
+(* ****** ****** *)
 //
 |
 D2Cvaldclst of
@@ -1559,16 +1577,22 @@ D2Cimplmnt1 of
 , dimpl, t2iaglst, f2arglst, s2res, d2exp)
 *)
 //
+(* ****** ****** *)
+//
 |D2Cexcptcon of (d1ecl, d2conlst)
 |D2Cdatatype of (d1ecl, s2cstlst)
+//
+(* ****** ****** *)
 //
 |D2Cdynconst of
 (token(*fnk//vlk*), t2qaglst, d2cstdclist)
 //
-|
-D2Cnone0 of ((*nil*))
-|
-D2Cnone1 of ( d1ecl ) | D2Cnone2 of ( d2ecl )
+(* ****** ****** *)
+//
+|D2Cnone0 of ((*nil*))
+|D2Cnone1 of ( d1ecl ) | D2Cnone2 of (d2ecl)
+//
+(* ****** ****** *)
 //
 |D2Cerrck of
  (sint(*lvl*), d2ecl(*err*))//HX:tread12-error

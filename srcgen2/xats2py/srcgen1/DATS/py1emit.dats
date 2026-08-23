@@ -43,9 +43,14 @@ Authoremail: gmhwxiATgmailDOTcom
 XATSOPT "./../../.."
 *)
 (* ****** ****** *)
+//
 #include
 "./../../..\
 /HATS/xatsopt_sats.hats"
+#include
+"./../../..\
+/HATS/xatsopt_dpre.hats"
+//
 (* ****** ****** *)
 (* ****** ****** *)
 //
@@ -96,7 +101,7 @@ list_foritm$e1nv<x0><e1>(xs, e1)) where
 #vwtpdef e1 = envx2js
 #impltmp
 foritm$e1nv$work<x0><e1>(x0, e1) = fopr(e1, x0)
-} (*where*)//end of [list_py1emit_fnp(e1,xs,fopr)]
+}(*where*)//end of [list_py1emit_fnp(e1,xs,fopr)]
 //
 (* ****** ****** *)
 //
@@ -106,11 +111,58 @@ optn_py1emit_fnp
 ( e1, xs, fopr ) =
 (
 case+ xs of
-| optn_nil() => () | optn_cons(x1) => fopr(e1, x1))
+|optn_nil
+( (*0*) ) => () | optn_cons(x1) => fopr(e1, x1)
+)(*case+*)//end of [optn_py1emit_fnp(e1,xs,fopr)]
 //
 (* ****** ****** *)
 (* ****** ****** *)
-
+//
+#implfun
+py1emit_i1dclist
+  (env0, dcls) =
+(
+  list_py1emit_fnp(env0, dcls, py1emit_i1dcl))
+(*where*)//end-of-[py1emit_i1dclist(env0,dcl0)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+#implfun
+py1emit_i1valdclist
+  (env0, i1vs) =
+(
+  list_py1emit_fnp(env0, i1vs, py1emit_i1valdcl))
+//
+(* ****** ****** *)
+//
+#implfun
+py1emit_i1vardclist
+  (env0, i1vs) =
+(
+  list_py1emit_fnp(env0, i1vs, py1emit_i1vardcl))
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+#implfun
+py1emit_i1fundclist
+  (env0, i1fs) =
+(
+  list_py1emit_fnp(env0, i1fs, py1emit_i1fundcl))
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+#implfun
+py1emit_i1dclistopt
+  (env0, dopt) =
+(
+  optn_py1emit_fnp(env0, dopt, py1emit_i1dclist))
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
 (***********************************************************************)
 (* end of [ATS3/XANADU_srcgen2_xats2py_srcgen1_DATS_py1emit.dats] *)
 (***********************************************************************)

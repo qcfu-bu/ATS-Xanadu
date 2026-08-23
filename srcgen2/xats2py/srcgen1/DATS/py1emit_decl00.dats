@@ -524,10 +524,20 @@ in//let
 //
 if
 prfq
-then prints
-("## I1Dprfdclist(",loc0,")\n")
-else prints
-("## I1Dfundclist(",loc0,")\n")
+then
+prints(
+"## I1Dprfdclist(",loc0,")\n")
+else
+(
+case+ tqas of
+|
+list_nil() =>
+prints(
+"## I1Dfundclist(",loc0,")\n")
+|
+list_cons _ =>
+prints(
+"## I1Dtfndclist(",loc0,")\n"))
 //
 end//let
 //
@@ -539,7 +549,13 @@ then
  xats2py_i1fundclist(env0, i1fs))
 else
 (
- py1emit_i1fundclist(env0, i1fs))
+case+ tqas of
+|list_nil() => // HX: functions
+(
+  py1emit_i1fundclist(env0, i1fs))
+|list_cons _ => // HX: templates
+(
+  xats2py_i1tfndclist(env0, i1fs)))
 //
 end(*let*)//end-of-[f0_fundclst(env0,dcl0)]
 //
@@ -1018,51 +1034,6 @@ end//let//end-of-[val()]
 (* ****** ****** *)
 (* ****** ****** *)
 //
-#implfun
-py1emit_i1dclist
-  (env0, dcls) =
-(
-  list_py1emit_fnp(env0, dcls, py1emit_i1dcl))
-(*where*)//end-of-[py1emit_i1dclist(env0,dcl0)]
-//
-(* ****** ****** *)
-(* ****** ****** *)
-//
-#implfun
-py1emit_i1valdclist
-  (env0, i1vs) =
-(
-  list_py1emit_fnp(env0, i1vs, py1emit_i1valdcl))
-//
-(* ****** ****** *)
-//
-#implfun
-py1emit_i1vardclist
-  (env0, i1vs) =
-(
-  list_py1emit_fnp(env0, i1vs, py1emit_i1vardcl))
-//
-(* ****** ****** *)
-(* ****** ****** *)
-//
-#implfun
-py1emit_i1fundclist
-  (env0, i1fs) =
-(
-  list_py1emit_fnp(env0, i1fs, py1emit_i1fundcl))
-//
-(* ****** ****** *)
-(* ****** ****** *)
-//
-#implfun
-py1emit_i1dclistopt
-  (env0, dopt) =
-(
-  optn_py1emit_fnp(env0, dopt, py1emit_i1dclist))
-//
-(* ****** ****** *)
-(* ****** ****** *)
-
 (***********************************************************************)
-(* end of [ATS3/XANADU_srcgen2_xats2py_srcgen1_DATS_py1emit_dynexp.dats] *)
+(* end of [ATS3/XANADU_srcgen2_xats2py_srcgen1_DATS_py1emit_decl00.dats] *)
 (***********************************************************************)

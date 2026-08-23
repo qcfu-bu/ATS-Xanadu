@@ -19,7 +19,7 @@ Makefile_testall then uses the freshly generated
 [xats2js_jsemit00_ats3.js] to generate [libxatsopt2js] again
 from the source and then uses it to generate an *identical* copy
 of [xats2js_jsemit00_ats3.js], demonstrating boostrapping for ATS3
-accomplished successfully.
+accomplished successfully (via JavaScript)!
 
 ##################################################################
 ##################################################################

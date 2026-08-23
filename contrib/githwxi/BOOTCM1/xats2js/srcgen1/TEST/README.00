@@ -1,0 +1,23 @@
+##################################################################
+##################################################################
+(*
+Sat Aug  8 03:19:50 PM EDT 2026
+*)
+##################################################################
+Bootstrapping for ATS3 can be demonstrated as follows:
+##################################################################
+
+Makefile_xjsemit uses a previously generated
+[xats2js_jsemit00_ats3.cm] to generate [libxatsopt2js] from
+the source and then uses it to generate [xats2js_jsemit00_ats3.js]
+
+##################################################################
+
+Makefile_testall then uses the freshly generated
+[xats2js_jsemit00_ats3.js] to generate [libxatsopt2js] again from
+the source that should be identical to the previous [libxatsopt2js],
+demonstrating the following two compilers offer the same functionality:
+[xats2js_jsemit00_ats3.cm] and [xats2js_jsemit00_ats3.js]
+
+##################################################################
+##################################################################

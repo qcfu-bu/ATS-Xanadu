@@ -1,13 +1,13 @@
-##################################################################
-##################################################################
+########################################################################
+########################################################################
 # HX-2024-09-12:
 # For building various tools of ATS3-Xanadu
 # It is assumed that ATS-Postiats is already installed
 # Note that the current xats2js-in-ats3 (for compiling ATS3
 # into JS) is written in ATS3, that is, ATS3 has already been
 # bootstrapped via JavaScript.
-##################################################################
-##################################################################
+########################################################################
+########################################################################
 #
 all:: srcgen1_xats2js
 #
@@ -19,36 +19,64 @@ all:: srcgen2_lib1xats2js
 all:: srcgen2_xats2js_xats2js_jsemit00
 all:: srcgen2_xats2js_xats2js_jsemit01
 #
+all:: srcgen2_lib1xats2cm
+all:: srcgen2_xats2js_xats2cm_cmemit00
+all:: srcgen2_xats2js_xats2cm_cmemit01
+#
 all:: srcgen2_lib1xats2py
 all:: srcgen2_xats2js_xats2py_pyemit00
 all:: srcgen2_xats2js_xats2py_pyemit01
 #
 all:: srcgen2_lib2xatsopt
 all:: srcgen2_lib2xats2js
+all:: srcgen2_lib2xats2cm
 all:: srcgen2_lib2xats2py
 all:: srcgen2_xjsemit_xatsopt_tcheck00
 all:: srcgen2_xjsemit_xatsopt_tcheck01
 all:: srcgen2_xjsemit_xats2js_jsemit00
 all:: srcgen2_xjsemit_xats2js_jsemit01
+all:: srcgen2_xjsemit_xats2cm_cmemit00
+all:: srcgen2_xjsemit_xats2cm_cmemit01
 all:: srcgen2_xjsemit_xats2py_pyemit00
 all:: srcgen2_xjsemit_xats2py_pyemit01
-#
-all:: contrib_githwxi_BOOTJS1_lib2xatsopt
-all:: contrib_githwxi_BOOTPY1_lib2xatsopt
 #
 all:: srcgen2_xjsemit_xatsopt_tcheck00_opt1
 all:: srcgen2_xjsemit_xatsopt_tcheck01_opt1
 all:: srcgen2_xjsemit_xats2js_jsemit00_opt1
 all:: srcgen2_xjsemit_xats2js_jsemit01_opt1
+all:: srcgen2_xjsemit_xats2cm_cmemit00_opt1
+all:: srcgen2_xjsemit_xats2cm_cmemit01_opt1
 all:: srcgen2_xjsemit_xats2py_pyemit00_opt1
 all:: srcgen2_xjsemit_xats2py_pyemit01_opt1
 #
-##################################################################
+########################################################################
 #
 testall:: prelude_TEST_CATS_JS
+testall:: prelude_TEST_CATS_CM
 testall:: prelude_TEST_CATS_PY
 #
-##################################################################
+########################################################################
+#
+bootall:: \
+contrib_githwxi_BOOTJS1_lib2xatsopt
+bootall:: \
+contrib_githwxi_BOOTJS1_lib2xats2js
+#
+bootall:: \
+contrib_githwxi_BOOTCM1_lib2xatsopt
+bootall:: \
+contrib_githwxi_BOOTCM1_lib2xats2js
+bootall:: \
+contrib_githwxi_BOOTCM1_lib2xats2cm
+#
+bootall:: \
+contrib_githwxi_BOOTPY1_lib2xatsopt
+bootall:: \
+contrib_githwxi_BOOTPY1_lib2xats2js
+bootall:: \
+contrib_githwxi_BOOTPY1_lib2xats2py
+#
+########################################################################
 #
 cleanall:: ; \
 make -C srcgen1 -f Makefile_patsopt cleanall
@@ -74,6 +102,13 @@ cleanall:: ; \
 make -C srcgen2/xats2js/srcgen1 -f Makefile_xjsemit cleanall
 #
 cleanall:: ; \
+make -C srcgen2/xats2cm/srcgen1 -f Makefile_xats2js cleanall
+cleanall:: ; \
+make -C srcgen2/xats2cm/srcgen1 -f Makefile_xjsemit cleanall
+cleanall:: ; \
+make -C srcgen2/xats2cm/srcgen1 -f Makefile_xcmemit cleanall
+#
+cleanall:: ; \
 make -C srcgen2/xats2py/srcgen1 -f Makefile_xats2js cleanall
 cleanall:: ; \
 make -C srcgen2/xats2py/srcgen1 -f Makefile_xjsemit cleanall
@@ -86,14 +121,21 @@ cleanall:: ; \
 make -C contrib/githwxi/BOOTJS1/xats2js/srcgen1 -f Makefile_xjsemit cleanall
 #
 cleanall:: ; \
+make -C contrib/githwxi/BOOTCM1 -f Makefile_xcmemit cleanall
+cleanall:: ; \
+make -C contrib/githwxi/BOOTCM1/xats2js/srcgen1 -f Makefile_xcmemit cleanall
+cleanall:: ; \
+make -C contrib/githwxi/BOOTCM1/xats2cm/srcgen1 -f Makefile_xcmemit cleanall
+#
+cleanall:: ; \
 make -C contrib/githwxi/BOOTPY1 -f Makefile_xpyemit cleanall
 cleanall:: ; \
 make -C contrib/githwxi/BOOTPY1/xats2js/srcgen1 -f Makefile_xpyemit cleanall
 cleanall:: ; \
 make -C contrib/githwxi/BOOTPY1/xats2py/srcgen1 -f Makefile_xpyemit cleanall
 #
-##################################################################
-##################################################################
+########################################################################
+########################################################################
 #
 # STEP~1 for building xats2js-in-ats2:
 #
@@ -104,8 +146,10 @@ time make -C srcgen1 -f Makefile_patsopt libxatsopt
 srcgen1_xats2js:: ; \
 time make -C srcgen1/xats2js/srcgen1 -f Makefile_patsopt xats2js
 #
-##################################################################
+########################################################################
 #
+# HX-2026-08-08:
+# Building with Makefile_xats2js
 # STEP~2 for building xatsopt_tcheck00
 #
 srcgen2_lib1xatsopt: ; \
@@ -115,8 +159,10 @@ time make -C srcgen2/UTIL -f Makefile_xats2js xatsopt_tcheck00
 srcgen2_xats2js_xatsopt_tcheck01: ; \
 time make -C srcgen2/UTIL -f Makefile_xats2js xatsopt_tcheck01
 #
-##################################################################
+########################################################################
 #
+# HX-2026-08-08:
+# Building with Makefile_xats2js
 # STEP~3 for building xats2js_jsemit00
 #
 srcgen2_lib1xats2js: ; \
@@ -126,9 +172,19 @@ time make -C srcgen2/xats2js/srcgen1/UTIL -f Makefile_xats2js xats2js_jsemit00
 srcgen2_xats2js_xats2js_jsemit01: ; \
 time make -C srcgen2/xats2js/srcgen1/UTIL -f Makefile_xats2js xats2js_jsemit01
 #
-##################################################################
+########################################################################
 #
+# HX-2026-08-08:
+# Building with Makefile_xats2js
+# STEP~4 for building xats2py_cmemit00
 # STEP~4 for building xats2py_pyemit00
+#
+srcgen2_lib1xats2cm: ; \
+time make -C srcgen2/xats2cm/srcgen1 -f Makefile_xats2js lib1xats2cm
+srcgen2_xats2js_xats2cm_cmemit00: ; \
+time make -C srcgen2/xats2cm/srcgen1/UTIL -f Makefile_xats2js xats2cm_cmemit00
+srcgen2_xats2js_xats2cm_cmemit01: ; \
+time make -C srcgen2/xats2cm/srcgen1/UTIL -f Makefile_xats2js xats2cm_cmemit01
 #
 srcgen2_lib1xats2py: ; \
 time make -C srcgen2/xats2py/srcgen1 -f Makefile_xats2js lib1xats2py
@@ -137,12 +193,16 @@ time make -C srcgen2/xats2py/srcgen1/UTIL -f Makefile_xats2js xats2py_pyemit00
 srcgen2_xats2js_xats2py_pyemit01: ; \
 time make -C srcgen2/xats2py/srcgen1/UTIL -f Makefile_xats2js xats2py_pyemit01
 #
-##################################################################
+########################################################################
 #
+# HX-2026-08-08:
+# Building with Makefile_xjsemit
 # STEP~5 for boostrapping xatsopt_tcheck00
 # STEP~5 for boostrapping xatsopt_tcheck01
 # STEP~5 for boostrapping xats2js_jsemit00
 # STEP~5 for boostrapping xats2js_jsemit01
+# STEP~5 for boostrapping xats2js_cmemit00
+# STEP~5 for boostrapping xats2js_cmemit01
 # STEP~5 for boostrapping xats2js_pyemit00
 # STEP~5 for boostrapping xats2js_pyemit01
 #
@@ -150,6 +210,8 @@ srcgen2_lib2xatsopt: ; \
 time make -C srcgen2 -f Makefile_xjsemit lib2xatsopt
 srcgen2_lib2xats2js: ; \
 time make -C srcgen2/xats2js/srcgen1 -f Makefile_xjsemit lib2xats2js
+srcgen2_lib2xats2cm: ; \
+time make -C srcgen2/xats2cm/srcgen1 -f Makefile_xjsemit lib2xats2cm
 srcgen2_lib2xats2py: ; \
 time make -C srcgen2/xats2py/srcgen1 -f Makefile_xjsemit lib2xats2py
 #
@@ -171,6 +233,15 @@ time make -C srcgen2/xats2js/srcgen1/UTIL -f Makefile_xjsemit xats2js_jsemit00_o
 srcgen2_xjsemit_xats2js_jsemit01_opt1: ; \
 time make -C srcgen2/xats2js/srcgen1/UTIL -f Makefile_xjsemit xats2js_jsemit01_opt1
 #
+srcgen2_xjsemit_xats2cm_cmemit00: ; \
+time make -C srcgen2/xats2cm/srcgen1/UTIL -f Makefile_xjsemit xats2cm_cmemit00
+srcgen2_xjsemit_xats2cm_cmemit01: ; \
+time make -C srcgen2/xats2cm/srcgen1/UTIL -f Makefile_xjsemit xats2cm_cmemit01
+srcgen2_xjsemit_xats2cm_cmemit00_opt1: ; \
+time make -C srcgen2/xats2cm/srcgen1/UTIL -f Makefile_xjsemit xats2cm_cmemit00_opt1
+srcgen2_xjsemit_xats2cm_cmemit01_opt1: ; \
+time make -C srcgen2/xats2cm/srcgen1/UTIL -f Makefile_xjsemit xats2cm_cmemit01_opt1
+#
 srcgen2_xjsemit_xats2py_pyemit00: ; \
 time make -C srcgen2/xats2py/srcgen1/UTIL -f Makefile_xjsemit xats2py_pyemit00
 srcgen2_xjsemit_xats2py_pyemit01: ; \
@@ -180,9 +251,10 @@ time make -C srcgen2/xats2py/srcgen1/UTIL -f Makefile_xjsemit xats2py_pyemit00_o
 srcgen2_xjsemit_xats2py_pyemit01_opt1: ; \
 time make -C srcgen2/xats2py/srcgen1/UTIL -f Makefile_xjsemit xats2py_pyemit01_opt1
 #
-##################################################################
+########################################################################
 #
 # Step~6: for bootstrapping from BOOTJS1
+# Step~6: for bootstrapping from BOOTCM1
 # Step~6: for bootstrapping from BOOTPY1
 #
 contrib_githwxi_BOOTJS1_lib2xatsopt: ; \
@@ -191,6 +263,15 @@ contrib_githwxi_BOOTJS1_UTIL_tcheck00: ; \
   time make -C contrib/githwxi/BOOTJS1/UTIL -f Makefile_xjsemit xatsopt_tcheck00
 contrib_githwxi_BOOTJS1_lib2xats2js: ; \
   time make -C contrib/githwxi/BOOTJS1/xats2js/srcgen1 -f Makefile_xjsemit lib2xats2js
+#
+contrib_githwxi_BOOTCM1_lib2xatsopt: ; \
+  time make -C contrib/githwxi/BOOTCM1 -f Makefile_xcmemit lib2xatsopt
+contrib_githwxi_BOOTCM1_UTIL_tcheck00: ; \
+  time make -C contrib/githwxi/BOOTCM1/UTIL -f Makefile_xcmemit xats2cm_tcheck00
+contrib_githwxi_BOOTCM1_lib2xats2js: ; \
+  time make -C contrib/githwxi/BOOTCM1/xats2js/srcgen1 -f Makefile_xcmemit lib2xats2js
+contrib_githwxi_BOOTCM1_lib2xats2cm: ; \
+  time make -C contrib/githwxi/BOOTCM1/xats2cm/srcgen1 -f Makefile_xcmemit lib2xats2cm
 #
 contrib_githwxi_BOOTPY1_lib2xatsopt: ; \
   time make -C contrib/githwxi/BOOTPY1 -f Makefile_xpyemit lib2xatsopt
@@ -201,11 +282,15 @@ contrib_githwxi_BOOTPY1_lib2xats2js: ; \
 contrib_githwxi_BOOTPY1_lib2xats2py: ; \
   time make -C contrib/githwxi/BOOTPY1/xats2py/srcgen1 -f Makefile_xpyemit lib2xats2py
 #
-##################################################################
-##################################################################
+########################################################################
+########################################################################
 #
 prelude_TEST_CATS_JS: ; make -C prelude/TEST/CATS/JS -f Makefile_jsemit01 testall
+prelude_TEST_CATS_CM: ; make -C prelude/TEST/CATS/CM -f Makefile_cmemit01 testall
 prelude_TEST_CATS_PY: ; make -C prelude/TEST/CATS/PY -f Makefile_pyemit01 testall
 #
-##################################################################
-##################################################################
+########################################################################
+########################################################################
+#######################(end-of(Makefile_overall))#######################
+########################################################################
+########################################################################

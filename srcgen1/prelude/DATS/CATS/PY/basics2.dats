@@ -28,7 +28,7 @@ g_free<a>(x0) = () // for PY!!!
 (*
 HX-2020-10-25:
 Please note that
-[a] is boxed in JavaScript
+[a] is boxed in Python
 *)
 //
 (* ****** ****** *)

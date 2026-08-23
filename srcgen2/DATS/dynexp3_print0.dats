@@ -245,7 +245,7 @@ else // (lvl1<=1)
 let
 val loc0 = d3p0.lctn() in//let
 (
-  (print("D3Perrck("); print(loc0); print(";"); print(lvl1); print(";"); print(d3p2); print(")")))
+  (print("D3Perrck("); print(lvl1); print(";"); print(d3p2); print(")@("); print(loc0); print(")")))
 end (*let*) // end-of-[ D3Perrck(lvl1,d3p2) ]
 //
 (* ****** ****** *)
@@ -619,7 +619,7 @@ else // (lvl1<=1)
 let
 val loc0 = d3e0.lctn() in//let
 (
-  (print("D3Eerrck("); print(loc0); print(";"); print(lvl1); print(";"); print(d3e2); print(")")))
+  (print("D3Eerrck("); print(lvl1); print(";"); print(d3e2); print(")@("); print(loc0); print(")")))
 end (*let*) // end-of-[ D3Eerrck(lvl1,d3e2) ]
 //
 end (*let*) // end of [ d3exp_fprint(d3e0,out0) ]
@@ -773,7 +773,8 @@ dcl0.node() of
 //
 (* ****** ****** *)
 //
-|D3Cd2ecl(d2cl) =>
+|D3Cd2ecl
+(   d2cl   ) =>
 (
   (print("D3Cd2ecl("); print(d2cl); print(")")))
 //
@@ -794,12 +795,25 @@ D3Ctmpsub(svts,dcl1) =>
 //
 (* ****** ****** *)
 //
-|D3Cdclst0(  dcls  ) =>
+|D3Cdclst0
+(   dcls   ) =>
 (
 (print("D3Cdclst0("); print(dcls); print(")")))
 |
 D3Clocal0(head,body) =>
 (print("D3Clocal0("); print(head); print(";"); print(body); print(")"))
+//
+(* ****** ****** *)
+//
+|
+D3Csexpdef
+( s2c1 , s2e2 ) =>
+prints("D3Csexpdef(",s2c1,";",s2e2,")")
+//
+|
+D3Cabstype
+( s2c1 , atdf ) =>
+prints("D3Cabstype(",s2c1,";",atdf,")")
 //
 (* ****** ****** *)
 //
@@ -910,7 +924,7 @@ else // (lvl1<=1)
 let
 val loc0 = dcl0.lctn() in//let
 (
-  (print("D3Cerrck("); print(loc0); print(";"); print(lvl1); print(";"); print(d3cl); print(")")))
+  (print("D3Cerrck("); print(lvl1); print(";"); print(d3cl); print(")@("); print(loc0); print(")")))
 end (*let*) // end-of-[ D3Cerrck(lvl1,d3cl) ]
 //
 end (*let*) // end of [ d3ecl_fprint(dcl0,out0) ]

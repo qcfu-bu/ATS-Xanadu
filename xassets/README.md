@@ -1,12 +1,14 @@
-# [ATS3-Xanadu](http://www.ats-lang.org/)/xassets
+# [ATS3-Xanadu](https://www.ats-lang.org/)/xassets
 
 This directory primarily contains some pre-built "assets" (e.g.,
 compilers with accompanying files). One can use such assets, for
 instance, to turn ATS3 source code into a form (such as JS code, PY
 code, etc.) that can be interpreted, compiled, or executed. Mostly,
 the assets stored here are intended for the purpose of further
-developing ATS3. For someone who is interested in using ATS3 as a
-programming language, please visit XATSHOME.
+developing ATS3.
+
+For someone who is just interested in using ATS3 as a programming
+language, please visit [XATSHOME](https://github.com/xatshome).
 
 ## XATSOPT
 
@@ -34,27 +36,28 @@ Google), which is a JS-to-JS compiler.
 
 This compiler is built as the result of a successful bootstrapping of
 ATS3. The word `ats3` in the name indicates that the compiler is built
-via the use of some ATS3 compiler written in ATS3 itself. For
-instance, this compiler can compile its own source code, that is,
+via the use of some ATS3 compiler written in ATS3 itself.
+For instance, this compiler can compile its own source code, that is,
 bootstrap itself. Let use refer the first ATS3 compiler as
-ATS3-compiler_ats1 (whose source is written ATS2), and the previous
-compiler as ATS3-compiler_ats2 (whose source is written in ATS3), and
-this one as ATS3-compiler_ats3 (which shares the same source with
-ATS3-compiler_ats2). Then we have the following informative equations:
+ATS3-compiler$gen1 (whose source, ATS3-source$ats2, is written ATS2),
+and the previous compiler as ATS3-compiler$gen2 (whose source,
+ATS3-source$ats3, is written in ATS3), and this one as ATS3-compiler$gen3
+(which shares the same source with ATS3-compiler$gen2). Then we have the
+following informative equations:
 
 ```
 (
 Assume ATS2-compiler is available
 )
-ATS3-compiler_ats1 = ATS2-compiler.compile(ATS3-source_ats2)
-ATS3-compiler_ats2 = ATS3-compiler_ats1.compile(ATS3-source_ats3)
-ATS3-compiler_ats3 = ATS3-compiler_ats2.compile(ATS3-source_ats3)
-ATS3-compiler_ats3 = ATS3-compiler_ats3.compile(ATS3-source_ats3)
+ATS3-compiler$gen1 = ATS2-compiler.compile(ATS3-source$ats2)
+ATS3-compiler$gen2 = ATS3-compiler$gen1.compile(ATS3-source$ats3)
+ATS3-compiler$gen3 = ATS3-compiler$gen2.compile(ATS3-source$ats3)
+ATS3-compiler$gen3 = ATS3-compiler$gen3.compile(ATS3-source$ats3)
 ```
 
-It is due to the last equation that ATS3-compiler_ats3 is claimed to
+It is due to the last equation that ATS3-compiler$gen3 is claimed to
 be able to bootstrap itself. In this particular case, we say that ATS3
-can be bootstrapped via JS since ATS3-compiler_ats3 is a program in JS.
+can be bootstrapped via JS since ATS3-compiler$gen3 is a program in JS.
 
 (
 ATS3 can be bootstrapped via Python (PY) as well, though bootstapping
@@ -77,15 +80,24 @@ For compiling ATS3 into Python3.
 
 ### JS/xats2py/xats2py_pyemit01_ats3_opt1.js
 
-This compiler is built for compiling ATS3 source into PY.  It needs to
-be run with Python3.12 (or a later version).  The word `pyemit01` in
-the name of the compiler indicates that the compiler emits PY code
-after loading (via a call to the function `the_tr12env_pvsl01d` in
-`xglobal.dats`) some prelude-files (inside XATSHOME/prelude) made for
-general-purpose programming.  The word `ats3` in the name indicates
-that this compiler is built via the direct use of a bootstrapped ATS3
-compiler. Also, the word `opt1` in the name indicates that the JS code
-for the compiler is transpiled (from JS to JS) by the closure-compiler
-(produced by Google).
+This compiler is built for compiling ATS3 source into PY.  The
+generated PY code needs to be run with Python3.12 (or a later
+version).  The word `pyemit01` in the name of the compiler indicates
+that the compiler emits PY code after loading (via a call to the
+function `the_tr12env_pvsl01d` in `xglobal.dats`) some prelude-files
+(inside XATSHOME/prelude) made for general-purpose programming.  The
+word `ats3` in the name indicates that this compiler is built via the
+direct use of a bootstrapped ATS3 compiler. Also, the word `opt1` in
+the name indicates that the JS code for the compiler is transpiled
+(from JS to JS) by the closure-compiler (produced by Google).
 
 This one (pyemit01) is also stored at XATSHOME.
+
+## XATS2CM
+
+For compiling ATS3 into Scheme.
+
+### JS/xats2cm/xats2cm_cmemit01_ats3_opt1.js
+
+This compiler is built for compiling ATS3 source into Scheme. Its
+development and usage is parallel to XATS2PY.

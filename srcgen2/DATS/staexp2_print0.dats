@@ -274,6 +274,8 @@ in//let
 case+
 s2e0.node() of
 //
+(* ****** ****** *)
+//
 |S2Eint(int) =>
 (print("S2Eint("); print(int); print(")"))
 |S2Ebtf(btf) =>
@@ -283,14 +285,31 @@ s2e0.node() of
 |S2Estr(str) =>
 (print("S2Estr("); print(str); print(")"))
 //
-|S2Ecst(s2c) =>
-(print("S2Ecst("); print(s2c); print(")"))
-|S2Evar(s2v) =>
-(print("S2Evar("); print(s2v); print(")"))
+(* ****** ****** *)
+//
+|
+S2Ecst(s2c) =>
+let
+val s2t = s2c.sort()
+in//let
+(print("S2Ecst("); print(s2t); print(";"); print(s2c); print(")"))
+end//let
+//
+|
+S2Evar(s2v) =>
+let
+val s2t = s2v.sort()
+in//let
+(print("S2Evar("); print(s2t); print(";"); print(s2v); print(")"))
+end//let
+//
+(* ****** ****** *)
 //
 |
 S2Eany(knd) =>
 (print("S2Eany("); print(knd); print(")"))
+//
+(* ****** ****** *)
 //
 |S2Etop0(s2e) =>
 (print("S2Etop0("); print(s2e); print(")"))
