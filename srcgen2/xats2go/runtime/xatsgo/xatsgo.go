@@ -542,11 +542,10 @@ var Xats_gint_gt_sint_sint = func(i1 any, i2 any) any { return i1.(int) > i2.(in
 // [eq]/[cmp] return bool/int (NOT boxed `any`) because the emitter types their
 // results from the SATS return type and emits the value bare (`return <r>` in a
 // bool/int function), so the runtime Go type must match.
-var Xats_gint_sint2uint = func(i any) any { return i.(int) }
-var Xats_gint_suc_uint = func(i any) any { return i.(int) + 1 }
-var Xats_gint_eq_uint_uint = func(i1 any, i2 any) bool { return i1.(int) == i2.(int) }
-var Xats_gint_cmp_uint_uint = func(i1 any, i2 any) int {
-	a, b := i1.(int), i2.(int)
+var Xats_gint_sint2uint = func(i int) int { return i }
+var Xats_gint_suc_uint = func(i int) int { return i + 1 }
+var Xats_gint_eq_uint_uint = func(i1 int, i2 int) bool { return i1 == i2 }
+var Xats_gint_cmp_uint_uint = func(a int, b int) int {
 	if a < b {
 		return -1
 	}
@@ -558,8 +557,8 @@ var Xats_gint_cmp_uint_uint = func(i1 any, i2 any) int {
 
 // typed int return: negation results flow into `int`-declared vars/globals
 // (an `any` return needed an assertion Go's initializer position can't take).
-var Xats_gint_neg_sint = func(i any) int { return -i.(int) }
-var Xats_gint_uint2sint = func(i any) any { return i.(int) }
+var Xats_gint_neg_sint = func(i int) int { return -i }
+var Xats_gint_uint2sint = func(i int) int { return i }
 
 // XATSOPT_strn_append_uint(name, stmp): append the uint's decimal digits to a
 // string (xsymbol's symbl_extend_stamp builds "name<stmp>").
@@ -618,7 +617,7 @@ var Xats_char_neq = func(c1 any, c2 any) any { return c1.(int32) != c2.(int32) }
 // ===========================================================================
 
 // bool_neg: logical negation (prelude bool000: bool_neg(b) = ~b).
-var Xats_bool_neg = func(b any) any { return !b.(bool) }
+var Xats_bool_neg = func(b bool) bool { return !b }
 
 // g_print: the STRINGS-ONLY residue of the old generic printer.  The
 // resolved prelude prints everything through compiled ATS bodies down to the
@@ -800,8 +799,8 @@ func Xats_applyN(f any, args ...any) any {
 	}
 	return out[0].Interface()
 }
-func Xats_gint_asrn_sint(a any, n any) any { return a.(int) >> uint(n.(int)) }
-func Xats_gint_land_uint(a any, b any) any { return a.(int) & b.(int) }
+func Xats_gint_asrn_sint(a int, n int) int { return a >> uint(n) }
+func Xats_gint_land_uint(a int, b int) int { return a & b }
 
 // ===========================================================================
 // Self-hosting floor: JS-arm leaves (the _XATS2JS_ prelude arm resolved by the
@@ -846,21 +845,20 @@ var Xats_XATS2JS_NODE_strn_fprint = func(obj any, out any) any {
 
 // bool/float fprint leaves (same (value, out) order as strn_fprint): the
 // tmplib g_print<bool>/g_print<dflt> instances lower to these.
-var Xats_XATS2JS_NODE_bool_fprint = func(b any, out any) any {
+var Xats_XATS2JS_NODE_bool_fprint = func(b bool, out any) any {
 	s := "false"
-	if v, ok := b.(bool); ok && v {
+	if b {
 		s = "true"
 	}
 	return Xats_XATS2JS_NODE_strn_fprint(s, out)
 }
-var Xats_XATS2JS_NODE_gflt_fprint_dflt = func(f any, out any) any {
-	v, _ := f.(float64)
-	return Xats_XATS2JS_NODE_strn_fprint(XatsFloatToString(v), out)
+var Xats_XATS2JS_NODE_gflt_fprint_dflt = func(f float64, out any) any {
+	return Xats_XATS2JS_NODE_strn_fprint(XatsFloatToString(f), out)
 }
 
 // prelude JS-CATS scalar leaves (srcgen1/prelude/DATS/CATS/JS/basics3.dats
 // extern names) reached by the resolved prelude bodies under --go-arm.
-var Xats_XATS2JS_gint_suc_sint = func(x any) any { return x.(int) + 1 }
+var Xats_XATS2JS_gint_suc_sint = func(x int) int { return x + 1 }
 var Xats_XATS2JS_gint_gt_sint_sint = func(a any, b any) any { return a.(int) > b.(int) }
 var Xats_XATS2JS_gint_gte_sint_sint = func(a int, b int) bool { return a >= b }
 var Xats_XATS2JS_gint_lt_sint_sint = func(a any, b any) any { return a.(int) < b.(int) }
@@ -957,9 +955,9 @@ func Xats_cast10(x any) any { return x }
 func Xats_XATSOPT_XATSHOME_get() any { return os.Getenv("XATSHOME") }
 
 // NODE gint fprint (NODE/basics0.cats sint_fprint): decimal int to the writer.
-var Xats_XATS2JS_NODE_gint_fprint_sint = func(obj any, out any) any {
+var Xats_XATS2JS_NODE_gint_fprint_sint = func(obj int, out any) any {
 	if w, ok := xatsWriter(out); ok {
-		_, _ = w.Write([]byte(strconv.Itoa(obj.(int))))
+		_, _ = w.Write([]byte(strconv.Itoa(obj)))
 	}
 	return XATSNIL()
 }
@@ -1071,7 +1069,7 @@ func Xats_strn_vt2t(cs any) any {
 }
 func Xats_UN_strn_vt_cast(x any) any { return x }
 
-func Xats_gint_pre_sint(x any) any { return x.(int) - 1 }
+func Xats_gint_pre_sint(x int) int { return x - 1 }
 
 // -- self-hosting floor, round 4 (full-pipeline surface) ----------------------
 
@@ -1097,27 +1095,26 @@ func xatsRuneOf(c any) rune {
 	}
 	return c.(rune)
 }
-func Xats_char_isdigit(c any) bool { r := xatsRuneOf(c); return r >= '0' && r <= '9' }
+func Xats_char_isdigit(c rune) bool { return c >= '0' && c <= '9' }
 func Xats_char_isalpha(c any) bool {
 	r := xatsRuneOf(c)
 	return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z')
 }
-func Xats_char_isalnum(c any) bool { return Xats_char_isdigit(c) || Xats_char_isalpha(c) }
-func Xats_char_isxdigit(c any) bool {
-	r := xatsRuneOf(c)
-	return (r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')
+func Xats_char_isalnum(c rune) bool { return Xats_char_isdigit(c) || Xats_char_isalpha(c) }
+func Xats_char_isxdigit(c rune) bool {
+	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
 }
 
 // bool_mul = conjunction (prelude bool 'multiplication').
-func Xats_bool_mul(a any, b any) bool { return a.(bool) && b.(bool) }
+func Xats_bool_mul(a bool, b bool) bool { return a && b }
 
 // a1ptr / jsa1sz (JS array) — []any at runtime.
-func Xats_a1ptr_get_at1(arr any, i any) any { return arr.([]any)[i.(int)] }
+func Xats_a1ptr_get_at1(arr any, i int) any { return arr.([]any)[i] }
 
 // NODE char/uint fprint (NODE/basics0.cats).
-var Xats_XATS2JS_NODE_char_fprint = func(obj any, out any) any {
+var Xats_XATS2JS_NODE_char_fprint = func(obj rune, out any) any {
 	if w, ok := xatsWriter(out); ok {
-		_, _ = w.Write([]byte(string(xatsRuneOf(obj))))
+		_, _ = w.Write([]byte(string(obj)))
 	}
 	return XATSNIL()
 }
@@ -1170,7 +1167,7 @@ func xatsSeqItems(xs any) []any {
 	return nil
 }
 
-func Xats_gflt_eq_dflt_dflt(a any, b any) bool { return a.(float64) == b.(float64) }
+func Xats_gflt_eq_dflt_dflt(a float64, b float64) bool { return a == b }
 
 // stropt: the JS arm's nullable string.
 func Xats_stropt_nilq(x any) bool  { return x == nil }
@@ -1366,7 +1363,7 @@ var Xats_XATS2JS_char_isdigit = Xats_char_isdigit
 var Xats_XATS2JS_char_isalnum = Xats_char_isalnum
 var Xats_XATS2JS_char_isxdigit = Xats_char_isxdigit
 
-func Xats_XATS2JS_char_eqz(c any) bool { return xatsRuneOf(c) == 0 }
+func Xats_XATS2JS_char_eqz(c rune) bool { return c == 0 }
 func Xats_XATS2JS_char_cmp(r1 rune, r2 rune) int {
 	if r1 < r2 {
 		return -1
@@ -1423,9 +1420,9 @@ var Xats_XATS2JS_a0ref_dtset = Xats_a0ref_dtset
 var Xats_XATS2JS_a0ptr_make_1val = Xats_a0ptr_make_1val
 var Xats_XATS2JS_a1ptr_get_at1 = Xats_a1ptr_get_at1
 
-func Xats_XATS2JS_a1ptr_alloc(asz any) any { return make([]any, asz.(int)) }
-func Xats_XATS2JS_a1ptr_set_at1(arr any, i any, x any) any {
-	arr.([]any)[i.(int)] = x
+func Xats_XATS2JS_a1ptr_alloc(asz int) any { return make([]any, asz) }
+func Xats_XATS2JS_a1ptr_set_at1(arr any, i int, x any) any {
+	arr.([]any)[i] = x
 	return XATSNIL()
 }
 

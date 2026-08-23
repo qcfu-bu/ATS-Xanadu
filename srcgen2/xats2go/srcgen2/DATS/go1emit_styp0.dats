@@ -1955,6 +1955,26 @@ case+ icmp of
       |I1Vp1cn(ipat, _, pind) =>
          (let val g1 = goty_of_p1cn(ipat, pind) in
           if (strn_length(g1) = 0) then "any" else g1 end)
+      // a bare CONSTANT reference (a CATS leaf, or any d2cst-named function)
+      // types from its OWN static type.  Without this arm a thunk body
+      // `return <leaf>` recorded its result as "any", which made
+      // [go_peel_thunks_ty] answer "any" at the application site and routed
+      // the call through the reflection-tolerant `Xats_applyN` -- 7147 sites,
+      // with NODE_strn_fprint alone referenced as a value 5902 times.
+      //
+      // NB this only pays off if the leaf's RUNTIME signature matches the
+      // styp image computed here (belief consistency): the emitter types
+      // everything from styps, so a leaf still declared `func(any,..) any`
+      // in xatsgo would now be asserted at its styp type and rejected by Go's
+      // func invariance.
+      |I1Vcst(dcst) =>
+         (let
+            val (ps, rt) = gotypes_of_funstyp(d2cst_get_styp(dcst))
+          in
+            case+ ps of
+            |list_cons _ => gofunctype_of_fjarglst(ps, rt)
+            |list_nil() => "any"(*non-function constant: leave erased*)
+          end)
       | _(*else*) => "any")
     else t0)
   in
