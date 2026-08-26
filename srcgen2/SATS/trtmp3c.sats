@@ -545,6 +545,37 @@ tr3cenv_timpl_resolve
 (* ****** ****** *)
 (* ****** ****** *)
 //
+(*
+CLAUDE-2026-08 (zztic): the template-INSTANCE CACHE.  Under the
+copy-per-instantiation model, two instantiations of the same impl at
+EQUAL type arguments whose bodies resolved against NO instantiation-
+local (where-block/embedded) impls are observationally identical --
+the cache shares ONE walked body (given a FRESH D3Cimplmnt0 stamp so
+downstream consumers can recognize sharing).  Correctness pivots:
+each cache entry records the TRACE of d2csts its body's resolution
+queried (transitively); an entry is neither created nor reused while
+any EMBEDDED impl for a traced cst is in scope (the g_print$out
+class); the cache is CLEARED on every top-level registration (a new
+global impl could change a later query's winner).
+*)
+//
+fun
+trtmp3c_zztic_clear((*void*)): void
+fun
+trtmp3c_zztic_report((*void*)): void
+//
+(*
+the d2csts of every EMBEDDED registered decl in scope: a decl frame
+with an svts frame BELOW it in the tmqstk (registered while some
+instantiation was in flight).
+*)
+fun
+tr3cenv_embcsts
+(env0: !tr3cenv): d2cstlst
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
 (***********************************************************************)
 (* end of [ATS3/XATSOPT_srcgen2_SATS_trtmp3c.sats] *)
 (***********************************************************************)

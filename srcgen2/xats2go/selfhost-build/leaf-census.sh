@@ -15,11 +15,12 @@
 set -u
 X=${XATSHOME:-/Users/qcfu/Projects/ATS-Xanadu}
 O=$X/srcgen2/xats2go/selfhost-build
-ASM=$O/src/emitter_all.go
 RT=$X/srcgen2/xats2go/runtime/xatsgo/xatsgo.go
 BASE=$O/tests/leaf-census.base
 
-refs=$(grep -oE 'xatsgo\.Xats_[A-Za-z0-9_]+' "$ASM" | sed 's/^xatsgo\.//' | sort -u)
+# the assembly may be the single emitter_all.go OR the split packages
+# (zzbase/zzfe*/zzcc/zzgo + main files) — scan whichever exists.
+refs=$(grep -rhoE --include='*.go' 'xatsgo\.Xats_[A-Za-z0-9_]+' "$O/src" | sed 's/^xatsgo\.//' | sort -u)
 defs=$( (grep -oE '^func (Xats_[A-Za-z0-9_]+)' "$RT" | awk '{print $2}';
          grep -oE '^var (Xats_[A-Za-z0-9_]+)' "$RT" | awk '{print $2}';
          grep -oE '^func (Xats_[A-Za-z0-9_]+)' "$O"/src/zz_*.go | awk '{print $2}';

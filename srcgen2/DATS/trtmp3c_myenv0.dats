@@ -185,13 +185,17 @@ let
 val
 nimp = tmqstk_getnimp(stk0)
 (*
-HX/CLAUDE-2026-08 (PERF): store the frame's svts ALREADY COMPOSED with
-every deeper frame's (one list_append per PUSH).  [tmqstk_getsvts] used
-to recompose the whole stack on EVERY query -- the profile showed that
-walk + its allocation churn as the single hottest entry of the trtmp3c
-pass (~7k of ~40k samples on a module compile, plus most of the GC
-load).  Frame tvar stamps are unique, so the composition is the same
-list the per-query walk produced.
+HX/CLAUDE-2026-08:
+A nested instantiation copy's template queries must be interpreted
+under the WHOLE enclosing instantiation chain's substitutions, not
+just the innermost frame's: e.g. gseq_foldl<xs><x0><r0> registers a
+where-impl foritm$work whose body calls foldl$fopr<x0><r0>; when that
+body is walked during a DEEPER instantiation (gseq_foritm's), the
+innermost frame maps only the deeper tvars and [r0] escapes free, so
+the query resolves to nothing.  Store each frame's svts ALREADY
+COMPOSED with every deeper frame's (one list_append per PUSH); frame
+tvar stamps are unique, so the composition is capture-free and
+[tmqstk_getsvts] stays a head-frame read.
 *)
 val
 svts =
@@ -624,16 +628,7 @@ tmqstk_nil
 | // !
 tmqstk_svts
 ( nimp
-, svts, stk1) =>
-(*
-HX/CLAUDE-2026-08: an svts frame carries its list ALREADY COMPOSED with
-every deeper frame's (see [tmqstk_pshsvts]) -- the first frame found IS
-the whole composition.  (History: the composition itself fixed the
-"resolve against just the innermost frame" bug that farmed unresolved
-prelude instances; the push-time precomposition then removed the
-per-query recompose walk the profile flagged.)
-*)
-(     svts     )
+, svts, stk1) => (svts)
 //
 | // !
 tmqstk_timp
@@ -704,7 +699,17 @@ val d3cl =
 case+ tsub of
 | // toplevel
 list_nil
-((*void*)) => d3cl
+((*void*)) =>
+(
+  d3cl ) where
+{
+(*
+CLAUDE-2026-08 (zztic): a NEW top-level registration can change the
+winner of a later query for the same cst -- cached instance bodies
+resolved against the OLD registry are no longer known-valid.  Clear.
+*)
+val () = trtmp3c_zztic_clear((*void*))
+}
 | // embedded
 list_cons _ =>
 (*
@@ -1156,6 +1161,125 @@ tmqstk_search_dcst
 end//let
 //
 end(*let*)//end-of-(tr3cenv_search_dcst(env0))
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
+CLAUDE-2026-08 (zztic): collect the d2csts of every EMBEDDED decl frame
+in scope.  A decl frame is embedded iff an svts frame lies BELOW it in
+the stack (it was registered while some instantiation was in flight) --
+walking top-to-bottom, decls are held PENDING and promoted to the
+result when an svts frame is passed; pending decls remaining at the
+bottom are top-level registrations and are dropped.
+*)
+fun
+tmqstk_embcsts
+( stk0:
+! tmqstk): d2cstlst = let
+//
+fun
+dclcsts
+( dcl: d3ecl
+, res: d2cstlst): d2cstlst =
+(
+case+
+dcl.node() of
+|
+D3Ctmpsub
+(_, dcl2) => dclcsts(dcl2, res)
+|
+D3Ctmplocal
+(dcl1, dcls) =>
+(
+  dclscsts(dcls, dclcsts(dcl1, res)))
+|
+D3Cimplmnt0
+( _, _, _, _
+, dimp, _, _, _, _) =>
+(
+case+
+dimpl_get_node(dimp) of
+|DIMPLone1(dcst) => list_cons(dcst, res)
+|DIMPLone2(dcst, _) => list_cons(dcst, res)
+|DIMPLnon1 _ => res)
+|
+D3Cfundclst
+(_, _, dcs, _) => list_append(dcs, res)
+|
+_(*otherwise*) => res
+)(*case+*)//end-of-[dclcsts(dcl,res)]
+//
+and
+dclscsts
+( dcls: d3eclist
+, res: d2cstlst): d2cstlst =
+(
+case+ dcls of
+|list_nil() => res
+|list_cons(dcl1, dcls) =>
+  dclscsts(dcls, dclcsts(dcl1, res))
+)(*case+*)//end-of-[dclscsts(dcls,res)]
+//
+fun
+loop
+( kxs:
+! tmqstk
+, pend: d2cstlst
+, emb0: d2cstlst): d2cstlst =
+(
+case+ kxs of
+| // !
+tmqstk_nil
+( (*nil*) ) => emb0 // pend = top-level: dropped
+//
+| // !
+tmqstk_decl
+(_, dcl, kxs) =>
+  loop(kxs, dclcsts(dcl, pend), emb0)
+//
+| // !
+tmqstk_svts
+(_, _, kxs) =>
+  loop(kxs, list_nil(), list_append(pend, emb0))
+//
+| // !
+tmqstk_timp
+(_, _, kxs) => loop(kxs, pend, emb0)
+//
+| // !
+tmqstk_let0(kxs) => loop(kxs, pend, emb0)
+| // !
+tmqstk_loc1(kxs) => loop(kxs, pend, emb0)
+| // !
+tmqstk_loc2(kxs) => loop(kxs, pend, emb0)
+//
+)(*case+*)//end-of-[loop(kxs,pend,emb0)]
+//
+in//let
+(
+  loop(stk0, list_nil(), list_nil()) )
+end(*let*)//end-of-[tmqstk_embcsts(stk0)]
+//
+(* ****** ****** *)
+//
+#implfun
+tr3cenv_embcsts
+(     env0     ) = let
+//
+val+
+@TR3CENV
+(topmap, !tmqstk) = env0
+//
+in//let
+//
+let
+val csts =
+tmqstk_embcsts
+  (  tmqstk  ) in $fold(env0); csts
+end//let
+//
+end(*let*)//end-of-(tr3cenv_embcsts(env0))
 //
 (* ****** ****** *)
 (* ****** ****** *)

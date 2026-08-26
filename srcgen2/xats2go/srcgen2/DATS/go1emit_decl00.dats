@@ -37,6 +37,8 @@ dispatch, emitting Go. Only the constructors the M1 walking skeleton
 "./../../../SATS/xsymbol.sats"
 #staload // LOC =
 "./../../../SATS/locinfo.sats"
+#staload // FPX =
+"./../../../SATS/filpath.sats"
 #staload // BAS =
 "./../../../SATS/xbasics.sats"
 #staload // LEX =
@@ -707,6 +709,30 @@ in
   strnfpr(filr, "_ = XATS_tmpw_"); strnfpr(filr, sfx); strnfpr(filr, "\n")
 end//endof[tmpworker_go1emit(filr,iname,sfx,dcl0,env0)]
 //
+(*
+[i1dcl_libsrcq]: is this decl's source LOCATION library code (prelude/ or
+xatslib/)?  Gates the foritm$work worker emission below: a LIBRARY hook
+body carries legitimately-unresolved inner templates (they resolve only in
+instantiation copies), so its raw emission is skipped; a USER/COMPILER
+where-impl (any other path, incl. TEST programs — do NOT require a known
+package path!) is emitted for the strn_foritm typed-loop consumer.
+*)
+fun
+i1dcl_libsrcq
+(idcl: i1dcl): bool =
+let
+  fun f0_path(path: strn): bool =
+  (
+  if go1emit_strn_contains(path, "prelude/") then true else
+  go1emit_strn_contains(path, "xatslib/"))
+  val lsrc = loctn_get_lsrc(idcl.lctn())
+in//let
+  case+ lsrc of
+  |LCSRCsome1(path) => f0_path(path)
+  |LCSRCfpath(fpx) => f0_path(fpath_get_fnm1(fpx))
+  |_(*else*) => false
+end//endof[i1dcl_libsrcq(idcl)]
+//
 #implfun
 i1dcl_go1emit_local
 (dcl0, env0) =
@@ -730,24 +756,35 @@ unwrap_idcl(dcl0).node() of
   i1dclist_go1emit_local(body, env0))
 //
 | _(*non-local0*) =>
-if (impl_name_of_idcl(dcl0) = "foritm$work")
+// LIBRARY-SOURCE GUARD: a LIBRARY-located foritm$work where-impl (prelude
+// gseq000's, xatslib genv000's) is the RAW REGISTERED body -- its inner
+// templates (foldl$fopr, foritm$e1nv$work) resolve only inside
+// instantiation copies, so emitting the raw body produces undefined
+// Xats_* names inside dead code.  A USER/COMPILER-source foritm$work
+// worker (the strn_foritm typed-loop consumer: xsymgo1's, TEST programs')
+// is emitted.  NB: prelude-only exclusion was NOT enough -- the xatslib
+// arm (genv000.dats gseq_foritm$e1nv) carries the same class of raw hook
+// body; and a KNOWN-PACKAGE-PATH requirement was too NARROW -- a goarm
+// TEST program's own hook impl must still emit (rung 11 regression).
+if (if (impl_name_of_idcl(dcl0) = "foritm$work")
+    then not(i1dcl_libsrcq(dcl0)) else false)
 then foritm_work_emit(env0.filr(), dcl0, env0)
 else
-let
-  val iname = impl_name_of_idcl(dcl0)
-  val sfx = tmpw_hook_suffix(iname)
-  // PRELUDE-DEFAULT GUARD: a prelude worker impl (`forall$test =
-  // forall$test0<x0>`, gbas001.dats) must stay SKIPPED -- its body references
-  // further unresolvable template hooks (the default-forwarding chain), so
-  // emitting it produces undefined Xats_* names.  Only a USER/COMPILER-source
-  // worker is emitted as a XATS_tmpw closure.
-  val emitq =
-    (if (strn_length(sfx) > 0) then not(i1dcl_preludeq(dcl0)) else false)
-in
-  if emitq
-  then tmpworker_go1emit(env0.filr(), iname, sfx, dcl0, env0)
-  else i1dcl_go1emit(dcl0, env0)
-end
+(*
+CLAUDE-2026-08-26: XATS_tmpw worker emission DISABLED.  Under the
+copy-per-instantiation resolver a REGISTERED hook impl's body carries
+legitimately-UNRESOLVED inner templates (they resolve only inside each
+instantiation copy: char_code<> in map$fopr0, sub_char_char<> in
+foldl$fopr, g_lte<sort2> in forall$test) — emitting the raw body
+produced dead-but-uncompilable Go (undefined Xats_* in code nothing
+calls).  The full 451k-line selfhost assembly has ZERO live forwarder
+sites (every instance resolves with an attached body), so the worker
+closures were all dead weight.  The Task-#8 forwarding machinery
+(tmpworker_go1emit / tmpw_forward_emitq) is kept but inert; the ONE
+surviving worker family is the user-source foritm$work above (the
+strn_foritm typed-loop consumer reads XATS_foritm_work).
+*)
+i1dcl_go1emit(dcl0, env0)
 )//endof[i1dcl_go1emit_local(dcl0,env0)]
 //
 (*

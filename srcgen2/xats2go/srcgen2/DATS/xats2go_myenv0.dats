@@ -34,6 +34,9 @@ Mirrors xats2js/srcgen2/DATS/xats2js_myenv0.dats.
 /../../xats2cc\
 /srcgen1/SATS/intrep0.sats"//...
 //
+#staload // STMP =
+"./../../../SATS/xstamp0.sats"
+//
 #staload "./../SATS/intrep1.sats"
 #staload "./../SATS/trxi0i1.sats"
 #staload "./../SATS/xats2go.sats"
@@ -113,6 +116,89 @@ ENVX2GO
 //
 (* ****** ****** *)
 //
+(*
+CLAUDE-2026-08 (zztic stage B): the shared-instance emission memo (see
+xats2go.sats).  Frames parallel the emitted Go block structure: incnind
+opens a scope, decnind closes it (dropping its entries), so [find] only
+ever returns a temp that is lexically visible at the alias site.
+*)
+datatype
+zzime =
+ZZIME of (stamp(*instance*), stamp(*bound temp*))
+//
+#typedef zzimelst = list(zzime)
+//
+local
+//
+val
+zzimemo =
+a0ref_make_1val
+<list(zzimelst)>(list_nil())
+//
+in//local
+//
+fun
+zzime_scopepush((*void*)): void =
+a0ref_set<list(zzimelst)>
+( zzimemo
+, list_cons
+  (list_nil(), a0ref_get<list(zzimelst)>(zzimemo)))
+//
+fun
+zzime_scopepop((*void*)): void =
+(
+case+
+a0ref_get<list(zzimelst)>(zzimemo) of
+|list_nil() => ((*void*))
+|list_cons(_, rest) =>
+a0ref_set<list(zzimelst)>(zzimemo, rest))
+//
+#implfun
+go1emit_instmemo_add
+(istmp, tstmp) =
+(
+case+
+a0ref_get<list(zzimelst)>(zzimemo) of
+|list_nil() => ((*no open scope: drop*))
+|list_cons(top, rest) =>
+a0ref_set<list(zzimelst)>
+( zzimemo
+, list_cons(list_cons(ZZIME(istmp, tstmp), top), rest)))
+//
+#implfun
+go1emit_instmemo_find
+(  istmp  ) = let
+//
+fun
+scan1(ents: zzimelst): optn(stamp) =
+(
+case+ ents of
+|list_nil() => optn_nil()
+|list_cons(ZZIME(is1, ts1), ents) =>
+ if
+ (stamp_cmp(is1, istmp) = 0)
+ then optn_cons(ts1) else scan1(ents))
+//
+fun
+scans(frms: list(zzimelst)): optn(stamp) =
+(
+case+ frms of
+|list_nil() => optn_nil()
+|list_cons(frm1, frms) =>
+(
+case+ scan1(frm1) of
+|optn_cons(ts1) => optn_cons(ts1)
+|optn_nil() => scans(frms)))
+//
+in//let
+(
+  scans(a0ref_get<list(zzimelst)>(zzimemo)) )
+end//let//end-of-[go1emit_instmemo_find(istmp)]
+//
+end(*local*)//end-of-[local(zzimemo)]
+//
+(* ****** ****** *)
+//
 #implfun
 envx2go_incnind
 (  env0, ninc  ) = let
@@ -120,6 +206,8 @@ envx2go_incnind
 val+
 @ENVX2GO
 (filr, lvl0, !nind) = env0
+//
+val () = zzime_scopepush((*void*))
 //
 in//let
 //
@@ -135,6 +223,8 @@ envx2go_decnind
 val+
 @ENVX2GO
 (filr, lvl0, !nind) = env0
+//
+val () = zzime_scopepop((*void*))
 //
 in//let
 //

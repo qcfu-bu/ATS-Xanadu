@@ -249,6 +249,19 @@ defq(_XATS2JS_)
 (* ****** ****** *)
 //
 (*
+HX-2026-08: For compiling to GO
+*)
+#if
+defq
+(_XATS2GO_)
+#then
+#include
+"srcgen1/xatslib/libcats/DATS/CATS/GO/libcats.dats"
+#endif//end-of-[---------#ifdef(_XATS2GO_)---------]
+//
+(* ****** ****** *)
+//
+(*
 HX-2026-08-04: For compiling to Scheme
 *)
 #if

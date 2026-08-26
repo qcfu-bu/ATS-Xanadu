@@ -73,70 +73,268 @@ ATS_PACKNAME
 (* ****** ****** *)
 //
 (*
-HX/CLAUDE-2026-08: SPECIFICITY ordering.  A template query can match BOTH
-a CONCRETE instance impl (every t2qag quantifier list empty) and a
-QUANTIFIED generic default; instantiation takes the FIRST candidate, and
-registration order puts the prelude generics first — so a concrete
-instance added for exactly the queried type never won.  zzprefer0 stably
-moves concrete matches to the front before the first candidate is chosen.
+CLAUDE-2026-08 (zztic): the template-INSTANCE CACHE (see trtmp3c.sats).
+Two instantiations of the same impl at EQUAL type arguments whose bodies
+resolved against NO embedded (where-block) impls are observationally
+identical under the copy-per-instantiation model -- one walked body is
+shared, carrying a FRESH D3Cimplmnt0 stamp (every walked instance gets a
+fresh stamp: shared entries reuse ONE, so the backend can recognize
+sharing by stamp equality; unshared walks each get their own, so stamp
+equality can never lie).  Each entry records the d2csts its body's
+resolution QUERIED (transitively): the entry is neither created nor
+reused while an embedded impl for any traced cst is in scope -- that is
+exactly the g_print$out hook-sensitivity class.
 *)
+//
+datatype
+zztce =
+ZZTCE of
+( d3ecl(*head: D3Ctmpsub, for tmpequal*)
+, d3ecl(*shared walked body*)
+, d2cstlst(*resolution trace*))
+//
+#typedef zztcelst = list(zztce)
+//
+local
+//
+val
+zzticstamper = stamper_new((*void*))
+//
+val
+zzticmap =
+a0ref_make_1val
+<tmpmap(zztcelst)>(tmpmap_make_nil{zztcelst}())
+//
+val
+zztictrc =
+a0ref_make_1val
+<list(d2cstlst)>(list_nil())
+//
+val zzticwalks = a0ref_make_1val<sint>(0)
+val zztichits = a0ref_make_1val<sint>(0)
+val zzticblkd = a0ref_make_1val<sint>(0)
+//
+in//local
+//
+#implfun
+trtmp3c_zztic_clear
+  ((*void*)) =
+(
+a0ref_set<tmpmap(zztcelst)>
+(zzticmap, tmpmap_make_nil{zztcelst}()))
+//
+#implfun
+trtmp3c_zztic_report
+  ((*void*)) =
+let
+val () =
+prerrsln
+("ZZTIC: walks = ", a0ref_get<sint>(zzticwalks))
+val () =
+prerrsln
+("ZZTIC: hits = ", a0ref_get<sint>(zztichits))
+val () =
+prerrsln
+("ZZTIC: blocked = ", a0ref_get<sint>(zzticblkd))
+in//let
+  ((*void*))
+end//let
+//
 fun
-zzconcq
-(dcl1: d3ecl): bool =
+zztic_walkinc((*void*)): void =
+a0ref_set<sint>
+(zzticwalks, a0ref_get<sint>(zzticwalks) + 1)
+fun
+zztic_hitinc((*void*)): void =
+a0ref_set<sint>
+(zztichits, a0ref_get<sint>(zztichits) + 1)
+fun
+zztic_blkinc((*void*)): void =
+a0ref_set<sint>
+(zzticblkd, a0ref_get<sint>(zzticblkd) + 1)
+//
+fun
+zztic_trcpush((*void*)): void =
+a0ref_set<list(d2cstlst)>
+( zztictrc
+, list_cons
+  (list_nil(), a0ref_get<list(d2cstlst)>(zztictrc)))
+//
+fun
+zztic_trcadd(d2c0: d2cst): void =
 (
 case+
-dcl1.node() of
+a0ref_get<list(d2cstlst)>(zztictrc) of
 |
-D3Ctmpsub
-(_, dcl2) => zzconcq(dcl2)
+list_nil() => ((*no active frame*))
+|
+list_cons(top, rest) =>
+a0ref_set<list(d2cstlst)>
+(zztictrc, list_cons(list_cons(d2c0, top), rest)))
+//
+fun
+zztic_trcaddlst(cs: d2cstlst): void =
+(
+case+
+a0ref_get<list(d2cstlst)>(zztictrc) of
+|
+list_nil() => ((*no active frame*))
+|
+list_cons(top, rest) =>
+a0ref_set<list(d2cstlst)>
+(zztictrc, list_cons(list_append(cs, top), rest)))
+//
+fun
+zztic_trcpop((*void*)): d2cstlst =
+(
+case+
+a0ref_get<list(d2cstlst)>(zztictrc) of
+|
+list_nil() => list_nil()
+|
+list_cons(top, rest) =>
+let
+val () =
+(
+case+ rest of
+|
+list_nil() =>
+a0ref_set<list(d2cstlst)>(zztictrc, list_nil())
+|
+list_cons(par, rr) =>
+a0ref_set<list(d2cstlst)>
+(zztictrc, list_cons(list_append(top, par), rr)))
+in//let
+  top
+end//let
+)(*case+*)//end-of-[zztic_trcpop()]
+//
+fun
+zztic_memberq
+(embs: d2cstlst, d2c0: d2cst): bool =
+let
+val s0 = d2cst_get_stmp(d2c0)
+fun
+loop(cs: d2cstlst): bool =
+(
+case+ cs of
+|list_nil() => false
+|list_cons(c1, cs) =>
+ if
+ (stamp_cmp(d2cst_get_stmp(c1), s0) = 0)
+ then true else loop(cs))
+in//let
+  loop(embs)
+end//let
+//
+fun
+zztic_overlapq
+(embs: d2cstlst, trc: d2cstlst): bool =
+(
+case+ trc of
+|list_nil() => false
+|list_cons(c1, trc) =>
+ if
+ zztic_memberq(embs, c1)
+ then true else zztic_overlapq(embs, trc))
+//
+fun
+zztic_lookup
+( embs: d2cstlst
+, ikey: stamp
+, t2js: t2jaglst): optn(zztce) =
+let
+fun
+scan(ents: zztcelst): optn(zztce) =
+(
+case+ ents of
+|
+list_nil() => optn_nil()
+|
+list_cons(ent1, ents) =>
+let
+val+ZZTCE(head, _, trc) = ent1
+in//let
+if
+tmpequal_d3cl_t2js(head, t2js)
+then
+(
+if
+zztic_overlapq(embs, trc)
+then
+let
+val () = zztic_blkinc() in scan(ents)
+end
+else optn_cons(ent1))
+else scan(ents)
+end//let
+)(*case+*)//end-of-[scan(ents)]
+in//let
+case+
+tmpmap_search$opt
+(a0ref_get<tmpmap(zztcelst)>(zzticmap), ikey) of
+| ~optn_vt_nil() => optn_nil()
+| ~optn_vt_cons(ents) => scan(ents)
+end//let//end-of-[zztic_lookup(...)]
+//
+fun
+zztic_freshen(dcl2: d3ecl): d3ecl =
+(
+case+
+dcl2.node() of
 |
 D3Cimplmnt0
-( tknd, stmp
+( tknd, _
 , sqas, tqas
 , dimp
 , tias, f3as
 , sres, dexp) =>
-(
-(*
-NB: the {a0:t0}-style quantifiers land in SQAS — a generic default has
-EMPTY tqas-vars but non-nil sqas, so BOTH must be empty for CONCRETE.
-*)
-case+ sqas of
-|list_cons _ => false
-|list_nil() =>
-list_forall(tqas) where
-{
-#impltmp
-forall$test<t2qag>(t2q1) =
+d3ecl_make_node
+( d3ecl_get_lctn(dcl2)
+, D3Cimplmnt0
+  ( tknd
+  , zzticstamper.getinc()
+  , sqas, tqas, dimp, tias, f3as, sres, dexp))
+|
+_(*non-implmnt0*) => dcl2
+)(*case+*)//end-of-[zztic_freshen(dcl2)]
+//
+fun
+zztic_insert
+( embs: d2cstlst
+, ikey: stamp
+, head: d3ecl
+, body: d3ecl
+, trc: d2cstlst): void =
 (
 case+
-t2qag_get_s2vs(t2q1) of
-|list_nil() => true
-|list_cons _ => false)
-}(*where*))
+body.node() of
 |
-_(*non-implmnt0*) => false)
-//
-fun
-zztake0
-( xs: d3eclist
-, want: bool): d3eclist =
-(
-case+ xs of
-|
-list_nil() => list_nil()
-|
-list_cons(dcl1, xs) =>
+D3Cimplmnt0 _ =>
 if
-(zzconcq(dcl1) = want)
-then list_cons(dcl1, zztake0(xs, want))
-else zztake0(xs, want))
+zztic_overlapq(embs, trc)
+then ((*hook-sensitive: not cacheable*))
+else
+let
+val map0 =
+a0ref_get<tmpmap(zztcelst)>(zzticmap)
+val ents =
+(
+case+
+tmpmap_search$opt(map0, ikey) of
+| ~optn_vt_nil() => list_nil()
+| ~optn_vt_cons(ents) => ents): zztcelst
+in//let
+tmpmap_insert$any
+(map0, ikey, list_cons(ZZTCE(head, body, trc), ents))
+end//let
+|
+_(*non-implmnt0*) => ((*not cacheable*))
+)(*case+*)//end-of-[zztic_insert(...)]
 //
-fun
-zzprefer0
-(xs: d3eclist): d3eclist =
-list_append(zztake0(xs, true), zztake0(xs, false))
+end(*local*)//end-of-[local(zztic state)]
 //
+(* ****** ****** *)
 (* ****** ****** *)
 //
 #implfun
@@ -190,8 +388,6 @@ TIMPLall1
 (d2c0
 ,t2js, dcls) = timp.node()
 //
-val dcls = zzprefer0(dcls)
-//
 in//in
 case+ dcls of
 |
@@ -206,6 +402,44 @@ let
 val-
 D3Ctmpsub
 (svts, dcl2) = dcl1.node()
+//
+(*
+CLAUDE-2026-08 (zztic): consult the instance cache BEFORE walking.
+[ikey] = the chosen impl's stamp (embedded impls are re-stamped at
+registration, so their instances can never collide with cached
+top-level ones); a hit requires EQUAL type arguments (tmpequal) and
+no embedded impl in scope for any cst the cached body's resolution
+queried.  On a hit the SHARED walked body is attached under this
+site's tmpsub and its trace merges into the enclosing frame.
+*)
+val ikey = d3imp_get_stmp(dcl1)
+val embs = tr3cenv_embcsts(env0)
+//
+in//let
+case+
+zztic_lookup(embs, ikey, t2js) of
+|
+optn_cons
+(ent1) =>
+let
+val+ZZTCE(_, body, trc) = ent1
+val () = zztic_hitinc()
+val () = zztic_trcaddlst(trc)
+val dcl1 =
+(
+  d3ecl_tmpsub(svts, body))
+val dcls = list_cons(dcl1, dcls)
+in//let
+(
+timpl
+(stmp, TIMPLallx(d2c0,t2js,dcls)))
+end//let//end-of-[optn_cons(...)]
+|
+optn_nil() =>
+let
+//
+val () = zztic_walkinc()
+val () = zztic_trcpush()
 //
 val () =
 tr3cenv_pshsvts(env0, svts)
@@ -225,6 +459,11 @@ end//let//end-of-[val(dcl2)]
 //
 val () = tr3cenv_popsvts(env0)
 //
+val trc = zztic_trcpop()
+val dcl2 = zztic_freshen(dcl2)
+val () =
+zztic_insert(embs, ikey, dcl1, dcl2, trc)
+//
 in//let
 //
 let
@@ -241,6 +480,7 @@ timpl
 (stmp, TIMPLallx(d2c0,t2js,dcls)))
 end//let
 //
+end//let//end-of-[optn_nil()]
 end//let//end-of-[list_cons( ... )]
 end//let//end-of-[f0_all1(env0,timp)]
 //
@@ -327,6 +567,13 @@ in//local
 tr3cenv_t3apq_resolve
  ( env0, d2c0, t2js ) =
 let
+//
+(*
+CLAUDE-2026-08 (zztic): record every query into the ACTIVE instance's
+resolution trace -- reuse of that instance is sound only while no
+embedded impl for any queried cst is in scope.
+*)
+val () = zztic_trcadd(d2c0)
 //
 val
 dcls = implfilter(dcls)
@@ -446,10 +693,6 @@ end//let
 end//let // end-of-[list_vt_cons(...)]
 //
 )(*case+*) // end of [implfilter(dcls)]
-//
-(* ****** ****** *)
-//
-
 //
 (* ****** ****** *)
 //

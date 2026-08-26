@@ -269,10 +269,13 @@ if d2cst_known_packageq(sname) then true else
 d2cst_package_sourceq(dcst))
 //
 // CATS/GO prelude floor: a leaf primitive named `XATS2GO_*` (from the GO arm's
-// $extnam binding) is provided by the linked .cats, so it emits as the BARE
-// mangled name ([xsymgo1] maps `$`->`_`), NOT `xatsgo.Xats_XATS2GO_*`.  This
-// only fires for `XATS2GO_`-prefixed names, which never occur in a JS-arm
-// program, so the existing (JS-arm) suite is unaffected.
+// $extnam binding) declared under prelude/DATS/CATS/GO is provided by the
+// SPLICED .cats floor, so it emits as the BARE mangled name ([xsymgo1] maps
+// `$`->`_`), NOT `xatsgo.Xats_XATS2GO_*`.  An `XATS2GO_*` leaf declared
+// OUTSIDE the prelude floor (the xatslib libcats GO arm: g_stdout /
+// strn_fprint / ... channel leaves) is RUNTIME-HOSTED -- no .cats splice
+// provides its bare name in the JS-arm/psuite assemblies -- so it takes the
+// ordinary `xatsgo.Xats_<mangled>` route below.
 val goleafq =
 (
 if (strn_length(sname) >= 8)
@@ -285,7 +288,15 @@ then
   if sname[4] != '2' then false else
   if sname[5] != 'G' then false else
   if sname[6] != 'O' then false else
-  (sname[7] = '_'))
+  if sname[7] != '_' then false else
+  (
+  case+
+  loctn_get_lsrc(dcst.lctn((*0*))) of
+  |LCSRCsome1(path) =>
+    go1emit_strn_contains(path, "prelude/")
+  |LCSRCfpath(fpx) =>
+    go1emit_strn_contains(fpath_get_fnm1(fpx), "prelude/")
+  |_(*else*) => false))
 else false)
 in//let
 (

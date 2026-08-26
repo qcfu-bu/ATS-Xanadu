@@ -82,8 +82,12 @@ d3parsed_get_parsed(dpar)
 val env0 =
   tr3cenv_make_nil((*void*))
 //
+val () = trtmp3c_zztic_clear((*void*))
+//
 val parsed =
 trtmp3c_d3eclistopt(env0, parsed)
+//
+val () = trtmp3c_zztic_report((*void*))
 //
 in//let
 let

@@ -271,6 +271,16 @@ val (  ) =
 xatsopt_flag$pvsadd0("--_XATS2JS_")
 val (  ) =
 xatsopt_flag$pvsadd0("--_SRCGEN2_XATS2JS_")
+(*
+CLAUDE-2026-08 (arm migration): the GO arm overlays the JS costume --
+xatsopt_dpre.hats includes libcats/DATS/CATS/GO/libcats.dats under
+_XATS2GO_ AFTER the JS/NODE block, so the GO-named leaf bindings
+(XATS2GO_g_stdout etc) register later and win; leaves the JS arm as
+the fallback surface until GO analogs of the remaining CATS files
+exist, at which point _XATS2JS_ is dropped here.
+*)
+val (  ) =
+xatsopt_flag$pvsadd0("--_XATS2GO_")
 //
 in//let
 (

@@ -35,6 +35,24 @@ M2.6a notes: side-table built at the `i0exp_trxi0i1` chokepoint (record `iexp.it
 M2.5 notes: capture relies on Go lexical capture (NO closure conversion) via a sound divergence in our copy of `trxi0i1_myenv0.dats` (captured var → outer Go local, not `I1Venv` env-slot). **Adversarial review caught a compile-breaking lambda-return-type-`any` bug** (all 4 initial closure tests dodged it); fixed generally (param/capture type via `d2var_get_styp`, nested-lambda recursion). **Capturing-closure tests are golden-validated (hand-computed), NOT byte-equal-vs-JS — the JS backend itself is broken for `I1INSlam0` capture (`env1` undefined).** TODO: fixing the JS backend's closure conversion would restore the differential oracle for capture (currently the one class without it).
 History: v1 arch → decisions (layout-aware; emitter in ATS3) → M0 → Go installed → M1 (byte-equal-vs-JS) → M2.0 (harness+liveness+type findings) → M2.1 (scalars/primops, native Go ops) → M2.2 (functions; 10 tests green) → Makefile separate-compilation build (cold `make -j` ~24s, incremental ~15s, byte-identical lib) → M2.3 next.
 Build (OPTIMIZED): `make` (incremental relink **~1.7s**) · `make run/NAME` (**~3s**) · `make suite` (47s historical) · `make -j 8 psuite` (**71/71 GREEN**). Cached sed-namespaced fixed libs (opt.js1/cc.js2/shim) + JS-oracle bundle built once + `NODE_COMPILE_CACHE`; emitter bundle md5-identical to pre-opt (output provably unchanged). Legacy `build-go.sh`/`run-suite.sh` still work.
+**2026-08-26 — TEMPLATE-RESOLUTION PIVOT (per Hongwei's review):** ALL ad-hoc
+resolver machinery REMOVED (f0_timp re-resolution, concrete-instance in-place
+resolution, zzprefer0, D3Cerrck recursion) — the pristine copy-per-instantiation
+resolver is CORRECT; kept only walker-completeness arms + svts push-composition.
+Residual undefined-leaf bridges were ONE EMITTER defect (raw registered hook
+bodies emitted as dead tmpw workers) in three sightings (prelude gseq000,
+compiler-source hooks, xatslib genv000) — worker emission now gated to
+compiler package source only.  GO libcats arm CONSTRUCTED
+(srcgen1/xatslib/libcats/DATS/CATS/GO/libcats.dats + dpre `_XATS2GO_` include
++ driver flag overlay); fprint_ref g_print$out hook case verified fixed.
+Accidental per-d3exp debug trace disabled (~31% per-module emit speedup).
+NB: the Go INLINER on the selfhost assembly's ~42k nested closures overflows
+the linker's 32-bit object offsets (5.2GB object).  FIXED: `all=-l` is
+do_build's standing gcflags (129MB object, binary at speed parity) AND the
+assembly now builds as SIX Go packages (split-src.py: zzbase/zzfe2/zzfe3/
+zzcc/zzgo/main, Z_-exported crossing symbols + dot-imports, 5s build,
+sweep-verified byte-equal).  Measured: even split, default-opt zzfe2 alone
+is 4.31GB — keep -l.  Full story: docs/03-template-resolution.md.
 Owner/architect: (you) — implementation delegated to subagents.
 Reference backend: `srcgen2/xats2js/srcgen2` (the IR-based JS emitter with TCO).
 

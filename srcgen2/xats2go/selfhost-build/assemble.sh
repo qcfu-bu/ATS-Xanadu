@@ -44,6 +44,7 @@ for f in "$X"/srcgen2/xats2go/srcgen2/DATS/*.dats; do
   fi
   # strip header (up to first `func`/`var`); RENAME the module's main to a
   # per-module init so its top-level effects survive.
+  printf '//==ZZMOD:%s==\n' "$m" >> "$OUT/src/emitter_all.go"
   awk 'BEGIN{started=0}
        /^type zzs_[a-z]* struct \{$/{lay=1}
        lay{if($0=="}"){lay=0}; next}
@@ -73,6 +74,7 @@ for m in $FRONTEND; do
     node --stack-size=$NODESTK "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
     awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
   fi
+  printf '//==ZZMOD:%s==\n' "$m" >> "$OUT/src/emitter_all.go"
   awk 'BEGIN{started=0}
        /^type zzs_[a-z]* struct \{$/{lay=1}
        lay{if($0=="}"){lay=0}; next}
@@ -107,6 +109,7 @@ for m in $CCMODS; do
     node --stack-size=$NODESTK "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
     awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
   fi
+  printf '//==ZZMOD:%s==\n' "$m" >> "$OUT/src/emitter_all.go"
   awk 'BEGIN{started=0}
        /^type zzs_[a-z]* struct \{$/{lay=1}
        lay{if($0=="}"){lay=0}; next}
@@ -127,7 +130,8 @@ done
 # assembly order, before the driver's main (Go runs func init() after all var
 # initializers, so IIFE-var globals like the keyword map are already built).
 {
-  printf '\nfunc init() {\n'
+  printf '\n//==ZZINIT==\n'
+  printf 'func init() {\n'
   while IFS= read -r nm; do printf '\t%s()\n' "$nm"; done < "$OUT/src/.modinits"
   printf '}\n'
 } >> "$OUT/src/emitter_all.go"
@@ -138,7 +142,8 @@ done
 # what keeps ATS's representation casts free).  See
 # docs/11-datatype-representation.md.
 {
-  printf '\n// ---- per-layout constructor structs (deduplicated) ----\n'
+  printf '\n//==ZZLAYOUTS==\n'
+  printf '// ---- per-layout constructor structs (deduplicated) ----\n'
   awk '/^type (zzs_[a-z]*) struct \{$/{nm=$2; if(nm in seen){skip=1} else {seen[nm]=1; skip=0}; if(!skip)print; next}
        /^func zzpzzs_/{fn=$2; sub(/\(.*/,"",fn); if(fn in seenf)next; seenf[fn]=1; print; next}
        !skip{print}
@@ -178,6 +183,7 @@ import (
 	"xatsgo"
 )
 
+//==ZZSHIMS:base==
 // Go char-literal escaping for the emitted source (JS shim XATS2GO_gochar_esc).
 func XATS2GO_gochar_esc(c0 rune) string {
 	c := int(c0)
@@ -245,6 +251,7 @@ GOEOF
   if [ -n "$LTES2" ]; then
     cat <<GOEOF
 
+//==ZZSHIMS:main==
 func init() {
 	xatsgo.XatsGlteConHook = func(a any, b any) any {
 		return ${LTES2}(xatsgo.Xats_as_con(a), xatsgo.Xats_as_con(b))
@@ -271,6 +278,7 @@ GOEOF
   if [ -n "$MKNIL" ] && [ -n "$I0VAR_DVAR" ] && [ -n "$D2VAR_STMP" ] && [ -n "$STMP_UINT" ]; then
     cat <<GOEOF
 
+//==ZZSHIMS:cc==
 // i0varfst: functional set of i0var, keyed+ordered by stamp (see the JS shim).
 func xats2goI0varfstKey(v any) int {
 	return xatsgo.Xats_as_int(${STMP_UINT}(${D2VAR_STMP}(${I0VAR_DVAR}(v))))

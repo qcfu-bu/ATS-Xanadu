@@ -817,16 +817,13 @@ d3exp_trxd3i0
 (d3e0, env0) =
 let
 //
-// (*
+(*
+HX/CLAUDE-2026-08: debug trace, DISABLED (2026-08-26): it printed one
+rendered line PER D3EXP — ~25k lines / ~90% of stdout per module compile,
+all through s2typ_fpprnt + the print store (pure alloc churn; committed
+by accident in f6b6a12c7).  Re-enable locally when tracing the lowering.
 val loc0 = d3e0.lctn()
 val t2p0 = d3e0.styp()
-(*
-HX/CLAUDE-2026-08: SEQUENCED single-arg prints (was a multi-arg printsln
-with con args): the srcgen2 resolver cannot instantiate the gs_print_nN
-alias defaults, so multi-arg prints bridge to the runtime generic printer,
-which cannot render frontend constructors (Go cons carry no names).
-Single-arg print(x) resolves per-value via the tmplib g_print instances.
-*)
 val (  ) = print("d3exp(")
 val (  ) = print(loc0)
 val (  ) = print("): ")
@@ -834,7 +831,7 @@ val (  ) =
 s2typ_fpprnt
 (t2p0, g_print$out<>((*0*)))
 val (  ) = printsln((*void*))
-// *)
+*)
 (*
 val (  ) =
 prerrsln("\

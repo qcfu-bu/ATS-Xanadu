@@ -101,6 +101,28 @@ nindstrnfpr
 (* ****** ****** *)
 (* ****** ****** *)
 //
+(*
+CLAUDE-2026-08 (zztic stage B): the SHARED-INSTANCE emission memo.
+The frontend instance cache gives every walked template-instance body a
+FRESH D3Cimplmnt0 stamp, reusing ONE stamp per shared entry — so at
+emission time, two I1INStimp bodies with EQUAL stamps are the SAME
+instance and the second can alias the first's bound temp instead of
+re-emitting the whole func literal.  Scope frames mirror the emitted
+Go block structure (pushed/popped by envx2go_incnind/decnind), so a
+memo hit is always a temp that is lexically VISIBLE at the alias site;
+a bookkeeping mistake can only produce an undefined-identifier go
+build error, never wrong behavior (equal stamp = equal body).
+[find] returns the FIRST binding temp's stamp; [add] records under the
+innermost open scope.
+*)
+fun
+go1emit_instmemo_find(istmp: stamp): optn(stamp)
+fun
+go1emit_instmemo_add(istmp: stamp, tstmp: stamp): void
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
 (***********************************************************************)
 (* end of [ATS3/XANADU_srcgen2_xats2go_srcgen2_SATS_xats2go.sats] *)
 (***********************************************************************)

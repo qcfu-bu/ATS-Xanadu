@@ -879,6 +879,70 @@ var Xats_XATS2JS_NODE_gflt_fprint_dflt = func(f float64, out any) any {
 	return Xats_XATS2JS_NODE_strn_fprint(XatsFloatToString(f), out)
 }
 
+// -- GO-arm channel/fprint leaves (xatslib/libcats/DATS/CATS/GO/libcats.dats)
+//
+// The GO analog of the JS/NODE libcats arm: same handles, same writers, GO
+// extern names.  The compiler-source compile defines _XATS2GO_ (overlaying
+// the JS costume), so g_stdout<>/strn_fprint<>/... resolve to these names.
+var Xats_XATS2GO_g_stdout = func() any { return Xats_XATS2JS_NODE_g_stdout() }
+var Xats_XATS2GO_g_stderr = func() any { return Xats_XATS2JS_NODE_g_stderr() }
+var Xats_XATS2GO_strn_fprint = func(obj any, out any) any {
+	return Xats_XATS2JS_NODE_strn_fprint(obj, out)
+}
+var Xats_XATS2GO_bool_fprint = func(b bool, out any) any {
+	return Xats_XATS2JS_NODE_bool_fprint(b, out)
+}
+var Xats_XATS2GO_char_fprint = func(obj rune, out any) any {
+	return Xats_XATS2JS_NODE_char_fprint(obj, out)
+}
+var Xats_XATS2GO_gint_fprint_sint = func(obj int, out any) any {
+	return Xats_XATS2JS_NODE_gint_fprint_sint(obj, out)
+}
+var Xats_XATS2GO_gint_fprint_uint = func(obj int, out any) any {
+	return Xats_XATS2JS_NODE_gint_fprint_uint(obj, out)
+}
+var Xats_XATS2GO_gflt_fprint_sflt = func(f float64, out any) any {
+	return Xats_XATS2JS_NODE_gflt_fprint_dflt(f, out)
+}
+var Xats_XATS2GO_gflt_fprint_dflt = func(f float64, out any) any {
+	return Xats_XATS2JS_NODE_gflt_fprint_dflt(f, out)
+}
+
+// Go char-literal escaping for emitted source.  Previously only the
+// assemble.sh glue defined this (bare XATS2GO_gochar_esc); the runtime copy
+// serves emissions that route the leaf as xatsgo.Xats_XATS2GO_gochar_esc.
+func Xats_XATS2GO_gochar_esc(c0 rune) string {
+	c := int(c0)
+	switch c {
+	case 10:
+		return "\\n"
+	case 9:
+		return "\\t"
+	case 13:
+		return "\\r"
+	case 8:
+		return "\\b"
+	case 12:
+		return "\\f"
+	case 11:
+		return "\\v"
+	case 39:
+		return "\\'"
+	case 92:
+		return "\\\\"
+	}
+	if c >= 32 && c != 127 {
+		return string(rune(c))
+	}
+	if c <= 0xff {
+		return fmt.Sprintf("\\x%02x", c)
+	}
+	if c <= 0xffff {
+		return fmt.Sprintf("\\u%04x", c)
+	}
+	return fmt.Sprintf("\\U%08x", c)
+}
+
 // prelude JS-CATS scalar leaves (srcgen1/prelude/DATS/CATS/JS/basics3.dats
 // extern names) reached by the resolved prelude bodies under --go-arm.
 var Xats_XATS2JS_gint_suc_sint = func(x int) int { return x + 1 }

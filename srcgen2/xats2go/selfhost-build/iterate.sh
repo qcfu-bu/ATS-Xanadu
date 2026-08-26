@@ -143,7 +143,20 @@ do_probe() {
 }
 
 do_build() {
-  ( cd "$OUT/src" && go build -o xats2go-selfhost . ) || die "go build failed"
+  # -l REQUIRED (2026-08-26): with INLINING enabled, compiling the 450k-line
+  # single-package assembly produces a >5GB package object (the inliner
+  # flattens ~42k nested instantiation closures into giant functions whose
+  # liveness/stack-map metadata explodes) -> the go1.26 LINKER panics
+  # (goobj uint32 offset overflow; looks like corruption).  `all=-l` keeps
+  # every other optimization and yields a 129MB object, 8.5s build.
+  # Override via XGCFLAGS (e.g. 'all=-N -l' for fastest builds).
+  # PACKAGE SPLIT (2026-08-26): when a fresh assembly exists, split it into
+  # multiple Go packages (zzbase/zzfe1..3/zzcc/zzgo + main) so no package
+  # object can approach the 4GB goobj limit; see split-src.py.  When no
+  # emitter_all.go is present (binary-only rebuilds) the existing split
+  # packages are reused as-is.
+  python3 "$OUT/split-src.py" || die "split-src failed"
+  ( cd "$OUT/src" && go build -gcflags "${XGCFLAGS:-all=-l}" -o xats2go-selfhost . ) || die "go build failed"
   echo ">> built $BIN"
 }
 
@@ -450,7 +463,7 @@ selfcycle)
     "$0" prewarm-self "$PAR" 2>&1 | tail -1
     bash "$OUT/assemble.sh" 2>&1 | tail -1 || die "assemble failed"
     bash "$OUT/wire-driver.sh" >/dev/null 2>&1 || die "wire-driver failed"
-    ( cd "$OUT/src" && go build -o xats2go-selfhost . ) || die "go build failed"
+    do_build
     echo ">> BUILD OK ($(( $(date +%s) - t0 ))s elapsed)"
     if "$0" fixpoint "$PAR" 2>&1 | tail -2 | grep -q 'FIXPOINT: .* 0 DIFF / 0 ERR'; then
       echo ">> FIXPOINT REACHED in round $round"
@@ -496,7 +509,7 @@ full-verify)
   "$0" prewarm-dirty 3 2>&1 | tail -1
   bash "$OUT/assemble.sh" 2>&1 | tail -1 || die "assemble failed"
   bash "$OUT/wire-driver.sh" >/dev/null 2>&1 || die "wire-driver failed"
-  ( cd "$OUT/src" && go build -o xats2go-selfhost . ) || die "go build failed"
+  do_build
   echo ">> BUILD OK"
   "$0" census 2>&1 | tail -1
   "$0" regress 2>&1 | tail -1

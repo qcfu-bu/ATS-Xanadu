@@ -2617,7 +2617,7 @@ case+ t1imp_i1dclq(timp) of
   else
   (
   case+ idcl.node() of
-  |I1Dimplmnt0(_, _, _, dimp, fjas, icmp) =>
+  |I1Dimplmnt0(_, _, istmp, dimp, fjas, icmp) =>
     let
       val bnds = binds_of_fjarglst(fjas)
       val argtys = gotypes_of_fjarglst(fjas)
@@ -2653,6 +2653,28 @@ case+ t1imp_i1dclq(timp) of
       // ARG BOUNDARY: record this func temp's own emitted Go func type
       // so a CALL `tmp(arg)` can recover [tmp]'s concrete first param type.
       val () = goemit_ty_add(ostmp, gofunctype_of_fjarglst(argtys, retty))
+      // ZZTIC STAGE-B MEMO: the frontend instance cache gives SHARED walked
+      // bodies ONE fresh D3Cimplmnt0 stamp — equal [istmp] means the SAME
+      // instance body.  If a binding of this instance is lexically visible,
+      // emit an ALIAS to it instead of the whole func literal (all the type
+      // recordings above already ran, so downstream bookkeeping is
+      // identical).  Unshared instances have unique stamps: never hits.
+      val memo = go1emit_instmemo_find(istmp)
+    in
+    case+ memo of
+    |optn_cons(tstmp) =>
+      let
+        val () =
+        (
+          prints("goxtnm", tstmp)) where
+        {
+          #impltmp g_print$out<>() = filr
+        }
+      in
+        true
+      end
+    |optn_nil() =>
+    let
       val () =
       (
       strnfpr(filr, "func(");
@@ -2673,8 +2695,10 @@ case+ t1imp_i1dclq(timp) of
       (
       nindfpr(filr, envx2go_nind$get(env0));
       strnfpr(filr, "}"))
+      val () = go1emit_instmemo_add(istmp, ostmp)
     in
       true
+    end
     end
   | _(*not a direct impl body*) => false
   )
