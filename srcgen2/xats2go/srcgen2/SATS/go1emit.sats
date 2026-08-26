@@ -528,6 +528,14 @@ lifted set (sites then emit the name).  Run BEFORE PASS 1.
 fun
 i1dclistopt_go1emit_instlift
 (dopt: i1dclistopt, env0: !envx2go): void
+//
+(*
+ZZANY recon (step-3 any-reduction): per-compile stderr summary of the
+non-elided Xats_as_con emissions, classified by the root temp's
+typed-intrep1 gotyp (GOTcon = known-but-lost; GOTany = never learned).
+*)
+fun
+go1emit_zzany_report((*void*)): void
 fun
 i1dclist_go1emit_funs
 (dcls: i1dclist, env0: !envx2go): void

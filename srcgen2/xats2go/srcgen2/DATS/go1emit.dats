@@ -255,6 +255,8 @@ val () = strnfpr(filr, "}\n")
 // type name across modules.
 val () = go_layout_decls_emit(filr)
 //
+val () = go1emit_zzany_report((*void*))
+//
 val () = strnfpr(filr, "//==XATS2GO-END==\n")
 //
 }(*where*)

@@ -71,6 +71,7 @@ and the I1CMPcons result ival as a final  goxtnmX := <ival>; _ = goxtnmX.
 /../../xats2cc\
 /srcgen1/SATS/intrep0.sats"//...
 //
+#staload "./../SATS/gotyp.sats"
 #staload "./../SATS/intrep1.sats"
 #staload "./../SATS/xats2go.sats"
 #staload "./../SATS/go1emit.sats"
@@ -265,6 +266,130 @@ fun
 go_root_conq
 (ival: i1val): bool =
 (go_ival_goty(ival) = "*xatsgo.XatsCon")
+//
+(*
+ZZANY recon (step-3 any-reduction, measurement-first): classify every
+NON-ELIDED `Xats_as_con(root)` emission by what the root's typed-intrep1
+gotyp says.  [con] = the temp's recorded gotyp IS GOTcon -- the type is
+known but the emitted-type table lost it (a finalization->emission gap,
+the cheap fix); [any] = GOTany -- the lowering never learned the type
+(the deep trxi0i1 work); [oth]/[p1c]/[val] = other recorded types,
+constructor-field roots, non-temp roots.
+*)
+local
+//
+val zzanycon = a0ref_make_1val<sint>(0)
+val zzanyany = a0ref_make_1val<sint>(0)
+val zzanyoth = a0ref_make_1val<sint>(0)
+val zzanyp1c = a0ref_make_1val<sint>(0)
+val zzanyval = a0ref_make_1val<sint>(0)
+//
+val zzpdfen = a0ref_make_1val<sint>(0)
+val zzpdtnm = a0ref_make_1val<sint>(0)
+val zzpdcst = a0ref_make_1val<sint>(0)
+val zzpdoth = a0ref_make_1val<sint>(0)
+val zzpopr = a0ref_make_1val<sint>(0)
+val zzpflat = a0ref_make_1val<sint>(0)
+val zzpproj = a0ref_make_1val<sint>(0)
+val zzpothr = a0ref_make_1val<sint>(0)
+//
+fun
+zzinc(c: a0ref(sint)): void =
+a0ref_set<sint>(c, a0ref_get<sint>(c) + 1)
+//
+in//local
+//
+(*
+ZZANY fix-2 recon: which INSTRUCTION KIND produced a GOTany-typed temp
+(the lowering never learned its type)?  dapp callees sub-classified.
+*)
+fun
+zzany_prod
+(iins: i1ins, scp: i1cmp): void =
+(
+case+ iins of
+|I1INSdapp(i1f0, _) =>
+ (
+ case+ i1f0.node() of
+ |I1Vfenv _ => zzinc(zzpdfen)
+ |I1Vtnm _ => zzinc(zzpdtnm)
+ |I1Vcst _ => zzinc(zzpdcst)
+ |_(*else*) => zzinc(zzpdoth))
+|I1INSopr _ => zzinc(zzpopr)
+|I1INSflat _ => zzinc(zzpflat)
+|I1INSproj _ => zzinc(zzpproj)
+|I1INSpflt _ => zzinc(zzpproj)
+|_(*else*) => zzinc(zzpothr))
+//
+fun
+zzany_ascon
+(filr: FILR, iroot: i1val): void =
+let
+val () =
+(
+case+
+iroot.node() of
+|I1Vtnm(itnm) =>
+ (
+ case+
+ i1tnm_gotyp$get(itnm) of
+ |GOTcon _ => zzinc(zzanycon)
+ |GOTany() => zzinc(zzanyany)
+ |_(*else*) => zzinc(zzanyoth))
+|I1Vp1cn _ => zzinc(zzanyp1c)
+|_(*else*) => zzinc(zzanyval))
+in//let
+  strnfpr(filr, "xatsgo.Xats_as_con(")
+end//let//end-of-[zzany_ascon(...)]
+//
+#implfun
+go1emit_zzany_report
+  ((*void*)) =
+let
+val () =
+prerrsln
+("ZZANY: ascon-root con = ", a0ref_get<sint>(zzanycon))
+val () =
+prerrsln
+("ZZANY: ascon-root any = ", a0ref_get<sint>(zzanyany))
+val () =
+prerrsln
+("ZZANY: ascon-root oth = ", a0ref_get<sint>(zzanyoth))
+val () =
+prerrsln
+("ZZANY: ascon-root p1c = ", a0ref_get<sint>(zzanyp1c))
+val () =
+prerrsln
+("ZZANY: ascon-root val = ", a0ref_get<sint>(zzanyval))
+val () =
+prerrsln
+("ZZANY: prod dapp-fenv = ", a0ref_get<sint>(zzpdfen))
+val () =
+prerrsln
+("ZZANY: prod dapp-tnm = ", a0ref_get<sint>(zzpdtnm))
+val () =
+prerrsln
+("ZZANY: prod dapp-cst = ", a0ref_get<sint>(zzpdcst))
+val () =
+prerrsln
+("ZZANY: prod dapp-oth = ", a0ref_get<sint>(zzpdoth))
+val () =
+prerrsln
+("ZZANY: prod opr = ", a0ref_get<sint>(zzpopr))
+val () =
+prerrsln
+("ZZANY: prod flat = ", a0ref_get<sint>(zzpflat))
+val () =
+prerrsln
+("ZZANY: prod proj = ", a0ref_get<sint>(zzpproj))
+val () =
+prerrsln
+("ZZANY: prod other = ", a0ref_get<sint>(zzpothr))
+in//let
+  ((*void*))
+end//let
+//
+end(*local*)//end-of-[local(zzany counters)]
 //
 
 fun
@@ -583,18 +708,18 @@ in
   emit_tys(ftys, 0);
   // parens: `](` + `zzpLAY(` + `Xats_as_con(` = 3 open; `))` closes the two
   // inner calls, then ONE `)` closes the as_tupN application.
-  strnfpr(filr, "](zzp"); strnfpr(filr, lay); strnfpr(filr, "(xatsgo.Xats_as_con(");
+  strnfpr(filr, "](zzp"); strnfpr(filr, lay); strnfpr(filr, "("); zzany_ascon(filr, iroot);
   i1valgo1(filr, iroot);
   strnfpr(filr, ")).F"); i0i00go1(filr, idx); strnfpr(filr, ")"))
   else
   (
-  strnfpr(filr, "zzp"); strnfpr(filr, lay); strnfpr(filr, "(xatsgo.Xats_as_con(");
+  strnfpr(filr, "zzp"); strnfpr(filr, lay); strnfpr(filr, "("); zzany_ascon(filr, iroot);
   i1valgo1(filr, iroot);
   strnfpr(filr, ")).F"); i0i00go1(filr, idx);
   strnfpr(filr, ".("); strnfpr(filr, gty); strnfpr(filr, ")")))
   else
   (
-  strnfpr(filr, "zzp"); strnfpr(filr, lay); strnfpr(filr, "(xatsgo.Xats_as_con(");
+  strnfpr(filr, "zzp"); strnfpr(filr, lay); strnfpr(filr, "("); zzany_ascon(filr, iroot);
   i1valgo1(filr, iroot);
   strnfpr(filr, ")).F"); i0i00go1(filr, idx);
   strnfpr(filr, ".("); strnfpr(filr, gty); strnfpr(filr, ")"))
@@ -826,7 +951,7 @@ else
   (if go_root_conq(iroot)
    then i1valgo1(filr, iroot)
    else
-     (strnfpr(filr, "xatsgo.Xats_as_con(");
+     (zzany_ascon(filr, iroot);
       i1valgo1(filr, iroot); strnfpr(filr, ")")));
   strnfpr(filr, ").F"); i0i00go1(filr, idx);
   // ERASED slot only ("a" in the layout code): recover the concrete field
@@ -2158,7 +2283,7 @@ assertion is emitted on the LVALUE side (a `.(T)` is not addressable in Go).
        (if go_root_conq(iroot)
         then i1valgo1(filr, iroot)
         else
-          (strnfpr(filr, "xatsgo.Xats_as_con(");
+          (zzany_ascon(filr, iroot);
            i1valgo1(filr, iroot); strnfpr(filr, ")")));
        strnfpr(filr, ").F"); i0lab_int_go1(filr, lab0)
      end
@@ -4587,7 +4712,7 @@ i0pck_con_tag
 (if go_root_conq(casval)
  then i1valgo1(filr, casval)
  else
-   (strnfpr(filr, "xatsgo.Xats_as_con(");
+   (zzany_ascon(filr, casval);
     i1valgo1(filr, casval); strnfpr(filr, ")")));
 strnfpr(filr, ".Tag == ");
 i0i00go1(filr, d2con_get_ctag(dcon));
@@ -6160,6 +6285,14 @@ case+ ilet of
       // typed-intrep1 (S3): the projected value's Go type comes from the
       // temp's finalized gotyp (replaces the M2.6a side-table lookup).
       val goty = gotyp_emit(i1tnm_gotyp$get(itnm))
+      // ZZANY fix-1: the postfix assert makes the emitted type [goty] --
+      // RECORD it so downstream boundaries elide their coercions on this
+      // temp (the block-form arm already records; this arm did not).
+      val () =
+      (
+      if (goty = "any")
+      then zzany_prod(iins, scp)
+      else goemit_ty_add(i1tnm_stmp$get(itnm), goty))
     in
       i1insgo1(filr, scp, iins);
       if (goty = "any") then ((*void*)) else
@@ -6242,6 +6375,25 @@ case+ ilet of
           (if retany
            then (if (goty = "any") then "" else go_coerfn_of(goty))
            else "")
+        // ZZANY fix-1 (coercion HOIST): a temp whose finalized gotyp is a
+        // DATATYPE but whose RHS emitted type is UNRECOVERABLE (crt = "")
+        // pays an Xats_as_con at EVERY use site.  Hoist ONE idempotent
+        // coercion to the binding instead -- the recording below then lets
+        // [go_root_conq] elide every use-site coercion.  (retany shapes
+        // are already coerced above; native/reliable shapes are typed.)
+        val coer =
+          (if (strn_length(coer) > 0) then coer
+           else
+           (if (crt = "")
+            then
+            (if (goty = "*xatsgo.XatsCon")
+             then "xatsgo.Xats_as_con" else "")
+            else ""))
+        // ZZANY fix-2 recon: producer profile of the GOTany-typed temps
+        // (the lowering never learned their type).
+        val () =
+        (
+        if (goty = "any") then zzany_prod(iins, scp))
         // NATIVE-INFIX RESULT: `(a OP b)` has a real Go type (bool for a
         // comparison, the operand type otherwise) — the SAME [gotyp] the
         // assert logic already trusts.  RECORD it so downstream boundaries
