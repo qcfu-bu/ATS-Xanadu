@@ -518,6 +518,16 @@ i1dcl_go1emit_local
 fun
 i1dclistopt_go1emit_funs
 (dopt: i1dclistopt, env0: !envx2go): void
+//
+(*
+zztic v2b -- PASS 0: count template-instance occurrences module-wide;
+emit every literal-form instance occurring >=2 times ONCE as a
+package-level `var goxtmpl<stamp> = func...` and register it in the
+lifted set (sites then emit the name).  Run BEFORE PASS 1.
+*)
+fun
+i1dclistopt_go1emit_instlift
+(dopt: i1dclistopt, env0: !envx2go): void
 fun
 i1dclist_go1emit_funs
 (dcls: i1dclist, env0: !envx2go): void

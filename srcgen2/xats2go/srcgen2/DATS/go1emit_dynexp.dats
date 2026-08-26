@@ -2590,7 +2590,12 @@ t1imp_func_literal_go1emit
 ( filr: FILR
 , ostmp: stamp
 , timp: t1imp
-, env0: !envx2go): bool =
+, env0: !envx2go
+// zztic v2b: non-nil = emit a NAMED package-level `func goxtmpl<lnm>`
+// declaration instead of a literal (a `var = func...` binding would put
+// mutually-recursive instances -- the g_lte<sort2>/<sort2lst> family --
+// into a Go INITIALIZATION CYCLE; func decls are exempt).
+, lnm: stamp): bool =
 (
 if
 t1imp_xats2js_runtimeq(timp)
@@ -2661,6 +2666,23 @@ case+ t1imp_i1dclq(timp) of
       // identical).  Unshared instances have unique stamps: never hits.
       val memo = go1emit_instmemo_find(istmp)
     in
+    // ZZTIC v2b: a LIFTED instance (>=2 occurrences module-wide, emitted
+    // once at package level by PASS 0) emits its package name; checked
+    // BEFORE the scoped alias memo.
+    if
+    go1emit_instliftq(istmp)
+    then
+      let
+        val () =
+        (
+          prints("goxtmpl", istmp)) where
+        {
+          #impltmp g_print$out<>() = filr
+        }
+      in
+        true
+      end
+    else
     case+ memo of
     |optn_cons(tstmp) =>
       let
@@ -2675,9 +2697,27 @@ case+ t1imp_i1dclq(timp) of
       end
     |optn_nil() =>
     let
+      val () = strnfpr(filr, "func")
       val () =
       (
-      strnfpr(filr, "func(");
+      if
+      stamp_nilq(lnm)
+      then ((*anonymous literal*))
+      else
+      let
+        val () = strnfpr(filr, " ")
+        val () =
+        (
+          prints("goxtmpl", lnm)) where
+        {
+          #impltmp g_print$out<>() = filr
+        }
+      in//let
+        ((*void*))
+      end)
+      val () =
+      (
+      strnfpr(filr, "(");
       t1imp_paramlst_go1emit(filr, fjas, argtys);
       strnfpr(filr, ") ");
       strnfpr(filr, retty);
@@ -2738,6 +2778,947 @@ case+ t1imp_i1dclq(timp) of
   |I1Dimplmnt0 _ => true
   | _(*else*) => false)
 )//endof[t1imp_func_literalq(timp)]
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
+ZZTIC v2b -- PASS 0: the LIFTING pre-pass.  Walk the whole module IR
+counting template-instance occurrences by their (frontend-assigned)
+D3Cimplmnt0 stamp; every instance passing the literal-form gate
+([t1imp_func_literalq]) that occurs >=2 times is emitted ONCE at
+package level as `var goxtmpl<stamp> = func...` and registered in the
+lifted set -- sites then emit the package name (see the liftedq branch
+in [t1imp_func_literal_go1emit]).  Each distinct instance BODY is
+walked once ([zzliftvis]) so shared nests stay linear.
+*)
+//
+(*
+[zzlc]: (instance stamp, count, first-seen top-level-decl context,
+seen-in-MULTIPLE-contexts?, first-seen timp).  LIFTING REQUIRES
+multictx: an instance shared across DISTINCT top-level decls has a
+module-permanent root impl and a clean trace, hence a CAPTURE-FREE
+body; an instance repeated only WITHIN one decl can be a where-hook
+binding that CAPTURES an enclosing local (g_print$out<>() = out --
+same stamp at every print site under the hook) and must stay with
+the scoped alias memo, never lifted to package level.
+*)
+datatype
+zzlc =
+ZZLC of (stamp, sint, sint, bool, t1imp)
+//
+local
+//
+val
+zzliftcnt =
+a0ref_make_1val
+<list(zzlc)>(list_nil())
+//
+val
+zzliftvis =
+a0ref_make_1val
+<list(stamp)>(list_nil())
+//
+val
+zzliftctx = a0ref_make_1val<sint>(0)
+//
+in//local
+//
+fun
+zzlc_ctxbump((*void*)): void =
+a0ref_set<sint>
+(zzliftctx, a0ref_get<sint>(zzliftctx) + 1)
+//
+fun
+zzlc_bump
+(istmp: stamp, timp: t1imp): void =
+let
+val ctx0 = a0ref_get<sint>(zzliftctx)
+fun
+loop(es: list(zzlc)): list(zzlc) =
+(
+case+ es of
+|list_nil() =>
+ list_cons
+ (ZZLC(istmp, 1, ctx0, false, timp), list_nil())
+|list_cons(e1, es) =>
+ let
+ val+ZZLC(is1, cnt, ctx1, mul, tm1) = e1
+ in//let
+ if
+ (stamp_cmp(is1, istmp) = 0)
+ then
+ list_cons
+ ( ZZLC
+   ( is1, cnt + 1, ctx1
+   , (if mul then true else (ctx1 != ctx0)), tm1)
+ , es)
+ else list_cons(e1, loop(es))
+ end(*let*)
+)(*case+*)
+in//let
+a0ref_set<list(zzlc)>
+(zzliftcnt, loop(a0ref_get<list(zzlc)>(zzliftcnt)))
+end//let//end-of-[zzlc_bump(...)]
+//
+fun
+zzlc_visitq(istmp: stamp): bool =
+let
+fun
+scan(xs: list(stamp)): bool =
+(
+case+ xs of
+|list_nil() => false
+|list_cons(x1, xs) =>
+ if
+ (stamp_cmp(x1, istmp) = 0)
+ then true else scan(xs))
+in//let
+  scan(a0ref_get<list(stamp)>(zzliftvis))
+end//let
+//
+fun
+zzlc_visit(istmp: stamp): void =
+a0ref_set<list(stamp)>
+( zzliftvis
+, list_cons(istmp, a0ref_get<list(stamp)>(zzliftvis)))
+//
+fun
+zzlc_entries((*void*)): list(zzlc) =
+a0ref_get<list(zzlc)>(zzliftcnt)
+//
+end(*local*)//end-of-[local(zzliftcnt)]
+//
+(* ****** ****** *)
+//
+fun
+zzlw_dclopt
+(dopt: i1dclistopt): void =
+(
+case+ dopt of
+|optn_nil() => ()
+|optn_cons(dcls) => zzlw_dcls(dcls))
+//
+and
+zzlw_dcls
+(dcls: i1dclist): void =
+(
+case+ dcls of
+|list_nil() => ()
+|list_cons(dcl1, dcls) =>
+ let val () = zzlw_dcl(dcl1) in zzlw_dcls(dcls) end)
+//
+and
+zzlw_dcl
+(dcl0: i1dcl): void =
+(
+case+
+dcl0.node() of
+|I1Dextern(_, d1) => zzlw_dcl(d1)
+|I1Dstatic(_, d1) => zzlw_dcl(d1)
+|I1Ddclst0(ds) => zzlw_dcls(ds)
+|I1Dlocal0(hd, bd) =>
+ let val () = zzlw_dcls(hd) in zzlw_dcls(bd) end
+|I1Ddclenv(d1, _) => zzlw_dcl(d1)
+|I1Dtmpsub(_, d1) => zzlw_dcl(d1)
+|I1Dinclude(_, _, _, _, dopt) => zzlw_dclopt(dopt)
+|I1Dvaldclst(_, vds) => zzlw_valdcls(vds)
+|I1Dvardclst(_, vds) => zzlw_vardcls(vds)
+|I1Dfundclst(_, _, _, _, fds) => zzlw_fundcls(fds)
+|I1Dimplmnt0(_, _, _, _, _, icmp) => zzlw_cmp(icmp)
+|_(*otherwise*) => ()
+)(*case+*)//end-of-[zzlw_dcl(dcl0)]
+//
+and
+zzlw_valdcls
+(vds: i1valdclist): void =
+(
+case+ vds of
+|list_nil() => ()
+|list_cons(vd1, vds) =>
+ let
+ val () = zzlw_teq(i1valdcl_tdxp$get(vd1))
+ in zzlw_valdcls(vds) end)
+//
+and
+zzlw_vardcls
+(vds: i1vardclist): void =
+(
+case+ vds of
+|list_nil() => ()
+|list_cons(vd1, vds) =>
+ let
+ val () = zzlw_teq(i1vardcl_dini$get(vd1))
+ in zzlw_vardcls(vds) end)
+//
+and
+zzlw_fundcls
+(fds: i1fundclist): void =
+(
+case+ fds of
+|list_nil() => ()
+|list_cons(fd1, fds) =>
+ let
+ val () = zzlw_teq(i1fundcl_tdxp$get(fd1))
+ in zzlw_fundcls(fds) end)
+//
+and
+zzlw_teq
+(teq: teqi1cmp): void =
+(
+case+ teq of
+|TEQI1CMPnone() => ()
+|TEQI1CMPsome(_, c) => zzlw_cmp(c))
+//
+and
+zzlw_cmpopt
+(copt: i1cmpopt): void =
+(
+case+ copt of
+|optn_nil() => ()
+|optn_cons(c) => zzlw_cmp(c))
+//
+and
+zzlw_cmps
+(cs: i1cmplst): void =
+(
+case+ cs of
+|list_nil() => ()
+|list_cons(c1, cs) =>
+ let val () = zzlw_cmp(c1) in zzlw_cmps(cs) end)
+//
+and
+zzlw_cmp
+(cmp0: i1cmp): void =
+(
+case+ cmp0 of
+|I1CMPcons(ilts, _) => zzlw_lets(cmp0, ilts))
+//
+and
+zzlw_lets
+(cmp0: i1cmp, ilts: i1letlst): void =
+(
+case+ ilts of
+|list_nil() => ()
+|list_cons(ilt1, ilts) =>
+ let
+ val () =
+ (
+ case+ ilt1 of
+ |I1LETnew0(iins) =>
+  (
+  case+ iins of
+  // an effect-position instance binds no temp: the normal pass never
+  // emits its body -- do not count it toward lifting.
+  |I1INStimp _ => ()
+  |_(*else*) => zzlw_ins(iins))
+ |I1LETnew1(tnm1, iins) =>
+  (
+  case+ iins of
+  // count an instance ONLY where its binding temp is LIVE: a dead
+  // binding is deadinstq-skipped by the normal pass, so its body was
+  // NEVER emitted anywhere -- lifting it would emit shapes the
+  // pipeline has never exercised (the always-native char_eq class).
+  |I1INStimp _ =>
+   if
+   i1tnm_used_in_cmp(tnm1, cmp0)
+   then zzlw_ins(iins) else ()
+  |_(*else*) => zzlw_ins(iins))
+ )
+ in zzlw_lets(cmp0, ilts) end)
+//
+and
+zzlw_ins
+(iins: i1ins): void =
+(
+case+ iins of
+|
+I1INStimp(_, timp) =>
+if
+t1imp_func_literalq(timp)
+then
+(
+case+
+t1imp_i1dclq(timp) of
+|optn_nil() => ()
+|optn_cons(idcl) =>
+(
+case+ idcl.node() of
+|
+I1Dimplmnt0(_, _, istmp, _, _, icmp) =>
+let
+val () = zzlc_bump(istmp, timp)
+in//let
+if
+zzlc_visitq(istmp)
+then ((*body already walked*))
+else
+let
+val () = zzlc_visit(istmp) in zzlw_cmp(icmp)
+end(*let*)
+end//let
+|
+_(*non-implmnt0*) => ()))
+else ((*non-literal-form: not liftable*))
+//
+|I1INSlet0(ds, c) =>
+ let val () = zzlw_dcls(ds) in zzlw_cmp(c) end
+|I1INSift0(_, c1, c2) =>
+ let val () = zzlw_cmpopt(c1) in zzlw_cmpopt(c2) end
+|I1INScas0(_, _, cls) => zzlw_cls(cls)
+|I1INSlam0(_, _, c) => zzlw_cmp(c)
+|I1INSfix0(_, _, _, c) => zzlw_cmp(c)
+|I1INStry0(_, c, _, cls) =>
+ let val () = zzlw_cmp(c) in zzlw_cls(cls) end
+|I1INSrturn(_, c) => zzlw_cmp(c)
+|I1INSl0azy(_, c) => zzlw_cmp(c)
+|I1INSl1azy(_, c, cs) =>
+ let val () = zzlw_cmp(c) in zzlw_cmps(cs) end
+|_(*leaf-ins*) => ()
+)(*case+*)//end-of-[zzlw_ins(iins)]
+//
+and
+zzlw_cls
+(cls: i1clslst): void =
+(
+case+ cls of
+|list_nil() => ()
+|list_cons(cl1, cls) =>
+ let
+ val () =
+ (
+ case+ cl1.node() of
+ |I1CLSgpt(gpt) => zzlw_gpt(gpt)
+ |I1CLScls(gpt, c) =>
+  let val () = zzlw_gpt(gpt) in zzlw_cmp(c) end)
+ in zzlw_cls(cls) end)
+//
+and
+zzlw_gpt
+(gpt: i1gpt): void =
+(
+case+ gpt.node() of
+|I1GPTpat _ => ()
+|I1GPTgua(_, gs) => zzlw_guas(gs))
+//
+and
+zzlw_guas
+(gs: i1gualst): void =
+(
+case+ gs of
+|list_nil() => ()
+|list_cons(g1, gs) =>
+ let
+ val () =
+ (
+ case+ g1.node() of
+ |I1GUAexp(c) => zzlw_cmp(c)
+ |I1GUAmat(c, _) => zzlw_cmp(c))
+ in zzlw_guas(gs) end)
+//
+(* ****** ****** *)
+(* ****** ****** *)
+//
+(*
+ZZTIC v3 -- FREE-VARIABLE SCAN: an instance body is LIFTABLE to a
+package-level func iff every temp it references is bound WITHIN it
+(params, let-binds, clause-pattern binds, try-caught binds, nested
+lam/fix params/bodies -- one flat bound-set suffices since inner temps
+cannot be referenced from outside their scope).  A free temp means the
+body CAPTURES an enclosing local (the g_print$out<>() = out hook
+class); an I1Venv slot is conservatively capturing.  This replaces the
+cross-decl (multictx) capture heuristic and lets EVERY live capture-
+free instance lift -- including unique ones, which is what flattens
+the closure nests that explode the Go inliner's metadata.
+*)
+local
+//
+val
+zzfvbnd =
+a0ref_make_1val
+<list(stamp)>(list_nil())
+//
+val
+zzfvref =
+a0ref_make_1val
+<list(stamp)>(list_nil())
+//
+// d2var dimension: function REFERENCES (I1Vfid/I1Vfenv) must resolve
+// to a TOP-LEVEL fun (package-hoisted) or a body-INTERNAL binder
+// (fix0 self / internal fundcl dpid) -- else the body references an
+// enclosing scope's LOCAL closure (the f0_sort/x2t2p_make class) and
+// cannot lift.
+val
+zzfvbndv =
+a0ref_make_1val
+<list(stamp)>(list_nil())
+//
+val
+zzfvrefv =
+a0ref_make_1val
+<list(stamp)>(list_nil())
+//
+val
+zzfvglbv =
+a0ref_make_1val
+<list(stamp)>(list_nil())
+//
+val
+zzfvbad = a0ref_make_1val<bool>(false)
+//
+in//local
+//
+fun
+zzfv_reset((*void*)): void =
+let
+val () = a0ref_set<list(stamp)>(zzfvbnd, list_nil())
+val () = a0ref_set<list(stamp)>(zzfvref, list_nil())
+val () = a0ref_set<list(stamp)>(zzfvbndv, list_nil())
+val () = a0ref_set<list(stamp)>(zzfvrefv, list_nil())
+val () = a0ref_set<bool>(zzfvbad, false)
+in//let
+  ((*void*))
+end//let
+//
+fun
+zzfv_bind(tnm1: i1tnm): void =
+a0ref_set<list(stamp)>
+( zzfvbnd
+, list_cons
+  (i1tnm_stmp$get(tnm1), a0ref_get<list(stamp)>(zzfvbnd)))
+//
+fun
+zzfv_refr(tnm1: i1tnm): void =
+a0ref_set<list(stamp)>
+( zzfvref
+, list_cons
+  (i1tnm_stmp$get(tnm1), a0ref_get<list(stamp)>(zzfvref)))
+//
+fun
+zzfv_bindv(d2v1: d2var): void =
+a0ref_set<list(stamp)>
+( zzfvbndv
+, list_cons
+  (d2var_get_stmp(d2v1), a0ref_get<list(stamp)>(zzfvbndv)))
+//
+fun
+zzfv_refv(d2v1: d2var): void =
+a0ref_set<list(stamp)>
+( zzfvrefv
+, list_cons
+  (d2var_get_stmp(d2v1), a0ref_get<list(stamp)>(zzfvrefv)))
+//
+fun
+zzfv_glbv(d2v1: d2var): void =
+a0ref_set<list(stamp)>
+( zzfvglbv
+, list_cons
+  (d2var_get_stmp(d2v1), a0ref_get<list(stamp)>(zzfvglbv)))
+//
+fun
+zzfv_mark((*void*)): void =
+a0ref_set<bool>(zzfvbad, true)
+//
+fun
+zzfv_cleanq((*void*)): bool =
+let
+fun
+memq(s0: stamp, xs: list(stamp)): bool =
+(
+case+ xs of
+|list_nil() => false
+|list_cons(x1, xs) =>
+ if
+ (stamp_cmp(x1, s0) = 0)
+ then true else memq(s0, xs))
+fun
+allbound(rs: list(stamp)): bool =
+(
+case+ rs of
+|list_nil() => true
+|list_cons(r1, rs) =>
+ if
+ memq(r1, a0ref_get<list(stamp)>(zzfvbnd))
+ then allbound(rs) else false)
+fun
+allfunok(rs: list(stamp)): bool =
+(
+case+ rs of
+|list_nil() => true
+|list_cons(r1, rs) =>
+ (
+ if
+ memq(r1, a0ref_get<list(stamp)>(zzfvglbv))
+ then allfunok(rs)
+ else
+ (
+ if
+ memq(r1, a0ref_get<list(stamp)>(zzfvbndv))
+ then allfunok(rs) else false)))
+in//let
+if
+a0ref_get<bool>(zzfvbad)
+then false
+else
+if
+allbound(a0ref_get<list(stamp)>(zzfvref))
+then allfunok(a0ref_get<list(stamp)>(zzfvrefv))
+else false
+end//let//end-of-[zzfv_cleanq()]
+//
+end(*local*)//end-of-[local(zzfv state)]
+//
+fun
+zzfv_bnds
+(bnds: i1bndlst): void =
+(
+case+ bnds of
+|list_nil() => ()
+|list_cons(b1, bnds) =>
+ let
+ val+I1BNDcons(tnm1, _, _) = b1
+ val () = zzfv_bind(tnm1)
+ in zzfv_bnds(bnds) end)
+//
+fun
+zzfv_fjas
+(fjas: fjarglst): void =
+zzfv_bnds(binds_of_fjarglst(fjas))
+//
+fun
+zzfv_val
+(ival: i1val): void =
+(
+case+
+ival.node() of
+|I1Vtnm(tnm1) => zzfv_refr(tnm1)
+|I1Vaddr(v1) => zzfv_val(v1)
+|I1Vp0rj(v1, _) => zzfv_val(v1)
+|I1Vp1cn(_, v1, _) => zzfv_val(v1)
+|I1Vp1rj(_, v1, _) => zzfv_val(v1)
+|I1Vp2rj(_, v1, _) => zzfv_val(v1)
+|I1Vlpft(_, v1) => zzfv_val(v1)
+|I1Vlpbx(_, v1) => zzfv_val(v1)
+|I1Vlpcn(_, v1, _) => zzfv_val(v1)
+|I1Vfid(d2v1) => zzfv_refv(d2v1)
+|I1Vfenv(d2v1, vs) =>
+ let val () = zzfv_refv(d2v1) in zzfv_vals(vs) end
+|I1Venv _ => zzfv_mark()
+|_(*leaf*) => ()
+)(*case+*)//end-of-[zzfv_val(ival)]
+//
+and
+zzfv_vals
+(ivs: i1valist): void =
+(
+case+ ivs of
+|list_nil() => ()
+|list_cons(v1, ivs) =>
+ let val () = zzfv_val(v1) in zzfv_vals(ivs) end)
+//
+and
+zzfv_lvals
+(lvs: l1i1vlst): void =
+(
+case+ lvs of
+|list_nil() => ()
+|list_cons(lv1, lvs) =>
+ let
+ val+I1LAB(_, v1) = lv1
+ val () = zzfv_val(v1)
+ in zzfv_lvals(lvs) end)
+//
+and
+zzfv_cmp
+(cmp0: i1cmp): void =
+(
+case+ cmp0 of
+|I1CMPcons(ilts, rval) =>
+ let val () = zzfv_lets(ilts) in zzfv_val(rval) end)
+//
+and
+zzfv_cmpopt
+(copt: i1cmpopt): void =
+(
+case+ copt of
+|optn_nil() => ()
+|optn_cons(c) => zzfv_cmp(c))
+//
+and
+zzfv_cmps
+(cs: i1cmplst): void =
+(
+case+ cs of
+|list_nil() => ()
+|list_cons(c1, cs) =>
+ let val () = zzfv_cmp(c1) in zzfv_cmps(cs) end)
+//
+and
+zzfv_lets
+(ilts: i1letlst): void =
+(
+case+ ilts of
+|list_nil() => ()
+|list_cons(ilt1, ilts) =>
+ let
+ val () =
+ (
+ case+ ilt1 of
+ |I1LETnew0(iins) => zzfv_ins(iins)
+ |I1LETnew1(tnm1, iins) =>
+  let val () = zzfv_bind(tnm1) in zzfv_ins(iins) end)
+ in zzfv_lets(ilts) end)
+//
+and
+zzfv_ins
+(iins: i1ins): void =
+(
+case+ iins of
+|I1INSopr(_, vs) => zzfv_vals(vs)
+|I1INSdapp(f1, vs) =>
+ let val () = zzfv_val(f1) in zzfv_vals(vs) end
+|I1INStimp(_, timp) =>
+ (
+ case+
+ t1imp_i1dclq(timp) of
+ |optn_nil() => ()
+ |optn_cons(idcl) =>
+  (
+  case+ idcl.node() of
+  |I1Dimplmnt0(_, _, _, _, fjas, icmp) =>
+   let
+   val () = zzfv_fjas(fjas) in zzfv_cmp(icmp)
+   end(*let*)
+  |_(*else*) => ()))
+|I1INSpcon(_, v1) => zzfv_val(v1)
+|I1INSpflt(_, v1) => zzfv_val(v1)
+|I1INSproj(_, v1) => zzfv_val(v1)
+|I1INSlet0(ds, c) =>
+ let val () = zzfv_dcls(ds) in zzfv_cmp(c) end
+|I1INSift0(v1, c1, c2) =>
+ let
+ val () = zzfv_val(v1)
+ val () = zzfv_cmpopt(c1)
+ in zzfv_cmpopt(c2) end
+|I1INScas0(_, v1, cls) =>
+ let val () = zzfv_val(v1) in zzfv_cls(cls) end
+|I1INStup0(vs) => zzfv_vals(vs)
+|I1INStup1(_, vs) => zzfv_vals(vs)
+|I1INSrcd2(_, lvs) => zzfv_lvals(lvs)
+|I1INSlam0(_, fjas, c) =>
+ let val () = zzfv_fjas(fjas) in zzfv_cmp(c) end
+|I1INSfix0(_, d2v1, fjas, c) =>
+ let
+ val () = zzfv_bindv(d2v1)
+ val () = zzfv_fjas(fjas)
+ in zzfv_cmp(c) end
+|I1INStry0(_, c, xv, cls) =>
+ let
+ // the caught-exception val is the handler's BINDER
+ val () =
+ (
+ case+ xv.node() of
+ |I1Vtnm(tnm1) => zzfv_bind(tnm1)
+ |_(*else*) => zzfv_val(xv))
+ val () = zzfv_cmp(c)
+ in zzfv_cls(cls) end
+|I1INSflat(v1) => zzfv_val(v1)
+|I1INSfold(v1) => zzfv_val(v1)
+|I1INSfree(v1) => zzfv_val(v1)
+|I1INSrturn(_, c) => zzfv_cmp(c)
+|I1INSdp2tr(v1) => zzfv_val(v1)
+|I1INSdl0az(v1) => zzfv_val(v1)
+|I1INSdl1az(v1) => zzfv_val(v1)
+|I1INSl0azy(_, c) => zzfv_cmp(c)
+|I1INSl1azy(_, c, cs) =>
+ let val () = zzfv_cmp(c) in zzfv_cmps(cs) end
+|I1INSraise(_, v1) => zzfv_val(v1)
+|I1INSassgn(v1, v2) =>
+ let val () = zzfv_val(v1) in zzfv_val(v2) end
+)(*case+*)//end-of-[zzfv_ins(iins)]
+//
+and
+zzfv_cls
+(cls: i1clslst): void =
+(
+case+ cls of
+|list_nil() => ()
+|list_cons(cl1, cls) =>
+ let
+ val () =
+ (
+ case+ cl1.node() of
+ |I1CLSgpt(gpt) => zzfv_gpt(gpt)
+ |I1CLScls(gpt, c) =>
+  let val () = zzfv_gpt(gpt) in zzfv_cmp(c) end)
+ in zzfv_cls(cls) end)
+//
+and
+zzfv_gpt
+(gpt: i1gpt): void =
+(
+case+ gpt.node() of
+|I1GPTpat(bnd) => zzfv_bnd1(bnd)
+|I1GPTgua(bnd, gs) =>
+ let val () = zzfv_bnd1(bnd) in zzfv_guas(gs) end)
+//
+and
+zzfv_bnd1
+(bnd: i1bnd): void =
+(
+case+ bnd of
+|I1BNDcons(tnm1, _, _) => zzfv_bind(tnm1))
+//
+and
+zzfv_guas
+(gs: i1gualst): void =
+(
+case+ gs of
+|list_nil() => ()
+|list_cons(g1, gs) =>
+ let
+ val () =
+ (
+ case+ g1.node() of
+ |I1GUAexp(c) => zzfv_cmp(c)
+ |I1GUAmat(c, bnd) =>
+  let val () = zzfv_cmp(c) in zzfv_bnd1(bnd) end)
+ in zzfv_guas(gs) end)
+//
+and
+zzfv_dcls
+(dcls: i1dclist): void =
+(
+case+ dcls of
+|list_nil() => ()
+|list_cons(dcl1, dcls) =>
+ let
+ val () =
+ (
+ case+
+ dcl1.node() of
+ |I1Dextern(_, d1) => zzfv_dcl1(d1)
+ |I1Dstatic(_, d1) => zzfv_dcl1(d1)
+ |I1Ddclst0(ds) => zzfv_dcls(ds)
+ |I1Dlocal0(hd, bd) =>
+  let val () = zzfv_dcls(hd) in zzfv_dcls(bd) end
+ |I1Ddclenv(d1, _) => zzfv_dcl1(d1)
+ |I1Dtmpsub(_, d1) => zzfv_dcl1(d1)
+ |I1Dvaldclst(_, vds) => zzfv_valdcls(vds)
+ |I1Dvardclst(_, vds) => zzfv_vardcls(vds)
+ |I1Dfundclst(_, _, _, _, fds) => zzfv_fundcls(fds)
+ |I1Dimplmnt0(_, _, _, _, fjas, icmp) =>
+  let val () = zzfv_fjas(fjas) in zzfv_cmp(icmp) end
+ |_(*otherwise*) => ())
+ in zzfv_dcls(dcls) end)
+//
+and
+zzfv_dcl1
+(dcl1: i1dcl): void =
+zzfv_dcls(list_cons(dcl1, list_nil()))
+//
+and
+zzfv_valdcls
+(vds: i1valdclist): void =
+(
+case+ vds of
+|list_nil() => ()
+|list_cons(vd1, vds) =>
+ let
+ val () = zzfv_teq(i1valdcl_tdxp$get(vd1))
+ in zzfv_valdcls(vds) end)
+//
+and
+zzfv_vardcls
+(vds: i1vardclist): void =
+(
+case+ vds of
+|list_nil() => ()
+|list_cons(vd1, vds) =>
+ let
+ val () = zzfv_teq(i1vardcl_dini$get(vd1))
+ in zzfv_vardcls(vds) end)
+//
+and
+zzfv_fundcls
+(fds: i1fundclist): void =
+(
+case+ fds of
+|list_nil() => ()
+|list_cons(fd1, fds) =>
+ let
+ // a body-INTERNAL fun decl BINDS its own d2var (self/mutual refs ok)
+ val () = zzfv_bindv(i1fundcl_dpid$get(fd1))
+ val () = zzfv_teq(i1fundcl_tdxp$get(fd1))
+ in zzfv_fundcls(fds) end)
+//
+and
+zzfv_teq
+(teq: teqi1cmp): void =
+(
+case+ teq of
+|TEQI1CMPnone() => ()
+|TEQI1CMPsome(_, c) => zzfv_cmp(c))
+//
+(* ****** ****** *)
+//
+(*
+[zzfv_glbcollect]: the module's TOP-LEVEL (package-hoisted) fun d2vars,
+mirroring PASS-1's hoisting coverage (fundclsts at top, through
+extern/static/dclenv/tmpsub wrappers, local0 blocks and includes).
+Collected once per module before the lifting decisions.
+*)
+fun
+zzfv_glbcollect
+(dcls: i1dclist): void =
+(
+case+ dcls of
+|list_nil() => ()
+|list_cons(dcl1, dcls) =>
+ let
+ val () = zzfv_glbdcl(dcl1)
+ in zzfv_glbcollect(dcls) end)
+//
+and
+zzfv_glbdcl
+(dcl1: i1dcl): void =
+(
+case+
+dcl1.node() of
+|I1Dextern(_, d1) => zzfv_glbdcl(d1)
+|I1Dstatic(_, d1) => zzfv_glbdcl(d1)
+|I1Ddclenv(d1, _) => zzfv_glbdcl(d1)
+|I1Dtmpsub(_, d1) => zzfv_glbdcl(d1)
+|I1Ddclst0(ds) => zzfv_glbcollect(ds)
+|I1Dlocal0(hd, bd) =>
+ let
+ val () = zzfv_glbcollect(hd) in zzfv_glbcollect(bd)
+ end(*let*)
+|I1Dinclude(_, _, _, _, dopt) =>
+ (
+ case+ dopt of
+ |optn_nil() => ()
+ |optn_cons(ds) => zzfv_glbcollect(ds))
+|I1Dfundclst(_, _, _, _, fds) => zzfv_glbfds(fds)
+|_(*otherwise*) => ()
+)(*case+*)//end-of-[zzfv_glbdcl(dcl1)]
+//
+and
+zzfv_glbfds
+(fds: i1fundclist): void =
+(
+case+ fds of
+|list_nil() => ()
+|list_cons(fd1, fds) =>
+ let
+ val () = zzfv_glbv(i1fundcl_dpid$get(fd1))
+ in zzfv_glbfds(fds) end)
+//
+(* ****** ****** *)
+//
+fun
+zzfv_liftableq
+(timp: t1imp): bool =
+(
+case+
+t1imp_i1dclq(timp) of
+|optn_nil() => false
+|optn_cons(idcl) =>
+(
+case+ idcl.node() of
+|
+I1Dimplmnt0(_, _, _, _, fjas, icmp) =>
+let
+val () = zzfv_reset()
+val () = zzfv_fjas(fjas)
+val () = zzfv_cmp(icmp)
+in//let
+  zzfv_cleanq((*void*))
+end//let
+|
+_(*non-implmnt0*) => false)
+)(*case+*)//end-of-[zzfv_liftableq(timp)]
+//
+(* ****** ****** *)
+//
+#implfun
+i1dclistopt_go1emit_instlift
+(parsed, env0) =
+let
+//
+// collect the package-hoisted fun d2vars (the free-scan's global set),
+// then walk each TOP-LEVEL decl under its own context id.
+val () =
+(
+case+ parsed of
+|optn_nil() => ()
+|optn_cons(dcls) => zzfv_glbcollect(dcls))
+//
+val () =
+(
+case+ parsed of
+|optn_nil() => ()
+|optn_cons(dcls) =>
+ let
+ fun
+ toploop(ds: i1dclist): void =
+ (
+ case+ ds of
+ |list_nil() => ()
+ |list_cons(d1, ds) =>
+  let
+  val () = zzlc_ctxbump()
+  val () = zzlw_dcl(d1)
+  in toploop(ds) end)
+ in toploop(dcls) end)
+//
+val filr = env0.filr()
+//
+fun
+regs(es: list(zzlc)): void =
+(
+case+ es of
+|list_nil() => ()
+|list_cons(e1, es) =>
+ let
+ val+ZZLC(istmp, _, _, _, timp) = e1
+ // v3 criterion: EVERY live capture-free instance lifts (the
+ // free-variable scan subsumes the older cross-decl heuristic);
+ // liveness was already gated during counting.
+ val () =
+ if zzfv_liftableq(timp)
+ then go1emit_instlift_add(istmp)
+ in regs(es) end)
+//
+fun
+emits(es: list(zzlc)): void =
+(
+case+ es of
+|list_nil() => ()
+|list_cons(e1, es) =>
+ let
+ val+ZZLC(istmp, _, _, _, timp) = e1
+ val () =
+ if go1emit_instliftq(istmp)
+ then
+ let
+ val () = go1emit_instlift_emitting(istmp)
+ val _emitted =
+ t1imp_func_literal_go1emit
+ (filr, the_stamp_nil, timp, env0, istmp)
+ val () = strnfpr(filr, "\n\n")
+ in//let
+   ((*void*))
+ end(*let*)
+ in emits(es) end)
+//
+val () = regs(zzlc_entries())
+val () = emits(zzlc_entries())
+val () = go1emit_instlift_emitting(the_stamp_nil)
+//
+in//let
+  ((*void*))
+end//let//end-of-[i1dclistopt_go1emit_instlift(...)]
 //
 (* ****** ****** *)
 //
@@ -5138,7 +6119,8 @@ case+ ilet of
       then (i1tnmgo1(filr, itnm); strnfpr(filr, " := "))
       else strnfpr(filr, "_ = ");
     if
-    t1imp_func_literal_go1emit(filr, i1tnm_stmp$get(itnm), timp, env0)
+    t1imp_func_literal_go1emit
+    (filr, i1tnm_stmp$get(itnm), timp, env0, the_stamp_nil)
     then ((*void*))
     else
     (

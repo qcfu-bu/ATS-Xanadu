@@ -120,6 +120,20 @@ go1emit_instmemo_find(istmp: stamp): optn(stamp)
 fun
 go1emit_instmemo_add(istmp: stamp, tstmp: stamp): void
 //
+(*
+zztic v2b: the LIFTED-instance set.  A shared instance occurring >=2
+times in a module is emitted ONCE as a package-level
+`var goxtmpl<stamp> = func...` (PASS 0); sites emit the name.
+[emitting] excludes the instance currently being pre-pass-emitted so
+its own body prints instead of a self-reference.
+*)
+fun
+go1emit_instlift_add(istmp: stamp): void
+fun
+go1emit_instliftq(istmp: stamp): bool
+fun
+go1emit_instlift_emitting(istmp: stamp): void
+//
 (* ****** ****** *)
 (* ****** ****** *)
 //

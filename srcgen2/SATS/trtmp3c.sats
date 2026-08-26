@@ -565,6 +565,14 @@ fun
 trtmp3c_zztic_report((*void*)): void
 //
 (*
+v2: on a top-level registration, invalidate ONLY the entries whose
+trace contains one of the newly-registered csts -- the cache then
+survives across top-level decls (cross-decl instance reuse).
+*)
+fun
+trtmp3c_zztic_purge(csts: d2cstlst): void
+//
+(*
 the d2csts of every EMBEDDED registered decl in scope: a decl frame
 with an svts frame BELOW it in the tmqstk (registered while some
 instantiation was in flight).

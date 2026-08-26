@@ -199,6 +199,65 @@ end(*local*)//end-of-[local(zzimemo)]
 //
 (* ****** ****** *)
 //
+(*
+CLAUDE-2026-08 (zztic v2b): the LIFTED-instance set.  The PASS-0
+pre-pass lifts every shared instance occurring >=2 times in the module
+to a package-level `var goxtmpl<stamp> = func...`; a SITE then emits
+that name instead of a literal/alias.  [emitting] guards the pre-pass
+emission itself: while instance X's own body is being emitted, the
+liftedq test answers false for X (so it emits its body, not its name);
+nested OTHER lifted instances inside still reference their names.
+*)
+local
+//
+val
+zzlifted =
+a0ref_make_1val
+<list(stamp)>(list_nil())
+//
+val
+zzemitting =
+a0ref_make_1val<stamp>(the_stamp_nil)
+//
+in//local
+//
+#implfun
+go1emit_instlift_add
+(   istmp   ) =
+a0ref_set<list(stamp)>
+( zzlifted
+, list_cons(istmp, a0ref_get<list(stamp)>(zzlifted)))
+//
+#implfun
+go1emit_instlift_emitting
+(   istmp   ) =
+a0ref_set<stamp>(zzemitting, istmp)
+//
+#implfun
+go1emit_instliftq
+(   istmp   ) = let
+//
+fun
+scan(xs: list(stamp)): bool =
+(
+case+ xs of
+|list_nil() => false
+|list_cons(x1, xs) =>
+ if
+ (stamp_cmp(x1, istmp) = 0)
+ then true else scan(xs))
+//
+in//let
+if
+(stamp_cmp(a0ref_get<stamp>(zzemitting), istmp) = 0)
+then false
+else scan(a0ref_get<list(stamp)>(zzlifted))
+end//let//end-of-[go1emit_instliftq(istmp)]
+//
+end(*local*)//end-of-[local(zzlifted)]
+//
+(* ****** ****** *)
+//
 #implfun
 envx2go_incnind
 (  env0, ninc  ) = let

@@ -29,7 +29,8 @@ fi
        /^func /{started=1}
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
-    | sed -E "s/goxtnm([0-9])/godrvtnm\\1/g"
+    | sed -E "s/goxtnm([0-9])/godrvtnm\\1/g" \
+    | sed -E "s/goxtmpl([0-9])/godrvtmpl\\1/g"
 } > "$OUT/src/zz_driver.go"
 
 # drop the assembled package's synthetic main (the driver now provides main).

@@ -1447,6 +1447,13 @@ var Xats_XATS2JS_char_neq = Xats_char_neq
 func Xats_XATS2JS_char_equal(c1 rune, c2 rune) bool { return c1 == c2 }
 
 var Xats_XATS2JS_char_isdigit = Xats_char_isdigit
+
+// JS-CATS char_isalpha leaf (basics1.dats): ASCII lower||upper, same as the
+// JS runtime's XATS2JS_char_isalpha.  Typed func(rune) bool to match the
+// emitter's belief-consistent leaf image (the isdigit alias above sets the
+// pattern; Xats_char_isalpha itself takes `any`).  First materialized by the
+// zztic v3 instance lifting -- inline emission never emitted this body.
+var Xats_XATS2JS_char_isalpha = func(c rune) bool { return Xats_char_isalpha(c) }
 var Xats_XATS2JS_char_isalnum = Xats_char_isalnum
 var Xats_XATS2JS_char_isxdigit = Xats_char_isxdigit
 

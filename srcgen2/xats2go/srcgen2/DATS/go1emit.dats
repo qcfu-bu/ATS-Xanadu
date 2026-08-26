@@ -210,6 +210,14 @@ strnfpr
 val () = strnfpr(filr, "var _ = xatsgo.XATSNIL\n")
 val () = strnfpr(filr, "\n")
 //
+// --- PASS 0: LIFTED shared template instances (zztic v2b) --------------
+// Count instance occurrences module-wide; every literal-form instance
+// occurring >=2 times emits ONCE here as `var goxtmpl<stamp> = func...`
+// and sites reference the name (the frontend instance cache guarantees
+// equal stamp = identical hook-pure body).
+//
+val () = i1dclistopt_go1emit_instlift(parsed, env0)
+//
 // --- PASS 1: user-defined functions at PACKAGE level (M2.2) ------------
 // Go requires `func name(...) {...}` declarations at package scope, not
 // inside main; hoisting them here also lets recursion resolve naturally.

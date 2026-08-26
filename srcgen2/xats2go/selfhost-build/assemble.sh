@@ -53,6 +53,7 @@ for f in "$X"/srcgen2/xats2go/srcgen2/DATS/*.dats; do
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
     | sed -E "s/goxtnm([0-9])/go${n}tnm\\1/g" \
+    | sed -E "s/goxtmpl([0-9])/go${n}tmpl\\1/g" \
     | sed "s/^func main() {\$/func zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
   awk '/^type zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}; next} /^func zzpzzs_/{print}' "$EMIT/$m.go" >> "$OUT/src/.layouts"
   echo "zzmodinit_${MI}" >> "$OUT/src/.modinits"
@@ -83,6 +84,7 @@ for m in $FRONTEND; do
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
     | sed -E "s/goxtnm([0-9])/gof${fn}tnm\\1/g" \
+    | sed -E "s/goxtmpl([0-9])/gof${fn}tmpl\\1/g" \
     | sed "s/^func main() {\$/func zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
   awk '/^type zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}; next} /^func zzpzzs_/{print}' "$EMIT/$m.go" >> "$OUT/src/.layouts"
   echo "zzmodinit_${MI}" >> "$OUT/src/.modinits"
@@ -118,6 +120,7 @@ for m in $CCMODS; do
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
     | sed -E "s/goxtnm([0-9])/goc${cn}tnm\\1/g" \
+    | sed -E "s/goxtmpl([0-9])/goc${cn}tmpl\\1/g" \
     | sed "s/^func main() {\$/func zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
   awk '/^type zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}; next} /^func zzpzzs_/{print}' "$EMIT/$m.go" >> "$OUT/src/.layouts"
   echo "zzmodinit_${MI}" >> "$OUT/src/.modinits"

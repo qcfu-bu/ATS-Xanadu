@@ -71,6 +71,7 @@ Xats_XATS2JS_char_cmp
 Xats_XATS2JS_char_equal
 Xats_XATS2JS_char_eqz
 Xats_XATS2JS_char_isalnum
+Xats_XATS2JS_char_isalpha
 Xats_XATS2JS_char_isdigit
 Xats_XATS2JS_char_isxdigit
 Xats_XATS2JS_gflt_eq_dflt_dflt

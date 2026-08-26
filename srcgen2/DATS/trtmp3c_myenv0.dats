@@ -686,6 +686,57 @@ prerrsln
 //
 (* ****** ****** *)
 //
+(*
+CLAUDE-2026-08 (zztic): [zztic_dclcsts] collects the d2csts a registered
+decl provides impls for -- used BOTH by [tmqstk_embcsts] (embedded-scope
+classification) and by the selective cache purge on top-level
+registration.
+*)
+fun
+zztic_dclcsts
+( dcl: d3ecl
+, res: d2cstlst): d2cstlst =
+(
+case+
+dcl.node() of
+|
+D3Ctmpsub
+(_, dcl2) => zztic_dclcsts(dcl2, res)
+|
+D3Ctmplocal
+(dcl1, dcls) =>
+(
+  zztic_dclscsts(dcls, zztic_dclcsts(dcl1, res)))
+|
+D3Cimplmnt0
+( _, _, _, _
+, dimp, _, _, _, _) =>
+(
+case+
+dimpl_get_node(dimp) of
+|DIMPLone1(dcst) => list_cons(dcst, res)
+|DIMPLone2(dcst, _) => list_cons(dcst, res)
+|DIMPLnon1 _ => res)
+|
+D3Cfundclst
+(_, _, dcs, _) => list_append(dcs, res)
+|
+_(*otherwise*) => res
+)(*case+*)//end-of-[zztic_dclcsts(dcl,res)]
+//
+and
+zztic_dclscsts
+( dcls: d3eclist
+, res: d2cstlst): d2cstlst =
+(
+case+ dcls of
+|list_nil() => res
+|list_cons(dcl1, dcls) =>
+  zztic_dclscsts(dcls, zztic_dclcsts(dcl1, res))
+)(*case+*)//end-of-[zztic_dclscsts(dcls,res)]
+//
+(* ****** ****** *)
+//
 #implfun
 tmqstk_insert_decl
   (stk0, d3cl) =
@@ -704,11 +755,14 @@ list_nil
   d3cl ) where
 {
 (*
-CLAUDE-2026-08 (zztic): a NEW top-level registration can change the
-winner of a later query for the same cst -- cached instance bodies
-resolved against the OLD registry are no longer known-valid.  Clear.
+CLAUDE-2026-08 (zztic v2): a NEW top-level registration can change the
+winner of a later query for the csts it implements -- SELECTIVELY purge
+the cached entries whose trace contains one of them (the cache survives
+across unrelated top-level decls).
 *)
-val () = trtmp3c_zztic_clear((*void*))
+val () =
+trtmp3c_zztic_purge
+(zztic_dclcsts(d3cl, list_nil()))
 }
 | // embedded
 list_cons _ =>
@@ -1166,60 +1220,20 @@ end(*let*)//end-of-(tr3cenv_search_dcst(env0))
 (* ****** ****** *)
 //
 (*
-CLAUDE-2026-08 (zztic): collect the d2csts of every EMBEDDED decl frame
-in scope.  A decl frame is embedded iff an svts frame lies BELOW it in
-the stack (it was registered while some instantiation was in flight) --
-walking top-to-bottom, decls are held PENDING and promoted to the
-result when an svts frame is passed; pending decls remaining at the
-bottom are top-level registrations and are dropped.
+collect the d2csts of every SCOPE-LIMITED decl frame in scope: a decl
+frame with ANY scope frame (svts = instantiation, let0 = let-body,
+loc1/loc2 = local-block) BELOW it in the stack.  Such an impl either
+belongs to an instantiation (the where-hook class) or can EXPIRE when
+its scope pops (a let/local-scoped hook in plain code) -- an instance
+whose resolution queried any of these csts must be neither cached nor
+reused.  Walking top-to-bottom, decls are held PENDING and promoted to
+the result when any scope frame is passed; pending decls remaining at
+the bottom are PERMANENT module-level registrations and are dropped.
 *)
 fun
 tmqstk_embcsts
 ( stk0:
 ! tmqstk): d2cstlst = let
-//
-fun
-dclcsts
-( dcl: d3ecl
-, res: d2cstlst): d2cstlst =
-(
-case+
-dcl.node() of
-|
-D3Ctmpsub
-(_, dcl2) => dclcsts(dcl2, res)
-|
-D3Ctmplocal
-(dcl1, dcls) =>
-(
-  dclscsts(dcls, dclcsts(dcl1, res)))
-|
-D3Cimplmnt0
-( _, _, _, _
-, dimp, _, _, _, _) =>
-(
-case+
-dimpl_get_node(dimp) of
-|DIMPLone1(dcst) => list_cons(dcst, res)
-|DIMPLone2(dcst, _) => list_cons(dcst, res)
-|DIMPLnon1 _ => res)
-|
-D3Cfundclst
-(_, _, dcs, _) => list_append(dcs, res)
-|
-_(*otherwise*) => res
-)(*case+*)//end-of-[dclcsts(dcl,res)]
-//
-and
-dclscsts
-( dcls: d3eclist
-, res: d2cstlst): d2cstlst =
-(
-case+ dcls of
-|list_nil() => res
-|list_cons(dcl1, dcls) =>
-  dclscsts(dcls, dclcsts(dcl1, res))
-)(*case+*)//end-of-[dclscsts(dcls,res)]
 //
 fun
 loop
@@ -1231,12 +1245,12 @@ loop
 case+ kxs of
 | // !
 tmqstk_nil
-( (*nil*) ) => emb0 // pend = top-level: dropped
+( (*nil*) ) => emb0 // pend = module-level: dropped
 //
 | // !
 tmqstk_decl
 (_, dcl, kxs) =>
-  loop(kxs, dclcsts(dcl, pend), emb0)
+  loop(kxs, zztic_dclcsts(dcl, pend), emb0)
 //
 | // !
 tmqstk_svts
@@ -1248,11 +1262,14 @@ tmqstk_timp
 (_, _, kxs) => loop(kxs, pend, emb0)
 //
 | // !
-tmqstk_let0(kxs) => loop(kxs, pend, emb0)
+tmqstk_let0(kxs) =>
+  loop(kxs, list_nil(), list_append(pend, emb0))
 | // !
-tmqstk_loc1(kxs) => loop(kxs, pend, emb0)
+tmqstk_loc1(kxs) =>
+  loop(kxs, list_nil(), list_append(pend, emb0))
 | // !
-tmqstk_loc2(kxs) => loop(kxs, pend, emb0)
+tmqstk_loc2(kxs) =>
+  loop(kxs, list_nil(), list_append(pend, emb0))
 //
 )(*case+*)//end-of-[loop(kxs,pend,emb0)]
 //

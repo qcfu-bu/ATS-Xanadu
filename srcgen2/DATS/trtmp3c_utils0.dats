@@ -95,6 +95,20 @@ ZZTCE of
 //
 #typedef zztcelst = list(zztce)
 //
+(*
+v2: the cache container is an ASSOC LIST of stamp-keyed buckets (not a
+tmpmap) so [trtmp3c_zztic_purge] can filter entries in place -- a new
+top-level registration invalidates ONLY entries whose trace contains a
+registered cst, letting the cache survive across top-level decls.
+An insert PREPENDS a rebuilt bucket (old entries + new); a shadowed
+older bucket is redundant but consistent (lookup takes the first).
+*)
+datatype
+zztcb =
+ZZTCB of (stamp, zztcelst)
+//
+#typedef zztcblst = list(zztcb)
+//
 local
 //
 val
@@ -103,7 +117,7 @@ zzticstamper = stamper_new((*void*))
 val
 zzticmap =
 a0ref_make_1val
-<tmpmap(zztcelst)>(tmpmap_make_nil{zztcelst}())
+<zztcblst>(list_nil())
 //
 val
 zztictrc =
@@ -120,8 +134,7 @@ in//local
 trtmp3c_zztic_clear
   ((*void*)) =
 (
-a0ref_set<tmpmap(zztcelst)>
-(zzticmap, tmpmap_make_nil{zztcelst}()))
+a0ref_set<zztcblst>(zzticmap, list_nil()))
 //
 #implfun
 trtmp3c_zztic_report
@@ -269,12 +282,21 @@ else optn_cons(ent1))
 else scan(ents)
 end//let
 )(*case+*)//end-of-[scan(ents)]
+fun
+bscan(bkts: zztcblst): optn(zztce) =
+(
+case+ bkts of
+|
+list_nil() => optn_nil()
+|
+list_cons(ZZTCB(k1, ents), bkts) =>
+if
+(stamp_cmp(k1, ikey) = 0)
+then scan(ents) else bscan(bkts))
+//
 in//let
-case+
-tmpmap_search$opt
-(a0ref_get<tmpmap(zztcelst)>(zzticmap), ikey) of
-| ~optn_vt_nil() => optn_nil()
-| ~optn_vt_cons(ents) => scan(ents)
+(
+  bscan(a0ref_get<zztcblst>(zzticmap)) )
 end//let//end-of-[zztic_lookup(...)]
 //
 fun
@@ -316,21 +338,65 @@ zztic_overlapq(embs, trc)
 then ((*hook-sensitive: not cacheable*))
 else
 let
-val map0 =
-a0ref_get<tmpmap(zztcelst)>(zzticmap)
-val ents =
+val bkts =
+a0ref_get<zztcblst>(zzticmap)
+fun
+bfind(bs: zztcblst): zztcelst =
 (
-case+
-tmpmap_search$opt(map0, ikey) of
-| ~optn_vt_nil() => list_nil()
-| ~optn_vt_cons(ents) => ents): zztcelst
+case+ bs of
+|list_nil() => list_nil()
+|list_cons(ZZTCB(k1, ents), bs) =>
+ if
+ (stamp_cmp(k1, ikey) = 0)
+ then ents else bfind(bs))
+val ents = bfind(bkts)
 in//let
-tmpmap_insert$any
-(map0, ikey, list_cons(ZZTCE(head, body, trc), ents))
+a0ref_set<zztcblst>
+( zzticmap
+, list_cons
+  (ZZTCB(ikey, list_cons(ZZTCE(head, body, trc), ents)), bkts))
 end//let
 |
 _(*non-implmnt0*) => ((*not cacheable*))
 )(*case+*)//end-of-[zztic_insert(...)]
+//
+#implfun
+trtmp3c_zztic_purge
+  (  csts  ) =
+(
+case+ csts of
+|
+list_nil() => ((*nothing registered: keep all*))
+|
+list_cons _ =>
+let
+fun
+efilter(ents: zztcelst): zztcelst =
+(
+case+ ents of
+|list_nil() => list_nil()
+|list_cons(ent1, ents) =>
+ let
+ val+ZZTCE(_, _, trc) = ent1
+ in//let
+ if
+ zztic_overlapq(csts, trc)
+ then efilter(ents)
+ else list_cons(ent1, efilter(ents))
+ end(*let*)
+)
+fun
+bfilter(bs: zztcblst): zztcblst =
+(
+case+ bs of
+|list_nil() => list_nil()
+|list_cons(ZZTCB(k1, ents), bs) =>
+ list_cons(ZZTCB(k1, efilter(ents)), bfilter(bs)))
+in//let
+a0ref_set<zztcblst>
+(zzticmap, bfilter(a0ref_get<zztcblst>(zzticmap)))
+end//let
+)(*case+*)//end-of-[trtmp3c_zztic_purge(csts)]
 //
 end(*local*)//end-of-[local(zztic state)]
 //
