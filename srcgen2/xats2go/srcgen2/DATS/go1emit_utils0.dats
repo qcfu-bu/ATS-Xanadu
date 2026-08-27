@@ -330,6 +330,10 @@ let
 val name = dcst.name((*0*))
 in//let
 (
+// EXPORTED-at-birth ("Z_", 2026-08-27): package-level implementation
+// symbols cross the selfhost split's package boundaries -- an uppercase
+// name needs no crossing-rename at assembly time.
+strnfpr(filr, "Z_");
 xsymgo1(filr, name);
 strnfpr(filr, "_");
 fprint_loctn_as_stamp(filr, dcst.lctn((*0*)))) end
@@ -349,6 +353,9 @@ let
 val name = dvar.name((*0*))
 in//let
 (
+// EXPORTED-at-birth ("Z_"): top-level fun names cross the split's
+// package boundaries (local fix-vars get the prefix too -- harmless).
+strnfpr(filr, "Z_");
 xsymgo1(filr, name);
 strnfpr(filr, "_");
 fprint_loctn_as_stamp(filr, dvar.lctn((*0*)))) end

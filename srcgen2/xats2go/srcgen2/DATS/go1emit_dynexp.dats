@@ -708,18 +708,18 @@ in
   emit_tys(ftys, 0);
   // parens: `](` + `zzpLAY(` + `Xats_as_con(` = 3 open; `))` closes the two
   // inner calls, then ONE `)` closes the as_tupN application.
-  strnfpr(filr, "](zzp"); strnfpr(filr, lay); strnfpr(filr, "("); zzany_ascon(filr, iroot);
+  strnfpr(filr, "](Zzp"); strnfpr(filr, lay); strnfpr(filr, "("); zzany_ascon(filr, iroot);
   i1valgo1(filr, iroot);
   strnfpr(filr, ")).F"); i0i00go1(filr, idx); strnfpr(filr, ")"))
   else
   (
-  strnfpr(filr, "zzp"); strnfpr(filr, lay); strnfpr(filr, "("); zzany_ascon(filr, iroot);
+  strnfpr(filr, "Zzp"); strnfpr(filr, lay); strnfpr(filr, "("); zzany_ascon(filr, iroot);
   i1valgo1(filr, iroot);
   strnfpr(filr, ")).F"); i0i00go1(filr, idx);
   strnfpr(filr, ".("); strnfpr(filr, gty); strnfpr(filr, ")")))
   else
   (
-  strnfpr(filr, "zzp"); strnfpr(filr, lay); strnfpr(filr, "("); zzany_ascon(filr, iroot);
+  strnfpr(filr, "Zzp"); strnfpr(filr, lay); strnfpr(filr, "("); zzany_ascon(filr, iroot);
   i1valgo1(filr, iroot);
   strnfpr(filr, ")).F"); i0i00go1(filr, idx);
   strnfpr(filr, ".("); strnfpr(filr, gty); strnfpr(filr, ")"))
@@ -947,7 +947,7 @@ else
   // `undefined: zzpzzs_<lay>` at link time -- caught by full-verify on the
   // whole 194-module assembly, invisible to any single-module build.
   layout_add(lay);
-  strnfpr(filr, "zzp"); strnfpr(filr, lay); strnfpr(filr, "(");
+  strnfpr(filr, "Zzp"); strnfpr(filr, lay); strnfpr(filr, "(");
   (if go_root_conq(iroot)
    then i1valgo1(filr, iroot)
    else
@@ -2102,7 +2102,7 @@ assertion is emitted on the LVALUE side (a `.(T)` is not addressable in Go).
        val lay = go_dcon_layout_name(dcon)
      in
        layout_add(lay);
-       strnfpr(filr, "zzp"); strnfpr(filr, lay); strnfpr(filr, "(");
+       strnfpr(filr, "Zzp"); strnfpr(filr, lay); strnfpr(filr, "(");
        (if go_root_conq(iroot)
         then i1valgo1(filr, iroot)
         else

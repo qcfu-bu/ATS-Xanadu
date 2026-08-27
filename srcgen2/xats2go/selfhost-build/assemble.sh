@@ -28,7 +28,7 @@ printf 'package main\n\nimport "xatsgo"\nimport "unsafe"\n\nvar _ = xatsgo.XATSN
 # lexing_kword_init that populates the keyword table, or dynexp2's stamp
 # counters) live in that module's `func main`.  Stripping main dropped them,
 # so directives never resolved and the self-hosted parser rejected every
-# declaration.  Instead RENAME each module's main to a unique zzmodinit_<MI>
+# declaration.  Instead RENAME each module's main to a unique Zzmodinit_<MI>
 # and register it; a generated `func init()` runs them all (in assembly order)
 # before the driver's main — matching the JS backend, which runs every
 # module's top-level effects at load.
@@ -46,17 +46,17 @@ for f in "$X"/srcgen2/xats2go/srcgen2/DATS/*.dats; do
   # per-module init so its top-level effects survive.
   printf '//==ZZMOD:%s==\n' "$m" >> "$OUT/src/emitter_all.go"
   awk 'BEGIN{started=0}
-       /^type zzs_[a-z]* struct \{$/{lay=1}
+       /^type Zzs_[a-z]* struct \{$/{lay=1}
        lay{if($0=="}"){lay=0}; next}
-       /^func zzpzzs_/{next}
+       /^func ZzpZzs_/{next}
        /^func /{started=1}
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
     | sed -E "s/goxtnm([0-9])/go${n}tnm\\1/g" \
     | sed -E "s/goxtmpl([0-9])/go${n}tmpl\\1/g" \
-    | sed "s/^func main() {\$/func zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
-  awk '/^type zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}; next} /^func zzpzzs_/{print}' "$EMIT/$m.go" >> "$OUT/src/.layouts"
-  echo "zzmodinit_${MI}" >> "$OUT/src/.modinits"
+    | sed "s/^func main() {\$/func Zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
+  awk '/^type Zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}; next} /^func ZzpZzs_/{print}' "$EMIT/$m.go" >> "$OUT/src/.layouts"
+  echo "Zzmodinit_${MI}" >> "$OUT/src/.modinits"
   MI=$((MI+1))
   printf "\n" >> "$OUT/src/emitter_all.go"
   n=$((n+1))
@@ -77,17 +77,17 @@ for m in $FRONTEND; do
   fi
   printf '//==ZZMOD:%s==\n' "$m" >> "$OUT/src/emitter_all.go"
   awk 'BEGIN{started=0}
-       /^type zzs_[a-z]* struct \{$/{lay=1}
+       /^type Zzs_[a-z]* struct \{$/{lay=1}
        lay{if($0=="}"){lay=0}; next}
-       /^func zzpzzs_/{next}
+       /^func ZzpZzs_/{next}
        /^func /{started=1}
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
     | sed -E "s/goxtnm([0-9])/gof${fn}tnm\\1/g" \
     | sed -E "s/goxtmpl([0-9])/gof${fn}tmpl\\1/g" \
-    | sed "s/^func main() {\$/func zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
-  awk '/^type zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}; next} /^func zzpzzs_/{print}' "$EMIT/$m.go" >> "$OUT/src/.layouts"
-  echo "zzmodinit_${MI}" >> "$OUT/src/.modinits"
+    | sed "s/^func main() {\$/func Zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
+  awk '/^type Zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}; next} /^func ZzpZzs_/{print}' "$EMIT/$m.go" >> "$OUT/src/.layouts"
+  echo "Zzmodinit_${MI}" >> "$OUT/src/.modinits"
   MI=$((MI+1))
   printf "\n" >> "$OUT/src/emitter_all.go"
   fn=$((fn+1))
@@ -113,17 +113,17 @@ for m in $CCMODS; do
   fi
   printf '//==ZZMOD:%s==\n' "$m" >> "$OUT/src/emitter_all.go"
   awk 'BEGIN{started=0}
-       /^type zzs_[a-z]* struct \{$/{lay=1}
+       /^type Zzs_[a-z]* struct \{$/{lay=1}
        lay{if($0=="}"){lay=0}; next}
-       /^func zzpzzs_/{next}
+       /^func ZzpZzs_/{next}
        /^func /{started=1}
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \
     | sed -E "s/goxtnm([0-9])/goc${cn}tnm\\1/g" \
     | sed -E "s/goxtmpl([0-9])/goc${cn}tmpl\\1/g" \
-    | sed "s/^func main() {\$/func zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
-  awk '/^type zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}; next} /^func zzpzzs_/{print}' "$EMIT/$m.go" >> "$OUT/src/.layouts"
-  echo "zzmodinit_${MI}" >> "$OUT/src/.modinits"
+    | sed "s/^func main() {\$/func Zzmodinit_${MI}() {/" >> "$OUT/src/emitter_all.go"
+  awk '/^type Zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}; next} /^func ZzpZzs_/{print}' "$EMIT/$m.go" >> "$OUT/src/.layouts"
+  echo "Zzmodinit_${MI}" >> "$OUT/src/.modinits"
   MI=$((MI+1))
   printf "\n" >> "$OUT/src/emitter_all.go"
   cn=$((cn+1))
@@ -147,8 +147,8 @@ done
 {
   printf '\n//==ZZLAYOUTS==\n'
   printf '// ---- per-layout constructor structs (deduplicated) ----\n'
-  awk '/^type (zzs_[a-z]*) struct \{$/{nm=$2; if(nm in seen){skip=1} else {seen[nm]=1; skip=0}; if(!skip)print; next}
-       /^func zzpzzs_/{fn=$2; sub(/\(.*/,"",fn); if(fn in seenf)next; seenf[fn]=1; print; next}
+  awk '/^type (Zzs_[a-z]*) struct \{$/{nm=$2; if(nm in seen){skip=1} else {seen[nm]=1; skip=0}; if(!skip)print; next}
+       /^func ZzpZzs_/{fn=$2; sub(/\(.*/,"",fn); if(fn in seenf)next; seenf[fn]=1; print; next}
        !skip{print}
        /^\}$/{skip=0}' "$OUT/src/.layouts"
 } >> "$OUT/src/emitter_all.go"
@@ -230,15 +230,15 @@ func XATS2GO_report_begin() any { return xatsgo.Xats_XATS2GO_report_begin() }
 func XATS2GO_report_end() any   { return xatsgo.Xats_XATS2GO_report_end() }
 GOEOF
   # stamped s2lab_get_itm shims: S2LAB(l0, x0) => x0 (Args[1])
-  grep -ohE '\bs2lab_get_itm_[0-9]+' "$OUT/src/emitter_all.go" | sort -u | while read -r nm; do
+  grep -ohE '\bZ_s2lab_get_itm_[0-9]+' "$OUT/src/emitter_all.go" | sort -u | while read -r nm; do
     if ! grep -q "^func $nm(" "$OUT/src/emitter_all.go"; then
-      printf '\nfunc %s(slab any) any { return zzpzzs_aa(xatsgo.Xats_as_con(slab)).F1 }\n' "$nm"
+      printf '\nfunc %s(slab any) any { return ZzpZzs_aa(xatsgo.Xats_as_con(slab)).F1 }\n' "$nm"
     fi
   done
 
   # stamped mydict_search$opt shims: xlibext's mydict IS the jshmap (see the
   # runtime), so an unresolved inner-template reference delegates directly.
-  grep -ohE '\bmydict_search_opt_[0-9]+' "$OUT/src/emitter_all.go" | sort -u | while read -r nm; do
+  grep -ohE '\bZ_mydict_search_opt_[0-9]+' "$OUT/src/emitter_all.go" | sort -u | while read -r nm; do
     if ! grep -q "^func $nm(" "$OUT/src/emitter_all.go"; then
       printf '\nfunc %s(m any, k any) *xatsgo.XatsCon { return xatsgo.Xats_XATS2JS_jshmap_search_opt(m, k) }\n' "$nm"
     fi
@@ -250,7 +250,7 @@ GOEOF
   # (s2explst_stck / l2s2elst_stck / the trans12_decl00 sort filter), so
   # register the package's real stamped lte_sort2_sort2 as the runtime's
   # constructor-operand `<=` hook (see XatsGlteConHook in the runtime).
-  LTES2=$(grep -ohE 'func lte_sort2_sort2_[0-9]+' "$OUT/src/emitter_all.go" | head -1 | sed 's/func //')
+  LTES2=$(grep -ohE 'func Z_lte_sort2_sort2_[0-9]+' "$OUT/src/emitter_all.go" | head -1 | sed 's/func //')
   if [ -n "$LTES2" ]; then
     cat <<GOEOF
 
@@ -271,7 +271,7 @@ GOEOF
   # code) matches the oracle.  Stamped helper names are discovered from the
   # assembled package (robust to stamp shifts).
   AGG="$OUT/src/emitter_all.go $OUT/src/zz_driver.go"
-  ref() { grep -ohE "$1"'_[0-9]+' $AGG 2>/dev/null | sort -u | head -1; }
+  ref() { grep -ohE '\bZ_'"$1"'_[0-9]+' $AGG 2>/dev/null | sort -u | head -1; }
   MKNIL=$(ref 'i0varfst_mknil'); MKLST=$(ref 'i0varfst_mklst')
   ADDVAR=$(ref 'i0varfst_addvar'); ADDLST=$(ref 'i0varfst_addlst')
   LISTIZE=$(ref 'i0varfst_listize'); STRMIZE=$(ref 'i0varfst_strmize')
@@ -303,7 +303,7 @@ func xats2goI0varfstIns(s []any, v any) []any {
 }
 func xats2goI0varfstFold(s []any, vs any) []any {
 	for p := xatsgo.Xats_as_con(vs); p != nil && p.Tag == 1; {
-		c := zzpzzs_ap(p)
+		c := ZzpZzs_ap(p)
 		s = xats2goI0varfstIns(s, c.F0)
 		p = c.F1
 	}
@@ -312,10 +312,10 @@ func xats2goI0varfstFold(s []any, vs any) []any {
 func xats2goI0varfstConslist(s []any) *xatsgo.XatsCon {
 	r := &xatsgo.XatsCon{Tag: 0}
 	for i := len(s) - 1; i >= 0; i-- {
-		// MUST match the emitted list_cons layout (zzs_ap): emitted code reads
-		// these cells back through zzpzzs_ap, so building them as zzs_aa would
+		// MUST match the emitted list_cons layout (Zzs_ap): emitted code reads
+		// these cells back through ZzpZzs_ap, so building them as zzs_aa would
 		// put a 16-byte "any" where it expects an 8-byte pointer.
-		r = &(&zzs_ap{xatsgo.XatsHdr{Tag: 1}, s[i], r}).XatsHdr
+		r = &(&Zzs_ap{xatsgo.XatsHdr{Tag: 1}, s[i], r}).XatsHdr
 	}
 	return r
 }
@@ -341,17 +341,17 @@ func ${ALLQ}(p any) bool {
 	case 0, 1:
 		return true
 	case 16:
-		return xats2goI0patAllqList(zzpzzs_ip(n).F1)
+		return xats2goI0patAllqList(ZzpZzs_ip(n).F1)
 	case 17:
-		return xats2goI0patAllqList(zzpzzs_aip(n).F2)
+		return xats2goI0patAllqList(ZzpZzs_aip(n).F2)
 	case 18:
-		return xats2goI0patAllqLips(zzpzzs_aip(n).F2)
+		return xats2goI0patAllqLips(ZzpZzs_aip(n).F2)
 	}
 	return false
 }
 func xats2goI0patAllqList(ps any) bool {
 	for p := xatsgo.Xats_as_con(ps); p != nil && p.Tag == 1; {
-		c := zzpzzs_ap(p)
+		c := ZzpZzs_ap(p)
 		if !${ALLQ}(c.F0) {
 			return false
 		}
@@ -361,9 +361,9 @@ func xats2goI0patAllqList(ps any) bool {
 }
 func xats2goI0patAllqLips(lips any) bool {
 	for p := xatsgo.Xats_as_con(lips); p != nil && p.Tag == 1; {
-		c := zzpzzs_ap(p)
-		lab := xatsgo.Xats_as_con(c.F0) // I0LAB(label, x0) -> zzs_aa (both erased)
-		if !${ALLQ}(zzpzzs_aa(lab).F1) {
+		c := ZzpZzs_ap(p)
+		lab := xatsgo.Xats_as_con(c.F0) // I0LAB(label, x0) -> Zzs_aa (both erased)
+		if !${ALLQ}(ZzpZzs_aa(lab).F1) {
 			return false
 		}
 		p = c.F1

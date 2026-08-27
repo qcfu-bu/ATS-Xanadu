@@ -3075,7 +3075,11 @@ let
     loop(i0+1, strn_append(acc, go_layout_code(gotype_of_dcon_field(dcon, i0))))
   )
 in
-  loop(0, "zzs_")
+  // EXPORTED-at-birth ("Zzs_", 2026-08-27): layout types live in zzbase
+  // and are referenced from every package of the selfhost split -- an
+  // uppercase name needs no crossing-rename at assembly time.  Same
+  // 4-char length as the old "zzs_", so the name/offset math holds.
+  loop(0, "Zzs_")
 end//endof[go_dcon_layout_name(dcon)]
 //
 (*
@@ -3156,7 +3160,7 @@ case+ nms of
     // CAST HELPER: the handle is the common header; recovering the
     // constructor's own struct is ATS2's ATSSELcon (`((tysum*)pmv)->lab`).
     // Emitting it once per layout keeps `unsafe` out of every access site.
-    strnfpr(filr, "func zzp"); strnfpr(filr, nm);
+    strnfpr(filr, "func Zzp"); strnfpr(filr, nm);
     strnfpr(filr, "(v *xatsgo.XatsHdr) *"); strnfpr(filr, nm);
     strnfpr(filr, " { return (*"); strnfpr(filr, nm);
     strnfpr(filr, ")(unsafe.Pointer(v)) }\n");
