@@ -87,7 +87,10 @@ val () = trtmp3c_zztic_clear((*void*))
 val parsed =
 trtmp3c_d3eclistopt(env0, parsed)
 //
-val () = trtmp3c_zztic_report((*void*))
+// instance-cache diagnostics (ZZTIC: walks/hits/blocked to stderr):
+// silenced for regular use -- re-enable the call while working on the
+// cache.  The counters still count.
+// val () = trtmp3c_zztic_report((*void*))
 //
 in//let
 let

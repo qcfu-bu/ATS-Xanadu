@@ -255,7 +255,10 @@ val () = strnfpr(filr, "}\n")
 // type name across modules.
 val () = go_layout_decls_emit(filr)
 //
-val () = go1emit_zzany_report((*void*))
+// as_con recon diagnostics (ZZANY: root/producer counters to stderr):
+// silenced for regular use -- re-enable the call while working on the
+// coercion campaign.  The counters still count.
+// val () = go1emit_zzany_report((*void*))
 //
 val () = strnfpr(filr, "//==XATS2GO-END==\n")
 //
