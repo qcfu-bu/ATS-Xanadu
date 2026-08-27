@@ -73,9 +73,27 @@ Result: recon buckets 0/0 on both probe modules; zzfe2 Xats_as_con
 19961→14030 (−30%); residuals are legitimate boundaries.  string(i0)
 nonlinear → Go `string` (audited; the LINEAR family stays `any`: the
 strtmp buffer leaks under it via identity UN_strn_vt_cast — the
-selfhost probe caught this).  Full detail: the ZZANY counters
-(go1emit_zzany_report) + ZZTIC report remain in the emitter as stderr
-diagnostics — REMOVE before external presentation if desired.
+selfhost probe caught this).  ZZTIC/ZZANY stderr reports SILENCED
+2026-08-27 (counters remain; re-enable = one uncommented call each).
+**2026-08-27 — CLEANUP + INLINING CAPSTONE (commits b5f5a61fc..0f82a5ae0):**
+(1) tmpw worker machinery DELETED (~580 lines): strn_foritm resolves
+pristinely (gseq_foritm<strn><cgtz>); the one real dependency was a
+liveness-walker exception (used_in_ins skipped the strn_foritm callee),
+removed with it.  (2) split-src.py DELETED: crossing symbols are
+EXPORTED AT BIRTH (Z_<name>_<stamp> from d2vargo1/d2cstimplgo1,
+Zzs_/ZzpZzs_ layouts, Zzmodinit_) so the package split is pure file
+routing (split-src.sh, bash+awk, anchor-var dot-imports).  (3) lowering
+memo by instance stamp ATTEMPTED-UNSOUND (equal D3Cimplmnt0 stamp ≠
+same body outside zztic-freshened attachments — 811 bodies under one
+stamp; selfhost assembly was the tripwire, bundle psuite missed it);
+same-package instance DEDUP landed instead (tools/deduptmpl, Go:
+alpha-normalized fixpoint hashing, 3,310 of 3,766 lifted instances
+removed, zzfe2 −15k lines).  (4) function-value typing CLOSED by
+profile (docs/05 §5: hot set is allocator/GC, not call boundaries;
+next runtime lever = M2.7b typed structs).  (5) **INLINER ENABLED**
+(all=-l retired): build 8.5s→61s, binary 21MB→192MB, compile runtime
+**1.8× faster** (trans12 3.23s→1.80s, beats the node bundle's 2.70s).
+All gates green on the inlined build.
 Owner/architect: (you) — implementation delegated to subagents.
 Reference backend: `srcgen2/xats2js/srcgen2` (the IR-based JS emitter with TCO).
 
