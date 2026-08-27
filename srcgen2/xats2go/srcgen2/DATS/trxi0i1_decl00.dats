@@ -75,6 +75,9 @@ XATSOPT "./../../.."
 #staload "./../SATS/trxi0i1.sats"
 #staload "./../SATS/gotyp_of_styp.sats"
 //
+#staload
+"./../../../SATS/xstamp0.sats"
+//
 (* ****** ****** *)
 (* ****** ****** *)
 //
@@ -96,6 +99,17 @@ _(*DATS*)="./../DATS/trxi0i1.dats"
 *)
 (* ****** ****** *)
 //
+(*
+INSTANCE-LOWERING MEMO — ABANDONED (2026-08-27, measured unsound): a
+stamp-keyed memo here conflated DISTINCT instances — equal D3Cimplmnt0
+stamp does NOT imply the same body in this population (an impl's many
+instances can carry the impl's own stamp: 811 distinct bodies under one
+stamp on dynexp0_print0; the selfhost assembly broke with cross-wired
+arities).  The emitter's PASS-0 lift is safe only because the zztic
+cache FRESHENS the stamps of the shared bodies it attaches, so equal
+stamp there does mean one body.  A future lowering memo needs a
+per-instance-unique key, not this stamp.
+*)
 #implfun
 i0dcl_trxi0i1
 (dcl0, env0) =
@@ -551,6 +565,15 @@ prerrsln("f0_fundclst(i0i1): dcl0 = ", dcl0)
 (* ****** ****** *)
 (* ****** ****** *)
 //
+(*
+INSTANCE-LOWERING MEMO (2026-08-27): mirror of trxd3i0's zzd3imemo (see
+there) at the I0->I1 stage -- a zztic-shared instance body (equal
+D3Cimplmnt0 stamp, carried through I0Dimplmnt0) lowers ONCE; later
+sites reuse the shared i1dcl.  The emitter already handles shared I1
+bodies (the PASS-0 lift and the scoped alias memo key on this same
+stamp).  A hit skips the site's lowering entirely -- sound because
+equal stamp = the same body under the same (hook-pure) substitution.
+*)
 fun
 f0_implmnt0
 (

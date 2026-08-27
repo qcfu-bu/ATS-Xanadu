@@ -65,6 +65,9 @@ XATSOPT "./../../.."
 #staload "./../SATS/intrep0.sats"
 #staload "./../SATS/trxd3i0.sats"
 //
+#staload
+"./../../../../SATS/xstamp0.sats"
+//
 (* ****** ****** *)
 (* ****** ****** *)
 #symload stmp with timpl_get_stmp
@@ -139,6 +142,12 @@ prerrsln("timpl_trxd3i0: timp = ", timp)
 (* ****** ****** *)
 (* ****** ****** *)
 //
+(*
+INSTANCE-LOWERING MEMO — ABANDONED (2026-08-27): see the twin note in
+trxi0i1_decl00.dats.  Equal D3Cimplmnt0 stamp does NOT imply the same
+body in the decl population, so a stamp-keyed memo cross-wires distinct
+instances.
+*)
 #implfun
 d3ecl_trxd3i0
 (d3cl, env0) =
