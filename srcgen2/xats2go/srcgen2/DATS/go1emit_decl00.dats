@@ -1361,7 +1361,10 @@ let
   strnfpr(filr, "func ");
   d2cstimplgo1(filr, dcst);
   strnfpr(filr, "(");
-  localfun_emit_params(filr, fjas, argtys);
+  // con-param-aware param list (see t1imp_conparamq): an `any` param whose
+  // temp learned a concrete datatype type prints under the `p` alias and is
+  // re-bound once by the prologue below.
+  t1imp_paramlst_go1emit(filr, fjas, argtys, icmp);
   strnfpr(filr, ") ");
   strnfpr(filr, retty);
   strnfpr(filr, " {\n"))
@@ -1375,6 +1378,10 @@ let
     let
       val params = params_of_fjarglst(fjas)
       val () = envx2go_incnind(env0, 1(*++*))
+      // con-param prologue BEFORE the loop (emit_param_reassign coerces
+      // the tail-call updates into the recorded type).
+      val () = t1imp_conprologue_go1emit
+      (filr, env0.nind(), fjas, argtys, icmp)
       val () = (nindfpr(filr, env0.nind()); strnfpr(filr, "for {\n"))
       val () = envx2go_incnind(env0, 1(*++*))
       val () = i1cmp_go1emit_ret(icmp, params, bnds, env0)
@@ -1387,6 +1394,8 @@ let
   else
     (
     envx2go_incnind(env0, 1(*++*));
+    t1imp_conprologue_go1emit
+    (filr, env0.nind(), fjas, argtys, icmp);
     i1cmp_go1emit_ret(icmp, list_nil(), bnds, env0);
     envx2go_decnind(env0, 1(*--*))))
   val () = cur_funretty_set(saved_cfr)
@@ -1791,15 +1800,15 @@ val () =
   |optn_nil() => ((*void*))
   |optn_cons(dcst) => byref_register_params(fjas, d2cst_get_styp(dcst)))
 //
-// CON-PARAM PROLOGUE gate: only a NON-tail-recursive body (the TCO loop
-// re-assigns the param temps, which an aliased/coerced param would break).
+// CON-PARAM PROLOGUE: tail-recursive bodies are fine too -- the prologue
+// binds the concrete local BEFORE the `for {` (so tail-call updates
+// survive iterations), and [emit_param_reassign] already coerces each
+// reassignment into the param's RECORDED emitted type, so the loop
+// variable stays concretely *XatsCon across `continue`.
 val cpicmp =
 (
 case+ tdxp of
-|TEQI1CMPsome(_, icmp0) =>
-  (
-  if i1cmp_body_has_tailcall(icmp0)
-  then optn_nil() else optn_cons(icmp0))
+|TEQI1CMPsome(_, icmp0) => optn_cons(icmp0)
 |TEQI1CMPnone() => optn_nil(): optn(i1cmp))
 //
 // --- signature: func <name>(<params>) <ret> { -------------------------
@@ -1857,6 +1866,14 @@ case+ tdxp of
       // body that returns a captured param (`f(a) = lam u => a`).
       val bnds = binds_of_fjarglst(fjas)
       val () = envx2go_incnind(env0, 1(*++*))
+      // con-param prologue BEFORE the loop: the tail self-call reassigns
+      // the concrete local (coerced by emit_param_reassign), so binding it
+      // once outside the `for` keeps updates across iterations.
+      val () =
+      (case+ cpicmp of
+       |optn_cons(icmp0) =>
+         t1imp_conprologue_go1emit(filr, env0.nind(), fjas, argtys, icmp0)
+       |optn_nil() => ((*void*)))
       val () = (nindfpr(filr, env0.nind()); strnfpr(filr, "for {\n"))
       val () = envx2go_incnind(env0, 1(*++*))
       val () = i1cmp_go1emit_ret(icmp, params, bnds, env0)

@@ -5021,12 +5021,16 @@ let
   // typed it) copies BARE -- Go carries the concrete static type across the
   // `:=`, so the record still holds without a redundant wrap.
   val goty = gotyp_emit(i1tnm_gotyp$get(itnm))
+  val srcq = go_root_conq(casval)
   val conq = (if used then (goty = "*xatsgo.XatsCon") else false)
-  val wrapq = (if conq then not(go_root_conq(casval)) else false)
+  val wrapq = (if conq then not(srcq) else false)
+  // COPY-PROPAGATION: a bare copy of a provably-concrete casval is concrete
+  // whatever this temp's OWN gotyp says (the pattern type may be opaque) --
+  // record it so the clause body's projections elide.
   val () =
   (
-  if conq
-  then goemit_ty_add(i1tnm_stmp$get(itnm), goty) else ())
+  if (if conq then true else srcq)
+  then goemit_ty_add(i1tnm_stmp$get(itnm), "*xatsgo.XatsCon") else ())
 in//let
   (
   nindfpr(filr, nind);
@@ -5225,12 +5229,13 @@ let
   // the tag test held); unused temps skip the whole bind below anyway, and
   // an already-concrete casval copies bare (see i1bnd_bind_go1).
   val goty = gotyp_emit(i1tnm_gotyp$get(itnm))
+  val srcq = go_root_conq(casval)
   val conq = (goty = "*xatsgo.XatsCon")
-  val wrapq = (if conq then not(go_root_conq(casval)) else false)
+  val wrapq = (if conq then not(srcq) else false)
   val () =
   (
-  if conq
-  then goemit_ty_add(i1tnm_stmp$get(itnm), goty) else ())
+  if (if conq then true else srcq)
+  then goemit_ty_add(i1tnm_stmp$get(itnm), "*xatsgo.XatsCon") else ())
 in//let
   if i1tnm_used_in_guards(itnm, iguas)
   then
