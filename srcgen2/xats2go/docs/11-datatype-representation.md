@@ -379,7 +379,7 @@ layout, since construction and projection must agree.
 
 ## Verification
 
-`dev.sh quick` (~55s, psuite 75/75 byte-equal vs the JS backend) per edit;
+`build.sh quick` (~55s, psuite 75/75 byte-equal vs the JS backend) per edit;
 `bench` (`b04`/`b05`/`b08`/`b11`) as the allocation scoreboard; `bench/repr`
-for representation-level questions; `dev.sh full-verify` before committing
+for representation-level questions; `build.sh full-verify` before committing
 anything that changes emission shape.

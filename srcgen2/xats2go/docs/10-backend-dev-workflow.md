@@ -11,8 +11,8 @@ emitter), `trxi0i1_*` (the lowering), and `runtime/xatsgo` change.
 ## The loop: ~1 minute
 
 ```
-dev.sh quick          # bundle relink (3-4s) + psuite (75 programs, ~50s)
-dev.sh quick bench    # + the 11-kernel perf suite vs Chez and JS
+build.sh quick          # bundle relink (3-4s) + psuite (75 programs, ~50s)
+build.sh quick bench    # + the 11-kernel perf suite vs Chez and JS
 ```
 
 `psuite` emits each of 75 programs, builds them, runs them, and byte-compares
@@ -37,8 +37,8 @@ keeping it current buys no iteration speed.
 ## Milestone check: does the new backend still self-host?
 
 ```
-dev.sh selfcycle      # node-free: prewarm-self -> build -> fixpoint -> tests
-dev.sh full-verify    # same but emissions come from the bundle; sweep
+build.sh selfcycle      # node-free: prewarm-self -> build -> fixpoint -> tests
+build.sh full-verify    # same but emissions come from the bundle; sweep
                           # proves binary == JS-hosted bundle (the JS oracle)
 ```
 
@@ -62,7 +62,7 @@ radius of real fixes from the fallback-removal campaign:
 | addr-of-field | 53 / 194 (27%) |
 
 ```
-dev.sh prewarm-touching 'Xats_p2tr' 3    # re-emit only matching modules
+build.sh prewarm-touching 'Xats_p2tr' 3    # re-emit only matching modules
 ```
 
 Measured: `prewarm-touching goxtco` = 2 re-emitted, 191 skipped, 42s (vs
@@ -104,7 +104,7 @@ measurable goal.
 
 ## Harness blind spot: `regress` compares us against ourselves
 
-`dev.sh regress` runs each `tests/*.dats` probe through **the selfhost
+`build.sh regress` runs each `tests/*.dats` probe through **the selfhost
 binary and our own patched bundle**, then demands byte-equal output. That
 pins binary-vs-bundle *fixpoint* fidelity — but both sides are built from the
 same sources, so a behaviour missing from **both** is invisible to it.

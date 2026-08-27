@@ -1,49 +1,49 @@
 #!/usr/bin/env bash
-# dev.sh — TIERED fast loop for selfhost fixpoint work.
+# build.sh — TIERED fast loop for selfhost fixpoint work.
 #
 # The old loop (rebuild lib2xatsopt -> bundle -> re-emit 194 modules ->
 # assemble -> go build -> probe) costs ~12 min and is only needed when the
 # BUNDLE's emission behavior changes (emitter/resolver edits).  Most fixpoint
 # iterations are cheaper classes; pick the lowest tier that matches the edit:
 #
-#   dev.sh probe [file.dats]   ~3s   run the EXISTING binary on a probe
+#   build.sh probe [file.dats]   ~3s   run the EXISTING binary on a probe
 #                                        file (default: probe/zzprobe.dats),
 #                                        report F3PERR/TREAD error counts.
-#   dev.sh runtime             ~10s  runtime/xatsgo edit: go build + probe.
-#   dev.sh frontend            ~60s  srcgen2/DATS *.dats edit (frontend
+#   build.sh runtime             ~10s  runtime/xatsgo edit: go build + probe.
+#   build.sh frontend            ~60s  srcgen2/DATS *.dats edit (frontend
 #                                        BEHAVIOR change): the OLD bundle
 #                                        re-emits just the stale modules
 #                                        (assemble.sh mtime check), rewire,
 #                                        go build, probe.  NO bundle rebuild:
 #                                        the bundle only needs rebuilding when
 #                                        the EMITTED-CODE-SHAPE must change.
-#   dev.sh bridges <module>    ~20s  emit ONE module with the CURRENT
+#   build.sh bridges <module>    ~20s  emit ONE module with the CURRENT
 #                                        bundle and count semantic runtime
 #                                        bridges (Xats_g_eq / Xats_gs_print_n*)
 #                                        — the resolver-fix success metric,
 #                                        with NO Go build in the loop.
-#   dev.sh bundle              ~3m   resolver/emitter edit: incremental
+#   build.sh bundle              ~3m   resolver/emitter edit: incremental
 #                                        lib2xatsopt (make, per-module mtimes)
 #                                        + xats2go bundle relink.  Pair with
 #                                        `bridges` to validate, THEN run
 #                                        `full` once when the metric is green.
-#   dev.sh full                ~10m  re-emit ALL stale modules (after a
+#   build.sh full                ~10m  re-emit ALL stale modules (after a
 #                                        bundle rebuild everything is stale),
 #                                        assemble, build, probe.
 #
 # ===== LOOPS FOR BACKEND (Go-centric emitter) WORK =====
-#   dev.sh quick [bench]       ~1m   INNER LOOP: bundle relink + psuite
+#   build.sh quick [bench]       ~1m   INNER LOOP: bundle relink + psuite
 #                                        (75 programs emit/build/run/byte-cmp
 #                                        vs the JS backend).  No selfhost
 #                                        rebuild — an emitter change is judged
 #                                        by what it EMITS.  `quick bench` adds
 #                                        the perf suite.
-#   dev.sh selfcycle           ~55m  NODE-FREE BUILD: the selfhost binary
+#   build.sh selfcycle           ~55m  NODE-FREE BUILD: the selfhost binary
 #                                        bootstraps ITSELF (prewarm-self ->
 #                                        assemble -> go build), iterating to a
 #                                        `fixpoint`, then census/regress/gate.
 #                                        MEASURED: 193 modules at P3 = 3276s.
-#   dev.sh full-verify         ~55m  PRE-COMMIT with the JS ORACLE: same,
+#   build.sh full-verify         ~55m  PRE-COMMIT with the JS ORACLE: same,
 #                                        but emissions come from the BUNDLE and
 #                                        `sweep` proves binary == bundle.
 #
@@ -130,7 +130,7 @@ EOF
 
 do_probe() {
   local src="${1:-$(default_probe)}"
-  [ -x "$BIN" ] || die "no binary at $BIN (run: dev.sh frontend | full)"
+  [ -x "$BIN" ] || die "no binary at $BIN (run: build.sh frontend | full)"
   local o="$PROBEDIR/probe.out" e="$PROBEDIR/probe.err"
   ( cd "$X" && "$BIN" "${src#$X/}" > "$o" 2> "$e" ); local rc=$?
   local f3 t12 t23
@@ -184,7 +184,7 @@ frontend)
   # unify00_s2typ) changes the INSTANTIATIONS embedded in every USING module,
   # whose own .dats mtimes are unchanged — mtime tracking misses them.  Name
   # those modules as extra args to force their re-emit:
-  #     dev.sh frontend trans2a_utils0 trans23_utils0 [probe.dats]
+  #     build.sh frontend trans2a_utils0 trans23_utils0 [probe.dats]
   # Find the dependent set with:  grep -l <template_name> emit/*.go
   shift
   probearg=""
@@ -198,7 +198,7 @@ frontend)
   do_probe "$probearg"
   ;;
 bridges)
-  m="${2:-}"; [ -n "$m" ] || die "usage: dev.sh bridges <module> (e.g. trans12_dynexp | xsymmap_stkmap)"
+  m="${2:-}"; [ -n "$m" ] || die "usage: build.sh bridges <module> (e.g. trans12_dynexp | xsymmap_stkmap)"
   f="$X/srcgen2/DATS/$m.dats"; [ -f "$f" ] || die "no such module: $f"
   raw="$PROBEDIR/$m.bridges.raw"
   node --stack-size=$NODESTK "$GOPATCHED" "$f" > "$raw" 2> "$raw.err" || die "emit failed (see $raw.err)"
@@ -211,7 +211,7 @@ bundle)
   ( cd "$X/srcgen2" && make -f Makefile_xjsemit lib2xatsopt ) || die "lib2xatsopt rebuild failed"
   ( cd "$X/srcgen2/xats2go" && make bundle ) || die "bundle relink failed"
   echo ">> bundle rebuilt: $GOPATCHED"
-  echo ">> validate with: dev.sh bridges <module>; then dev.sh full"
+  echo ">> validate with: build.sh bridges <module>; then build.sh full"
   ;;
 full)
   bash "$OUT/assemble.sh" || die "assemble failed"
@@ -330,7 +330,7 @@ prewarm)
   [ "$empty" = 0 ] || exit 1
   ;;
 prewarm-touching)
-  # TARGETED re-emit: `dev.sh prewarm-touching <regex> [P]`
+  # TARGETED re-emit: `build.sh prewarm-touching <regex> [P]`
   #
   # WHY: mtime invalidation is CONTENT-BLIND.  Relinking the bundle (any
   # emitter OR frontend edit) makes all 194 emissions "stale", so we re-emit
@@ -350,7 +350,7 @@ prewarm-touching)
   # backstopped by `fixpoint`/`sweep`, which re-emit everything and byte-
   # compare, so a missed module turns the pre-commit verify red rather than
   # silently shipping.  When in doubt, use plain prewarm-self.
-  RE="${2:-}"; [ -n "$RE" ] || die "usage: dev.sh prewarm-touching <regex> [P]"
+  RE="${2:-}"; [ -n "$RE" ] || die "usage: build.sh prewarm-touching <regex> [P]"
   PAR="${3:-3}"
   [ -x "$BIN" ] || die "no selfhost binary"
   eval "$(grep '^FRONTEND=' "$OUT/assemble.sh")"
@@ -386,7 +386,7 @@ prewarm-self)
   # ongoing proof shifts to `fixpoint` (gen-N vs gen-N+1, node-free); `sweep`
   # remains as the periodic JS-oracle cross-check.
   PAR="${2:-3}"   # memory-bandwidth bound; see the sweep tier
-  [ -x "$BIN" ] || die "no selfhost binary yet — bootstrap once with: dev.sh prewarm"
+  [ -x "$BIN" ] || die "no selfhost binary yet — bootstrap once with: build.sh prewarm"
   eval "$(grep '^FRONTEND=' "$OUT/assemble.sh")"
   eval "$(grep '^CCMODS=' "$OUT/assemble.sh")"
   JOBS="$PROBEDIR/prewarm.jobs"; : > "$JOBS"
@@ -492,14 +492,14 @@ quick)
   #   bundle relink (~3s: only the edited emitter module re-transpiles)
   # + psuite (75 programs: emit -> go build -> run -> byte-compare vs the JS
   #   backend, -j8, ~50s)
-  # + optional bench (`dev.sh quick bench`) for perf-sensitive changes.
+  # + optional bench (`build.sh quick bench`) for perf-sensitive changes.
   #
   # WHY this is the right loop: an emitter change is validated by what it
   # EMITS, and psuite is 75 real programs checked byte-for-byte against the
   # JS reference.  Re-emitting the 193 compiler modules and rebuilding the
   # selfhost binary proves something DIFFERENT — that the compiler still
   # reproduces itself (the fixpoint) — which is a PRE-COMMIT concern, not a
-  # per-edit one.  Run `dev.sh full-verify` before committing.
+  # per-edit one.  Run `build.sh full-verify` before committing.
   t0=$(date +%s)
   ( cd "$X/srcgen2" && make -f Makefile_xjsemit lib2xatsopt ) >/dev/null 2>&1 || die "lib rebuild failed"
   ( cd "$X/srcgen2/xats2go" && make bundle ) >/dev/null 2>&1 || die "bundle relink failed"
