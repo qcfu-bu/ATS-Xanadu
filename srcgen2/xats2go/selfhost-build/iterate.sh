@@ -150,12 +150,14 @@ do_build() {
   # (goobj uint32 offset overflow; looks like corruption).  `all=-l` keeps
   # every other optimization and yields a 129MB object, 8.5s build.
   # Override via XGCFLAGS (e.g. 'all=-N -l' for fastest builds).
-  # PACKAGE SPLIT (2026-08-26): when a fresh assembly exists, split it into
-  # multiple Go packages (zzbase/zzfe1..3/zzcc/zzgo + main) so no package
-  # object can approach the 4GB goobj limit; see split-src.py.  When no
+  # PACKAGE SPLIT (2026-08-26, shell-native 2026-08-27): when a fresh
+  # assembly exists, route it into multiple Go packages
+  # (zzbase/zzfe2/zzfe3/zzcc/zzgo + main) so no package object can
+  # approach the 4GB goobj limit; see split-src.sh (pure file routing --
+  # crossing symbols are exported at birth by the emitter).  When no
   # emitter_all.go is present (binary-only rebuilds) the existing split
   # packages are reused as-is.
-  python3 "$OUT/split-src.py" || die "split-src failed"
+  bash "$OUT/split-src.sh" || die "split-src failed"
   ( cd "$OUT/src" && go build -gcflags "${XGCFLAGS:-all=-l}" -o xats2go-selfhost . ) || die "go build failed"
   echo ">> built $BIN"
 }
