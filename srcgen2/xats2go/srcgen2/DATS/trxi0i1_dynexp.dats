@@ -1082,7 +1082,9 @@ fun
 f0_nil(ipat: i0pat) =
 let
 val
-itnm = i1tnm_new0()
+itnm =
+i1tnm_new1
+(gotyp_of_i0typ(i0pat_ityp$get(ipat)))
 in//let
 (
 I1BNDcons
@@ -1101,7 +1103,11 @@ let
 //
 val loc0 = ipat.lctn()
 //
-val itnm = i1tnm_new0()
+// the clause temp receives the (matched) scrutinee value: born with the
+// PATTERN's Go type, so datacon projections on it can elide their as_con.
+val itnm =
+i1tnm_new1
+(gotyp_of_i0typ(i0pat_ityp$get(ipat)))
 val ival =
 i1val(loc0, I1Vtnm(itnm))
 //

@@ -4940,11 +4940,25 @@ let
   val nind = envx2go_nind$get(env0)
   val-I1BNDcons(itnm, _, _) = ibnd
   val used = i1tnm_used_in_cmp(itnm, body)
+  // a con-typed clause temp: bind ALREADY-COERCED (`:= Xats_as_con(v)`) and
+  // record it, so every datacon projection on it in the body elides its
+  // as_con.  SOUND: the bind runs only after the clause's tag test held.
+  // UNUSED temps (tag-only/wildcard clauses) skip the coercion -- nothing
+  // projects them, so the type switch would be pure waste.
+  val goty = gotyp_emit(i1tnm_gotyp$get(itnm))
+  val conq = (if used then (goty = "*xatsgo.XatsCon") else false)
+  val () =
+  (
+  if conq
+  then goemit_ty_add(i1tnm_stmp$get(itnm), goty) else ())
 in//let
   (
   nindfpr(filr, nind);
   i1tnmgo1(filr, itnm); strnfpr(filr, " := ");
-  i1valgo1(filr, casval); strnfpr(filr, "\n");
+  (if conq then strnfpr(filr, "xatsgo.Xats_as_con(") else ());
+  i1valgo1(filr, casval);
+  (if conq then strnfpr(filr, ")") else ());
+  strnfpr(filr, "\n");
   if used then ((*void*)) else
     (
     nindfpr(filr, nind);
@@ -5131,13 +5145,24 @@ let
   val filr = env0.filr()
   val nind = envx2go_nind$get(env0)
   val-I1BNDcons(itnm, _, _) = ibnd
+  // same con-typed pre-coercion as [i1bnd_bind_go1] (guards run only after
+  // the tag test held); unused temps skip the whole bind below anyway.
+  val goty = gotyp_emit(i1tnm_gotyp$get(itnm))
+  val conq = (goty = "*xatsgo.XatsCon")
+  val () =
+  (
+  if conq
+  then goemit_ty_add(i1tnm_stmp$get(itnm), goty) else ())
 in//let
   if i1tnm_used_in_guards(itnm, iguas)
   then
   (
   nindfpr(filr, nind);
   i1tnmgo1(filr, itnm); strnfpr(filr, " := ");
-  i1valgo1(filr, casval); strnfpr(filr, "\n"))
+  (if conq then strnfpr(filr, "xatsgo.Xats_as_con(") else ());
+  i1valgo1(filr, casval);
+  (if conq then strnfpr(filr, ")") else ());
+  strnfpr(filr, "\n"))
   else ((*unused -- skip*))
 end//let//endof[i1bnd_bind_go1_guard(...)]
 //

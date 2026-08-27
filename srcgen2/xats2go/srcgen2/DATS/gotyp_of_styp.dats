@@ -49,6 +49,9 @@ A faithful structured port of go1emit_styp0.dats's [gotype_of_styp] /
 #staload "./../SATS/gotyp.sats"
 #staload "./../SATS/gotyp_of_styp.sats"
 //
+#staload
+"./../../../SATS/xstamp0.sats"
+//
 (* ****** ****** *)
 //
 #symload node with s2typ_get_node
@@ -214,6 +217,26 @@ analog of [goty_of_s2cst_head]).  Scalar name -> scalar; else a boxed
 datatype -> [GOTcon]; else chase a one-step typedef expansion ([s2cst_get_styp]),
 guarding the name=name self-loop -> [GOTany].
 *)
+(*
+[gtx_atdf_chase]: an ABSTYPE head whose name/typedef chase failed -> chase
+its [assume] definition ([s2cst_get_atdf], recorded at absimpl); the
+assumed [s2exp] is stpized and mapped.  Opaque here (no atdf) -> [GOTany].
+*)
+fun
+gtx_atdf_chase
+(s2c0: s2cst): gotyp =
+(
+case+ s2cst_get_atdf(s2c0) of
+| ~optn_vt_nil() => GOTany()
+| ~optn_vt_cons(atdf) =>
+  (
+  case+ atdf of
+  | A2TDFsome() => GOTany()
+  | A2TDFlteq(s2e1) => gotyp_of_styp(s2exp_stpize(s2e1))
+  | A2TDFeqeq(s2e1) => gotyp_of_styp(s2exp_stpize(s2e1))
+  | A2TDFdefn(s2e1) => gotyp_of_styp(s2exp_stpize(s2e1)))
+)
+//
 fun
 gtx_s2cst_head
 (s2c0: s2cst): gotyp =
@@ -231,7 +254,7 @@ in
         val opt0 = s2cst_get_styp(s2c0)
       in
         case+ opt0 of
-        | ~optn_vt_nil() => GOTany()
+        | ~optn_vt_nil() => gtx_atdf_chase(s2c0)
         | ~optn_vt_cons(t2p1) =>
           (
           case+ s2typ_get_node(t2p1) of
@@ -239,7 +262,8 @@ in
             let
               val nm1 = symbl_get_name(s2cst_get_name(s2c1))
             in
-              if (nm0 = nm1) then GOTany() else gotyp_of_styp(t2p1)
+              if (nm0 = nm1)
+              then gtx_atdf_chase(s2c0) else gotyp_of_styp(t2p1)
             end
           | _(*expanded typedef*) => gotyp_of_styp(t2p1))
       end)
@@ -393,6 +417,91 @@ case+ xs of
 (* ****** ****** *)
 (* ****** ****** *)
 //
+(*
+The template-variable binding stack (see the .sats): a stack of [s2vts]
+frames pushed around each [I0Dtmpsub]-wrapped decl's lowering.  A var
+resolves against the FIRST frame binding its stamp; the bound styp is then
+mapped with the full stack still in place, so chained bindings
+(x0 -> list(a), a -> d0exp) resolve through the outer frames.  An identity
+binding (x -> x) -> [GOTany] (guard).
+*)
+local
+//
+val
+zztvbstk =
+a0ref_make_1val
+<list(s2vts)>(list_nil())
+//
+in//local
+//
+#implfun
+gotyp_tvb_push
+(svts) =
+a0ref_set<list(s2vts)>
+(zztvbstk
+,list_cons
+(svts, a0ref_get<list(s2vts)>(zztvbstk)))
+//
+#implfun
+gotyp_tvb_pop
+((*void*)) =
+(
+case+
+a0ref_get<list(s2vts)>(zztvbstk) of
+| list_nil() => ()
+| list_cons(_, fs1) =>
+  a0ref_set<list(s2vts)>(zztvbstk, fs1)
+)
+//
+fun
+gtx_tvb_search
+(s2v0: s2var): gotyp =
+gtx_tvb_frames
+(a0ref_get<list(s2vts)>(zztvbstk), s2var_get_stmp(s2v0))
+//
+and
+gtx_tvb_frames
+(fs: list(s2vts), stm0: stamp): gotyp =
+(
+case+ fs of
+| list_nil() => GOTany()
+| list_cons(f1, fs1) => gtx_tvb_frame1(f1, fs1, stm0)
+)
+//
+and
+gtx_tvb_frame1
+(f1: s2vts, fs1: list(s2vts), stm0: stamp): gotyp =
+(
+case+ f1 of
+| list_nil() => gtx_tvb_frames(fs1, stm0)
+| list_cons(vt1, f2) =>
+  let
+    val+@(s2v1, t2p1) = vt1
+  in
+    if
+    (stamp_cmp(s2var_get_stmp(s2v1), stm0) = 0)
+    then gtx_tvb_bound(t2p1, stm0)
+    else gtx_tvb_frame1(f2, fs1, stm0)
+  end
+)
+//
+and
+gtx_tvb_bound
+(t2p1: s2typ, stm0: stamp): gotyp =
+(
+case+ s2typ_get_node(t2p1) of
+| T2Pvar(s2v1) =>
+  (
+  if
+  (stamp_cmp(s2var_get_stmp(s2v1), stm0) = 0)
+  then GOTany() else gotyp_of_styp(t2p1))
+| _(*non-var*) => gotyp_of_styp(t2p1)
+)
+//
+end(*local*)//end-of-[local(zztvb state)]
+//
+(* ****** ****** *)
+//
 #implfun
 gotyp_of_styp
 (t2p0) =
@@ -466,6 +575,10 @@ case+ s2typ_get_node(t2p0) of
 // an external $extype directly -> by its name.
 |T2Ptext(nm, _) => gotyp_of_textnm(nm)
 //
+// a template variable inside a resolved instance body -> its binding
+// on the instance's tmpsub frame (GOTany when free/unframed).
+|T2Pvar(s2v0) => gtx_tvb_search(s2v0)
+//
 | _(*otherwise*) => GOTany()
 )
 //
@@ -491,6 +604,8 @@ case+ i0typ_node$get(ityp) of
 |I0Tlam1(_, t1) => gotyp_of_i0typ(t1)
 //
 |I0Tnone1(t2p0) => gotyp_of_styp(t2p0)
+//
+|I0Tvar(s2v0) => gtx_tvb_search(s2v0)
 //
 |I0Ttrcd(knd, npf, fields) =>
   let

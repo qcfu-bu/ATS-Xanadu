@@ -73,6 +73,7 @@ XATSOPT "./../../.."
 //
 #staload "./../SATS/intrep1.sats"
 #staload "./../SATS/trxi0i1.sats"
+#staload "./../SATS/gotyp_of_styp.sats"
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -349,8 +350,10 @@ loc0 = dcl0.lctn((*0*))
 val-
 I0Dtmpsub
 (svts, dcl1) = dcl0.node()
+val () = gotyp_tvb_push(svts)
 val
 dcl1 = i0dcl_trxi0i1(dcl1, env0)
+val () = gotyp_tvb_pop((*void*))
 //
 in//let
 (
@@ -692,7 +695,9 @@ val tdxp =
 teqi0exp_trxi0i1(tdxp, env0)
 //
 val dvar = dpid.dvar()
-val itnm = i1tnm_new0()
+val itnm =
+i1tnm_new1
+(gotyp_of_i0typ(dpid.ityp()))
 val ival =
 i1val(loc0, I1Vtnm(itnm))
 val (  ) =
@@ -817,10 +822,12 @@ end//let
 |I0Dtmpsub(svts, idcl1) =>
 let
 val loc0 = idcl.lctn((*void*))
+val () = gotyp_tvb_push(svts)
 val idcl1 =
 (
   i0dclenv_trxi0i1
   (idcl1, i0ws, env0))
+val () = gotyp_tvb_pop((*void*))
 in//let
   i1dcl(loc0, I1Dtmpsub(svts, idcl1))
 end//let

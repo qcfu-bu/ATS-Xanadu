@@ -78,6 +78,20 @@ gotyp_of_i0typ(ityp: i0typ): gotyp
 //
 (* ****** ****** *)
 //
+(*
+Template-variable bindings: resolved instance BODIES keep their template
+s2vars symbolic in styps/ityps ([T2Pvar]/[I0Tvar]); the concrete bindings
+travel on the instance's [I0Dtmpsub(svts, _)] wrapper.  The lowering pushes
+each wrapper's [svts] while translating the wrapped decl; [T2Pvar]/[I0Tvar]
+then resolve innermost-first through the stacked frames.
+*)
+fun
+gotyp_tvb_push(svts: s2vts): void
+fun
+gotyp_tvb_pop((*void*)): void
+//
+(* ****** ****** *)
+//
 (***********************************************************************)
 (* end of [ATS3/XANADU_srcgen2_xats2go_srcgen2_SATS_gotyp_of_styp.sats] *)
 (***********************************************************************)

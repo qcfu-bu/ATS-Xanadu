@@ -1533,7 +1533,17 @@ case+ tdxp of
   then
     let
       val gty0 = gotyp_emit(i1tnm_gotyp$get(itnm))
-      val gty = (if (strn_length(gty0) = 0) then "any" else gty0)
+      val gty1 = (if (strn_length(gty0) = 0) then "any" else gty0)
+      // a TOP initializer (`val _x: T = _`, I1Vtop) has NO runtime value
+      // (nil) and is never demanded: coercing nil into a scalar T at init
+      // panics -- so a top-initialized val stays `any` regardless of its
+      // declared type.
+      val topq =
+      (
+      case+ icmp of
+      |I1CMPcons(_, iv) =>
+        (case+ iv.node() of I1Vtop _ => true | _(*else*) => false))
+      val gty = (if topq then "any" else gty1)
     in
       // package-level `var goxtnm<x> <T> = func() <T> { ..; return .. }()`:
       // an IIFE INITIALIZER, not a `func init()` body.  Go runs ALL var
