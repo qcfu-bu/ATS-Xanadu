@@ -90,6 +90,11 @@ case+ nm of
 | "strn" => GOTstr()
 | "strptr" => GOTstr()
 | "strnptr" => GOTstr()
+// NOT string_i0_tx/vx: a strtmp BUFFER (*xatsStrTmp) can flow under the
+// linear string type via the IDENTITY cast Xats_UN_strn_vt_cast (build
+// buffer -> $UN.cast -> ... -> strn_vt2t), so GOTstr would make
+// Xats_as_str panic on it (hit by the selfhost probe).  Mapping these
+// needs a belief-consistency audit of the $UN string casts first.
 | "nint" => GOTint()
 //
 | "bool_type" => GOTbool()

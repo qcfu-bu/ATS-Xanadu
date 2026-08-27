@@ -1791,13 +1791,26 @@ val () =
   |optn_nil() => ((*void*))
   |optn_cons(dcst) => byref_register_params(fjas, d2cst_get_styp(dcst)))
 //
+// CON-PARAM PROLOGUE gate: only a NON-tail-recursive body (the TCO loop
+// re-assigns the param temps, which an aliased/coerced param would break).
+val cpicmp =
+(
+case+ tdxp of
+|TEQI1CMPsome(_, icmp0) =>
+  (
+  if i1cmp_body_has_tailcall(icmp0)
+  then optn_nil() else optn_cons(icmp0))
+|TEQI1CMPnone() => optn_nil(): optn(i1cmp))
+//
 // --- signature: func <name>(<params>) <ret> { -------------------------
 val () =
 (
 strnfpr(filr, "func ");
 d2vargo1(filr, dvar);
 strnfpr(filr, "(");
-fjarglst_go1emit_params(filr, fjas, argtys);
+(case+ cpicmp of
+ |optn_cons(icmp0) => t1imp_paramlst_go1emit(filr, fjas, argtys, icmp0)
+ |optn_nil() => fjarglst_go1emit_params(filr, fjas, argtys));
 strnfpr(filr, ") ");
 strnfpr(filr, retty);
 strnfpr(filr, " {\n"))
@@ -1860,6 +1873,11 @@ case+ tdxp of
     // M2.5: bnds = the function's own param binds (so a body-level lambda
     // returning a captured param types concretely).
     envx2go_incnind(env0, 1(*++*));
+    // con-param prologue (non-TCO only; see the signature branch above).
+    (case+ cpicmp of
+     |optn_cons(icmp0) =>
+       t1imp_conprologue_go1emit(filr, env0.nind(), fjas, argtys, icmp0)
+     |optn_nil() => ((*void*)));
     i1cmp_go1emit_ret(icmp, list_nil(), binds_of_fjarglst(fjas), env0);
     envx2go_decnind(env0, 1(*--*)))
   end

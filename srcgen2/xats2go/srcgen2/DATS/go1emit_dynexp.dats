@@ -2569,11 +2569,32 @@ the existing ANF shape:
 and proves that intrep1 does carry enough information for at least this class
 of polymorphic/user-template instantiation.
 *)
+(*
+[t1imp_conparamq]: is this instance param a CON-PROLOGUE param?  An
+`any`-emitted param whose TEMP learned a concrete datatype type during the
+(tvb-framed) lowering, and which the body actually uses.  Such a param is
+printed under an ALIAS (`goxtnm<N>p any`) and re-bound ONCE by a body
+prologue (`goxtnm<N> := xatsgo.Xats_as_con(goxtnm<N>p)`), recorded as
+concrete so every datacon projection on it elides.  The SIGNATURE stays
+`func(any...)` -- instances flow as hook VALUES constantly, and Go func
+types are invariant, so a typed signature would panic at every
+`.(func(any) any)` assertion.  Unused/typed/byref params are untouched.
+*)
 fun
+t1imp_conparamq
+(p1: i1tnm, goty: strn, icmp: i1cmp): bool =
+(
+if (goty = "any")
+then
+  (
+  if (gotyp_emit(i1tnm_gotyp$get(p1)) = "*xatsgo.XatsCon")
+  then i1tnm_used_in_cmp(p1, icmp) else false)
+else false
+)
+//
+#implfun
 t1imp_paramlst_go1emit
-( filr: FILR
-, fjas: fjarglst
-, ptys: list(strn)): void =
+(filr, fjas, ptys, icmp) =
 let
   val ptnms = params_of_fjarglst(fjas)
   //
@@ -2590,14 +2611,19 @@ let
       case+ gs of
       |list_nil() => @("any", list_nil())
       |list_cons(g1, gs1) => @(g1, gs1))
+      val conq = t1imp_conparamq(p1, goty, icmp)
       // general ARG boundary: record this param's EMITTED Go type so a
       // CALL passing it (an `any` param into a typed slot) can be coerced.
-      // (Formerly gated to --go-arm; one typing strategy in all modes now.)
-      val () = goemit_ty_add(i1tnm_stmp$get(p1), goty)
+      // A con-prologue param records its COERCED type (the table is
+      // first-wins, so this must be decided here, not after).
+      val () = goemit_ty_add
+      (i1tnm_stmp$get(p1), (if conq then "*xatsgo.XatsCon" else goty))
       val () =
       (
       if (i0 >= 1) then strnfpr(filr, ", ");
-      i1tnmgo1(filr, p1); strnfpr(filr, " "); strnfpr(filr, goty))
+      i1tnmgo1(filr, p1);
+      (if conq then strnfpr(filr, "p") else ());
+      strnfpr(filr, " "); strnfpr(filr, goty))
     in
       loop(i0+1, ts1, gs1)
     end
@@ -2605,6 +2631,48 @@ let
 in
   loop(0, ptnms, ptys)
 end//endof[t1imp_paramlst_go1emit(filr,fjas,ptys)]
+//
+(*
+[t1imp_conprologue_go1emit]: emit the con-param re-binds (see
+[t1imp_conparamq]) as the FIRST statements of the instance body.
+*)
+#implfun
+t1imp_conprologue_go1emit
+(filr, nind, fjas, ptys, icmp) =
+let
+  val ptnms = params_of_fjarglst(fjas)
+  //
+  fun
+  loop
+  (ts: i1tnmlst, gs: list(strn)): void =
+  (
+  case+ ts of
+  |list_nil() => ((*void*))
+  |list_cons(p1, ts1) =>
+    let
+      val (goty, gs1) =
+      (
+      case+ gs of
+      |list_nil() => @("any", list_nil())
+      |list_cons(g1, gs1) => @(g1, gs1))
+      val () =
+      (
+      if t1imp_conparamq(p1, goty, icmp)
+      then
+      (
+      nindfpr(filr, nind);
+      i1tnmgo1(filr, p1);
+      strnfpr(filr, " := xatsgo.Xats_as_con(");
+      i1tnmgo1(filr, p1);
+      strnfpr(filr, "p)\n"))
+      else ((*void*)))
+    in
+      loop(ts1, gs1)
+    end
+  )
+in
+  loop(ptnms, ptys)
+end//endof[t1imp_conprologue_go1emit(...)]
 //
 fun
 t1imp_xats2js_runtimeq
@@ -2843,7 +2911,7 @@ case+ t1imp_i1dclq(timp) of
       val () =
       (
       strnfpr(filr, "(");
-      t1imp_paramlst_go1emit(filr, fjas, argtys);
+      t1imp_paramlst_go1emit(filr, fjas, argtys, icmp);
       strnfpr(filr, ") ");
       strnfpr(filr, retty);
       strnfpr(filr, " {\n"))
@@ -2853,6 +2921,10 @@ case+ t1imp_i1dclq(timp) of
       val saved_cfr = cur_funretty_get()
       val () = cur_funretty_set(retty)
       val () = envx2go_incnind(env0, 1(*++*))
+      // con-param prologue: one Xats_as_con per used datatype param; body
+      // projections on it elide (see t1imp_conparamq).
+      val () = t1imp_conprologue_go1emit
+      (filr, envx2go_nind$get(env0), fjas, argtys, icmp)
       val () = i1cmp_go1emit_ret(icmp, list_nil(), bnds, env0)
       val () = envx2go_decnind(env0, 1(*--*))
       val () = cur_funretty_set(saved_cfr)
@@ -4944,9 +5016,13 @@ let
   // record it, so every datacon projection on it in the body elides its
   // as_con.  SOUND: the bind runs only after the clause's tag test held.
   // UNUSED temps (tag-only/wildcard clauses) skip the coercion -- nothing
-  // projects them, so the type switch would be pure waste.
+  // projects them, so the type switch would be pure waste.  A casval that is
+  // ALREADY provably *XatsCon ([go_root_conq]: an earlier hoist/coercion
+  // typed it) copies BARE -- Go carries the concrete static type across the
+  // `:=`, so the record still holds without a redundant wrap.
   val goty = gotyp_emit(i1tnm_gotyp$get(itnm))
   val conq = (if used then (goty = "*xatsgo.XatsCon") else false)
+  val wrapq = (if conq then not(go_root_conq(casval)) else false)
   val () =
   (
   if conq
@@ -4955,9 +5031,9 @@ in//let
   (
   nindfpr(filr, nind);
   i1tnmgo1(filr, itnm); strnfpr(filr, " := ");
-  (if conq then strnfpr(filr, "xatsgo.Xats_as_con(") else ());
+  (if wrapq then strnfpr(filr, "xatsgo.Xats_as_con(") else ());
   i1valgo1(filr, casval);
-  (if conq then strnfpr(filr, ")") else ());
+  (if wrapq then strnfpr(filr, ")") else ());
   strnfpr(filr, "\n");
   if used then ((*void*)) else
     (
@@ -5146,9 +5222,11 @@ let
   val nind = envx2go_nind$get(env0)
   val-I1BNDcons(itnm, _, _) = ibnd
   // same con-typed pre-coercion as [i1bnd_bind_go1] (guards run only after
-  // the tag test held); unused temps skip the whole bind below anyway.
+  // the tag test held); unused temps skip the whole bind below anyway, and
+  // an already-concrete casval copies bare (see i1bnd_bind_go1).
   val goty = gotyp_emit(i1tnm_gotyp$get(itnm))
   val conq = (goty = "*xatsgo.XatsCon")
+  val wrapq = (if conq then not(go_root_conq(casval)) else false)
   val () =
   (
   if conq
@@ -5159,9 +5237,9 @@ in//let
   (
   nindfpr(filr, nind);
   i1tnmgo1(filr, itnm); strnfpr(filr, " := ");
-  (if conq then strnfpr(filr, "xatsgo.Xats_as_con(") else ());
+  (if wrapq then strnfpr(filr, "xatsgo.Xats_as_con(") else ());
   i1valgo1(filr, casval);
-  (if conq then strnfpr(filr, ")") else ());
+  (if wrapq then strnfpr(filr, ")") else ());
   strnfpr(filr, "\n"))
   else ((*unused -- skip*))
 end//let//endof[i1bnd_bind_go1_guard(...)]
@@ -6406,13 +6484,22 @@ case+ ilet of
         // coercion to the binding instead -- the recording below then lets
         // [go_root_conq] elide every use-site coercion.  (retany shapes
         // are already coerced above; native/reliable shapes are typed.)
+        // ALSO hoist an UNRELIABLE datatype crt (an I1Vcst callee whose styp
+        // image says *XatsCon -- e.g. the d0exp_get_node accessor family):
+        // the styp may lie about CONCRETENESS (a leaf can emit `any`), but
+        // [Xats_as_con] is idempotent over both, so the wrap is sound and
+        // makes the temp provably concrete.  A RELIABLE con crt is already
+        // recorded above and needs no wrap.
         val coer =
           (if (strn_length(coer) > 0) then coer
            else
-           (if (crt = "")
+           (if (goty = "*xatsgo.XatsCon")
             then
-            (if (goty = "*xatsgo.XatsCon")
-             then "xatsgo.Xats_as_con" else "")
+            (if (crt = "")
+             then "xatsgo.Xats_as_con"
+             else
+             (if (if (crt = "*xatsgo.XatsCon") then not(reliable) else false)
+              then "xatsgo.Xats_as_con" else ""))
             else ""))
         // ZZANY fix-2 recon: producer profile of the GOTany-typed temps
         // (the lowering never learned their type).

@@ -765,6 +765,26 @@ i1dcl_preludeq
 (idcl: i1dcl): bool
 //
 (* ****** ****** *)
+//
+(*
+CON-PARAM PROLOGUE (step-3): a param emitted `any` whose TEMP learned a
+concrete datatype gotyp, and which the body uses, prints under an alias
+(`goxtnm<N>p any`) and is re-bound ONCE by a body prologue
+(`goxtnm<N> := xatsgo.Xats_as_con(goxtnm<N>p)`) -- the signature stays
+`func(any...)` (Go func types are invariant; functions flow as values), and
+every datacon projection in the body elides.  Shared by the instance
+literal emitter (go1emit_dynexp) and the named-func emitter
+(go1emit_decl00; gated OFF for tail-recursive bodies, whose TCO loop
+re-assigns the param temps).
+*)
+fun
+t1imp_paramlst_go1emit
+(filr: FILR, fjas: fjarglst, ptys: list(strn), icmp: i1cmp): void
+fun
+t1imp_conprologue_go1emit
+(filr: FILR, nind: sint, fjas: fjarglst, ptys: list(strn), icmp: i1cmp): void
+//
+(* ****** ****** *)
 (* ****** ****** *)
 //
 (***********************************************************************)
