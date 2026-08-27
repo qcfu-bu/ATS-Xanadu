@@ -106,6 +106,12 @@ DEPS=""
 for p in zzbase zzfe2 zzfe3 zzcc zzgo; do
   mkdir -p "$SRC/$p"
   emit_pkg "$p" "$SRC/.body_$p" "$SRC/$p/$p.go" "$DEPS"
+  # SAME-PACKAGE INSTANCE DEDUP: the one-shot compiler re-emits the same
+  # lifted instance from every module that uses it (measured: 3.8k lifted,
+  # ~450 unique).  Identical-up-to-temp-renaming bodies keep their first
+  # copy; references rename to it (fixpoint -- instance families reference
+  # each other).  See tools/deduptmpl.
+  ( cd "$OUT/tools/deduptmpl" && go run . "$SRC/$p/$p.go" ) || exit 1
   DEPS="$DEPS $p"
 done
 emit_pkg main "$SRC/.body_main" "$SRC/zz_init.go" "$DEPS"
