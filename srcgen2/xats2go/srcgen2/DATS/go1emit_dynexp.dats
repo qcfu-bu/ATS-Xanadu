@@ -2570,6 +2570,155 @@ and proves that intrep1 does carry enough information for at least this class
 of polymorphic/user-template instantiation.
 *)
 (*
+[zzpu_*]: does temp [stm0] occur in a COERCION-PAYING position inside a
+cmp -- a native-binop argument, an if-condition, or a case scrutinee?
+Those are the positions that emit a per-EXECUTION Xats_as_* on an
+`any`-typed root; a temp merely PASSED ALONG (an `any` argument, a
+return value into an `any` context) pays nothing.  Gates the SCALAR
+side of the coercing-param prologue (see [t1imp_cparamty]): an entry
+re-bind must be repaid by at least one such use.
+*)
+fun
+zzpu_val
+(stm0: stamp, iv: i1val): bool =
+(
+case+ iv.node() of
+|I1Vtnm(t1) => (stamp_cmp(i1tnm_stmp$get(t1), stm0) = 0)
+|_(*else*) => false
+)
+//
+fun
+zzpu_vals
+(stm0: stamp, vs: i1valist): bool =
+(
+case+ vs of
+|list_nil() => false
+|list_cons(v1, vs1) =>
+ if zzpu_val(stm0, v1) then true else zzpu_vals(stm0, vs1))
+//
+fun
+zzpu_cmp
+(stm0: stamp, cmp0: i1cmp): bool =
+(
+case+ cmp0 of
+|I1CMPcons(ilts, _) => zzpu_lets(stm0, cmp0, ilts))
+//
+and
+zzpu_cmpopt
+(stm0: stamp, copt: i1cmpopt): bool =
+(
+case+ copt of
+|optn_nil() => false
+|optn_cons(c) => zzpu_cmp(stm0, c))
+//
+and
+zzpu_cmps
+(stm0: stamp, cs: i1cmplst): bool =
+(
+case+ cs of
+|list_nil() => false
+|list_cons(c1, cs1) =>
+ if zzpu_cmp(stm0, c1) then true else zzpu_cmps(stm0, cs1))
+//
+and
+zzpu_lets
+(stm0: stamp, cmp0: i1cmp, ilts: i1letlst): bool =
+(
+case+ ilts of
+|list_nil() => false
+|list_cons(ilt1, ilts1) =>
+ let
+ val b1 =
+ (
+ case+ ilt1 of
+ |I1LETnew0(iins) => zzpu_ins(stm0, cmp0, iins)
+ |I1LETnew1(_, iins) => zzpu_ins(stm0, cmp0, iins))
+ in
+ if b1 then true else zzpu_lets(stm0, cmp0, ilts1)
+ end)
+//
+and
+zzpu_ins
+(stm0: stamp, scp: i1cmp, iins: i1ins): bool =
+(
+case+ iins of
+|I1INSdapp(i1f0, i1vs) =>
+ (
+ if (strn_length(i1binop_of_dapp(i1f0, i1vs, scp)) > 0)
+ then zzpu_vals(stm0, i1vs) else false)
+|I1INSift0(cnd, c1, c2) =>
+ (
+ if zzpu_val(stm0, cnd) then true else
+ (if zzpu_cmpopt(stm0, c1) then true else zzpu_cmpopt(stm0, c2)))
+|I1INScas0(_, casval, cls) =>
+ (
+ if zzpu_val(stm0, casval) then true else zzpu_cls(stm0, cls))
+|I1INSlet0(_, c) => zzpu_cmp(stm0, c)
+|I1INSlam0(_, _, c) => zzpu_cmp(stm0, c)
+|I1INSfix0(_, _, _, c) => zzpu_cmp(stm0, c)
+|I1INStry0(_, c, _, cls) =>
+ (if zzpu_cmp(stm0, c) then true else zzpu_cls(stm0, cls))
+|I1INSrturn(_, c) => zzpu_cmp(stm0, c)
+|I1INSl0azy(_, c) => zzpu_cmp(stm0, c)
+|I1INSl1azy(_, c, cs) =>
+ (if zzpu_cmp(stm0, c) then true else zzpu_cmps(stm0, cs))
+// a capturing instance literal's body can reference the outer temp.
+|I1INStimp(_, timp) =>
+ (
+ case+ t1imp_i1dclq(timp) of
+ |optn_nil() => false
+ |optn_cons(idcl) =>
+  (
+  case+ idcl.node() of
+  |I1Dimplmnt0(_, _, _, _, _, c) => zzpu_cmp(stm0, c)
+  |_(*else*) => false))
+|_(*leaf-ins*) => false
+)
+//
+and
+zzpu_cls
+(stm0: stamp, cls: i1clslst): bool =
+(
+case+ cls of
+|list_nil() => false
+|list_cons(cl1, cls1) =>
+ let
+ val b1 =
+ (
+ case+ cl1.node() of
+ |I1CLSgpt(gpt) => zzpu_gpt(stm0, gpt)
+ |I1CLScls(gpt, c) =>
+  (if zzpu_gpt(stm0, gpt) then true else zzpu_cmp(stm0, c)))
+ in
+ if b1 then true else zzpu_cls(stm0, cls1)
+ end)
+//
+and
+zzpu_gpt
+(stm0: stamp, gpt: i1gpt): bool =
+(
+case+ gpt.node() of
+|I1GPTpat _ => false
+|I1GPTgua(_, gs) => zzpu_guas(stm0, gs))
+//
+and
+zzpu_guas
+(stm0: stamp, gs: i1gualst): bool =
+(
+case+ gs of
+|list_nil() => false
+|list_cons(g1, gs1) =>
+ let
+ val b1 =
+ (
+ case+ g1.node() of
+ |I1GUAexp(c) => zzpu_cmp(stm0, c)
+ |I1GUAmat(c, _) => zzpu_cmp(stm0, c))
+ in
+ if b1 then true else zzpu_guas(stm0, gs1)
+ end)
+//
+(*
 [t1imp_cparamty]: the CONCRETE Go type a coercing-prologue param re-binds
 to -- "" when the param is not eligible.  Eligible: emitted `any`, the
 temp's finalized gotyp is a DATATYPE, and the body uses it.  An eligible
@@ -2580,15 +2729,11 @@ VALUES constantly, and Go func types are invariant, so a typed signature
 would panic at every `.(func(any) any)` assertion.  Unused/typed/byref
 params are untouched.
 //
-DATATYPES ONLY (measured 2026-08-27): generalizing to every
-[go_coerfn_of]-coercible scalar was CORRECT (all gates green -- the
-scalar coercers convert, only nil panics, and no nil path exists) but a
-NET REGRESSION: fe2 as_str 301->4810, as_int +546, +5.5k lines.  Most
-scalar params are merely PASSED ALONG (zero coercion-paying uses), so
-the prologue bind saves nothing -- unlike con params, whose uses are
-datacon projections.  Re-enabling scalars needs a "used in a
-coercion-paying position" body analysis (binop args, tag tests), not
-just [i1tnm_used_in_cmp].
+SCALARS are gated by [zzpu_cmp] (a coercion-PAYING use), not mere use:
+the ungated generalization measured NET NEGATIVE (2026-08-27: fe2
+as_str 301->4810, as_int +546, +5.5k lines -- most scalar params are
+merely passed along).  Datatypes keep the plain used-gate: their uses
+are datacon projections, which always pay.
 *)
 fun
 t1imp_cparamty
@@ -2601,7 +2746,12 @@ then
   in
     if (g2 = "*xatsgo.XatsCon")
     then (if i1tnm_used_in_cmp(p1, icmp) then g2 else "")
-    else ""
+    else
+    (
+    if (strn_length(go_coerfn_of(g2)) > 0)
+    then
+      (if zzpu_cmp(i1tnm_stmp$get(p1), icmp) then g2 else "")
+    else "")
   end
 else ""
 )
