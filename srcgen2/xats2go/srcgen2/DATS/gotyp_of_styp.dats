@@ -90,11 +90,16 @@ case+ nm of
 | "strn" => GOTstr()
 | "strptr" => GOTstr()
 | "strnptr" => GOTstr()
-// NOT string_i0_tx/vx: a strtmp BUFFER (*xatsStrTmp) can flow under the
-// linear string type via the IDENTITY cast Xats_UN_strn_vt_cast (build
-// buffer -> $UN.cast -> ... -> strn_vt2t), so GOTstr would make
-// Xats_as_str panic on it (hit by the selfhost probe).  Mapping these
-// needs a belief-consistency audit of the $UN string casts first.
+// the NONLINEAR indexed string abstype (string(i0)): always a plain Go
+// string at runtime.  AUDITED 2026-08-27: its producers are literals
+// (XATSSTRN = identity on `string`), [strn_vt2t] (materializes the
+// buffer), and runtime string leaves (all return `string`);
+// enlinear/delinear are used only on lists in the compiler sources.
+| "string_i0_tx" => GOTstr()
+// NOT string_i0_vx (the LINEAR family): a strtmp BUFFER (*xatsStrTmp)
+// flows under it via the IDENTITY cast Xats_UN_strn_vt_cast
+// (strn_vt_tabulate$f1un: build buffer -> $UN.cast -> strn_vt2t), so
+// GOTstr would make Xats_as_str panic (hit by the selfhost probe).
 | "nint" => GOTint()
 //
 | "bool_type" => GOTbool()
