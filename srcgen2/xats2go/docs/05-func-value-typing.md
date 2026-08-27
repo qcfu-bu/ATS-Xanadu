@@ -62,3 +62,17 @@ compiler-sized module) to size the actual boundary cost — the scalar
 campaign's lesson (two measured null/negative results) is that this
 codebase's coercion costs concentrate in fewer places than static
 counts suggest.
+
+## 5. VERDICT (2026-08-27, profiled): option C
+
+Sampled the selfhost binary compiling a compiler-sized module
+(`sample`, 4s over trans12/go1emit workloads).  The hot set is entirely
+allocator/GC work (`runtime.mallocgc`, span scans, heap-bits writes);
+`Xats_as_*` asserts, `Xats_applyN`, and `reflect` are absent from the
+top of stack.  Call-boundary typing would optimize a boundary the
+runtime does not pay for — the cost is the allocation of the (IR-shaped)
+data itself, which function-value signatures cannot remove.  CLOSED
+without implementation; revisit only behind new profile evidence.  The
+allocation cost points instead at the M2.7b direction (per-datatype
+typed structs replacing the `[]any` Args boxing) and at enabling the
+inliner.

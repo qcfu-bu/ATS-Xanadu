@@ -158,7 +158,13 @@ do_build() {
   # emitter_all.go is present (binary-only rebuilds) the existing split
   # packages are reused as-is.
   bash "$OUT/split-src.sh" || die "split-src failed"
-  ( cd "$OUT/src" && go build -gcflags "${XGCFLAGS:-all=-l}" -o xats2go-selfhost . ) || die "go build failed"
+  # INLINING ON (2026-08-27): with the instance cache + lifting + dedup the
+  # per-package objects are far under the 4GB goobj limit, so the standing
+  # `all=-l` workaround is retired.  Measured: build 8.5s -> ~61s, binary
+  # 21MB -> 192MB, compile RUNTIME 1.8x faster (trans12 3.23s -> 1.80s --
+  # faster than the node bundle).  Override via XGCFLAGS ('all=-l' for the
+  # fastest dev loop).
+  ( cd "$OUT/src" && go build -gcflags "${XGCFLAGS:-}" -o xats2go-selfhost . ) || die "go build failed"
   echo ">> built $BIN"
 }
 
