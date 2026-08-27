@@ -53,6 +53,29 @@ assembly now builds as SIX Go packages (split-src.py: zzbase/zzfe2/zzfe3/
 zzcc/zzgo/main, Z_-exported crossing symbols + dot-imports, 5s build,
 sweep-verified byte-equal).  Measured: even split, default-opt zzfe2 alone
 is 4.31GB — keep -l.  Full story: docs/03-template-resolution.md.
+**2026-08-26/27 — INSTANCE CACHE + as_con REDUCTION CAMPAIGN (commits
+6918b8805, d1357b0ee, d081c2a68, 23d4abc15, c36eadbae, 2d302d72c):**
+(1) zztic frontend instance cache (hook-pure instantiations memoized,
+~40% walk hits) + emitter instance LIFTING (capture-free instances →
+named package funcs) → default-opt object 5.2GB→1.74GB (inlining
+viable, 56% margin).  (2) `Xats_as_con` recon + elimination: typed
+clause/var/param temps end-to-end — tmpsub FRAME STACK resolves
+template vars in instance-body types (T2Pvar/I0Tvar → concrete via
+I0Dtmpsub svts); pattern temps typed at mint; CON-PARAM PROLOGUE
+(`goxtnm<N>p any` param + one `Xats_as_con` re-bind at entry; signature
+stays `func(any...)` — Go func types are invariant and functions flow
+as hook values) wired into instance literals, named funcs, AND the
+dominant #implfun path (TCO-compatible: emit_param_reassign already
+coerces reassignments to the recorded type); accessor-call (I1Vcst)
+bindings hoist their coercion (idempotent Xats_as_con is sound even on
+lying leaf styps); clause binds copy-propagate concrete casvals.
+Result: recon buckets 0/0 on both probe modules; zzfe2 Xats_as_con
+19961→14030 (−30%); residuals are legitimate boundaries.  string(i0)
+nonlinear → Go `string` (audited; the LINEAR family stays `any`: the
+strtmp buffer leaks under it via identity UN_strn_vt_cast — the
+selfhost probe caught this).  Full detail: the ZZANY counters
+(go1emit_zzany_report) + ZZTIC report remain in the emitter as stderr
+diagnostics — REMOVE before external presentation if desired.
 Owner/architect: (you) — implementation delegated to subagents.
 Reference backend: `srcgen2/xats2js/srcgen2` (the IR-based JS emitter with TCO).
 
