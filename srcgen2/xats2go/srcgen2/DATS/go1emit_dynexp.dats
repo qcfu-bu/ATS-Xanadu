@@ -2570,26 +2570,40 @@ and proves that intrep1 does carry enough information for at least this class
 of polymorphic/user-template instantiation.
 *)
 (*
-[t1imp_conparamq]: is this instance param a CON-PROLOGUE param?  An
-`any`-emitted param whose TEMP learned a concrete datatype type during the
-(tvb-framed) lowering, and which the body actually uses.  Such a param is
-printed under an ALIAS (`goxtnm<N>p any`) and re-bound ONCE by a body
-prologue (`goxtnm<N> := xatsgo.Xats_as_con(goxtnm<N>p)`), recorded as
-concrete so every datacon projection on it elides.  The SIGNATURE stays
-`func(any...)` -- instances flow as hook VALUES constantly, and Go func
-types are invariant, so a typed signature would panic at every
-`.(func(any) any)` assertion.  Unused/typed/byref params are untouched.
+[t1imp_cparamty]: the CONCRETE Go type a coercing-prologue param re-binds
+to -- "" when the param is not eligible.  Eligible: emitted `any`, the
+temp's finalized gotyp is a DATATYPE, and the body uses it.  An eligible
+param is printed under an ALIAS (`goxtnm<N>p any`) and re-bound ONCE by a
+body prologue, recorded as concrete so every use-site coercion on it
+elides.  The SIGNATURE stays `func(any...)` -- functions flow as hook
+VALUES constantly, and Go func types are invariant, so a typed signature
+would panic at every `.(func(any) any)` assertion.  Unused/typed/byref
+params are untouched.
+//
+DATATYPES ONLY (measured 2026-08-27): generalizing to every
+[go_coerfn_of]-coercible scalar was CORRECT (all gates green -- the
+scalar coercers convert, only nil panics, and no nil path exists) but a
+NET REGRESSION: fe2 as_str 301->4810, as_int +546, +5.5k lines.  Most
+scalar params are merely PASSED ALONG (zero coercion-paying uses), so
+the prologue bind saves nothing -- unlike con params, whose uses are
+datacon projections.  Re-enabling scalars needs a "used in a
+coercion-paying position" body analysis (binop args, tag tests), not
+just [i1tnm_used_in_cmp].
 *)
 fun
-t1imp_conparamq
-(p1: i1tnm, goty: strn, icmp: i1cmp): bool =
+t1imp_cparamty
+(p1: i1tnm, goty: strn, icmp: i1cmp): strn =
 (
 if (goty = "any")
 then
-  (
-  if (gotyp_emit(i1tnm_gotyp$get(p1)) = "*xatsgo.XatsCon")
-  then i1tnm_used_in_cmp(p1, icmp) else false)
-else false
+  let
+    val g2 = gotyp_emit(i1tnm_gotyp$get(p1))
+  in
+    if (g2 = "*xatsgo.XatsCon")
+    then (if i1tnm_used_in_cmp(p1, icmp) then g2 else "")
+    else ""
+  end
+else ""
 )
 //
 #implfun
@@ -2611,13 +2625,14 @@ let
       case+ gs of
       |list_nil() => @("any", list_nil())
       |list_cons(g1, gs1) => @(g1, gs1))
-      val conq = t1imp_conparamq(p1, goty, icmp)
+      val cty = t1imp_cparamty(p1, goty, icmp)
+      val conq = (strn_length(cty) > 0)
       // general ARG boundary: record this param's EMITTED Go type so a
       // CALL passing it (an `any` param into a typed slot) can be coerced.
-      // A con-prologue param records its COERCED type (the table is
+      // A coercing-prologue param records its COERCED type (the table is
       // first-wins, so this must be decided here, not after).
       val () = goemit_ty_add
-      (i1tnm_stmp$get(p1), (if conq then "*xatsgo.XatsCon" else goty))
+      (i1tnm_stmp$get(p1), (if conq then cty else goty))
       val () =
       (
       if (i0 >= 1) then strnfpr(filr, ", ");
@@ -2655,14 +2670,17 @@ let
       case+ gs of
       |list_nil() => @("any", list_nil())
       |list_cons(g1, gs1) => @(g1, gs1))
+      val cty = t1imp_cparamty(p1, goty, icmp)
       val () =
       (
-      if t1imp_conparamq(p1, goty, icmp)
+      if (strn_length(cty) > 0)
       then
       (
       nindfpr(filr, nind);
       i1tnmgo1(filr, p1);
-      strnfpr(filr, " := xatsgo.Xats_as_con(");
+      strnfpr(filr, " := ");
+      strnfpr(filr, go_coerfn_of(cty));
+      strnfpr(filr, "(");
       i1tnmgo1(filr, p1);
       strnfpr(filr, "p)\n"))
       else ((*void*)))
