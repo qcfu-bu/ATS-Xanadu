@@ -551,163 +551,6 @@ case+ idcl.node() of
 | _(*else*) => idcl
 )//endof[unwrap_idcl(idcl)]
 //
-(*
-[foritm_work_emit]: emit the in-scope `#impltmp foritm$work<char>` body as a
-TYPED, NAMED Go closure `XATS_foritm_work := func(c0 rune) <ret> { <body> }`.
-The element type (char -> rune) is threaded via [gotypes_of_fjarglst] (the param
-d2var's styp), so the body's char comparisons typecheck natively; the closure
-captures surrounding locals (e.g. a `var n`) by Go lexical capture.  Paired with
-the loop emitted at the `strn_foritm` call site (go1emit_dynexp).  ASSUMPTION: at
-most one foritm$work per Go block (the common case); nested foritm would need a
-stamp-disambiguated name.
-*)
-fun
-foritm_work_emit
-( filr: FILR
-, dcl0: i1dcl
-, env0: !envx2go): void =
-let
-  val-
-  I1Dimplmnt0
-  (_, _, _, _, fjas, icmp) = unwrap_idcl(dcl0).node()
-  val bnds = binds_of_fjarglst(fjas)
-  val argtys = gotypes_of_fjarglst(fjas)
-  val retty = gotype_of_lam_ret(icmp, bnds)
-in
-  nindfpr(filr, env0.nind());
-  strnfpr(filr, "XATS_foritm_work := func(");
-  localfun_emit_params(filr, fjas, argtys);
-  strnfpr(filr, ") ");
-  strnfpr(filr, retty);
-  strnfpr(filr, " {\n");
-  envx2go_incnind(env0, 1(*++*));
-  // RETURN-BOUNDARY SCOPE: pin this worker closure's return type.
-  let val saved_cfr = cur_funretty_get()
-      val () = cur_funretty_set(retty)
-      val () = i1cmp_go1emit_ret(icmp, list_nil(), bnds, env0)
-  in cur_funretty_set(saved_cfr) end;
-  envx2go_decnind(env0, 1(*--*));
-  nindfpr(filr, env0.nind());
-  strnfpr(filr, "}\n");
-  // BRIDGE the plain-foritm worker too: record it (hook `foritm$work`) and
-  // alias the closure to the XATS_tmpw_ name the I1INStimp forwarding emits,
-  // with a keep-alive on BOTH names (a resolved/loop-handled call references
-  // neither — the strn_foritm typed-loop path reads XATS_foritm_work only).
-  let
-    // mirror [tmpworker_go1emit]: an ETA-CONTRACTED worker (`#impltmp
-    // foritm$work<..> = <named fun>`) has NO value params -- the emitted
-    // closure is a 0-param THUNK returning the worker, so record the
-    // "@nullary" marker (the I1INStimp wrapper then emits
-    // `Xats_as_fun1(XATS_tmpw_foritm_work())(goxtwa)` instead of applying
-    // the thunk with the element).
-    val p0ty =
-    (
-    case+ bnds of
-    |list_nil() => "@nullary"
-    | _(*cons*) =>
-      (case+ argtys of
-       |list_cons(t1, _) => t1
-       |list_nil() => "any"))
-    val () = tmpworker_add("foritm$work", p0ty)
-  in ((*void*)) end;
-  nindfpr(filr, env0.nind());
-  strnfpr(filr, "XATS_tmpw_foritm_work := XATS_foritm_work\n");
-  nindfpr(filr, env0.nind());
-  strnfpr(filr, "_ = XATS_tmpw_foritm_work\n");
-  nindfpr(filr, env0.nind());
-  strnfpr(filr, "_ = XATS_foritm_work\n")
-end//endof[foritm_work_emit(filr,dcl0,env0)]
-//
-(*
-[tmpw_hook_suffix]: the Go-identifier suffix for a recognized template-method
-WORKER hook ("map$fopr" -> "map_fopr"); "" for a non-hook impl name.  This set
-is the Task-#8 worker-forwarding family: template methods whose prelude body the
-self-hosted frontend fails to attach (F3PERR0-TIMQ1), leaving the worker
-`#impltmp` as a separate local decl that would otherwise be skipped while the
-call shortcuts to a worker-less 1-arg runtime prim.
-*)
-fun
-tmpw_hook_suffix
-(iname: strn): strn =
-(
-if (iname = "map$fopr") then "map_fopr" else
-if (iname = "exists$test") then "exists_test" else
-if (iname = "map$e1nv$fopr") then "map_e1nv_fopr" else
-if (iname = "foritm$e1nv$work") then "foritm_e1nv_work" else
-if (iname = "foldl$fopr") then "foldl_fopr" else
-if (iname = "forall$test") then "forall_test" else
-if (iname = "filter$test") then "filter_test" else
-if (iname = "group$test") then "group_test" else
-if (iname = "map$fopr0") then "map_fopr0" else
-if (iname = "iforitm$work") then "iforitm_work" else
-""
-)//endof[tmpw_hook_suffix(iname)]
-//
-(*
-[tmpworker_go1emit]: emit a recognized worker `#impltmp` as a NAMED local Go
-closure `XATS_tmpw_<suffix> := func(<params>) <ret> { <body> }` (+ a `_ =` keep-
-alive so a block whose template call DID resolve -- and thus inlines the body,
-never referencing the closure -- still compiles), and record the hook + param-0
-Go type in the tmpworker table for the I1INStimp wrapper emission.  Mirrors
-[foritm_work_emit]; same one-per-block assumption.
-*)
-fun
-tmpworker_go1emit
-( filr: FILR
-, iname: strn
-, sfx: strn
-, dcl0: i1dcl
-, env0: !envx2go): void =
-let
-  val-
-  I1Dimplmnt0
-  (_, _, _, _, fjas, icmp) = unwrap_idcl(dcl0).node()
-  val bnds = binds_of_fjarglst(fjas)
-  val argtys = gotypes_of_fjarglst(fjas)
-  val retty = gotype_of_lam_ret(icmp, bnds)
-  // an ETA-CONTRACTED worker impl (`#impltmp map$fopr = s2var_get_sort`) has NO
-  // value params: the emitted closure is a 0-param THUNK returning the worker
-  // FUNCTION.  Record the "@nullary" marker so the call-site adapter invokes the
-  // thunk and asserts the returned function (`XATS_tmpw().(func(any) any)(x)`)
-  // instead of applying the thunk directly with the element arg.
-  val p0ty =
-  (
-  case+ bnds of
-  |list_nil() => "@nullary"
-  | _(*cons*) =>
-    (
-    case+ argtys of
-    |list_cons(t1, _) => t1
-    |list_nil() => "any"))
-  val () = tmpworker_add(iname, p0ty)
-  // a 2-arg worker (the e1nv family: worker(x, env)) also records its param-1 Go
-  // type under the DERIVED key `<hook>@1` (no separate table needed; the same
-  // latest-wins shadowing applies to both entries together).
-  val () =
-  (
-  case+ argtys of
-  |list_cons(_, list_cons(t2, _)) => tmpworker_add(strn_append(iname, "@1"), t2)
-  | _(*fewer than 2*) => ((*void*)))
-in
-  nindfpr(filr, env0.nind());
-  strnfpr(filr, "XATS_tmpw_"); strnfpr(filr, sfx);
-  strnfpr(filr, " := func(");
-  localfun_emit_params(filr, fjas, argtys);
-  strnfpr(filr, ") ");
-  strnfpr(filr, retty);
-  strnfpr(filr, " {\n");
-  envx2go_incnind(env0, 1(*++*));
-  // RETURN-BOUNDARY SCOPE: pin this worker closure's return type.
-  let val saved_cfr = cur_funretty_get()
-      val () = cur_funretty_set(retty)
-      val () = i1cmp_go1emit_ret(icmp, list_nil(), bnds, env0)
-  in cur_funretty_set(saved_cfr) end;
-  envx2go_decnind(env0, 1(*--*));
-  nindfpr(filr, env0.nind());
-  strnfpr(filr, "}\n");
-  nindfpr(filr, env0.nind());
-  strnfpr(filr, "_ = XATS_tmpw_"); strnfpr(filr, sfx); strnfpr(filr, "\n")
-end//endof[tmpworker_go1emit(filr,iname,sfx,dcl0,env0)]
 //
 (*
 [i1dcl_libsrcq]: is this decl's source LOCATION library code (prelude/ or
@@ -756,33 +599,18 @@ unwrap_idcl(dcl0).node() of
   i1dclist_go1emit_local(body, env0))
 //
 | _(*non-local0*) =>
-// LIBRARY-SOURCE GUARD: a LIBRARY-located foritm$work where-impl (prelude
-// gseq000's, xatslib genv000's) is the RAW REGISTERED body -- its inner
-// templates (foldl$fopr, foritm$e1nv$work) resolve only inside
-// instantiation copies, so emitting the raw body produces undefined
-// Xats_* names inside dead code.  A USER/COMPILER-source foritm$work
-// worker (the strn_foritm typed-loop consumer: xsymgo1's, TEST programs')
-// is emitted.  NB: prelude-only exclusion was NOT enough -- the xatslib
-// arm (genv000.dats gseq_foritm$e1nv) carries the same class of raw hook
-// body; and a KNOWN-PACKAGE-PATH requirement was too NARROW -- a goarm
-// TEST program's own hook impl must still emit (rung 11 regression).
-if (if (impl_name_of_idcl(dcl0) = "foritm$work")
-    then not(i1dcl_libsrcq(dcl0)) else false)
-then foritm_work_emit(env0.filr(), dcl0, env0)
-else
 (*
-CLAUDE-2026-08-26: XATS_tmpw worker emission DISABLED.  Under the
-copy-per-instantiation resolver a REGISTERED hook impl's body carries
-legitimately-UNRESOLVED inner templates (they resolve only inside each
-instantiation copy: char_code<> in map$fopr0, sub_char_char<> in
-foldl$fopr, g_lte<sort2> in forall$test) — emitting the raw body
-produced dead-but-uncompilable Go (undefined Xats_* in code nothing
-calls).  The full 451k-line selfhost assembly has ZERO live forwarder
-sites (every instance resolves with an attached body), so the worker
-closures were all dead weight.  The Task-#8 forwarding machinery
-(tmpworker_go1emit / tmpw_forward_emitq) is kept but inert; the ONE
-surviving worker family is the user-source foritm$work above (the
-strn_foritm typed-loop consumer reads XATS_foritm_work).
+CLAUDE-2026-08-27 (tmpw retirement, completes 2026-08-26): the XATS_tmpw
+worker machinery and the foritm$work special emission are GONE.  Under
+the copy-per-instantiation resolver a REGISTERED hook impl's body
+carries legitimately-UNRESOLVED inner templates (they resolve only
+inside each instantiation copy), so its RAW body is never emitted --
+the normal routing below skips it -- and every consumer instance
+(including strn_foritm = gseq_foritm<strn><cgtz>) carries its own
+resolved copy.  The selfhost assembly had ZERO live forwarder sites;
+the last special case (the strn_foritm typed loop + its liveness
+exception in used_in_ins) is retired with test94 green on the
+resolved-instance emission.
 *)
 i1dcl_go1emit(dcl0, env0)
 )//endof[i1dcl_go1emit_local(dcl0,env0)]

@@ -1871,183 +1871,6 @@ case+ e0.node() of
 | _(*else*) => optn_nil()
 )//endof[i0exp_head_name(e0)]
 //
-(*
-[tmpw_forward_e1nvdef_emitq]: the UNRESOLVED prelude default hook
-`foritm$e1nv$work<x><e>(x, env)` inside an inlined genv000 g_foritm body:
-the USER e1nv worker closure (XATS_tmpw_foritm_e1nv_work) is emitted IN
-SCOPE just above -- forward the reference to it through an `any`-param
-adapter (the closure params are concretely typed; asserts from the
-recorded hook types).  Emits a VALUE; callers apply it with the args.
-*)
-fun
-tmpw_forward_e1nvdef_emitq
-(filr: FILR, snm: strn): bool =
-(
-if (snm = "foritm$e1nv$work")
-then
-(
-if tmpworker_pendingq("foritm$e1nv$work")
-then
-let
-  val p0ty = tmpworker_p0ty("foritm$e1nv$work")
-  val p1ty = tmpworker_p0ty("foritm$e1nv$work@1")
-  fun asrt(filr: FILR, pty: strn): void =
-  (
-  if (if (strn_length(pty) > 0) then not(pty = "any") else false)
-  then (strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")"))
-  else ((*void*)))
-in
-  strnfpr(filr, "func(goxtwa any, goxtwe any) any { return XATS_tmpw_foritm_e1nv_work(goxtwa");
-  asrt(filr, p0ty);
-  strnfpr(filr, ", goxtwe");
-  asrt(filr, p1ty);
-  strnfpr(filr, ") }");
-  true
-end
-else false)
-else false
-)//endof[tmpw_forward_e1nvdef_emitq(filr,snm)]
-//
-(*
-[tmpw_forward_emitq]: the Task-#8 worker-forwarding emission for a template-
-method d2cst whose instance the frontend failed to resolve.  Shared by the
-I1INStimp binding (the op-temp value) and the I1Vaexp fallback (an unresolved
-tapq CALLEE lowered as a flat expression).  Emits the runtime `Xats_<wnm>_w(
-<adapter>)` wrapper and returns true; false when the cst is not a bridged
-family / no worker is pending (the caller falls back to d2cstgo1/UNHANDLED).
-*)
-fun
-tmpw_forward_emitq
-( filr: FILR
-, snm: strn): bool =
-let
-// TASK-#8 WORKER FORWARDING: a template-method prim (list_map, ...) whose
-// instance the frontend failed to resolve (no attached body -- F3PERR0-TIMQ1)
-// would emit the UNDEFINED worker-less 1-arg name `xatsgo.Xats_list_map`.  When
-// the worker `#impltmp` was emitted in scope as `XATS_tmpw_<sfx>` (the local
-// decl walk, see [tmpworker_go1emit]), emit the runtime worker-forwarding
-// wrapper instead: `xatsgo.Xats_list_map_w(func(goxtwa any) any { return
-// XATS_tmpw_map_fopr(goxtwa[.(P0)]) })` -- a value of the SAME arity the
-// downstream application expects, with the worker captured.  The adapter
-// asserts the worker's param-0 type only when it is concrete.
-val whook =
-(
-if (snm = "list_map") then "map$fopr" else
-if (snm = "list_maprev") then "map$fopr" else
-if (snm = "list_exists") then "exists$test" else
-if (snm = "list_map$e1nv") then "map$e1nv$fopr" else
-if (snm = "list_map$e1nv_vt") then "map$e1nv$fopr" else
-if (snm = "optn_map$e1nv") then "map$e1nv$fopr" else
-if (snm = "list_foritm$e1nv") then "foritm$e1nv$work" else
-if (snm = "strn_foldl") then "foldl$fopr" else
-if (snm = "gseq_foldl") then "foldl$fopr" else
-if (snm = "list_forall") then "forall$test" else
-if (snm = "list_filter") then "filter$test" else
-if (snm = "gseq_group_lstrm_llist") then "group$test" else
-if (snm = "list_foritm") then "foritm$work" else
-if (snm = "optn_foritm") then "foritm$work" else
-if (snm = "gseq_foritm") then "foritm$work" else
-if (snm = "strx_vt_map0") then "map$fopr0" else
-if (snm = "strm_vt_map0") then "map$fopr0" else
-if (snm = "list_iforitm") then "iforitm$work" else
-"")
-val wsfx =
-(
-if (snm = "list_map") then "map_fopr" else
-if (snm = "list_maprev") then "map_fopr" else
-if (snm = "list_exists") then "exists_test" else
-if (snm = "list_map$e1nv") then "map_e1nv_fopr" else
-if (snm = "list_map$e1nv_vt") then "map_e1nv_fopr" else
-if (snm = "optn_map$e1nv") then "map_e1nv_fopr" else
-if (snm = "list_foritm$e1nv") then "foritm_e1nv_work" else
-if (snm = "strn_foldl") then "foldl_fopr" else
-if (snm = "gseq_foldl") then "foldl_fopr" else
-if (snm = "list_forall") then "forall_test" else
-if (snm = "list_filter") then "filter_test" else
-if (snm = "gseq_group_lstrm_llist") then "group_test" else
-if (snm = "list_foritm") then "foritm_work" else
-if (snm = "optn_foritm") then "foritm_work" else
-if (snm = "gseq_foritm") then "foritm_work" else
-if (snm = "strx_vt_map0") then "map_fopr0" else
-if (snm = "strm_vt_map0") then "map_fopr0" else
-if (snm = "list_iforitm") then "iforitm_work" else
-"")
-// the runtime wrapper name (Go-safe: the `$` in these prim names must not reach
-// the emitted identifier) and the worker/call arity (false = worker (x), call
-// (xs); true = the e1nv family, worker (x, env), call (xs, env)).
-val wnm =
-(
-if (snm = "list_map$e1nv") then "list_map_e1nv" else
-if (snm = "list_map$e1nv_vt") then "list_map_e1nv_vt" else
-if (snm = "optn_map$e1nv") then "optn_map_e1nv" else
-if (snm = "list_foritm$e1nv") then "list_foritm_e1nv" else
-snm)
-val war2 =
-(
-if (snm = "list_map$e1nv") then true else
-if (snm = "list_map$e1nv_vt") then true else
-if (snm = "optn_map$e1nv") then true else
-if (snm = "list_foritm$e1nv") then true else
-if (snm = "strn_foldl") then true else
-if (snm = "gseq_foldl") then true else
-// iforitm: worker (i, x) -- arity-2 wrapper (the runtime passes index+item).
-if (snm = "list_iforitm") then true else
-false)
-in//let
-if (snm = "strn_foritm")
-then (strnfpr(filr, "xatsgo.XATSNIL"); true)
-else
-// (the foritm$e1nv$work DEFAULT-hook forward lives in
-// [tmpw_forward_e1nvdef_emitq]; also consulted at the I1Vcst dapp arm.)
-if tmpw_forward_e1nvdef_emitq(filr, snm) then true else
-if (if (strn_length(whook) > 0) then tmpworker_pendingq(whook) else false)
-then
-let
-  val p0ty = tmpworker_p0ty(whook)
-  val p1ty = tmpworker_p0ty(strn_append(whook, "@1"))
-  // one concrete-type assert (arg into worker param); skipped for ""/"any".
-  fun assert1(filr: FILR, pty: strn): void =
-  (
-  if (if (strn_length(pty) > 0) then not(pty = "any") else false)
-  then (strnfpr(filr, ".("); strnfpr(filr, pty); strnfpr(filr, ")"))
-  else ((*void*)))
-in
-  strnfpr(filr, "xatsgo.Xats_");
-  strnfpr(filr, wnm);
-  (if war2
-   then strnfpr(filr, "_w(func(goxtwa any, goxtwe any) any { return ")
-   else strnfpr(filr, "_w(func(goxtwa any) any { return "));
-  // "@nullary": an ETA-CONTRACTED worker impl -- the emitted closure is a
-  // 0-param THUNK returning the worker FUNCTION.  Invoke the thunk and coerce
-  // the result through the IDEMPOTENT runtime helper Xats_as_fun1/2 (accepts
-  // BOTH an `any`-typed thunk result, asserting it, AND an already-concrete
-  // func value, auto-boxed then asserted -- a bare `.()` assert would be
-  // invalid Go on the concrete case, same as the Xats_as_con lesson) before
-  // applying the element(s).  Otherwise apply the closure directly (asserting
-  // concrete param types when recorded).
-  (if (p0ty = "@nullary")
-   then
-   (
-   (if war2
-    then strnfpr(filr, "xatsgo.Xats_as_fun2(")
-    else strnfpr(filr, "xatsgo.Xats_as_fun1("));
-   strnfpr(filr, "XATS_tmpw_"); strnfpr(filr, wsfx);
-   (if war2
-    then strnfpr(filr, "())(goxtwa, goxtwe")
-    else strnfpr(filr, "())(goxtwa")))
-   else
-   (
-   strnfpr(filr, "XATS_tmpw_"); strnfpr(filr, wsfx);
-   strnfpr(filr, "(goxtwa");
-   assert1(filr, p0ty);
-   (if war2
-    then (strnfpr(filr, ", goxtwe"); assert1(filr, p1ty))
-    else ((*void*)))));
-  strnfpr(filr, ") })");
-  true
-end
-else false
-end//endof[tmpw_forward_emitq(filr,dcst)]
 //
 #implfun
 i1valgo1
@@ -2336,37 +2159,19 @@ level, so this remains UNHANDLED (a documented gap: a flat-expr lvalue is not on
 the value-emit surface).  Kept distinct from the generic fallthrough so the note
 is specific.
 *)
+// (tmpw retirement 2026-08-27: the Task-#8 forwarding fallbacks are gone
+// -- an unresolved application here keeps the loud UNHANDLED marker.)
 |I1Vaexp(iexp) =>
-  // an unresolved TEMPLATE APPLICATION in callee/value position (the trxi0i1
-  // flat-expression fallback): chase the application head to its d2cst and
-  // try the Task-#8 worker forwarding — the in-scope XATS_tmpw_* worker
-  // re-attaches.  Anything else keeps the loud UNHANDLED marker.
-  (
-  case+ i0exp_head_name(iexp) of
-  |optn_cons(snm) =>
-    (
-    if tmpw_forward_emitq(filr, snm)
-    then ((*emitted*))
-    else unhandled_val(filr, "I1Vaexp(flat-expr lvalue)", ival))
-  |optn_nil() => unhandled_val(filr, "I1Vaexp(flat-expr lvalue)", ival))
+  unhandled_val(filr, "I1Vaexp(flat-expr lvalue)", ival)
 //
 // an ERASED/errck'd expression value (I1Vnone1 carries the original i0exp):
-// an unresolved template application (the forwarding re-attaches the
-// in-scope worker) or — read errors wrap ANYTHING — a plain LITERAL whose
-// value survives in the D3 payload and emits directly.
+// read errors wrap ANYTHING -- a plain LITERAL whose value survives in the
+// D3 payload emits directly; anything else is loudly UNHANDLED.
 |I1Vnone1(iexp) =>
   (
-  case+ i0exp_head_name(iexp) of
-  |optn_cons(snm) =>
-    (
-    if tmpw_forward_emitq(filr, snm)
-    then ((*emitted*))
-    else unhandled_val(filr, "I1Vnone1(erased)", ival))
-  |optn_nil() =>
-    (
-    if i0exp_none_lit_emitq(filr, iexp)
-    then ((*emitted*))
-    else unhandled_val(filr, "I1Vnone1(erased)", ival)))
+  if i0exp_none_lit_emitq(filr, iexp)
+  then ((*emitted*))
+  else unhandled_val(filr, "I1Vnone1(erased)", ival))
 |I1Vnone0() => unhandled_val(filr, "I1Vnone0(erased)", ival)
 //
 (*
@@ -2432,71 +2237,6 @@ case+ ival.node() of
 //
 (* ****** ****** *)
 //
-(*
-SELECTIVE MONOMORPHIZED foritm/$work: a `strn_foritm(s)` call is recognized by
-scope-walking the callee temp's binding [I1INStimp] for the resolved d2cst name
-"strn_foritm" -- the same scope-walk pattern as [i1val_pcon_tempq] above.  When
-matched, [I1INSdapp] emits a TYPED Go loop over the string that calls the
-[XATS_foritm_work] closure (emitted from the in-scope `foritm$work` #impltmp by
-go1emit_decl00), instead of the undefined `xatsgo.Xats_strn_foritm` runtime name.
-This adopts js1emit's effect (iterate + call the work body) but in concrete typed
-Go, scoped to this one template family so the conformance suite is untouched.
-*)
-fun
-tnm_is_strn_foritm
-(stmp: stamp, ilts: i1letlst): bool =
-(
-case+ ilts of
-|list_nil() => false
-|list_cons(ilt1, ilts1) =>
-  (
-  case+ ilt1 of
-  |I1LETnew1(itnm, iins) =>
-    (
-    if
-    (stamp_cmp(stmp, i1tnm_stmp$get(itnm)) = 0)
-    then
-      (
-      case+ iins of
-      |I1INStimp(_, timp) =>
-        (symbl_get_name(d2cst_get_name(t1imp_dcst$get(timp))) = "strn_foritm")
-      | _(*else*) => false)
-    else tnm_is_strn_foritm(stmp, ilts1))
-  |I1LETnew0(_) => tnm_is_strn_foritm(stmp, ilts1))
-)
-//
-fun
-callee_strn_foritm_q
-(ival: i1val, scp: i1cmp): bool =
-(
-case+ ival.node() of
-|I1Vtnm(itnm) =>
-  let val-I1CMPcons(ilts, _) = scp in
-    tnm_is_strn_foritm(i1tnm_stmp$get(itnm), ilts)
-  end
-| _(*else*) => false
-)
-//
-(*
-[foritm_loop_emit]: the typed Go loop for `strn_foritm(s)`.  Emitted inline as an
-IIFE (so it is an expression usable as an ANF temp's RHS):
-  func() any { XATS_n0 := strn_length(s); for i:=0; i<XATS_n0; i++ {
-    XATS_foritm_work(strn_get_at(s,i).(int32)) }; return XATSNIL() }()
-The char element is `int32` (strn_get_at returns it boxed as `any`); the closure
-param is typed `rune` (== int32), so the assertion `.(int32)` feeds it directly.
-*)
-fun
-foritm_loop_emit
-(filr: FILR, i1vs: i1valist): void =
-let
-  val-list_cons(sarg, _) = i1vs
-in
-  strnfpr(filr, "func() any { XATS_n0 := xatsgo.Xats_strn_length(");
-  i1valgo1(filr, sarg);
-  strnfpr(filr, "); for XATS_i := 0; XATS_i < XATS_n0; XATS_i++ { XATS_foritm_work(xatsgo.Xats_strn_get_at(");
-  i1valgo1(filr, sarg);
-  strnfpr(filr, ", XATS_i).(int32)) }; return xatsgo.XATSNIL() }()")
-end//endof[foritm_loop_emit(filr,i1vs)]
 //
 fun
 i1valgo1_binop_arg
@@ -4264,11 +4004,9 @@ let
 val dcst = t1imp_dcst$get(timp)
 in//let
 (
-// [strn_foritm] placeholder + Task-#8 forwarding live in [tmpw_forward_emitq];
-// a non-bridged cst emits its plain runtime/frontend reference.
-if tmpw_forward_emitq(filr, symbl_get_name(d2cst_get_name(dcst)))
-then ((*emitted*))
-else d2cstgo1(filr, dcst)) end
+// (tmpw retirement 2026-08-27: the Task-#8 worker forwarding is gone --
+// every instance resolves pristinely; the cst emits its plain reference.)
+d2cstgo1(filr, dcst)) end
 //
 (* ****** ****** *)
 //
@@ -4342,9 +4080,9 @@ by construction.  Any other callee (a plain temp holding a fn value -- e.g.
 a func-typed parameter, or a temp-bound lambda -- an I1Vcst/I1Vfid) falls
 through to the generic `<f>(<args>)` form.
 *)
-if callee_strn_foritm_q(i1f0, scp)
-then foritm_loop_emit(filr, i1vs)
-else
+// (tmpw retirement 2026-08-27: the strn_foritm typed-loop special case is
+// gone -- the resolved gseq_foritm<strn><cgtz> instance body emits like
+// any other template application.)
 (
 case+ i1f0.node() of
 |I1Vfenv(d2f0, _envs) =>
@@ -4517,15 +4255,8 @@ case+ i1f0.node() of
     // signature agree by construction) and emit each arg through the
     // idempotent-coercion argtyped path.
     |I1Vcst(dcst) =>
-      // e1nv DEFAULT-hook callee: forward to the in-scope worker adapter,
-      // then apply the args (the adapter is a VALUE).
-      if tmpw_forward_e1nvdef_emitq(filr, symbl_get_name(d2cst_get_name(dcst)))
-      then
-      (
-      strnfpr(filr, "(");
-      i1valgo1_list(filr, i1vs);
-      strnfpr(filr, ")"))
-      else
+      // (tmpw retirement 2026-08-27: the e1nv default-hook forwarding is
+      // gone -- hook instances resolve pristinely.)
       // CASTFN callee: an `fcast` (e.g. fpath_encode) is IDENTITY at runtime
       // (the JS backend emits XATSCAST("<name>", [arg]) -- return the arg),
       // so a cast that would emit as a PACKAGE-STAMPED name (compiler-source
@@ -4602,7 +4333,7 @@ case+ i1f0.node() of
       (i1valgo1(filr, i1f0);
        strnfpr(filr, "("); i1valgo1_list(filr, i1vs); strnfpr(filr, ")")))
   )(*otherwise-arm*)
-)(*else callee_strn_foritm_q*))(*else binop*)
+)(*non-con callee*))(*else binop*)
 end(*let val gop*)//let
 )//endof[I1INSdapp(i1f0,i1vs) -- datacon vs op vs call dispatch]
 //
