@@ -30,8 +30,12 @@ GOBUNDLE=$X/srcgen2/xats2go/srcgen2/BUILD/xats2go-bundle.patched.js
 CZBUNDLE=$X/srcgen2/xats2cz/BUILD/xats2cz-bundle.js
 CZRT=$X/srcgen2/xats2cz/runtime/xats2cz_runtime.scm
 RUNTIMEGO=$X/srcgen2/xats2go/runtime/xatsgo
-# JS backend (xats2js): the oracle's reference pipeline (same JS-arm source).
-JSBUNDLE=$X/srcgen2/xats2go/srcgen2/BUILD/xats2js-ref.patched.js
+# JS backend (xats2js): the RELEASED self-contained compiler (xassets).
+# (Formerly the oracle's xats2js-ref.patched.js -- that bundle links
+# frozen Aug-11 driver/cc caches whose frontend stamp references drift
+# whenever a frontend SATS changes mid-file; the released jsemit00 bundle
+# has no cross-cache stamp exposure.)
+JSBUNDLE=$X/xassets/JS/xats2js/xats2js_jsemit00_ats2_opt1.js
 NS2R=$X/srcgen2/xats2js/srcgen1/xshared/runtime
 S2R=$X/srcgen2/xats2js/srcgenx/xshared/runtime
 
