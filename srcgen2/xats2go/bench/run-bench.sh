@@ -51,7 +51,7 @@ build_one() { # build_one <name>
   if [ ! -x "$d/$m.gobin" ] || [ "$src" -nt "$d/$m.gobin" ] || [ "$GOBUNDLE" -nt "$d/$m.gobin" ]; then
     sed 's/prelude_JS_dats\.hats/prelude_GO_dats.hats/' "$src" > "$d/$m.goarm.dats"
     # emit with the BUNDLE, not the selfhost binary: the bundle is rebuilt from
-    # emitter sources on every `iterate.sh quick`, whereas the binary is only
+    # emitter sources on every `dev.sh quick`, whereas the binary is only
     # refreshed by a full selfcycle — benching the binary silently measures an
     # OLD emitter (it hid a 2.6x datatype-representation win until caught).
     node --stack-size=50000 "$GOBUNDLE" "$d/$m.goarm.dats" 2> "$d/$m.go.err" \

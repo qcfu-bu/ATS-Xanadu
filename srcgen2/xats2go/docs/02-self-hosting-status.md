@@ -14,13 +14,13 @@ the JS-bootstrapped bundle, builds into a native binary
 
 - **Compiles ATS3 user programs byte-identically to the bundle**: all 12
   go-arm rungs byte-equal (and the bundle side holds golden), psuite
-  75/75.  Gate: `selfhost-build/iterate.sh gate`.
+  75/75.  Gate: `selfhost-build/dev.sh gate`.
 - **Compiles its OWN COMPLETE SOURCE byte-identically to the bundle**:
   all 193 assemble.sh modules PLUS the CLI driver emit byte-equal to the
   bundle's `emit/*.go` references, with the IDENTICAL diagnostic surface
   (e.g. `xsymmap_stkmap`: the same 79,067 recoverable
   unresolved-prelude-instance reports on both sides).  Sweep:
-  `selfhost-build/iterate.sh sweep` — 193 PASS / 0 DIFF / 0 ERR, plus
+  `selfhost-build/dev.sh sweep` — 193 PASS / 0 DIFF / 0 ERR, plus
   the driver checked separately (invoke with the same ABSOLUTE paths
   assemble.sh uses; path text embeds in location comments).
 
@@ -60,8 +60,8 @@ minimal probe it flagged exactly 2 call sites, both in the unifiers.
   "vt-signature failure" errored on BOTH sides (its distillation dropped
   the `strm_vt_istrmize0` wrapper) — a probe campaign chased a
   non-divergence.  `zzprobe10` (gseq000's `gseq_istrmize` VERBATIM) is
-  the validated pattern; `iterate.sh probe` uses it by default.
-- **Tiered harness** (`selfhost-build/iterate.sh`): `probe` ~3s;
+  the validated pattern; `dev.sh probe` uses it by default.
+- **Tiered harness** (`selfhost-build/dev.sh`): `probe` ~3s;
   `runtime` ~10s (go build is content-hash cached, 4.4s on real
   changes); `frontend` ~60s (the OLD bundle re-emits changed frontend
   .dats — a bundle rebuild is only needed when EMISSION behavior

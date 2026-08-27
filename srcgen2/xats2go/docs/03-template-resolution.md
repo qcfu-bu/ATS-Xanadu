@@ -204,7 +204,7 @@ optimization on) yields a 129MB object** (40x smaller), links in 8.5s, and
 the resulting binary compiles a compiler module in 2.3s — at parity with
 the historical fully-optimized binary (this workload is allocation-bound,
 so inlining buys nothing). `-l` is therefore the standing build mode
-(`iterate.sh do_build`, override via `XGCFLAGS`).
+(`dev.sh do_build`, override via `XGCFLAGS`).
 
 On top of that, the assembly is now SPLIT into Go packages at build time
 (`split-src.py`): zzbase (layout structs + CATS/GO floor + base shims),
