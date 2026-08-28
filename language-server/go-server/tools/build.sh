@@ -26,7 +26,7 @@ mkdir -p "$EMIT" "$SRC"
 
 # assembly order = staload order (lspserver_sats.hats); the driver is LAST
 # (its renamed main runs after every module's init).
-MODULES="lsp_floor lsp_util lsp_json lsp_frame lsp_main"
+MODULES="lsp_floor lsp_util lsp_json lsp_frame lsp_uri lsp_diag lsp_main"
 
 BUNDLE=$X/srcgen2/xats2go/srcgen2/BUILD/xats2go-bundle.patched.js
 SELFHOST=$X/srcgen2/xats2go/selfhost-build/src/xats2go-selfhost
@@ -130,11 +130,14 @@ done
   echo "import ($IMPLINE )"
   for c in $GO_CATS; do sed 's/\$/_/g' "$X/prelude/DATS/CATS/GO/$c.cats"; done
 } > "$SRC/zz_floor.go"
-# 3b. the server's own extern floor
+# 3b. the server's own extern floor (name=importpath pairs: `exec.` needs
+# the "os/exec" import)
 LSPCATS=$G/CATS/GO/lsp_floor.cats
 LIMPLINE=""
-for p in os io time bufio fmt strings; do
-  if grep -qE "\b$p\." "$LSPCATS"; then LIMPLINE="$LIMPLINE \"$p\";"; fi
+for pi in os=os io=io time=time bufio=bufio fmt=fmt strings=strings \
+          bytes=bytes exec=os/exec; do
+  p=${pi%%=*}; imp=${pi#*=}
+  if grep -qE "\b$p\." "$LSPCATS"; then LIMPLINE="$LIMPLINE \"$imp\";"; fi
 done
 {
   echo 'package main'

@@ -36,6 +36,10 @@ strn_starts_at(hay: string, i0: sint, ndl: string): bool
 fun
 strn_index_of(hay: string, i0: sint, ndl: string): sint
 //
+(* parse a decimal digit run at i0: @(value, next); next = i0 if none *)
+fun
+atoi_at(s0: string, i0: sint): @(sint, sint)
+//
 (* ****** ****** *)
 (***********************************************************************)
 (* end of [lsp_util.sats] *)

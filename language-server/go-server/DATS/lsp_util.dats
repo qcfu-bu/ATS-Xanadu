@@ -92,6 +92,26 @@ if (i0 < 0) then loop(0) else loop(i0)
 end//endof[strn_index_of]
 //
 (* ****** ****** *)
+//
+#implfun
+atoi_at
+(s0, i0) =
+let
+val n0 = strn_length(s0)
+fun
+loop(k0: sint, v0: sint): @(sint, sint) =
+if (k0 >= n0) then @(v0, k0) else
+let
+val c0 = byte_at(s0, k0)
+in
+if (c0 < 48) then @(v0, k0) else
+if (c0 > 57) then @(v0, k0) else loop(k0+1, v0*10 + (c0 - 48))
+end
+in//let
+loop(i0, 0)
+end//endof[atoi_at]
+//
+(* ****** ****** *)
 (***********************************************************************)
 (* end of [lsp_util.dats] *)
 (***********************************************************************)

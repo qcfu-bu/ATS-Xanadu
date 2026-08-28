@@ -15,15 +15,23 @@ Claude; the architect reviews commits and decides open questions.
 | Milestone | State |
 |---|---|
 | M1 — resident echo (framing + JSON + lifecycle) | **DONE** (2026-08-28) |
-| M2 — diagnostics via check-only driver | next |
-| M3 — hover + go-to-definition | — |
+| M2 — diagnostics via check-only driver | **DONE** (2026-08-28) |
+| M3 — hover + go-to-definition | next (driver interface needs architect review FIRST) |
 | M4 — wire the VSCode client | — |
 
 **M1 measured:** cold spawn → `initialize` response round-trip **3.3 ms**
-(best of 5); binary 3.4 MB; golden suite 6/6 incl. multibyte, \u-escape
+(best of 5); binary 3.4 MB; golden suite incl. multibyte, \u-escape
 (surrogate pair), parse-error, and 7-byte-chunked-delivery cases, each
 output independently re-validated by `tests/check-stream.py` (Python
 recomputes Content-Length byte math and re-parses every JSON body).
+
+**M2 measured:** didOpen → publishDiagnostics on
+`language-server/fixtures/Foo.dats`: **305 ms** (best of 4; the checker
+process itself is ~290 ms on a small file — prelude load dominates —
+0.7 s on a bench-sized file, 1.2 s on a compiler-sized module).  Golden
+suite 8/8 (adds t07 real-diagnostics and t08 save/close-lifecycle,
+compared through `normalize-stream.py`: canonical JSON, repo root →
+`@X@`, so goldens are machine-independent).
 
 ---
 
@@ -84,14 +92,21 @@ UTF-8 by construction**.  The emit-char contract of
 per-byte copies round-trip UTF-8); codepoint encode/decode (JSON \u,
 later UTF-16 column math in `lsp_u16`) is done explicitly in ATS.
 
-### The extern floor (M1: 4 leaves)
-`CATS/GO/lsp_floor.cats` — kept a one-pager; belief-consistent types:
+### The extern floor (M2: 9 leaves — the full pre-authorized surface)
+`CATS/GO/lsp_floor.cats`; belief-consistent types; the ATS side stays
+single-threaded (goroutines only pump I/O into buffers):
 - `XATS2GO_LSP_read_chunk() string` — blocking stdin read, "" = EOF
+- `XATS2GO_LSP_poll_stdin(ms int) int` — 1 data / 0 timeout / 2 EOF
+  (shares a pump goroutine + channel with read_chunk)
 - `XATS2GO_LSP_write_out(s string) any` — stdout (protocol)
 - `XATS2GO_LSP_write_log(s string) any` — stderr (log)
-- `XATS2GO_LSP_now_ms() int` — monotonic ms (for M2 debounce)
-Pre-authorized floor additions (per the project brief): process
-spawn/reap for the M2 checker.  ANYTHING else: ask the architect first.
+- `XATS2GO_LSP_now_ms() int` — monotonic ms
+- `XATS2GO_LSP_spawn_check(prog, arg1, xhome string) int` — start
+  `prog arg1` with XATSHOME=xhome, stderr captured; id or -1
+- `XATS2GO_LSP_check_done(id) int` / `_check_output(id) string` /
+  `_check_drop(id) any` (kills if still running)
+That completes the pre-authorized set (stdio/clock/spawn).  ANYTHING
+else: ask the architect first.
 
 ### The resident loop
 `lsp_main.dats`: `serve(buf)` is a named tail-recursive loop (the Go
@@ -105,10 +120,12 @@ over the buffer; `lsp_json` is a total recursive-descent parser
 | module | role |
 |---|---|
 | `lsp_floor` | extern floor wrappers |
-| `lsp_util`  | byte-level string helpers (slice, index-of, itoa…) |
+| `lsp_util`  | byte-level string helpers (slice, index-of, itoa, atoi…) |
 | `lsp_json`  | jval datatype, parse, serialize, accessors |
 | `lsp_frame` | Content-Length framing (pure) + frame_wrap |
-| `lsp_main`  | dispatch loop, lifecycle handlers (driver) |
+| `lsp_uri`   | file:// URI ↔ path (byte-level %-codec) |
+| `lsp_diag`  | checker stderr report → LSP Diagnostic array |
+| `lsp_main`  | event loop, handlers, doc store, check pump (driver) |
 
 ---
 
@@ -160,36 +177,73 @@ Per-module frontend pre-flight (fast, node-free):
 
 ---
 
-## M2 plan (next): diagnostics
+## M2 (DONE): diagnostics — as built
 
-1. **Check-only driver** next to `srcgen2/xats2go/srcgen2/UTIL/`
-   (`xats2go_tcheck01.dats`, name TBD): the goemit01 pipeline STOPPED
-   after `f3perr0_d3parsed` (+ the PREAD00 report, commit 55d930eeb) —
-   no trxd3i0/intrep/emission.  Build it into a binary over the existing
-   selfhost-build assembly (swap the driver; keep zz_floor/zz_shims),
-   per the typecheck-only note in the xats2go-dev-cycle memory.  Driver
-   interface (argv/stderr format) needs the ARCHITECT'S REVIEW before
-   M3 extends it to queries.
-2. **Floor**: add spawn/reap leaves (pre-authorized): spawn(argv) →
-   pid/handle, nonblocking reap poll or blocking wait — design so the
-   serve loop stays single-threaded: poll the child between stdin
-   reads?  NO — better: blocking read with a short-timeout variant, or
-   a wait-either leaf.  Decide with a probe; keep the floor minimal.
-3. **lsp_docs**: didOpen/didChange/didSave handlers, full-text sync,
-   version tracking, module-level store (a0rf cell) or loop-state.
-4. **Debounce + stale-drop**: `lsp_now_ms`; drop responses for
-   superseded versions.
-5. **Diagnostics shaping**: parse `PREAD00-ERROR`/`F3PERR0-ERROR`
-   stderr lines → LSP ranges.  0-based internal vs 1-based printed
-   locations (the compiler PRINTS 1-based) — the driver should emit a
-   machine format with INTERNAL 0-based values instead of scraping the
-   pretty report; that is part of the driver-interface review.
-   Columns: UTF-8 bytes → UTF-16 code units via `lsp_u16` (pure ATS,
-   golden-tested on multibyte fixtures).
-6. **Latency bar**: measure didChange→publishDiagnostics on
-   `language-server/fixtures/Foo.dats`; budget dominated by the checker
-   process (~1.8 s full pipeline today; the check-only driver cuts the
-   back half; report real numbers).
+1. **Check-only driver:** `srcgen2/xats2go/srcgen2/UTIL/xats2go_tcheck01.dats`
+   = goemit01 with the backend removed (stops after the PREAD00 report +
+   tread3a/trtmp3b/trtmp3c/t3read0 + `f3perr0_d3parsed`); its stderr is
+   byte-compatible with the CLI driver's diagnostic surface (verified by
+   diff — goemit01 adds only backend noise).  Built by
+   `selfhost-build/wire-tcheck.sh` as a SECOND main package
+   (`src/tcheck/`) over the same assembled frontend packages (symbol
+   stamps are source-location-derived, so it links against them
+   unchanged) → `src/xats2go-tcheck`.  ~0.29 s per small-file check
+   (prelude load is the floor), no elevated ulimit needed (native Go
+   stacks).  Interface: `xats2go-tcheck <abs-file>`; report on stderr.
+2. **Event loop:** `serve(buf, st)` — still one tail-recursive loop; all
+   state loop-carried in `srvst` (checker config, docs store, pending
+   deadlines, the ONE in-flight check).  Between frames it reaps the
+   in-flight check (publish + drop), starts the next due check, then
+   `lsp_poll_stdin` (block forever when idle; 25 ms tick while work is
+   in flight).
+3. **Config:** `initialize.params.initializationOptions.{checker,xatshome}`
+   (absolute paths).  No env/argv externs — config flows through the
+   protocol.
+4. **Checks run on the ON-DISK file**, triggered by didOpen/didSave;
+   didChange only updates the in-memory store (see the architect
+   decision below).  didClose clears diagnostics.  Superseded results
+   are version-labeled (`publishDiagnostics.params.version` = the doc
+   version at spawn), so clients discard them.
+5. **Diagnostics shaping** (`lsp_diag`): scans `PREAD00-ERROR:` /
+   `F3PERR0-ERROR:` lines; per line takes the INNERMOST
+   (smallest-width) span in the target file — that is the precise
+   errck node; dedups repeated spans keep-first (kills the
+   PREAD00/F3PERR0 and L2/L3 redundancy); classifies by node text
+   (`D3Et2pck` → "type mismatch", `D2Enone1(D1Eid0(x))` → "unbound
+   identifier: x", `D0*errck`/PREAD00 → "syntax error", `D3Etim[pq]` →
+   "unresolved template").
+6. **KEY DISCOVERY — no UTF-16 conversion needed:** the selfhost
+   compiler's string model is UTF-16 (JS heritage), so its printed
+   columns are 1-based **UTF-16 code-unit** columns (probed: é advances
+   offs by 1, 😀 by 2) — exactly LSP's default `positionEncoding`.
+   Mapping is `(line-1, offs-1)`.  The planned `lsp_u16` module is
+   unnecessary; the multibyte golden (t07's é fixture) guards this
+   assumption if the compiler's string model ever changes.
+
+## Decisions needed from the architect (M2.5 / M3)
+
+1. **Live-buffer checking** (didChange → diagnostics on unsaved text).
+   The checker must see buffer content; two designs:
+   (a) **`--stdin` mode in OUR tcheck driver** (recommended): read the
+       text from stdin, parse via `d0parsed_from_atext`, attribute
+       locations to the real path passed as argv (needs MYCDIR handling
+       for relative staloads).  No new server extern, no fs pollution.
+   (b) **temp-file spawn**: write the buffer next to the real file —
+       needs a file-write extern (beyond the pre-authorized floor) and
+       URI remapping.
+   Both touch a gated surface (driver interface / extern floor), so
+   neither was done unilaterally; M2 ships on-disk checks.
+2. **M3 query mode** (hover/def): position in, styp/lctn out — driver
+   interface design to review before implementation (the handoff
+   requires this).  Related: should the driver grow a MACHINE format
+   (0-based, tab-separated) instead of the pretty report the server
+   currently parses?
+3. Minor: exit-code fidelity (LSP wants exit 1 without shutdown — needs
+   a process-exit extern or acceptance of exit 0); killing an in-flight
+   check when a newer one is due (currently the next check waits);
+   cross-file diagnostics (errors in staloaded files are dropped —
+   surface them on the dependent file?); framing-desync policy
+   (currently log + terminate).
 
 Deferred (per the brief): completion, workspace indexing, incremental
 sync.

@@ -36,6 +36,39 @@ fun
 lsp_now_ms((*void*)): sint
 //
 (* ****** ****** *)
+(* M2 additions: stdin polling + check-process spawn/reap *)
+(* ****** ****** *)
+//
+(*
+lsp_poll_stdin: wait up to ms milliseconds (ms < 0 = forever) for stdin
+input.  1 = data available (a following lsp_read_chunk will not block);
+0 = timeout; 2 = EOF.
+*)
+fun
+lsp_poll_stdin(ms: sint): sint
+//
+(*
+lsp_spawn_check: start `prog arg1` with XATSHOME=xhome in its
+environment, capturing its stderr.  Returns a nonnegative check id, or
+-1 if the spawn failed.
+*)
+fun
+lsp_spawn_check
+(prog: string, arg1: string, xhome: string): sint
+//
+(* 1 = finished, 0 = still running, -1 = unknown id *)
+fun
+lsp_check_done(id: sint): sint
+//
+(* the captured stderr; call only after lsp_check_done = 1 *)
+fun
+lsp_check_output(id: sint): string
+//
+(* forget the check (kill it first if still running) *)
+fun
+lsp_check_drop(id: sint): void
+//
+(* ****** ****** *)
 (***********************************************************************)
 (* end of [lsp_floor.sats] *)
 (***********************************************************************)

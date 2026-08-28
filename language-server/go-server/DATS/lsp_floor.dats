@@ -29,6 +29,22 @@ XATS2GO_LSP_write_log(s0: string): void = $extnam()
 #extern
 fun
 XATS2GO_LSP_now_ms((*void*)): sint = $extnam()
+#extern
+fun
+XATS2GO_LSP_poll_stdin(ms: sint): sint = $extnam()
+#extern
+fun
+XATS2GO_LSP_spawn_check
+(prog: string, arg1: string, xhome: string): sint = $extnam()
+#extern
+fun
+XATS2GO_LSP_check_done(id: sint): sint = $extnam()
+#extern
+fun
+XATS2GO_LSP_check_output(id: sint): string = $extnam()
+#extern
+fun
+XATS2GO_LSP_check_drop(id: sint): void = $extnam()
 //
 (* ****** ****** *)
 //
@@ -43,6 +59,22 @@ lsp_write_log(s0) = XATS2GO_LSP_write_log(s0)
 //
 #implfun
 lsp_now_ms() = XATS2GO_LSP_now_ms()
+//
+#implfun
+lsp_poll_stdin(ms) = XATS2GO_LSP_poll_stdin(ms)
+//
+#implfun
+lsp_spawn_check
+(prog, arg1, xhome) = XATS2GO_LSP_spawn_check(prog, arg1, xhome)
+//
+#implfun
+lsp_check_done(id) = XATS2GO_LSP_check_done(id)
+//
+#implfun
+lsp_check_output(id) = XATS2GO_LSP_check_output(id)
+//
+#implfun
+lsp_check_drop(id) = XATS2GO_LSP_check_drop(id)
 //
 (* ****** ****** *)
 (***********************************************************************)
