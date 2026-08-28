@@ -56,6 +56,26 @@ func XATS2GO_strn_print(cs any) any {
 	return nil
 }
 //
+// strn_make_fwork: build a string by running the fwork with an emit-char
+// callback.  The GO arm's strings are BYTE strings: an emitted code <= 0xFF
+// appends that BYTE verbatim (so per-byte copies round-trip UTF-8 content);
+// a code > 0xFF appends its UTF-8 encoding (permissive extension).  The
+// fwork's Go image is the settled higher-order convention: closures emit as
+// typed Go funcs, char -> rune, void-as-value -> any.
+// Needs `import "strings"` (already pulled in by xtop000.cats).
+func XATS2GO_strn_make_fwork(fwork func(func(rune) any) any) string {
+	var sb strings.Builder
+	fwork(func(c rune) any {
+		if c <= 0xFF {
+			sb.WriteByte(byte(c))
+		} else {
+			sb.WriteRune(c)
+		}
+		return nil
+	})
+	return sb.String()
+}
+//
 ////////////////////////////////////////////////////////////////////////.
 // end of [ATS3_XANADU_prelude_DATS_CATS_GO_strn000.cats]
 ////////////////////////////////////////////////////////////////////////.

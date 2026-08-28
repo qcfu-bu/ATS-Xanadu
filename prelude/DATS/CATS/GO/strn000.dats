@@ -91,6 +91,32 @@ XATS2GO_strn_get$at$raw
 //
 (* ****** ****** *)
 //
+(*
+CLAUDE-2026-08-28: string CONSTRUCTION lands (the go-arm higher-order
+calling convention is settled: closures emit as typed Go funcs).  The
+fwork emits char CODES; under the GO arm's byte-string model a code
+<= 0xFF appends that BYTE verbatim (per-byte copies round-trip UTF-8),
+a code > 0xFF appends its UTF-8 encoding.  This makes the prelude
+string builders (strn_append & co, prelude/DATS/strn001.dats) resolve
+to the floor instead of bridging to a nonexistent runtime leaf.
+[strn_fmake_env$fwork]/[strn_fset$at$raw] remain deferred.
+*)
+#impltmp
+<(*tmp*)>
+strn_make_fwork
+  (fwork) =
+(
+XATS2GO_strn_make_fwork
+  (fwork)) where
+{
+#extern
+fun
+XATS2GO_strn_make_fwork
+( fwork
+: ((cgtz)->void)->void): strn = $extnam() }
+//
+(* ****** ****** *)
+//
 (***********************************************************************)
 (* end of [ATS3_XANADU_prelude_DATS_CATS_GO_strn000.dats] *)
 (***********************************************************************)
