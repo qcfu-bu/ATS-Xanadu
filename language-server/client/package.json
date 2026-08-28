@@ -83,40 +83,15 @@
       "type": "object",
       "title": "ATS3 Language Server",
       "properties": {
-        "ats3.server.backend": {
-          "type": "string",
-          "enum": [
-            "auto",
-            "chez",
-            "deno"
-          ],
-          "default": "auto",
-          "markdownDescription": "Which language-server backend to launch. `auto` (default) prefers the **Chez** resident server (xats2cz, `chez --script <so>`) when its `.so` is present, otherwise the self-contained Deno binary. `chez` / `deno` force one."
-        },
-        "ats3.server.chezPath": {
+        "ats3.server.path": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Absolute path to the compiled Chez resident server (`chez-lsp-resident.so`, built by `server/chez-build-resident.sh`). When empty, the client auto-resolves it from `server-dist/` (packaged) or the repo `server/BUILD/chez/` (dev)."
+          "markdownDescription": "Absolute path to the native ATS3 language-server binary (`ats3-lsp-server`, built by `language-server/go-server/tools/build.sh`). When empty, the client auto-resolves it from `server-dist/` (packaged) or the repo `go-server/BUILD/` (dev)."
         },
-        "ats3.server.chezBin": {
-          "type": "string",
-          "default": "chez",
-          "markdownDescription": "The Chez Scheme executable used to run the resident server `.so` (default `chez`; set an absolute path if `chez` is not on `PATH`)."
-        },
-        "ats3.server.debounceMs": {
-          "type": "number",
-          "default": 0,
-          "markdownDescription": "Live-on-change debounce in milliseconds (passed to the server as `ATS3_LSP_DEBOUNCE_MS`). `0` (default) leaves the server's own default (150 ms). Lower it (e.g. `50`) for snappier as-you-type diagnostics at the cost of re-checking more aggressively while typing."
-        },
-        "ats3.server.staloadCompletion": {
-          "type": "boolean",
-          "default": true,
-          "markdownDescription": "Offer completions for the API a file's `#staload`/`#include` closure brings into scope (not just the file's own symbols + the pervasive prelude). On by default; disabling it (sets `ATS3_LSP_STALOAD_COMPLETE=0`) skips indexing the staloaded interfaces — useful only if the first check of a compiler-linking file is too heavy."
-        },
-        "ats3.server.denoPath": {
+        "ats3.server.checkerPath": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Absolute path to the compiled Deno server binary (a single executable built by `npm run build:deno` via `deno compile`, with `--allow-all` and `--v8-flags=--stack-size=8801` baked in). When empty, the client auto-resolves it from `server-dist/xats-lsp-deno` (packaged) or the repo `server/resident/BUILD/` (dev)."
+          "markdownDescription": "Absolute path to the CHECK-ONLY compiler driver (`xats2go-tcheck`, built by `srcgen2/xats2go/selfhost-build/wire-tcheck.sh`). The server spawns it per typecheck. When empty, the client auto-resolves it from `server-dist/` (packaged) or `$XATSHOME/srcgen2/xats2go/selfhost-build/src/` (dev)."
         },
         "ats3.xatshome": {
           "type": "string",
@@ -141,10 +116,9 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "bundle": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
-    "build:deno": "node scripts/build-deno.js",
-    "stage:chez": "mkdir -p server-dist && cp ../server/BUILD/chez/chez-lsp-resident.so server-dist/chez-lsp-resident.so",
+    "stage:server": "mkdir -p server-dist && cp ../go-server/BUILD/ats3-lsp-server server-dist/ && cp ../../srcgen2/xats2go/selfhost-build/src/xats2go-tcheck server-dist/",
     "test:grammar": "node fixtures/tokenize-test.js",
-    "package": "npm run bundle && npm run stage:chez && vsce package --out ats3-lsp-client.vsix"
+    "package": "npm run bundle && npm run stage:server && vsce package --out ats3-lsp-client.vsix"
   },
   "dependencies": {
     "vscode-languageclient": "9.0.1"

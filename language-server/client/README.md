@@ -1,78 +1,54 @@
 # ATS3 Language Support (VSCode LSP client)
 
-A VSCode extension that provides ATS3 (ATS-Xanadu) language support — type-error
-diagnostics, hover (inferred type), go-to definition / type-definition,
-find-references, document & workspace symbols, inlay hints, semantic-token
-highlighting, and completion — by launching the in-process **resident** ATS3
-language server and speaking LSP/JSON-RPC over stdio.
+A VSCode extension that provides ATS3 (ATS-Xanadu) language support by
+launching the **native ATS3 language server** and speaking LSP/JSON-RPC
+over stdio.
 
-The server is the same ATS3 source compiled two ways; this `.vsix` ships the
-**Chez** build (`chez-lsp-resident.so`, from the `xats2cz` backend) and launches
-it as `chez --script <so> --stdio`.
+The server (`language-server/go-server/`) is written in ATS3 and compiled
+by the **xats2go** Go backend into one self-contained binary
+(`ats3-lsp-server`) — no runtime dependencies.  Per typecheck it spawns
+the CHECK-ONLY compiler driver (`xats2go-tcheck`), so diagnostics need
+that second binary plus `XATSHOME` (the repo root, for the prelude).
+
+Current feature surface: **type-error / syntax diagnostics** on
+open/save (M2).  Hover and go-to-definition are next (M3, see
+`../go-server/PLAN.md`).
+
+## Run from source (F5, in-repo)
+
+1. Build the server: `../go-server/tools/build.sh`
+2. Build the checker: `../../srcgen2/xats2go/selfhost-build/wire-tcheck.sh`
+3. `npm install && npm run bundle`, then F5 (Extension Development Host).
+
+In the in-repo layout everything auto-resolves: the server from
+`../go-server/BUILD/`, `XATSHOME` as the repo root, the checker from
+`$XATSHOME/srcgen2/xats2go/selfhost-build/src/`.
 
 ## Install from a `.vsix`
 
 ```sh
+npm run package          # bundles + stages both binaries into server-dist/
 code --install-extension ats3-lsp-client.vsix
-# or: VSCode → Extensions view → "..." menu → Install from VSIX...
 ```
 
-### Requirements
-
-- **Chez Scheme** on `PATH` (or set `ats3.server.chezBin` to its absolute path).
-- **`ats3.xatshome`** — an installed extension has no copy of the ATS3/Xanadu
-  repo next to it, so it cannot guess where the prelude lives. Point it at your
-  repo root (the server reads the prelude from there at runtime):
+An installed extension cannot guess where your ATS3 repo lives, so set:
 
 ```jsonc
 // settings.json
 { "ats3.xatshome": "/absolute/path/to/ATS-Xanadu" }
 ```
 
-Equivalently, export `XATSHOME` in the environment VSCode is launched from. If
-neither is set (or the path does not exist), the extension shows an actionable
-error and the server does not start — it never silently crashes.
+(or export `XATSHOME` in the environment VSCode is launched from).
 
 ## Settings
 
-| Setting                 | Purpose                                                                                     |
-| ----------------------- | ------------------------------------------------------------------------------------------- |
-| `ats3.server.backend`   | `auto` (default; prefers the bundled Chez server), `chez`, or `deno`.                       |
-| `ats3.server.chezPath`  | Override the path to `chez-lsp-resident.so` (empty = auto-resolve from `server-dist`/repo). |
-| `ats3.server.chezBin`   | The Chez executable used to run the `.so` (default `chez`).                                  |
-| `ats3.server.debounceMs`| Live-on-change debounce in ms (`0` = server default 150). Lower (e.g. `50`) for snappier as-you-type checks. |
-| `ats3.server.staloadCompletion`| Complete the API a file's `#staload`/`#include` pulls in (not just the file's own + prelude). Default on. |
-| `ats3.xatshome`         | Path to the ATS3/Xanadu repo root (`XATSHOME`). **Required for an installed `.vsix`.**       |
-| `ats3.server.denoPath`  | Path to the alternative self-contained Deno server binary (when `backend` is `deno`).       |
-| `ats3.trace.server`     | LSP trace level (`off` / `messages` / `verbose`).                                            |
+| Setting                   | Purpose                                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------ |
+| `ats3.server.path`        | Override the server binary (empty = auto-resolve from `server-dist/`, then `go-server/BUILD/`). |
+| `ats3.server.checkerPath` | Override the check-only driver (empty = `server-dist/`, then `$XATSHOME/srcgen2/xats2go/selfhost-build/src/`). |
+| `ats3.xatshome`           | The ATS3/Xanadu repo root (`XATSHOME`). **Required for an installed `.vsix`.**             |
+| `ats3.trace.server`       | LSP trace level (`off` / `messages` / `verbose`).                                          |
 
-## Project flags: `.xats-lsp`
-
-Some ATS3 source is gated on build flags via `#if defq(FLAG)` (e.g. the compiler
-itself uses `_XATS2JS_`). When the LSP checks such a file without that flag, the
-gated declarations don't exist and you get spurious diagnostics. Put a `.xats-lsp`
-file at your **workspace root** to tell the checker which flags your project
-builds with — one flag per line (like `compile_flags.txt`):
-
-```
-# .xats-lsp — compiler flags for LSP type-checking (one per line; # = comment)
---_XATS2JS_
-```
-
-Bare names work too (`_XATS2JS_` ≡ `--_XATS2JS_`). The flags are applied
-project-wide at startup, before any file is checked. Editing `.xats-lsp` takes
-effect on the next server start (reload the window).
-
-## Develop / package
-
-```sh
-npm install
-npm run bundle                         # esbuild -> dist/extension.js
-cp ../server/BUILD/chez/chez-lsp-resident.so server-dist/chez-lsp-resident.so
-vsce package --no-dependencies --allow-missing-repository --out ats3-lsp-client.vsix
-```
-
-`.vscodeignore` excludes `src/`, dev `node_modules`, scripts, and tsconfig, and
-**includes** `dist/extension.js` + `server-dist/**`. At runtime the client
-resolves the Chez `.so` from `<extension>/server-dist/` first (packaged), then
-the repo `server/BUILD/chez/` (dev/F5).
+The whole server configuration travels in `initialize`'s
+`initializationOptions` (`{checker, xatshome}`) — the server reads no
+environment variables and takes no CLI flags.

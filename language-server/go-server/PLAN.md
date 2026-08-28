@@ -17,7 +17,7 @@ Claude; the architect reviews commits and decides open questions.
 | M1 — resident echo (framing + JSON + lifecycle) | **DONE** (2026-08-28) |
 | M2 — diagnostics via check-only driver | **DONE** (2026-08-28) |
 | M3 — hover + go-to-definition | next (driver interface needs architect review FIRST) |
-| M4 — wire the VSCode client | — |
+| M4 — wire the VSCode client | **code done** (2026-08-28, done early since M3 is review-gated); the human F5 demo remains |
 
 **M1 measured:** cold spawn → `initialize` response round-trip **3.3 ms**
 (best of 5); binary 3.4 MB; golden suite incl. multibyte, \u-escape
@@ -247,3 +247,17 @@ Per-module frontend pre-flight (fast, node-free):
 
 Deferred (per the brief): completion, workspace indexing, incremental
 sync.
+
+## M4 (code done): the VSCode client
+
+`../client/` now launches the native binary directly (Chez/Deno-era
+backends removed: resolution, settings, build scripts, the stale
+`server-dist` payload).  Resolution: `ats3.server.path` setting →
+packaged `server-dist/ats3-lsp-server` → dev `go-server/BUILD/`;
+checker: `ats3.server.checkerPath` → `server-dist/` →
+`$XATSHOME/srcgen2/xats2go/selfhost-build/src/xats2go-tcheck`; XATSHOME:
+setting → env → repo root (dev).  The whole server config rides in
+`initializationOptions` (`{checker, xatshome}`).  A missing checker is
+a WARNING (server runs, diagnostics disabled).  `npm run package`
+stages both binaries into the `.vsix`.  tsc + esbuild clean; the human
+F5 end-to-end demo is the remaining M4 step (architect).
