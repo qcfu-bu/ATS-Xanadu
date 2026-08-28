@@ -1,9 +1,0 @@
-{
-  "schema": 1,
-  "uri": "file:///FIXTURE/sample-ok.dats",
-  "ok": true,
-  "nerror": 0,
-  "diagnostics": [],
-  "hovers": [],
-  "definitions": []
-}
