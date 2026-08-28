@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# wire-tcheck.sh — build the CHECK-ONLY driver (UTIL/xats2go_tcheck01.dats,
+# for the ATS3 LSP server) as a SECOND main package over the already-built
+# frontend packages: emit the driver with the bundle, process it exactly as
+# wire-driver.sh processes the CLI driver, place it in src/tcheck/ together
+# with a verbatim copy of zz_init.go (module inits + runtime hooks), and
+# `go build ./tcheck` -> src/xats2go-tcheck.
+#
+# Run AFTER a full assembly exists (src/zz*/ packages present).  Symbol
+# stamps are source-location-derived, so the check driver links against
+# the same packages the CLI driver does.
+set -uo pipefail
+X="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+export XATSHOME=$X
+ulimit -s 65520 2>/dev/null || true
+NODESTK="${NODESTK:-50000}"
+GOPATCHED=$X/srcgen2/xats2go/srcgen2/BUILD/xats2go-bundle.patched.js
+OUT=$X/srcgen2/xats2go/selfhost-build
+EMIT="$OUT/emit"
+SRC="$OUT/src"
+mkdir -p "$EMIT" "$SRC/tcheck"
+
+[ -d "$SRC/zzbase" ] || { echo "!! wire-tcheck: no assembled packages in src/ (run a full build first)"; exit 1; }
+[ -s "$SRC/zz_init.go" ] || { echo "!! wire-tcheck: src/zz_init.go missing"; exit 1; }
+
+f=$X/srcgen2/xats2go/srcgen2/UTIL/xats2go_tcheck01.dats
+m=xats2go_tcheck01
+if [ ! -s "$EMIT/$m.go" ] || [ "$f" -nt "$EMIT/$m.go" ] || [ "$GOPATCHED" -nt "$EMIT/$m.go" ]; then
+  node --stack-size=$NODESTK "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
+  awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
+fi
+[ -s "$EMIT/$m.go" ] || { echo "!! wire-tcheck: empty emission"; tail -5 "$EMIT/$m.err"; exit 1; }
+
+# driver file: keep EVERYTHING including func main; rename temps godrvtnm
+# (the same processing as wire-driver.sh, plus the package-path imports the
+# root drivers carry — copied from the generated zz_init.go header).
+{
+  sed -n '1,/^func init/p' "$SRC/zz_init.go" | sed '$d' | sed '/^func /d'
+  awk 'BEGIN{started=0}
+       /^func /{started=1}
+       /^var [^_]/{started=1}
+       started{print}' "$EMIT/$m.go" \
+    | sed -E "s/goxtnm([0-9])/godrvtnm\\1/g" \
+    | sed -E "s/goxtmpl([0-9])/godrvtmpl\\1/g"
+} > "$SRC/tcheck/zz_tcheck.go"
+
+# module inits + runtime hooks: verbatim (same package main content).
+cp "$SRC/zz_init.go" "$SRC/tcheck/zz_init.go"
+
+( cd "$SRC" && gofmt -w tcheck >/dev/null 2>&1
+  go build -o "$SRC/xats2go-tcheck" ./tcheck 2> "$SRC/tcheck/build.err" ) \
+  || { echo "!! wire-tcheck: go build FAILED"; head -20 "$SRC/tcheck/build.err"; exit 1; }
+echo ">> built $SRC/xats2go-tcheck"
