@@ -1,0 +1,7 @@
+Content-Length: 152
+
+{"jsonrpc":"2.0","id":1,"result":{"capabilities":{"textDocumentSync":{"openClose":true,"change":1}},"serverInfo":{"name":"ats3-lsp","version":"0.1.0"}}}Content-Length: 97
+
+{"jsonrpc":"2.0","id":2,"error":{"code":-32601,"message":"method not found: x/y\n\t\"q\"é😀"}}Content-Length: 38
+
+{"jsonrpc":"2.0","id":3,"result":null}

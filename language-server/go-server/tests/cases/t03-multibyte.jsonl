@@ -1,0 +1,4 @@
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootPath":"/tmp/héllo/日本語","capabilities":{}}}
+{"jsonrpc":"2.0","id":2,"method":"höver/日本語","params":{}}
+{"jsonrpc":"2.0","id":3,"method":"shutdown"}
+{"jsonrpc":"2.0","method":"exit"}

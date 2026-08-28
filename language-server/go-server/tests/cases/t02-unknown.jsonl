@@ -1,0 +1,5 @@
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}
+{"jsonrpc":"2.0","id":"q-7","method":"textDocument/hover","params":{"position":{"line":0,"character":3}}}
+{"jsonrpc":"2.0","method":"$/setTrace","params":{"value":"off"}}
+{"jsonrpc":"2.0","id":2,"method":"shutdown"}
+{"jsonrpc":"2.0","method":"exit"}
