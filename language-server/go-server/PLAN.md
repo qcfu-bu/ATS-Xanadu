@@ -19,6 +19,8 @@ Claude; the architect reviews commits and decides open questions.
 | M2.5 — architect decisions: live checks (--stdin), kill-superseded, exit codes, cross-file | **DONE** (2026-08-29) |
 | M3 — hover + go-to-definition (index-dump mode) | **DONE** (2026-08-29) |
 | M3.5 — semantic tokens (same index mechanism) | **DONE** (2026-08-29) |
+| M5a — completion: lexical core + scope-aware locals | **DONE** (2026-08-29) |
+| M5b — completion: member/dot | **DONE** (2026-08-29) |
 | M4 — wire the VSCode client | **code done** (2026-08-28); the human F5 demo remains |
 
 **M1 measured:** cold spawn → `initialize` response round-trip **3.3 ms**
@@ -33,6 +35,20 @@ suite 12/12 (t11: hover on a fun and a var, def within-file and
 cross-file into the prelude, a null miss; t12: the full delta-encoded
 token array, verified by an independent Python decoder).
 
+**Completion (M5a+M5b):** the --index pass also emits candidate
+records — P (pervasives: topmap_strmize over the loaded
+the_dexpenv/the_sexpenv, ~3300 names with kinds), S (target-file +
+transitive non-stdlib dep top-level decls, incl. datatype
+constructors), L (locals with visibility spans: fun/lam/fix/implfun
+args, let/where val binders, case-clause pattern vars), and M
+(record/tuple field labels keyed by the receiver expression's span).
+The server extracts the partial word (UTF-16 → byte offset → scan
+back over identifier bytes) and assembles ranked tiers — locals >
+file decls > dep decls > pervasives > keywords > buffer words —
+case-insensitive prefix, name-dedup, 200-cap + isIncomplete, in
+0.2–1.2 ms.  After a `.` it answers ONLY the receiver's fields (M
+records whose span ends at the dot); triggerCharacters: ["."].
+
 **Semantic tokens (M3.5):** the --index walk also emits
 `T \t l0 \t c0 \t l1 \t c1 \t kind` for every identifier
 (0 variable / 1 function / 2 enumMember; fun-vs-var by peeling the
@@ -40,7 +56,8 @@ entity's styp to T2Pfun1).  The server merge-sorts (O(n log n) — the
 index-perf lesson), drops same-start duplicates, delta-encodes, and
 declares the legend in semanticTokensProvider.  Tokens refresh per
 check; VSCode blends the TextMate grammar between refreshes.
-COMPLETION remains open but is UNBLOCKED (2026-08-29 probe): the
+COMPLETION IS BUILT (M5a+M5b below).  Historical note on the earlier
+false blocker: the
 prelude-name enumeration (topmap_strmize over the_dexpenv) works from
 a driver — the earlier "errck-erases" claim was two conflated
 artifacts: (a) a missing-staload errck poisoning the enclosing decl
