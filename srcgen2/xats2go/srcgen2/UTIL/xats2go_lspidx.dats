@@ -896,6 +896,63 @@ loc_r1(loc: loctn): sint = postn_get_nrow(loctn_get_pend(loc))
 fun
 loc_c1(loc: loctn): sint = postn_get_ncol(loctn_get_pend(loc))
 //
+(*
+member (dot-completion) records: for every record/tuple-typed
+expression in the target file, its field labels keyed by the
+RECEIVER's span:
+  M \t l0 \t c0 \t l1 \t c1 \t kind \t name
+The server offers them when completion fires just after a `.` whose
+position matches the span's end.
+*)
+fun
+emit_members
+(out: FILR, tgt: strn, loc: loctn, t2p: s2typ, d0: sint): void =
+if (d0 <= 0) then () else
+if loc_targetq(loc, tgt)
+then
+(
+case+ s2typ_get_node(t2p) of
+| T2Ptrcd(_, _, lt2ps) => mem_labels(out, loc, lt2ps)
+| T2Pxtv(xtv) =>
+  emit_members(out, tgt, loc, x2t2p_get_styp(xtv), d0-1)
+| T2Plft(t1) => emit_members(out, tgt, loc, t1, d0-1)
+| T2Ptop1(t1) => emit_members(out, tgt, loc, t1, d0-1)
+| T2Pnone1(t1) => emit_members(out, tgt, loc, t1, d0-1)
+| T2Perrck(_, t1) => emit_members(out, tgt, loc, t1, d0-1)
+| T2Pexi0(_, t1) => emit_members(out, tgt, loc, t1, d0-1)
+| T2Puni0(_, t1) => emit_members(out, tgt, loc, t1, d0-1)
+| _(*else*) => ())
+else ()
+//
+and
+mem_labels
+(out: FILR, loc: loctn, ls: l2t2plst): void =
+case+ ls of
+| list_nil() => ()
+| list_cons(l1, ls1) =>
+  let
+  val () =
+  (
+  case+ l1 of
+  | S2LAB(lab, _) =>
+    let
+    val () = pr(out, "M\t")
+    val () = span_pr(out, loc)
+    val () = pr(out, "\t")
+    val () = pn(out, 0)
+    val () = pr(out, "\t")
+    val () =
+    (
+    case+ lab of
+    | LABsym(sym) => pr(out, symbl_get_name(sym))
+    | LABint(i0) => pn(out, i0))
+    in
+    pr(out, "\n")
+    end)
+  in
+  mem_labels(out, loc, ls1)
+  end
+//
 (* ****** ****** *)
 (* the d3 walk *)
 (* ****** ****** *)
@@ -906,6 +963,7 @@ w_exp
 let
 val loc = d3exp_get_lctn(d3e)
 val () = emit_hov(out, tgt, loc, d3exp_get_styp(d3e))
+val () = emit_members(out, tgt, loc, d3exp_get_styp(d3e), 8)
 in
 case+ d3exp_get_node(d3e) of
 //
