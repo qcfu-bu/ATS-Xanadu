@@ -12,15 +12,15 @@ export ATS3_REPO="$(cd "$T/../../.." && pwd)"
 mkdir -p "$T/BUILD"
 pass=0; fail=0
 
-run_case() { # run_case <name> <jsonl> [feeder args...]
+run_case() { # [EXPECT_RC=n] run_case <name> <jsonl> [feeder args...]
   local name=$1 jsonl=$2; shift 2
   local golden=$T/cases/$name.golden out=$T/BUILD/$name.out log=$T/BUILD/$name.log
   # the feeder can take SIGPIPE if the server exits first; that is not a
   # failure of the case, so shield it from pipefail.
   ( python3 "$T/feed.py" "$jsonl" "$@" || true ) | "$BIN" > "$out" 2> "$log"
   local rc=$?
-  if [ $rc -ne 0 ]; then
-    echo "!! $name: server exited rc=$rc"; fail=$((fail+1)); return
+  if [ $rc -ne "${EXPECT_RC:-0}" ]; then
+    echo "!! $name: server exited rc=$rc (want ${EXPECT_RC:-0})"; fail=$((fail+1)); return
   fi
   # independent protocol validation (python, not our own framing code)
   if ! python3 "$T/check-stream.py" "$out" > "$T/BUILD/$name.chk" 2>&1; then
@@ -80,10 +80,13 @@ TCHECK="$ATS3_REPO/srcgen2/xats2go/selfhost-build/src/xats2go-tcheck"
 if [ -x "$TCHECK" ]; then
   run_ncase t07-diagnostics "$T/cases/t07-diagnostics.jsonl"
   run_ncase t08-save-close  "$T/cases/t08-save-close.jsonl"
+  run_ncase t10-crossfile   "$T/cases/t10-crossfile.jsonl"
 else
-  echo "!! t07/t08 SKIPPED: $TCHECK not built (selfhost-build/wire-tcheck.sh)"
+  echo "!! t07/t08/t10 SKIPPED: $TCHECK not built (selfhost-build/wire-tcheck.sh)"
   fail=$((fail+1))
 fi
+# LSP exit-code contract: 'exit' without a prior 'shutdown' exits 1.
+EXPECT_RC=1 run_case t09-exit-code "$T/cases/t09-exit-code.jsonl"
 
 echo "== $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

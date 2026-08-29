@@ -1,6 +1,6 @@
 Content-Length: 164
 
-{"jsonrpc":"2.0","id":1,"result":{"capabilities":{"textDocumentSync":{"openClose":true,"change":1,"save":true}},"serverInfo":{"name":"ats3-lsp","version":"0.2.0"}}}Content-Length: 97
+{"jsonrpc":"2.0","id":1,"result":{"capabilities":{"textDocumentSync":{"openClose":true,"change":1,"save":true}},"serverInfo":{"name":"ats3-lsp","version":"0.3.0"}}}Content-Length: 97
 
 {"jsonrpc":"2.0","id":2,"error":{"code":-32601,"message":"method not found: x/y\n\t\"q\"é😀"}}Content-Length: 38
 

@@ -16,8 +16,9 @@ Claude; the architect reviews commits and decides open questions.
 |---|---|
 | M1 — resident echo (framing + JSON + lifecycle) | **DONE** (2026-08-28) |
 | M2 — diagnostics via check-only driver | **DONE** (2026-08-28) |
-| M3 — hover + go-to-definition | next (driver interface needs architect review FIRST) |
-| M4 — wire the VSCode client | **code done** (2026-08-28, done early since M3 is review-gated); the human F5 demo remains |
+| M2.5 — architect decisions: live checks (--stdin), kill-superseded, exit codes, cross-file | **DONE** (2026-08-29) |
+| M3 — hover + go-to-definition | next: **index-dump mode** (architect chose it 2026-08-29) |
+| M4 — wire the VSCode client | **code done** (2026-08-28); the human F5 demo remains |
 
 **M1 measured:** cold spawn → `initialize` response round-trip **3.3 ms**
 (best of 5); binary 3.4 MB; golden suite incl. multibyte, \u-escape
@@ -25,13 +26,15 @@ Claude; the architect reviews commits and decides open questions.
 output independently re-validated by `tests/check-stream.py` (Python
 recomputes Content-Length byte math and re-parses every JSON body).
 
-**M2 measured:** didOpen → publishDiagnostics on
-`language-server/fixtures/Foo.dats`: **305 ms** (best of 4; the checker
-process itself is ~290 ms on a small file — prelude load dominates —
-0.7 s on a bench-sized file, 1.2 s on a compiler-sized module).  Golden
-suite 8/8 (adds t07 real-diagnostics and t08 save/close-lifecycle,
-compared through `normalize-stream.py`: canonical JSON, repo root →
-`@X@`, so goldens are machine-independent).
+**M2/M2.5 measured** on `language-server/fixtures/Foo.dats`:
+didOpen → publishDiagnostics **283 ms**; **didChange →
+publishDiagnostics 583 ms** (250 ms debounce + ~290 ms check of the
+UNSAVED buffer via the driver's --stdin mode).  The checker process is
+~290 ms on a small file (prelude load dominates), 0.7 s bench-sized,
+1.2 s compiler-sized.  Golden suite 10/10 (t07 diagnostics, t08
+live-change lifecycle, t09 exit-code, t10 cross-file summary), M2+
+cases compared through `normalize-stream.py` (canonical JSON, repo
+root → `@X@`).
 
 ---
 
@@ -220,30 +223,66 @@ Per-module frontend pre-flight (fast, node-free):
    unnecessary; the multibyte golden (t07's é fixture) guards this
    assumption if the compiler's string model ever changes.
 
-## Decisions needed from the architect (M2.5 / M3)
+## M2.5 (DONE): the architect's decisions, as built (2026-08-29)
 
-1. **Live-buffer checking** (didChange → diagnostics on unsaved text).
-   The checker must see buffer content; two designs:
-   (a) **`--stdin` mode in OUR tcheck driver** (recommended): read the
-       text from stdin, parse via `d0parsed_from_atext`, attribute
-       locations to the real path passed as argv (needs MYCDIR handling
-       for relative staloads).  No new server extern, no fs pollution.
-   (b) **temp-file spawn**: write the buffer next to the real file —
-       needs a file-write extern (beyond the pre-authorized floor) and
-       URI remapping.
-   Both touch a gated surface (driver interface / extern floor), so
-   neither was done unilaterally; M2 ships on-disk checks.
-2. **M3 query mode** (hover/def): position in, styp/lctn out — driver
-   interface design to review before implementation (the handoff
-   requires this).  Related: should the driver grow a MACHINE format
-   (0-based, tab-separated) instead of the pretty report the server
-   currently parses?
-3. Minor: exit-code fidelity (LSP wants exit 1 without shutdown — needs
-   a process-exit extern or acceptance of exit 0); killing an in-flight
-   check when a newer one is due (currently the next check waits);
-   cross-file diagnostics (errors in staloaded files are dropped —
-   surface them on the dependent file?); framing-desync policy
-   (currently log + terminate).
+1. **Live-buffer checking — `--stdin` driver mode** (architect's pick).
+   `xats2go-tcheck <file> --stdin` reads the text from stdin and parses
+   it ATTRIBUTED to the real path: a driver-local
+   `my_d0parsed_from_text` replicates `trans00_from_fpath` with the
+   lexbuf from the text and `LCSRCsome1(path)` on the tokens AND the
+   d0parsed source — diagnostics carry the file identity and relative
+   staloads resolve exactly as on-disk (verified: byte-identical error
+   lines vs the on-disk mode, and a go-server module's `./../SATS/`
+   staloads resolve).  stdin arrives via ONE new runtime leaf
+   (`Xats_XATS2GO_tcheck_stdin_readall`, in the leaf-census baseline).
+   Server side: every check of a stored document pipes the CURRENT
+   buffer (`lsp_spawn_check` gained arg2+input); didChange debounces
+   250 ms.  Also fixed while in there: stadyn now follows the extension
+   (`.sats` was previously checked as dyn).
+2. **Kill superseded checks**: a due check for the uri already being
+   checked kills the in-flight one (newest wins); a different uri still
+   waits its turn.
+3. **Exit codes**: `exit` terminates via an `lsp_exit` floor leaf —
+   0 after `shutdown`, 1 without (t09 golden asserts rc=1).
+4. **Cross-file diagnostics**: the driver walks the target's
+   D3Cstaload/D2Cstaload decls (descending through includes) and for
+   every freshly-loaded (shr=0) NON-STDLIB dependency reports its
+   errors — running `tread12` on the dep's cached d2parsed first,
+   because the staload pipeline skips the proofread and the errck
+   wrappers otherwise never exist (`F2PERR0-ERROR` lines; f3perr0 on
+   the dep's d3parsed adds L3 expression errors).  Stdlib
+   (`$XATSHOME/prelude/`, `/xatslib/`) is excluded at the driver;
+   WORKSPACE policy lives in the server: only files under the
+   `initialize` rootUri/workspaceFolders root are summarized, one
+   diagnostic per foreign file, positioned on the staload's quoted
+   basename (t10 golden).
+
+### Traps found (compiler-tree, cost real time)
+- A top-level `#typedef` BETWEEN fun groups — and the tuple type
+  written INLINE in a fun-param annotation — both survive the native
+  binary but the srcgen2 checker errcks the whole consumer chain and
+  the emitter ERASES it to an UNHANDLED no-op; and `pfx` is a KEYWORD
+  (bit AGAIN — first hit in lsp_uri).  The `{itm:tbox}` topmap
+  generics (topmap_strmize) errck the same way from a driver — walk
+  the AST instead.
+- Judge a preflight by EXIT CODE, not by grepping error lines: the
+  jsemit00 reference dies with a different uncaught-throw message than
+  the bundle (`cfail` absent), so a grep-only check "passed" a
+  crashing file — my bisect chased a comment for two rounds.
+
+## M3 (decided): index-dump mode
+
+One check emits diagnostics PLUS a machine-format hover/def index
+(0-based positions, one record per line, tab-separated): hover types
+via `d3exp.styp()` + a new source-syntax s2typ pretty-printer
+(S2TYP-SURFACE-SYNTAX.md is the spec base), def sites via
+`entity.lctn()`.  The server caches the index per (uri, version) and
+answers hover/def from cache.  Driver flag: `--index` (already
+reserved/consumed by the argv loop).
+
+## Remaining minor policies (documented, not blocking)
+Framing desync still logs + terminates; a headerless garbage stream
+grows the buffer until EOF; buffer append is O(buf) per chunk.
 
 Deferred (per the brief): completion, workspace indexing, incremental
 sync.

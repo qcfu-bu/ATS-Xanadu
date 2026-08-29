@@ -3,13 +3,14 @@
 lsp_main.dats — the driver: a single-threaded, TAIL-RECURSIVE resident
 event loop (the Go backend's TCO makes [serve] an O(1)-stack for-loop).
 
-M2 surface: the M1 lifecycle + textDocument/didOpen|didChange|didSave|
+M2.5 surface: the M1 lifecycle + textDocument/didOpen|didChange|didSave|
 didClose with publishDiagnostics via the check-only compiler driver
-(spawned per check; the compiler is one-shot).  Checks run on the
-ON-DISK file and are triggered by didOpen/didSave; didChange only
-updates the in-memory store (live-buffer checking is the pending
-architect decision — see PLAN.md).  All state is loop-carried; there
-is no module-level mutable state.
+(spawned per check; the compiler is one-shot).  Every check of a stored
+document sends the CURRENT BUFFER TEXT via the driver's --stdin mode
+(live diagnostics); didChange re-checks after a 250 ms debounce; a due
+check for the uri already being checked KILLS the in-flight one
+(newest wins).  All state is loop-carried; there is no module-level
+mutable state.  Exit codes follow LSP: 0 after shutdown, 1 without.
 
 Configuration arrives in initialize.params.initializationOptions:
   { "checker":  "<abs path to xats2go-tcheck>",
@@ -44,10 +45,11 @@ chkst =
 | CKnone of ()
 | CKrun of (sint(*check id*), string(*uri*), sint(*version*))
 //
-(* (checker path, xatshome, docs, pending checks, the in-flight check) *)
+(* (checker path, xatshome, workspace root, docs, pending checks,
+   in-flight check, shutdown-seen) *)
 datatype
 srvst =
-| SRV of (string, string, doclst, pendlst, chkst)
+| SRV of (string, string, string, doclst, pendlst, chkst, sint)
 //
 (* ****** ****** *)
 (* document store helpers *)
@@ -90,6 +92,14 @@ case+ dl of
 | DOCnil() => ""
 | DOCcons(u0, _, t0, r0) =>
   (if streq(u0, uri) then t0 else docs_text(r0, uri))
+//
+fun
+docs_has
+(dl: doclst, uri: string): bool =
+case+ dl of
+| DOCnil() => false
+| DOCcons(u0, _, _, r0) =>
+  (if streq(u0, uri) then true else docs_has(r0, uri))
 //
 (* ****** ****** *)
 (* pending-check helpers *)
@@ -211,7 +221,7 @@ JVobj(JKVcons("textDocumentSync", sync, JKVnil()))
 val info =
 JVobj
 ( JKVcons("name", JVstr("ats3-lsp")
-, JKVcons("version", JVstr("0.2.0"), JKVnil())))
+, JKVcons("version", JVstr("0.3.0"), JKVnil())))
 in
 JVobj
 ( JKVcons("capabilities", caps
@@ -222,18 +232,29 @@ fun
 h_initialize
 (jv0: jval, idv: jval, st: srvst): srvst =
 let
-val opts =
-jobj_get(jobj_get(jv0, "params"), "initializationOptions")
+val prms = jobj_get(jv0, "params")
+val opts = jobj_get(prms, "initializationOptions")
 val chk = jget_str(jobj_get(opts, "checker"), "")
 val xh = jget_str(jobj_get(opts, "xatshome"), "")
+(* the workspace root gates cross-file diagnostic summaries:
+   rootUri, else workspaceFolders[0].uri *)
+val wsr0 = uri_to_path(jget_str(jobj_get(prms, "rootUri"), ""))
+val wsr =
+(
+if (strn_length(wsr0) > 0) then wsr0 else
+case+ jobj_get(prms, "workspaceFolders") of
+| JVarr(JVLcons(f0, _)) =>
+  uri_to_path(jget_str(jobj_get(f0, "uri"), ""))
+| _(*else*) => ""): string
 val () = respond(idv, init_result())
 in
 case+ st of
-| SRV(c0, x0, dl, pl, ck) =>
+| SRV(c0, x0, ws, dl, pl, ck, sd) =>
   SRV
   ( (if (strn_length(chk) > 0) then chk else c0): string
   , (if (strn_length(xh) > 0) then xh else x0): string
-  , dl, pl, ck)
+  , (if (strn_length(wsr) > 0) then wsr else ws): string
+  , dl, pl, ck, sd)
 end//endof[h_initialize]
 //
 fun
@@ -248,12 +269,12 @@ val txt = jget_str(jobj_get(td, "text"), "")
 in
 if (strn_length(uri) <= 0) then st else
 case+ st of
-| SRV(c0, x0, dl, pl, ck) =>
+| SRV(c0, x0, ws, dl, pl, ck, sd) =>
   SRV
-  ( c0, x0
+  ( c0, x0, ws
   , docs_put(dl, uri, ver, txt)
   , pend_put(pl, uri, lsp_now_ms())
-  , ck)
+  , ck, sd)
 end//endof[h_didopen]
 //
 fun
@@ -278,14 +299,19 @@ case+ ccs of
 in
 if (strn_length(uri) <= 0) then st else
 case+ st of
-| SRV(c0, x0, dl, pl, ck) =>
+| SRV(c0, x0, ws, dl, pl, ck, sd) =>
   let
   val txt =
   (
   if jis_err(tjv)
   then docs_text(dl, uri) else jget_str(tjv, "")): string
   in
-  SRV(c0, x0, docs_put(dl, uri, ver, txt), pl, ck)
+  SRV
+  ( c0, x0, ws
+  , docs_put(dl, uri, ver, txt)
+  (* live checking: re-check the buffer after a quiet 250 ms *)
+  , pend_put(pl, uri, lsp_now_ms() + 250)
+  , ck, sd)
   end
 end//endof[h_didchange]
 //
@@ -299,8 +325,8 @@ val uri = jget_str(jobj_get(td, "uri"), "")
 in
 if (strn_length(uri) <= 0) then st else
 case+ st of
-| SRV(c0, x0, dl, pl, ck) =>
-  SRV(c0, x0, dl, pend_put(pl, uri, lsp_now_ms()), ck)
+| SRV(c0, x0, ws, dl, pl, ck, sd) =>
+  SRV(c0, x0, ws, dl, pend_put(pl, uri, lsp_now_ms()), ck, sd)
 end//endof[h_didsave]
 //
 fun
@@ -316,9 +342,19 @@ then publish(uri, 0 - 1, JVarr(JVLnil()))
 in
 if (strn_length(uri) <= 0) then st else
 case+ st of
-| SRV(c0, x0, dl, pl, ck) =>
-  SRV(c0, x0, docs_del(dl, uri), pend_del(pl, uri), ck)
+| SRV(c0, x0, ws, dl, pl, ck, sd) =>
+  SRV(c0, x0, ws, docs_del(dl, uri), pend_del(pl, uri), ck, sd)
 end//endof[h_didclose]
+//
+fun
+st_shutdown(st: srvst): srvst =
+case+ st of
+| SRV(c0, x0, ws, dl, pl, ck, _) => SRV(c0, x0, ws, dl, pl, ck, 1)
+//
+fun
+exit_code(st: srvst): sint =
+case+ st of
+| SRV(_, _, _, _, _, _, sd) => (if (sd > 0) then 0 else 1)
 //
 (* ****** ****** *)
 //
@@ -348,7 +384,7 @@ then @(h_didsave(jv0, st), 0) else
 if streq(mth, "textDocument/didClose")
 then @(h_didclose(jv0, st), 0) else
 if streq(mth, "shutdown")
-then (respond(idv, JVnull()); @(st, 0)) else
+then (respond(idv, JVnull()); @(st_shutdown(st), 0)) else
 if streq(mth, "exit") then @(st, 1) else
 if jis_err(idv) then @(st, 0) (* unknown notification: ignore *)
 else
@@ -366,7 +402,7 @@ end//endof[on_msg]
 fun
 chk_step(st: srvst): srvst =
 case+ st of
-| SRV(c0, x0, dl, pl, ck) =>
+| SRV(c0, x0, ws, dl, pl, ck, sd) =>
   (
   case+ ck of
   | CKnone() => st
@@ -378,56 +414,77 @@ case+ st of
     val rep = lsp_check_output(id)
     val () = lsp_check_drop(id)
     val path = uri_to_path(uri)
-    val () = publish(uri, ver, diag_array(path, rep))
+    val () =
+    publish(uri, ver, diag_build(path, ws, docs_text(dl, uri), rep))
     in
-    SRV(c0, x0, dl, pl, CKnone())
+    SRV(c0, x0, ws, dl, pl, CKnone(), sd)
     end
     else st))
 //
-(* start the next due check when idle *)
+(* spawn the checker for uri (the state's chk must be CKnone) *)
+fun
+start_check(st: srvst, uri: string): srvst =
+case+ st of
+| SRV(c0, x0, ws, dl, pl, _, sd) =>
+  (
+  if (strn_length(c0) <= 0)
+  then
+  (
+  lsp_write_log("ats3-lsp: no checker configured; skipping check\n");
+  SRV(c0, x0, ws, dl, pl, CKnone(), sd))
+  else
+  let
+  val path = uri_to_path(uri)
+  in
+  if (strn_length(path) <= 0)
+  then SRV(c0, x0, ws, dl, pl, CKnone(), sd)
+  else
+  let
+  (* a stored document is checked LIVE: its buffer rides --stdin *)
+  val hasdoc = docs_has(dl, uri)
+  val a2 = (if hasdoc then "--stdin" else ""): string
+  val inp = (if hasdoc then docs_text(dl, uri) else ""): string
+  val id = lsp_spawn_check(c0, path, a2, x0, inp)
+  in
+  if (id < 0)
+  then
+  (
+  lsp_write_log("ats3-lsp: checker spawn failed\n");
+  SRV(c0, x0, ws, dl, pl, CKnone(), sd))
+  else SRV(c0, x0, ws, dl, pl, CKrun(id, uri, docs_version(dl, uri)), sd)
+  end
+  end)
+//
+(* start the next due check; a due check for the RUNNING uri kills it *)
 fun
 pend_step(st: srvst): srvst =
 case+ st of
-| SRV(c0, x0, dl, pl, ck) =>
-  (
+| SRV(c0, x0, ws, dl, pl, ck, sd) =>
+  let
+  val r0 = pend_take_due(pl, lsp_now_ms())
+  val uri = r0.0
+  in
+  if (strn_length(uri) <= 0) then st else
   case+ ck of
-  | CKrun(_, _, _) => st
   | CKnone() =>
-    let
-    val r0 = pend_take_due(pl, lsp_now_ms())
-    val uri = r0.0
-    in
-    if (strn_length(uri) <= 0) then st else
-    if (strn_length(c0) <= 0)
-    then
+    start_check(SRV(c0, x0, ws, dl, r0.1, CKnone(), sd), uri)
+  | CKrun(id, curi, _) =>
     (
-    lsp_write_log("ats3-lsp: no checker configured; skipping check\n");
-    SRV(c0, x0, dl, r0.1, CKnone()))
-    else
-    let
-    val path = uri_to_path(uri)
-    in
-    if (strn_length(path) <= 0)
-    then SRV(c0, x0, dl, r0.1, CKnone())
-    else
-    let
-    val id = lsp_spawn_check(c0, path, x0)
-    in
-    if (id < 0)
+    if streq(curi, uri)
     then
-    (
-    lsp_write_log("ats3-lsp: checker spawn failed\n");
-    SRV(c0, x0, dl, r0.1, CKnone()))
-    else SRV(c0, x0, dl, r0.1, CKrun(id, uri, docs_version(dl, uri)))
+    let
+    val () = lsp_check_drop(id) (* superseded: newest wins *)
+    in
+    start_check(SRV(c0, x0, ws, dl, r0.1, CKnone(), sd), uri)
     end
-    end
-    end)
+    else st (* another uri is being checked: keep waiting *))
+  end//endof[pend_step]
 //
 (* how long the poll may block: -1 = forever (nothing in flight) *)
 fun
 wait_ms(st: srvst): sint =
 case+ st of
-| SRV(_, _, _, pl, ck) =>
+| SRV(_, _, _, _, pl, ck, _) =>
   (
   case+ ck of
   | CKrun(_, _, _) => 25
@@ -444,7 +501,12 @@ case+ frame_next(buf) of
   in
   if (r0.1 = 0)
   then serve(rest, r0.0)
-  else lsp_write_log("ats3-lsp: exit\n")
+  else
+  let
+  val () = lsp_write_log("ats3-lsp: exit\n")
+  in
+  lsp_exit(exit_code(r0.0))
+  end
   end
 | FRnone() =>
   let
@@ -468,7 +530,7 @@ server_main((*void*)): void =
 let
 val () = lsp_write_log("ats3-lsp: server started\n")
 in
-serve("", SRV("", "", DOCnil(), PNDnil(), CKnone()))
+serve("", SRV("", "", "", DOCnil(), PNDnil(), CKnone(), 0))
 end//endof[server_main]
 //
 (* ****** ****** *)

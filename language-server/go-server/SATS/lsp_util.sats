@@ -40,6 +40,10 @@ strn_index_of(hay: string, i0: sint, ndl: string): sint
 fun
 atoi_at(s0: string, i0: sint): @(sint, sint)
 //
+(* UTF-16 code units in the UTF-8 bytes [i0, j0) of s0 *)
+fun
+u16_units(s0: string, i0: sint, j0: sint): sint
+//
 (* ****** ****** *)
 (***********************************************************************)
 (* end of [lsp_util.sats] *)

@@ -112,6 +112,28 @@ loop(i0, 0)
 end//endof[atoi_at]
 //
 (* ****** ****** *)
+//
+#implfun
+u16_units
+(s0, i0, j0) =
+let
+fun
+loop(k0: sint, acc: sint): sint =
+if (k0 >= j0) then acc else
+let
+val c0 = byte_at(s0, k0)
+in
+if (c0 < 128) then loop(k0+1, acc+1) else
+if (c0 < 192) then loop(k0+1, acc) (* stray continuation byte *) else
+if (c0 < 224) then loop(k0+2, acc+1) else
+if (c0 < 240) then loop(k0+3, acc+1)
+else loop(k0+4, acc+2) (* astral: a surrogate pair *)
+end
+in//let
+loop(i0, 0)
+end//endof[u16_units]
+//
+(* ****** ****** *)
 (***********************************************************************)
 (* end of [lsp_util.dats] *)
 (***********************************************************************)

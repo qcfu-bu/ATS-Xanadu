@@ -116,12 +116,19 @@ type xats2goLspCheck struct {
 var xats2goLspChecks = map[int]*xats2goLspCheck{}
 var xats2goLspCheckN int
 //
-// start `prog arg1` with XATSHOME=xhome; stderr captured (exec's copier
-// finishes before Wait returns, so reading out after done is race-free);
-// stdout discarded.  Returns the check id, or -1 on spawn failure.
-func XATS2GO_LSP_spawn_check(prog string, arg1 string, xhome string) int {
-	cmd := exec.Command(prog, arg1)
+// start `prog arg1 [arg2]` with XATSHOME=xhome; input is piped to the
+// child's stdin (then closed); stderr captured (exec's copiers finish
+// before Wait returns, so reading out after done is race-free); stdout
+// discarded.  Returns the check id, or -1 on spawn failure.
+func XATS2GO_LSP_spawn_check(prog string, arg1 string, arg2 string, xhome string, input string) int {
+	var cmd *exec.Cmd
+	if arg2 != "" {
+		cmd = exec.Command(prog, arg1, arg2)
+	} else {
+		cmd = exec.Command(prog, arg1)
+	}
 	cmd.Env = append(os.Environ(), "XATSHOME="+xhome)
+	cmd.Stdin = strings.NewReader(input)
 	var out bytes.Buffer
 	cmd.Stderr = &out
 	if err := cmd.Start(); err != nil {
@@ -170,6 +177,12 @@ func XATS2GO_LSP_check_drop(id int) any {
 		c.cmd.Process.Kill()
 	}
 	delete(xats2goLspChecks, id)
+	return nil
+}
+//
+// terminate the server process (LSP: exit 0 after shutdown, 1 without).
+func XATS2GO_LSP_exit(code int) any {
+	os.Exit(code)
 	return nil
 }
 //

@@ -82,13 +82,16 @@ end
 end//endof[parse_loc]
 //
 (*
-the smallest-width target-file span on the line (ties -> the LATER,
-i.e. more deeply nested, occurrence)
+the smallest-width span on the line (ties -> the LATER, i.e. more
+deeply nested, occurrence); targetq restricts to the target path.
 *)
 fun
-best_loc
-(line: string, target: string): dloc =
+scan_loc
+(line: string, target: string, targetq: bool): dloc =
 let
+fun
+takeq(path: string): bool =
+if targetq then streq(path, target) else true
 fun
 loop(from: sint, best: dloc): dloc =
 let
@@ -102,7 +105,7 @@ case+ dl of
 | DLnone() => loop(p0+11, best)
 | DLsome(path, w0, _, _, _, _) =>
   (
-  if streq(path, target)
+  if takeq(path)
   then
   (
   case+ best of
@@ -114,7 +117,7 @@ end
 end
 in//let
 loop(0, DLnone())
-end//endof[best_loc]
+end//endof[scan_loc]
 //
 (* ****** ****** *)
 //
@@ -142,6 +145,7 @@ if (strn_index_of(line, 0, "D0Cerrck") >= 0) then "syntax error" else
 if (strn_index_of(line, 0, "D0Eerrck") >= 0) then "syntax error" else
 if (strn_index_of(line, 0, "D0Perrck") >= 0) then "syntax error" else
 if (strn_index_of(line, 0, "D0Ctkerr") >= 0) then "syntax error" else
+if (strn_index_of(line, 0, "S2Eerrck") >= 0) then "static error" else
 "error"
 end//endof[classify]
 //
@@ -174,24 +178,49 @@ case+ sp of
 //
 (* ****** ****** *)
 //
-(* printed 1-based -> LSP 0-based (columns are already UTF-16 units) *)
-fun
-mk_pos(l0: sint, c0: sint): jval =
-JVobj
-( JKVcons("line", JVint(l0 - 1)
-, JKVcons("character", JVint(c0 - 1), JKVnil())))
+(* foreign-file errors, grouped by path (first-seen order preserved) *)
+datatype
+fors =
+| FRSnil of ()
+| FRScons of (string(*path*), sint(*count*), sint(*first line*), string(*first class*), fors)
 //
 fun
-mk_diag
+frs_add
+(fs: fors, path: string, l0: sint, cls: string): fors =
+case+ fs of
+| FRSnil() => FRScons(path, 1, l0, cls, FRSnil())
+| FRScons(p0, n0, a0, c0, r0) =>
+  (
+  if streq(p0, path)
+  then FRScons(p0, n0+1, a0, c0, r0)
+  else FRScons(p0, n0, a0, c0, frs_add(r0, path, l0, cls)))
+//
+(* ****** ****** *)
+//
+(* 0-based positions, straight through *)
+fun
+mk_pos0(l0: sint, c0: sint): jval =
+JVobj
+( JKVcons("line", JVint(l0)
+, JKVcons("character", JVint(c0), JKVnil())))
+//
+fun
+mk_diag0
 (l0: sint, c0: sint, l1: sint, c1: sint, msg: string): jval =
 JVobj
 ( JKVcons("range"
 , JVobj
-  ( JKVcons("start", mk_pos(l0, c0)
-  , JKVcons("end", mk_pos(l1, c1), JKVnil())))
+  ( JKVcons("start", mk_pos0(l0, c0)
+  , JKVcons("end", mk_pos0(l1, c1), JKVnil())))
 , JKVcons("severity", JVint(1)
 , JKVcons("source", JVstr("ats3")
 , JKVcons("message", JVstr(msg), JKVnil())))))
+//
+(* printed 1-based -> LSP 0-based (columns are already UTF-16 units) *)
+fun
+mk_diag
+(l0: sint, c0: sint, l1: sint, c1: sint, msg: string): jval =
+mk_diag0(l0 - 1, c0 - 1, l1 - 1, c1 - 1, msg)
 //
 fun
 jvl_rev(xs: jvlst, acc: jvlst): jvlst =
@@ -199,46 +228,153 @@ case+ xs of
 | JVLnil() => acc
 | JVLcons(x0, r0) => jvl_rev(r0, JVLcons(x0, acc))
 //
+fun
+jvl_append(xs: jvlst, ys: jvlst): jvlst =
+case+ xs of
+| JVLnil() => ys
+| JVLcons(x0, r0) => JVLcons(x0, jvl_append(r0, ys))
+//
+(* ****** ****** *)
+//
+fun
+basename_of(path: string): string =
+let
+val n0 = strn_length(path)
+fun
+rsl(k0: sint, best: sint): sint =
+if (k0 >= n0) then best else
+if (byte_at(path, k0) = 47) then rsl(k0+1, k0) else rsl(k0+1, best)
+val p0 = rsl(0, 0 - 1)
+in//let
+strn_slice(path, p0+1, n0)
+end//endof[basename_of]
+//
+(*
+the 0-based (line, ucol-start, ucol-end) of the first occurrence of
+ndl in doctext (UTF-16 columns); line = -1 when absent
+*)
+fun
+find_pos
+(doctext: string, ndl: string): @(sint, sint, sint) =
+let
+val p0 = strn_index_of(doctext, 0, ndl)
+in
+if (p0 < 0) then @(0 - 1, 0, 0) else
+let
+fun
+lc(k0: sint, ln: sint, ls: sint): @(sint, sint) =
+if (k0 >= p0) then @(ln, ls) else
+if (byte_at(doctext, k0) = 10)
+then lc(k0+1, ln+1, k0+1) else lc(k0+1, ln, ls)
+val r0 = lc(0, 0, 0)
+val c0 = u16_units(doctext, r0.1, p0)
+in
+@(r0.0, c0, c0 + u16_units(doctext, p0, p0 + strn_length(ndl)))
+end
+end//endof[find_pos]
+//
+(*
+one summary diagnostic per foreign file, at its basename mention —
+preferring the QUOTED occurrence (the staload string, `dep.sats"`)
+over e.g. a mention in a comment; the range covers the basename only.
+*)
+fun
+mk_foreign
+(doctext: string, path: string, n0: sint, l0: sint, cls: string): jval =
+let
+val bn = basename_of(path)
+val psq = find_pos(doctext, strn_append(bn, "\""))
+val ps =
+(
+if (psq.0 >= 0)
+then @(psq.0, psq.1, psq.2 - 1)
+else find_pos(doctext, bn)): @(sint, sint, sint)
+val msg =
+strn_append("errors in staloaded file: "
+, strn_append(path
+, strn_append(" ("
+, strn_append(itoa(n0)
+, strn_append(", first: "
+, strn_append(cls
+, strn_append(" at line "
+, strn_append(itoa(l0), ")"))))))))
+in
+if (ps.0 < 0)
+then mk_diag0(0, 0, 0, 1, msg)
+else mk_diag0(ps.0, ps.1, ps.0, ps.2, msg)
+end//endof[mk_foreign]
+//
+fun
+frs_jv
+(doctext: string, fs: fors): jvlst =
+case+ fs of
+| FRSnil() => JVLnil()
+| FRScons(p0, n0, a0, c0, r0) =>
+  JVLcons(mk_foreign(doctext, p0, n0, a0, c0), frs_jv(doctext, r0))
+//
 (* ****** ****** *)
 //
 #implfun
-diag_array
-(target, report) =
+diag_build
+(target, wsroot, doctext, report) =
 let
 val n0 = strn_length(report)
 fun
 lines
-(ls: sint, seen: spans, acc: jvlst): jvlst =
-if (ls >= n0) then acc else
+( ls: sint
+, seen: spans, fseen: spans
+, fs: fors, acc: jvlst): @(jvlst, fors) =
+if (ls >= n0) then @(acc, fs) else
 let
 val le0 = strn_index_of(report, ls, "\n")
 val le = (if (le0 < 0) then n0 else le0): sint
 val nxt = (if (le0 < 0) then n0 else le0 + 1): sint
 val preadq = strn_starts_at(report, ls, "PREAD00-ERROR:")
 val f3q = strn_starts_at(report, ls, "F3PERR0-ERROR:")
+val f2q = strn_starts_at(report, ls, "F2PERR0-ERROR:")
 in
-if (if preadq then true else f3q)
+if (if preadq then true else (if f3q then true else f2q))
 then
 let
 val line = strn_slice(report, ls, le)
 in
-case+ best_loc(line, target) of
-| DLnone() => lines(nxt, seen, acc)
+case+ scan_loc(line, target, true) of
 | DLsome(_, _, l0, c0, l1, c1) =>
   (
   if sp_has(seen, l0, c0, l1, c1)
-  then lines(nxt, seen, acc)
+  then lines(nxt, seen, fseen, fs, acc)
   else
   lines
   ( nxt
-  , SPcons(l0, c0, l1, c1, seen)
+  , SPcons(l0, c0, l1, c1, seen), fseen, fs
   , JVLcons(mk_diag(l0, c0, l1, c1, classify(line, preadq)), acc)))
+| DLnone() =>
+  (
+  case+ scan_loc(line, target, false) of
+  | DLnone() => lines(nxt, seen, fseen, fs, acc)
+  | DLsome(path, _, l0, c0, l1, c1) =>
+    (
+    if (strn_length(wsroot) <= 0)
+    then lines(nxt, seen, fseen, fs, acc) else
+    if strn_starts_at(path, 0, wsroot)
+    then
+    (
+    if sp_has(fseen, l0, c0, l1, c1)
+    then lines(nxt, seen, fseen, fs, acc)
+    else
+    lines
+    ( nxt
+    , seen, SPcons(l0, c0, l1, c1, fseen)
+    , frs_add(fs, path, l0, classify(line, preadq)), acc))
+    else lines(nxt, seen, fseen, fs, acc)))
 end
-else lines(nxt, seen, acc)
+else lines(nxt, seen, fseen, fs, acc)
 end
+val r0 = lines(0, SPnil(), SPnil(), FRSnil(), JVLnil())
 in//let
-JVarr(jvl_rev(lines(0, SPnil(), JVLnil()), JVLnil()))
-end//endof[diag_array]
+JVarr
+(jvl_append(jvl_rev(r0.0, JVLnil()), frs_jv(doctext, r0.1)))
+end//endof[diag_build]
 //
 (* ****** ****** *)
 (***********************************************************************)

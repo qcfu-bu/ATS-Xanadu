@@ -35,7 +35,11 @@ XATS2GO_LSP_poll_stdin(ms: sint): sint = $extnam()
 #extern
 fun
 XATS2GO_LSP_spawn_check
-(prog: string, arg1: string, xhome: string): sint = $extnam()
+( prog: string, arg1: string, arg2: string
+, xhome: string, input: string): sint = $extnam()
+#extern
+fun
+XATS2GO_LSP_exit(code: sint): void = $extnam()
 #extern
 fun
 XATS2GO_LSP_check_done(id: sint): sint = $extnam()
@@ -65,7 +69,11 @@ lsp_poll_stdin(ms) = XATS2GO_LSP_poll_stdin(ms)
 //
 #implfun
 lsp_spawn_check
-(prog, arg1, xhome) = XATS2GO_LSP_spawn_check(prog, arg1, xhome)
+(prog, arg1, arg2, xhome, input) =
+XATS2GO_LSP_spawn_check(prog, arg1, arg2, xhome, input)
+//
+#implfun
+lsp_exit(code) = XATS2GO_LSP_exit(code)
 //
 #implfun
 lsp_check_done(id) = XATS2GO_LSP_check_done(id)
