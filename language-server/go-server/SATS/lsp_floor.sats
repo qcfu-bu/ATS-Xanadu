@@ -48,14 +48,16 @@ fun
 lsp_poll_stdin(ms: sint): sint
 //
 (*
-lsp_spawn_check: start `prog arg1 [arg2]` (arg2 = "" for none) with
-XATSHOME=xhome in its environment; input is written to the child's
-stdin (then closed; "" closes immediately); stderr is captured.
-Returns a nonnegative check id, or -1 if the spawn failed.
+lsp_spawn_check: start `prog arg1 [arg2] [arg3]` ("" args are
+omitted) with XATSHOME=xhome in its environment; input is written to
+the child's stdin (then closed; "" closes immediately); stderr AND
+stdout are captured.  Returns a nonnegative check id, or -1 if the
+spawn failed.
 *)
 fun
 lsp_spawn_check
-( prog: string, arg1: string, arg2: string
+( prog: string
+, arg1: string, arg2: string, arg3: string
 , xhome: string, input: string): sint
 //
 (* 1 = finished, 0 = still running, -1 = unknown id *)
@@ -65,6 +67,10 @@ lsp_check_done(id: sint): sint
 (* the captured stderr; call only after lsp_check_done = 1 *)
 fun
 lsp_check_output(id: sint): string
+//
+(* the captured stdout (the --index records); after done = 1 *)
+fun
+lsp_check_stdout(id: sint): string
 //
 (* forget the check (kill it first if still running) *)
 fun

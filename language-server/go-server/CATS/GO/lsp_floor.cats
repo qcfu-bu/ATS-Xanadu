@@ -106,35 +106,40 @@ func XATS2GO_LSP_now_ms() int {
 	return int(time.Since(xats2goLspEpoch).Milliseconds())
 }
 //
-// ---- checks: spawn a checker process, reap it, read its stderr --------
+// ---- checks: spawn a checker process, reap it, read its output --------
 type xats2goLspCheck struct {
 	cmd  *exec.Cmd
-	out  *bytes.Buffer
+	out  *bytes.Buffer // stderr: the diagnostic report
+	sout *bytes.Buffer // stdout: the --index records
 	done chan struct{}
 }
 //
 var xats2goLspChecks = map[int]*xats2goLspCheck{}
 var xats2goLspCheckN int
 //
-// start `prog arg1 [arg2]` with XATSHOME=xhome; input is piped to the
-// child's stdin (then closed); stderr captured (exec's copiers finish
-// before Wait returns, so reading out after done is race-free); stdout
-// discarded.  Returns the check id, or -1 on spawn failure.
-func XATS2GO_LSP_spawn_check(prog string, arg1 string, arg2 string, xhome string, input string) int {
-	var cmd *exec.Cmd
+// start `prog arg1 [arg2] [arg3]` ("" args omitted) with XATSHOME=xhome;
+// input is piped to the child's stdin (then closed); stderr AND stdout
+// captured (exec's copiers finish before Wait returns, so reading after
+// done is race-free).  Returns the check id, or -1 on spawn failure.
+func XATS2GO_LSP_spawn_check(prog string, arg1 string, arg2 string, arg3 string, xhome string, input string) int {
+	args := []string{arg1}
 	if arg2 != "" {
-		cmd = exec.Command(prog, arg1, arg2)
-	} else {
-		cmd = exec.Command(prog, arg1)
+		args = append(args, arg2)
 	}
+	if arg3 != "" {
+		args = append(args, arg3)
+	}
+	cmd := exec.Command(prog, args...)
 	cmd.Env = append(os.Environ(), "XATSHOME="+xhome)
 	cmd.Stdin = strings.NewReader(input)
 	var out bytes.Buffer
+	var sout bytes.Buffer
 	cmd.Stderr = &out
+	cmd.Stdout = &sout
 	if err := cmd.Start(); err != nil {
 		return -1
 	}
-	c := &xats2goLspCheck{cmd: cmd, out: &out, done: make(chan struct{})}
+	c := &xats2goLspCheck{cmd: cmd, out: &out, sout: &sout, done: make(chan struct{})}
 	id := xats2goLspCheckN
 	xats2goLspCheckN++
 	xats2goLspChecks[id] = c
@@ -164,6 +169,14 @@ func XATS2GO_LSP_check_output(id int) string {
 		return ""
 	}
 	return c.out.String()
+}
+//
+func XATS2GO_LSP_check_stdout(id int) string {
+	c := xats2goLspChecks[id]
+	if c == nil {
+		return ""
+	}
+	return c.sout.String()
 }
 //
 func XATS2GO_LSP_check_drop(id int) any {

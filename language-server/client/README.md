@@ -10,9 +10,10 @@ by the **xats2go** Go backend into one self-contained binary
 the CHECK-ONLY compiler driver (`xats2go-tcheck`), so diagnostics need
 that second binary plus `XATSHOME` (the repo root, for the prelude).
 
-Current feature surface: **type-error / syntax diagnostics** on
-open/save (M2).  Hover and go-to-definition are next (M3, see
-`../go-server/PLAN.md`).
+Current feature surface: **live type-error / syntax diagnostics**
+(as-you-type, unsaved buffers included), **hover** (inferred type in
+ATS3 surface syntax), and **go-to-definition** (within-file and into
+the prelude).  See `../go-server/PLAN.md`.
 
 ## Run from source (F5, in-repo)
 

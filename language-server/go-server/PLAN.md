@@ -17,7 +17,7 @@ Claude; the architect reviews commits and decides open questions.
 | M1 — resident echo (framing + JSON + lifecycle) | **DONE** (2026-08-28) |
 | M2 — diagnostics via check-only driver | **DONE** (2026-08-28) |
 | M2.5 — architect decisions: live checks (--stdin), kill-superseded, exit codes, cross-file | **DONE** (2026-08-29) |
-| M3 — hover + go-to-definition | next: **index-dump mode** (architect chose it 2026-08-29) |
+| M3 — hover + go-to-definition (index-dump mode) | **DONE** (2026-08-29) |
 | M4 — wire the VSCode client | **code done** (2026-08-28); the human F5 demo remains |
 
 **M1 measured:** cold spawn → `initialize` response round-trip **3.3 ms**
@@ -25,6 +25,11 @@ Claude; the architect reviews commits and decides open questions.
 (surrogate pair), parse-error, and 7-byte-chunked-delivery cases, each
 output independently re-validated by `tests/check-stream.py` (Python
 recomputes Content-Length byte math and re-parses every JSON body).
+
+**M3 measured:** hover / definition answer in **~0.1 ms** from the
+per-uri index cache (refreshed by every check); suite 11/11 (t11
+exercises hover on a fun and a var, def within-file and cross-file
+into the prelude, and a null miss).
 
 **M2/M2.5 measured** on `language-server/fixtures/Foo.dats`:
 didOpen → publishDiagnostics **283 ms**; **didChange →
@@ -270,15 +275,45 @@ Per-module frontend pre-flight (fast, node-free):
   the bundle (`cfail` absent), so a grep-only check "passed" a
   crashing file — my bisect chased a comment for two rounds.
 
-## M3 (decided): index-dump mode
+## M3 (DONE): hover + go-to-definition, index-dump mode
 
-One check emits diagnostics PLUS a machine-format hover/def index
-(0-based positions, one record per line, tab-separated): hover types
-via `d3exp.styp()` + a new source-syntax s2typ pretty-printer
-(S2TYP-SURFACE-SYNTAX.md is the spec base), def sites via
-`entity.lctn()`.  The server caches the index per (uri, version) and
-answers hover/def from cache.  Driver flag: `--index` (already
-reserved/consumed by the argv loop).
+Every check runs `xats2go-tcheck <file> [--stdin] --index`: the driver
+emits, between `//==XLSPIDX-BEGIN==/END==` sentinels on stdout (a
+channel the checker otherwise never writes),
+
+    H \t l0 \t c0 \t l1 \t c1 \t <type>
+    D \t l0 \t c0 \t l1 \t c1 \t <defpath> \t dl0 \t dc0 \t dl1 \t dc1
+
+0-based positions, UTF-16-unit columns (this compiler's native model —
+LSP's default encoding, no conversion anywhere).  Implementation:
+`UTIL/xats2go_lspidx.{sats,dats}` (built alongside the driver by
+wire-tcheck.sh):
+- **the s2typ surface printer** (hover mode, per
+  S2TYP-SURFACE-SYNTAX.md): friendly prelude names, per-width int/flt
+  from the `T2Ptext` tag, `T2Pfun1` with npf proof-bar and arrow
+  flavor, tuple/record sigils by `trcdknd`, quantifiers, solved-xtv
+  expansion, depth-capped; prints straight to the FILR (no string
+  building — the runtime lacks a compiler-side strn_make_fwork leaf).
+- **the d3 walk** (all ~106 D3E/D3P/D3C constructors + the
+  gua/cls/gpt/farg/val-var-fun-dcl families): every typed node in the
+  target file emits H (T2Pnone0-typed nodes skipped); D3Evar/D3Ecst/
+  D3Econ (+ D3Pcon in patterns) also emit D via `entity.lctn()`.
+  Resolved template bodies (D3Etimp/timq payloads) are NOT descended.
+
+Server: `lsp_index` parses the records (floor gained
+`lsp_check_stdout`; spawn gained a third arg slot); the cache lives in
+the loop state per uri; hover/definition answer by INNERMOST
+containing span — **~0.1 ms per request** from cache.  Hover returns
+markdown (```ats fenced); definition returns a single Location
+(cross-file into the prelude works).  Index cost on the checker: none
+measurable (1.20 s on a compiler-sized module, same as before).
+
+### More traps for the notebook
+- xbasics' `trcdknd` constructors are BARE (no `of ()`) — and
+  `TRCDflt1`/`TRCDbox3` are COMMENTED OUT: a pattern naming one errcks
+  the whole consumer chain exactly like the ghost-typedef trap.
+- Deep JVobj nesting miscounted a paren AGAIN (the cz-era lesson
+  holds on this backend too: build big literals with flat vals).
 
 ## Remaining minor policies (documented, not blocking)
 Framing desync still logs + terminates; a headerless garbage stream

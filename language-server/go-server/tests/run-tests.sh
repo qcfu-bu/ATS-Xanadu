@@ -81,6 +81,7 @@ if [ -x "$TCHECK" ]; then
   run_ncase t07-diagnostics "$T/cases/t07-diagnostics.jsonl"
   run_ncase t08-save-close  "$T/cases/t08-save-close.jsonl"
   run_ncase t10-crossfile   "$T/cases/t10-crossfile.jsonl"
+  run_ncase t11-hover-def   "$T/cases/t11-hover-def.jsonl"
 else
   echo "!! t07/t08/t10 SKIPPED: $TCHECK not built (selfhost-build/wire-tcheck.sh)"
   fail=$((fail+1))

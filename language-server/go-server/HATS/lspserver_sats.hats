@@ -20,6 +20,7 @@ either way, but appends keep diffs and stamps tame.
 #staload "./../SATS/lsp_frame.sats"
 #staload "./../SATS/lsp_uri.sats"
 #staload "./../SATS/lsp_diag.sats"
+#staload "./../SATS/lsp_index.sats"
 //
 (* ****** ****** *)
 (***********************************************************************)

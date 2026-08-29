@@ -1,0 +1,11 @@
+{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"capabilities": {}, "rootUri": "file://@X@/language-server/go-server/tests/fixtures", "initializationOptions": {"checker": "@X@/srcgen2/xats2go/selfhost-build/src/xats2go-tcheck", "xatshome": "@X@"}}}
+{"jsonrpc": "2.0", "method": "initialized", "params": {}}
+{"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": "file://@X@/language-server/go-server/tests/fixtures/ok1.dats", "languageId": "ats3", "version": 1, "text": "(* a clean fixture: zero diagnostics expected *)\n#staload _ =\n\"prelude/DATS/gdbg000.dats\"\n#include\n\"prelude/HATS/prelude_dats.hats\"\n#include\n\"prelude/HATS/prelude_GO_dats.hats\"\n//\nfun\ndouble(x0: sint): sint = x0 + x0\n//\nval () = sint_print(double(21))\nval () = strn_print(\"\\n\")\nval () = the_print_store_log((*void*))\n//\n"}}}
+#sleep 5000
+{"jsonrpc": "2.0", "id": 2, "method": "textDocument/hover", "params": {"textDocument": {"uri": "file://@X@/language-server/go-server/tests/fixtures/ok1.dats"}, "position": {"line": 9, "character": 2}}}
+{"jsonrpc": "2.0", "id": 3, "method": "textDocument/hover", "params": {"textDocument": {"uri": "file://@X@/language-server/go-server/tests/fixtures/ok1.dats"}, "position": {"line": 9, "character": 26}}}
+{"jsonrpc": "2.0", "id": 4, "method": "textDocument/definition", "params": {"textDocument": {"uri": "file://@X@/language-server/go-server/tests/fixtures/ok1.dats"}, "position": {"line": 11, "character": 22}}}
+{"jsonrpc": "2.0", "id": 5, "method": "textDocument/definition", "params": {"textDocument": {"uri": "file://@X@/language-server/go-server/tests/fixtures/ok1.dats"}, "position": {"line": 9, "character": 28}}}
+{"jsonrpc": "2.0", "id": 6, "method": "textDocument/hover", "params": {"textDocument": {"uri": "file://@X@/language-server/go-server/tests/fixtures/ok1.dats"}, "position": {"line": 0, "character": 0}}}
+{"jsonrpc": "2.0", "id": 9, "method": "shutdown", "params": {}}
+{"jsonrpc": "2.0", "method": "exit"}

@@ -45,11 +45,17 @@ chkst =
 | CKnone of ()
 | CKrun of (sint(*check id*), string(*uri*), sint(*version*))
 //
+(* the per-uri hover/def index cache (latest completed check wins) *)
+datatype
+idxlst =
+| IXnil of ()
+| IXcons of (string(*uri*), sint(*version*), hovlst, deflst, idxlst)
+//
 (* (checker path, xatshome, workspace root, docs, pending checks,
-   in-flight check, shutdown-seen) *)
+   in-flight check, shutdown-seen, index cache) *)
 datatype
 srvst =
-| SRV of (string, string, string, doclst, pendlst, chkst, sint)
+| SRV of (string, string, string, doclst, pendlst, chkst, sint, idxlst)
 //
 (* ****** ****** *)
 (* document store helpers *)
@@ -150,6 +156,48 @@ pend_emptyq(pl: pendlst): bool =
 case+ pl of PNDnil() => true | PNDcons(_, _, _) => false
 //
 (* ****** ****** *)
+(* index-cache helpers *)
+(* ****** ****** *)
+//
+fun
+ix_put
+(ix: idxlst, uri: string, ver: sint, hl: hovlst, df: deflst): idxlst =
+case+ ix of
+| IXnil() => IXcons(uri, ver, hl, df, IXnil())
+| IXcons(u0, v0, h0, d0, r0) =>
+  (
+  if streq(u0, uri)
+  then IXcons(uri, ver, hl, df, r0)
+  else IXcons(u0, v0, h0, d0, ix_put(r0, uri, ver, hl, df)))
+//
+fun
+ix_del
+(ix: idxlst, uri: string): idxlst =
+case+ ix of
+| IXnil() => IXnil()
+| IXcons(u0, v0, h0, d0, r0) =>
+  (
+  if streq(u0, uri)
+  then r0
+  else IXcons(u0, v0, h0, d0, ix_del(r0, uri)))
+//
+fun
+ix_hov
+(ix: idxlst, uri: string): hovlst =
+case+ ix of
+| IXnil() => HVnil()
+| IXcons(u0, _, h0, _, r0) =>
+  (if streq(u0, uri) then h0 else ix_hov(r0, uri))
+//
+fun
+ix_dfs
+(ix: idxlst, uri: string): deflst =
+case+ ix of
+| IXnil() => DFnil()
+| IXcons(u0, _, _, d0, r0) =>
+  (if streq(u0, uri) then d0 else ix_dfs(r0, uri))
+//
+(* ****** ****** *)
 (* outgoing messages *)
 (* ****** ****** *)
 //
@@ -217,11 +265,14 @@ JVobj
 , JKVcons("change", JVint(1)
 , JKVcons("save", JVtrue(), JKVnil()))))
 val caps =
-JVobj(JKVcons("textDocumentSync", sync, JKVnil()))
+JVobj
+( JKVcons("textDocumentSync", sync
+, JKVcons("hoverProvider", JVtrue()
+, JKVcons("definitionProvider", JVtrue(), JKVnil()))))
 val info =
 JVobj
 ( JKVcons("name", JVstr("ats3-lsp")
-, JKVcons("version", JVstr("0.3.0"), JKVnil())))
+, JKVcons("version", JVstr("0.4.0"), JKVnil())))
 in
 JVobj
 ( JKVcons("capabilities", caps
@@ -249,12 +300,12 @@ case+ jobj_get(prms, "workspaceFolders") of
 val () = respond(idv, init_result())
 in
 case+ st of
-| SRV(c0, x0, ws, dl, pl, ck, sd) =>
+| SRV(c0, x0, ws, dl, pl, ck, sd, ix) =>
   SRV
   ( (if (strn_length(chk) > 0) then chk else c0): string
   , (if (strn_length(xh) > 0) then xh else x0): string
   , (if (strn_length(wsr) > 0) then wsr else ws): string
-  , dl, pl, ck, sd)
+  , dl, pl, ck, sd, ix)
 end//endof[h_initialize]
 //
 fun
@@ -269,12 +320,12 @@ val txt = jget_str(jobj_get(td, "text"), "")
 in
 if (strn_length(uri) <= 0) then st else
 case+ st of
-| SRV(c0, x0, ws, dl, pl, ck, sd) =>
+| SRV(c0, x0, ws, dl, pl, ck, sd, ix) =>
   SRV
   ( c0, x0, ws
   , docs_put(dl, uri, ver, txt)
   , pend_put(pl, uri, lsp_now_ms())
-  , ck, sd)
+  , ck, sd, ix)
 end//endof[h_didopen]
 //
 fun
@@ -299,7 +350,7 @@ case+ ccs of
 in
 if (strn_length(uri) <= 0) then st else
 case+ st of
-| SRV(c0, x0, ws, dl, pl, ck, sd) =>
+| SRV(c0, x0, ws, dl, pl, ck, sd, ix) =>
   let
   val txt =
   (
@@ -311,7 +362,7 @@ case+ st of
   , docs_put(dl, uri, ver, txt)
   (* live checking: re-check the buffer after a quiet 250 ms *)
   , pend_put(pl, uri, lsp_now_ms() + 250)
-  , ck, sd)
+  , ck, sd, ix)
   end
 end//endof[h_didchange]
 //
@@ -325,8 +376,8 @@ val uri = jget_str(jobj_get(td, "uri"), "")
 in
 if (strn_length(uri) <= 0) then st else
 case+ st of
-| SRV(c0, x0, ws, dl, pl, ck, sd) =>
-  SRV(c0, x0, ws, dl, pend_put(pl, uri, lsp_now_ms()), ck, sd)
+| SRV(c0, x0, ws, dl, pl, ck, sd, ix) =>
+  SRV(c0, x0, ws, dl, pend_put(pl, uri, lsp_now_ms()), ck, sd, ix)
 end//endof[h_didsave]
 //
 fun
@@ -342,19 +393,71 @@ then publish(uri, 0 - 1, JVarr(JVLnil()))
 in
 if (strn_length(uri) <= 0) then st else
 case+ st of
-| SRV(c0, x0, ws, dl, pl, ck, sd) =>
-  SRV(c0, x0, ws, docs_del(dl, uri), pend_del(pl, uri), ck, sd)
+| SRV(c0, x0, ws, dl, pl, ck, sd, ix) =>
+  SRV(c0, x0, ws, docs_del(dl, uri), pend_del(pl, uri), ck, sd, ix_del(ix, uri))
 end//endof[h_didclose]
+//
+(* the (uri, line, character) of a positional request *)
+fun
+req_pos(jv0: jval): @(string, sint, sint) =
+let
+val prms = jobj_get(jv0, "params")
+val uri =
+jget_str(jobj_get(jobj_get(prms, "textDocument"), "uri"), "")
+val pos = jobj_get(prms, "position")
+in
+@( uri
+ , jget_int(jobj_get(pos, "line"), 0 - 1)
+ , jget_int(jobj_get(pos, "character"), 0 - 1))
+end//endof[req_pos]
+//
+fun
+h_hover
+(jv0: jval, idv: jval, st: srvst): void =
+let
+val rp = req_pos(jv0)
+in
+case+ st of
+| SRV(_, _, _, _, _, _, _, ix) =>
+  let
+  val res = idx_hover(ix_hov(ix, rp.0), rp.1, rp.2)
+  in
+  if jis_err(res)
+  then respond(idv, JVnull()) else respond(idv, res)
+  end
+end//endof[h_hover]
+//
+fun
+h_definition
+(jv0: jval, idv: jval, st: srvst): void =
+let
+val rp = req_pos(jv0)
+in
+case+ st of
+| SRV(_, _, _, _, _, _, _, ix) =>
+  let
+  val res = idx_def(ix_dfs(ix, rp.0), rp.1, rp.2)
+  in
+  if (strn_length(res.0) <= 0)
+  then respond(idv, JVnull())
+  else
+  respond
+  ( idv
+  , JVobj
+    ( JKVcons("uri", JVstr(path_to_uri(res.0))
+    , JKVcons("range", res.1, JKVnil()))))
+  end
+end//endof[h_definition]
 //
 fun
 st_shutdown(st: srvst): srvst =
 case+ st of
-| SRV(c0, x0, ws, dl, pl, ck, _) => SRV(c0, x0, ws, dl, pl, ck, 1)
+| SRV(c0, x0, ws, dl, pl, ck, _, ix) => SRV(c0, x0, ws, dl, pl, ck, 1, ix)
 //
 fun
 exit_code(st: srvst): sint =
 case+ st of
-| SRV(_, _, _, _, _, _, sd) => (if (sd > 0) then 0 else 1)
+| SRV(_, _, _, _, _, _, sd, _) => (if (sd > 0) then 0 else 1)
 //
 (* ****** ****** *)
 //
@@ -383,6 +486,10 @@ if streq(mth, "textDocument/didSave")
 then @(h_didsave(jv0, st), 0) else
 if streq(mth, "textDocument/didClose")
 then @(h_didclose(jv0, st), 0) else
+if streq(mth, "textDocument/hover")
+then (h_hover(jv0, idv, st); @(st, 0)) else
+if streq(mth, "textDocument/definition")
+then (h_definition(jv0, idv, st); @(st, 0)) else
 if streq(mth, "shutdown")
 then (respond(idv, JVnull()); @(st_shutdown(st), 0)) else
 if streq(mth, "exit") then @(st, 1) else
@@ -402,7 +509,7 @@ end//endof[on_msg]
 fun
 chk_step(st: srvst): srvst =
 case+ st of
-| SRV(c0, x0, ws, dl, pl, ck, sd) =>
+| SRV(c0, x0, ws, dl, pl, ck, sd, ix) =>
   (
   case+ ck of
   | CKnone() => st
@@ -412,12 +519,15 @@ case+ st of
     then
     let
     val rep = lsp_check_output(id)
+    val idxtxt = lsp_check_stdout(id)
     val () = lsp_check_drop(id)
     val path = uri_to_path(uri)
     val () =
     publish(uri, ver, diag_build(path, ws, docs_text(dl, uri), rep))
+    val hvdf = idx_parse(idxtxt)
+    val ix1 = ix_put(ix, uri, ver, hvdf.0, hvdf.1)
     in
-    SRV(c0, x0, ws, dl, pl, CKnone(), sd)
+    SRV(c0, x0, ws, dl, pl, CKnone(), sd, ix1)
     end
     else st))
 //
@@ -425,33 +535,34 @@ case+ st of
 fun
 start_check(st: srvst, uri: string): srvst =
 case+ st of
-| SRV(c0, x0, ws, dl, pl, _, sd) =>
+| SRV(c0, x0, ws, dl, pl, _, sd, ix) =>
   (
   if (strn_length(c0) <= 0)
   then
   (
   lsp_write_log("ats3-lsp: no checker configured; skipping check\n");
-  SRV(c0, x0, ws, dl, pl, CKnone(), sd))
+  SRV(c0, x0, ws, dl, pl, CKnone(), sd, ix))
   else
   let
   val path = uri_to_path(uri)
   in
   if (strn_length(path) <= 0)
-  then SRV(c0, x0, ws, dl, pl, CKnone(), sd)
+  then SRV(c0, x0, ws, dl, pl, CKnone(), sd, ix)
   else
   let
-  (* a stored document is checked LIVE: its buffer rides --stdin *)
+  (* a stored document is checked LIVE: its buffer rides --stdin;
+     every check also produces the hover/def index (--index) *)
   val hasdoc = docs_has(dl, uri)
-  val a2 = (if hasdoc then "--stdin" else ""): string
+  val a3 = (if hasdoc then "--stdin" else ""): string
   val inp = (if hasdoc then docs_text(dl, uri) else ""): string
-  val id = lsp_spawn_check(c0, path, a2, x0, inp)
+  val id = lsp_spawn_check(c0, path, "--index", a3, x0, inp)
   in
   if (id < 0)
   then
   (
   lsp_write_log("ats3-lsp: checker spawn failed\n");
-  SRV(c0, x0, ws, dl, pl, CKnone(), sd))
-  else SRV(c0, x0, ws, dl, pl, CKrun(id, uri, docs_version(dl, uri)), sd)
+  SRV(c0, x0, ws, dl, pl, CKnone(), sd, ix))
+  else SRV(c0, x0, ws, dl, pl, CKrun(id, uri, docs_version(dl, uri)), sd, ix)
   end
   end)
 //
@@ -459,7 +570,7 @@ case+ st of
 fun
 pend_step(st: srvst): srvst =
 case+ st of
-| SRV(c0, x0, ws, dl, pl, ck, sd) =>
+| SRV(c0, x0, ws, dl, pl, ck, sd, ix) =>
   let
   val r0 = pend_take_due(pl, lsp_now_ms())
   val uri = r0.0
@@ -467,7 +578,7 @@ case+ st of
   if (strn_length(uri) <= 0) then st else
   case+ ck of
   | CKnone() =>
-    start_check(SRV(c0, x0, ws, dl, r0.1, CKnone(), sd), uri)
+    start_check(SRV(c0, x0, ws, dl, r0.1, CKnone(), sd, ix), uri)
   | CKrun(id, curi, _) =>
     (
     if streq(curi, uri)
@@ -475,7 +586,7 @@ case+ st of
     let
     val () = lsp_check_drop(id) (* superseded: newest wins *)
     in
-    start_check(SRV(c0, x0, ws, dl, r0.1, CKnone(), sd), uri)
+    start_check(SRV(c0, x0, ws, dl, r0.1, CKnone(), sd, ix), uri)
     end
     else st (* another uri is being checked: keep waiting *))
   end//endof[pend_step]
@@ -484,7 +595,7 @@ case+ st of
 fun
 wait_ms(st: srvst): sint =
 case+ st of
-| SRV(_, _, _, _, pl, ck, _) =>
+| SRV(_, _, _, _, pl, ck, _, _) =>
   (
   case+ ck of
   | CKrun(_, _, _) => 25
@@ -530,7 +641,7 @@ server_main((*void*)): void =
 let
 val () = lsp_write_log("ats3-lsp: server started\n")
 in
-serve("", SRV("", "", "", DOCnil(), PNDnil(), CKnone(), 0))
+serve("", SRV("", "", "", DOCnil(), PNDnil(), CKnone(), 0, IXnil()))
 end//endof[server_main]
 //
 (* ****** ****** *)

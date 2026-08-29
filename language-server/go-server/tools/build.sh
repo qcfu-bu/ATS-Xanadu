@@ -26,7 +26,7 @@ mkdir -p "$EMIT" "$SRC"
 
 # assembly order = staload order (lspserver_sats.hats); the driver is LAST
 # (its renamed main runs after every module's init).
-MODULES="lsp_floor lsp_util lsp_json lsp_frame lsp_uri lsp_diag lsp_main"
+MODULES="lsp_floor lsp_util lsp_json lsp_frame lsp_uri lsp_diag lsp_index lsp_main"
 
 BUNDLE=$X/srcgen2/xats2go/srcgen2/BUILD/xats2go-bundle.patched.js
 SELFHOST=$X/srcgen2/xats2go/selfhost-build/src/xats2go-selfhost
