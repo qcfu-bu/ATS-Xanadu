@@ -66,6 +66,9 @@ stamps move).
 #staload "./../../../SATS/filpath.sats"
 #staload "./../../../SATS/f2perr0.sats"
 //
+(* the --index hover/def emitter (built alongside by wire-tcheck.sh) *)
+#staload "./xats2go_lspidx.sats"
+//
 (* ****** ****** *)
 (* ****** ****** *)
 //
@@ -358,7 +361,7 @@ report_dep_opt(out0, d3parsed_get_parsed(dpar))
 //
 fun
 mymain_work
-(fpth: string, stdinq: sint): void =
+(fpth: string, stdinq: sint, idxq: sint): void =
 let
 //
 val dpar =
@@ -385,6 +388,13 @@ f3perr0_d3parsed(out0,dpar);
 report_deps(out0, dpar);
 XATS2GO_report_end()
 end//let
+;
+(*
+the hover/def index (--index): machine records on STDOUT — the
+channel is otherwise unused by this driver.
+*)
+if (idxq > 0)
+then lspidx_emit(g_stdout<>((*0*)), dpar) else ()
 //
 end where
 {
@@ -421,7 +431,7 @@ dpar = d3parsed_of_trans03(d0par)
 //
 val ( ) = XATS2GO_report_end()
 //
-}(*where*)//end-of-[mymain_work(fpth,stdinq)]
+}(*where*)//end-of-[mymain_work(fpth,stdinq,idxq)]
 //
 (* ****** ****** *)
 (* ****** ****** *)
@@ -524,7 +534,10 @@ xatsopt_flag$pvsadd0("--_XATS2GO_")
 in//let
 (
 argv$loop(argv);
-mymain_work(argv[2], argv$hasflag(argv, "--stdin")))
+mymain_work
+( argv[2]
+, argv$hasflag(argv, "--stdin")
+, argv$hasflag(argv, "--index")))
 endlet // let // if(length(argv) >= 3)
 //
 val (  ) =
