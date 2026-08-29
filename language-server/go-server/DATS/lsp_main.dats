@@ -266,6 +266,23 @@ send_msg
   , JKVcons("message", JVstr(msg), JKVnil())))
 , JKVnil())))))
 //
+(*
+workspace/semanticTokens/refresh: tell the client to re-pull tokens
+now that a fresh index landed (without it, VSCode's post-edit pull
+races the check, keeps the stale pre-edit tokens forever, and the
+highlighting appears disabled).  A server->client REQUEST: the id is
+derived from the (monotonic) check id so it is unique; the client's
+response is ignored by on_msg.
+*)
+fun
+send_tokrefresh(chkid: sint): void =
+send_msg
+(JVobj
+( JKVcons("jsonrpc", JVstr("2.0")
+, JKVcons("id", JVint(1000000 + chkid)
+, JKVcons("method"
+  , JVstr("workspace/semanticTokens/refresh"), JKVnil())))))
+//
 (* publishDiagnostics; ver < 0 omits the version field *)
 fun
 publish
@@ -587,6 +604,9 @@ then (h_completion(jv0, idv, st); @(st, 0)) else
 if streq(mth, "shutdown")
 then (respond(idv, JVnull()); @(st_shutdown(st), 0)) else
 if streq(mth, "exit") then @(st, 1) else
+(* a message with no method = the client's RESPONSE to one of our
+   requests (e.g. the token refresh): ignore *)
+if streq(mth, "") then @(st, 0) else
 if jis_err(idv) then @(st, 0) (* unknown notification: ignore *)
 else
 (
@@ -622,6 +642,7 @@ case+ st of
     val ix1 =
     ix_put
     (ix, uri, ver, hvdf.0, hvdf.1, hvdf.2, hvdf.3, hvdf.4, hvdf.5)
+    val () = send_tokrefresh(id)
     in
     SRV(c0, x0, ws, dl, pl, CKnone(), sd, ix1)
     end
