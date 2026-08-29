@@ -43,8 +43,8 @@ val b0 = strn_index_of(s0, 0, "//==XLSPIDX-BEGIN==\n")
 val e0 = strn_index_of(s0, 0, "//==XLSPIDX-END==")
 fun
 lines
-(ls: sint, hl: hovlst, dl: deflst): @(hovlst, deflst) =
-if (ls >= e0) then @(hl, dl) else
+(ls: sint, hl: hovlst, dl: deflst, tl: toklst): @(hovlst, deflst, toklst) =
+if (ls >= e0) then @(hl, dl, tl) else
 let
 val le0 = strn_index_of(s0, ls, "\n")
 val le = (if (le0 < 0) then e0 else le0): sint
@@ -59,7 +59,7 @@ val f3 = ifield(s0, f2.1)
 val f4 = ifield(s0, f3.1)
 val typ = strn_slice(s0, f4.1, le)
 in
-lines(nxt, HVcons(f1.0, f2.0, f3.0, f4.0, typ, hl), dl)
+lines(nxt, HVcons(f1.0, f2.0, f3.0, f4.0, typ, hl), dl, tl)
 end
 else
 if strn_starts_at(s0, ls, "D\t")
@@ -72,7 +72,7 @@ val f4 = ifield(s0, f3.1)
 val tb = tab_at(s0, f4.1, le)
 in
 if (tb < 0)
-then lines(nxt, hl, dl)
+then lines(nxt, hl, dl, tl)
 else
 let
 val path = strn_slice(s0, f4.1, tb)
@@ -85,15 +85,32 @@ lines
 ( nxt, hl
 , DFcons
   ( f1.0, f2.0, f3.0, f4.0
-  , path, g1.0, g2.0, g3.0, g4.0, dl))
+  , path, g1.0, g2.0, g3.0, g4.0, dl), tl)
 end
 end
-else lines(nxt, hl, dl)
+else
+if strn_starts_at(s0, ls, "T\t")
+then
+let
+val f1 = ifield(s0, ls+2)
+val f2 = ifield(s0, f1.1)
+val f3 = ifield(s0, f2.1)
+val f4 = ifield(s0, f3.1)
+val k0 = atoi_at(s0, f4.1)
+in
+(* single-line tokens only; length in UTF-16 units *)
+if (f3.0 = f1.0)
+then
+lines
+(nxt, hl, dl, TKcons(f1.0, f2.0, f4.0 - f2.0, k0.0, tl))
+else lines(nxt, hl, dl, tl)
+end
+else lines(nxt, hl, dl, tl)
 end
 in//let
-if (b0 < 0) then @(HVnil(), DFnil()) else
-if (e0 < 0) then @(HVnil(), DFnil()) else
-lines(b0 + 20, HVnil(), DFnil())
+if (b0 < 0) then @(HVnil(), DFnil(), TKnil()) else
+if (e0 < 0) then @(HVnil(), DFnil(), TKnil()) else
+lines(b0 + 20, HVnil(), DFnil(), TKnil())
 end//endof[idx_parse]
 //
 (* ****** ****** *)
@@ -216,6 +233,94 @@ case+ xs of
 in//let
 loop(dl, 0 - 1, "", 0, 0, 0, 0)
 end//endof[idx_def]
+//
+(* ****** ****** *)
+(* semantic tokens: O(n log n) merge sort + LSP delta encoding *)
+(* ****** ****** *)
+//
+fun
+tk_leq
+(al: sint, ac: sint, bl: sint, bc: sint): bool =
+if (al < bl) then true else
+if (al > bl) then false else (ac <= bc)
+//
+fun
+tk_split
+(xs: toklst): @(toklst, toklst) =
+case+ xs of
+| TKnil() => @(TKnil(), TKnil())
+| TKcons(a0, b0, c0, d0, r0) =>
+  let
+  val s0 = tk_split(r0)
+  in
+  @(TKcons(a0, b0, c0, d0, s0.1), s0.0)
+  end
+//
+fun
+tk_merge
+(xs: toklst, ys: toklst): toklst =
+case+ xs of
+| TKnil() => ys
+| TKcons(al, ac, an, ak, ar) =>
+  (
+  case+ ys of
+  | TKnil() => xs
+  | TKcons(bl, bc, bn, bk, br) =>
+    (
+    if tk_leq(al, ac, bl, bc)
+    then TKcons(al, ac, an, ak, tk_merge(ar, ys))
+    else TKcons(bl, bc, bn, bk, tk_merge(xs, br))))
+//
+fun
+tk_sort(xs: toklst): toklst =
+case+ xs of
+| TKnil() => xs
+| TKcons(_, _, _, _, TKnil()) => xs
+| _(*two or more*) =>
+  let
+  val s0 = tk_split(xs)
+  in
+  tk_merge(tk_sort(s0.0), tk_sort(s0.1))
+  end
+//
+fun
+jvl_rev2(xs: jvlst, acc: jvlst): jvlst =
+case+ xs of
+| JVLnil() => acc
+| JVLcons(x0, r0) => jvl_rev2(r0, JVLcons(x0, acc))
+//
+#implfun
+idx_toks_data
+(tl) =
+let
+fun
+enc
+( xs: toklst
+, pl: sint, pc: sint, fst: sint
+, acc: jvlst): jvlst =
+case+ xs of
+| TKnil() => acc
+| TKcons(l0, c0, n0, k0, r0) =>
+  (
+  (* the wire needs strictly increasing starts: drop duplicates *)
+  if (if fst = 0 then (if l0 = pl then (c0 = pc) else false) else false)
+  then enc(r0, pl, pc, fst, acc)
+  else
+  let
+  val dl = (if fst = 1 then l0 else l0 - pl): sint
+  val dc = (if (if fst = 0 then (l0 = pl) else false) then c0 - pc else c0): sint
+  in
+  enc
+  ( r0, l0, c0, 0
+  , JVLcons(JVint(0)
+  , JVLcons(JVint(k0)
+  , JVLcons(JVint(n0)
+  , JVLcons(JVint(dc)
+  , JVLcons(JVint(dl), acc))))))
+  end)
+in//let
+JVarr(jvl_rev2(enc(tk_sort(tl), 0, 0, 1, JVLnil()), JVLnil()))
+end//endof[idx_toks_data]
 //
 (* ****** ****** *)
 (***********************************************************************)

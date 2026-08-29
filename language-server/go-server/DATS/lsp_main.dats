@@ -45,11 +45,12 @@ chkst =
 | CKnone of ()
 | CKrun of (sint(*check id*), string(*uri*), sint(*version*))
 //
-(* the per-uri hover/def index cache (latest completed check wins) *)
+(* the per-uri hover/def/token index cache (latest check wins) *)
 datatype
 idxlst =
 | IXnil of ()
-| IXcons of (string(*uri*), sint(*version*), hovlst, deflst, idxlst)
+| IXcons of
+  (string(*uri*), sint(*version*), hovlst, deflst, toklst, idxlst)
 //
 (* (checker path, xatshome, workspace root, docs, pending checks,
    in-flight check, shutdown-seen, index cache) *)
@@ -161,32 +162,33 @@ case+ pl of PNDnil() => true | PNDcons(_, _, _) => false
 //
 fun
 ix_put
-(ix: idxlst, uri: string, ver: sint, hl: hovlst, df: deflst): idxlst =
+( ix: idxlst, uri: string, ver: sint
+, hl: hovlst, df: deflst, tk: toklst): idxlst =
 case+ ix of
-| IXnil() => IXcons(uri, ver, hl, df, IXnil())
-| IXcons(u0, v0, h0, d0, r0) =>
+| IXnil() => IXcons(uri, ver, hl, df, tk, IXnil())
+| IXcons(u0, v0, h0, d0, t0, r0) =>
   (
   if streq(u0, uri)
-  then IXcons(uri, ver, hl, df, r0)
-  else IXcons(u0, v0, h0, d0, ix_put(r0, uri, ver, hl, df)))
+  then IXcons(uri, ver, hl, df, tk, r0)
+  else IXcons(u0, v0, h0, d0, t0, ix_put(r0, uri, ver, hl, df, tk)))
 //
 fun
 ix_del
 (ix: idxlst, uri: string): idxlst =
 case+ ix of
 | IXnil() => IXnil()
-| IXcons(u0, v0, h0, d0, r0) =>
+| IXcons(u0, v0, h0, d0, t0, r0) =>
   (
   if streq(u0, uri)
   then r0
-  else IXcons(u0, v0, h0, d0, ix_del(r0, uri)))
+  else IXcons(u0, v0, h0, d0, t0, ix_del(r0, uri)))
 //
 fun
 ix_hov
 (ix: idxlst, uri: string): hovlst =
 case+ ix of
 | IXnil() => HVnil()
-| IXcons(u0, _, h0, _, r0) =>
+| IXcons(u0, _, h0, _, _, r0) =>
   (if streq(u0, uri) then h0 else ix_hov(r0, uri))
 //
 fun
@@ -194,8 +196,16 @@ ix_dfs
 (ix: idxlst, uri: string): deflst =
 case+ ix of
 | IXnil() => DFnil()
-| IXcons(u0, _, _, d0, r0) =>
+| IXcons(u0, _, _, d0, _, r0) =>
   (if streq(u0, uri) then d0 else ix_dfs(r0, uri))
+//
+fun
+ix_tks
+(ix: idxlst, uri: string): toklst =
+case+ ix of
+| IXnil() => TKnil()
+| IXcons(u0, _, _, _, t0, r0) =>
+  (if streq(u0, uri) then t0 else ix_tks(r0, uri))
 //
 (* ****** ****** *)
 (* outgoing messages *)
@@ -264,15 +274,29 @@ JVobj
 ( JKVcons("openClose", JVtrue()
 , JKVcons("change", JVint(1)
 , JKVcons("save", JVtrue(), JKVnil()))))
+(* the semantic-token legend: kinds indexed by the driver's T records *)
+val legend =
+JVobj
+( JKVcons("tokenTypes"
+, JVarr
+  ( JVLcons(JVstr("variable")
+  , JVLcons(JVstr("function")
+  , JVLcons(JVstr("enumMember"), JVLnil()))))
+, JKVcons("tokenModifiers", JVarr(JVLnil()), JKVnil())))
+val semtok =
+JVobj
+( JKVcons("legend", legend
+, JKVcons("full", JVtrue(), JKVnil())))
 val caps =
 JVobj
 ( JKVcons("textDocumentSync", sync
 , JKVcons("hoverProvider", JVtrue()
-, JKVcons("definitionProvider", JVtrue(), JKVnil()))))
+, JKVcons("definitionProvider", JVtrue()
+, JKVcons("semanticTokensProvider", semtok, JKVnil())))))
 val info =
 JVobj
 ( JKVcons("name", JVstr("ats3-lsp")
-, JKVcons("version", JVstr("0.4.0"), JKVnil())))
+, JKVcons("version", JVstr("0.5.0"), JKVnil())))
 in
 JVobj
 ( JKVcons("capabilities", caps
@@ -450,6 +474,23 @@ case+ st of
 end//endof[h_definition]
 //
 fun
+h_semtoks
+(jv0: jval, idv: jval, st: srvst): void =
+let
+val uri =
+jget_str
+( jobj_get
+  (jobj_get(jobj_get(jv0, "params"), "textDocument"), "uri"), "")
+in
+case+ st of
+| SRV(_, _, _, _, _, _, _, ix) =>
+  respond
+  ( idv
+  , JVobj
+    (JKVcons("data", idx_toks_data(ix_tks(ix, uri)), JKVnil())))
+end//endof[h_semtoks]
+//
+fun
 st_shutdown(st: srvst): srvst =
 case+ st of
 | SRV(c0, x0, ws, dl, pl, ck, _, ix) => SRV(c0, x0, ws, dl, pl, ck, 1, ix)
@@ -490,6 +531,8 @@ if streq(mth, "textDocument/hover")
 then (h_hover(jv0, idv, st); @(st, 0)) else
 if streq(mth, "textDocument/definition")
 then (h_definition(jv0, idv, st); @(st, 0)) else
+if streq(mth, "textDocument/semanticTokens/full")
+then (h_semtoks(jv0, idv, st); @(st, 0)) else
 if streq(mth, "shutdown")
 then (respond(idv, JVnull()); @(st_shutdown(st), 0)) else
 if streq(mth, "exit") then @(st, 1) else
@@ -525,7 +568,7 @@ case+ st of
     val () =
     publish(uri, ver, diag_build(path, ws, docs_text(dl, uri), rep))
     val hvdf = idx_parse(idxtxt)
-    val ix1 = ix_put(ix, uri, ver, hvdf.0, hvdf.1)
+    val ix1 = ix_put(ix, uri, ver, hvdf.0, hvdf.1, hvdf.2)
     in
     SRV(c0, x0, ws, dl, pl, CKnone(), sd, ix1)
     end
