@@ -17,6 +17,26 @@ RUNTIME=$X/srcgen2/xats2go/runtime/xatsgo
 mkdir -p "$OUT/src"
 EMIT="$OUT/emit"; mkdir -p "$EMIT"
 
+# HARD PREREQUISITE: the emitter bundle (a gitignored local artifact).  Fail
+# LOUDLY here -- without it every emission below is silently empty and the
+# breakage only surfaces at link time (`undefined: Zzmodinit_*`).
+if [ ! -s "$GOPATCHED" ]; then
+  echo "!! no emitter bundle at $GOPATCHED" >&2
+  echo "!! run:  ./build.sh full   (bootstraps it on a fresh checkout)" >&2
+  echo "!! or:   ./build.sh bundle" >&2
+  exit 1
+fi
+
+# emit_ok <module>: die loudly if a per-module emission came out empty
+# (missing bundle, node crash, SIGSEGV-on-small-stack all land here).
+emit_ok() {
+  if [ ! -s "$EMIT/$1.go" ]; then
+    echo "!! EMPTY emission for module $1 -- emitter output:" >&2
+    tail -8 "$EMIT/$1.err" >&2
+    exit 1
+  fi
+}
+
 # 1. emit each module to Go (between sentinels), strip header (first 6 lines) +
 #    the trailing trivial `func main(){...}`.  Each module's goxtnm temps are
 #    renamed go<N>tnm / gof<N>tnm (the same per-module rename the JS bootstrap
@@ -42,6 +62,7 @@ for f in "$X"/srcgen2/xats2go/srcgen2/DATS/*.dats; do
     node --stack-size=$NODESTK "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
     awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
   fi
+  emit_ok "$m"
   # strip header (up to first `func`/`var`); RENAME the module's main to a
   # per-module init so its top-level effects survive.
   printf '//==ZZMOD:%s==\n' "$m" >> "$OUT/src/emitter_all.go"
@@ -75,6 +96,7 @@ for m in $FRONTEND; do
     node --stack-size=$NODESTK "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
     awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
   fi
+  emit_ok "$m"
   printf '//==ZZMOD:%s==\n' "$m" >> "$OUT/src/emitter_all.go"
   awk 'BEGIN{started=0}
        /^type Zzs_[a-z]* struct \{$/{lay=1}
@@ -111,6 +133,7 @@ for m in $CCMODS; do
     node --stack-size=$NODESTK "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
     awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
   fi
+  emit_ok "$m"
   printf '//==ZZMOD:%s==\n' "$m" >> "$OUT/src/emitter_all.go"
   awk 'BEGIN{started=0}
        /^type Zzs_[a-z]* struct \{$/{lay=1}

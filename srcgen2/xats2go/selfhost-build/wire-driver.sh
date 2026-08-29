@@ -21,6 +21,11 @@ if [ ! -s "$EMIT/$m.go" ] || [ "$f" -nt "$EMIT/$m.go" ] || [ "$GOPATCHED" -nt "$
   node --stack-size=$NODESTK "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
   awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
 fi
+if [ ! -s "$EMIT/$m.go" ]; then
+  echo "!! EMPTY driver emission ($m) -- emitter output:" >&2
+  tail -8 "$EMIT/$m.err" >&2
+  exit 1
+fi
 
 # driver file: keep EVERYTHING including func main; rename temps godrvtnm.
 {

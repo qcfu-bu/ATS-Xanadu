@@ -214,6 +214,16 @@ bundle)
   echo ">> validate with: build.sh bridges <module>; then build.sh full"
   ;;
 full)
+  # FRESH-CHECKOUT BOOTSTRAP: the emitter bundle is a local build artifact
+  # (gitignored); a virgin clone must build it before anything can emit.
+  # Without this, every per-module emission came out silently EMPTY and the
+  # failure only surfaced at link time as `undefined: Zzmodinit_*`.
+  if [ ! -s "$GOPATCHED" ]; then
+    echo ">> no emitter bundle — bootstrapping (fresh checkout; this builds"
+    echo ">> the frontend lib + emitter bundle from xassets, ~10-15 min)"
+    ( cd "$X/srcgen2" && make -f Makefile_xjsemit lib2xatsopt ) || die "lib2xatsopt bootstrap failed"
+    ( cd "$X/srcgen2/xats2go" && make bundle ) || die "bundle bootstrap failed"
+  fi
   bash "$OUT/assemble.sh" || die "assemble failed"
   bash "$OUT/wire-driver.sh" || die "wire-driver failed"
   do_build
