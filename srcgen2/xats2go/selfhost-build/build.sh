@@ -230,6 +230,10 @@ full)
   do_probe "${2:-}"
   ;;
 gate)
+  # JS-ORACLE PREREQUISITE: see the identical guard in `quick`.
+  for f in "$X/frontend/BUILD/lib2xats2cc.js" "$X/frontend/BUILD/lib2xats2js.js"; do
+    [ -s "$f" ] || die "JS-oracle prebuilt missing: $f (see ./build.sh quick's guard for options)"
+  done
   # PRE-COMMIT gate: 12 go-arm rungs through run-goarm.sh (bundle-side golden
   # check) + the SELFHOST BINARY re-emitting each rung byte-equal to the
   # bundle's emission + make -j8 psuite.  Traps encoded here: capture FULL
@@ -498,6 +502,18 @@ selfcycle)
   echo ">> SELFCYCLE: $(( $(date +%s) - t0 ))s total"
   ;;
 quick)
+  # JS-ORACLE PREREQUISITE (fresh checkouts): psuite diffs against the JS
+  # backend, whose bundle links two frozen frontend prebuilts that are NOT
+  # in git.  Fail with instructions instead of a bare make error.
+  for f in "$X/frontend/BUILD/lib2xats2cc.js" "$X/frontend/BUILD/lib2xats2js.js"; do
+    [ -s "$f" ] || die "JS-oracle prebuilt missing: $f
+   quick/gate (the differential psuite) need the frozen oracle libs,
+   which are dev-tree-only for now.  On a fresh checkout use:
+     ./build.sh full     (build the selfhost compiler)
+     ./build.sh probe    (run it on a compiler module)
+     ./build.sh sweep    (binary-vs-bundle byte-equality, oracle-free)
+   or copy frontend/BUILD/lib2xats2{cc,js}.js from a dev tree."
+  done
   # THE INNER LOOP for BACKEND (emitter) work — ~1 minute, no selfhost rebuild.
   #   bundle relink (~3s: only the edited emitter module re-transpiles)
   # + psuite (75 programs: emit -> go build -> run -> byte-compare vs the JS
