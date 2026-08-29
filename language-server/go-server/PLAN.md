@@ -40,11 +40,18 @@ entity's styp to T2Pfun1).  The server merge-sorts (O(n log n) — the
 index-perf lesson), drops same-start duplicates, delta-encodes, and
 declares the legend in semanticTokensProvider.  Tokens refresh per
 check; VSCode blends the TextMate grammar between refreshes.
-COMPLETION remains open — its JS-era plan needs re-grounding: the
-prelude-name enumeration it relied on (topmap_strmize over
-the_dexpenv) is the {itm:tbox} generic that errck-erases on this
-backend; candidates need an AST-walk route or a concrete strmize in
-the shared frontend (stamps move -> architect call).
+COMPLETION remains open but is UNBLOCKED (2026-08-29 probe): the
+prelude-name enumeration (topmap_strmize over the_dexpenv) works from
+a driver — the earlier "errck-erases" claim was two conflated
+artifacts: (a) a missing-staload errck poisoning the enclosing decl
+(generic errck-erasure: emitted as UNHANDLED nil, build succeeds
+silently), and (b) RELATIVE-path emitter invocations degrading
+d2cst_package_sourceq's path-substring test to the runtime-bridge
+route.  With absolute input paths (what wire-tcheck/assemble use) the
+call emits the stamped Z_topmap_strmize and links.  TRAP FOR THE
+NOTEBOOK: the package classifier is path-TEXT-dependent — always
+invoke the emitter with ABSOLUTE source paths for compiler/server
+modules.
 
 **M2/M2.5 measured** on `language-server/fixtures/Foo.dats`:
 didOpen → publishDiagnostics **283 ms**; **didChange →

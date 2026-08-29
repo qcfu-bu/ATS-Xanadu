@@ -194,9 +194,14 @@ policy-free: a clean dependency prints nothing, so the toolchain
 files cost only the walk) — recursing for transitive deps (shr = 0
 fires exactly once per file per run, so the walk terminates).
 //
-(An earlier attempt enumerated the_d3parenv via topmap_strmize; the
-{itm:tbox} topmap generics errck under the srcgen2 checker and the
-emitter ERASES the poisoned decl to an UNHANDLED no-op — avoid them.)
+(An earlier attempt enumerated the_d3parenv via topmap_strmize and
+appeared to be erased — LATER DIAGNOSED (2026-08-29): the erasure came
+from an unrelated errck (a missing staload) poisoning the decl, and a
+separate probe artifact came from RELATIVE-path invocation degrading
+d2cst_package_sourceq's substring test.  topmap_strmize works fine
+from a driver when the input path is ABSOLUTE, as wire-tcheck passes
+it.  This AST walk is kept anyway: the staload nodes carry the
+dependency directly, which is the better source here.)
 //
 The dependency pipeline (s3taload_from_fpath) SKIPS the tread12
 proofread, so its binding/static errors are never wrapped in errck
