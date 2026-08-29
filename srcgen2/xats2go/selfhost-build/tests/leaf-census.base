@@ -57,6 +57,7 @@ Xats_XATS2GO_gochar_esc
 Xats_XATS2GO_report_begin
 Xats_XATS2GO_report_end
 Xats_XATS2GO_strn_fprint
+Xats_XATS2GO_tcheck_stdin_readall
 Xats_XATS2JS_a0ptr_make_1val
 Xats_XATS2JS_a0ref_dtget
 Xats_XATS2JS_a0ref_dtset

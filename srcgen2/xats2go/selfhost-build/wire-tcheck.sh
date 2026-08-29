@@ -33,10 +33,16 @@ fi
 
 # driver file: keep EVERYTHING including func main; rename temps godrvtnm
 # (the same processing as wire-driver.sh, plus the package-path imports the
-# root drivers carry — copied from the generated zz_init.go header).
+# root drivers carry — copied from the generated zz_init.go header).  Layout
+# structs (Zzs_*/ZzpZzs_*) are STRIPPED like assemble.sh strips them per
+# module: zzbase already declares the deduplicated union (a layout only the
+# driver touches would surface as a loud undefined-identifier error).
 {
   sed -n '1,/^func init/p' "$SRC/zz_init.go" | sed '$d' | sed '/^func /d'
   awk 'BEGIN{started=0}
+       /^type Zzs_[a-z]* struct \{$/{lay=1}
+       lay{if($0=="}"){lay=0}; next}
+       /^func ZzpZzs_/{next}
        /^func /{started=1}
        /^var [^_]/{started=1}
        started{print}' "$EMIT/$m.go" \

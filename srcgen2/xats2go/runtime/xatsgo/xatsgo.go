@@ -850,6 +850,23 @@ func Xats_XATS2GO_report_end() any {
 	return nil
 }
 
+// Xats_XATS2GO_tcheck_stdin_readall: the LSP check driver's --stdin payload
+// (the whole stdin in one string: the editor's unsaved buffer being checked
+// in place of the on-disk file).  Belief: (): strn -> Go string.
+func Xats_XATS2GO_tcheck_stdin_readall() string {
+	var sb strings.Builder
+	buf := make([]byte, 65536)
+	for {
+		n, err := os.Stdin.Read(buf)
+		if n > 0 {
+			sb.Write(buf[:n])
+		}
+		if err != nil {
+			return sb.String()
+		}
+	}
+}
+
 var Xats_XATS2JS_NODE_g_stderr = func() any { return os.Stderr }
 
 // XATS2JS_NODE_strn_fprint(obj, out): out.write(obj) — arg order (obj, out).
