@@ -43,8 +43,11 @@ val b0 = strn_index_of(s0, 0, "//==XLSPIDX-BEGIN==\n")
 val e0 = strn_index_of(s0, 0, "//==XLSPIDX-END==")
 fun
 lines
-(ls: sint, hl: hovlst, dl: deflst, tl: toklst): @(hovlst, deflst, toklst) =
-if (ls >= e0) then @(hl, dl, tl) else
+( ls: sint
+, hl: hovlst, dl: deflst, tl: toklst
+, cl: candlst, ll: loclst)
+: @(hovlst, deflst, toklst, candlst, loclst) =
+if (ls >= e0) then @(hl, dl, tl, cl, ll) else
 let
 val le0 = strn_index_of(s0, ls, "\n")
 val le = (if (le0 < 0) then e0 else le0): sint
@@ -59,7 +62,7 @@ val f3 = ifield(s0, f2.1)
 val f4 = ifield(s0, f3.1)
 val typ = strn_slice(s0, f4.1, le)
 in
-lines(nxt, HVcons(f1.0, f2.0, f3.0, f4.0, typ, hl), dl, tl)
+lines(nxt, HVcons(f1.0, f2.0, f3.0, f4.0, typ, hl), dl, tl, cl, ll)
 end
 else
 if strn_starts_at(s0, ls, "D\t")
@@ -72,7 +75,7 @@ val f4 = ifield(s0, f3.1)
 val tb = tab_at(s0, f4.1, le)
 in
 if (tb < 0)
-then lines(nxt, hl, dl, tl)
+then lines(nxt, hl, dl, tl, cl, ll)
 else
 let
 val path = strn_slice(s0, f4.1, tb)
@@ -85,7 +88,7 @@ lines
 ( nxt, hl
 , DFcons
   ( f1.0, f2.0, f3.0, f4.0
-  , path, g1.0, g2.0, g3.0, g4.0, dl), tl)
+  , path, g1.0, g2.0, g3.0, g4.0, dl), tl, cl, ll)
 end
 end
 else
@@ -102,15 +105,53 @@ in
 if (f3.0 = f1.0)
 then
 lines
-(nxt, hl, dl, TKcons(f1.0, f2.0, f4.0 - f2.0, k0.0, tl))
-else lines(nxt, hl, dl, tl)
+(nxt, hl, dl, TKcons(f1.0, f2.0, f4.0 - f2.0, k0.0, tl), cl, ll)
+else lines(nxt, hl, dl, tl, cl, ll)
 end
-else lines(nxt, hl, dl, tl)
+else
+if strn_starts_at(s0, ls, "P\t")
+then
+let
+val f1 = ifield(s0, ls+2)
+in
+lines
+( nxt, hl, dl, tl
+, CDcons(f1.0, 3, strn_slice(s0, f1.1, le), cl), ll)
+end
+else
+if strn_starts_at(s0, ls, "S\t")
+then
+let
+val f1 = ifield(s0, ls+2)
+val f2 = ifield(s0, f1.1)
+val rnk = (if (f2.0 = 0) then 1 else 2): sint
+in
+lines
+( nxt, hl, dl, tl
+, CDcons(f1.0, rnk, strn_slice(s0, f2.1, le), cl), ll)
+end
+else
+if strn_starts_at(s0, ls, "L\t")
+then
+let
+val f1 = ifield(s0, ls+2)
+val f2 = ifield(s0, f1.1)
+val f3 = ifield(s0, f2.1)
+val f4 = ifield(s0, f3.1)
+val f5 = ifield(s0, f4.1)
+in
+lines
+( nxt, hl, dl, tl, cl
+, LCcons
+  ( f1.0, f2.0, f3.0, f4.0, f5.0
+  , strn_slice(s0, f5.1, le), ll))
+end
+else lines(nxt, hl, dl, tl, cl, ll)
 end
 in//let
-if (b0 < 0) then @(HVnil(), DFnil(), TKnil()) else
-if (e0 < 0) then @(HVnil(), DFnil(), TKnil()) else
-lines(b0 + 20, HVnil(), DFnil(), TKnil())
+if (b0 < 0) then @(HVnil(), DFnil(), TKnil(), CDnil(), LCnil()) else
+if (e0 < 0) then @(HVnil(), DFnil(), TKnil(), CDnil(), LCnil()) else
+lines(b0 + 20, HVnil(), DFnil(), TKnil(), CDnil(), LCnil())
 end//endof[idx_parse]
 //
 (* ****** ****** *)
@@ -321,6 +362,256 @@ case+ xs of
 in//let
 JVarr(jvl_rev2(enc(tk_sort(tl), 0, 0, 1, JVLnil()), JVLnil()))
 end//endof[idx_toks_data]
+//
+(* ****** ****** *)
+(* completion *)
+(* ****** ****** *)
+//
+(* identifier bytes: [A-Za-z0-9_$'] *)
+fun
+wordq(c0: sint): bool =
+if (c0 >= 97) then (if (c0 <= 122) then true else false) else
+if (c0 >= 65) then (if (c0 <= 90) then true else (c0 = 95)) else
+if (c0 >= 48) then (if (c0 <= 57) then true else false) else
+if (c0 = 36) then true else
+if (c0 = 39) then true else false
+//
+fun
+ci_low(c0: sint): sint =
+if (c0 >= 65) then (if (c0 <= 90) then c0 + 32 else c0) else c0
+//
+(* is pre a (case-insensitive, ASCII) prefix of name? *)
+fun
+ci_prefixq
+(name: string, pre: string): bool =
+let
+val n0 = strn_length(name)
+val n1 = strn_length(pre)
+fun
+loop(i0: sint): bool =
+if (i0 >= n1) then true else
+if (ci_low(byte_at(name, i0)) = ci_low(byte_at(pre, i0)))
+then loop(i0+1) else false
+in//let
+if (n1 <= n0) then loop(0) else false
+end//endof[ci_prefixq]
+//
+(*
+the byte offset of LSP position (ln, ch) in s0: walk to the line,
+then advance ch UTF-16 units (an astral char is 2 units, 4 bytes)
+*)
+fun
+pos_byteoff
+(s0: string, ln: sint, ch: sint): sint =
+let
+val n0 = strn_length(s0)
+fun
+tol(k0: sint, l0: sint): sint =
+if (l0 >= ln) then k0 else
+if (k0 >= n0) then k0 else
+if (byte_at(s0, k0) = 10) then tol(k0+1, l0+1) else tol(k0+1, l0)
+fun
+adv(k0: sint, u0: sint): sint =
+if (u0 >= ch) then k0 else
+if (k0 >= n0) then k0 else
+let
+val c0 = byte_at(s0, k0)
+in
+if (c0 = 10) then k0 else
+if (c0 < 128) then adv(k0+1, u0+1) else
+if (c0 < 192) then adv(k0+1, u0) else
+if (c0 < 224) then adv(k0+2, u0+1) else
+if (c0 < 240) then adv(k0+3, u0+1)
+else adv(k0+4, u0+2)
+end
+in//let
+adv(tol(0, 0), 0)
+end//endof[pos_byteoff]
+//
+(* accumulate items with a name-dedup list and a cap *)
+datatype
+snames =
+| SNnil of ()
+| SNcons of (string, snames)
+//
+datatype
+accm =
+| ACC of (jvlst(*items, reversed*), snames, sint(*count*))
+//
+fun
+sn_has(sn: snames, s0: string): bool =
+case+ sn of
+| SNnil() => false
+| SNcons(s1, r0) =>
+  (if streq(s1, s0) then true else sn_has(r0, s0))
+//
+(* our kind codes -> LSP CompletionItemKind *)
+fun
+lsp_cik(knd: sint): sint =
+if (knd = 1) then 3(*Function*) else
+if (knd = 2) then 20(*EnumMember*) else
+if (knd = 3) then 7(*Class*) else
+if (knd = 4) then 14(*Keyword*) else
+if (knd = 5) then 1(*Text*) else 6(*Variable*)
+//
+fun
+mk_item
+(knd: sint, rank: sint, name: string, rng: jval): jval =
+JVobj
+( JKVcons("label", JVstr(name)
+, JKVcons("kind", JVint(lsp_cik(knd))
+, JKVcons("sortText", JVstr(strn_append(itoa(rank), name))
+, JKVcons("textEdit"
+  , JVobj
+    ( JKVcons("range", rng
+    , JKVcons("newText", JVstr(name), JKVnil())))
+  , JKVnil())))))
+//
+fun
+acc_add
+( a0: accm, knd: sint, rank: sint
+, name: string, pre: string, rng: jval): accm =
+case+ a0 of
+| ACC(items, seen, cnt) =>
+  (
+  if (cnt >= 200) then a0 else
+  if ci_prefixq(name, pre)
+  then
+  (
+  if sn_has(seen, name) then a0
+  else
+  ACC
+  ( JVLcons(mk_item(knd, rank, name, rng), items)
+  , SNcons(name, seen), cnt + 1))
+  else a0)
+//
+(* candidates of one rank tier *)
+fun
+acc_cands
+( a0: accm, cl: candlst, rank: sint
+, pre: string, rng: jval): accm =
+case+ cl of
+| CDnil() => a0
+| CDcons(knd, r0, name, cl1) =>
+  (
+  if (r0 = rank)
+  then acc_cands(acc_add(a0, knd, rank, name, pre, rng), cl1, rank, pre, rng)
+  else acc_cands(a0, cl1, rank, pre, rng))
+//
+(* locals whose scope contains the position *)
+fun
+acc_locals
+( a0: accm, ll: loclst
+, ln: sint, ch: sint, pre: string, rng: jval): accm =
+case+ ll of
+| LCnil() => a0
+| LCcons(knd, sl0, sc0, sl1, sc1, name, ll1) =>
+  (
+  if pos_inq(ln, ch, sl0, sc0, sl1, sc1)
+  then acc_locals(acc_add(a0, knd, 0, name, pre, rng), ll1, ln, ch, pre, rng)
+  else acc_locals(a0, ll1, ln, ch, pre, rng))
+//
+(* the ATS3 keyword tier *)
+fun
+acc_kw1(a0: accm, kw: string, pre: string, rng: jval): accm =
+acc_add(a0, 4, 4, kw, pre, rng)
+//
+fun
+acc_keywords(a0: accm, pre: string, rng: jval): accm =
+let
+val a0 = acc_kw1(a0, "val", pre, rng)
+val a0 = acc_kw1(a0, "var", pre, rng)
+val a0 = acc_kw1(a0, "fun", pre, rng)
+val a0 = acc_kw1(a0, "fn", pre, rng)
+val a0 = acc_kw1(a0, "fnx", pre, rng)
+val a0 = acc_kw1(a0, "and", pre, rng)
+val a0 = acc_kw1(a0, "let", pre, rng)
+val a0 = acc_kw1(a0, "in", pre, rng)
+val a0 = acc_kw1(a0, "end", pre, rng)
+val a0 = acc_kw1(a0, "if", pre, rng)
+val a0 = acc_kw1(a0, "then", pre, rng)
+val a0 = acc_kw1(a0, "else", pre, rng)
+val a0 = acc_kw1(a0, "case", pre, rng)
+val a0 = acc_kw1(a0, "of", pre, rng)
+val a0 = acc_kw1(a0, "when", pre, rng)
+val a0 = acc_kw1(a0, "lam", pre, rng)
+val a0 = acc_kw1(a0, "fix", pre, rng)
+val a0 = acc_kw1(a0, "where", pre, rng)
+val a0 = acc_kw1(a0, "local", pre, rng)
+val a0 = acc_kw1(a0, "datatype", pre, rng)
+val a0 = acc_kw1(a0, "typedef", pre, rng)
+val a0 = acc_kw1(a0, "abstype", pre, rng)
+val a0 = acc_kw1(a0, "implement", pre, rng)
+val a0 = acc_kw1(a0, "overload", pre, rng)
+val a0 = acc_kw1(a0, "with", pre, rng)
+val a0 = acc_kw1(a0, "try", pre, rng)
+val a0 = acc_kw1(a0, "raise", pre, rng)
+in
+acc_kw1(a0, "extern", pre, rng)
+end
+//
+(* words already present in the buffer (freshness tier; skips the
+   partial itself) *)
+fun
+acc_bufwords
+(a0: accm, s0: string, pre: string, rng: jval): accm =
+let
+val n0 = strn_length(s0)
+fun
+skipw(k0: sint): sint =
+if (k0 >= n0) then k0 else
+if wordq(byte_at(s0, k0)) then skipw(k0+1) else k0
+fun
+loop(k0: sint, a0: accm): accm =
+if (k0 >= n0) then a0 else
+if wordq(byte_at(s0, k0))
+then
+let
+val ke = skipw(k0)
+val w0 = strn_slice(s0, k0, ke)
+val a1 =
+(
+if streq(w0, pre) then a0
+else
+(
+if (ke - k0 >= 2)
+then acc_add(a0, 5, 5, w0, pre, rng) else a0)): accm
+in
+loop(ke, a1)
+end
+else loop(k0+1, a0)
+in//let
+loop(0, a0)
+end//endof[acc_bufwords]
+//
+#implfun
+idx_complete
+(cl, ll, doctext, ln, ch) =
+let
+val cur = pos_byteoff(doctext, ln, ch)
+fun
+back(k0: sint): sint =
+if (k0 <= 0) then 0 else
+if wordq(byte_at(doctext, k0 - 1)) then back(k0 - 1) else k0
+val ws = back(cur)
+val pre = strn_slice(doctext, ws, cur)
+(* identifier bytes are ASCII, so bytes = UTF-16 units here *)
+val rng = mk_range_jv(ln, ch - (cur - ws), ln, ch)
+val a0 = ACC(JVLnil(), SNnil(), 0)
+val a0 = acc_locals(a0, ll, ln, ch, pre, rng)
+val a0 = acc_cands(a0, cl, 1, pre, rng)
+val a0 = acc_cands(a0, cl, 2, pre, rng)
+val a0 = acc_cands(a0, cl, 3, pre, rng)
+val a0 = acc_keywords(a0, pre, rng)
+val a0 = acc_bufwords(a0, doctext, pre, rng)
+in//let
+case+ a0 of
+| ACC(items, _, cnt) =>
+  JVobj
+  ( JKVcons("isIncomplete"
+  , (if (cnt >= 200) then JVtrue() else JVfalse()): jval
+  , JKVcons("items", JVarr(jvl_rev2(items, JVLnil())), JKVnil())))
+end//endof[idx_complete]
 //
 (* ****** ****** *)
 (***********************************************************************)

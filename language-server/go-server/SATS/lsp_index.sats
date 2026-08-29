@@ -42,11 +42,32 @@ toklst =
 | TKcons of
   (sint(*line*), sint(*col*), sint(*len*), sint(*kind*), toklst)
 //
+(*
+completion candidates.  kind: 0 variable/value, 1 function,
+2 constructor, 3 type (the driver's P/S record kinds).  rank orders
+sources: 1 = target-file decl, 2 = workspace-dep decl, 3 = pervasive.
+Locals (L records) carry a visibility span instead of a rank — they
+outrank everything when the position is inside the span.
+*)
+datatype
+candlst =
+| CDnil of ()
+| CDcons of (sint(*kind*), sint(*rank*), string(*name*), candlst)
+//
+datatype
+loclst =
+| LCnil of ()
+| LCcons of
+  ( sint(*kind*)
+  , sint, sint, sint, sint(*scope span*)
+  , string(*name*), loclst)
+//
 (* ****** ****** *)
 //
 (* parse the sentinel-delimited record stream *)
 fun
-idx_parse(s0: string): @(hovlst, deflst, toklst)
+idx_parse
+(s0: string): @(hovlst, deflst, toklst, candlst, loclst)
 //
 (*
 the Hover result for (line, character): {contents, range}, or JVerr
@@ -69,6 +90,17 @@ the LSP semanticTokens data array: tokens sorted by position
 *)
 fun
 idx_toks_data(tl: toklst): jval
+//
+(*
+the CompletionList for the word being typed at (line, character) in
+doctext: locals-in-scope > file decls > dep decls > pervasives >
+keywords > buffer words; case-insensitive prefix filter; deduped by
+name (best source wins); capped with isIncomplete.
+*)
+fun
+idx_complete
+( cl: candlst, ll: loclst
+, doctext: string, ln: sint, ch: sint): jval
 //
 (* ****** ****** *)
 (***********************************************************************)
