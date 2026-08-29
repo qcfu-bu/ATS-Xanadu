@@ -1,6 +1,6 @@
-Content-Length: 355
+Content-Length: 380
 
-{"jsonrpc":"2.0","id":1,"result":{"capabilities":{"textDocumentSync":{"openClose":true,"change":1,"save":true},"hoverProvider":true,"definitionProvider":true,"semanticTokensProvider":{"legend":{"tokenTypes":["variable","function","enumMember"],"tokenModifiers":[]},"full":true},"completionProvider":{}},"serverInfo":{"name":"ats3-lsp","version":"0.6.0"}}}Content-Length: 95
+{"jsonrpc":"2.0","id":1,"result":{"capabilities":{"textDocumentSync":{"openClose":true,"change":1,"save":true},"hoverProvider":true,"definitionProvider":true,"semanticTokensProvider":{"legend":{"tokenTypes":["variable","function","enumMember"],"tokenModifiers":[]},"full":true},"completionProvider":{"triggerCharacters":["."]}},"serverInfo":{"name":"ats3-lsp","version":"0.6.0"}}}Content-Length: 95
 
 {"jsonrpc":"2.0","id":2,"error":{"code":-32601,"message":"method not found: höver/日本語"}}Content-Length: 38
 

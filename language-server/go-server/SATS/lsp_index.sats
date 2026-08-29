@@ -54,6 +54,13 @@ candlst =
 | CDnil of ()
 | CDcons of (sint(*kind*), sint(*rank*), string(*name*), candlst)
 //
+(* record/tuple members keyed by the receiver expression's span *)
+datatype
+memlst =
+| MMnil of ()
+| MMcons of
+  (sint, sint, sint, sint, sint(*kind*), string(*name*), memlst)
+//
 datatype
 loclst =
 | LCnil of ()
@@ -67,7 +74,7 @@ loclst =
 (* parse the sentinel-delimited record stream *)
 fun
 idx_parse
-(s0: string): @(hovlst, deflst, toklst, candlst, loclst)
+(s0: string): @(hovlst, deflst, toklst, candlst, loclst, memlst)
 //
 (*
 the Hover result for (line, character): {contents, range}, or JVerr
@@ -99,7 +106,7 @@ name (best source wins); capped with isIncomplete.
 *)
 fun
 idx_complete
-( cl: candlst, ll: loclst
+( cl: candlst, ll: loclst, ml: memlst
 , doctext: string, ln: sint, ch: sint): jval
 //
 (* ****** ****** *)

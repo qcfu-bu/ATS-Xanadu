@@ -45,9 +45,9 @@ fun
 lines
 ( ls: sint
 , hl: hovlst, dl: deflst, tl: toklst
-, cl: candlst, ll: loclst)
-: @(hovlst, deflst, toklst, candlst, loclst) =
-if (ls >= e0) then @(hl, dl, tl, cl, ll) else
+, cl: candlst, ll: loclst, ml: memlst)
+: @(hovlst, deflst, toklst, candlst, loclst, memlst) =
+if (ls >= e0) then @(hl, dl, tl, cl, ll, ml) else
 let
 val le0 = strn_index_of(s0, ls, "\n")
 val le = (if (le0 < 0) then e0 else le0): sint
@@ -62,7 +62,7 @@ val f3 = ifield(s0, f2.1)
 val f4 = ifield(s0, f3.1)
 val typ = strn_slice(s0, f4.1, le)
 in
-lines(nxt, HVcons(f1.0, f2.0, f3.0, f4.0, typ, hl), dl, tl, cl, ll)
+lines(nxt, HVcons(f1.0, f2.0, f3.0, f4.0, typ, hl), dl, tl, cl, ll, ml)
 end
 else
 if strn_starts_at(s0, ls, "D\t")
@@ -75,7 +75,7 @@ val f4 = ifield(s0, f3.1)
 val tb = tab_at(s0, f4.1, le)
 in
 if (tb < 0)
-then lines(nxt, hl, dl, tl, cl, ll)
+then lines(nxt, hl, dl, tl, cl, ll, ml)
 else
 let
 val path = strn_slice(s0, f4.1, tb)
@@ -88,7 +88,7 @@ lines
 ( nxt, hl
 , DFcons
   ( f1.0, f2.0, f3.0, f4.0
-  , path, g1.0, g2.0, g3.0, g4.0, dl), tl, cl, ll)
+  , path, g1.0, g2.0, g3.0, g4.0, dl), tl, cl, ll, ml)
 end
 end
 else
@@ -105,8 +105,8 @@ in
 if (f3.0 = f1.0)
 then
 lines
-(nxt, hl, dl, TKcons(f1.0, f2.0, f4.0 - f2.0, k0.0, tl), cl, ll)
-else lines(nxt, hl, dl, tl, cl, ll)
+(nxt, hl, dl, TKcons(f1.0, f2.0, f4.0 - f2.0, k0.0, tl), cl, ll, ml)
+else lines(nxt, hl, dl, tl, cl, ll, ml)
 end
 else
 if strn_starts_at(s0, ls, "P\t")
@@ -116,7 +116,7 @@ val f1 = ifield(s0, ls+2)
 in
 lines
 ( nxt, hl, dl, tl
-, CDcons(f1.0, 3, strn_slice(s0, f1.1, le), cl), ll)
+, CDcons(f1.0, 3, strn_slice(s0, f1.1, le), cl), ll, ml)
 end
 else
 if strn_starts_at(s0, ls, "S\t")
@@ -128,7 +128,7 @@ val rnk = (if (f2.0 = 0) then 1 else 2): sint
 in
 lines
 ( nxt, hl, dl, tl
-, CDcons(f1.0, rnk, strn_slice(s0, f2.1, le), cl), ll)
+, CDcons(f1.0, rnk, strn_slice(s0, f2.1, le), cl), ll, ml)
 end
 else
 if strn_starts_at(s0, ls, "L\t")
@@ -144,14 +144,32 @@ lines
 ( nxt, hl, dl, tl, cl
 , LCcons
   ( f1.0, f2.0, f3.0, f4.0, f5.0
-  , strn_slice(s0, f5.1, le), ll))
+  , strn_slice(s0, f5.1, le), ll), ml)
 end
-else lines(nxt, hl, dl, tl, cl, ll)
+else
+if strn_starts_at(s0, ls, "M\t")
+then
+let
+val f1 = ifield(s0, ls+2)
+val f2 = ifield(s0, f1.1)
+val f3 = ifield(s0, f2.1)
+val f4 = ifield(s0, f3.1)
+val f5 = ifield(s0, f4.1)
+in
+lines
+( nxt, hl, dl, tl, cl, ll
+, MMcons
+  ( f1.0, f2.0, f3.0, f4.0, f5.0
+  , strn_slice(s0, f5.1, le), ml))
+end
+else lines(nxt, hl, dl, tl, cl, ll, ml)
 end
 in//let
-if (b0 < 0) then @(HVnil(), DFnil(), TKnil(), CDnil(), LCnil()) else
-if (e0 < 0) then @(HVnil(), DFnil(), TKnil(), CDnil(), LCnil()) else
-lines(b0 + 20, HVnil(), DFnil(), TKnil(), CDnil(), LCnil())
+if (b0 < 0)
+then @(HVnil(), DFnil(), TKnil(), CDnil(), LCnil(), MMnil()) else
+if (e0 < 0)
+then @(HVnil(), DFnil(), TKnil(), CDnil(), LCnil(), MMnil()) else
+lines(b0 + 20, HVnil(), DFnil(), TKnil(), CDnil(), LCnil(), MMnil())
 end//endof[idx_parse]
 //
 (* ****** ****** *)
@@ -584,9 +602,26 @@ in//let
 loop(0, a0)
 end//endof[acc_bufwords]
 //
+(* members of the receiver span ending at (ln, dotc) *)
+fun
+acc_members
+( a0: accm, ml: memlst
+, ln: sint, dotc: sint, pre: string, rng: jval): accm =
+case+ ml of
+| MMnil() => a0
+| MMcons(_, _, l1, c1, knd, name, ml1) =>
+  (
+  if (l1 = ln)
+  then
+  (
+  if (c1 = dotc)
+  then acc_members(acc_add(a0, knd, 0, name, pre, rng), ml1, ln, dotc, pre, rng)
+  else acc_members(a0, ml1, ln, dotc, pre, rng))
+  else acc_members(a0, ml1, ln, dotc, pre, rng))
+//
 #implfun
 idx_complete
-(cl, ll, doctext, ln, ch) =
+(cl, ll, ml, doctext, ln, ch) =
 let
 val cur = pos_byteoff(doctext, ln, ch)
 fun
@@ -596,14 +631,29 @@ if wordq(byte_at(doctext, k0 - 1)) then back(k0 - 1) else k0
 val ws = back(cur)
 val pre = strn_slice(doctext, ws, cur)
 (* identifier bytes are ASCII, so bytes = UTF-16 units here *)
-val rng = mk_range_jv(ln, ch - (cur - ws), ln, ch)
+val wc0 = ch - (cur - ws)
+val rng = mk_range_jv(ln, wc0, ln, ch)
+(* a `.` right before the word = MEMBER context: offer the fields of
+   the receiver whose span ends at the dot; nothing else *)
+val dotq =
+(
+if (ws > 0)
+then (byte_at(doctext, ws - 1) = 46) else false): bool
 val a0 = ACC(JVLnil(), SNnil(), 0)
+val a0 =
+(
+if dotq
+then acc_members(a0, ml, ln, wc0 - 1, pre, rng)
+else
+let
 val a0 = acc_locals(a0, ll, ln, ch, pre, rng)
 val a0 = acc_cands(a0, cl, 1, pre, rng)
 val a0 = acc_cands(a0, cl, 2, pre, rng)
 val a0 = acc_cands(a0, cl, 3, pre, rng)
 val a0 = acc_keywords(a0, pre, rng)
-val a0 = acc_bufwords(a0, doctext, pre, rng)
+in
+acc_bufwords(a0, doctext, pre, rng)
+end): accm
 in//let
 case+ a0 of
 | ACC(items, _, cnt) =>

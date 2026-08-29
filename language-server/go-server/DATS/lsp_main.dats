@@ -51,7 +51,7 @@ idxlst =
 | IXnil of ()
 | IXcons of
   ( string(*uri*), sint(*version*)
-  , hovlst, deflst, toklst, candlst, loclst, idxlst)
+  , hovlst, deflst, toklst, candlst, loclst, memlst, idxlst)
 //
 (* (checker path, xatshome, workspace root, docs, pending checks,
    in-flight check, shutdown-seen, index cache) *)
@@ -165,34 +165,35 @@ fun
 ix_put
 ( ix: idxlst, uri: string, ver: sint
 , hl: hovlst, df: deflst, tk: toklst
-, cd: candlst, lc: loclst): idxlst =
+, cd: candlst, lc: loclst, mm: memlst): idxlst =
 case+ ix of
-| IXnil() => IXcons(uri, ver, hl, df, tk, cd, lc, IXnil())
-| IXcons(u0, v0, h0, d0, t0, c0, l0, r0) =>
+| IXnil() => IXcons(uri, ver, hl, df, tk, cd, lc, mm, IXnil())
+| IXcons(u0, v0, h0, d0, t0, c0, l0, m0, r0) =>
   (
   if streq(u0, uri)
-  then IXcons(uri, ver, hl, df, tk, cd, lc, r0)
+  then IXcons(uri, ver, hl, df, tk, cd, lc, mm, r0)
   else
   IXcons
-  (u0, v0, h0, d0, t0, c0, l0, ix_put(r0, uri, ver, hl, df, tk, cd, lc)))
+  ( u0, v0, h0, d0, t0, c0, l0, m0
+  , ix_put(r0, uri, ver, hl, df, tk, cd, lc, mm)))
 //
 fun
 ix_del
 (ix: idxlst, uri: string): idxlst =
 case+ ix of
 | IXnil() => IXnil()
-| IXcons(u0, v0, h0, d0, t0, c0, l0, r0) =>
+| IXcons(u0, v0, h0, d0, t0, c0, l0, m0, r0) =>
   (
   if streq(u0, uri)
   then r0
-  else IXcons(u0, v0, h0, d0, t0, c0, l0, ix_del(r0, uri)))
+  else IXcons(u0, v0, h0, d0, t0, c0, l0, m0, ix_del(r0, uri)))
 //
 fun
 ix_hov
 (ix: idxlst, uri: string): hovlst =
 case+ ix of
 | IXnil() => HVnil()
-| IXcons(u0, _, h0, _, _, _, _, r0) =>
+| IXcons(u0, _, h0, _, _, _, _, _, r0) =>
   (if streq(u0, uri) then h0 else ix_hov(r0, uri))
 //
 fun
@@ -200,7 +201,7 @@ ix_dfs
 (ix: idxlst, uri: string): deflst =
 case+ ix of
 | IXnil() => DFnil()
-| IXcons(u0, _, _, d0, _, _, _, r0) =>
+| IXcons(u0, _, _, d0, _, _, _, _, r0) =>
   (if streq(u0, uri) then d0 else ix_dfs(r0, uri))
 //
 fun
@@ -208,7 +209,7 @@ ix_tks
 (ix: idxlst, uri: string): toklst =
 case+ ix of
 | IXnil() => TKnil()
-| IXcons(u0, _, _, _, t0, _, _, r0) =>
+| IXcons(u0, _, _, _, t0, _, _, _, r0) =>
   (if streq(u0, uri) then t0 else ix_tks(r0, uri))
 //
 fun
@@ -216,7 +217,7 @@ ix_cds
 (ix: idxlst, uri: string): candlst =
 case+ ix of
 | IXnil() => CDnil()
-| IXcons(u0, _, _, _, _, c0, _, r0) =>
+| IXcons(u0, _, _, _, _, c0, _, _, r0) =>
   (if streq(u0, uri) then c0 else ix_cds(r0, uri))
 //
 fun
@@ -224,8 +225,16 @@ ix_lcs
 (ix: idxlst, uri: string): loclst =
 case+ ix of
 | IXnil() => LCnil()
-| IXcons(u0, _, _, _, _, _, l0, r0) =>
+| IXcons(u0, _, _, _, _, _, l0, _, r0) =>
   (if streq(u0, uri) then l0 else ix_lcs(r0, uri))
+//
+fun
+ix_mms
+(ix: idxlst, uri: string): memlst =
+case+ ix of
+| IXnil() => MMnil()
+| IXcons(u0, _, _, _, _, _, _, m0, r0) =>
+  (if streq(u0, uri) then m0 else ix_mms(r0, uri))
 //
 (* ****** ****** *)
 (* outgoing messages *)
@@ -313,7 +322,11 @@ JVobj
 , JKVcons("hoverProvider", JVtrue()
 , JKVcons("definitionProvider", JVtrue()
 , JKVcons("semanticTokensProvider", semtok
-, JKVcons("completionProvider", JVobj(JKVnil()), JKVnil()))))))
+, JKVcons("completionProvider"
+  , JVobj
+    ( JKVcons("triggerCharacters"
+    , JVarr(JVLcons(JVstr("."), JVLnil())), JKVnil()))
+  , JKVnil()))))))
 val info =
 JVobj
 ( JKVcons("name", JVstr("ats3-lsp")
@@ -505,7 +518,7 @@ case+ st of
   respond
   ( idv
   , idx_complete
-    ( ix_cds(ix, rp.0), ix_lcs(ix, rp.0)
+    ( ix_cds(ix, rp.0), ix_lcs(ix, rp.0), ix_mms(ix, rp.0)
     , docs_text(dl, rp.0), rp.1, rp.2))
 end//endof[h_completion]
 //
@@ -608,7 +621,7 @@ case+ st of
     val hvdf = idx_parse(idxtxt)
     val ix1 =
     ix_put
-    (ix, uri, ver, hvdf.0, hvdf.1, hvdf.2, hvdf.3, hvdf.4)
+    (ix, uri, ver, hvdf.0, hvdf.1, hvdf.2, hvdf.3, hvdf.4, hvdf.5)
     in
     SRV(c0, x0, ws, dl, pl, CKnone(), sd, ix1)
     end
