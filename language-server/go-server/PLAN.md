@@ -18,6 +18,7 @@ Claude; the architect reviews commits and decides open questions.
 | M2 — diagnostics via check-only driver | **DONE** (2026-08-28) |
 | M2.5 — architect decisions: live checks (--stdin), kill-superseded, exit codes, cross-file | **DONE** (2026-08-29) |
 | M3 — hover + go-to-definition (index-dump mode) | **DONE** (2026-08-29) |
+| M3.5 — semantic tokens (same index mechanism) | **DONE** (2026-08-29) |
 | M4 — wire the VSCode client | **code done** (2026-08-28); the human F5 demo remains |
 
 **M1 measured:** cold spawn → `initialize` response round-trip **3.3 ms**
@@ -26,10 +27,24 @@ Claude; the architect reviews commits and decides open questions.
 output independently re-validated by `tests/check-stream.py` (Python
 recomputes Content-Length byte math and re-parses every JSON body).
 
-**M3 measured:** hover / definition answer in **~0.1 ms** from the
-per-uri index cache (refreshed by every check); suite 11/11 (t11
-exercises hover on a fun and a var, def within-file and cross-file
-into the prelude, and a null miss).
+**M3/M3.5 measured:** hover / definition / semanticTokens answer in
+**~0.1 ms** from the per-uri index cache (refreshed by every check);
+suite 12/12 (t11: hover on a fun and a var, def within-file and
+cross-file into the prelude, a null miss; t12: the full delta-encoded
+token array, verified by an independent Python decoder).
+
+**Semantic tokens (M3.5):** the --index walk also emits
+`T \t l0 \t c0 \t l1 \t c1 \t kind` for every identifier
+(0 variable / 1 function / 2 enumMember; fun-vs-var by peeling the
+entity's styp to T2Pfun1).  The server merge-sorts (O(n log n) — the
+index-perf lesson), drops same-start duplicates, delta-encodes, and
+declares the legend in semanticTokensProvider.  Tokens refresh per
+check; VSCode blends the TextMate grammar between refreshes.
+COMPLETION remains open — its JS-era plan needs re-grounding: the
+prelude-name enumeration it relied on (topmap_strmize over
+the_dexpenv) is the {itm:tbox} generic that errck-erases on this
+backend; candidates need an AST-walk route or a concrete strmize in
+the shared frontend (stamps move -> architect call).
 
 **M2/M2.5 measured** on `language-server/fixtures/Foo.dats`:
 didOpen → publishDiagnostics **283 ms**; **didChange →
@@ -100,7 +115,7 @@ UTF-8 by construction**.  The emit-char contract of
 per-byte copies round-trip UTF-8); codepoint encode/decode (JSON \u,
 later UTF-16 column math in `lsp_u16`) is done explicitly in ATS.
 
-### The extern floor (M2: 9 leaves — the full pre-authorized surface)
+### The extern floor (11 leaves — the full pre-authorized surface)
 `CATS/GO/lsp_floor.cats`; belief-consistent types; the ATS side stays
 single-threaded (goroutines only pump I/O into buffers):
 - `XATS2GO_LSP_read_chunk() string` — blocking stdin read, "" = EOF
@@ -109,10 +124,13 @@ single-threaded (goroutines only pump I/O into buffers):
 - `XATS2GO_LSP_write_out(s string) any` — stdout (protocol)
 - `XATS2GO_LSP_write_log(s string) any` — stderr (log)
 - `XATS2GO_LSP_now_ms() int` — monotonic ms
-- `XATS2GO_LSP_spawn_check(prog, arg1, xhome string) int` — start
-  `prog arg1` with XATSHOME=xhome, stderr captured; id or -1
-- `XATS2GO_LSP_check_done(id) int` / `_check_output(id) string` /
+- `XATS2GO_LSP_spawn_check(prog, a1, a2, a3, xhome, input string) int`
+  — start `prog a1 [a2] [a3]` ("" omitted) with XATSHOME=xhome, input
+  piped to stdin, stderr AND stdout captured; id or -1
+- `XATS2GO_LSP_check_done(id) int` / `_check_output(id) string`
+  (stderr) / `_check_stdout(id) string` (the --index records) /
   `_check_drop(id) any` (kills if still running)
+- `XATS2GO_LSP_exit(code int)` — process exit (LSP exit-code contract)
 That completes the pre-authorized set (stdio/clock/spawn).  ANYTHING
 else: ask the architect first.
 
