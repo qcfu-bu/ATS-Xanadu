@@ -399,6 +399,48 @@ case+ s2typ_get_node(t2p) of
   pr(out, "\n")))
 else ()
 //
+(*
+a semantic token: T \t l0 \t c0 \t l1 \t c1 \t kind — kinds are the
+server legend's indices: 0 variable, 1 function, 2 enumMember
+(constructor).  Single-line identifier spans only.
+*)
+fun
+emit_tok
+(out: FILR, tgt: strn, loc: loctn, knd: sint): void =
+if loc_targetq(loc, tgt)
+then
+let
+val pb = loctn_get_pbeg(loc)
+val pe = loctn_get_pend(loc)
+in
+if (postn_get_nrow(pb) = postn_get_nrow(pe))
+then
+(
+pr(out, "T\t");
+span_pr(out, loc);
+pr(out, "\t");
+pn(out, knd);
+pr(out, "\n"))
+else ()
+end
+else ()
+//
+(* 1 (function) when the styp peels to a T2Pfun1, else 0 (variable) *)
+fun
+funknd_of
+(t2p: s2typ, d0: sint): sint =
+if (d0 <= 0) then 0 else
+(
+case+ s2typ_get_node(t2p) of
+| T2Pfun1(_, _, _, _) => 1
+| T2Puni0(_, t1) => funknd_of(t1, d0-1)
+| T2Pexi0(_, t1) => funknd_of(t1, d0-1)
+| T2Plft(t1) => funknd_of(t1, d0-1)
+| T2Pnone1(t1) => funknd_of(t1, d0-1)
+| T2Perrck(_, t1) => funknd_of(t1, d0-1)
+| T2Pxtv(xtv) => funknd_of(x2t2p_get_styp(xtv), d0-1)
+| _(*else*) => 0)
+//
 (* the definition location must itself carry a file *)
 fun
 emit_def
@@ -440,11 +482,17 @@ in
 case+ d3exp_get_node(d3e) of
 //
 | D3Evar(d2v) =>
-  emit_def(out, tgt, loc, d2var_get_lctn(d2v))
+  (
+  emit_tok(out, tgt, loc, funknd_of(d2var_get_styp(d2v), 8));
+  emit_def(out, tgt, loc, d2var_get_lctn(d2v)))
 | D3Ecst(d2c) =>
-  emit_def(out, tgt, loc, d2cst_get_lctn(d2c))
+  (
+  emit_tok(out, tgt, loc, funknd_of(d2cst_get_styp(d2c), 8));
+  emit_def(out, tgt, loc, d2cst_get_lctn(d2c)))
 | D3Econ(d2c) =>
-  emit_def(out, tgt, loc, d2con_get_lctn(d2c))
+  (
+  emit_tok(out, tgt, loc, 2);
+  emit_def(out, tgt, loc, d2con_get_lctn(d2c)))
 //
 | D3Etimp(d3f, _) => w_exp(out, tgt, d3f)
 | D3Etimq(d3f, _, _) => w_exp(out, tgt, d3f)
@@ -566,7 +614,12 @@ in
 case+ d3pat_get_node(d3p) of
 //
 | D3Pcon(d2c) =>
-  emit_def(out, tgt, loc, d2con_get_lctn(d2c))
+  (
+  emit_tok(out, tgt, loc, 2);
+  emit_def(out, tgt, loc, d2con_get_lctn(d2c)))
+//
+| D3Pvar(d2v) =>
+  emit_tok(out, tgt, loc, funknd_of(d2var_get_styp(d2v), 8))
 //
 | D3Pbang(p1) => w_pat(out, tgt, p1)
 | D3Pflat(p1) => w_pat(out, tgt, p1)
@@ -702,6 +755,7 @@ case+ vds of
   val () =
   emit_hov
   (out, tgt, d2var_get_lctn(dpid), d2var_get_styp(dpid))
+  val () = emit_tok(out, tgt, d2var_get_lctn(dpid), 0)
   val () = w_tdxp(out, tgt, d3vardcl_get_dini(v1))
   in
   w_vardcls(out, tgt, vs1)
@@ -718,6 +772,7 @@ case+ fds of
   val () =
   emit_hov
   (out, tgt, d2var_get_lctn(dpid), d2var_get_styp(dpid))
+  val () = emit_tok(out, tgt, d2var_get_lctn(dpid), 1)
   val () = w_farglst(out, tgt, d3fundcl_get_farg(f1))
   val () = w_tdxp(out, tgt, d3fundcl_get_tdxp(f1))
   in
