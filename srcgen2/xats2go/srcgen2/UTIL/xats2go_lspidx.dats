@@ -518,6 +518,30 @@ else ecand_l(out, knd, sl0, sc0, sl1, sc1, sym)
 //
 (* ****** ****** *)
 //
+(*
+documentSymbol records (M7): a TARGET-file top-level declaration —
+  Y \t kind \t l0 \t c0 \t l1 \t c1 (name span)
+    \t dl0 \t dc0 \t dl1 \t dc1 (decl span) \t name
+kinds as the candidate kinds (0 value, 1 fun, 2 con, 3 type); the
+server maps them to LSP SymbolKind and builds the outline in document
+order.  The decl span must CONTAIN the name span (LSP requires it);
+sites without a wider span pass the name span for both.
+*)
+fun
+emit_sym
+(out: FILR, tgt: strn, knd: sint
+, nameloc: loctn, declloc: loctn, sym: sym_t): void =
+if loc_targetq(nameloc, tgt)
+then
+(
+pr(out, "Y\t"); pn(out, knd); pr(out, "\t");
+span_pr(out, nameloc); pr(out, "\t");
+span_pr(out, declloc); pr(out, "\t");
+pr(out, symbl_get_name(sym)); pr(out, "\n"))
+else ()
+//
+(* ****** ****** *)
+//
 (* the pervasive name environments (loaded once at prelude time) *)
 fun
 pv_d2itm
@@ -644,67 +668,92 @@ case+ fopt of
 //
 (* ****** ****** *)
 //
-(* top-level names of a staloaded workspace dep (an L2 decl walk) *)
+(*
+top-level names of a staloaded workspace dep (an L2 decl walk).
+M7: [tgt] rides along so the TARGET's own L2-routed decls (depq = 0,
+the D3Cd2ecl arm) also emit Y documentSymbol records; name span
+doubles as the decl span at this level.
+*)
+fun
+s2_ysym
+(out: FILR, tgt: strn, depq: sint
+, knd: sint, nameloc: loctn, sym: sym_t): void =
+if (depq = 0)
+then emit_sym(out, tgt, knd, nameloc, nameloc, sym)
+else ()
+//
 fun
 s2_decl
-(out: FILR, depq: sint, d2cl: d2ecl): void =
+(out: FILR, tgt: strn, depq: sint, d2cl: d2ecl): void =
 case+ d2ecl_get_node(d2cl) of
 //
-| D2Cfundclst(_, _, cs, _) => s2_csts(out, depq, cs)
-| D2Cdynconst(_, _, dcls) => s2_cstdcls(out, depq, dcls)
+| D2Cfundclst(_, _, cs, _) => s2_csts(out, tgt, depq, cs)
+| D2Cdynconst(_, _, dcls) => s2_cstdcls(out, tgt, depq, dcls)
 //
-| D2Cdatatype(_, scs) => s2_dtcsts(out, depq, scs)
-| D2Cexcptcon(_, cs) => s2_cons(out, depq, cs)
+| D2Cdatatype(_, scs) => s2_dtcsts(out, tgt, depq, scs)
+| D2Cexcptcon(_, cs) => s2_cons(out, tgt, depq, cs)
 //
-| D2Csexpdef(s2c, _) => ecand_s(out, 3, depq, s2cst_get_name(s2c))
-| D2Cabstype(s2c, _) => ecand_s(out, 3, depq, s2cst_get_name(s2c))
-| D2Cstacst0(s2c, _) => ecand_s(out, 3, depq, s2cst_get_name(s2c))
+| D2Csexpdef(s2c, _) =>
+  (
+  ecand_s(out, 3, depq, s2cst_get_name(s2c));
+  s2_ysym(out, tgt, depq, 3, s2cst_get_lctn(s2c), s2cst_get_name(s2c)))
+| D2Cabstype(s2c, _) =>
+  (
+  ecand_s(out, 3, depq, s2cst_get_name(s2c));
+  s2_ysym(out, tgt, depq, 3, s2cst_get_lctn(s2c), s2cst_get_name(s2c)))
+| D2Cstacst0(s2c, _) =>
+  (
+  ecand_s(out, 3, depq, s2cst_get_name(s2c));
+  s2_ysym(out, tgt, depq, 3, s2cst_get_lctn(s2c), s2cst_get_name(s2c)))
 //
-| D2Cstatic(_, d1) => s2_decl(out, depq, d1)
-| D2Cextern(_, d1) => s2_decl(out, depq, d1)
-| D2Clocal0(_, bd) => s2_decls(out, depq, bd)
+| D2Cstatic(_, d1) => s2_decl(out, tgt, depq, d1)
+| D2Cextern(_, d1) => s2_decl(out, tgt, depq, d1)
+| D2Clocal0(_, bd) => s2_decls(out, tgt, depq, bd)
 //
-| D2Cinclude(_, _, _, _, dopt) => s2_dclopt(out, depq, dopt)
+| D2Cinclude(_, _, _, _, dopt) => s2_dclopt(out, tgt, depq, dopt)
 | D2Cstaload(_, _, _, fopt2, sopt2) =>
   (
   if lx_depwantq(fopt2)
-  then s2_staload(out, sopt2) else ())
+  then s2_staload(out, tgt, sopt2) else ())
 //
 //
-| D2Cnone2(d1) => s2_decl(out, depq, d1)
-| D2Cerrck(_, d1) => s2_decl(out, depq, d1)
+| D2Cnone2(d1) => s2_decl(out, tgt, depq, d1)
+| D2Cerrck(_, d1) => s2_decl(out, tgt, depq, d1)
 //
 | _(*else*) => ()
 //
 and
 s2_decls
-(out: FILR, depq: sint, dcls: d2eclist): void =
+(out: FILR, tgt: strn, depq: sint, dcls: d2eclist): void =
 case+ dcls of
 | list_nil() => ()
 | list_cons(d1, ds1) =>
-  (s2_decl(out, depq, d1); s2_decls(out, depq, ds1))
+  (s2_decl(out, tgt, depq, d1); s2_decls(out, tgt, depq, ds1))
 //
 and
 s2_dclopt
-(out: FILR, depq: sint, dopt: d2eclistopt): void =
+(out: FILR, tgt: strn, depq: sint, dopt: d2eclistopt): void =
 case+ dopt of
 | optn_nil() => ()
-| optn_cons(dcls) => s2_decls(out, depq, dcls)
+| optn_cons(dcls) => s2_decls(out, tgt, depq, dcls)
 //
 and
 s2_csts
-(out: FILR, depq: sint, cs: d2cstlst): void =
+(out: FILR, tgt: strn, depq: sint, cs: d2cstlst): void =
 case+ cs of
 | list_nil() => ()
 | list_cons(c1, cs1) =>
   (
   ecand_s
   (out, funknd_of(d2cst_get_styp(c1), 8), depq, d2cst_get_name(c1));
-  s2_csts(out, depq, cs1))
+  s2_ysym
+  ( out, tgt, depq, funknd_of(d2cst_get_styp(c1), 8)
+  , d2cst_get_lctn(c1), d2cst_get_name(c1));
+  s2_csts(out, tgt, depq, cs1))
 //
 and
 s2_cstdcls
-(out: FILR, depq: sint, dcls: d2cstdclist): void =
+(out: FILR, tgt: strn, depq: sint, dcls: d2cstdclist): void =
 case+ dcls of
 | list_nil() => ()
 | list_cons(d1, ds1) =>
@@ -714,58 +763,66 @@ case+ dcls of
   (
   ecand_s
   (out, funknd_of(d2cst_get_styp(c1), 8), depq, d2cst_get_name(c1));
-  s2_cstdcls(out, depq, ds1))
+  s2_ysym
+  ( out, tgt, depq, funknd_of(d2cst_get_styp(c1), 8)
+  , d2cst_get_lctn(c1), d2cst_get_name(c1));
+  s2_cstdcls(out, tgt, depq, ds1))
   end
 //
 and
 s2_cons
-(out: FILR, depq: sint, cs: d2conlst): void =
+(out: FILR, tgt: strn, depq: sint, cs: d2conlst): void =
 case+ cs of
 | list_nil() => ()
 | list_cons(c1, cs1) =>
-  (ecand_s(out, 2, depq, d2con_get_name(c1)); s2_cons(out, depq, cs1))
+  (
+  ecand_s(out, 2, depq, d2con_get_name(c1));
+  s2_ysym(out, tgt, depq, 2, d2con_get_lctn(c1), d2con_get_name(c1));
+  s2_cons(out, tgt, depq, cs1))
 //
 and
 s2_dtcsts
-(out: FILR, depq: sint, scs: s2cstlst): void =
+(out: FILR, tgt: strn, depq: sint, scs: s2cstlst): void =
 case+ scs of
 | list_nil() => ()
 | list_cons(s1, ss1) =>
   let
   val () = ecand_s(out, 3, depq, s2cst_get_name(s1))
   val () =
+  s2_ysym(out, tgt, depq, 3, s2cst_get_lctn(s1), s2cst_get_name(s1))
+  val () =
   (
   case+ s2cst_get_d2cs(s1) of
   | ~
   optn_vt_nil() => ()
   | ~
-  optn_vt_cons(cs) => s2_cons(out, depq, cs))
+  optn_vt_cons(cs) => s2_cons(out, tgt, depq, cs))
   in
-  s2_dtcsts(out, depq, ss1)
+  s2_dtcsts(out, tgt, depq, ss1)
   end
 //
 and
 s2_staload
-(out: FILR, sopt2: s2taloadopt): void =
+(out: FILR, tgt: strn, sopt2: s2taloadopt): void =
 case+ sopt2 of
 | S2TALOADdpar(shr2, d2p) =>
-  (if (shr2 = 0) then s2_dep(out, d2p) else ())
+  (if (shr2 = 0) then s2_dep(out, tgt, d2p) else ())
 | _(*none/fenv*) => ()
 //
 and
 s2_dep
-(out: FILR, d2p: d2parsed): void =
-s2_dclopt(out, 1, d2parsed_get_parsed(d2p))
+(out: FILR, tgt: strn, d2p: d2parsed): void =
+s2_dclopt(out, tgt, 1, d2parsed_get_parsed(d2p))
 //
 (* a DATS dep's L2 twin, via the d2parenv (as tcheck01 does) *)
 fun
 s2_dep_find
-(out: FILR, fpx: fpath): void =
+(out: FILR, tgt: strn, fpx: fpath): void =
 case+ the_d2parenv_pvsfind(fpath_get_fnm2(fpx)) of
 | ~
 optn_vt_nil() => ()
 | ~
-optn_vt_cons(d2p) => s2_dep(out, d2p)
+optn_vt_cons(d2p) => s2_dep(out, tgt, d2p)
 //
 (* ****** ****** *)
 //
@@ -780,9 +837,17 @@ case+ d3pat_get_node(d3p) of
   (
   if loc_targetq(d3pat_get_lctn(d3p), tgt)
   then
+  (
   ecand_sl
   ( out, funknd_of(d2var_get_styp(d2v), 8)
-  , sl0, sc0, sl1, sc1, d2var_get_name(d2v))
+  , sl0, sc0, sl1, sc1, d2var_get_name(d2v));
+  (
+  if (sl0 < 0)
+  then
+  emit_sym
+  ( out, tgt, funknd_of(d2var_get_styp(d2v), 8)
+  , d3pat_get_lctn(d3p), d3pat_get_lctn(d3p), d2var_get_name(d2v))
+  else ()))
   else ())
 | D3Pbang(p1) => cb_pat(out, tgt, sl0, sc0, sl1, sc1, p1)
 | D3Pflat(p1) => cb_pat(out, tgt, sl0, sc0, sl1, sc1, p1)
@@ -1294,6 +1359,14 @@ case+ vds of
   if loc_targetq(d2var_get_lctn(dpid), tgt)
   then ecand_sl(out, 0, sl0, sc0, sl1, sc1, d2var_get_name(dpid))
   else ())
+  val () =
+  (
+  if (sl0 < 0)
+  then
+  emit_sym
+  ( out, tgt, 0, d2var_get_lctn(dpid)
+  , d2var_get_lctn(dpid), d2var_get_name(dpid))
+  else ())
   val () = w_tdxp(out, tgt, d3vardcl_get_dini(v1))
   in
   w_vardcls(out, tgt, sl0, sc0, sl1, sc1, vs1)
@@ -1318,6 +1391,13 @@ case+ fds of
   (
   if loc_targetq(d2var_get_lctn(dpid), tgt)
   then ecand_sl(out, 1, sl0, sc0, sl1, sc1, d2var_get_name(dpid))
+  else ())
+  val () =
+  (
+  if (sl0 < 0)
+  then
+  emit_sym
+  (out, tgt, 1, d2var_get_lctn(dpid), floc, d2var_get_name(dpid))
   else ())
   (* the args are visible throughout the fundcl *)
   val () =
@@ -1358,14 +1438,14 @@ case+ d3ecl_get_node(dcl) of
   then
   (
   case+ sopt of
-  | S3TALOADnone(sopt2) => s2_staload(out, sopt2)
+  | S3TALOADnone(sopt2) => s2_staload(out, tgt, sopt2)
   | S3TALOADdpar(shrq, _) =>
     (
     if (shrq = 0)
     then
     (
     case+ fopt of
-    | optn_cons(fpx) => s2_dep_find(out, fpx)
+    | optn_cons(fpx) => s2_dep_find(out, tgt, fpx)
     | optn_nil() => ())
     else ()))
   else ())
@@ -1390,7 +1470,7 @@ case+ d3ecl_get_node(dcl) of
 //
 (* the target file's OWN datatype/typedef/dynconst decls ride the
    same L2 emitters as deps do, tagged dep=0 *)
-| D3Cd2ecl(d2cl) => s2_decl(out, 0, d2cl)
+| D3Cd2ecl(d2cl) => s2_decl(out, tgt, 0, d2cl)
 //
 | D3Ctmplocal(d1, ds) =>
   (
