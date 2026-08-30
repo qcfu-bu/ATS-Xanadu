@@ -1,2 +1,3 @@
 BUILD/
 tests/BUILD/
+tests/fixtures/t19dep.sats

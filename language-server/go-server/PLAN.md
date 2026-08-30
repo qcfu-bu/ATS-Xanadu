@@ -623,3 +623,41 @@ windows/amd64"` → BUILD/dist/<goos>-<goarch>/.  The client's
 linux-arm64 / win32-x64, ~11-13 MB each, one server binary per
 package.  darwin-arm64 is the only human-verified platform; windows
 compiles but the XATSHOME/prelude path model is untested there.
+
+## M7.2 (DONE 2026-08-30): the three latency levers
+
+**1. Debounce 250 → 150 ms** (the June resident's default; in-process
+checks are cheap enough now).
+
+**2. Warm dep caching.** Workspace deps STAY CACHED across checks;
+freshness moves to `depstale` at every check start: a Go-side registry
+records each dep's path, mtime (UnixNano at note time), staload edges,
+and its EXACT report bytes; depstale stats every entry and evicts the
+changed/missing set PLUS its reverse closure (a dependent compiled
+against a changed dep is stale too) from the four per-file caches.
+The report walk (dw_* in tchecklib) replaces the old shr-gated one —
+the shr flags inside CACHED ASTs are frozen from their own elaboration
+time, so a per-check visited set (reset by capture_begin) is the
+visit-once guard.  A fresh dep reports (the tread12 mutation happens
+exactly once, while fresh) and its bytes are SLICED from the capture
+buffer (capture_mark/capture_since — FILR writes and report-window
+prints land there in order, so the slice is byte-faithful); a warm dep
+REPLAYS the recorded bytes — cross-file diagnostics stay
+byte-identical (t15 passes unchanged).  lspidx's dep-candidate walk
+drops its frozen-shr gates too, or completion would lose dep names on
+warm checks.  The prelude reload clears the registry (depclear).
+9 runtime leaves, census-baselined.  VERIFIED by t19-dep-edit
+(feed.py gained `#exec` for mid-stream disk mutation): unchanged dep →
+clean warm re-check; on-disk rename of the dep → the dependent's next
+check reports the unbound use.
+
+**3. Prelude warm-up on the check goroutine.**  initialize answers in
+~3 ms and the ~250 ms pvsload runs concurrently in the idle gap before
+the first edit (the single-flight slot serializes it against the first
+real check; chk_step reaps it as a check with an empty uri).  A real
+editor's first didOpen now costs ~15 ms, not ~270.
+
+**Measured** (150 ms debounce included): warm didChange→diags tiny
+file 277 → **~162 ms**, mid file 440 → **~293 ms** (the residual mid
+compute is the target file's own elaboration; its deps are warm).
+Suite 19/19; quick 75/75; leaf ratchet green; gate rerun.

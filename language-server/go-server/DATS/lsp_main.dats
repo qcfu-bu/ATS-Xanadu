@@ -12,7 +12,7 @@ single-flight check GOROUTINE — the loop keeps answering requests
 while a check runs; per-check EVICTION inside tchk_check reproduces
 process-per-check semantics (the compiler is one-shot).  A check of a
 stored document passes the CURRENT BUFFER TEXT (the --stdin path);
-didChange re-checks after a 250 ms debounce; a due check for a busy
+didChange re-checks after a 150 ms debounce; a due check for a busy
 loop stays queued and fires on reap (newest text wins — the queued
 re-check reads the current buffer).  A didSave under $XATSHOME's
 prelude trees drains the in-flight check, xglobal_reset()s + reloads
@@ -411,21 +411,22 @@ case+ jobj_get(prms, "workspaceFolders") of
 | _(*else*) => ""): string
 val () = respond(idv, init_result())
 (*
-M6: the in-process prelude load, ONCE (the pvsl gates make a repeat
-call a no-op).  XATSHOME must be in the environment BEFORE the load —
-the compiler reads it via its getenv leaf.  ~290 ms, after the
-initialize response so the client is never kept waiting on it.
+M7.1: the in-process prelude load, ONCE, on the CHECK GOROUTINE — the
+initialize response goes out immediately and the ~250 ms pvsload runs
+concurrently in the gap before the first edit (the first real check
+queues behind it via the single-flight slot).  XATSHOME must be in
+the environment BEFORE the load.  chk_step reaps the warm-up as a
+check with an empty uri (no publish).
 *)
 val () =
 (
 if (strn_length(xh) > 0)
 then lsp_setenv("XATSHOME", xh) else ())
-val ldok =
-lsp_guard(lam(_) => XATS2GO_LSP_tchk_prelude_load())
+val wid = lsp_warmup_start()
 val () =
 (
-if (ldok = 0)
-then lsp_write_log("ats3-lsp: prelude load FAILED\n") else ())
+if (wid < 0)
+then lsp_write_log("ats3-lsp: warm-up slot busy (re-initialize?)\n") else ())
 in
 case+ st of
 | SRV(c0, x0, ws, dl, pl, ck, sd, ix) =>
@@ -433,7 +434,9 @@ case+ st of
   ( (if (strn_length(chk) > 0) then chk else c0): string
   , (if (strn_length(xh) > 0) then xh else x0): string
   , (if (strn_length(wsr) > 0) then wsr else ws): string
-  , dl, pl, ck, sd, ix)
+  , dl, pl
+  , (if (wid >= 0) then CKrun(wid, "", 0 - 1) else ck): chkst
+  , sd, ix)
 end//endof[h_initialize]
 //
 fun
@@ -488,8 +491,9 @@ case+ st of
   SRV
   ( c0, x0, ws
   , docs_put(dl, uri, ver, txt)
-  (* live checking: re-check the buffer after a quiet 250 ms *)
-  , pend_put(pl, uri, lsp_now_ms() + 250)
+  (* live checking: re-check the buffer after a quiet 150 ms (the June
+     resident's default; checks are cheap enough in-process now) *)
+  , pend_put(pl, uri, lsp_now_ms() + 150)
   , ck, sd, ix)
   end
 end//endof[h_didchange]
@@ -876,6 +880,22 @@ case+ st of
     (
     if (lsp_check_done(id) = 1)
     then
+    (
+    if (strn_length(uri) <= 0)
+    then
+    (* the prelude warm-up: reap silently (no publish) *)
+    let
+    val okg = lsp_check_ok(id)
+    val () = lsp_check_drop(id)
+    val () =
+    (
+    if (okg = 0)
+    then lsp_write_log("ats3-lsp: prelude load FAILED\n")
+    else lsp_write_log("ats3-lsp: prelude ready\n"))
+    in
+    SRV(c0, x0, ws, dl, pl, CKnone(), sd, ix)
+    end
+    else
     let
     val rep = lsp_check_rep(id)
     val idxtxt = lsp_check_idx(id)
@@ -896,7 +916,7 @@ case+ st of
     val () = send_tokrefresh(ver)
     in
     SRV(c0, x0, ws, dl, pl, CKnone(), sd, ix1)
-    end
+    end)
     else st))
 //
 (* start the check goroutine for uri (the state's chk must be CKnone) *)

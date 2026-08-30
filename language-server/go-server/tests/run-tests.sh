@@ -97,6 +97,10 @@ run_ncase t17-prelude-reload "$T/cases/t17-prelude-reload.jsonl"
 # t18 — M7: references (on-def + on-use, +/- declaration),
 # documentHighlight (def + uses light up), documentSymbol (outline).
 run_ncase t18-refs-syms "$T/cases/t18-refs-syms.jsonl"
+# t19 — M7.2 warm-dep freshness: an ON-DISK edit of a staloaded dep
+# between checks must be picked up (mtime staleness + reverse-closure
+# eviction); the unchanged-dep re-check rides the warm replay path.
+run_ncase t19-dep-edit "$T/cases/t19-dep-edit.jsonl"
 # LSP exit-code contract: 'exit' without a prior 'shutdown' exits 1.
 EXPECT_RC=1 run_case t09-exit-code "$T/cases/t09-exit-code.jsonl"
 

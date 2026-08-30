@@ -67,6 +67,14 @@ fun
 lsp_guard(f0: (sint) -> void): sint
 //
 (*
+start the PRELUDE WARM-UP on the check goroutine: initialize answers
+immediately and the pvsload happens concurrently.  Returns a check id
+reaped like a check (empty uri, no publish), or -1 if busy.
+*)
+fun
+lsp_warmup_start((*void*)): sint
+//
+(*
 start the in-process check of path (txt = the live buffer when
 stdinq > 0) on the check goroutine.  Returns the check id, or -1 if a
 check is already in flight (the caller gates on CKnone, so that is

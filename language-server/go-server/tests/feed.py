@@ -44,5 +44,13 @@ for line in open(path, "rb").read().split(b"\n"):
     if line.startswith(b"#sleep "):
         time.sleep(int(line.split()[1]) / 1000.0)
         continue
+    if line.startswith(b"#exec "):
+        # run a shell command mid-stream (disk mutation between checks);
+        # @X@ substitutes the repo root as in message bodies.
+        import subprocess
+        subprocess.run(
+            line[6:].replace(b"@X@", repo.encode()).decode(),
+            shell=True, check=True)
+        continue
     body = line.replace(b"@X@", repo.encode())
     emit(b"Content-Length: %d\r\n\r\n" % len(body) + body)

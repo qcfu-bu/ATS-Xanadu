@@ -44,6 +44,9 @@ fun
 XATS2GO_LSP_guard(f0: (sint) -> void): sint = $extnam()
 #extern
 fun
+XATS2GO_LSP_warmup_start((*void*)): sint = $extnam()
+#extern
+fun
 XATS2GO_LSP_check_start
 (path: string, txt: string, stdinq: sint): sint = $extnam()
 #extern
@@ -87,6 +90,9 @@ lsp_setenv(name, value) = XATS2GO_LSP_setenv(name, value)
 //
 #implfun
 lsp_guard(f0) = XATS2GO_LSP_guard(f0)
+//
+#implfun
+lsp_warmup_start() = XATS2GO_LSP_warmup_start()
 //
 #implfun
 lsp_check_start

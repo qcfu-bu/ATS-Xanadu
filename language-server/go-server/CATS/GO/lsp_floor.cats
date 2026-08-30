@@ -170,6 +170,37 @@ var xats2goLspInprocN int
 var xats2goLspInflight bool
 var xats2goLspCur *xats2goLspInproc // the in-flight check (poll wakes on its done)
 //
+// start the PRELUDE WARM-UP on the check goroutine (M7.1): initialize
+// answers in ~3ms and the ~250ms pvsload happens concurrently in the
+// gap before the user's first edit.  Occupies the single-flight slot
+// (the first real check queues behind it); the loop reaps it like a
+// check with an empty uri (no publish).
+func XATS2GO_LSP_warmup_start() int {
+	if xats2goLspInflight {
+		return -1
+	}
+	c := &xats2goLspInproc{done: make(chan struct{})}
+	id := xats2goLspInprocN
+	xats2goLspInprocN++
+	xats2goLspInprocs[id] = c
+	xats2goLspInflight = true
+	xats2goLspCur = c
+	go func() {
+		c.ok = 1
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					os.Stderr.WriteString("ats3-lsp: prelude load aborted (recovered panic)\n")
+					c.ok = 0
+				}
+			}()
+			XATS2GO_LSP_tchk_prelude_load()
+		}()
+		close(c.done)
+	}()
+	return id
+}
+//
 // start the check; returns the check id, or -1 if one is already in
 // flight (the caller gates on that, this is belt-and-braces).
 func XATS2GO_LSP_check_start(path string, txt string, stdinq int) int {
