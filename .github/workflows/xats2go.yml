@@ -23,7 +23,16 @@ on:
         description: 'Also run the differential regression suite against the JS bundle'
         type: boolean
         default: false
+  # (the two path lists are duplicated because GitHub Actions does not
+  # support YAML anchors -- keep them in sync)
   push:
+    branches: [master]
+    paths:
+      - 'prelude/**'
+      - 'srcgen2/**'
+      - 'xassets/JS/xats2js/**'
+      - '.github/workflows/xats2go.yml'
+  pull_request:
     branches: [master]
     paths:
       - 'prelude/**'
