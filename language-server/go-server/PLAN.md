@@ -21,7 +21,7 @@ Claude; the architect reviews commits and decides open questions.
 | M3.5 — semantic tokens (same index mechanism) | **DONE** (2026-08-29) |
 | M5a — completion: lexical core + scope-aware locals | **DONE** (2026-08-29) |
 | M5b — completion: member/dot | **DONE** (2026-08-29) |
-| M4 — wire the VSCode client | **code done** (2026-08-28); the human F5 demo remains |
+| M4 — wire the VSCode client | **DONE**; architect-validated in-editor 2026-08-30: "very responsive, much more than any previous version" |
 | M6 — in-process compiler (architect ruling 2026-08-29) | **DONE** (2026-08-29) |
 
 **M1 measured:** cold spawn → `initialize` response round-trip **3.3 ms**
