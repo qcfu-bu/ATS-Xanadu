@@ -45,9 +45,9 @@ fun
 lines
 ( ls: sint
 , hl: hovlst, dl: deflst, tl: toklst
-, cl: candlst, ll: loclst, ml: memlst)
-: @(hovlst, deflst, toklst, candlst, loclst, memlst) =
-if (ls >= e0) then @(hl, dl, tl, cl, ll, ml) else
+, cl: candlst, ll: loclst, ml: memlst, yl: symlst)
+: @(hovlst, deflst, toklst, candlst, loclst, memlst, symlst) =
+if (ls >= e0) then @(hl, dl, tl, cl, ll, ml, yl) else
 let
 val le0 = strn_index_of(s0, ls, "\n")
 val le = (if (le0 < 0) then e0 else le0): sint
@@ -62,7 +62,7 @@ val f3 = ifield(s0, f2.1)
 val f4 = ifield(s0, f3.1)
 val typ = strn_slice(s0, f4.1, le)
 in
-lines(nxt, HVcons(f1.0, f2.0, f3.0, f4.0, typ, hl), dl, tl, cl, ll, ml)
+lines(nxt, HVcons(f1.0, f2.0, f3.0, f4.0, typ, hl), dl, tl, cl, ll, ml, yl)
 end
 else
 if strn_starts_at(s0, ls, "D\t")
@@ -75,7 +75,7 @@ val f4 = ifield(s0, f3.1)
 val tb = tab_at(s0, f4.1, le)
 in
 if (tb < 0)
-then lines(nxt, hl, dl, tl, cl, ll, ml)
+then lines(nxt, hl, dl, tl, cl, ll, ml, yl)
 else
 let
 val path = strn_slice(s0, f4.1, tb)
@@ -88,7 +88,7 @@ lines
 ( nxt, hl
 , DFcons
   ( f1.0, f2.0, f3.0, f4.0
-  , path, g1.0, g2.0, g3.0, g4.0, dl), tl, cl, ll, ml)
+  , path, g1.0, g2.0, g3.0, g4.0, dl), tl, cl, ll, ml, yl)
 end
 end
 else
@@ -105,8 +105,8 @@ in
 if (f3.0 = f1.0)
 then
 lines
-(nxt, hl, dl, TKcons(f1.0, f2.0, f4.0 - f2.0, k0.0, tl), cl, ll, ml)
-else lines(nxt, hl, dl, tl, cl, ll, ml)
+(nxt, hl, dl, TKcons(f1.0, f2.0, f4.0 - f2.0, k0.0, tl), cl, ll, ml, yl)
+else lines(nxt, hl, dl, tl, cl, ll, ml, yl)
 end
 else
 if strn_starts_at(s0, ls, "P\t")
@@ -116,7 +116,7 @@ val f1 = ifield(s0, ls+2)
 in
 lines
 ( nxt, hl, dl, tl
-, CDcons(f1.0, 3, strn_slice(s0, f1.1, le), cl), ll, ml)
+, CDcons(f1.0, 3, strn_slice(s0, f1.1, le), cl), ll, ml, yl)
 end
 else
 if strn_starts_at(s0, ls, "S\t")
@@ -128,7 +128,7 @@ val rnk = (if (f2.0 = 0) then 1 else 2): sint
 in
 lines
 ( nxt, hl, dl, tl
-, CDcons(f1.0, rnk, strn_slice(s0, f2.1, le), cl), ll, ml)
+, CDcons(f1.0, rnk, strn_slice(s0, f2.1, le), cl), ll, ml, yl)
 end
 else
 if strn_starts_at(s0, ls, "L\t")
@@ -144,7 +144,7 @@ lines
 ( nxt, hl, dl, tl, cl
 , LCcons
   ( f1.0, f2.0, f3.0, f4.0, f5.0
-  , strn_slice(s0, f5.1, le), ll), ml)
+  , strn_slice(s0, f5.1, le), ll), ml, yl)
 end
 else
 if strn_starts_at(s0, ls, "M\t")
@@ -160,16 +160,41 @@ lines
 ( nxt, hl, dl, tl, cl, ll
 , MMcons
   ( f1.0, f2.0, f3.0, f4.0, f5.0
-  , strn_slice(s0, f5.1, le), ml))
+  , strn_slice(s0, f5.1, le), ml), yl)
 end
-else lines(nxt, hl, dl, tl, cl, ll, ml)
+else
+if strn_starts_at(s0, ls, "Y\t")
+then
+let
+val f1 = ifield(s0, ls+2)
+val f2 = ifield(s0, f1.1)
+val f3 = ifield(s0, f2.1)
+val f4 = ifield(s0, f3.1)
+val f5 = ifield(s0, f4.1)
+val g1 = ifield(s0, f5.1)
+val g2 = ifield(s0, g1.1)
+val g3 = ifield(s0, g2.1)
+val g4 = ifield(s0, g3.1)
+in
+lines
+( nxt, hl, dl, tl, cl, ll, ml
+, SYcons
+  ( f1.0, f2.0, f3.0, f4.0, f5.0
+  , g1.0, g2.0, g3.0, g4.0
+  , strn_slice(s0, g4.1, le), yl))
+end
+else lines(nxt, hl, dl, tl, cl, ll, ml, yl)
 end
 in//let
 if (b0 < 0)
-then @(HVnil(), DFnil(), TKnil(), CDnil(), LCnil(), MMnil()) else
+then
+@(HVnil(), DFnil(), TKnil(), CDnil(), LCnil(), MMnil(), SYnil()) else
 if (e0 < 0)
-then @(HVnil(), DFnil(), TKnil(), CDnil(), LCnil(), MMnil()) else
-lines(b0 + 20, HVnil(), DFnil(), TKnil(), CDnil(), LCnil(), MMnil())
+then
+@(HVnil(), DFnil(), TKnil(), CDnil(), LCnil(), MMnil(), SYnil()) else
+lines
+( b0 + 20
+, HVnil(), DFnil(), TKnil(), CDnil(), LCnil(), MMnil(), SYnil())
 end//endof[idx_parse]
 //
 (* ****** ****** *)
@@ -662,6 +687,172 @@ case+ a0 of
   , (if (cnt >= 200) then JVtrue() else JVfalse()): jval
   , JKVcons("items", JVarr(jvl_rev2(items, JVLnil())), JKVnil())))
 end//endof[idx_complete]
+//
+(* ****** ****** *)
+(* M7: references / documentHighlight / documentSymbol *)
+(* ****** ****** *)
+//
+(* exact span equality (the reference-identity test on definitions) *)
+fun
+span_eqq
+( a0: sint, a1: sint, a2: sint, a3: sint
+, b0: sint, b1: sint, b2: sint, b3: sint): bool =
+if (a0 = b0)
+then
+(
+if (a1 = b1)
+then (if (a2 = b2) then (a3 = b3) else false)
+else false)
+else false
+//
+#implfun
+idx_range_jv
+(l0, c0, l1, c1) = mk_range_jv(l0, c0, l1, c1)
+//
+#implfun
+idx_ref_target
+(dl, path, ln, ch) =
+let
+(*
+pass B: the position sits ON a definition IN THIS FILE — any record
+whose def-path is this file and whose def-span contains the position
+names the target directly.
+*)
+fun
+loopB(xs: deflst): @(sint, string, sint, sint, sint, sint) =
+case+ xs of
+| DFnil() => @(0, "", 0, 0, 0, 0)
+| DFcons(_, _, _, _, p0, d0, d1, d2, d3, r0) =>
+  (
+  if streq(p0, path)
+  then
+  (
+  if pos_inq(ln, ch, d0, d1, d2, d3)
+  then @(1, p0, d0, d1, d2, d3)
+  else loopB(r0))
+  else loopB(r0))
+(*
+pass A: the innermost USE-span containing the position (the idx_def
+metric); its definition is the target.
+*)
+fun
+loopA
+( xs: deflst
+, bm: sint
+, bp: string
+, b0: sint, b1: sint, b2: sint, b3: sint)
+: @(sint, string, sint, sint, sint, sint) =
+case+ xs of
+| DFnil() =>
+  (
+  if (bm < 0)
+  then loopB(dl)
+  else @(1, bp, b0, b1, b2, b3))
+| DFcons(l0, c0, l1, c1, p0, d0, d1, d2, d3, r0) =>
+  (
+  if pos_inq(ln, ch, l0, c0, l1, c1)
+  then
+  let
+  val m0 = span_metric(l0, c0, l1, c1)
+  in
+  if (if bm < 0 then true else (m0 < bm))
+  then loopA(r0, m0, p0, d0, d1, d2, d3)
+  else loopA(r0, bm, bp, b0, b1, b2, b3)
+  end
+  else loopA(r0, bm, bp, b0, b1, b2, b3))
+in//let
+loopA(dl, 0 - 1, "", 0, 0, 0, 0)
+end//endof[idx_ref_target]
+//
+#implfun
+idx_ref_locs
+(dl, uri, dpath, d0, d1, d2, d3, acc) =
+let
+fun
+loop(xs: deflst, acc: jvlst): jvlst =
+case+ xs of
+| DFnil() => acc
+| DFcons(l0, c0, l1, c1, p0, e0, e1, e2, e3, r0) =>
+  loop
+  ( r0
+  , (
+    if streq(p0, dpath)
+    then
+    (
+    if span_eqq(e0, e1, e2, e3, d0, d1, d2, d3)
+    then
+    JVLcons
+    ( JVobj
+      ( JKVcons("uri", JVstr(uri)
+      , JKVcons("range", mk_range_jv(l0, c0, l1, c1), JKVnil())))
+    , acc)
+    else acc)
+    else acc): jvlst)
+in//let
+loop(dl, acc)
+end//endof[idx_ref_locs]
+//
+#implfun
+idx_ref_hls
+(dl, dpath, d0, d1, d2, d3) =
+let
+fun
+loop(xs: deflst, acc: jvlst): jvlst =
+case+ xs of
+| DFnil() => acc
+| DFcons(l0, c0, l1, c1, p0, e0, e1, e2, e3, r0) =>
+  loop
+  ( r0
+  , (
+    if streq(p0, dpath)
+    then
+    (
+    if span_eqq(e0, e1, e2, e3, d0, d1, d2, d3)
+    then
+    JVLcons
+    ( JVobj
+      ( JKVcons("range", mk_range_jv(l0, c0, l1, c1)
+      , JKVcons("kind", JVint(1), JKVnil())))
+    , acc)
+    else acc)
+    else acc): jvlst)
+in//let
+JVarr(loop(dl, JVLnil()))
+end//endof[idx_ref_hls]
+//
+(* candidate kind -> LSP SymbolKind *)
+fun
+lsp_symknd(k0: sint): sint =
+if (k0 = 1) then 12(*Function*) else
+if (k0 = 2) then 22(*EnumMember*) else
+if (k0 = 3) then 23(*Struct*) else 13(*Variable*)
+//
+#implfun
+idx_symbols
+(yl) =
+let
+(*
+the parse list is reversed emission order; prepending while walking
+it restores document order.
+*)
+fun
+loop(xs: symlst, acc: jvlst): jvlst =
+case+ xs of
+| SYnil() => acc
+| SYcons(k0, l0, c0, l1, c1, e0, e1, e2, e3, nm, r0) =>
+  loop
+  ( r0
+  , JVLcons
+    ( JVobj
+      ( JKVcons("name", JVstr(nm)
+      , JKVcons("kind", JVint(lsp_symknd(k0))
+      , JKVcons("range", mk_range_jv(e0, e1, e2, e3)
+      , JKVcons
+        ("selectionRange", mk_range_jv(l0, c0, l1, c1), JKVnil())))))
+    , acc))
+in//let
+JVarr(loop(yl, JVLnil()))
+end//endof[idx_symbols]
 //
 (* ****** ****** *)
 (***********************************************************************)

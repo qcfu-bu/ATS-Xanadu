@@ -94,6 +94,9 @@ run_ncase t16-isolation     "$T/cases/t16-isolation.jsonl"
 # prelude reload + revalidation of open docs: the same diagnostics must
 # come back after the reload (a broken reload would abort or drift).
 run_ncase t17-prelude-reload "$T/cases/t17-prelude-reload.jsonl"
+# t18 — M7: references (on-def + on-use, +/- declaration),
+# documentHighlight (def + uses light up), documentSymbol (outline).
+run_ncase t18-refs-syms "$T/cases/t18-refs-syms.jsonl"
 # LSP exit-code contract: 'exit' without a prior 'shutdown' exits 1.
 EXPECT_RC=1 run_case t09-exit-code "$T/cases/t09-exit-code.jsonl"
 

@@ -568,3 +568,35 @@ by RC).  Never name anything `pfx`.
 **Still open (documented, low priority):** framing desync logs +
 terminates; a headerless garbage stream grows the buffer until EOF;
 O(buf) chunk appends (~8 MB copied for a 1 MB didOpen — negligible).
+
+## M7 (DONE 2026-08-29): references + documentHighlight + documentSymbol
+
+Feature parity with the purged Chez resident's next tier, on the
+existing record-stream architecture.
+
+**References needed NO new driver records** — the D records already
+carry (use-span -> def-path, def-span) for every use site, so
+references is that data inverted: `idx_ref_target` resolves the
+position to a target definition (pass A: the innermost containing
+USE-span's def, the idx_def metric; pass B: the position sitting ON a
+definition in this file — any D record whose def-path is this file
+and def-span contains it), then `idx_ref_locs` collects every
+matching use across EVERY cached uri (cross-file references work for
+files the session has checked).  includeDeclaration appends the
+def-site itself.  documentHighlight = the same collection restricted
+to the request file, def-site included (editor convention), kind 1.
+
+**documentSymbol added ONE record type**: `Y \t kind \t name-span \t
+decl-span \t name`, emitted by the d3 walk's existing binder sites
+when top-level (fundcls use the full fundecl span as range; val/var
+binders and the L2-routed datatype/typedef/dynconst family — threaded
+with tgt, depq = 0 only — use the name span for both).  The server
+maps candidate kinds to LSP SymbolKind (fun 12, con 22, type 23,
+value 13) and rebuilds document order from the reversed parse list.
+Range CONTAINS selectionRange, as LSP requires.
+
+Suite 18/18 (t18: refs on-def +decl = 3 locations, on-use -decl = 2,
+highlight = def + use, outline with full fun ranges, miss = []); all
+old goldens re-blessed for the one-line capabilities addition.
+(And yes: a paren miscount in the JKVcons capabilities chain struck
+again — the flat-vals lesson stands.)

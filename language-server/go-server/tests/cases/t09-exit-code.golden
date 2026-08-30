@@ -1,3 +1,3 @@
-Content-Length: 380
+Content-Length: 469
 
-{"jsonrpc":"2.0","id":1,"result":{"capabilities":{"textDocumentSync":{"openClose":true,"change":1,"save":true},"hoverProvider":true,"definitionProvider":true,"semanticTokensProvider":{"legend":{"tokenTypes":["variable","function","enumMember"],"tokenModifiers":[]},"full":true},"completionProvider":{"triggerCharacters":["."]}},"serverInfo":{"name":"ats3-lsp","version":"0.6.0"}}}
+{"jsonrpc":"2.0","id":1,"result":{"capabilities":{"textDocumentSync":{"openClose":true,"change":1,"save":true},"hoverProvider":true,"definitionProvider":true,"referencesProvider":true,"documentHighlightProvider":true,"documentSymbolProvider":true,"semanticTokensProvider":{"legend":{"tokenTypes":["variable","function","enumMember"],"tokenModifiers":[]},"full":true},"completionProvider":{"triggerCharacters":["."]}},"serverInfo":{"name":"ats3-lsp","version":"0.6.0"}}}

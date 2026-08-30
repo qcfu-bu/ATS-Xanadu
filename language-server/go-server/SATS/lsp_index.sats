@@ -69,12 +69,27 @@ loclst =
   , sint, sint, sint, sint(*scope span*)
   , string(*name*), loclst)
 //
+(*
+documentSymbol records (M7): a target-file top-level declaration —
+kind (0 value, 1 fun, 2 con, 3 type), name span, decl span, name.
+Parse order is reversed emission order; idx_symbols restores document
+order.
+*)
+datatype
+symlst =
+| SYnil of ()
+| SYcons of
+  ( sint(*kind*)
+  , sint, sint, sint, sint(*name span*)
+  , sint, sint, sint, sint(*decl span*)
+  , string(*name*), symlst)
+//
 (* ****** ****** *)
 //
 (* parse the sentinel-delimited record stream *)
 fun
 idx_parse
-(s0: string): @(hovlst, deflst, toklst, candlst, loclst, memlst)
+(s0: string): @(hovlst, deflst, toklst, candlst, loclst, memlst, symlst)
 //
 (*
 the Hover result for (line, character): {contents, range}, or JVerr
@@ -108,6 +123,54 @@ fun
 idx_complete
 ( cl: candlst, ll: loclst, ml: memlst
 , doctext: string, ln: sint, ch: sint): jval
+//
+(* ****** ****** *)
+(* M7: references / documentHighlight / documentSymbol *)
+(* ****** ****** *)
+//
+(*
+resolve the REFERENCE TARGET at (line, character): the definition the
+position's innermost use-site points at, or — when the position sits
+ON a definition in this very file (path) — that definition itself.
+@(found 0/1, defpath, dl0, dc0, dl1, dc1).
+*)
+fun
+idx_ref_target
+( dl: deflst, path: string
+, ln: sint, ch: sint): @(sint, string, sint, sint, sint, sint)
+//
+(*
+prepend, onto acc, a Location {uri, range} for every use-site in dl
+whose definition is exactly (dpath, d0..d3).  uri names the file dl
+was indexed from.
+*)
+fun
+idx_ref_locs
+( dl: deflst, uri: string
+, dpath: string, d0: sint, d1: sint, d2: sint, d3: sint
+, acc: jvlst): jvlst
+//
+(*
+the DocumentHighlight[] for the same-target use-sites within this
+file (kind 1 = Text).
+*)
+fun
+idx_ref_hls
+( dl: deflst
+, dpath: string, d0: sint, d1: sint, d2: sint, d3: sint): jval
+//
+(* a Range literal (the def-site addition for includeDeclaration) *)
+fun
+idx_range_jv
+(l0: sint, c0: sint, l1: sint, c1: sint): jval
+//
+(*
+the DocumentSymbol[] outline (document order): name, kind (candidate
+kind -> LSP SymbolKind), range = decl span, selectionRange = name
+span.
+*)
+fun
+idx_symbols(yl: symlst): jval
 //
 (* ****** ****** *)
 (***********************************************************************)
