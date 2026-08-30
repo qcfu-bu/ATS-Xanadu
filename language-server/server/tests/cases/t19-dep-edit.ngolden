@@ -1,8 +1,8 @@
 {"jsonrpc": "2.0", "id": 1, "result": {"capabilities": {"textDocumentSync": {"openClose": true, "change": 1, "save": true}, "hoverProvider": true, "definitionProvider": true, "referencesProvider": true, "documentHighlightProvider": true, "documentSymbolProvider": true, "semanticTokensProvider": {"legend": {"tokenTypes": ["variable", "function", "enumMember"], "tokenModifiers": []}, "full": true}, "completionProvider": {"triggerCharacters": ["."]}}, "serverInfo": {"name": "ats3-lsp", "version": "0.6.0"}}}
-{"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": "file://@X@/language-server/go-server/tests/fixtures/t19user.dats", "version": 1, "diagnostics": []}}
+{"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": "file://@X@/language-server/server/tests/fixtures/t19user.dats", "version": 1, "diagnostics": []}}
 {"jsonrpc": "2.0", "id": 1000001, "method": "workspace/semanticTokens/refresh"}
-{"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": "file://@X@/language-server/go-server/tests/fixtures/t19user.dats", "version": 2, "diagnostics": []}}
+{"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": "file://@X@/language-server/server/tests/fixtures/t19user.dats", "version": 2, "diagnostics": []}}
 {"jsonrpc": "2.0", "id": 1000002, "method": "workspace/semanticTokens/refresh"}
-{"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": "file://@X@/language-server/go-server/tests/fixtures/t19user.dats", "version": 3, "diagnostics": [{"range": {"start": {"line": 10, "character": 9}, "end": {"line": 10, "character": 16}}, "severity": 1, "source": "ats3", "message": "unbound identifier: dep19_f"}]}}
+{"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": "file://@X@/language-server/server/tests/fixtures/t19user.dats", "version": 3, "diagnostics": [{"range": {"start": {"line": 10, "character": 9}, "end": {"line": 10, "character": 16}}, "severity": 1, "source": "ats3", "message": "unbound identifier: dep19_f"}]}}
 {"jsonrpc": "2.0", "id": 1000003, "method": "workspace/semanticTokens/refresh"}
 {"jsonrpc": "2.0", "id": 2, "result": null}

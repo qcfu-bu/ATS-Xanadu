@@ -18,7 +18,7 @@ set -uo pipefail
 X="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 export XATSHOME=$X
 ulimit -s 65520 2>/dev/null || true
-G=$X/language-server/go-server
+G=$X/language-server/server
 B=$G/BUILD
 EMIT=$B/emit
 SRC=$B/src

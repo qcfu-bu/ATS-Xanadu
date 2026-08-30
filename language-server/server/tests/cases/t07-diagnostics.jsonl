@@ -1,6 +1,6 @@
 {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"capabilities": {}, "initializationOptions": {"checker": "@X@/srcgen2/xats2go/selfhost-build/src/xats2go-tcheck", "xatshome": "@X@"}}}
 {"jsonrpc": "2.0", "method": "initialized", "params": {}}
-{"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": "file://@X@/language-server/go-server/tests/fixtures/err1.dats", "languageId": "ats3", "version": 1, "text": "#staload _ =\n\"prelude/DATS/gdbg000.dats\"\n#include\n\"prelude/HATS/prelude_dats.hats\"\n#include\n\"prelude/HATS/prelude_GO_dats.hats\"\n//\nval x0: sint = \"h\u00e9llo\"\nval y0 = undefined_name_z + 1\nfun f0(a: sint): sint = (a +\n"}}}
+{"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": "file://@X@/language-server/server/tests/fixtures/err1.dats", "languageId": "ats3", "version": 1, "text": "#staload _ =\n\"prelude/DATS/gdbg000.dats\"\n#include\n\"prelude/HATS/prelude_dats.hats\"\n#include\n\"prelude/HATS/prelude_GO_dats.hats\"\n//\nval x0: sint = \"h\u00e9llo\"\nval y0 = undefined_name_z + 1\nfun f0(a: sint): sint = (a +\n"}}}
 #sleep 5000
 {"jsonrpc": "2.0", "id": 2, "method": "shutdown"}
 {"jsonrpc": "2.0", "method": "exit"}

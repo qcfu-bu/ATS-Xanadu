@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # wire-server.sh — build the ATS3 LSP server (M6: IN-PROCESS compiler) as a
 # THIRD main package over the already-built frontend packages: the server
-# module emissions (produced by language-server/go-server/tools/build.sh)
+# module emissions (produced by language-server/server/tools/build.sh)
 # are processed exactly like assemble.sh modules and placed in src/lspserver/
 # together with the tchecklib/lspidx modules (shared with src/tcheck/), the
 # prelude+server floors, and a verbatim zz_init.go; `go build ./lspserver`
-# -> language-server/go-server/BUILD/ats3-lsp-server.
+# -> language-server/server/BUILD/ats3-lsp-server.
 #
 # Run via tools/build.sh (which refreshes the module emissions first).
 # Symbol stamps are source-location-derived, so the server modules link
@@ -13,7 +13,7 @@
 set -uo pipefail
 X="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 export XATSHOME=$X
-G=$X/language-server/go-server
+G=$X/language-server/server
 B=$G/BUILD
 EMIT=$B/emit
 OUT=$X/srcgen2/xats2go/selfhost-build

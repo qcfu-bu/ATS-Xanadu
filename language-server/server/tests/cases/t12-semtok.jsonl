@@ -1,7 +1,7 @@
-{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"capabilities": {}, "rootUri": "file://@X@/language-server/go-server/tests/fixtures", "initializationOptions": {"checker": "@X@/srcgen2/xats2go/selfhost-build/src/xats2go-tcheck", "xatshome": "@X@"}}}
+{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"capabilities": {}, "rootUri": "file://@X@/language-server/server/tests/fixtures", "initializationOptions": {"checker": "@X@/srcgen2/xats2go/selfhost-build/src/xats2go-tcheck", "xatshome": "@X@"}}}
 {"jsonrpc": "2.0", "method": "initialized", "params": {}}
-{"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": "file://@X@/language-server/go-server/tests/fixtures/ok1.dats", "languageId": "ats3", "version": 1, "text": "(* a clean fixture: zero diagnostics expected *)\n#staload _ =\n\"prelude/DATS/gdbg000.dats\"\n#include\n\"prelude/HATS/prelude_dats.hats\"\n#include\n\"prelude/HATS/prelude_GO_dats.hats\"\n//\nfun\ndouble(x0: sint): sint = x0 + x0\n//\nval () = sint_print(double(21))\nval () = strn_print(\"\\n\")\nval () = the_print_store_log((*void*))\n//\n"}}}
+{"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": "file://@X@/language-server/server/tests/fixtures/ok1.dats", "languageId": "ats3", "version": 1, "text": "(* a clean fixture: zero diagnostics expected *)\n#staload _ =\n\"prelude/DATS/gdbg000.dats\"\n#include\n\"prelude/HATS/prelude_dats.hats\"\n#include\n\"prelude/HATS/prelude_GO_dats.hats\"\n//\nfun\ndouble(x0: sint): sint = x0 + x0\n//\nval () = sint_print(double(21))\nval () = strn_print(\"\\n\")\nval () = the_print_store_log((*void*))\n//\n"}}}
 #sleep 5000
-{"jsonrpc": "2.0", "id": 2, "method": "textDocument/semanticTokens/full", "params": {"textDocument": {"uri": "file://@X@/language-server/go-server/tests/fixtures/ok1.dats"}}}
+{"jsonrpc": "2.0", "id": 2, "method": "textDocument/semanticTokens/full", "params": {"textDocument": {"uri": "file://@X@/language-server/server/tests/fixtures/ok1.dats"}}}
 {"jsonrpc": "2.0", "id": 9, "method": "shutdown"}
 {"jsonrpc": "2.0", "method": "exit"}

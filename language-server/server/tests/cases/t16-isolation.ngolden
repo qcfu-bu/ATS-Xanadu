@@ -1,6 +1,6 @@
 {"jsonrpc": "2.0", "id": 1, "result": {"capabilities": {"textDocumentSync": {"openClose": true, "change": 1, "save": true}, "hoverProvider": true, "definitionProvider": true, "referencesProvider": true, "documentHighlightProvider": true, "documentSymbolProvider": true, "semanticTokensProvider": {"legend": {"tokenTypes": ["variable", "function", "enumMember"], "tokenModifiers": []}, "full": true}, "completionProvider": {"triggerCharacters": ["."]}}, "serverInfo": {"name": "ats3-lsp", "version": "0.6.0"}}}
-{"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": "file://@X@/language-server/go-server/tests/fixtures/iso_a.dats", "version": 1, "diagnostics": []}}
+{"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": "file://@X@/language-server/server/tests/fixtures/iso_a.dats", "version": 1, "diagnostics": []}}
 {"jsonrpc": "2.0", "id": 1000001, "method": "workspace/semanticTokens/refresh"}
-{"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": "file://@X@/language-server/go-server/tests/fixtures/iso_b.dats", "version": 1, "diagnostics": [{"range": {"start": {"line": 8, "character": 9}, "end": {"line": 8, "character": 23}}, "severity": 1, "source": "ats3", "message": "unbound identifier: iso_secret_val"}]}}
+{"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": "file://@X@/language-server/server/tests/fixtures/iso_b.dats", "version": 1, "diagnostics": [{"range": {"start": {"line": 8, "character": 9}, "end": {"line": 8, "character": 23}}, "severity": 1, "source": "ats3", "message": "unbound identifier: iso_secret_val"}]}}
 {"jsonrpc": "2.0", "id": 1000001, "method": "workspace/semanticTokens/refresh"}
 {"jsonrpc": "2.0", "id": 2, "result": null}

@@ -107,12 +107,12 @@ every emission (build.sh enforces via mtime).
 ### Emitter support (compiler changes, landed with M1)
 Two edits in `srcgen2/xats2go/srcgen2/DATS/go1emit_utils0.dats`, both
 gated by `build.sh quick` (psuite 75/75) + `gate`:
-1. `go1emit_package_pathq` also treats `language-server/go-server/` as
+1. `go1emit_package_pathq` also treats `language-server/server/` as
    package source — SATS-declared server symbols emit/reference as
    stamped package names instead of bridging to nonexistent
    `xatsgo.Xats_*` runtime hooks.
 2. `d2cstgo1`'s `goleafq` also accepts `XATS2GO_*` externs declared
-   under `language-server/go-server/` — the server's spliced `.cats`
+   under `language-server/server/` — the server's spliced `.cats`
    floor behaves exactly like the prelude's CATS/GO floor (bare
    `$`→`_`-mangled names).
 
@@ -280,7 +280,7 @@ Per-module frontend pre-flight (fast, node-free):
    lexbuf from the text and `LCSRCsome1(path)` on the tokens AND the
    d0parsed source — diagnostics carry the file identity and relative
    staloads resolve exactly as on-disk (verified: byte-identical error
-   lines vs the on-disk mode, and a go-server module's `./../SATS/`
+   lines vs the on-disk mode, and a server module's `./../SATS/`
    staloads resolve).  stdin arrives via ONE new runtime leaf
    (`Xats_XATS2GO_tcheck_stdin_readall`, in the leaf-census baseline).
    Server side: every check of a stored document pipes the CURRENT
@@ -370,7 +370,7 @@ sync.
 `../client/` now launches the native binary directly (Chez/Deno-era
 backends removed: resolution, settings, build scripts, the stale
 `server-dist` payload).  Resolution: `ats3.server.path` setting →
-packaged `server-dist/ats3-lsp-server` → dev `go-server/BUILD/`;
+packaged `server-dist/ats3-lsp-server` → dev `server/BUILD/`;
 checker: `ats3.server.checkerPath` → `server-dist/` →
 `$XATSHOME/srcgen2/xats2go/selfhost-build/src/xats2go-tcheck`; XATSHOME:
 setting → env → repo root (dev).  The whole server config rides in
@@ -484,7 +484,7 @@ processed modules shared verbatim with src/tcheck/, glue module +
 generated shim, the server extern floor — but NOT the prelude CATS
 floor (zzbase already exports the bare XATS2GO_* leaves; a second
 copy collides through the dot-import).  Binary: 190 MB, back at
-go-server/BUILD/ats3-lsp-server (client path unchanged).
+server/BUILD/ats3-lsp-server (client path unchanged).
 
 **Runtime leaves added** (census-baselined): capture_begin/end
 (stderr-capture window; also resets the report-bracket depth so a

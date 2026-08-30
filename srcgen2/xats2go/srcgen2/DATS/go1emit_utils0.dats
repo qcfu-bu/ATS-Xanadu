@@ -121,10 +121,10 @@ go1emit_package_pathq
 (
 if go1emit_strn_contains(path, "prelude/") then false else
 if go1emit_strn_contains(path, "xatslib/") then false else
-// the ATS3 LSP server (language-server/go-server) is a multi-module Go
+// the ATS3 LSP server (language-server/server) is a multi-module Go
 // program assembled exactly like the selfhost package: its SATS-declared
 // symbols must emit/reference as stamped package names, not runtime hooks.
-if go1emit_strn_contains(path, "language-server/go-server/") then true else
+if go1emit_strn_contains(path, "language-server/server/") then true else
 if go1emit_strn_contains(path, "srcgen2/xats2go/srcgen2/") then true else
 // the xats2cc D3->intrep0 lowering modules are part of the assembled
 // package (the driver runs trxd3i0/tryd3i0), so their symbols are
@@ -294,7 +294,7 @@ then
   if sname[6] != 'O' then false else
   if sname[7] != '_' then false else
   (
-  // the LSP server's extern floor (language-server/go-server/CATS/GO/
+  // the LSP server's extern floor (language-server/server/CATS/GO/
   // lsp_floor.cats) is spliced by its build exactly like the prelude
   // floor, so its XATS2GO_LSP_* leaves are bare spliced names too.
   case+
@@ -302,11 +302,11 @@ then
   |LCSRCsome1(path) =>
     (
     if go1emit_strn_contains(path, "prelude/") then true else
-    go1emit_strn_contains(path, "language-server/go-server/"))
+    go1emit_strn_contains(path, "language-server/server/"))
   |LCSRCfpath(fpx) =>
     (
     if go1emit_strn_contains(fpath_get_fnm1(fpx), "prelude/") then true else
-    go1emit_strn_contains(fpath_get_fnm1(fpx), "language-server/go-server/"))
+    go1emit_strn_contains(fpath_get_fnm1(fpx), "language-server/server/"))
   |_(*else*) => false))
 else false)
 in//let

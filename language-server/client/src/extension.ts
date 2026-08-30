@@ -5,7 +5,7 @@
  * LSP/JSON-RPC over stdio.
  *
  * The server is a single self-contained NATIVE binary: the ATS3 server sources
- * (language-server/go-server) compiled by the xats2go Go backend.  It needs no
+ * (language-server/server) compiled by the xats2go Go backend.  It needs no
  * runtime; the client spawns it directly.  Per typecheck the server spawns the
  * CHECK-ONLY compiler driver (xats2go-tcheck) on the file, so the client passes
  * XATSHOME via initializationOptions (M6: the compiler is in-process).
@@ -42,7 +42,7 @@ function isPackaged(context: ExtensionContext): boolean {
 
 /**
  * Resolve the native server binary (ats3-lsp-server, built by
- * language-server/go-server/tools/build.sh).
+ * language-server/server/tools/build.sh).
  *
  * Priority: the `ats3.server.path` setting; the packaged binary in
  * `server-dist/`; the repo-relative dev build. Returns `undefined` when none
@@ -59,7 +59,7 @@ function resolveServerBinary(context: ExtensionContext): string | undefined {
   }
   const candidates = [
     path.join(context.extensionPath, "server-dist", exe),
-    path.join(context.extensionPath, "..", "go-server", "BUILD", exe),
+    path.join(context.extensionPath, "..", "server", "BUILD", exe),
   ];
   for (const c of candidates) {
     if (fs.existsSync(c)) {
@@ -106,7 +106,7 @@ export function activate(context: ExtensionContext): void {
   if (serverBin === undefined) {
     window.showErrorMessage(
       `ATS3 LSP: server binary not found. Build it with ` +
-        `"language-server/go-server/tools/build.sh" (-> go-server/BUILD/ats3-lsp-server) ` +
+        `"language-server/server/tools/build.sh" (-> server/BUILD/ats3-lsp-server) ` +
         `or set "ats3.server.path".`,
     );
     channel.appendLine(`[ats3] no server binary found`);

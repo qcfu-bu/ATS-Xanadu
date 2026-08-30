@@ -86,7 +86,7 @@
         "ats3.server.path": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Absolute path to the native ATS3 language-server binary (`ats3-lsp-server`, built by `language-server/go-server/tools/build.sh`). When empty, the client auto-resolves it from `server-dist/` (packaged) or the repo `go-server/BUILD/` (dev)."
+          "markdownDescription": "Absolute path to the native ATS3 language-server binary (`ats3-lsp-server`, built by `language-server/server/tools/build.sh`). When empty, the client auto-resolves it from `server-dist/` (packaged) or the repo `server/BUILD/` (dev)."
         },
         "ats3.xatshome": {
           "type": "string",
@@ -111,7 +111,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "bundle": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
-    "stage:server": "mkdir -p server-dist && cp ../go-server/BUILD/ats3-lsp-server server-dist/",
+    "stage:server": "mkdir -p server-dist && cp ../server/BUILD/ats3-lsp-server server-dist/",
     "test:grammar": "node fixtures/tokenize-test.js",
     "package": "npm run bundle && npm run stage:server && vsce package --out ats3-lsp-client.vsix"
   },
