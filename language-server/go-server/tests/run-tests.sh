@@ -74,21 +74,22 @@ run_case t04-escapes     "$T/cases/t04-escapes.jsonl"
 run_case t05-parse-error "$T/cases/t05-parse-error.jsonl"
 # same bytes as t01, dribbled 7 bytes at a time: incremental framing.
 run_case t06-chunked     "$T/cases/t01-lifecycle.jsonl" --chunk 7 --delay 2
-# M2: real checks via the check-only compiler driver (needs the tcheck
-# binary; skip loudly if it is not built).
-TCHECK="$ATS3_REPO/srcgen2/xats2go/selfhost-build/src/xats2go-tcheck"
-if [ -x "$TCHECK" ]; then
-  run_ncase t07-diagnostics "$T/cases/t07-diagnostics.jsonl"
-  run_ncase t08-save-close  "$T/cases/t08-save-close.jsonl"
-  run_ncase t10-crossfile   "$T/cases/t10-crossfile.jsonl"
-  run_ncase t11-hover-def   "$T/cases/t11-hover-def.jsonl"
-  run_ncase t12-semtok      "$T/cases/t12-semtok.jsonl"
-  run_ncase t13-completion  "$T/cases/t13-completion.jsonl"
-  run_ncase t14-dot-member  "$T/cases/t14-dot-member.jsonl"
-else
-  echo "!! t07/t08/t10 SKIPPED: $TCHECK not built (selfhost-build/wire-tcheck.sh)"
-  fail=$((fail+1))
-fi
+# M2+: real checks (M6: IN-PROCESS — the compiler is linked into the
+# server; no separate checker binary is needed).
+run_ncase t07-diagnostics "$T/cases/t07-diagnostics.jsonl"
+run_ncase t08-save-close  "$T/cases/t08-save-close.jsonl"
+run_ncase t10-crossfile   "$T/cases/t10-crossfile.jsonl"
+run_ncase t11-hover-def   "$T/cases/t11-hover-def.jsonl"
+run_ncase t12-semtok      "$T/cases/t12-semtok.jsonl"
+run_ncase t13-completion  "$T/cases/t13-completion.jsonl"
+run_ncase t14-dot-member  "$T/cases/t14-dot-member.jsonl"
+# M6 state-isolation cases: t15 — a re-check of the same uri must
+# re-elaborate its (broken) dep and re-report it (eviction works; a
+# stale shr=1 cache would silently drop the dep summary the second
+# time); t16 — a name defined by one checked file must NOT resolve in
+# a later check of another file (no cross-check pollution).
+run_ncase t15-recheck-fresh "$T/cases/t15-recheck-fresh.jsonl"
+run_ncase t16-isolation     "$T/cases/t16-isolation.jsonl"
 # LSP exit-code contract: 'exit' without a prior 'shutdown' exits 1.
 EXPECT_RC=1 run_case t09-exit-code "$T/cases/t09-exit-code.jsonl"
 

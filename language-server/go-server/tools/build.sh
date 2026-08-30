@@ -74,48 +74,6 @@ for m in $MODULES; do
   fi
 done
 
-# ---- 2. assemble one package file ---------------------------------------
-ALL=$SRC/lspserver_all.go
-{
-  printf 'package main\n\n'
-  printf 'import "xatsgo"\nimport "unsafe"\n\n'
-  printf 'var _ = xatsgo.XATSNIL\nvar _ unsafe.Pointer\n\n'
-} > "$ALL"
-: > "$SRC/.layouts"
-: > "$SRC/.modinits"
-n=0; MI=0
-for m in $MODULES; do
-  printf '//==ZZMOD:%s==\n' "$m" >> "$ALL"
-  awk 'BEGIN{started=0}
-       /^type Zzs_[a-z]* struct \{$/{lay=1}
-       lay{if($0=="}"){lay=0}; next}
-       /^func ZzpZzs_/{next}
-       /^func /{started=1}
-       /^var [^_]/{started=1}
-       started{print}' "$EMIT/$m.go" \
-    | sed -E "s/goxtnm([0-9])/go${n}tnm\\1/g" \
-    | sed -E "s/goxtmpl([0-9])/go${n}tmpl\\1/g" \
-    | sed "s/^func main() {\$/func Zzmodinit_${MI}() {/" >> "$ALL"
-  awk '/^type Zzs_[a-z]* struct \{$/{lay=1} lay{print; if($0=="}"){lay=0}; next}
-       /^func ZzpZzs_/{print}' "$EMIT/$m.go" >> "$SRC/.layouts"
-  echo "Zzmodinit_${MI}" >> "$SRC/.modinits"
-  printf '\n' >> "$ALL"
-  MI=$((MI+1)); n=$((n+1))
-done
-{
-  printf '\n//==ZZLAYOUTS==\n'
-  awk '/^type (Zzs_[a-z]*) struct \{$/{nm=$2; if(nm in seen){skip=1} else {seen[nm]=1; skip=0}; if(!skip)print; next}
-       /^func ZzpZzs_/{fn=$2; sub(/\(.*/,"",fn); if(fn in seenf)next; seenf[fn]=1; print; next}
-       !skip{print}
-       /^\}$/{skip=0}' "$SRC/.layouts"
-  # the generated main runs every module's preserved top-level effects in
-  # assembly order; the DRIVER's effects (the serve loop) run last.  NO
-  # print-store flush afterwards: stdout is the protocol channel.
-  printf '\nfunc main() {\n'
-  while IFS= read -r nm; do printf '\t%s()\n' "$nm"; done < "$SRC/.modinits"
-  printf '}\n'
-} >> "$ALL"
-
 # ---- 3. floors -----------------------------------------------------------
 # 3a. the CATS/GO prelude floor (bench/run-goarm recipe, $->_ mangled)
 GO_CATS="xtop000 gint000 bool000 char000 gflt000 axrf000 unsfx00 strn000"
@@ -130,12 +88,11 @@ done
   echo "import ($IMPLINE )"
   for c in $GO_CATS; do sed 's/\$/_/g' "$X/prelude/DATS/CATS/GO/$c.cats"; done
 } > "$SRC/zz_floor.go"
-# 3b. the server's own extern floor (name=importpath pairs: `exec.` needs
-# the "os/exec" import)
+# 3b. the server's own extern floor (name=importpath pairs)
 LSPCATS=$G/CATS/GO/lsp_floor.cats
 LIMPLINE=""
 for pi in os=os io=io time=time bufio=bufio fmt=fmt strings=strings \
-          bytes=bytes exec=os/exec; do
+          bytes=bytes exec=os/exec xatsgo=xatsgo; do
   p=${pi%%=*}; imp=${pi#*=}
   if grep -qE "\b$p\." "$LSPCATS"; then LIMPLINE="$LIMPLINE \"$imp\";"; fi
 done
@@ -145,10 +102,9 @@ done
   sed 's/\$/_/g' "$LSPCATS"
 } > "$SRC/zz_lspfloor.go"
 
-# ---- 4. go build ---------------------------------------------------------
-printf 'module ats3lspserver\n\ngo 1.26\n\nrequire xatsgo v0.0.0\nreplace xatsgo => %s\n' \
-  "$RUNTIME" > "$SRC/go.mod"
-( cd "$SRC" && gofmt -w . >/dev/null 2>&1
-  go build ${XGCFLAGS:+-gcflags "$XGCFLAGS"} -o "$B/ats3-lsp-server" . 2> "$SRC/build.err" ) \
-  || { echo "!! go build FAILED"; head -30 "$SRC/build.err"; exit 1; }
-echo ">> built $B/ats3-lsp-server"
+# ---- 4. wire against the compiler assembly (M6: in-process checks) -------
+# The server links libxatsopt: assembly + build happen in
+# selfhost-build/wire-server.sh (module processing, layout dedup vs the
+# compiler packages, tchecklib/lspidx modules, zz_init, go build), which
+# writes the binary back to $B/ats3-lsp-server.
+bash "$X/srcgen2/xats2go/selfhost-build/wire-server.sh" || exit 1

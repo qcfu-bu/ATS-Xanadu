@@ -1,7 +1,7 @@
 {"jsonrpc": "2.0", "id": 1, "result": {"capabilities": {"textDocumentSync": {"openClose": true, "change": 1, "save": true}, "hoverProvider": true, "definitionProvider": true, "semanticTokensProvider": {"legend": {"tokenTypes": ["variable", "function", "enumMember"], "tokenModifiers": []}, "full": true}, "completionProvider": {"triggerCharacters": ["."]}}, "serverInfo": {"name": "ats3-lsp", "version": "0.6.0"}}}
 {"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": "file://@X@/language-server/go-server/tests/fixtures/ok1.dats", "version": 1, "diagnostics": []}}
-{"jsonrpc": "2.0", "id": 1000000, "method": "workspace/semanticTokens/refresh"}
-{"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": "file://@X@/language-server/go-server/tests/fixtures/ok1.dats", "version": 2, "diagnostics": [{"range": {"start": {"line": 16, "character": 16}, "end": {"line": 16, "character": 20}}, "severity": 1, "source": "ats3", "message": "type mismatch"}]}}
 {"jsonrpc": "2.0", "id": 1000001, "method": "workspace/semanticTokens/refresh"}
+{"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": "file://@X@/language-server/go-server/tests/fixtures/ok1.dats", "version": 2, "diagnostics": [{"range": {"start": {"line": 16, "character": 16}, "end": {"line": 16, "character": 20}}, "severity": 1, "source": "ats3", "message": "type mismatch"}]}}
+{"jsonrpc": "2.0", "id": 1000002, "method": "workspace/semanticTokens/refresh"}
 {"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": "file://@X@/language-server/go-server/tests/fixtures/ok1.dats", "diagnostics": []}}
 {"jsonrpc": "2.0", "id": 9, "result": null}

@@ -22,6 +22,7 @@ Claude; the architect reviews commits and decides open questions.
 | M5a — completion: lexical core + scope-aware locals | **DONE** (2026-08-29) |
 | M5b — completion: member/dot | **DONE** (2026-08-29) |
 | M4 — wire the VSCode client | **code done** (2026-08-28); the human F5 demo remains |
+| M6 — in-process compiler (architect ruling 2026-08-29) | **DONE** (2026-08-29) |
 
 **M1 measured:** cold spawn → `initialize` response round-trip **3.3 ms**
 (best of 5); binary 3.4 MB; golden suite incl. multibyte, \u-escape
@@ -377,3 +378,152 @@ setting → env → repo root (dev).  The whole server config rides in
 a WARNING (server runs, diagnostics disabled).  `npm run package`
 stages both binaries into the `.vsix`.  tsc + esbuild clean; the human
 F5 end-to-end demo is the remaining M4 step (architect).
+
+## M6 (in progress): in-process compiler — the architect's ruling (2026-08-29)
+
+**Why.** The go-vs-chez benchmark (see the session bench + memory) showed the
+~290 ms per-check floor is ENTIRELY prelude load: an empty file costs the same
+286 ms as a real one; the actual small-file check is ~10 ms.  The resurrected
+Chez resident (prelude in-process, warm re-checks) did tiny-file re-checks in
+~8 ms but real modules 5x SLOWER and 15x the RSS.  The architect ruled: adopt
+the Chez architecture on the Go backend — link libxatsopt into the server,
+load the prelude once, check in-process.  Best of both: warm ~10 ms tiny
+checks AND the 5x-faster Go frontend on real files.
+
+**The one-shot problem and its answer.** The compiler has no state reset
+(ats3-compiler-one-shot).  Upstream now has Tier-1 `xglobal_reset()`
+(HX-C1-2026, xglobal.sats — full reset + prelude RELOAD; correct but pays the
+286 ms again).  Tier-2 checkpoint/restore was never built.  We do neither
+per check: **targeted eviction, June-Chez style, keyed by staload
+freshness** — a check's freshly-loaded dependencies are exactly the staload
+nodes with `shr = 0` (prelude/pre-cached hits are shr = 1), the same walk
+report_deps already does.  After emitting reports + index, evict from the
+four per-file caches (the_d1parenv/the_d2parenv/the_d3parenv pvstmap
+topmaps + the_d3tmpenv) the TARGET file's fnm2 stamp and every shr=0 dep
+stamp (transitively).  That reproduces process-per-check semantics exactly
+(each check re-elaborates its own workspace closure; the prelude stays warm
+and immutable), with zero snapshot bookkeeping.  `xglobal_reset()` +
+pvsreload is the nuclear fallback (prelude edits; suspected inconsistency).
+NB the f2perr0 dep-report path MUTATES cached dep d2parsed ("fine: the
+process is one-shot") — eviction discards the mutation, preserving that
+assumption.  Stamp counters / symbol intern tables grow monotonically
+across checks (append-only; benign per the C1 proposal inventory).
+
+**Plumbing design.**
+- Check core extracted from the tcheck driver into
+  `UTIL/xats2go_tchecklib.{sats,dats}`: `tchk_prelude_load()` (the same
+  eager `the_fxtyenv_pvsl00d` + `the_tr12env_pvsl01d` + flag$pvsadd0
+  triple the CLI driver runs), and
+  `tchk_check(path, text, stadyn, idxq, errout: FILR, idxout: FILR)`
+  (mymain_work parameterized by text + output FILRs, ending with the
+  eviction walk).  `xats2go_tcheck01.dats` becomes a thin CLI over the
+  lib — its stderr/stdout stay byte-identical.
+- In-process output capture: every reporter already takes `out: FILR`,
+  and the GO runtime's `xatsWriter` accepts ANY value with a Go
+  `Write` method — so a `*bytes.Buffer` IS a FILR.  New runtime leaves:
+  `buffilr_make/take` (buffer-backed FILR + drain), plus a capture
+  window that routes the prerr/report-channel default-stderr writes
+  (xatsStorePut + the direct os.Stderr chokepoints) into the same
+  buffer for the check's duration.
+- Eviction leaf: the topmap rep is xatsJSHMap (Go map) behind the
+  XATS2JS_jshmap_* leaves; a driver-local extern
+  (`XATS2GO_lsp_evict(map, keysint)`, the June JS_map_reset pattern)
+  deletes one key — no upstream SATS churn.
+- Server: floor gains setenv (XATSHOME must be set before prelude
+  load; it arrives in initializationOptions) and a panic-guard leaf
+  (`lsp_guard(f)`: defer/recover — a frontend crash fails ONE check,
+  Chez-glue style).  h_initialize: setenv + tchk_prelude_load (~290 ms,
+  once — the Chez resident's 334 ms boot equivalent).  chk_start runs
+  the check SYNCHRONOUSLY v1 (debounce already coalesces bursts;
+  kill-superseded degrades to drop-queued; goroutine offload is a
+  documented follow-up).  The spawn/reap floor leaves and the separate
+  tcheck binary path go away from the server (the CLI tcheck stays for
+  tests/debug).
+- Build: `selfhost-build/wire-server.sh` mirrors wire-tcheck.sh — the
+  server modules + floor + tchecklib emissions link against the SAME
+  assembled compiler packages by source-location stamps; server binary
+  becomes ~190 MB; the vsix ships ONE binary.
+
+**Correctness tests to add** (beyond the 14 golden): t15 idempotence
+(same file didChange'd twice with the same text → byte-identical
+diagnostics both times — catches stale target caching); t16 isolation
+(file A defines a name; file B referencing it WITHOUT staload must
+error — catches cross-check pollution); t17 dep re-read (edit dep on
+disk between checks of the dependent → new dep errors appear — catches
+dep-cache staleness).
+
+**Expected numbers** (from the bench): warm didChange→diags tiny file
+~593 → ~260 ms (debounce-bound); didOpen tiny ~308 → ~15 ms; mid file
+~1167 → ~880 ms; RSS ~190 MB resident (vs 31+137 transient today, vs
+459 MB for the Chez resident).
+
+### M6 as built (deltas from the design above)
+
+**The two-prelude fence (the big deviation).** The server modules could
+NOT simply staload the compiler SATS: the server lives in the repo-root
+GO prelude world, the compiler in the srcgen1 prelude world, and one
+emission unit holding both detonates template resolution (138 errck,
+`gint_sub` resolving into srcgen1's gint000.sats).  The bridge is at
+the GO SYMBOL level instead: `UTIL/xats2go_lspglue.{sats,dats}`
+(compiler world) exports `tchkglue_prelude_load` / `tchkglue_check`
+as stamped Z_ symbols; wire-server.sh extracts the stamps from the
+emission and GENERATES a shim (`zz_srv_shim.go`) that the server's
+plain `XATS2GO_LSP_tchk_*` externs forward to.  Results cross the
+fence as strings through a runtime stash
+(`Xats_XATS2GO_lsp_stash/take_rep/idx`); the glue runs the check
+inside the runtime capture window, so the captured report text is
+byte-identical to the old checker's stderr and the whole downstream
+(diag_build/idx_parse) is untouched.
+
+**Wiring.** `selfhost-build/wire-server.sh` (called by tools/build.sh
+after emission + floor prep): processes the 8 server module emissions
+assemble.sh-style into `src/lspserver/` (dot-imports of the compiler
+packages; temps `gosrv<N>`; module inits `Zzmodinit_srv_<N>`), layout
+structs deduped MINUS those zzbase already exports, tchecklib/lspidx
+processed modules shared verbatim with src/tcheck/, glue module +
+generated shim, the server extern floor — but NOT the prelude CATS
+floor (zzbase already exports the bare XATS2GO_* leaves; a second
+copy collides through the dot-import).  Binary: 190 MB, back at
+go-server/BUILD/ats3-lsp-server (client path unchanged).
+
+**Runtime leaves added** (census-baselined): capture_begin/end
+(stderr-capture window; also resets the report-bracket depth so a
+recovered panic can't misroute later prints), buffilr_make/take,
+lsp_evict (jshmap key delete), lsp_stash_rep/idx + lsp_take_rep/idx
+(take_rep drains a still-open capture window after a panic, so a
+crashed check still surfaces its partial report).  Floor delta:
+spawn/reap family REMOVED; setenv + guard added; take_rep/take_idx
+wrappers.  `lsp_guard` calls a `(sint)->void` closure = `func(int)
+any` (the settled convention per CATS/GO/strn000.cats).
+
+**Eviction, as planned:** tchk_check ends by evicting the target +
+every fresh (shr = 0) non-stdlib dep from the four per-file caches
+(d1/d2/d3parenv + d3tmpenv), transitively — stdlib deps stay warm
+under the same immutability assumption as the prelude.  The f2perr0
+dep-report mutation is discarded by the same eviction.
+
+**Verified.** Suite 16/16: the 14 goldens re-baselined for two benign
+deltas (tokrefresh id now 1000000+version; synchronous checks publish
+before refreshing — deterministic ordering), plus the two M6 gates:
+t15-recheck-fresh (the BROKEN dep's summary reappears on the second
+check of the same uri with the target's error text updated — eviction
+works, nothing stale), t16-isolation (a top-level name defined by one
+checked file is UNBOUND in the next check — no cross-check pollution).
+quick 75/75 + leaf ratchet green; gate rerun with the M6 runtime.
+
+**Measured** (same bench as the go-vs-chez comparison; 250 ms debounce
+included): warm didChange→diags tiny file 593 → **267 ms**
+(debounce-bound; Chez-resident parity), mid file 1167 → **427 ms**
+(11x the resurrected Chez resident's 4750 ms); didOpen tiny 308 →
+274 ms cold-including-prelude-load, mid 875 → **615 ms**; RSS
+**166 MB** resident, no transient children (vs 31+137 before, 459 MB
+Chez).  initialize RTT 2.9 ms (the ~250 ms prelude load happens after
+the response).
+
+**Deferred (documented):** kill-superseded degraded to drop-queued
+(checks are synchronous; the debounce coalesces bursts — revisit with
+a goroutine offload + serialize-with-mutex if mid-file checks ever
+block interactivity noticeably); periodic `xglobal_reset()` hygiene +
+prelude-edit reload (the June resident's reload_and_revalidate
+equivalent); the vsix restage (client no longer stages xats2go-tcheck;
+`npm run package` when the architect wants a new vsix).

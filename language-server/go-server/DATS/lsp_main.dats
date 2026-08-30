@@ -3,18 +3,22 @@
 lsp_main.dats — the driver: a single-threaded, TAIL-RECURSIVE resident
 event loop (the Go backend's TCO makes [serve] an O(1)-stack for-loop).
 
-M2.5 surface: the M1 lifecycle + textDocument/didOpen|didChange|didSave|
-didClose with publishDiagnostics via the check-only compiler driver
-(spawned per check; the compiler is one-shot).  Every check of a stored
-document sends the CURRENT BUFFER TEXT via the driver's --stdin mode
-(live diagnostics); didChange re-checks after a 250 ms debounce; a due
-check for the uri already being checked KILLS the in-flight one
-(newest wins).  All state is loop-carried; there is no module-level
-mutable state.  Exit codes follow LSP: 0 after shutdown, 1 without.
+M6 surface: the M1 lifecycle + textDocument/didOpen|didChange|didSave|
+didClose with publishDiagnostics via the IN-PROCESS compiler (the
+architect's 2026-08-29 ruling): the frontend is LINKED into this
+binary (wire-server.sh), the prelude loads ONCE at initialize, and
+every check calls tchk_check (UTIL/xats2go_tchecklib) synchronously —
+per-check EVICTION inside tchk_check reproduces process-per-check
+semantics (the compiler is one-shot).  A check of a stored document
+passes the CURRENT BUFFER TEXT (the --stdin path); didChange re-checks
+after a 250 ms debounce (the debounce coalesces bursts; a due check
+runs to completion — kill-superseded degraded to drop-queued).  All
+state is loop-carried; there is no module-level mutable state.  Exit
+codes follow LSP: 0 after shutdown, 1 without.
 
 Configuration arrives in initialize.params.initializationOptions:
-  { "checker":  "<abs path to xats2go-tcheck>",
-    "xatshome": "<abs path to the ATS3 repo>" }
+  { "xatshome": "<abs path to the ATS3 repo>" }
+("checker" is accepted and ignored — pre-M6 clients still work.)
 *)
 (* ****** ****** *)
 #staload _ =
@@ -26,6 +30,31 @@ Configuration arrives in initialize.params.initializationOptions:
 (* ****** ****** *)
 #include
 "./../HATS/lspserver_sats.hats"
+(* ****** ****** *)
+(*
+the in-process check bridge (M6).  The compiler lives in a DIFFERENT
+prelude world (srcgen1) than the server modules (repo-root GO prelude),
+so the server cannot staload the compiler SATS — mixing the two
+preludes detonates template resolution.  The bridge is at the GO
+symbol level instead: UTIL/xats2go_lspglue (compiler world) exports
+the check entry points as stamped Z_ functions; wire-server.sh
+generates a shim forwarding these plain externs to them; the report
+and index texts come back as strings via the runtime stash
+(take_rep/take_idx, CATS/GO/lsp_floor.cats).
+*)
+#extern
+fun
+XATS2GO_LSP_tchk_prelude_load((*void*)): void = $extnam()
+#extern
+fun
+XATS2GO_LSP_tchk_check
+(path: string, txt: string, stdinq: sint): void = $extnam()
+#extern
+fun
+XATS2GO_LSP_take_rep((*void*)): string = $extnam()
+#extern
+fun
+XATS2GO_LSP_take_idx((*void*)): string = $extnam()
 (* ****** ****** *)
 (* server state (loop-carried) *)
 (* ****** ****** *)
@@ -373,6 +402,22 @@ case+ jobj_get(prms, "workspaceFolders") of
   uri_to_path(jget_str(jobj_get(f0, "uri"), ""))
 | _(*else*) => ""): string
 val () = respond(idv, init_result())
+(*
+M6: the in-process prelude load, ONCE (the pvsl gates make a repeat
+call a no-op).  XATSHOME must be in the environment BEFORE the load —
+the compiler reads it via its getenv leaf.  ~290 ms, after the
+initialize response so the client is never kept waiting on it.
+*)
+val () =
+(
+if (strn_length(xh) > 0)
+then lsp_setenv("XATSHOME", xh) else ())
+val ldok =
+lsp_guard(lam(_) => XATS2GO_LSP_tchk_prelude_load())
+val () =
+(
+if (ldok = 0)
+then lsp_write_log("ats3-lsp: prelude load FAILED\n") else ())
 in
 case+ st of
 | SRV(c0, x0, ws, dl, pl, ck, sd, ix) =>
@@ -616,50 +661,20 @@ end
 end//endof[on_msg]
 //
 (* ****** ****** *)
-(* the check pump *)
+(* the check pump (M6: synchronous in-process) *)
 (* ****** ****** *)
 //
-(* reap a finished check and publish its diagnostics *)
-fun
-chk_step(st: srvst): srvst =
-case+ st of
-| SRV(c0, x0, ws, dl, pl, ck, sd, ix) =>
-  (
-  case+ ck of
-  | CKnone() => st
-  | CKrun(id, uri, ver) =>
-    (
-    if (lsp_check_done(id) = 1)
-    then
-    let
-    val rep = lsp_check_output(id)
-    val idxtxt = lsp_check_stdout(id)
-    val () = lsp_check_drop(id)
-    val path = uri_to_path(uri)
-    val () =
-    publish(uri, ver, diag_build(path, ws, docs_text(dl, uri), rep))
-    val hvdf = idx_parse(idxtxt)
-    val ix1 =
-    ix_put
-    (ix, uri, ver, hvdf.0, hvdf.1, hvdf.2, hvdf.3, hvdf.4, hvdf.5)
-    val () = send_tokrefresh(id)
-    in
-    SRV(c0, x0, ws, dl, pl, CKnone(), sd, ix1)
-    end
-    else st))
-//
-(* spawn the checker for uri (the state's chk must be CKnone) *)
+(*
+run one check IN-PROCESS and publish: the capture window collects the
+report text (byte-identical to the old checker's stderr), a buffer
+FILR collects the --index records, tchk_check evicts its own workspace
+closure before returning, and the panic guard turns a frontend abort
+into one failed check.  Synchronous: the state's chk stays CKnone.
+*)
 fun
 start_check(st: srvst, uri: string): srvst =
 case+ st of
 | SRV(c0, x0, ws, dl, pl, _, sd, ix) =>
-  (
-  if (strn_length(c0) <= 0)
-  then
-  (
-  lsp_write_log("ats3-lsp: no checker configured; skipping check\n");
-  SRV(c0, x0, ws, dl, pl, CKnone(), sd, ix))
-  else
   let
   val path = uri_to_path(uri)
   in
@@ -667,23 +682,34 @@ case+ st of
   then SRV(c0, x0, ws, dl, pl, CKnone(), sd, ix)
   else
   let
-  (* a stored document is checked LIVE: its buffer rides --stdin;
-     every check also produces the hover/def index (--index) *)
+  (* a stored document is checked LIVE (the --stdin path);
+     every check also produces the hover/def index *)
   val hasdoc = docs_has(dl, uri)
-  val a3 = (if hasdoc then "--stdin" else ""): string
-  val inp = (if hasdoc then docs_text(dl, uri) else ""): string
-  val id = lsp_spawn_check(c0, path, "--index", a3, x0, inp)
-  in
-  if (id < 0)
-  then
+  val txt = (if hasdoc then docs_text(dl, uri) else ""): string
+  val stdinq = (if hasdoc then 1 else 0): sint
+  val okg =
+  lsp_guard
+  (lam(_) => XATS2GO_LSP_tchk_check(path, txt, stdinq))
+  val rep = XATS2GO_LSP_take_rep()
+  val idxtxt = XATS2GO_LSP_take_idx()
+  val ver = docs_version(dl, uri)
+  val () =
   (
-  lsp_write_log("ats3-lsp: checker spawn failed\n");
-  SRV(c0, x0, ws, dl, pl, CKnone(), sd, ix))
-  else SRV(c0, x0, ws, dl, pl, CKrun(id, uri, docs_version(dl, uri)), sd, ix)
+  if (okg = 0)
+  then lsp_write_log("ats3-lsp: in-process check aborted\n") else ())
+  val () =
+  publish(uri, ver, diag_build(path, ws, docs_text(dl, uri), rep))
+  val hvdf = idx_parse(idxtxt)
+  val ix1 =
+  ix_put
+  (ix, uri, ver, hvdf.0, hvdf.1, hvdf.2, hvdf.3, hvdf.4, hvdf.5)
+  val () = send_tokrefresh(ver)
+  in
+  SRV(c0, x0, ws, dl, pl, CKnone(), sd, ix1)
   end
-  end)
+  end
 //
-(* start the next due check; a due check for the RUNNING uri kills it *)
+(* start the next due check (checks are synchronous: chk is CKnone) *)
 fun
 pend_step(st: srvst): srvst =
 case+ st of
@@ -696,19 +722,10 @@ case+ st of
   case+ ck of
   | CKnone() =>
     start_check(SRV(c0, x0, ws, dl, r0.1, CKnone(), sd, ix), uri)
-  | CKrun(id, curi, _) =>
-    (
-    if streq(curi, uri)
-    then
-    let
-    val () = lsp_check_drop(id) (* superseded: newest wins *)
-    in
-    start_check(SRV(c0, x0, ws, dl, r0.1, CKnone(), sd, ix), uri)
-    end
-    else st (* another uri is being checked: keep waiting *))
+  | CKrun(_, _, _) => st (* unreachable post-M6 *)
   end//endof[pend_step]
 //
-(* how long the poll may block: -1 = forever (nothing in flight) *)
+(* how long the poll may block: -1 = forever (nothing pending) *)
 fun
 wait_ms(st: srvst): sint =
 case+ st of
@@ -738,7 +755,7 @@ case+ frame_next(buf) of
   end
 | FRnone() =>
   let
-  val st1 = pend_step(chk_step(st))
+  val st1 = pend_step(st)
   val ev = lsp_poll_stdin(wait_ms(st1))
   in
   if (ev = 1)

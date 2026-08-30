@@ -1,5 +1,5 @@
 {"jsonrpc": "2.0", "id": 1, "result": {"capabilities": {"textDocumentSync": {"openClose": true, "change": 1, "save": true}, "hoverProvider": true, "definitionProvider": true, "semanticTokensProvider": {"legend": {"tokenTypes": ["variable", "function", "enumMember"], "tokenModifiers": []}, "full": true}, "completionProvider": {"triggerCharacters": ["."]}}, "serverInfo": {"name": "ats3-lsp", "version": "0.6.0"}}}
 {"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics", "params": {"uri": "file://@X@/language-server/go-server/tests/fixtures/ok1.dats", "version": 1, "diagnostics": []}}
-{"jsonrpc": "2.0", "id": 1000000, "method": "workspace/semanticTokens/refresh"}
+{"jsonrpc": "2.0", "id": 1000001, "method": "workspace/semanticTokens/refresh"}
 {"jsonrpc": "2.0", "id": 2, "result": {"data": [9, 0, 6, 1, 0, 0, 7, 2, 0, 0, 0, 18, 2, 0, 0, 0, 3, 1, 1, 0, 0, 2, 2, 0, 0, 2, 9, 10, 1, 0, 0, 11, 6, 1, 0, 1, 9, 10, 1, 0, 1, 9, 19, 1, 0]}}
 {"jsonrpc": "2.0", "id": 9, "result": null}

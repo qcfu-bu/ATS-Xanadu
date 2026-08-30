@@ -1,0 +1,8 @@
+{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"capabilities": {}, "rootUri": "file://@X@/language-server/go-server/tests/fixtures", "initializationOptions": {"xatshome": "@X@"}}}
+{"jsonrpc": "2.0", "method": "initialized", "params": {}}
+{"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": "file://@X@/language-server/go-server/tests/fixtures/iso_a.dats", "languageId": "ats3", "version": 1, "text": "(* t16 A \u2014 defines a top-level name; clean *)\n#staload _ =\n\"prelude/DATS/gdbg000.dats\"\n#include\n\"prelude/HATS/prelude_dats.hats\"\n#include\n\"prelude/HATS/prelude_GO_dats.hats\"\n//\nval iso_secret_val = 42\n//\n"}}}
+#sleep 6000
+{"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {"uri": "file://@X@/language-server/go-server/tests/fixtures/iso_b.dats", "languageId": "ats3", "version": 1, "text": "(* t16 B \u2014 references A's name WITHOUT staload: must be unbound *)\n#staload _ =\n\"prelude/DATS/gdbg000.dats\"\n#include\n\"prelude/HATS/prelude_dats.hats\"\n#include\n\"prelude/HATS/prelude_GO_dats.hats\"\n//\nval y0 = iso_secret_val + 1\n//\n"}}}
+#sleep 6000
+{"jsonrpc": "2.0", "id": 2, "method": "shutdown"}
+{"jsonrpc": "2.0", "method": "exit"}

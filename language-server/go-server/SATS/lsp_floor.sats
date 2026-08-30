@@ -48,33 +48,23 @@ fun
 lsp_poll_stdin(ms: sint): sint
 //
 (*
-lsp_spawn_check: start `prog arg1 [arg2] [arg3]` ("" args are
-omitted) with XATSHOME=xhome in its environment; input is written to
-the child's stdin (then closed; "" closes immediately); stderr AND
-stdout are captured.  Returns a nonnegative check id, or -1 if the
-spawn failed.
+M6 (in-process compiler): the spawn/reap process floor is REPLACED by
+two leaves — the check itself is a direct call into the linked
+compiler (tchk_check, UTIL/xats2go_tchecklib; its FILR-typed capture
+externs are declared in lsp_main.dats, the one module that staloads
+the compiler SATS).
+*)
+//
+(* set an environment variable (XATSHOME before the prelude loads) *)
+fun
+lsp_setenv(name: string, value: string): void
+//
+(*
+run the closure under a panic guard: 1 = completed, 0 = recovered (a
+frontend abort fails one check, never the server).
 *)
 fun
-lsp_spawn_check
-( prog: string
-, arg1: string, arg2: string, arg3: string
-, xhome: string, input: string): sint
-//
-(* 1 = finished, 0 = still running, -1 = unknown id *)
-fun
-lsp_check_done(id: sint): sint
-//
-(* the captured stderr; call only after lsp_check_done = 1 *)
-fun
-lsp_check_output(id: sint): string
-//
-(* the captured stdout (the --index records); after done = 1 *)
-fun
-lsp_check_stdout(id: sint): string
-//
-(* forget the check (kill it first if still running) *)
-fun
-lsp_check_drop(id: sint): void
+lsp_guard(f0: (sint) -> void): sint
 //
 (* terminate the server process with the given exit code *)
 fun

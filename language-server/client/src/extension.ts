@@ -8,7 +8,7 @@
  * (language-server/go-server) compiled by the xats2go Go backend.  It needs no
  * runtime; the client spawns it directly.  Per typecheck the server spawns the
  * CHECK-ONLY compiler driver (xats2go-tcheck) on the file, so the client passes
- * both the checker path and XATSHOME via initializationOptions.
+ * XATSHOME via initializationOptions (M6: the compiler is in-process).
  */
 
 import * as path from "path";
@@ -70,40 +70,8 @@ function resolveServerBinary(context: ExtensionContext): string | undefined {
 }
 
 /**
- * Resolve the check-only compiler driver (xats2go-tcheck, built by
- * srcgen2/xats2go/selfhost-build/wire-tcheck.sh). The server spawns it per
- * typecheck; without it the server runs but produces no diagnostics.
- *
- * Priority: the `ats3.server.checkerPath` setting; the packaged binary in
- * `server-dist/`; the in-repo build under XATSHOME.
- */
-function resolveChecker(
-  context: ExtensionContext,
-  xatshome: string,
-): string | undefined {
-  const exe = process.platform === "win32" ? "xats2go-tcheck.exe" : "xats2go-tcheck";
-  const configured = workspace
-    .getConfiguration("ats3")
-    .get<string>("server.checkerPath", "")
-    .trim();
-  if (configured.length > 0) {
-    return fs.existsSync(configured) ? configured : undefined;
-  }
-  const candidates = [
-    path.join(context.extensionPath, "server-dist", exe),
-    path.join(xatshome, "srcgen2", "xats2go", "selfhost-build", "src", exe),
-  ];
-  for (const c of candidates) {
-    if (fs.existsSync(c)) {
-      return c;
-    }
-  }
-  return undefined;
-}
-
-/**
- * Resolve XATSHOME (the ATS3/Xanadu repo root; the checker reads the prelude
- * from there). Priority: the `ats3.xatshome` setting; the XATSHOME env var;
+ * Resolve XATSHOME (the ATS3/Xanadu repo root; the in-process compiler
+ * reads the prelude from there). Priority: the `ats3.xatshome` setting; the XATSHOME env var;
  * (dev/in-repo only) two directories up from the extension.
  */
 function resolveXatshome(context: ExtensionContext): string | undefined {
@@ -149,7 +117,7 @@ export function activate(context: ExtensionContext): void {
   if (xatshome === undefined) {
     window.showErrorMessage(
       `ATS3 LSP: XATSHOME is not set. Set the "ats3.xatshome" setting to the ` +
-        `path of your ATS3/Xanadu repo root (it holds the prelude the checker ` +
+        `path of your ATS3/Xanadu repo root (it holds the prelude the server ` +
         `needs), then reload the window.`,
     );
     channel.appendLine(
@@ -158,7 +126,7 @@ export function activate(context: ExtensionContext): void {
     return;
   }
   // Validate the configured/derived XATSHOME so a typo surfaces clearly rather
-  // than as an opaque prelude-load failure inside the checker.
+  // than as an opaque prelude-load failure inside the server.
   if (!fs.existsSync(xatshome)) {
     window.showErrorMessage(
       `ATS3 LSP: XATSHOME path does not exist: "${xatshome}". ` +
@@ -168,21 +136,8 @@ export function activate(context: ExtensionContext): void {
     return;
   }
 
-  const checker = resolveChecker(context, xatshome);
-  if (checker === undefined) {
-    // Not fatal: the server runs (hover/etc. as they land) but publishes no
-    // diagnostics until a checker is available.
-    window.showWarningMessage(
-      `ATS3 LSP: check-only compiler driver (xats2go-tcheck) not found — ` +
-        `diagnostics are disabled. Build it with ` +
-        `"srcgen2/xats2go/selfhost-build/wire-tcheck.sh" or set "ats3.server.checkerPath".`,
-    );
-    channel.appendLine(`[ats3] no checker found (diagnostics disabled)`);
-  }
-
   channel.appendLine(`[ats3] launching server: ${serverBin}`);
   channel.appendLine(`[ats3] XATSHOME=${xatshome}`);
-  channel.appendLine(`[ats3] checker=${checker ?? "(none)"}`);
 
   const launch = {
     command: serverBin,
@@ -201,10 +156,10 @@ export function activate(context: ExtensionContext): void {
       // Watch ATS source files so the server is notified of on-disk changes.
       fileEvents: workspace.createFileSystemWatcher("**/*.{sats,hats,dats}"),
     },
-    // The server's whole configuration rides in here (no env/argv reading on
-    // the server side): the checker to spawn per typecheck + XATSHOME for it.
+    // The server's whole configuration rides in here: XATSHOME for the
+    // in-process compiler's prelude (M6: the compiler is linked into the
+    // server binary; there is no separate checker to spawn).
     initializationOptions: {
-      checker: checker ?? "",
       xatshome: xatshome,
     },
     outputChannel: channel,

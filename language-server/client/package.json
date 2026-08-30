@@ -88,15 +88,10 @@
           "default": "",
           "markdownDescription": "Absolute path to the native ATS3 language-server binary (`ats3-lsp-server`, built by `language-server/go-server/tools/build.sh`). When empty, the client auto-resolves it from `server-dist/` (packaged) or the repo `go-server/BUILD/` (dev)."
         },
-        "ats3.server.checkerPath": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Absolute path to the CHECK-ONLY compiler driver (`xats2go-tcheck`, built by `srcgen2/xats2go/selfhost-build/wire-tcheck.sh`). The server spawns it per typecheck. When empty, the client auto-resolves it from `server-dist/` (packaged) or `$XATSHOME/srcgen2/xats2go/selfhost-build/src/` (dev)."
-        },
         "ats3.xatshome": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Path to the ATS3/Xanadu repo root (`XATSHOME`), needed by the checker to locate the prelude. **Required when the extension is installed from a `.vsix`** — an installed extension has no repo next to it, so it cannot guess this and the server will not start until it is set (or the `XATSHOME` env var is exported for the editor). When running the extension from source (F5 in the repo), it defaults to two directories above the extension (the repo root in the in-tree layout)."
+          "markdownDescription": "Path to the ATS3/Xanadu repo root (`XATSHOME`), needed by the in-process compiler to locate the prelude. **Required when the extension is installed from a `.vsix`** — an installed extension has no repo next to it, so it cannot guess this and the server will not start until it is set (or the `XATSHOME` env var is exported for the editor). When running the extension from source (F5 in the repo), it defaults to two directories above the extension (the repo root in the in-tree layout)."
         },
         "ats3.trace.server": {
           "type": "string",
@@ -116,7 +111,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "bundle": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify",
-    "stage:server": "mkdir -p server-dist && cp ../go-server/BUILD/ats3-lsp-server server-dist/ && cp ../../srcgen2/xats2go/selfhost-build/src/xats2go-tcheck server-dist/",
+    "stage:server": "mkdir -p server-dist && cp ../go-server/BUILD/ats3-lsp-server server-dist/",
     "test:grammar": "node fixtures/tokenize-test.js",
     "package": "npm run bundle && npm run stage:server && vsce package --out ats3-lsp-client.vsix"
   },

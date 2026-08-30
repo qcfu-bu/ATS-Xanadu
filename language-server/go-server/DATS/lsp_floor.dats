@@ -34,25 +34,14 @@ fun
 XATS2GO_LSP_poll_stdin(ms: sint): sint = $extnam()
 #extern
 fun
-XATS2GO_LSP_spawn_check
-( prog: string
-, arg1: string, arg2: string, arg3: string
-, xhome: string, input: string): sint = $extnam()
-#extern
-fun
-XATS2GO_LSP_check_stdout(id: sint): string = $extnam()
-#extern
-fun
 XATS2GO_LSP_exit(code: sint): void = $extnam()
 #extern
 fun
-XATS2GO_LSP_check_done(id: sint): sint = $extnam()
+XATS2GO_LSP_setenv
+(name: string, value: string): void = $extnam()
 #extern
 fun
-XATS2GO_LSP_check_output(id: sint): string = $extnam()
-#extern
-fun
-XATS2GO_LSP_check_drop(id: sint): void = $extnam()
+XATS2GO_LSP_guard(f0: (sint) -> void): sint = $extnam()
 //
 (* ****** ****** *)
 //
@@ -72,24 +61,13 @@ lsp_now_ms() = XATS2GO_LSP_now_ms()
 lsp_poll_stdin(ms) = XATS2GO_LSP_poll_stdin(ms)
 //
 #implfun
-lsp_spawn_check
-(prog, arg1, arg2, arg3, xhome, input) =
-XATS2GO_LSP_spawn_check(prog, arg1, arg2, arg3, xhome, input)
-//
-#implfun
-lsp_check_stdout(id) = XATS2GO_LSP_check_stdout(id)
-//
-#implfun
 lsp_exit(code) = XATS2GO_LSP_exit(code)
 //
 #implfun
-lsp_check_done(id) = XATS2GO_LSP_check_done(id)
+lsp_setenv(name, value) = XATS2GO_LSP_setenv(name, value)
 //
 #implfun
-lsp_check_output(id) = XATS2GO_LSP_check_output(id)
-//
-#implfun
-lsp_check_drop(id) = XATS2GO_LSP_check_drop(id)
+lsp_guard(f0) = XATS2GO_LSP_guard(f0)
 //
 (* ****** ****** *)
 (***********************************************************************)
