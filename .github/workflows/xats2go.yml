@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       no_inline:
-        description: 'Build with the Go inliner off (~1.2 GB peak instead of ~8 GB; binaries run ~1.8x slower)'
+        description: 'Inliner OFF: ~1.2 GB peak instead of ~8 GB, but the compiler is 1.8x slower — which puts it BELOW the node bundle it replaces (0.92x). Only to get a build through on a memory-starved runner.'
         type: boolean
         default: false
       run_regress:
@@ -50,7 +50,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Empty = inliner ON (the default since 2026-08-27: 1.8x faster binaries).
+  # Empty = inliner ON, which is the shipping configuration: it is the whole
+  # of the Go backend's advantage.  Measured 2026-08-30 over 10 real modules,
+  # byte-identical emissions: inlined = 1.68x the node bundle, `all=-l` = 0.92x
+  # (i.e. slower than the bundle).  Never ship a non-inlined build.
   # The `inputs` context only exists for workflow_dispatch, hence the guard.
   XGCFLAGS: ${{ github.event_name == 'workflow_dispatch' && inputs.no_inline && 'all=-l' || '' }}
 

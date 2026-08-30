@@ -47,20 +47,38 @@
 #                                        but emissions come from the BUNDLE and
 #                                        `sweep` proves binary == bundle.
 #
-# HONEST NUMBERS (measured 2026-08-21, do not repeat the guesses this replaced):
-#   per-module emit: selfhost binary 8.7s vs node bundle 9.5s (xsymbol).  The
-#   binary is only ~1.1x faster — NOT the ~2x that "native beats node" suggests,
-#   because both run the SAME emitted-Go/JS algorithm and both are dominated by
-#   allocation.  So `selfcycle` is not a speed win over the bundle path; its
-#   value is TOOLCHAIN INDEPENDENCE (no 216MB JS bundle, no jsemit transpile in
-#   the build) as the backend moves away from the JS model.
-#   A full 194-module build is ~55min of essentially IRREDUCIBLE compute at
-#   today's per-module cost.  The levers that actually matter, in order:
+# HONEST NUMBERS (re-measured 2026-08-30 — 18 cores/48GB).  These SUPERSEDE the
+# 2026-08-21 block that read "8.7s vs 9.5s per module, binary only ~1.1x faster,
+# so selfcycle is not a speed win".  Every one of those figures is stale: the
+# any-reduction campaign + instance cache sped up BOTH sides ~5x, and enabling
+# the inliner then moved the ratio to 1.7x.  Do not quote the old numbers.
+#   per-module emit — 10 real modules (86..7059 src lines, up to 25k emitted),
+#   best of 3, serial, all three emissions BYTE-IDENTICAL:
+#     selfhost binary, inlined   1.13 .. 3.48s   (xsymbol 1.15s)
+#     node bundle                1.93 .. 6.01s   (xsymbol 1.95s)   1.68x slower
+#     selfhost binary, all=-l    2.00 .. 7.28s   (xsymbol 2.04s)   0.92x — i.e.
+#                                                  SLOWER THAN THE BUNDLE
+#   INLINING IS THE ENTIRE ADVANTAGE.  `all=-l` is how you get a build through
+#   on a machine that cannot hold the ~8GB inlined compile (see do_build); it is
+#   never something to ship, because the compiler it produces is worse than the
+#   node bundle it was meant to replace.  The ratio is unchanged at P3 (0.68s vs
+#   1.15s per module), so this is not a parallelism artifact.
+#   Native process start is free (3ms) vs 286ms to load the 200MB bundle into
+#   node — ~55s per 193-module build before any compiling happens.
+#   FULL PASS: `sweep` (the binary re-emitting all 193 modules at P3, byte-
+#   compared) = 101s wall, 193 PASS / 0 DIFF / 0 ERR.  So `selfcycle` is now
+#   BOTH a speed win over the bundle path AND the toolchain-independence win it
+#   always was (no 200MB JS bundle, no jsemit transpile in the build).
+#   CAUTION: the per-tier minute estimates in the menu above (selfcycle ~55m,
+#   full-verify ~55m, "193 modules at P3 = 3276s") are from 2026-08-21 and were
+#   NOT re-measured here — the 101s sweep says they are far too pessimistic, but
+#   re-time them before quoting rather than scaling the old numbers.
+#   The levers that actually matter, in order:
 #     1. DON'T rebuild what did not change  -> prewarm-dirty / prewarm-self
 #        (a frontend edit re-emits 1 module, not 193).
-#     2. Make each compile cheaper.  ~3.3s of every compile re-parses the SAME
-#        424 prelude/SATS files (~11min per full build); the rest is
-#        allocation-heavy template resolution.  Interface caching and the
+#     2. Make each compile cheaper.  An 86-line module STILL costs 1.13s: that
+#        floor is the same 424 prelude/SATS files re-parsed on every invocation,
+#        and it dominates every small module.  Interface caching and the
 #        Go-centric backend items (unboxed cons, fewer `any`) attack this — and
 #        the compiler IS emitted Go, so backend wins compound here.
 #     3. NOT -j: see PARALLELISM below.
@@ -286,8 +304,10 @@ sweep)
   # MEMORY-BANDWIDTH bound, not CPU bound — peak RSS ~850MB per process with
   # near-continuous allocation.  8 identical modules: serial 81s, P2 62s,
   # P3 59s, P4 73s, P8 111s.  Past P3 throughput gets WORSE THAN SERIAL.
-  # The old default of 8 made a full sweep ~2x slower than necessary (~60min
-  # vs ~30min).  Do not raise this without re-measuring.
+  # The old default of 8 made a full sweep ~2x slower than necessary.  Do not
+  # raise this without re-measuring.  (The absolute wall times in that note are
+  # stale: a full P3 sweep is 101s as of 2026-08-30, not the ~30min it read.
+  # The P2/P3/P4/P8 SHAPE has not been re-measured — only the totals moved.)
   PAR="${2:-3}"
   SW="$PROBEDIR/sweep"; rm -rf "$SW"; mkdir -p "$SW"
   eval "$(grep '^FRONTEND=' "$OUT/assemble.sh")"

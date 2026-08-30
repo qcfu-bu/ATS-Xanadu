@@ -94,7 +94,10 @@ m=xats2go_tcheck01
 # module inits + runtime hooks: verbatim (same package main content).
 cp "$SRC/zz_init.go" "$SRC/tcheck/zz_init.go"
 
+# XGCFLAGS as in build.sh's do_build: without it, a low-memory machine that
+# set XGCFLAGS='all=-l' to get past the ~8GB inlined compile would OOM right
+# here instead (wire-server.sh already honors it).
 ( cd "$SRC" && gofmt -w tcheck >/dev/null 2>&1
-  go build -o "$SRC/xats2go-tcheck" ./tcheck 2> "$SRC/tcheck/build.err" ) \
+  go build ${XGCFLAGS:+-gcflags "$XGCFLAGS"} -o "$SRC/xats2go-tcheck" ./tcheck 2> "$SRC/tcheck/build.err" ) \
   || { echo "!! wire-tcheck: go build FAILED"; head -20 "$SRC/tcheck/build.err"; exit 1; }
 echo ">> built $SRC/xats2go-tcheck"
