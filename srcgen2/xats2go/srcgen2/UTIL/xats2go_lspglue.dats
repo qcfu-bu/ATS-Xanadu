@@ -78,6 +78,14 @@ tchkglue_prelude_load
 tchkglue_prelude_reload
   ((*void*)) =
 let
+(*
+the warm-dep registry points into the old topmap world: drop it
+before the reset (M7.2).
+*)
+#extern
+fun
+XATS2GO_lsp_depclear((*void*)): void = $extnam()
+val ( ) = XATS2GO_lsp_depclear((*void*))
 val ( ) = xglobal_reset((*void*))
 in//let
 tchk_prelude_load((*void*))

@@ -805,8 +805,13 @@ and
 s2_staload
 (out: FILR, tgt: strn, sopt2: s2taloadopt): void =
 case+ sopt2 of
-| S2TALOADdpar(shr2, d2p) =>
-  (if (shr2 = 0) then s2_dep(out, tgt, d2p) else ())
+(*
+M7.2: the shr flag inside a CACHED AST is frozen from its own
+elaboration time — with warm deps it cannot gate this walk, or dep
+candidates would vanish from completion on every warm check.  Walk
+unconditionally (staloads form a DAG; the server dedups by name).
+*)
+| S2TALOADdpar(_(*shr: frozen*), d2p) => s2_dep(out, tgt, d2p)
 | _(*none/fenv*) => ()
 //
 and
@@ -1439,15 +1444,11 @@ case+ d3ecl_get_node(dcl) of
   (
   case+ sopt of
   | S3TALOADnone(sopt2) => s2_staload(out, tgt, sopt2)
-  | S3TALOADdpar(shrq, _) =>
-    (
-    if (shrq = 0)
-    then
+  | S3TALOADdpar(_(*shr: frozen — see s2_staload*), _) =>
     (
     case+ fopt of
     | optn_cons(fpx) => s2_dep_find(out, tgt, fpx)
-    | optn_nil() => ())
-    else ()))
+    | optn_nil() => ()))
   else ())
 //
 | D3Cvaldclst(_, vds) =>

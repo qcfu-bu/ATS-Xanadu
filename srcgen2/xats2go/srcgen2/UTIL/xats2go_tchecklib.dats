@@ -72,6 +72,47 @@ XATS2GO_report_begin((*void*)): void = $extnam()
 fun
 XATS2GO_report_end((*void*)): void = $extnam()
 //
+(*
+M7.2 warm-dep leaves (runtime/xatsgo/xatsgo.go): capture-slice marks
+(a dep's report bytes = the capture buffer between two marks — FILR
+writes AND report-window prints, in order) and the dep registry
+(visited/cached/replay/note/edge/stale).
+*)
+#extern
+fun
+XATS2GO_capture_mark((*void*)): sint = $extnam()
+#extern
+fun
+XATS2GO_capture_since(mk: sint): strn = $extnam()
+#extern
+fun
+XATS2GO_lsp_depvisitq(key: sint): sint = $extnam()
+#extern
+fun
+XATS2GO_lsp_depcachedq(key: sint): sint = $extnam()
+#extern
+fun
+XATS2GO_lsp_depreplay(key: sint): strn = $extnam()
+#extern
+fun
+XATS2GO_lsp_depnote
+(key: sint, path: strn, rpt: strn): void = $extnam()
+#extern
+fun
+XATS2GO_lsp_depedge(par: sint, chd: sint): void = $extnam()
+#extern
+fun
+XATS2GO_lsp_depstale
+( m1: topmap(d1parsed), m2: topmap(d2parsed)
+, m3: topmap(d3parsed), m4: topmap(d3parsed)): void = $extnam()
+#extern
+fun
+XATS2GO_strn_fprint:
+(strn, FILR) -> void = $extnam()
+//
+fun
+dw_pr(out: FILR, s0: strn): void = XATS2GO_strn_fprint(s0, out)
+//
 (* ****** ****** *)
 //
 (* ASCII string helpers (extensions/prefixes; the library's own) *)
@@ -191,110 +232,174 @@ case+ fopt of
   optn_vt_cons(d2p) =>
     f2perr0_d2parsed(out0, d2parsed_of_tread12(d2p)))
 //
+(*
+the WARM-DEP report walk (M7.2): visit-once per check via the runtime
+visited set — the shr flags inside CACHED ASTs are frozen from their
+own elaboration time, so they cannot gate re-visits.  A dep already
+in the registry REPLAYS its recorded report bytes (cross-file
+diagnostics stay byte-identical across warm checks); a fresh dep
+reports (the tread12 mutation happens exactly once, while fresh),
+its bytes are sliced from the capture buffer and recorded together
+with its staload edges.  Both arms recurse for transitive deps;
+edges from a parent dep to its children feed depstale's reverse
+closure.  parent < 0 = the target file (no edge).
+*)
 fun
-report_dep_s2
-(out0: FILR, fopt: fpathopt, sopt2: s2taloadopt): void =
-case+ sopt2 of
-| S2TALOADdpar(shrq2, depd2p) =>
-  (
-  if (shrq2 = 0)
-  then
+dep_key(fpx: fpath): sint =
+g0u2s(uint(fpath_get_fnm2(fpx).stmp()))
+//
+fun
+dw_dep2
+(out0: FILR, parent: sint, fopt: fpathopt, depd2p: d2parsed): void =
+case+ fopt of
+| optn_nil() => ()
+| optn_cons(fpx) =>
   (
   if dep_wantq(fopt)
   then
+  let
+  val key = dep_key(fpx)
+  val () =
+  (if (parent >= 0) then XATS2GO_lsp_depedge(parent, key) else ())
+  in
+  if (XATS2GO_lsp_depvisitq(key) = 0) then () else
+  if (XATS2GO_lsp_depcachedq(key) > 0)
+  then
   (
-  f2perr0_d2parsed(out0, d2parsed_of_tread12(depd2p));
-  report_dep2_opt(out0, d2parsed_get_parsed(depd2p)))
+  dw_pr(out0, XATS2GO_lsp_depreplay(key));
+  dw_decl2_opt(out0, key, d2parsed_get_parsed(depd2p)))
+  else
+  let
+  val mk = XATS2GO_capture_mark()
+  val () =
+  f2perr0_d2parsed(out0, d2parsed_of_tread12(depd2p))
+  val () =
+  XATS2GO_lsp_depnote
+  (key, fpath_get_fnm1(fpx), XATS2GO_capture_since(mk))
+  in
+  dw_decl2_opt(out0, key, d2parsed_get_parsed(depd2p))
+  end
+  end
   else ())
-  else ())
+//
+and
+dw_sopt2
+(out0: FILR, parent: sint, fopt2: fpathopt, sopt2: s2taloadopt): void =
+case+ sopt2 of
+| S2TALOADdpar(_(*shr: frozen*), depd2p) =>
+  dw_dep2(out0, parent, fopt2, depd2p)
 | _(*none/fenv*) => ()
 //
 and
-report_dep2_1
-(out0: FILR, dpcl2: d2ecl): void =
+dw_decl2
+(out0: FILR, parent: sint, dpcl2: d2ecl): void =
 case+ d2ecl_get_node(dpcl2) of
 | D2Cstaload
   (_(*knd*), _(*tknd*), _(*gsrc*), fopt2, sopt2) =>
-  report_dep_s2(out0, fopt2, sopt2)
+  dw_sopt2(out0, parent, fopt2, sopt2)
 | D2Cinclude
   (_(*knd*), _(*tknd*), _(*gsrc*), _(*fopt*), dopt2) =>
-  report_dep2_opt(out0, dopt2)
+  dw_decl2_opt(out0, parent, dopt2)
 | _(*else*) => ()
 //
 and
-report_dep2_lst
-(out0: FILR, dcls: d2eclist): void =
+dw_decl2_lst
+(out0: FILR, parent: sint, dcls: d2eclist): void =
 case+ dcls of
 | list_nil() => ()
 | list_cons(d1, ds1) =>
-  (report_dep2_1(out0, d1); report_dep2_lst(out0, ds1))
+  (dw_decl2(out0, parent, d1); dw_decl2_lst(out0, parent, ds1))
 //
 and
-report_dep2_opt
-(out0: FILR, dopt: d2eclistopt): void =
+dw_decl2_opt
+(out0: FILR, parent: sint, dopt: d2eclistopt): void =
 case+ dopt of
 | optn_nil() => ()
-| optn_cons(dcls) => report_dep2_lst(out0, dcls)
+| optn_cons(dcls) => dw_decl2_lst(out0, parent, dcls)
 //
 fun
-report_dep1
-(out0: FILR, dpcl: d3ecl): void =
+dw_dep3
+(out0: FILR, parent: sint, fopt: fpathopt, depdpar: d3parsed): void =
+case+ fopt of
+| optn_nil() => ()
+| optn_cons(fpx) =>
+  (
+  if dep_wantq(fopt)
+  then
+  let
+  val key = dep_key(fpx)
+  val () =
+  (if (parent >= 0) then XATS2GO_lsp_depedge(parent, key) else ())
+  in
+  if (XATS2GO_lsp_depvisitq(key) = 0) then () else
+  if (XATS2GO_lsp_depcachedq(key) > 0)
+  then
+  (
+  dw_pr(out0, XATS2GO_lsp_depreplay(key));
+  dw_decl3_opt(out0, key, d3parsed_get_parsed(depdpar)))
+  else
+  let
+  val mk = XATS2GO_capture_mark()
+  val () = report_dep_l2(out0, fopt)
+  val () = f3perr0_d3parsed(out0, depdpar)
+  val () =
+  XATS2GO_lsp_depnote
+  (key, fpath_get_fnm1(fpx), XATS2GO_capture_since(mk))
+  in
+  dw_decl3_opt(out0, key, d3parsed_get_parsed(depdpar))
+  end
+  end
+  else ())
+//
+and
+dw_decl3
+(out0: FILR, parent: sint, dpcl: d3ecl): void =
 case+ d3ecl_get_node(dpcl) of
 | D3Cstaload
   (_(*knd*), _(*tknd*), _(*gsrc*), fopt, sopt) =>
   (
   case+ sopt of
-  | S3TALOADdpar(shrq, depdpar) =>
-    (
-    if (shrq = 0)
-    then
-    (
-    if dep_wantq(fopt)
-    then
-    (
-    report_dep_l2(out0, fopt);
-    f3perr0_d3parsed(out0, depdpar);
-    report_dep_opt(out0, d3parsed_get_parsed(depdpar)))
-    else ())
-    else ())
-  | S3TALOADnone(sopt2) => report_dep_s2(out0, fopt, sopt2))
+  | S3TALOADdpar(_(*shr: frozen*), depdpar) =>
+    dw_dep3(out0, parent, fopt, depdpar)
+  | S3TALOADnone(sopt2) => dw_sopt2(out0, parent, fopt, sopt2))
 | D3Cinclude
   (_(*knd*), _(*tknd*), _(*gsrc*), _(*fopt*), dopt) =>
-  report_dep_opt(out0, dopt)
+  dw_decl3_opt(out0, parent, dopt)
 | _(*else*) => ()
 //
 and
-report_dep_lst
-(out0: FILR, dcls: d3eclist): void =
+dw_decl3_lst
+(out0: FILR, parent: sint, dcls: d3eclist): void =
 case+ dcls of
 | list_nil() => ()
 | list_cons(d1, ds1) =>
-  (report_dep1(out0, d1); report_dep_lst(out0, ds1))
+  (dw_decl3(out0, parent, d1); dw_decl3_lst(out0, parent, ds1))
 //
 and
-report_dep_opt
-(out0: FILR, dopt: d3eclistopt): void =
+dw_decl3_opt
+(out0: FILR, parent: sint, dopt: d3eclistopt): void =
 case+ dopt of
 | optn_nil() => ()
-| optn_cons(dcls) => report_dep_lst(out0, dcls)
+| optn_cons(dcls) => dw_decl3_lst(out0, parent, dcls)
 //
 fun
 report_deps
 (out0: FILR, dpar: d3parsed): void =
-report_dep_opt(out0, d3parsed_get_parsed(dpar))
+dw_decl3_opt(out0, 0 - 1, d3parsed_get_parsed(dpar))
 //
+
 (* ****** ****** *)
 //
 (*
-EVICTION (M6): after the reports (which MUTATE cached dep d2parsed via
-tread12 — the mutation is discarded by this very eviction) remove the
-checked file and every freshly-loaded (shr = 0) non-stdlib dependency
-from the four per-file caches.  Keys are the fnm2 stamps, exactly as
-xsymmap_topmap keys its mydict.  STDLIB deps stay cached (immutable
-like the pvsloaded prelude — same warm-check win, same assumption).
-The delete leaf treats the topmap by its runtime rep (jshmap); an
-absent key is a no-op, so evicting the (never-cached) target is
-belt-and-braces.
+EVICTION (M7.2, warm deps): workspace deps now STAY CACHED across
+checks; freshness is depstale's job at every check start (mtime +
+reverse-closure over the recorded staload edges).  Only the TARGET
+file is evicted unconditionally (its text arrives live).  Keys are
+the fnm2 stamps, exactly as xsymmap_topmap keys its mydict; the
+delete leaf treats the topmap by its runtime rep (jshmap); an absent
+key is a no-op.  The tread12 mutation of a cached dep d2parsed
+happens exactly once, while the dep is FRESH — warm checks replay its
+recorded report instead of re-running the reporters.
 *)
 fun
 evict_d1(key: sint): void =
@@ -348,105 +453,7 @@ in
 (evict_d1(key); evict_d2(key); evict_d3(key); evict_d3t(key))
 end
 //
-fun
-evict_fopt(fopt: fpathopt): void =
-case+ fopt of
-| optn_nil() => ()
-| optn_cons(fpx) => evict_fnm2(fpath_get_fnm2(fpx))
-//
-fun
-evict_dep_s2
-(fopt: fpathopt, sopt2: s2taloadopt): void =
-case+ sopt2 of
-| S2TALOADdpar(shrq2, depd2p) =>
-  (
-  if (shrq2 = 0)
-  then
-  (
-  if dep_wantq(fopt)
-  then
-  (
-  evict_fopt(fopt);
-  evict_dep2_opt(d2parsed_get_parsed(depd2p)))
-  else ())
-  else ())
-| _(*none/fenv*) => ()
-//
-and
-evict_dep2_1
-(dpcl2: d2ecl): void =
-case+ d2ecl_get_node(dpcl2) of
-| D2Cstaload
-  (_(*knd*), _(*tknd*), _(*gsrc*), fopt2, sopt2) =>
-  evict_dep_s2(fopt2, sopt2)
-| D2Cinclude
-  (_(*knd*), _(*tknd*), _(*gsrc*), _(*fopt*), dopt2) =>
-  evict_dep2_opt(dopt2)
-| _(*else*) => ()
-//
-and
-evict_dep2_lst
-(dcls: d2eclist): void =
-case+ dcls of
-| list_nil() => ()
-| list_cons(d1, ds1) =>
-  (evict_dep2_1(d1); evict_dep2_lst(ds1))
-//
-and
-evict_dep2_opt
-(dopt: d2eclistopt): void =
-case+ dopt of
-| optn_nil() => ()
-| optn_cons(dcls) => evict_dep2_lst(dcls)
-//
-fun
-evict_dep1
-(dpcl: d3ecl): void =
-case+ d3ecl_get_node(dpcl) of
-| D3Cstaload
-  (_(*knd*), _(*tknd*), _(*gsrc*), fopt, sopt) =>
-  (
-  case+ sopt of
-  | S3TALOADdpar(shrq, depdpar) =>
-    (
-    if (shrq = 0)
-    then
-    (
-    if dep_wantq(fopt)
-    then
-    (
-    evict_fopt(fopt);
-    evict_dep_opt(d3parsed_get_parsed(depdpar)))
-    else ())
-    else ())
-  | S3TALOADnone(sopt2) => evict_dep_s2(fopt, sopt2))
-| D3Cinclude
-  (_(*knd*), _(*tknd*), _(*gsrc*), _(*fopt*), dopt) =>
-  evict_dep_opt(dopt)
-| _(*else*) => ()
-//
-and
-evict_dep_lst
-(dcls: d3eclist): void =
-case+ dcls of
-| list_nil() => ()
-| list_cons(d1, ds1) =>
-  (evict_dep1(d1); evict_dep_lst(ds1))
-//
-and
-evict_dep_opt
-(dopt: d3eclistopt): void =
-case+ dopt of
-| optn_nil() => ()
-| optn_cons(dcls) => evict_dep_lst(dcls)
-//
-fun
-evict_deps
-(fpth: strn, dpar: d3parsed): void =
-(
-evict_dep_opt(d3parsed_get_parsed(dpar));
-evict_fnm2(fpath_get_fnm2(fpath_make_absolute(fpth))))
-//
+
 (* ****** ****** *)
 (* ****** ****** *)
 //
@@ -525,15 +532,20 @@ the hover/def index (--index): machine records on the index channel
 *)
 (if (idxq > 0)
 then lspidx_emit(idxout, dpar) else ())
-;
-(*
-LAST: the per-check eviction (M6) — after every report and the index
-emission, since the walks and lspidx read the cached structures.
-*)
-evict_deps(fpth, dpar)
 //
 end where
 {
+//
+(*
+FIRST (M7.2): evict STALE warm deps (mtime + reverse closure) and the
+target itself, before anything is parsed or elaborated.
+*)
+val ( ) =
+XATS2GO_lsp_depstale
+( the_d1parenv_pvstmap(), the_d2parenv_pvstmap()
+, the_d3parenv_pvstmap(), the_d3tmpenv_pvstmap())
+val ( ) =
+evict_fnm2(fpath_get_fnm2(fpath_make_absolute(fpth)))
 //
 (*
 the PARSE-level (PREAD00) report between the halves of

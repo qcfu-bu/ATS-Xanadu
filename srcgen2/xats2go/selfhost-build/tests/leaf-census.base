@@ -4,6 +4,8 @@ Xats_XATS2GO_buffilr_make
 Xats_XATS2GO_buffilr_take
 Xats_XATS2GO_capture_begin
 Xats_XATS2GO_capture_end
+Xats_XATS2GO_capture_mark
+Xats_XATS2GO_capture_since
 Xats_XATS2GO_char_fprint
 Xats_XATS2GO_chrfpr
 Xats_XATS2GO_g_stderr
@@ -12,6 +14,13 @@ Xats_XATS2GO_gflt_fprint_dflt
 Xats_XATS2GO_gint_fprint_sint
 Xats_XATS2GO_gint_fprint_uint
 Xats_XATS2GO_gochar_esc
+Xats_XATS2GO_lsp_depcachedq
+Xats_XATS2GO_lsp_depclear
+Xats_XATS2GO_lsp_depedge
+Xats_XATS2GO_lsp_depnote
+Xats_XATS2GO_lsp_depreplay
+Xats_XATS2GO_lsp_depstale
+Xats_XATS2GO_lsp_depvisitq
 Xats_XATS2GO_lsp_evict
 Xats_XATS2GO_lsp_stash_idx
 Xats_XATS2GO_lsp_stash_rep

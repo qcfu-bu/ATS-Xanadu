@@ -902,6 +902,7 @@ func Xats_XATS2GO_capture_begin() any {
 	xatsCaptureBuf = new(bytes.Buffer)
 	xatsLspStashRep = ""
 	xatsLspStashIdx = ""
+	xatsLspDepVisited = map[int]bool{}
 	return nil
 }
 
@@ -954,6 +955,157 @@ func Xats_XATS2GO_lsp_take_idx() string {
 	s := xatsLspStashIdx
 	xatsLspStashIdx = ""
 	return s
+}
+
+// capture-slice: mark the current capture position / read the bytes since a
+// mark.  The dep-report cache records each freshly-reported dep's EXACT bytes
+// (FILR writes AND report-window default-channel prints land in the one
+// capture buffer in order, so a slice is byte-faithful where a side buffer
+// would miss the window text).  Without an active capture both are inert.
+func Xats_XATS2GO_capture_mark() int {
+	if xatsCaptureBuf == nil {
+		return 0
+	}
+	return xatsCaptureBuf.Len()
+}
+
+func Xats_XATS2GO_capture_since(mark int) string {
+	if xatsCaptureBuf == nil {
+		return ""
+	}
+	b := xatsCaptureBuf.Bytes()
+	if mark < 0 || mark > len(b) {
+		return ""
+	}
+	return string(b[mark:])
+}
+
+// -- the WARM-DEP registry (M7.2) -------------------------------------------
+// A checked file's freshly-loaded workspace deps stay cached across checks;
+// each registry entry records the dep's path, its mtime at note time, its own
+// report bytes (replayed verbatim on warm checks — cross-file diagnostics
+// stay byte-identical), and its staload edges (children).  depstale, run at
+// every check start, stats every entry and evicts the changed set PLUS its
+// reverse closure (a dependent compiled against a changed dep is stale too)
+// from the four per-file caches.  The per-check visited set (reset by
+// capture_begin) replaces the frozen shr flags in cached ASTs as the
+// visit-once/termination guard.
+type xatsLspDepEntry struct {
+	path   string
+	mtime  int64 // UnixNano at note time
+	report string
+	deps   []int // child keys (staload edges)
+}
+
+var xatsLspDepReg = map[int]*xatsLspDepEntry{}
+var xatsLspDepVisited = map[int]bool{}
+
+// 1 = first visit this check (marks it), 0 = already visited.
+func Xats_XATS2GO_lsp_depvisitq(key int) int {
+	if xatsLspDepVisited[key] {
+		return 0
+	}
+	xatsLspDepVisited[key] = true
+	return 1
+}
+
+func Xats_XATS2GO_lsp_depcachedq(key int) int {
+	if xatsLspDepReg[key] != nil {
+		return 1
+	}
+	return 0
+}
+
+func Xats_XATS2GO_lsp_depreplay(key int) string {
+	e := xatsLspDepReg[key]
+	if e == nil {
+		return ""
+	}
+	return e.report
+}
+
+func Xats_XATS2GO_lsp_depnote(key int, path any, report any) any {
+	p, _ := path.(string)
+	r, _ := report.(string)
+	var mt int64
+	if fi, err := os.Stat(p); err == nil {
+		mt = fi.ModTime().UnixNano()
+	}
+	xatsLspDepReg[key] = &xatsLspDepEntry{path: p, mtime: mt, report: r}
+	return nil
+}
+
+func Xats_XATS2GO_lsp_depedge(parent int, child int) any {
+	e := xatsLspDepReg[parent]
+	if e == nil {
+		return nil
+	}
+	for _, c := range e.deps {
+		if c == child {
+			return nil
+		}
+	}
+	e.deps = append(e.deps, child)
+	return nil
+}
+
+func xatsLspMapDel(mp any, key int) {
+	h, ok := mp.(*xatsJSHMap)
+	if !ok {
+		return
+	}
+	if _, present := h.m[key]; present {
+		delete(h.m, key)
+		for i, k := range h.keys {
+			if k == key {
+				h.keys = append(h.keys[:i], h.keys[i+1:]...)
+				break
+			}
+		}
+	}
+}
+
+// stat every entry; evict the changed/missing set + its reverse closure from
+// the four per-file caches and drop the registry entries.
+func Xats_XATS2GO_lsp_depstale(m1 any, m2 any, m3 any, m4 any) any {
+	dirty := map[int]bool{}
+	for k, e := range xatsLspDepReg {
+		fi, err := os.Stat(e.path)
+		if err != nil || fi.ModTime().UnixNano() != e.mtime {
+			dirty[k] = true
+		}
+	}
+	for changed := true; changed; {
+		changed = false
+		for k, e := range xatsLspDepReg {
+			if dirty[k] {
+				continue
+			}
+			for _, c := range e.deps {
+				if dirty[c] {
+					dirty[k] = true
+					changed = true
+					break
+				}
+			}
+		}
+	}
+	for k := range dirty {
+		xatsLspMapDel(m1, k)
+		xatsLspMapDel(m2, k)
+		xatsLspMapDel(m3, k)
+		xatsLspMapDel(m4, k)
+		delete(xatsLspDepReg, k)
+	}
+	return nil
+}
+
+// the prelude was reset/reloaded: every cached entry points into the old
+// world — drop them all (the topmaps were swapped fresh by xglobal_reset).
+func Xats_XATS2GO_lsp_depclear() any {
+	xatsLspDepReg = map[int]*xatsLspDepEntry{}
+	xatsLspDepVisited = map[int]bool{}
+	return nil
 }
 
 // buffer-FILR: a *bytes.Buffer has the Write method xatsWriter resolves, so
