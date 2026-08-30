@@ -90,6 +90,10 @@ run_ncase t14-dot-member  "$T/cases/t14-dot-member.jsonl"
 # a later check of another file (no cross-check pollution).
 run_ncase t15-recheck-fresh "$T/cases/t15-recheck-fresh.jsonl"
 run_ncase t16-isolation     "$T/cases/t16-isolation.jsonl"
+# t17 — a didSave of a $XATSHOME prelude file triggers xglobal_reset +
+# prelude reload + revalidation of open docs: the same diagnostics must
+# come back after the reload (a broken reload would abort or drift).
+run_ncase t17-prelude-reload "$T/cases/t17-prelude-reload.jsonl"
 # LSP exit-code contract: 'exit' without a prior 'shutdown' exits 1.
 EXPECT_RC=1 run_case t09-exit-code "$T/cases/t09-exit-code.jsonl"
 

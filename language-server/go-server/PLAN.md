@@ -527,3 +527,44 @@ block interactivity noticeably); periodic `xglobal_reset()` hygiene +
 prelude-edit reload (the June resident's reload_and_revalidate
 equivalent); the vsix restage (client no longer stages xats2go-tcheck;
 `npm run package` when the architect wants a new vsix).
+
+## M6.1 (DONE 2026-08-29): the deferred items — async checks + prelude reload
+
+**Async check offload.** The check runs on the floor's SINGLE-FLIGHT
+goroutine (`lsp_check_start/done/rep/idx/ok/drop`); the loop keeps the
+proven CKrun/chk_step reap shape from M2.  Happens-before is free:
+the `go` statement orders the goroutine after the loop's prelude load,
+and the done-channel close orders the check's writes before the reap;
+one goroutine at a time keeps the compiler globals single-threaded.
+The goroutine drains the runtime stash itself — the loop never touches
+it.  `lsp_check_drop` BLOCKS until the goroutine finishes (a live
+compiler goroutine is never abandoned), doubling as the reload drain.
+While busy, a due pending entry stays queued and fires on reap —
+newest text wins because the queued re-check reads the current buffer.
+`lsp_poll_stdin` gained wake code 3 (the in-flight check's done
+channel joins the select), so reaping is immediate instead of eating a
+poll tick; the CKrun tick is a 1 s fallback.  MEASURED: during a
+mid-file check window, 43 hover requests answered at 0.88 ms mean /
+11.4 ms max (previously they queued behind the check); warm
+change→diags unchanged (~270/~430 ms).
+
+**Prelude reload.** A didSave whose path is under $XATSHOME's
+`/prelude/`, `/srcgen1/prelude/`, or `/srcgen2/prelude/` drains the
+in-flight check, runs `tchkglue_prelude_reload` (= `xglobal_reset()` —
+first GO-arm exercise of the HX-C1-2026 Tier-1 API — then
+tchk_prelude_load; duplicate flag re-adds are harmless presence
+tests) under the guard, and queues a re-check of every open document.
+This also caps the long-session memory creep: a prelude save returns
+the compiler to its post-startup baseline.  On reload failure the
+server logs "state may be stale; restart recommended" and keeps
+serving.  VERIFIED by t17-prelude-reload: same diagnostics
+byte-for-byte after the reset+reload+revalidate cycle.  Suite 17/17.
+
+**The pfx trap, THIRD occurrence:** `str_prefixq`'s parameter was
+named `pfx` — the proof-fixpoint KEYWORD — and hard-crashed the
+parser (cfail, no location).  Bisected via selfhost preflight (judge
+by RC).  Never name anything `pfx`.
+
+**Still open (documented, low priority):** framing desync logs +
+terminates; a headerless garbage stream grows the buffer until EOF;
+O(buf) chunk appends (~8 MB copied for a 1 MB didOpen — negligible).

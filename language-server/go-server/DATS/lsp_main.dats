@@ -3,18 +3,22 @@
 lsp_main.dats — the driver: a single-threaded, TAIL-RECURSIVE resident
 event loop (the Go backend's TCO makes [serve] an O(1)-stack for-loop).
 
-M6 surface: the M1 lifecycle + textDocument/didOpen|didChange|didSave|
-didClose with publishDiagnostics via the IN-PROCESS compiler (the
-architect's 2026-08-29 ruling): the frontend is LINKED into this
+M6.1 surface: the M1 lifecycle + textDocument/didOpen|didChange|
+didSave|didClose with publishDiagnostics via the IN-PROCESS compiler
+(the architect's 2026-08-29 ruling): the frontend is LINKED into this
 binary (wire-server.sh), the prelude loads ONCE at initialize, and
-every check calls tchk_check (UTIL/xats2go_tchecklib) synchronously —
-per-check EVICTION inside tchk_check reproduces process-per-check
-semantics (the compiler is one-shot).  A check of a stored document
-passes the CURRENT BUFFER TEXT (the --stdin path); didChange re-checks
-after a 250 ms debounce (the debounce coalesces bursts; a due check
-runs to completion — kill-superseded degraded to drop-queued).  All
-state is loop-carried; there is no module-level mutable state.  Exit
-codes follow LSP: 0 after shutdown, 1 without.
+every check runs tchk_check (UTIL/xats2go_tchecklib) on the floor's
+single-flight check GOROUTINE — the loop keeps answering requests
+while a check runs; per-check EVICTION inside tchk_check reproduces
+process-per-check semantics (the compiler is one-shot).  A check of a
+stored document passes the CURRENT BUFFER TEXT (the --stdin path);
+didChange re-checks after a 250 ms debounce; a due check for a busy
+loop stays queued and fires on reap (newest text wins — the queued
+re-check reads the current buffer).  A didSave under $XATSHOME's
+prelude trees drains the in-flight check, xglobal_reset()s + reloads
+the prelude, and revalidates every open document.  All state is
+loop-carried; there is no module-level mutable state.  Exit codes
+follow LSP: 0 after shutdown, 1 without.
 
 Configuration arrives in initialize.params.initializationOptions:
   { "xatshome": "<abs path to the ATS3 repo>" }
@@ -47,14 +51,7 @@ fun
 XATS2GO_LSP_tchk_prelude_load((*void*)): void = $extnam()
 #extern
 fun
-XATS2GO_LSP_tchk_check
-(path: string, txt: string, stdinq: sint): void = $extnam()
-#extern
-fun
-XATS2GO_LSP_take_rep((*void*)): string = $extnam()
-#extern
-fun
-XATS2GO_LSP_take_idx((*void*)): string = $extnam()
+XATS2GO_LSP_tchk_prelude_reload((*void*)): void = $extnam()
 (* ****** ****** *)
 (* server state (loop-carried) *)
 (* ****** ****** *)
@@ -486,6 +483,44 @@ case+ st of
   end
 end//endof[h_didchange]
 //
+(* does s0 start with pfx0? (byte-wise) *)
+fun
+str_prefixq
+(s0: string, pfx0: string): bool =
+let
+val n0 = strn_length(s0)
+val n1 = strn_length(pfx0)
+fun
+loop(i0: sint): bool =
+if i0 >= n1 then true else
+if strn_get$at(s0, i0) = strn_get$at(pfx0, i0)
+then loop(i0+1) else false
+in//let
+if n1 <= n0 then loop(0) else false
+end//endof[str_prefixq]
+//
+(*
+is path a PRELUDE file under xhome?  (The trees the in-process
+compiler's pvsloaded prelude comes from; a save there invalidates the
+warm prelude.)
+*)
+fun
+prelude_pathq
+(path: string, xhome: string): bool =
+if (strn_length(xhome) <= 0) then false else
+if str_prefixq(path, strn_append(xhome, "/prelude/")) then true else
+if str_prefixq(path, strn_append(xhome, "/srcgen1/prelude/")) then true else
+str_prefixq(path, strn_append(xhome, "/srcgen2/prelude/"))
+//
+(* queue a re-check of every OPEN document (post-reload revalidation) *)
+fun
+pend_all_docs
+(dl: doclst, pl: pendlst, now: sint): pendlst =
+case+ dl of
+| DOCnil() => pl
+| DOCcons(u0, _, _, r0) =>
+  pend_all_docs(r0, pend_put(pl, u0, now), now)
+//
 fun
 h_didsave
 (jv0: jval, st: srvst): srvst =
@@ -497,7 +532,34 @@ in
 if (strn_length(uri) <= 0) then st else
 case+ st of
 | SRV(c0, x0, ws, dl, pl, ck, sd, ix) =>
-  SRV(c0, x0, ws, dl, pend_put(pl, uri, lsp_now_ms()), ck, sd, ix)
+  (
+  if prelude_pathq(uri_to_path(uri), x0)
+  then
+  (*
+  M6.1 PRELUDE RELOAD: drain any in-flight check (lsp_check_drop
+  BLOCKS until its goroutine finishes; the results are stale under
+  the new prelude and discarded), reset + reload the compiler under
+  the guard, then queue a re-check of every open document.
+  *)
+  let
+  val () =
+  (
+  case+ ck of
+  | CKnone() => ()
+  | CKrun(id, _, _) => lsp_check_drop(id))
+  val () =
+  lsp_write_log("ats3-lsp: prelude file saved; reloading prelude\n")
+  val rok =
+  lsp_guard(lam(_) => XATS2GO_LSP_tchk_prelude_reload())
+  val () =
+  (
+  if (rok = 0)
+  then lsp_write_log("ats3-lsp: prelude reload FAILED (state may be stale; restart recommended)\n")
+  else lsp_write_log("ats3-lsp: prelude reloaded\n"))
+  in
+  SRV(c0, x0, ws, dl, pend_all_docs(dl, pl, lsp_now_ms()), CKnone(), sd, ix)
+  end
+  else SRV(c0, x0, ws, dl, pend_put(pl, uri, lsp_now_ms()), ck, sd, ix))
 end//endof[h_didsave]
 //
 fun
@@ -661,16 +723,51 @@ end
 end//endof[on_msg]
 //
 (* ****** ****** *)
-(* the check pump (M6: synchronous in-process) *)
+(* the check pump (M6.1: ASYNC in-process — one check goroutine) *)
 (* ****** ****** *)
 //
 (*
-run one check IN-PROCESS and publish: the capture window collects the
+reap a finished check and publish.  The check ran OFF the loop (the
+floor's single-flight goroutine): the capture window collected the
 report text (byte-identical to the old checker's stderr), a buffer
-FILR collects the --index records, tchk_check evicts its own workspace
-closure before returning, and the panic guard turns a frontend abort
-into one failed check.  Synchronous: the state's chk stays CKnone.
+FILR collected the --index records, tchk_check evicted its workspace
+closure, and the goroutine's recover turned a frontend abort into one
+failed check.
 *)
+fun
+chk_step(st: srvst): srvst =
+case+ st of
+| SRV(c0, x0, ws, dl, pl, ck, sd, ix) =>
+  (
+  case+ ck of
+  | CKnone() => st
+  | CKrun(id, uri, ver) =>
+    (
+    if (lsp_check_done(id) = 1)
+    then
+    let
+    val rep = lsp_check_rep(id)
+    val idxtxt = lsp_check_idx(id)
+    val okg = lsp_check_ok(id)
+    val () = lsp_check_drop(id)
+    val path = uri_to_path(uri)
+    val () =
+    (
+    if (okg = 0)
+    then lsp_write_log("ats3-lsp: in-process check aborted\n") else ())
+    val () =
+    publish(uri, ver, diag_build(path, ws, docs_text(dl, uri), rep))
+    val hvdf = idx_parse(idxtxt)
+    val ix1 =
+    ix_put
+    (ix, uri, ver, hvdf.0, hvdf.1, hvdf.2, hvdf.3, hvdf.4, hvdf.5)
+    val () = send_tokrefresh(ver)
+    in
+    SRV(c0, x0, ws, dl, pl, CKnone(), sd, ix1)
+    end
+    else st))
+//
+(* start the check goroutine for uri (the state's chk must be CKnone) *)
 fun
 start_check(st: srvst, uri: string): srvst =
 case+ st of
@@ -687,29 +784,23 @@ case+ st of
   val hasdoc = docs_has(dl, uri)
   val txt = (if hasdoc then docs_text(dl, uri) else ""): string
   val stdinq = (if hasdoc then 1 else 0): sint
-  val okg =
-  lsp_guard
-  (lam(_) => XATS2GO_LSP_tchk_check(path, txt, stdinq))
-  val rep = XATS2GO_LSP_take_rep()
-  val idxtxt = XATS2GO_LSP_take_idx()
-  val ver = docs_version(dl, uri)
-  val () =
-  (
-  if (okg = 0)
-  then lsp_write_log("ats3-lsp: in-process check aborted\n") else ())
-  val () =
-  publish(uri, ver, diag_build(path, ws, docs_text(dl, uri), rep))
-  val hvdf = idx_parse(idxtxt)
-  val ix1 =
-  ix_put
-  (ix, uri, ver, hvdf.0, hvdf.1, hvdf.2, hvdf.3, hvdf.4, hvdf.5)
-  val () = send_tokrefresh(ver)
+  val id = lsp_check_start(path, txt, stdinq)
   in
-  SRV(c0, x0, ws, dl, pl, CKnone(), sd, ix1)
+  if (id < 0)
+  then
+  (
+  lsp_write_log("ats3-lsp: check already in flight; requeueing\n");
+  SRV(c0, x0, ws, dl, pend_put(pl, uri, lsp_now_ms()), CKnone(), sd, ix))
+  else SRV(c0, x0, ws, dl, pl, CKrun(id, uri, docs_version(dl, uri)), sd, ix)
   end
   end
 //
-(* start the next due check (checks are synchronous: chk is CKnone) *)
+(*
+start the next due check.  While one is in flight, the due entry stays
+queued (r0.1 is discarded, st keeps the original list) and fires as
+soon as the running check is reaped — one check at a time, newest text
+wins because the queued re-check reads the CURRENT buffer.
+*)
 fun
 pend_step(st: srvst): srvst =
 case+ st of
@@ -722,17 +813,21 @@ case+ st of
   case+ ck of
   | CKnone() =>
     start_check(SRV(c0, x0, ws, dl, r0.1, CKnone(), sd, ix), uri)
-  | CKrun(_, _, _) => st (* unreachable post-M6 *)
+  | CKrun(_, _, _) => st (* busy: the due entry stays queued *)
   end//endof[pend_step]
 //
-(* how long the poll may block: -1 = forever (nothing pending) *)
+(*
+how long the poll may block: -1 = forever (nothing pending).  With a
+check in flight the poll ALSO wakes on its done channel (ev = 3), so
+the tick is only a fallback.
+*)
 fun
 wait_ms(st: srvst): sint =
 case+ st of
 | SRV(_, _, _, _, pl, ck, _, _) =>
   (
   case+ ck of
-  | CKrun(_, _, _) => 25
+  | CKrun(_, _, _) => 1000
   | CKnone() => (if pend_emptyq(pl) then (0 - 1) else 25))
 //
 (* ****** ****** *)
@@ -755,12 +850,14 @@ case+ frame_next(buf) of
   end
 | FRnone() =>
   let
-  val st1 = pend_step(st)
+  val st1 = pend_step(chk_step(st))
   val ev = lsp_poll_stdin(wait_ms(st1))
   in
   if (ev = 1)
   then serve(strn_append(buf, lsp_read_chunk()), st1) else
   if (ev = 0)
+  then serve(buf, st1) else
+  if (ev = 3) (* the in-flight check finished: loop to reap it now *)
   then serve(buf, st1)
   else lsp_write_log("ats3-lsp: stdin closed\n")
   end

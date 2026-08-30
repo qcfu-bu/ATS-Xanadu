@@ -48,11 +48,11 @@ fun
 lsp_poll_stdin(ms: sint): sint
 //
 (*
-M6 (in-process compiler): the spawn/reap process floor is REPLACED by
-two leaves — the check itself is a direct call into the linked
-compiler (tchk_check, UTIL/xats2go_tchecklib; its FILR-typed capture
-externs are declared in lsp_main.dats, the one module that staloads
-the compiler SATS).
+M6 (in-process compiler): checks call the LINKED compiler through the
+wire-generated glue shim.  M6.1 makes them ASYNC — one single-flight
+goroutine per check, so the event loop keeps answering hover/completion
+during a mid-file check; the compiler globals stay single-threaded
+(the goroutine ordering gives the happens-before edges).
 *)
 //
 (* set an environment variable (XATSHOME before the prelude loads) *)
@@ -61,10 +61,44 @@ lsp_setenv(name: string, value: string): void
 //
 (*
 run the closure under a panic guard: 1 = completed, 0 = recovered (a
-frontend abort fails one check, never the server).
+frontend abort fails one call, never the server).
 *)
 fun
 lsp_guard(f0: (sint) -> void): sint
+//
+(*
+start the in-process check of path (txt = the live buffer when
+stdinq > 0) on the check goroutine.  Returns the check id, or -1 if a
+check is already in flight (the caller gates on CKnone, so that is
+belt-and-braces).
+*)
+fun
+lsp_check_start
+(path: string, txt: string, stdinq: sint): sint
+//
+(* 1 = finished, 0 = still running, -1 = unknown id *)
+fun
+lsp_check_done(id: sint): sint
+//
+(* the captured report text; call only after lsp_check_done = 1 *)
+fun
+lsp_check_rep(id: sint): string
+//
+(* the --index records; call only after lsp_check_done = 1 *)
+fun
+lsp_check_idx(id: sint): string
+//
+(* 1 = the check completed, 0 = it was cut short by a recovered panic *)
+fun
+lsp_check_ok(id: sint): sint
+//
+(*
+forget the check.  BLOCKS until the goroutine finishes when it is
+still running (a live compiler goroutine is never abandoned) — this
+doubles as the drain before a prelude reload.
+*)
+fun
+lsp_check_drop(id: sint): void
 //
 (* terminate the server process with the given exit code *)
 fun
