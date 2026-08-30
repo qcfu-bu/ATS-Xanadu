@@ -22,6 +22,7 @@
 package xatsgo
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"os"
@@ -96,7 +97,16 @@ func xatsStorePut(cs string) {
 		xatsEmitTeePut(cs)
 	}
 	if f, ok := xatsDefaultOut.(*os.File); ok && f == os.Stderr {
+		if xatsCaptureBuf != nil {
+			xatsCaptureBuf.WriteString(cs)
+			return
+		}
 		fmt.Fprint(os.Stderr, cs)
+		return
+	}
+	if xatsCaptureBuf != nil {
+		// in-process capture: process-per-check never flushed store text, so
+		// dropping it here keeps the captured error text byte-identical.
 		return
 	}
 	thePrintStore = append(thePrintStore, cs)
@@ -680,6 +690,11 @@ func xatsWriter(out any) (interface{ Write([]byte) (int, error) }, bool) {
 		if f, ok := out.(*os.File); ok && f == os.Stdout {
 			return xatsStoreWriter{}, true
 		}
+		if f, ok := out.(*os.File); ok && f == os.Stderr && xatsCaptureBuf != nil {
+			// in-process capture window: g_stderr()-FILR writes land in the
+			// capture buffer instead of the server's real stderr (its log).
+			return xatsCaptureBuf, true
+		}
 		if w, ok := out.(interface{ Write([]byte) (int, error) }); ok {
 			return w, true
 		}
@@ -865,6 +880,117 @@ func Xats_XATS2GO_tcheck_stdin_readall() string {
 			return sb.String()
 		}
 	}
+}
+
+// -- M6 in-process check leaves (the resident LSP server links the compiler
+// and runs checks in-process; these five leaves are its capture/evict floor).
+
+// xatsCaptureBuf, while non-nil, receives every stderr-destined byte: the
+// g_stderr()-FILR writes (rerouted in xatsWriter) and the report-window
+// default-channel prints (rerouted in xatsStorePut).  Store-destined text
+// while capture is active is DISCARDED — in the process-per-check mode the
+// tcheck driver never flushed the print store, so those bytes were dropped;
+// byte-fidelity of the captured error text depends on dropping them here too.
+var xatsCaptureBuf *bytes.Buffer
+
+// capture_begin resets the window bracketing state as well: a panic inside a
+// guarded check can leave xatsReportDepth raised, which would misroute every
+// later print; each check starts from a known-clean routing state.
+func Xats_XATS2GO_capture_begin() any {
+	xatsReportDepth = 0
+	xatsDefaultOut = os.Stdout
+	xatsCaptureBuf = new(bytes.Buffer)
+	xatsLspStashRep = ""
+	xatsLspStashIdx = ""
+	return nil
+}
+
+func Xats_XATS2GO_capture_end() string {
+	if xatsCaptureBuf == nil {
+		return ""
+	}
+	s := xatsCaptureBuf.String()
+	xatsCaptureBuf = nil
+	xatsReportDepth = 0
+	xatsDefaultOut = os.Stdout
+	return s
+}
+
+// per-check result stash: the compiler-world glue (UTIL/xats2go_lspglue)
+// deposits the captured report and index texts; the server floor collects
+// them.  Single-threaded (one check at a time); capture_begin clears both.
+// If the check PANICKED before depositing, take_rep drains the still-open
+// capture window so the partial report reaches the server.
+var xatsLspStashRep, xatsLspStashIdx string
+
+func Xats_XATS2GO_lsp_stash_rep(s any) any {
+	str, ok := s.(string)
+	if !ok {
+		panic(fmt.Sprintf("xatsgo: lsp_stash_rep: non-string %T", s))
+	}
+	xatsLspStashRep = str
+	return nil
+}
+
+func Xats_XATS2GO_lsp_stash_idx(s any) any {
+	str, ok := s.(string)
+	if !ok {
+		panic(fmt.Sprintf("xatsgo: lsp_stash_idx: non-string %T", s))
+	}
+	xatsLspStashIdx = str
+	return nil
+}
+
+func Xats_XATS2GO_lsp_take_rep() string {
+	s := xatsLspStashRep
+	xatsLspStashRep = ""
+	if s == "" && xatsCaptureBuf != nil {
+		s = Xats_XATS2GO_capture_end()
+	}
+	return s
+}
+
+func Xats_XATS2GO_lsp_take_idx() string {
+	s := xatsLspStashIdx
+	xatsLspStashIdx = ""
+	return s
+}
+
+// buffer-FILR: a *bytes.Buffer has the Write method xatsWriter resolves, so
+// it IS a FILR value; the index emitter writes to one instead of stdout.
+func Xats_XATS2GO_buffilr_make() any { return new(bytes.Buffer) }
+
+func Xats_XATS2GO_buffilr_take(b any) string {
+	buf, ok := b.(*bytes.Buffer)
+	if !ok {
+		return ""
+	}
+	s := buf.String()
+	buf.Reset()
+	return s
+}
+
+// Xats_XATS2GO_lsp_evict removes one key from a topmap (rep: xatsJSHMap via
+// xlibext's mydict = jshmap).  The resident server evicts the checked file
+// and its freshly-loaded (shr = 0) dependencies from the per-file caches
+// after every check, reproducing process-per-check semantics with a warm
+// prelude.  Evicting an absent key is a no-op.  Keys slice order must stay
+// consistent with the map (get_keys ordering is compiler-observable).
+func Xats_XATS2GO_lsp_evict(mp any, key any) any {
+	h, ok := mp.(*xatsJSHMap)
+	if !ok {
+		return XATSNIL()
+	}
+	if _, present := h.m[key]; present {
+		delete(h.m, key)
+		for i, k := range h.keys {
+			if k == key {
+				h.keys = append(h.keys[:i], h.keys[i+1:]...)
+				break
+			}
+		}
+	}
+	return XATSNIL()
 }
 
 var Xats_XATS2JS_NODE_g_stderr = func() any { return os.Stderr }

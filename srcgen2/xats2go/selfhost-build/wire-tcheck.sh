@@ -24,10 +24,12 @@ mkdir -p "$EMIT" "$SRC/tcheck"
 [ -s "$SRC/zz_init.go" ] || { echo "!! wire-tcheck: src/zz_init.go missing"; exit 1; }
 
 SATSDEP=$X/srcgen2/xats2go/srcgen2/UTIL/xats2go_lspidx.sats
-for m in xats2go_tcheck01 xats2go_lspidx; do
+SATSDEP2=$X/srcgen2/xats2go/srcgen2/UTIL/xats2go_tchecklib.sats
+for m in xats2go_tcheck01 xats2go_lspidx xats2go_tchecklib; do
   f=$X/srcgen2/xats2go/srcgen2/UTIL/$m.dats
   if [ ! -s "$EMIT/$m.go" ] || [ "$f" -nt "$EMIT/$m.go" ] \
-     || [ "$SATSDEP" -nt "$EMIT/$m.go" ] || [ "$GOPATCHED" -nt "$EMIT/$m.go" ]; then
+     || [ "$SATSDEP" -nt "$EMIT/$m.go" ] || [ "$SATSDEP2" -nt "$EMIT/$m.go" ] \
+     || [ "$GOPATCHED" -nt "$EMIT/$m.go" ]; then
     node --stack-size=$NODESTK "$GOPATCHED" "$f" > "$EMIT/$m.raw" 2>"$EMIT/$m.err"
     awk '/^\/\/==XATS2GO-BEGIN==/{f=1;next} /^\/\/==XATS2GO-END==/{f=0} f' "$EMIT/$m.raw" > "$EMIT/$m.go"
   fi
@@ -71,6 +73,23 @@ m=xats2go_tcheck01
     | sed "s/^func main() {\$/func Zzmodinit_lspidx() {/"
   printf '\nvar _ = Zzmodinit_lspidx\n'
 } > "$SRC/tcheck/zz_lspidx.go"
+
+# the tchecklib module (M6): the callable check core shared with the
+# resident server — processed exactly like the lspidx module.
+{
+  sed -n '1,/^func init/p' "$SRC/zz_init.go" | sed '$d' | sed '/^func /d'
+  awk 'BEGIN{started=0}
+       /^type Zzs_[a-z]* struct \{$/{lay=1}
+       lay{if($0=="}"){lay=0}; next}
+       /^func ZzpZzs_/{next}
+       /^func /{started=1}
+       /^var [^_]/{started=1}
+       started{print}' "$EMIT/xats2go_tchecklib.go" \
+    | sed -E "s/goxtnm([0-9])/gotcltnm\\1/g" \
+    | sed -E "s/goxtmpl([0-9])/gotcltmpl\\1/g" \
+    | sed "s/^func main() {\$/func Zzmodinit_tchecklib() {/"
+  printf '\nvar _ = Zzmodinit_tchecklib\n'
+} > "$SRC/tcheck/zz_tchecklib.go"
 
 # module inits + runtime hooks: verbatim (same package main content).
 cp "$SRC/zz_init.go" "$SRC/tcheck/zz_init.go"
