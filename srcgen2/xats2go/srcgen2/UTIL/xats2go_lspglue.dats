@@ -75,6 +75,17 @@ tchkglue_prelude_load
 (* ****** ****** *)
 //
 #implfun
+tchkglue_prelude_reload
+  ((*void*)) =
+let
+val ( ) = xglobal_reset((*void*))
+in//let
+tchk_prelude_load((*void*))
+end//endof[tchkglue_prelude_reload]
+//
+(* ****** ****** *)
+//
+#implfun
 tchkglue_check
 (fpth, txt, stdinq) =
 let

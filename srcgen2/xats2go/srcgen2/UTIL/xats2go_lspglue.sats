@@ -33,6 +33,17 @@ fun
 tchkglue_prelude_load((*void*)): void
 //
 (*
+PRELUDE RELOAD (M6.1): a $XATSHOME prelude file was saved — return
+the compiler to its post-startup baseline (xglobal_reset, HX-C1-2026)
+and reload the prelude + flags.  The caller must have DRAINED any
+in-flight check first (the reset swaps the very stores a running
+check reads).  Duplicate flag entries from the re-add are harmless
+(flag lookups are presence tests).
+*)
+fun
+tchkglue_prelude_reload((*void*)): void
+//
+(*
 check ONE file in-process, under the runtime capture window: runs
 tchk_check (with per-check eviction), then stashes the captured
 report text and the index records for the server floor to collect.
