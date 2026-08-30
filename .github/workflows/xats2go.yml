@@ -1,0 +1,210 @@
+name: xats2go binaries
+
+# Builds the Go-backend ATS3 compiler (`xats2go`) and the check-only driver
+# (`xats2go-tcheck`, used by the LSP server) for linux and macos.
+#
+# WHY EVERYTHING IS BUILT ON ONE LINUX RUNNER: the emitted Go is pure Go (no
+# cgo anywhere in runtime/xatsgo or in the emitted modules), so `GOOS=darwin
+# go build` cross-compiles cleanly.  That matters because the inlined build
+# peaks at ~8 GB RSS while compiling the 264k-line zzfe2 package, and a
+# GitHub macos runner only has 7 GB -- a native macos build gets OOM-killed
+# (`compile: signal: killed`).  Cross-compiling from ubuntu-latest (16 GB)
+# sidesteps that and builds every target from a single 40-minute bootstrap.
+# Measured 2026-08-30: inliner on = 7.8 GB peak / 75 s; `all=-l` = 1.2 GB / 5.5 s.
+
+on:
+  workflow_dispatch:
+    inputs:
+      no_inline:
+        description: 'Build with the Go inliner off (~1.2 GB peak instead of ~8 GB; binaries run ~1.8x slower)'
+        type: boolean
+        default: false
+      run_regress:
+        description: 'Also run the differential regression suite against the JS bundle'
+        type: boolean
+        default: false
+  push:
+    branches: [master]
+    paths:
+      - 'prelude/**'
+      - 'srcgen2/**'
+      - 'xassets/JS/xats2js/**'
+      - '.github/workflows/xats2go.yml'
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xats2go-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Empty = inliner ON (the default since 2026-08-27: 1.8x faster binaries).
+  # The `inputs` context only exists for workflow_dispatch, hence the guard.
+  XGCFLAGS: ${{ github.event_name == 'workflow_dispatch' && inputs.no_inline && 'all=-l' || '' }}
+
+jobs:
+  build:
+    name: build + cross-compile (ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          # Our own GOCACHE lives on /mnt and is far too large to ship to the
+          # actions cache; the emitted packages are the expensive part and are
+          # cached separately below.
+          cache: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Put Go's build cache on the large temp disk
+        # The runner's workspace disk is ~14 GB; compiling five packages for
+        # four targets fills a multi-GB GOCACHE.  /mnt has ~70 GB.
+        run: |
+          sudo mkdir -p /mnt/gocache
+          sudo chown "$(id -u):$(id -g)" /mnt/gocache
+          echo "GOCACHE=/mnt/gocache" >> "$GITHUB_ENV"
+
+      - name: Restore emitter bundle + module emissions
+        id: emitcache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            srcgen2/xats2go/srcgen2/BUILD/xats2go-bundle.patched.js
+            srcgen2/xats2go/selfhost-build/emit
+          # EXACT MATCH ONLY -- no restore-keys, deliberately.  Mangled symbol
+          # names are derived from source character offsets, so a bundle or an
+          # emission reused across ANY source change produces dangling
+          # cross-module references and a silently broken compiler.  A miss
+          # here must mean a clean rebuild, never a partial reuse.
+          key: xats2go-emit-v1-${{ hashFiles('prelude/**', 'srcgen2/**', 'xassets/JS/xats2js/**') }}
+
+      - name: Refresh cached mtimes
+        if: steps.emitcache.outputs.cache-hit == 'true'
+        # assemble.sh decides what to re-emit with `-nt` tests against the
+        # sources and the bundle.  Restored files carry their original (older)
+        # mtimes, so without this every module would be re-emitted.  Safe only
+        # because the cache key is an exact content hash of every input.
+        run: |
+          touch srcgen2/xats2go/srcgen2/BUILD/xats2go-bundle.patched.js
+          sleep 1
+          touch srcgen2/xats2go/selfhost-build/emit/*
+
+      - name: Build the compiler
+        # On a cache miss this bootstraps the frontend lib + emitter bundle
+        # from the tracked xassets seed compiler first (~30-45 min), then
+        # emits all 193 modules, assembles, splits into Go packages and builds.
+        run: ./build.sh full
+        working-directory: srcgen2/xats2go/selfhost-build
+
+      - name: Build the check-only driver (LSP)
+        run: ./wire-tcheck.sh
+        working-directory: srcgen2/xats2go/selfhost-build
+
+      - name: Save emitter bundle + module emissions
+        # Explicit save (not the automatic post-step) so a failed build cannot
+        # poison the cache with a half-written emit/ directory.
+        if: success() && steps.emitcache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            srcgen2/xats2go/srcgen2/BUILD/xats2go-bundle.patched.js
+            srcgen2/xats2go/selfhost-build/emit
+          key: ${{ steps.emitcache.outputs.cache-primary-key }}
+
+      - name: Smoke-test the native binary
+        run: |
+          set -euo pipefail
+          export XATSHOME="$GITHUB_WORKSPACE"
+          B=srcgen2/xats2go/selfhost-build/src/xats2go-selfhost
+          "$B" srcgen2/DATS/xsymbol.dats > smoke.go 2> smoke.err
+          grep -q '==XATS2GO-BEGIN==' smoke.go
+          ! grep -q 'F3PERR0-ERROR\|TREAD12-ERROR\|TREAD23-ERROR' smoke.go smoke.err
+          # guards the silent-empty-emission failure class
+          [ "$(wc -l < smoke.go)" -gt 100 ]
+          echo "emitted $(wc -l < smoke.go) lines of Go"
+
+      - name: Differential regression suite
+        if: github.event_name == 'workflow_dispatch' && inputs.run_regress
+        run: ./build.sh regress
+        working-directory: srcgen2/xats2go/selfhost-build
+
+      - name: Cross-compile every target
+        run: |
+          set -euo pipefail
+          cd srcgen2/xats2go/selfhost-build/src
+          DIST="$GITHUB_WORKSPACE/dist"; mkdir -p "$DIST"
+          # Sequentially: each package compile peaks at ~8 GB with the inliner on.
+          for t in linux/amd64 linux/arm64 darwin/arm64 darwin/amd64; do
+            os="${t%/*}"; arch="${t#*/}"; name="xats2go-$os-$arch"
+            echo "==== $name ===="
+            mkdir -p "$DIST/$name"
+            for pair in "xats2go:." "xats2go-tcheck:./tcheck"; do
+              GOOS="$os" GOARCH="$arch" go build \
+                -gcflags "$XGCFLAGS" -ldflags '-s -w' \
+                -o "$DIST/$name/${pair%%:*}" "${pair#*:}"
+            done
+            cp "$GITHUB_WORKSPACE/.github/xats2go-dist-README.md" "$DIST/$name/README.md"
+            tar -C "$DIST" -czf "$DIST/$name.tar.gz" "$name"
+            rm -rf "$DIST/$name"
+            ls -la "$DIST/$name.tar.gz"
+            df -h /mnt "$GITHUB_WORKSPACE" | tail -2
+          done
+          ( cd "$DIST" && sha256sum ./*.tar.gz > sha256sums.txt && cat sha256sums.txt )
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xats2go-binaries
+          path: dist/
+          retention-days: 14
+
+  smoke-macos:
+    name: smoke-test the darwin build
+    # Proves the cross-compiled darwin binary actually runs on macos -- the one
+    # thing the linux job cannot check for itself.
+    needs: build
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: xats2go-binaries
+          path: dist
+      - name: Unpack and run
+        run: |
+          set -euo pipefail
+          tar -C dist -xzf dist/xats2go-darwin-arm64.tar.gz
+          export XATSHOME="$GITHUB_WORKSPACE"
+          B="$PWD/dist/xats2go-darwin-arm64/xats2go"
+          "$B" srcgen2/DATS/xsymbol.dats > smoke.go 2> smoke.err
+          grep -q '==XATS2GO-BEGIN==' smoke.go
+          ! grep -q 'F3PERR0-ERROR\|TREAD12-ERROR\|TREAD23-ERROR' smoke.go smoke.err
+          [ "$(wc -l < smoke.go)" -gt 100 ]
+          echo "darwin/arm64 binary emitted $(wc -l < smoke.go) lines of Go"
+
+  publish:
+    name: attach binaries to the release
+    if: github.event_name == 'release'
+    needs: [build, smoke-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: xats2go-binaries
+          path: dist
+      - run: gh release upload "$TAG" dist/*.tar.gz dist/sha256sums.txt --repo "$REPO" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+          REPO: ${{ github.repository }}

@@ -164,7 +164,15 @@ do_build() {
   # 21MB -> 192MB, compile RUNTIME 1.8x faster (trans12 3.23s -> 1.80s --
   # faster than the node bundle).  Override via XGCFLAGS ('all=-l' for the
   # fastest dev loop).
-  ( cd "$OUT/src" && go build -gcflags "${XGCFLAGS:-}" -o xats2go-selfhost . ) || die "go build failed"
+  # RAM COST (measured 2026-08-30): inlining the 264k-line zzfe2 package peaks
+  # at ~8GB RSS (75s); 'all=-l' peaks at ~1.2GB (5.5s).  Under ~10GB of free
+  # memory the Go compiler is OOM-killed -- `compile: signal: killed`, which
+  # reads like corruption but is not.  GOGC / -c=1 / -d=inlbudgetslack=0 all
+  # measured within 15% of the 8GB peak: the memory is live heap, so the only
+  # real lever is the inliner (or splitting zzfe2 into smaller packages).
+  ( cd "$OUT/src" && go build -gcflags "${XGCFLAGS:-}" -o xats2go-selfhost . ) \
+    || die "go build failed (if it says 'compile: signal: killed' you ran out
+!! of RAM -- the inlined build peaks at ~8GB; retry with XGCFLAGS='all=-l')"
   echo ">> built $BIN"
 }
 
