@@ -600,3 +600,26 @@ highlight = def + use, outline with full fun ranges, miss = []); all
 old goldens re-blessed for the one-line capabilities addition.
 (And yes: a paren miscount in the JKVcons capabilities chain struck
 again — the flat-vals lesson stands.)
+
+## Toolchain independence + platforms (DONE 2026-08-29)
+
+**Selfcycle landed.** `selfhost-build/build.sh full-verify` (invoke as
+`./build.sh` — the script re-invokes itself via `$0`, so a bare
+`bash build.sh` dies at the first step with "bundle failed"): prewarm
+found 0 dirty modules, sweep 193/193 byte-equal, census/regress/
+psuite 75/75/gate all green.  The refreshed selfhost binary carries
+the language-server emitter support, and **`XLSP_EMIT=selfhost
+tools/build.sh` now emits the server NODE-FREE — verified byte-equal
+to the bundle emissions on every module**; suite 18/18 on the
+selfhost-emitted binary.  The bundle stays tools/build.sh's default
+(it self-refreshes with every `quick`, so emitter edits are picked up
+without a selfcycle); selfhost is the node-free alternative.
+
+**Platform builds.** wire-server.sh cross-compiles on request (pure
+Go, no cgo): `XLSP_PLATFORMS="darwin/amd64 linux/amd64 linux/arm64
+windows/amd64"` → BUILD/dist/<goos>-<goarch>/.  The client's
+`package-all.sh` stages each into a platform-specific vsix
+(`vsce package --target`): darwin-arm64 / darwin-x64 / linux-x64 /
+linux-arm64 / win32-x64, ~11-13 MB each, one server binary per
+package.  darwin-arm64 is the only human-verified platform; windows
+compiles but the XATSHOME/prelude path model is untested there.

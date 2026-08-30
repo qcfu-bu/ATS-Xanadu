@@ -184,3 +184,21 @@ cp "$B/src/zz_lspfloor.go" "$DST/zz_lspfloor.go"
   go build ${XGCFLAGS:+-gcflags "$XGCFLAGS"} -o "$B/ats3-lsp-server" ./lspserver 2> "$DST/build.err" ) \
   || { echo "!! wire-server: go build FAILED"; head -30 "$DST/build.err"; exit 1; }
 echo ">> built $B/ats3-lsp-server (in-process compiler)"
+
+# ---- cross-platform builds (pure Go, no cgo): opt in with e.g.
+#   XLSP_PLATFORMS="linux/amd64 linux/arm64 darwin/amd64 windows/amd64"
+# Binaries land in $B/dist/<goos>-<goarch>/; the client's package-all.sh
+# stages them into per-target .vsix files.  (windows compiles but the
+# XATSHOME/prelude path model is untested there.)
+if [ -n "${XLSP_PLATFORMS:-}" ]; then
+  for pl in $XLSP_PLATFORMS; do
+    goos=${pl%%/*}; goarch=${pl#*/}
+    exe=ats3-lsp-server; [ "$goos" = windows ] && exe=ats3-lsp-server.exe
+    outd=$B/dist/$goos-$goarch
+    mkdir -p "$outd"
+    ( cd "$SRC" && GOOS=$goos GOARCH=$goarch \
+        go build -o "$outd/$exe" ./lspserver 2> "$DST/build-$goos-$goarch.err" ) \
+      || { echo "!! wire-server: cross build $pl FAILED"; head -10 "$DST/build-$goos-$goarch.err"; exit 1; }
+    echo ">> built $outd/$exe"
+  done
+fi
